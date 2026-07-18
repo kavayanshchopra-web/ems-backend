@@ -41,6 +41,11 @@ app.use(express.urlencoded({ extended: true }));
 // Serve WhatsApp downloaded media statically
 app.use('/media', express.static(mediaStoreDir));
 
+// Root status route
+app.get('/', (req, res) => {
+  res.json({ status: 'online', message: 'EMS WhatsApp CRM Backend API Engine Running' });
+});
+
 // Setup API routes
 app.use('/api', setupRoutes(io));
 
