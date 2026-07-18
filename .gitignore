@@ -1,0 +1,5 @@
+node_modules/
+.env
+*.log
+media_store/
+dist/
