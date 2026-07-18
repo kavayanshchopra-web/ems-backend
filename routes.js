@@ -1,0 +1,1377 @@
+import express from 'express';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import Stripe from 'stripe';
+import { 
+  getAllSessions, 
+  saveSession, 
+  getRecentChats, 
+  getMessagesForContact, 
+  updateContactCRM,
+  updateContactProfilePic,
+  markMessagesAsRead,
+  getDb,
+  saveContact,
+  getContact,
+  getChatbotRules,
+  addChatbotRule,
+  deleteChatbotRule,
+  toggleChatbotRule,
+  saveScheduledMessage,
+  deleteScheduledMessage,
+  getScheduledMessagesForContact,
+  updateMessageStarStatus,
+  getStarredMessagesForContact,
+  createTenant,
+  getTenant,
+  getUserByEmail,
+  createUser,
+  getTenantSettings,
+  updateTenantSettings,
+  getSession,
+  getTenantPlanDetails,
+  getAllPlans,
+  addOrUpdatePlan,
+  getPlanPrices,
+  updatePlanPrice,
+  deletePlanPrice,
+  getPlansWithPrices,
+  getEmployees,
+  getEmployeesCount,
+  createEmployee,
+  updateEmployee,
+  deleteEmployee,
+  getAttendanceLogs,
+  getEmployeeAttendanceToday,
+  checkInEmployee,
+  checkOutEmployee,
+  addGpsLocation,
+  getLiveLocations,
+  getGpsHistory,
+  getTasks,
+  createTask,
+  updateTask,
+  deleteTask,
+  getNotices,
+  createNotice,
+  deleteNotice,
+  getHolidays,
+  createHoliday,
+  deleteHoliday,
+  getLeaves,
+  createLeave,
+  updateLeaveStatus
+} from './db.js';
+import { 
+  startSession, 
+  stopSession, 
+  destroySession, 
+  sendWhatsAppMessage,
+  sendWhatsAppMedia,
+  getProfilePicUrl,
+  checkWhatsAppNumber
+} from './sessionManager.js';
+
+const router = express.Router();
+const JWT_SECRET = process.env.JWT_SECRET || 'omniflow_super_secret_jwt_key';
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock_secret_key');
+
+// JWT Token authentication middleware
+export async function authMiddleware(req, res, next) {
+  // Allow login, signup, and webhook testing routes without token
+  if (req.path.startsWith('/auth/') || req.path === '/billing/webhook') {
+    return next();
+  }
+
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) {
+    return res.status(401).json({ error: 'Authorization header is missing' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ error: 'Bearer token is missing' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded; // { id, email, role, tenant_id }
+
+    // Enforce subscription verification
+    const tenant = await getTenant(decoded.tenant_id);
+    if (!tenant) {
+      return res.status(403).json({ error: 'Tenant account not found.' });
+    }
+    if (tenant.subscription_status === 'cancelled' && !req.path.startsWith('/billing')) {
+      return res.status(402).json({ error: 'Subscription is inactive. Please renew your subscription to proceed.' });
+    }
+
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid or expired authorization token' });
+  }
+}
+
+// Helper to check user roles
+function checkRole(allowedRoles) {
+  return (req, res, next) => {
+    if (!req.user || !allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Access denied: insufficient permissions' });
+    }
+    next();
+  };
+}
+
+export default function setupRoutes(io) {
+  // Register Auth Middleware globally
+  router.use(authMiddleware);
+
+  // ==========================================
+  // AUTHENTICATION ROUTES (Public)
+  // ==========================================
+
+  // Tenant Signup (Creates tenant + owner user)
+  router.post('/auth/register', async (req, res) => {
+    const { email, password, companyName } = req.body;
+    if (!email || !password || !companyName) {
+      return res.status(400).json({ error: 'email, password, and companyName are required' });
+    }
+
+    try {
+      const existingUser = await getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ error: 'User with this email already exists' });
+      }
+
+      // 1. Create tenant and seed settings
+      const tenant = await createTenant(companyName);
+
+      // 2. Hash password and save user
+      const passwordHash = await bcrypt.hash(password, 10);
+      const role = email.toLowerCase().trim() === 'admin@omniflow.com' ? 'superadmin' : 'owner';
+      const user = await createUser(email, passwordHash, role, tenant.id);
+
+      if (role === 'superadmin') {
+        const db = getDb();
+        await db.run(`UPDATE tenants SET plan_id = 'pro' WHERE id = ?`, [tenant.id]);
+      }
+
+      // 3. Generate token
+      const token = jwt.sign(
+        { id: user.id, email: user.email, role: user.role, tenant_id: tenant.id },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      res.status(201).json({
+        token,
+        user: { id: user.id, email: user.email, role: user.role, tenantId: tenant.id },
+        tenant
+      });
+    } catch (err) {
+      console.error('Registration error:', err);
+      res.status(500).json({ error: 'Registration failed. Please try again.' });
+    }
+  });
+
+  // Login Route
+  router.post('/auth/login', async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'email and password are required' });
+    }
+
+    try {
+      const user = await getUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ error: 'Invalid email or password' });
+      }
+
+      const match = await bcrypt.compare(password, user.password_hash);
+      if (!match) {
+        return res.status(401).json({ error: 'Invalid email or password' });
+      }
+
+      const tenant = await getTenant(user.tenant_id);
+
+      const token = jwt.sign(
+        { id: user.id, email: user.email, role: user.role, tenant_id: user.tenant_id },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      res.json({
+        token,
+        user: { id: user.id, email: user.email, role: user.role, tenantId: user.tenant_id },
+        tenant
+      });
+    } catch (err) {
+      console.error('Login error:', err);
+      res.status(500).json({ error: 'Login failed' });
+    }
+  });
+
+  // Get logged-in user profile details
+  router.get('/auth/me', async (req, res) => {
+    try {
+      const tenant = await getTenant(req.user.tenant_id);
+      res.json({
+        user: req.user,
+        tenant
+      });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to retrieve profile' });
+    }
+  });
+
+  // ==========================================
+  // BILLING & SUBSCRIPTIONS (Stripe)
+  // ==========================================
+
+  // Create checkout session for subscription
+  router.post('/billing/create-checkout-session', async (req, res) => {
+    const { priceId } = req.body;
+    if (!priceId) {
+      return res.status(400).json({ error: 'priceId is required' });
+    }
+
+    try {
+      const tenant = await getTenant(req.user.tenant_id);
+      
+      const session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        payment_method_types: ['card'],
+        line_items: [{
+          price: priceId,
+          quantity: 1,
+        }],
+        customer: tenant.stripe_customer_id || undefined,
+        customer_email: tenant.stripe_customer_id ? undefined : req.user.email,
+        success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/billing-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/billing-cancel`,
+        subscription_data: {
+          metadata: {
+            tenantId: req.user.tenant_id.toString()
+          }
+        },
+        metadata: {
+          tenantId: req.user.tenant_id.toString()
+        }
+      });
+
+      res.json({ url: session.url });
+    } catch (err) {
+      console.error('Stripe checkout error:', err);
+      res.status(500).json({ error: err.message || 'Failed to create checkout session' });
+    }
+  });
+
+  // Stripe Portal session for customer subscription management
+  router.post('/billing/create-portal-session', async (req, res) => {
+    try {
+      const tenant = await getTenant(req.user.tenant_id);
+      if (!tenant || !tenant.stripe_customer_id) {
+        return res.status(400).json({ error: 'No active Stripe billing profile found.' });
+      }
+
+      const session = await stripe.billingPortal.sessions.create({
+        customer: tenant.stripe_customer_id,
+        return_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/settings`,
+      });
+
+      res.json({ url: session.url });
+    } catch (err) {
+      console.error('Stripe Portal session error:', err);
+      res.status(500).json({ error: 'Failed to create customer portal session' });
+    }
+  });
+
+  // Stripe Webhook handler to sync subscription status updates
+  router.post('/billing/webhook', async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    let event;
+    try {
+      if (webhookSecret && sig) {
+        event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+      } else {
+        // Fallback for local sandbox/testing if webhook secret is not set
+        event = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      }
+    } catch (err) {
+      console.error('Webhook signature verification failed:', err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    const session = event.data?.object;
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed':
+          if (session.metadata?.tenantId) {
+            await updateTenantSubscription(
+              parseInt(session.metadata.tenantId),
+              'active',
+              session.customer
+            );
+            console.log(`[Stripe Webhook] Tenant ${session.metadata.tenantId} activated. Customer ID: ${session.customer}`);
+          }
+          break;
+        case 'invoice.payment_succeeded':
+          if (session.subscription) {
+            try {
+              const subscription = await stripe.subscriptions.retrieve(session.subscription);
+              const tenantId = subscription.metadata?.tenantId || subscription.subscription_data?.metadata?.tenantId;
+              if (tenantId) {
+                await updateTenantSubscription(parseInt(tenantId), 'active', session.customer);
+                console.log(`[Stripe Webhook] Tenant ${tenantId} invoice payment succeeded.`);
+              }
+            } catch (retrieveErr) {
+              console.error('[Stripe Webhook] Error retrieving subscription details:', retrieveErr.message);
+            }
+          }
+          break;
+        case 'customer.subscription.updated':
+          const subUpdated = event.data.object;
+          const updatedTenantId = subUpdated.metadata?.tenantId;
+          if (updatedTenantId) {
+            const status = subUpdated.status === 'active' || subUpdated.status === 'trialing' ? 'active' : 'past_due';
+            await updateTenantSubscription(parseInt(updatedTenantId), status);
+            console.log(`[Stripe Webhook] Tenant ${updatedTenantId} subscription updated to status: ${status}`);
+          }
+          break;
+        case 'customer.subscription.deleted':
+          const subDeleted = event.data.object;
+          const deletedTenantId = subDeleted.metadata?.tenantId;
+          if (deletedTenantId) {
+            await updateTenantSubscription(parseInt(deletedTenantId), 'cancelled');
+            console.log(`[Stripe Webhook] Tenant ${deletedTenantId} subscription cancelled.`);
+          }
+          break;
+        default:
+          // Ignored event types
+      }
+    } catch (dbErr) {
+      console.error('[Stripe Webhook] Error updating tenant subscription status in database:', dbErr);
+    }
+
+    res.json({ received: true });
+  });
+
+  // ==========================================
+  // DYNAMIC SETTINGS ROUTES
+  // ==========================================
+  
+  router.get('/settings', async (req, res) => {
+    try {
+      const settings = await getTenantSettings(req.user.tenant_id);
+      res.json(settings || {});
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to retrieve settings' });
+    }
+  });
+
+  router.put('/settings', checkRole(['owner', 'admin']), async (req, res) => {
+    const { pipelineStages, tags } = req.body;
+    try {
+      const updated = await updateTenantSettings(req.user.tenant_id, { pipelineStages, tags });
+      res.json(updated);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to update settings' });
+    }
+  });
+
+  // ==========================================
+  // WHATSAPP CHANNELS / SESSIONS
+  // ==========================================
+
+  // Create a new WhatsApp session
+  router.post('/sessions', checkRole(['owner', 'admin']), async (req, res) => {
+    const { phoneName } = req.body;
+    if (!phoneName) {
+      return res.status(400).json({ error: 'phoneName is required' });
+    }
+
+    try {
+      const plan = await getTenantPlanDetails(req.user.tenant_id);
+      const currentSessions = await getAllSessions(req.user.tenant_id);
+      
+      if (plan && currentSessions.length >= plan.max_channels) {
+        return res.status(403).json({ 
+          error: `Plan Limit Exceeded: Your plan (${plan.name}) allows a maximum of ${plan.max_channels} active channel(s). Please upgrade to add more.` 
+        });
+      }
+
+      const sessionId = 'session_' + Date.now();
+      await saveSession(sessionId, phoneName, req.user.tenant_id);
+      
+      startSession(sessionId, io).catch(err => {
+        console.error('Error starting session:', err);
+      });
+
+      res.status(201).json({ id: sessionId, phoneName, status: 'disconnected' });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to create session' });
+    }
+  });
+
+  // Get all active sessions
+  router.get('/sessions', async (req, res) => {
+    try {
+      const sessions = await getAllSessions(req.user.tenant_id);
+      res.json(sessions);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to retrieve sessions' });
+    }
+  });
+
+  // Start/Reconnect a session
+  router.post('/sessions/start/:id', checkRole(['owner', 'admin']), async (req, res) => {
+    const { id } = req.params;
+    try {
+      const session = await getSession(id);
+      if (!session || session.tenant_id !== req.user.tenant_id) {
+        return res.status(403).json({ error: 'Access denied to this session' });
+      }
+
+      startSession(id, io).catch(err => {
+        console.error('Error starting session:', err);
+      });
+      res.json({ message: 'Session start initiated' });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to initiate session start' });
+    }
+  });
+
+  // Stop a session
+  router.post('/sessions/stop/:id', checkRole(['owner', 'admin']), async (req, res) => {
+    const { id } = req.params;
+    try {
+      const session = await getSession(id);
+      if (!session || session.tenant_id !== req.user.tenant_id) {
+        return res.status(403).json({ error: 'Access denied to this session' });
+      }
+
+      await stopSession(id);
+      res.json({ message: 'Session stopped' });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to stop session' });
+    }
+  });
+
+  // Delete a session completely
+  router.delete('/sessions/:id', checkRole(['owner', 'admin']), async (req, res) => {
+    const { id } = req.params;
+    try {
+      const session = await getSession(id);
+      if (!session || session.tenant_id !== req.user.tenant_id) {
+        return res.status(403).json({ error: 'Access denied to this session' });
+      }
+
+      await destroySession(id);
+      res.json({ message: 'Session deleted' });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to delete session' });
+    }
+  });
+
+  // ==========================================
+  // CRM CONTACTS
+  // ==========================================
+
+  // Get contacts / recent chats
+  router.get('/contacts', async (req, res) => {
+    try {
+      const contacts = await getRecentChats(req.user.tenant_id);
+      res.json(contacts);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to retrieve contacts' });
+    }
+  });
+
+  // Get messages for a contact
+  router.get('/contacts/:id/messages', async (req, res) => {
+    const { id } = req.params;
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = parseInt(req.query.offset) || 0;
+    try {
+      const messages = await getMessagesForContact(id, limit, offset, req.user.tenant_id);
+      
+      const db = getDb();
+      const countRow = await db.get(`SELECT COUNT(*) as total FROM messages WHERE contact_id = ? AND tenant_id = ?`, [id, req.user.tenant_id]);
+      const total = countRow ? countRow.total : 0;
+      
+      res.json({
+        messages,
+        total,
+        hasMore: offset + messages.length < total
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to retrieve message history' });
+    }
+  });
+
+  // Mark messages as read
+  router.put('/contacts/:id/read', async (req, res) => {
+    const { id } = req.params;
+    try {
+      await markMessagesAsRead(id, req.user.tenant_id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to mark messages as read' });
+    }
+  });
+
+  // Start a new chat
+  router.post('/contacts/new', async (req, res) => {
+    const { phone, name, initialMessage, sessionId } = req.body;
+    if (!phone) {
+      return res.status(400).json({ error: 'Phone number is required' });
+    }
+
+    try {
+      const cleanPhone = phone.replace(/[^0-9]/g, '');
+      const verifiedJid = await checkWhatsAppNumber(cleanPhone);
+      if (!verifiedJid) {
+        return res.status(404).json({ error: 'This phone number is not registered on WhatsApp.' });
+      }
+
+      let contact = await getContact(verifiedJid, req.user.tenant_id);
+      if (!contact) {
+        await saveContact(verifiedJid, name || null, req.user.tenant_id);
+        contact = await getContact(verifiedJid, req.user.tenant_id);
+      } else if (name) {
+        const db = getDb();
+        await db.run(`UPDATE contacts SET name = ? WHERE id = ? AND tenant_id = ?`, [name, verifiedJid, req.user.tenant_id]);
+        contact = await getContact(verifiedJid, req.user.tenant_id);
+      }
+
+      if (initialMessage && initialMessage.trim() && sessionId) {
+        // Double check session belongs to tenant
+        const session = await getSession(sessionId);
+        if (session && session.tenant_id === req.user.tenant_id) {
+          await sendWhatsAppMessage(sessionId, verifiedJid, initialMessage.trim());
+        }
+      }
+
+      res.status(201).json(contact);
+    } catch (err) {
+      console.error('Error starting new chat:', err);
+      res.status(500).json({ error: err.message || 'Failed to start new chat' });
+    }
+  });
+
+  // Update CRM information for a contact
+  router.put('/contacts/:id', async (req, res) => {
+    const { id } = req.params;
+    const { customName, email, notes, pipelineStage, labels } = req.body;
+    try {
+      const updated = await updateContactCRM(id, {
+        customName,
+        email,
+        notes,
+        pipelineStage,
+        labels
+      }, req.user.tenant_id);
+      
+      io.emit('contact_update', updated);
+      res.json(updated);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to update contact CRM data' });
+    }
+  });
+
+  // Archive or unarchive a contact
+  router.put('/contacts/:id/archive', async (req, res) => {
+    const { id } = req.params;
+    const { isArchived } = req.body;
+    try {
+      const db = getDb();
+      await db.run(
+        `UPDATE contacts SET is_archived = ? WHERE id = ? AND tenant_id = ?`,
+        [isArchived ? 1 : 0, id, req.user.tenant_id]
+      );
+      
+      const updated = await getContact(id, req.user.tenant_id);
+      io.emit('contact_update', updated);
+      res.json(updated);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to update archive status' });
+    }
+  });
+
+  // ==========================================
+  // SCHEDULED MESSAGES
+  // ==========================================
+
+  router.get('/contacts/:id/scheduled', async (req, res) => {
+    const { id } = req.params;
+    try {
+      const messages = await getScheduledMessagesForContact(id, req.user.tenant_id);
+      res.json(messages);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to fetch scheduled messages' });
+    }
+  });
+
+  router.post('/contacts/:id/scheduled', async (req, res) => {
+    const { id } = req.params;
+    const { sessionId, messageText, sendAt } = req.body;
+    if (!sessionId || !messageText || !sendAt) {
+      return res.status(400).json({ error: 'sessionId, messageText, and sendAt are required' });
+    }
+
+    try {
+      const plan = await getTenantPlanDetails(req.user.tenant_id);
+      if (plan && plan.allow_scheduler !== 1) {
+        return res.status(403).json({
+          error: `Feature Lock: Scheduled messages are not enabled on your plan (${plan.name}). Please upgrade to unlock message automation.`
+        });
+      }
+
+      const session = await getSession(sessionId);
+      if (!session || session.tenant_id !== req.user.tenant_id) {
+        return res.status(403).json({ error: 'Session access denied' });
+      }
+
+      const scheduled = await saveScheduledMessage(sessionId, id, messageText.trim(), parseInt(sendAt), req.user.tenant_id);
+      io.emit('scheduled_message_update', { contactId: id });
+      res.status(201).json(scheduled);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to schedule message' });
+    }
+  });
+
+  router.delete('/scheduled/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+      const db = getDb();
+      const msg = await db.get(`SELECT contact_id FROM scheduled_messages WHERE id = ? AND tenant_id = ?`, [id, req.user.tenant_id]);
+      if (msg) {
+        await deleteScheduledMessage(id, req.user.tenant_id);
+        io.emit('scheduled_message_update', { contactId: msg.contact_id });
+      }
+      res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to delete scheduled message' });
+    }
+  });
+
+  // ==========================================
+  // STARRED MESSAGES & SENDING
+  // ==========================================
+
+  router.put('/messages/:id/star', async (req, res) => {
+    const { id } = req.params;
+    const { isStarred } = req.body;
+    try {
+      const updated = await updateMessageStarStatus(id, isStarred, req.user.tenant_id);
+      io.emit('message_star_update', { id, isStarred: updated.is_starred });
+      res.json(updated);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to update star status' });
+    }
+  });
+
+  router.get('/contacts/:id/starred', async (req, res) => {
+    const { id } = req.params;
+    try {
+      const starred = await getStarredMessagesForContact(id, req.user.tenant_id);
+      res.json(starred);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to fetch starred messages' });
+    }
+  });
+
+  // Send WhatsApp message
+  router.post('/messages/send', async (req, res) => {
+    const { sessionId, recipientJid, text } = req.body;
+    if (!sessionId || !recipientJid || !text) {
+      return res.status(400).json({ error: 'sessionId, recipientJid, and text are required' });
+    }
+
+    try {
+      const session = await getSession(sessionId);
+      if (!session || session.tenant_id !== req.user.tenant_id) {
+        return res.status(403).json({ error: 'Session access denied' });
+      }
+
+      const sentMessage = await sendWhatsAppMessage(sessionId, recipientJid, text);
+      
+      io.emit('new_message', {
+        id: sentMessage.id,
+        sessionId,
+        contactId: sentMessage.recipientJid,
+        fromMe: 1,
+        textContent: text,
+        mediaType: 'text',
+        timestamp: sentMessage.timestamp,
+        tenantId: req.user.tenant_id
+      });
+
+      res.json({ message: 'Message sent successfully', data: sentMessage });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message || 'Failed to send message' });
+    }
+  });
+
+  // Send Media Message
+  router.post('/messages/send-media', async (req, res) => {
+    const { sessionId, recipientJid, mediaType, fileName, fileMimeType, fileData } = req.body;
+    if (!sessionId || !recipientJid || !mediaType || !fileData) {
+      return res.status(400).json({ error: 'sessionId, recipientJid, mediaType, and fileData are required' });
+    }
+
+    try {
+      const session = await getSession(sessionId);
+      if (!session || session.tenant_id !== req.user.tenant_id) {
+        return res.status(403).json({ error: 'Session access denied' });
+      }
+
+      const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (!matches || matches.length !== 3) {
+        return res.status(400).json({ error: 'Invalid base64 file data format' });
+      }
+
+      const mimeType = matches[1];
+      const base64Data = matches[2];
+      const buffer = Buffer.from(base64Data, 'base64');
+
+      const sentMedia = await sendWhatsAppMedia(
+        sessionId,
+        recipientJid,
+        mediaType,
+        buffer,
+        fileName || `attachment_${Date.now()}`,
+        fileMimeType || mimeType
+      );
+
+      io.emit('new_message', {
+        id: sentMedia.id,
+        sessionId,
+        contactId: sentMedia.contactId,
+        fromMe: 1,
+        textContent: sentMedia.textContent,
+        mediaType: sentMedia.mediaType,
+        mediaUrl: sentMedia.mediaUrl,
+        timestamp: sentMedia.timestamp,
+        tenantId: req.user.tenant_id
+      });
+
+      res.json({ message: 'Media sent successfully', data: sentMedia });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message || 'Failed to send media message' });
+    }
+  });
+
+  // Get and cache profile pic
+  router.get('/contacts/:id/profile-pic', async (req, res) => {
+    const { id } = req.params;
+    try {
+      const picUrl = await getProfilePicUrl(id);
+      if (picUrl) {
+        await updateContactProfilePic(id, picUrl);
+      }
+      res.json({ profile_pic_url: picUrl });
+    } catch (err) {
+      res.json({ profile_pic_url: null });
+    }
+  });
+
+  // ==========================================
+  // CHATBOT RULES
+  // ==========================================
+
+  router.get('/chatbot', async (req, res) => {
+    try {
+      const rules = await getChatbotRules(req.user.tenant_id);
+      res.json(rules);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to retrieve chatbot rules' });
+    }
+  });
+
+  router.post('/chatbot', async (req, res) => {
+    const { keyword, matchType, replyText } = req.body;
+    if (!keyword || !replyText) {
+      return res.status(400).json({ error: 'keyword and replyText are required' });
+    }
+    try {
+      const plan = await getTenantPlanDetails(req.user.tenant_id);
+      if (plan && plan.allow_chatbot !== 1) {
+        return res.status(403).json({
+          error: `Feature Lock: Automated chatbot rules are not enabled on your plan (${plan.name}). Please upgrade to unlock bot responses.`
+        });
+      }
+
+      const newRule = await addChatbotRule(keyword, matchType || 'contains', replyText, req.user.tenant_id);
+      res.status(201).json(newRule);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message || 'Failed to add chatbot rule' });
+    }
+  });
+
+  router.put('/chatbot/:id/toggle', async (req, res) => {
+    const { id } = req.params;
+    const { isActive } = req.body;
+    try {
+      await toggleChatbotRule(id, isActive, req.user.tenant_id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to toggle chatbot rule' });
+    }
+  });
+
+  router.delete('/chatbot/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+      await deleteChatbotRule(id, req.user.tenant_id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to delete chatbot rule' });
+    }
+  });
+
+  // ==========================================
+  // HR EMPLOYEE DIRECTORY CRUD
+  // ==========================================
+
+  // 1. Get all employees in workspace
+  router.get('/employees', checkRole(['owner', 'admin', 'manager']), async (req, res) => {
+    try {
+      const list = await getEmployees(req.user.tenant_id);
+      res.json(list);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to retrieve employees directory' });
+    }
+  });
+
+  // 2. Add a new employee profile (with Plan limits validation)
+  router.post('/employees', checkRole(['owner', 'admin']), async (req, res) => {
+    const { firstName, lastName, email, phone, role, department, salary, createLoginAccount, password } = req.body;
+    if (!firstName) {
+      return res.status(400).json({ error: 'firstName is required' });
+    }
+
+    try {
+      // Plan limit check
+      const currentCount = await getEmployeesCount(req.user.tenant_id);
+      const plan = await getTenantPlanDetails(req.user.tenant_id);
+      if (plan && currentCount >= plan.max_employees) {
+        return res.status(403).json({
+          error: `Plan Limit Exceeded: Your plan (${plan.name}) allows a maximum of ${plan.max_employees} employees. Please upgrade to add more team members.`
+        });
+      }
+
+      let userId = null;
+      // Optional Login Account creation helper
+      if (createLoginAccount && email && password) {
+        // Check if user already exists
+        const existingUser = await getUserByEmail(email);
+        if (existingUser) {
+          return res.status(400).json({ error: 'A login account with this email address already exists.' });
+        }
+        // Hash password and save user
+        const passwordHash = await bcrypt.hash(password, 10);
+        // Map role (owner remains system registry owner, employees become admins/managers/agents/employees)
+        const userRole = role === 'admin' ? 'admin' : (role === 'manager' ? 'manager' : 'agent');
+        const user = await createUser(email, passwordHash, userRole, req.user.tenant_id);
+        userId = user.id;
+      }
+
+      const newEmployee = await createEmployee(req.user.tenant_id, {
+        firstName,
+        lastName,
+        email,
+        phone,
+        role: role || 'employee',
+        department,
+        salary: salary || 0,
+        userId
+      });
+
+      res.status(201).json(newEmployee);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message || 'Failed to add employee profile' });
+    }
+  });
+
+  // 3. Update employee profile details
+  router.put('/employees/:id', checkRole(['owner', 'admin']), async (req, res) => {
+    const { id } = req.params;
+    const { firstName, lastName, email, phone, role, department, salary, status } = req.body;
+    if (!firstName) {
+      return res.status(400).json({ error: 'firstName is required' });
+    }
+
+    try {
+      const updated = await updateEmployee(req.user.tenant_id, id, {
+        firstName,
+        lastName,
+        email,
+        phone,
+        role,
+        department,
+        salary,
+        status
+      });
+      res.json(updated);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to update employee details' });
+    }
+  });
+
+  // 4. Delete employee profile (and delete their user login if linked)
+  router.delete('/employees/:id', checkRole(['owner', 'admin']), async (req, res) => {
+    const { id } = req.params;
+    try {
+      await deleteEmployee(req.user.tenant_id, id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to delete employee profile' });
+    }
+  });
+
+  // ==========================================
+  // GPS & FIELD ATTENDANCE ROUTERS
+  // ==========================================
+
+  // Check plan for GPS permissions
+  const checkGpsPlanAccess = async (req, res, next) => {
+    try {
+      const plan = await getTenantPlanDetails(req.user.tenant_id);
+      if (plan && plan.allow_gps_tracking === 1) {
+        next();
+      } else {
+        res.status(403).json({ 
+          error: 'Feature Locked: Live GPS tracking and Field Attendance is not enabled on your current plan. Please upgrade to Pro to unlock.' 
+        });
+      }
+    } catch (err) {
+      res.status(500).json({ error: 'Plan verification failed' });
+    }
+  };
+
+  // 1. Get workspace attendance history (Owner, Admin, Manager)
+  router.get('/attendance', checkRole(['owner', 'admin', 'manager']), checkGpsPlanAccess, async (req, res) => {
+    try {
+      const logs = await getAttendanceLogs(req.user.tenant_id);
+      res.json(logs);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to retrieve attendance logs' });
+    }
+  });
+
+  // 2. Get today's attendance status for logged-in user
+  router.get('/attendance/today', async (req, res) => {
+    try {
+      const dbInstance = getDb();
+      const employee = await dbInstance.get(
+        `SELECT id FROM employees WHERE user_id = ? AND tenant_id = ?`,
+        [req.user.id, req.user.tenant_id]
+      );
+      if (!employee) {
+        return res.json({ status: 'no_profile' });
+      }
+
+      const todayLog = await getEmployeeAttendanceToday(req.user.tenant_id, employee.id);
+      res.json(todayLog || { status: 'checked_out' });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to retrieve today\'s status' });
+    }
+  });
+
+  // 3. Employee Check-In
+  router.post('/attendance/check-in', checkGpsPlanAccess, async (req, res) => {
+    const { lat, lng } = req.body;
+    try {
+      const dbInstance = getDb();
+      const employee = await dbInstance.get(
+        `SELECT id FROM employees WHERE user_id = ? AND tenant_id = ?`,
+        [req.user.id, req.user.tenant_id]
+      );
+      if (!employee) {
+        return res.status(400).json({ error: 'Attendance punches are only available for employees.' });
+      }
+
+      // Check if already checked in
+      const activeLog = await dbInstance.get(
+        `SELECT id FROM attendance_logs WHERE tenant_id = ? AND employee_id = ? AND status = 'checked_in'`,
+        [req.user.tenant_id, employee.id]
+      );
+      if (activeLog) {
+        return res.status(400).json({ error: 'You are already checked in.' });
+      }
+
+      const log = await checkInEmployee(req.user.tenant_id, employee.id, lat, lng);
+      if (lat && lng) {
+        await addGpsLocation(req.user.tenant_id, employee.id, lat, lng, 10);
+      }
+      res.status(201).json(log);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message || 'Failed to check in' });
+    }
+  });
+
+  // 4. Employee Check-Out
+  router.post('/attendance/check-out', checkGpsPlanAccess, async (req, res) => {
+    const { lat, lng } = req.body;
+    try {
+      const dbInstance = getDb();
+      const employee = await dbInstance.get(
+        `SELECT id FROM employees WHERE user_id = ? AND tenant_id = ?`,
+        [req.user.id, req.user.tenant_id]
+      );
+      if (!employee) {
+        return res.status(400).json({ error: 'Attendance punches are only available for employees.' });
+      }
+
+      const log = await checkOutEmployee(req.user.tenant_id, employee.id, lat, lng);
+      if (lat && lng) {
+        await addGpsLocation(req.user.tenant_id, employee.id, lat, lng, 10);
+      }
+      res.json(log);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message || 'Failed to check out' });
+    }
+  });
+
+  // 5. GPS breadcrumb tracking updates
+  router.post('/gps/track', checkGpsPlanAccess, async (req, res) => {
+    const { lat, lng, accuracy } = req.body;
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'Latitude and Longitude parameters are required' });
+    }
+
+    try {
+      const dbInstance = getDb();
+      const employee = await dbInstance.get(
+        `SELECT id FROM employees WHERE user_id = ? AND tenant_id = ?`,
+        [req.user.id, req.user.tenant_id]
+      );
+      if (!employee) {
+        return res.status(404).json({ error: 'No employee profile linked to current user' });
+      }
+
+      await addGpsLocation(req.user.tenant_id, employee.id, lat, lng, accuracy);
+      res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to record tracking ping' });
+    }
+  });
+
+  // 6. Get live location maps coordinates list (Owner, Admin, Manager)
+  router.get('/gps/live', checkRole(['owner', 'admin', 'manager']), checkGpsPlanAccess, async (req, res) => {
+    try {
+      const list = await getLiveLocations(req.user.tenant_id);
+      res.json(list);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to retrieve live tracking points' });
+    }
+  });
+
+  // 7. Get location breadcrumbs history for a single worker (Owner, Admin, Manager)
+  router.get('/gps/history/:employeeId', checkRole(['owner', 'admin', 'manager']), checkGpsPlanAccess, async (req, res) => {
+    const { employeeId } = req.params;
+    const { date } = req.query;
+    try {
+      const history = await getGpsHistory(req.user.tenant_id, employeeId, date);
+      res.json(history);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to retrieve GPS location logs history' });
+    }
+  });
+
+  // ==========================================
+  // CLONED EMS PORTAL FEATURE ROUTERS
+  // ==========================================
+
+  // 1. Tasks CRUD Endpoints
+  router.get('/tasks', async (req, res) => {
+    try {
+      const list = await getTasks(req.user.tenant_id);
+      res.json(list);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to retrieve tasks' });
+    }
+  });
+
+  router.post('/tasks', checkRole(['owner', 'admin', 'manager']), async (req, res) => {
+    try {
+      const task = await createTask(req.user.tenant_id, req.body);
+      res.status(201).json(task);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to create task' });
+    }
+  });
+
+  router.put('/tasks/:id', async (req, res) => {
+    try {
+      const task = await updateTask(req.user.tenant_id, req.params.id, req.body);
+      res.json(task);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to update task details' });
+    }
+  });
+
+  router.delete('/tasks/:id', checkRole(['owner', 'admin', 'manager']), async (req, res) => {
+    try {
+      await deleteTask(req.user.tenant_id, req.params.id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to delete task' });
+    }
+  });
+
+  // 2. Notices CRUD Endpoints
+  router.get('/notices', async (req, res) => {
+    try {
+      const list = await getNotices(req.user.tenant_id);
+      res.json(list);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to retrieve notice board logs' });
+    }
+  });
+
+  router.post('/notices', checkRole(['owner', 'admin', 'manager']), async (req, res) => {
+    try {
+      const notice = await createNotice(req.user.tenant_id, req.body);
+      res.status(201).json(notice);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to publish workspace notice' });
+    }
+  });
+
+  router.delete('/notices/:id', checkRole(['owner', 'admin', 'manager']), async (req, res) => {
+    try {
+      await deleteNotice(req.user.tenant_id, req.params.id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to delete notice' });
+    }
+  });
+
+  // 3. Holidays CRUD Endpoints
+  router.get('/holidays', async (req, res) => {
+    try {
+      const list = await getHolidays(req.user.tenant_id);
+      res.json(list);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to retrieve holidays calendar' });
+    }
+  });
+
+  router.post('/holidays', checkRole(['owner', 'admin', 'manager']), async (req, res) => {
+    try {
+      const holiday = await createHoliday(req.user.tenant_id, req.body);
+      res.status(201).json(holiday);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to add calendar holiday' });
+    }
+  });
+
+  router.delete('/holidays/:id', checkRole(['owner', 'admin', 'manager']), async (req, res) => {
+    try {
+      await deleteHoliday(req.user.tenant_id, req.params.id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to delete calendar holiday' });
+    }
+  });
+
+  // 4. Leaves CRUD Endpoints
+  router.get('/leaves', async (req, res) => {
+    try {
+      const list = await getLeaves(req.user.tenant_id);
+      res.json(list);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to retrieve leaves applications' });
+    }
+  });
+
+  router.post('/leaves', async (req, res) => {
+    try {
+      const dbInstance = getDb();
+      const employee = await dbInstance.get(
+        `SELECT id FROM employees WHERE user_id = ? AND tenant_id = ?`,
+        [req.user.id, req.user.tenant_id]
+      );
+      if (!employee) {
+        return res.status(400).json({ error: 'Leaves can only be requested by employee profiles.' });
+      }
+
+      const leave = await createLeave(req.user.tenant_id, {
+        employeeId: employee.id,
+        startDate: req.body.startDate,
+        endDate: req.body.endDate,
+        type: req.body.type,
+        reason: req.body.reason
+      });
+      res.status(201).json(leave);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to file leave request' });
+    }
+  });
+
+  router.put('/leaves/:id', checkRole(['owner', 'admin', 'manager']), async (req, res) => {
+    const { status } = req.body;
+    try {
+      const leave = await updateLeaveStatus(req.user.tenant_id, req.params.id, status);
+      res.json(leave);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to update leave application status' });
+    }
+  });
+
+  // ==========================================
+  // SAAS DYNAMIC PLANS & PRICING
+  // ==========================================
+
+  // Helper check for superadmin
+  const checkSuperadmin = (req, res, next) => {
+    if (req.user && req.user.role === 'superadmin') {
+      next();
+    } else {
+      res.status(403).json({ error: 'Access denied: Superadmin permission required' });
+    }
+  };
+
+  // 1. Get plans with dynamic country prices (Public/Subscribers)
+  router.get('/billing/plans', async (req, res) => {
+    const country = req.query.country || 'DEFAULT';
+    try {
+      const plans = await getPlansWithPrices(country);
+      res.json(plans);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to retrieve plans' });
+    }
+  });
+
+  // 2. Get all plans details for admin dashboard (Superadmin only)
+  router.get('/admin/plans', checkSuperadmin, async (req, res) => {
+    try {
+      const plans = await getAllPlans(true); // Include inactive plans
+      // Map prices into details
+      const plansWithPrices = [];
+      for (const p of plans) {
+        const prices = await getPlanPrices(p.id);
+        plansWithPrices.push({
+          ...p,
+          prices
+        });
+      }
+      res.json(plansWithPrices);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to retrieve plans for admin' });
+    }
+  });
+
+  // 3. Create or update plan details (Superadmin only)
+  router.post('/admin/plans', checkSuperadmin, async (req, res) => {
+    const { id, name, description, features, maxChannels, maxContacts, allowChatbot, allowScheduler, isActive } = req.body;
+    if (!id || !name) {
+      return res.status(400).json({ error: 'id and name are required' });
+    }
+    try {
+      const updated = await addOrUpdatePlan(
+        id.trim(),
+        name.trim(),
+        description,
+        features || [],
+        parseInt(maxChannels) || 1,
+        parseInt(maxContacts) || 250,
+        allowChatbot ? 1 : 0,
+        allowScheduler ? 1 : 0,
+        isActive ? 1 : 0
+      );
+      res.json(updated);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to save plan details' });
+    }
+  });
+
+  // 4. Update or add pricing rates (Superadmin only)
+  router.post('/admin/prices', checkSuperadmin, async (req, res) => {
+    const { planId, countryCode, currency, amount, stripePriceId } = req.body;
+    if (!planId || !countryCode || !currency || amount === undefined) {
+      return res.status(400).json({ error: 'planId, countryCode, currency, and amount are required' });
+    }
+    try {
+      await updatePlanPrice(
+        planId.trim(),
+        countryCode.toUpperCase().trim(),
+        currency.toUpperCase().trim(),
+        parseFloat(amount),
+        stripePriceId ? stripePriceId.trim() : null
+      );
+      res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to save plan pricing rate' });
+    }
+  });
+
+  // 5. Delete plan pricing rate (Superadmin only)
+  router.delete('/admin/prices/:planId/:countryCode', checkSuperadmin, async (req, res) => {
+    const { planId, countryCode } = req.params;
+    try {
+      await deletePlanPrice(planId, countryCode);
+      res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to delete plan pricing rate' });
+    }
+  });
+
+  return router;
+}
