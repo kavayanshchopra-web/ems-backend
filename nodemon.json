@@ -1,0 +1,9 @@
+{
+  "ignore": [
+    "database.sqlite",
+    "database.sqlite-journal",
+    "auth_info_baileys/**",
+    "media_store/**",
+    "node_modules/**"
+  ]
+}
