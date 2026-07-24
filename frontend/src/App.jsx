@@ -66,7 +66,8 @@ import {
   PhoneMissed,
   Pause,
   Radio,
-  BarChart2
+  BarChart2,
+  Menu
 } from 'lucide-react';
 
 // Dynamic Registry - Auto-Extensible Module Config for RBAC
@@ -357,7 +358,12 @@ const renderStatusTicks = (status) => {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('inbox'); // 'inbox', 'kanban', 'channels'
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('ems_theme') || 'emerald');
+
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [activeTab]);
 
   // Password visibility & Forgot Password modal states
   const [showPassword, setShowPassword] = useState(false);
@@ -376,7 +382,7 @@ export default function App() {
     dashboards: false,
     hr_management: false,
     payroll_finance: false,
-    crm_sales: false,
+    crm_sales: true,
     operations: false,
     my_portal: false,
     saas_portal: false,
@@ -5307,7 +5313,11 @@ export default function App() {
 
   return (
     <div className="app-layout">
-      <aside className="sidebar">
+      <div
+        className={`sidebar-overlay ${mobileSidebarOpen ? 'active' : ''}`}
+        onClick={() => setMobileSidebarOpen(false)}
+      />
+      <aside className={`sidebar ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
         {/* EMS-style Sidebar Branding */}
         <div className="sidebar-logo" style={{ padding: '20px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-start' }}>
           <span style={{ fontSize: '18px', fontWeight: '900', color: '#14d2cb', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
@@ -5577,6 +5587,13 @@ export default function App() {
       <main className="main-content">
         {/* EMS-style white top header with search */}
         <header className="top-header">
+          <button
+            className="mobile-menu-btn"
+            onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+            title="Toggle Menu"
+          >
+            <Menu size={20} />
+          </button>
           <div style={{ position: 'relative', flex: 1, maxWidth: '420px' }} onClick={() => setShowGlobalSearchModal(true)}>
             <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
             <input
@@ -6784,7 +6801,7 @@ export default function App() {
               /* ACTIVE MODULE CONTENT */
               <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, overflow: 'hidden' }}>
                 {/* Voxbay-Style Sub-Navigation Bar */}
-                <div style={{ display: 'flex', gap: '8px', background: '#f8fafc', padding: '8px 24px 0 24px', borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
+                <div style={{ display: 'flex', gap: '8px', background: '#f8fafc', padding: '8px 16px 0 16px', borderBottom: '1px solid #e2e8f0', flexShrink: 0, overflowX: 'auto', whiteSpace: 'nowrap' }}>
                   <button
                     onClick={() => setTelecallingSubTab('dashboard')}
                     style={{
