@@ -46,6 +46,11 @@ app.get('/', (req, res) => {
   res.json({ status: 'online', message: 'EMS WhatsApp CRM Backend API Engine Running' });
 });
 
+// Health check endpoint (used by Flutter mobile app)
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'OmniFlow Server is running', timestamp: new Date().toISOString() });
+});
+
 // Setup API routes
 app.use('/api', setupRoutes(io));
 
