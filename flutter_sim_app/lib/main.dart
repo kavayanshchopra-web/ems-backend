@@ -131,8 +131,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoading = true;
   bool _serverConnected = false;
 
-  // ← Deployed Render Cloud Server (works on any network!)
-  final String _crmUrl = "https://ems-backend-9hig.onrender.com";
+  // ✅ Vercel Frontend (CRM Dashboard WebView)
+  final String _crmUrl = "https://ems-crm-sandy.vercel.app";
+  // ✅ Render Backend (API sync)
   final String _syncUrl =
       "https://ems-backend-9hig.onrender.com/api/telecalling/sync-log";
 
@@ -173,7 +174,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onPageStarted: (_) => setState(() => _isLoading = true),
         onPageFinished: (_) {
           setState(() => _isLoading = false);
-          // Inject mobile viewport & scale fix
+          // Inject mobile viewport fix
           _controller.runJavaScript('''
             var meta = document.querySelector('meta[name="viewport"]');
             if (!meta) {
