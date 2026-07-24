@@ -5444,7 +5444,7 @@ export default function App() {
             </div>
             <div className={`nav-item ${activeTab === 'telecalling' ? 'active' : ''}`} onClick={() => setActiveTab('telecalling')}>
               <PhoneCall size={15} />
-              <span style={{ fontSize: '13px' }}>📞 Call Recordings & SIM Sync</span>
+              <span style={{ fontSize: '13px' }}>📞 Call Recordings &amp; SIM Sync</span>
               {!companySubscription?.subscribedModules?.sim_call_recording && (
                 <span style={{ marginLeft: 'auto', background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', fontSize: '9px', fontWeight: 'bold', padding: '2px 5px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '2px' }}>
                   🔒 Locked
