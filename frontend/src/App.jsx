@@ -4488,6 +4488,12 @@ export default function App() {
   const fetchChatbotRules = async () => {
     try {
       const res = await fetch(`${API_URL}/chatbot`);
+      if (res.status === 401) {
+        localStorage.removeItem('omnilflow_token');
+        localStorage.removeItem('omnilflow_user');
+        setAuthUser(null);
+        return;
+      }
       if (!res.ok) return;
       const data = await res.json();
       if (Array.isArray(data)) {
