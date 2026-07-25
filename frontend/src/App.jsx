@@ -7331,7 +7331,7 @@ export default function App() {
 
                       <div className="payroll-stat-card" style={{ borderTop: '3px solid #10b981', background: 'linear-gradient(180deg, #ffffff 0%, #ecfdf5 100%)' }}>
                         <div className="payroll-stat-icon green">
-                          <PhoneIncoming size={22} />
+                          <span style={{ fontSize: '20px' }}>🟢</span>
                         </div>
                         <div style={{ flex: 1 }}>
                           <div className="payroll-stat-label">WhatsApp Voice Calls</div>
@@ -7550,17 +7550,17 @@ export default function App() {
                                     <td style={{ padding: '14px 12px', verticalAlign: 'middle' }}>
                                       {log.type === 'OUTGOING' && (
                                         <span style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '5px 12px', borderRadius: '14px', fontSize: '11px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                                          <PhoneOutgoing size={12} /> Outgoing
+                                          ↗️ Outgoing
                                         </span>
                                       )}
                                       {log.type === 'INCOMING' && (
                                         <span style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '5px 12px', borderRadius: '14px', fontSize: '11px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                                          <PhoneIncoming size={12} /> Incoming
+                                          ↙️ Incoming
                                         </span>
                                       )}
                                       {log.type === 'MISSED' && (
                                         <span style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '5px 12px', borderRadius: '14px', fontSize: '11px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                                          <PhoneMissed size={12} /> Missed
+                                          ❌ Missed
                                         </span>
                                       )}
                                       {log.type === 'REJECTED' && (
@@ -7609,7 +7609,7 @@ export default function App() {
                                               boxShadow: isPlaying ? '0 2px 8px rgba(239, 68, 68, 0.3)' : '0 2px 8px rgba(13, 148, 136, 0.3)'
                                             }}
                                           >
-                                            {isPlaying ? <Pause size={14} /> : <Play size={14} style={{ marginLeft: '2px' }} />}
+                                            {isPlaying ? <span style={{ fontSize: '12px' }}>⏸️</span> : <Play size={14} style={{ marginLeft: '2px' }} />}
                                           </button>
 
                                           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
@@ -7730,7 +7730,7 @@ export default function App() {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
                       <div>
                         <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Radio size={20} style={{ color: '#ef4444' }} /> Voxbay Live Supervisor Panel & Call Dispatch
+                          <span style={{ fontSize: '18px', color: '#ef4444' }}>📡</span> Voxbay Live Supervisor Panel & Call Dispatch
                         </h3>
                         <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>
                           Monitor active calls in real time and manage automatic Round-Robin SIM lead routing.
