@@ -236,13 +236,7 @@ window.fetch = async (url, options = {}) => {
   });
 
   if (response.status === 401 && (typeof url === 'string' && url.startsWith(API_URL))) {
-    const savedUser = localStorage.getItem('omnilflow_user');
-    let isSuper = false;
-    try {
-      if (savedUser && JSON.parse(savedUser).role === 'superadmin') isSuper = true;
-    } catch (e) { }
-
-    if (!isSuper && token !== 'superadmin_master_token_override') {
+    if (token !== 'superadmin_master_token_override') {
       localStorage.removeItem('omnilflow_token');
       localStorage.removeItem('omnilflow_user');
       window.dispatchEvent(new Event('auth_failed'));
@@ -254,13 +248,7 @@ window.fetch = async (url, options = {}) => {
       const clone = response.clone();
       clone.json().then(body => {
         if (body && (body.error === 'Tenant account not found.' || body.error === 'Invalid or expired authentication token.')) {
-          const savedUser = localStorage.getItem('omnilflow_user');
-          let isSuper = false;
-          try {
-            if (savedUser && JSON.parse(savedUser).role === 'superadmin') isSuper = true;
-          } catch (e) { }
-
-          if (!isSuper && token !== 'superadmin_master_token_override') {
+          if (token !== 'superadmin_master_token_override') {
             localStorage.removeItem('omnilflow_token');
             localStorage.removeItem('omnilflow_user');
             window.dispatchEvent(new Event('auth_failed'));
@@ -4124,10 +4112,6 @@ export default function App() {
   // Fetch initial data
   useEffect(() => {
     const handleAuthFailed = () => {
-      const savedUser = localStorage.getItem('omnilflow_user');
-      try {
-        if (savedUser && JSON.parse(savedUser).role === 'superadmin') return;
-      } catch (e) { }
       setAuthUser(null);
       setActiveTab('login');
     };
@@ -5345,91 +5329,91 @@ export default function App() {
           )}
 
           {/* CATEGORY: DASHBOARDS */}
-          <AccordionCategory id="dashboards" label={t('dashboardsCat')}>
+          <AccordionCategory id="dashboards" label="DASHBOARDS">
             <div className={`nav-item ${activeTab === 'admin_dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('admin_dashboard')}>
               <BarChart3 size={15} />
-              <span style={{ fontSize: '13px' }}>{t('companyOverview')}</span>
+              <span style={{ fontSize: '13px' }}>Company Overview</span>
             </div>
             <div className={`nav-item ${activeTab === 'manager_dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('manager_dashboard')}>
               <BarChart3 size={15} />
-              <span style={{ fontSize: '13px' }}>{t('taskAnalytics')}</span>
+              <span style={{ fontSize: '13px' }}>Task Analytics</span>
             </div>
             <div className={`nav-item ${activeTab === 'gps_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('gps_attendance')}>
               <Globe size={15} />
-              <span style={{ fontSize: '13px' }}>{t('liveTracking')}</span>
+              <span style={{ fontSize: '13px' }}>Live Tracking</span>
             </div>
             {/* Global Audit Logs tab */}
             {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager' || authUser?.role === 'superadmin') && (
               <div className={`nav-item ${activeTab === 'audit_logs' ? 'active' : ''}`} onClick={() => setActiveTab('audit_logs')}>
                 <FileText size={15} />
-                <span style={{ fontSize: '13px' }}>{t('auditLogs')}</span>
+                <span style={{ fontSize: '13px' }}>Audit Logs</span>
               </div>
             )}
           </AccordionCategory>
 
           {/* CATEGORY: HR MANAGEMENT */}
-          <AccordionCategory id="hr_management" label={t('hrCat')}>
+          <AccordionCategory id="hr_management" label="HR MANAGEMENT">
             {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager' || authUser?.role === 'superadmin') && (
               <div className={`nav-item ${activeTab === 'employees' ? 'active' : ''}`} onClick={() => setActiveTab('employees')}>
                 <Users size={15} />
-                <span style={{ fontSize: '13px' }}>{t('allEmployees')}</span>
+                <span style={{ fontSize: '13px' }}>All Employees</span>
               </div>
             )}
             <div className={`nav-item ${activeTab === 'recruitment_ats' ? 'active' : ''}`} onClick={() => setActiveTab('recruitment_ats')}>
               <Briefcase size={15} />
-              <span style={{ fontSize: '13px' }}>{t('recruitmentAts')}</span>
+              <span style={{ fontSize: '13px' }}>Recruitment ATS</span>
             </div>
             <div className={`nav-item ${activeTab === 'performance_kpis' ? 'active' : ''}`} onClick={() => setActiveTab('performance_kpis')}>
               <Award size={15} />
-              <span style={{ fontSize: '13px' }}>{t('performanceKpis')}</span>
+              <span style={{ fontSize: '13px' }}>Performance KPIs</span>
             </div>
             <div className={`nav-item ${activeTab === 'asset_management' ? 'active' : ''}`} onClick={() => setActiveTab('asset_management')}>
               <FileText size={15} />
-              <span style={{ fontSize: '13px' }}>{t('assetManagement')}</span>
+              <span style={{ fontSize: '13px' }}>Asset Management</span>
             </div>
             <div className={`nav-item ${activeTab === 'verify_documents' ? 'active' : ''}`} onClick={() => setActiveTab('verify_documents')}>
               <FileText size={15} />
-              <span style={{ fontSize: '13px' }}>{t('verifyDocuments')}</span>
+              <span style={{ fontSize: '13px' }}>Verify Documents</span>
             </div>
             <div className={`nav-item ${activeTab === 'offboarding' ? 'active' : ''}`} onClick={() => setActiveTab('offboarding')}>
               <Trash2 size={15} />
-              <span style={{ fontSize: '13px' }}>{t('offboardingExit')}</span>
+              <span style={{ fontSize: '13px' }}>Offboarding Exit</span>
             </div>
           </AccordionCategory>
 
           {/* CATEGORY: PAYROLL & FINANCE */}
-          <AccordionCategory id="payroll_finance" label={t('payrollCat')}>
+          <AccordionCategory id="payroll_finance" label="PAYROLL & FINANCE">
             <div className={`nav-item ${activeTab === 'payroll' ? 'active' : ''}`} onClick={() => setActiveTab('payroll')}>
               <CreditCard size={15} />
-              <span style={{ fontSize: '13px' }}>{t('payrollSalary')}</span>
+              <span style={{ fontSize: '13px' }}>Payroll Salary</span>
             </div>
             <div className={`nav-item ${activeTab === 'taxes_compliance' ? 'active' : ''}`} onClick={() => setActiveTab('taxes_compliance')}>
               <FileText size={15} />
-              <span style={{ fontSize: '13px' }}>{t('taxesCompliance')}</span>
+              <span style={{ fontSize: '13px' }}>Taxes Compliance</span>
             </div>
             <div className={`nav-item ${activeTab === 'incentives_bonus' ? 'active' : ''}`} onClick={() => setActiveTab('incentives_bonus')}>
               <Award size={15} />
-              <span style={{ fontSize: '13px' }}>{t('incentivesBonus')}</span>
+              <span style={{ fontSize: '13px' }}>Incentives Bonus</span>
             </div>
             <div className={`nav-item ${activeTab === 'ff_settlements' ? 'active' : ''}`} onClick={() => setActiveTab('ff_settlements')}>
               <Check size={15} />
-              <span style={{ fontSize: '13px' }}>{t('ffSettlements')}</span>
+              <span style={{ fontSize: '13px' }}>F&F Settlements</span>
             </div>
             <div className={`nav-item ${activeTab === 'advances_loans' ? 'active' : ''}`} onClick={() => setActiveTab('advances_loans')}>
               <CreditCard size={15} />
-              <span style={{ fontSize: '13px' }}>{t('advancesLoans')}</span>
+              <span style={{ fontSize: '13px' }}>Advances Loans</span>
             </div>
             <div className={`nav-item ${activeTab === 'expenses' ? 'active' : ''}`} onClick={() => setActiveTab('expenses')}>
               <CreditCard size={15} />
-              <span style={{ fontSize: '13px' }}>{t('expensesClaim')}</span>
+              <span style={{ fontSize: '13px' }}>Expenses Claim</span>
             </div>
           </AccordionCategory>
 
           {/* CATEGORY: CRM & SALES */}
-          <AccordionCategory id="crm_sales" label={t('crmCat')}>
+          <AccordionCategory id="crm_sales" label="CRM & SALES">
             <div className={`nav-item ${activeTab === 'channels' ? 'active' : ''}`} onClick={() => setActiveTab('channels')}>
               <Smartphone size={15} />
-              <span style={{ fontSize: '13px' }}>{t('waChannels')}</span>
+              <span style={{ fontSize: '13px' }}>WA Channels</span>
               {sessions.filter(s => s.status === 'connected').length > 0 && (
                 <span className="badge" style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.12)', color: 'white', fontSize: '9px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px' }}>
                   {sessions.filter(s => s.status === 'connected').length} Active
@@ -5438,11 +5422,11 @@ export default function App() {
             </div>
             <div className={`nav-item ${activeTab === 'inbox' ? 'active' : ''}`} onClick={() => setActiveTab('inbox')}>
               <MessageSquare size={15} />
-              <span style={{ fontSize: '13px' }}>{t('inboxChats')}</span>
+              <span style={{ fontSize: '13px' }}>Inbox Chats</span>
             </div>
             <div className={`nav-item ${activeTab === 'kanban' ? 'active' : ''}`} onClick={() => setActiveTab('kanban')}>
               <Layers size={15} />
-              <span style={{ fontSize: '13px' }}>{t('crmPipeline')}</span>
+              <span style={{ fontSize: '13px' }}>CRM Pipeline</span>
             </div>
             <div
               onClick={() => setActiveTab('telecalling')}
@@ -5465,31 +5449,31 @@ export default function App() {
             </div>
             <div className={`nav-item ${activeTab === 'chatbot' ? 'active' : ''}`} onClick={() => setActiveTab('chatbot')}>
               <Bot size={15} />
-              <span style={{ fontSize: '13px' }}>{t('chatbotRules')}</span>
+              <span style={{ fontSize: '13px' }}>Chatbot Rules</span>
             </div>
           </AccordionCategory>
 
           {/* CATEGORY: OPERATIONS */}
-          <AccordionCategory id="operations" label={t('opsCat')}>
+          <AccordionCategory id="operations" label="OPERATIONS">
             <div className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`} onClick={() => setActiveTab('tasks')}>
               <ClipboardList size={15} />
-              <span style={{ fontSize: '13px' }}>{t('tasksBoard')}</span>
+              <span style={{ fontSize: '13px' }}>Tasks Board</span>
             </div>
             <div className={`nav-item ${activeTab === 'office_kiosk' ? 'active' : ''}`} onClick={() => setActiveTab('office_kiosk')}>
               <Clock size={15} />
-              <span style={{ fontSize: '13px' }}>{t('officeKiosk')}</span>
+              <span style={{ fontSize: '13px' }}>Office Kiosk</span>
             </div>
             <div className={`nav-item ${activeTab === 'work_hours' ? 'active' : ''}`} onClick={() => setActiveTab('work_hours')}>
               <Clock size={15} />
-              <span style={{ fontSize: '13px' }}>{t('workHoursLog')}</span>
+              <span style={{ fontSize: '13px' }}>Work Hours Log</span>
             </div>
             <div className={`nav-item ${activeTab === 'notice_board' ? 'active' : ''}`} onClick={() => setActiveTab('notice_board')}>
               <Bell size={15} />
-              <span style={{ fontSize: '13px' }}>{t('noticeBoard')}</span>
+              <span style={{ fontSize: '13px' }}>Notice Board</span>
             </div>
             <div className={`nav-item ${activeTab === 'holidays' ? 'active' : ''}`} onClick={() => setActiveTab('holidays')}>
               <Calendar size={15} />
-              <span style={{ fontSize: '13px' }}>{t('holidaysList')}</span>
+              <span style={{ fontSize: '13px' }}>Holidays List</span>
             </div>
             <div className={`nav-item ${activeTab === 'rewards_recognition' ? 'active' : ''}`} onClick={() => setActiveTab('rewards_recognition')}>
               <Award size={15} />
