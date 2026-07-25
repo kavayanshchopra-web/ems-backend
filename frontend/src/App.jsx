@@ -5449,14 +5449,24 @@ export default function App() {
               <Layers size={15} />
               <span style={{ fontSize: '13px' }}>{t('crmPipeline')}</span>
             </div>
-            <div className={`nav-item ${activeTab === 'telecalling' ? 'active' : ''}`} onClick={() => setActiveTab('telecalling')} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-              <PhoneCall size={15} />
-              <span style={{ fontSize: '13px' }}>📞 Call Recordings & SIM Sync</span>
-              {!companySubscription?.subscribedModules?.sim_call_recording && (
-                <span style={{ marginLeft: 'auto', background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', fontSize: '9px', fontWeight: 'bold', padding: '2px 5px', borderRadius: '4px' }}>
-                  🔒
-                </span>
-              )}
+            <div
+              onClick={() => setActiveTab('telecalling')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 12px',
+                cursor: 'pointer',
+                borderRadius: '8px',
+                background: activeTab === 'telecalling' ? 'rgba(20,210,203,0.15)' : 'transparent',
+                color: activeTab === 'telecalling' ? '#14d2cb' : 'rgba(255,255,255,0.7)',
+                fontSize: '13px',
+                fontWeight: '500',
+                transition: 'background 0.2s'
+              }}
+            >
+              <span style={{ fontSize: '14px' }}>📞</span>
+              <span>Call Recordings & SIM Sync</span>
             </div>
             <div className={`nav-item ${activeTab === 'chatbot' ? 'active' : ''}`} onClick={() => setActiveTab('chatbot')}>
               <Bot size={15} />
