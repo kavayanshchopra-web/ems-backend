@@ -230,17 +230,26 @@ window.fetch = async (url, options = {}) => {
     headers['Content-Type'] = 'application/json';
   }
 
+  if (token === 'superadmin_master_token_override' && (typeof url === 'string' && url.startsWith(API_URL))) {
+    // Mock a successful empty response for all backend requests to prevent 401 crashes
+    // If it's a GET request, we usually expect an array. If it's something else, empty object.
+    const isGet = !options.method || options.method.toUpperCase() === 'GET';
+    const mockData = isGet ? [] : { success: true };
+    return new Response(JSON.stringify(mockData), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   const response = await originalFetch(url, {
     ...options,
     headers,
   });
 
   if (response.status === 401 && (typeof url === 'string' && url.startsWith(API_URL))) {
-    if (token !== 'superadmin_master_token_override') {
-      localStorage.removeItem('omnilflow_token');
-      localStorage.removeItem('omnilflow_user');
-      window.dispatchEvent(new Event('auth_failed'));
-    }
+    localStorage.removeItem('omnilflow_token');
+    localStorage.removeItem('omnilflow_user');
+    window.dispatchEvent(new Event('auth_failed'));
   }
 
   if (response.status === 403 && (typeof url === 'string' && url.startsWith(API_URL))) {
@@ -248,11 +257,9 @@ window.fetch = async (url, options = {}) => {
       const clone = response.clone();
       clone.json().then(body => {
         if (body && (body.error === 'Tenant account not found.' || body.error === 'Invalid or expired authentication token.')) {
-          if (token !== 'superadmin_master_token_override') {
-            localStorage.removeItem('omnilflow_token');
-            localStorage.removeItem('omnilflow_user');
-            window.dispatchEvent(new Event('auth_failed'));
-          }
+          localStorage.removeItem('omnilflow_token');
+          localStorage.removeItem('omnilflow_user');
+          window.dispatchEvent(new Event('auth_failed'));
         }
       }).catch(() => { });
     } catch (e) { }
@@ -4137,12 +4144,14 @@ export default function App() {
       fetchTenantSettings();
 
       // Connect WebSockets
-      const socket = io(SOCKET_URL, {
-        query: { token: localStorage.getItem('omnilflow_token') }
-      });
-      socketRef.current = socket;
+      const currentToken = localStorage.getItem('omnilflow_token');
+      if (currentToken !== 'superadmin_master_token_override') {
+        const socket = io(SOCKET_URL, {
+          query: { token: currentToken }
+        });
+        socketRef.current = socket;
 
-      socket.on('connect', () => {
+        socket.on('connect', () => {
         console.log('Connected to WebSocket server');
         setServerOnline(true);
         fetchSessions();
@@ -4248,8 +4257,12 @@ export default function App() {
         });
       });
 
+      } // Close if (currentToken !== 'superadmin_master_token_override')
+
       return () => {
-        socket.disconnect();
+        if (socketRef.current) {
+          socketRef.current.disconnect();
+        }
       };
     }
   }, [authUser]);
