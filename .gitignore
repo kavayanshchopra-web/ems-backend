@@ -2,6 +2,7 @@ node_modules/
 .env
 *.log
 media_store/
+dist/
 auth_info_baileys/
 database.sqlite
 flutter_sim_app/build/
