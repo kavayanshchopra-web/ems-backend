@@ -62,11 +62,6 @@ import {
   LogOut,
   Settings,
   PhoneCall,
-  PhoneIncoming,
-  PhoneOutgoing,
-  PhoneMissed,
-  Pause,
-  Radio,
   BarChart2,
   Menu
 } from 'lucide-react';
@@ -6858,7 +6853,7 @@ export default function App() {
                       gap: '8px'
                     }}
                   >
-                    <PhoneCall size={16} /> 📜 Call Recordings & Logs
+                    <span style={{ fontSize: '15px' }}>📞</span> 📜 Call Recordings & Logs
                   </button>
 
                   <button
@@ -6879,7 +6874,7 @@ export default function App() {
                       gap: '8px'
                     }}
                   >
-                    <Radio size={16} style={{ color: '#ef4444' }} /> 🎧 Live Call Monitoring
+                    <span style={{ fontSize: '15px', color: '#ef4444' }}>📡</span> 🎧 Live Call Monitoring
                   </button>
 
                   <button
@@ -6987,12 +6982,12 @@ export default function App() {
                         {/* CARD 1: LIVE CALLS (Vibrant Blue/Cyan) */}
                         <div style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)', borderRadius: '14px', padding: '20px', color: '#ffffff', boxShadow: '0 8px 20px rgba(59, 130, 246, 0.3)', position: 'relative', overflow: 'hidden' }}>
                           <div style={{ position: 'absolute', right: '-10px', bottom: '-10px', opacity: 0.15 }}>
-                            <Radio size={110} />
+                            <span style={{ fontSize: '90px', opacity: 0.15, lineHeight: 1 }}>📡</span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                             <span style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.6px', opacity: 0.9 }}>Live Calls</span>
                             <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-                              <Radio size={18} />
+                              <span style={{ fontSize: '16px' }}>📡</span>
                             </div>
                           </div>
                           <div style={{ fontSize: '36px', fontWeight: '900', lineHeight: 1, marginBottom: '14px' }}>0</div>
@@ -7023,12 +7018,12 @@ export default function App() {
                         {/* CARD 3: FAILED CALLS (Vibrant Rose/Coral) */}
                         <div style={{ background: 'linear-gradient(135deg, #f43f5e 0%, #dc2626 100%)', borderRadius: '14px', padding: '20px', color: '#ffffff', boxShadow: '0 8px 20px rgba(244, 63, 94, 0.3)', position: 'relative', overflow: 'hidden' }}>
                           <div style={{ position: 'absolute', right: '-10px', bottom: '-10px', opacity: 0.15 }}>
-                            <PhoneMissed size={110} />
+                            <span style={{ fontSize: '90px', opacity: 0.15, lineHeight: 1 }}>❌</span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                             <span style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.6px', opacity: 0.9 }}>Failed Calls</span>
                             <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-                              <PhoneMissed size={18} />
+                              <span style={{ fontSize: '16px' }}>❌</span>
                             </div>
                           </div>
                           <div style={{ fontSize: '36px', fontWeight: '900', lineHeight: 1, marginBottom: '14px' }}>14</div>
