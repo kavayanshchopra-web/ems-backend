@@ -36,7 +36,7 @@ cd /d "d:\AG Projects\whatsapp-crm"
 echo Updating gitignore...
 
 :: Stage everything we need
-git add frontend/dist/
+git add -f frontend/dist/
 git add frontend/src/App.jsx
 git add frontend/src/index.css
 git add vercel.json
