@@ -8,14 +8,19 @@ echo.
 
 cd /d "d:\AG Projects\whatsapp-crm"
 
-echo [1/2] Pushing latest mobile optimization updates to Git...
+echo [1/2] Pushing latest updates to Git repository...
 git add .
-git commit -m "Update Mobile App View Simulator & Page Responsiveness"
+git commit -m "Deploy Mobile View Simulator & Responsive Layouts"
 git push
 
 echo.
+echo [2/2] Deploying frontend directly to Vercel Live...
+cd /d "d:\AG Projects\whatsapp-crm\frontend"
+call npx vercel --prod --yes
+
+echo.
 echo ========================================================
-echo 🎉 SUCCESS! Latest mobile updates pushed to Live Vercel!
+echo 🎉 SUCCESS! Latest mobile updates deployed to Vercel!
 echo Check live site: https://ems-crm-sandy.vercel.app
 echo ========================================================
 pause
