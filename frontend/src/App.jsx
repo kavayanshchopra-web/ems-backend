@@ -15984,6 +15984,7 @@ export default function App() {
                       onClick={() => {
                         const all = Object.values(simPermissions).every(Boolean);
                         if (all) {
+                          setActiveTab('admin_dashboard');
                           setSimViewMode('app');
                         } else {
                           // Grant all
@@ -16312,6 +16313,53 @@ export default function App() {
                   {/* 3. MAIN PAGE CONTENT CONTAINER (EXACT LAPTOP THEME & FONTS) */}
                   <div style={{ flex: 1, overflowY: 'auto', padding: '14px', fontFamily: 'var(--font-body, system-ui, sans-serif)' }}>
                     {/* Render specific module pages based on activeTab */}
+                    {(activeTab === 'admin_dashboard' || activeTab === 'dashboard') && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <h3 style={{ fontSize: '16px', fontWeight: '900', margin: 0, color: 'var(--sidebar-bg, #064e43)' }}>📊 Company Overview Dashboard</h3>
+                          <span style={{ background: '#ecfdf5', color: '#059669', fontSize: '10px', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold' }}>🟢 Live Stats</span>
+                        </div>
+
+                        {/* Top Key Metrics Grid */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                          <div style={{ background: 'var(--sidebar-bg, #064e43)', color: 'white', padding: '12px', borderRadius: '12px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
+                            <div style={{ fontSize: '10px', opacity: 0.8, textTransform: 'uppercase', fontWeight: '700' }}>Total Staff</div>
+                            <div style={{ fontSize: '22px', fontWeight: '900', marginTop: '2px' }}>24</div>
+                            <div style={{ fontSize: '9px', color: '#99f6e4', marginTop: '2px' }}>🟢 21 Present Today</div>
+                          </div>
+                          <div style={{ background: '#0d9488', color: 'white', padding: '12px', borderRadius: '12px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
+                            <div style={{ fontSize: '10px', opacity: 0.8, textTransform: 'uppercase', fontWeight: '700' }}>Today's SIM Calls</div>
+                            <div style={{ fontSize: '22px', fontWeight: '900', marginTop: '2px' }}>{callLogs.length || 48}</div>
+                            <div style={{ fontSize: '9px', color: '#ccfbf1', marginTop: '2px' }}>🎧 100% Synced to Cloud</div>
+                          </div>
+                        </div>
+
+                        {/* Quick Stats Grid */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                          <div style={{ background: 'white', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                            <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '700' }}>INBOX CHATS</div>
+                            <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', marginTop: '2px' }}>14 Active</div>
+                          </div>
+                          <div style={{ background: 'white', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                            <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '700' }}>ACTIVE TASKS</div>
+                            <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', marginTop: '2px' }}>8 Pending</div>
+                          </div>
+                        </div>
+
+                        {/* Quick Launch Shortcuts */}
+                        <div style={{ background: 'white', borderRadius: '14px', padding: '14px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f2b26', marginBottom: '8px' }}>⚡ Quick Operations</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            <button onClick={() => setActiveTab('inbox')} style={{ background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', padding: '8px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
+                              💬 WhatsApp Inbox
+                            </button>
+                            <button onClick={() => setActiveTab('telecalling')} style={{ background: '#f0fdfa', color: '#115e59', border: '1px solid #99f6e4', padding: '8px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
+                              📞 SIM Call Logs
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     {activeTab === 'inbox' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-main, #0f2b26)' }}>💬 WhatsApp Inbox Chats</div>
