@@ -16533,9 +16533,25 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* Mobile Single-Line Horizontal Scroll Sub-Tab Navigation (All 5 Tabs on 1 Line with Touch Scroll) */}
+                        {/* Mobile Single-Line Horizontal Scroll Sub-Tab Navigation (Clean No Scrollbar Line + Mouse Drag + Touch Swipe) */}
                         <div 
-                          className="mobile-subtabs-scroll-container"
+                          className="mobile-subtabs-scroll-container no-scrollbar"
+                          onMouseDown={(e) => {
+                            const el = e.currentTarget;
+                            el.isDown = true;
+                            el.startX = e.pageX - el.offsetLeft;
+                            el.scrollLeftPos = el.scrollLeft;
+                          }}
+                          onMouseLeave={(e) => { e.currentTarget.isDown = false; }}
+                          onMouseUp={(e) => { e.currentTarget.isDown = false; }}
+                          onMouseMove={(e) => {
+                            const el = e.currentTarget;
+                            if (!el.isDown) return;
+                            e.preventDefault();
+                            const x = e.pageX - el.offsetLeft;
+                            const walk = (x - el.startX) * 1.5;
+                            el.scrollLeft = el.scrollLeftPos - walk;
+                          }}
                           style={{ 
                             display: 'flex', 
                             flexWrap: 'nowrap', 
@@ -16544,7 +16560,8 @@ export default function App() {
                             WebkitOverflowScrolling: 'touch',
                             padding: '4px 2px 6px 2px',
                             msOverflowStyle: 'none',
-                            scrollbarWidth: 'thin'
+                            scrollbarWidth: 'none',
+                            cursor: 'grab'
                           }}
                         >
                           {[

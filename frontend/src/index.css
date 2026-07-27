@@ -1671,8 +1671,12 @@ h1, h2, h3, h4, h5, h6 {
    ========================================================================== */
 
 /* Hide scrollbar on sub-tabs bar (keeps swipe gesture) */
-.telecalling-subtabs-bar::-webkit-scrollbar {
-  display: none;
+.telecalling-subtabs-bar::-webkit-scrollbar,
+.mobile-subtabs-scroll-container::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 @media (max-width: 768px) {
