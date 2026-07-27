@@ -16533,60 +16533,146 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* Mobile Horizontal Sub-Tab Navigation */}
-                        <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
-                          {['System Users', 'Manage Companies', 'Manage Plans', 'Audit Logs', 'System Tools'].map((tabName, idx) => (
-                            <button
-                              key={idx}
-                              style={{
-                                whiteSpace: 'nowrap',
-                                padding: '6px 12px',
-                                borderRadius: '20px',
-                                fontSize: '11px',
-                                fontWeight: '700',
-                                border: idx === 0 ? 'none' : '1px solid #cbd5e1',
-                                background: idx === 0 ? 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)' : '#ffffff',
-                                color: idx === 0 ? '#ffffff' : '#475569',
-                                boxShadow: idx === 0 ? '0 2px 6px rgba(13, 148, 136, 0.3)' : 'none',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              {tabName}
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* Search & Action Header */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                          <input
-                            type="text"
-                            placeholder="🔍 Search system users..."
-                            style={{ flex: 1, padding: '8px 12px', fontSize: '11px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#ffffff' }}
-                          />
-                          <button style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                            + Add User
-                          </button>
-                        </div>
-
-                        {/* Vibrant System Users Mobile Cards */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {/* Mobile Multi-Row Wrap Sub-Tab Navigation (All 5 Tabs 100% Visible & Interactive) */}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '2px 0' }}>
                           {[
-                            { name: 'Kavayansh Chopra', email: 'kavayanshchopra@gmail.com', role: 'Super Admin', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
-                            { name: 'OmniFlow Global Admin', email: 'admin@omniflow.com', role: 'Super Admin', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' }
-                          ].map((user, idx) => (
-                            <div key={idx} style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.03)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div>
-                                <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>👤 {user.name}</div>
-                                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>✉️ {user.email}</div>
-                              </div>
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                                <span style={{ background: user.bg, color: user.color, border: `1px solid ${user.border}`, fontSize: '10px', padding: '3px 8px', borderRadius: '12px', fontWeight: 'bold' }}>
-                                  👑 {user.role}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
+                            { id: 'system_users', label: 'System Users' },
+                            { id: 'manage_companies', label: 'Manage Companies' },
+                            { id: 'manage_plans', label: 'Manage Plans' },
+                            { id: 'audit_logs', label: 'Audit Logs' },
+                            { id: 'system_tools', label: 'System Tools' }
+                          ].map((tabObj) => {
+                            const isActive = (superadminSubTab || 'system_users') === tabObj.id;
+                            return (
+                              <button
+                                key={tabObj.id}
+                                type="button"
+                                onClick={() => setSuperadminSubTab(tabObj.id)}
+                                style={{
+                                  padding: '6px 12px',
+                                  borderRadius: '20px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  border: isActive ? 'none' : '1px solid #cbd5e1',
+                                  background: isActive ? 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)' : '#ffffff',
+                                  color: isActive ? '#ffffff' : '#475569',
+                                  boxShadow: isActive ? '0 2px 6px rgba(13, 148, 136, 0.3)' : 'none',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {tabObj.label}
+                              </button>
+                            );
+                          })}
                         </div>
+
+                        {/* Mobile Sub-Tab Content Rendering */}
+                        {(superadminSubTab === 'system_users' || !superadminSubTab) && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {/* Search & Action Header */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                              <input
+                                type="text"
+                                placeholder="🔍 Search system users..."
+                                value={superadminUsersQuery}
+                                onChange={(e) => {
+                                  setSuperadminUsersQuery(e.target.value);
+                                  fetchSuperadminUsers(e.target.value);
+                                }}
+                                style={{ flex: 1, padding: '8px 12px', fontSize: '11px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#ffffff' }}
+                              />
+                              <button style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                + Add User
+                              </button>
+                            </div>
+
+                            {/* System Users Mobile Cards */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {[
+                                { name: 'Kavayansh Chopra', email: 'kavayanshchopra@gmail.com', role: 'Super Admin', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
+                                { name: 'OmniFlow Global Admin', email: 'admin@omniflow.com', role: 'Super Admin', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' }
+                              ].map((user, idx) => (
+                                <div key={idx} style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.03)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <div>
+                                    <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>👤 {user.name}</div>
+                                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>✉️ {user.email}</div>
+                                  </div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                    <span style={{ background: user.bg, color: user.color, border: `1px solid ${user.border}`, fontSize: '10px', padding: '3px 8px', borderRadius: '12px', fontWeight: 'bold' }}>
+                                      👑 {user.role}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {superadminSubTab === 'manage_companies' && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                              <input
+                                type="text"
+                                placeholder="🔍 Search companies..."
+                                style={{ flex: 1, padding: '8px 12px', fontSize: '11px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#ffffff' }}
+                              />
+                              <button style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                + Add Company
+                              </button>
+                            </div>
+                            <div style={{ background: '#ffffff', borderRadius: '12px', padding: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+                              <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f2b26' }}>🏢 OmniFlow Global HQ</div>
+                              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>📍 Delhi NCR, India | 👥 8 Active Users</div>
+                              <span style={{ background: '#dcfce7', color: '#16a34a', border: '1px solid #86efac', fontSize: '10px', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', display: 'inline-block', marginTop: '8px' }}>Active Enterprise</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {superadminSubTab === 'manage_plans' && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <div style={{ background: '#ffffff', borderRadius: '12px', padding: '14px', border: '1px solid #e2e8f0' }}>
+                              <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f2b26' }}>⚡ Enterprise Growth Plan</div>
+                              <div style={{ fontSize: '18px', fontWeight: '900', color: '#0d9488', marginTop: '4px' }}>₹4,999 / mo</div>
+                              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>Unlimited Users • WhatsApp API • Cloud Telephony</div>
+                            </div>
+                          </div>
+                        )}
+
+                        {superadminSubTab === 'audit_logs' && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0' }}>
+                              <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>📜 Superadmin Login Verified</div>
+                              <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>Kavayansh Chopra • Today, 12:05 AM</div>
+                            </div>
+                          </div>
+                        )}
+
+                        {superadminSubTab === 'system_tools' && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>🛠️ Diagnostic & Maintenance Tools</div>
+                            <div style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div>
+                                <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>🧹 Clear System Cache</div>
+                                <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>Purge active session cache & force sync</div>
+                              </div>
+                              <button style={{ background: 'linear-gradient(135deg, #0d9488, #064e43)', color: 'white', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}>Flush Cache</button>
+                            </div>
+                            <div style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div>
+                                <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>🔌 Test WebSocket Server</div>
+                                <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>Ping realtime Baileys & WhatsApp Socket</div>
+                              </div>
+                              <button style={{ background: '#ffffff', border: '1px solid #cbd5e1', color: '#334155', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}>Test Socket</button>
+                            </div>
+                            <div style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div>
+                                <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>🔥 Firebase Health</div>
+                                <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>Verify connection to ems-ag Firestore</div>
+                              </div>
+                              <button style={{ background: '#ffffff', border: '1px solid #cbd5e1', color: '#334155', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}>Check Health</button>
+                            </div>
+                          </div>
+                        )}
 
                       </div>
                     )}
