@@ -15696,52 +15696,63 @@ export default function App() {
 
               {/* RENDER ONBOARDING PERMISSIONS VIEW IN SIMULATOR */}
               {simViewMode === 'permissions' ? (
-                <div style={{ background: '#f8fafc', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  zIndex: 50,
+                  background: '#f8fafc',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden'
+                }}>
                   {/* Centered Header */}
-                  <div style={{ background: 'linear-gradient(135deg, #0f2b26 0%, #0d9488 100%)', padding: '18px 16px', color: 'white', textAlign: 'center', justifyContent: 'center' }}>
-                    <div style={{ fontSize: '18px', fontWeight: '800', letterSpacing: '-0.3px', textAlign: 'center', width: '100%' }}>App Permissions</div>
+                  <div style={{ background: 'linear-gradient(135deg, #0f2b26 0%, #0d9488 100%)', padding: '16px 14px', color: 'white', textAlign: 'center', flexShrink: 0 }}>
+                    <div style={{ fontSize: '17px', fontWeight: '800', letterSpacing: '-0.3px', textAlign: 'center', width: '100%' }}>App Permissions</div>
                   </div>
 
                   {/* Generic Basic Subtitle for All App Features */}
-                  <div style={{ padding: '14px 16px', fontSize: '11px', color: '#475569', lineHeight: '1.5', fontWeight: '500', textAlign: 'center' }}>
+                  <div style={{ padding: '10px 14px', fontSize: '11px', color: '#475569', lineHeight: '1.4', fontWeight: '500', textAlign: 'center', flexShrink: 0 }}>
                     Please grant the required permissions below to ensure seamless operation of all app features.
                   </div>
 
-                  {/* Permission List Rows */}
-                  <div style={{ padding: '0 14px 14px 14px', display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+                  {/* Scrollable Permission List Rows */}
+                  <div style={{ padding: '0 12px 12px 12px', display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, overflowY: 'auto' }}>
 
                     {/* Row 1: Calendar */}
                     <div
                       onClick={() => setSimPermissions(prev => ({ ...prev, calendar: !prev.calendar }))}
                       style={{
                         background: 'white',
-                        borderRadius: '14px',
-                        padding: '12px 14px',
+                        borderRadius: '12px',
+                        padding: '10px 12px',
                         border: simPermissions.calendar ? '1.5px solid #10b981' : '1px solid #e2e8f0',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '12px',
+                        gap: '10px',
                         cursor: 'pointer',
                         boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
                       }}
                     >
-                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
                         📅
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>Calendar</div>
-                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px', lineHeight: '1.3' }}>To sync followup events and show timely notifications</div>
+                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f2b26' }}>Calendar</div>
+                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px', lineHeight: '1.2' }}>To sync followup events and show timely notifications</div>
                       </div>
                       <div style={{
-                        width: '24px',
-                        height: '24px',
+                        width: '22px',
+                        height: '22px',
                         borderRadius: '50%',
                         background: simPermissions.calendar ? '#10b981' : 'rgba(245, 158, 11, 0.15)',
                         color: simPermissions.calendar ? 'white' : '#f59e0b',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '12px',
+                        fontSize: '11px',
                         fontWeight: '800',
                         flexShrink: 0
                       }}>
@@ -15754,33 +15765,33 @@ export default function App() {
                       onClick={() => setSimPermissions(prev => ({ ...prev, location: !prev.location }))}
                       style={{
                         background: 'white',
-                        borderRadius: '14px',
-                        padding: '12px 14px',
+                        borderRadius: '12px',
+                        padding: '10px 12px',
                         border: simPermissions.location ? '1.5px solid #10b981' : '1px solid #e2e8f0',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '12px',
+                        gap: '10px',
                         cursor: 'pointer',
                         boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
                       }}
                     >
-                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
                         📍
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>Location</div>
-                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px', lineHeight: '1.3' }}>To tag location data with call interactions and field visits</div>
+                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f2b26' }}>Location</div>
+                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px', lineHeight: '1.2' }}>To tag location data with call interactions and field visits</div>
                       </div>
                       <div style={{
-                        width: '24px',
-                        height: '24px',
+                        width: '22px',
+                        height: '22px',
                         borderRadius: '50%',
                         background: simPermissions.location ? '#10b981' : 'rgba(245, 158, 11, 0.15)',
                         color: simPermissions.location ? 'white' : '#f59e0b',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '12px',
+                        fontSize: '11px',
                         fontWeight: '800',
                         flexShrink: 0
                       }}>
@@ -15793,33 +15804,33 @@ export default function App() {
                       onClick={() => setSimPermissions(prev => ({ ...prev, notifications: !prev.notifications }))}
                       style={{
                         background: 'white',
-                        borderRadius: '14px',
-                        padding: '12px 14px',
+                        borderRadius: '12px',
+                        padding: '10px 12px',
                         border: simPermissions.notifications ? '1.5px solid #10b981' : '1px solid #e2e8f0',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '12px',
+                        gap: '10px',
                         cursor: 'pointer',
                         boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
                       }}
                     >
-                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
                         🔔
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>Notifications</div>
-                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px', lineHeight: '1.3' }}>To show real-time app and service status alerts</div>
+                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f2b26' }}>Notifications</div>
+                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px', lineHeight: '1.2' }}>To show real-time app and service status alerts</div>
                       </div>
                       <div style={{
-                        width: '24px',
-                        height: '24px',
+                        width: '22px',
+                        height: '22px',
                         borderRadius: '50%',
                         background: simPermissions.notifications ? '#10b981' : 'rgba(245, 158, 11, 0.15)',
                         color: simPermissions.notifications ? 'white' : '#f59e0b',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '12px',
+                        fontSize: '11px',
                         fontWeight: '800',
                         flexShrink: 0
                       }}>
@@ -15832,33 +15843,33 @@ export default function App() {
                       onClick={() => setSimPermissions(prev => ({ ...prev, battery: !prev.battery }))}
                       style={{
                         background: 'white',
-                        borderRadius: '14px',
-                        padding: '12px 14px',
+                        borderRadius: '12px',
+                        padding: '10px 12px',
                         border: simPermissions.battery ? '1.5px solid #10b981' : '1px solid #e2e8f0',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '12px',
+                        gap: '10px',
                         cursor: 'pointer',
                         boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
                       }}
                     >
-                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
                         🔋
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>Battery Exemption</div>
-                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px', lineHeight: '1.3' }}>To help app run seamlessly in background</div>
+                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f2b26' }}>Battery Exemption</div>
+                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px', lineHeight: '1.2' }}>To help app run seamlessly in background</div>
                       </div>
                       <div style={{
-                        width: '24px',
-                        height: '24px',
+                        width: '22px',
+                        height: '22px',
                         borderRadius: '50%',
                         background: simPermissions.battery ? '#10b981' : 'rgba(245, 158, 11, 0.15)',
                         color: simPermissions.battery ? 'white' : '#f59e0b',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '12px',
+                        fontSize: '11px',
                         fontWeight: '800',
                         flexShrink: 0
                       }}>
@@ -15871,33 +15882,33 @@ export default function App() {
                       onClick={() => setSimPermissions(prev => ({ ...prev, phone: !prev.phone }))}
                       style={{
                         background: 'white',
-                        borderRadius: '14px',
-                        padding: '12px 14px',
+                        borderRadius: '12px',
+                        padding: '10px 12px',
                         border: simPermissions.phone ? '1.5px solid #10b981' : '1px solid #e2e8f0',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '12px',
+                        gap: '10px',
                         cursor: 'pointer',
                         boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
                       }}
                     >
-                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
                         📞
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>Phone & Call Log</div>
-                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px', lineHeight: '1.3' }}>To track and update your call logs in CRM</div>
+                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f2b26' }}>Phone & Call Log</div>
+                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px', lineHeight: '1.2' }}>To track and update your call logs in CRM</div>
                       </div>
                       <div style={{
-                        width: '24px',
-                        height: '24px',
+                        width: '22px',
+                        height: '22px',
                         borderRadius: '50%',
                         background: simPermissions.phone ? '#10b981' : 'rgba(245, 158, 11, 0.15)',
                         color: simPermissions.phone ? 'white' : '#f59e0b',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '12px',
+                        fontSize: '11px',
                         fontWeight: '800',
                         flexShrink: 0
                       }}>
@@ -15910,33 +15921,33 @@ export default function App() {
                       onClick={() => setSimPermissions(prev => ({ ...prev, overlay: !prev.overlay }))}
                       style={{
                         background: 'white',
-                        borderRadius: '14px',
-                        padding: '12px 14px',
+                        borderRadius: '12px',
+                        padding: '10px 12px',
                         border: simPermissions.overlay ? '1.5px solid #10b981' : '1px solid #e2e8f0',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '12px',
+                        gap: '10px',
                         cursor: 'pointer',
                         boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
                       }}
                     >
-                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
                         🪟
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>Display Overlay</div>
-                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px', lineHeight: '1.3' }}>To show caller ID & call widgets for active calls</div>
+                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f2b26' }}>Display Overlay</div>
+                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px', lineHeight: '1.2' }}>To show caller ID & call widgets for active calls</div>
                       </div>
                       <div style={{
-                        width: '24px',
-                        height: '24px',
+                        width: '22px',
+                        height: '22px',
                         borderRadius: '50%',
                         background: simPermissions.overlay ? '#10b981' : 'rgba(245, 158, 11, 0.15)',
                         color: simPermissions.overlay ? 'white' : '#f59e0b',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '12px',
+                        fontSize: '11px',
                         fontWeight: '800',
                         flexShrink: 0
                       }}>
@@ -15949,49 +15960,49 @@ export default function App() {
                       onClick={() => setSimPermissions(prev => ({ ...prev, folder: !prev.folder }))}
                       style={{
                         background: 'linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%)',
-                        borderRadius: '14px',
-                        padding: '14px',
+                        borderRadius: '12px',
+                        padding: '12px',
                         border: simPermissions.folder ? '1.5px solid #10b981' : '1.5px solid #3b82f6',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '8px',
+                        gap: '6px',
                         cursor: 'pointer',
                         boxShadow: '0 4px 12px rgba(59, 130, 246, 0.08)'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
                           📁
                         </div>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>Call Recording Storage Folder</div>
-                          <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#3b82f6', marginTop: '1px' }}>SAF Folder Access Required</div>
+                          <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f2b26' }}>Call Recording Storage Folder</div>
+                          <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#3b82f6', marginTop: '1px' }}>SAF Folder Access Required</div>
                         </div>
                         <div style={{
-                          width: '24px',
-                          height: '24px',
+                          width: '22px',
+                          height: '22px',
                           borderRadius: '50%',
                           background: simPermissions.folder ? '#10b981' : '#3b82f6',
                           color: 'white',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          fontSize: '12px',
+                          fontSize: '11px',
                           fontWeight: '800',
                           flexShrink: 0
                         }}>
                           {simPermissions.folder ? '✓' : '📁'}
                         </div>
                       </div>
-                      <div style={{ fontSize: '11px', color: '#334155', lineHeight: '1.4', background: 'rgba(255,255,255,0.7)', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                      <div style={{ fontSize: '10px', color: '#334155', lineHeight: '1.35', background: 'rgba(255,255,255,0.85)', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                         💡 <strong>Instruction:</strong> Select your phone's native Call Recordings folder (e.g. <code>Recordings/Call/</code> or <code>MIUI/sound_recorder/call_rec/</code>) to enable automatic HD audio sync to OmniFlow CRM.
                       </div>
                     </div>
 
                   </div>
 
-                  {/* Bottom Action Button */}
-                  <div style={{ padding: '12px 14px', background: 'white', borderTop: '1px solid #e2e8f0' }}>
+                  {/* STICKY BOTTOM ACTION BUTTON */}
+                  <div style={{ padding: '10px 12px 14px 12px', background: 'white', borderTop: '1px solid #e2e8f0', flexShrink: 0 }}>
                     <button
                       onClick={() => {
                         const all = Object.values(simPermissions).every(Boolean);
@@ -16008,12 +16019,11 @@ export default function App() {
                         color: 'white',
                         border: 'none',
                         borderRadius: '12px',
-                        padding: '14px',
+                        padding: '12px',
                         fontWeight: '800',
-                        fontSize: '14px',
+                        fontSize: '13px',
                         cursor: 'pointer',
-                        boxShadow: '0 4px 14px rgba(13, 148, 136, 0.3)',
-                        transition: 'all 0.2s ease'
+                        boxShadow: '0 4px 14px rgba(13, 148, 136, 0.3)'
                       }}
                     >
                       {Object.values(simPermissions).every(Boolean) ? '✓ All Setup Complete — Launch App' : 'Grant Permissions & Link Folder'}
