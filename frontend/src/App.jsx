@@ -16533,8 +16533,20 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* Mobile Multi-Row Wrap Sub-Tab Navigation (All 5 Tabs 100% Visible & Interactive) */}
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '2px 0' }}>
+                        {/* Mobile Single-Line Horizontal Scroll Sub-Tab Navigation (All 5 Tabs on 1 Line with Touch Scroll) */}
+                        <div 
+                          className="mobile-subtabs-scroll-container"
+                          style={{ 
+                            display: 'flex', 
+                            flexWrap: 'nowrap', 
+                            gap: '8px', 
+                            overflowX: 'auto', 
+                            WebkitOverflowScrolling: 'touch',
+                            padding: '4px 2px 6px 2px',
+                            msOverflowStyle: 'none',
+                            scrollbarWidth: 'thin'
+                          }}
+                        >
                           {[
                             { id: 'system_users', label: 'System Users' },
                             { id: 'manage_companies', label: 'Manage Companies' },
@@ -16549,7 +16561,9 @@ export default function App() {
                                 type="button"
                                 onClick={() => setSuperadminSubTab(tabObj.id)}
                                 style={{
-                                  padding: '6px 12px',
+                                  flexShrink: 0,
+                                  whiteSpace: 'nowrap',
+                                  padding: '7px 14px',
                                   borderRadius: '20px',
                                   fontSize: '11px',
                                   fontWeight: '700',
