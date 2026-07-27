@@ -37,6 +37,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvFolderStatus;
     private Button btnSelectFolder;
     private Button btnToggleService;
+    private LinearLayout header;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,7 +49,7 @@ public class MainActivity extends AppCompatActivity {
         root.setBackgroundColor(Color.WHITE);
 
         // Programmatic settings header bar
-        LinearLayout header = new LinearLayout(this);
+        header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setPadding(25, 15, 25, 15);
         header.setBackgroundColor(Color.parseColor("#0F172A")); // Dark Slate
@@ -144,9 +145,12 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (folderUriStr.isEmpty()) {
+            if (header != null) header.setVisibility(View.VISIBLE);
             tvFolderStatus.setText("⚠️ Link Call Recordings folder!");
             tvFolderStatus.setTextColor(Color.parseColor("#F59E0B")); // Amber
         } else {
+            // Once folder is linked, hide top header bar for clean screen!
+            if (header != null) header.setVisibility(View.GONE);
             try {
                 Uri folderUri = Uri.parse(folderUriStr);
                 String folderName = folderUri.getLastPathSegment();

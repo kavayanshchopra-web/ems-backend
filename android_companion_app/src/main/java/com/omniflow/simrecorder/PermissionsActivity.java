@@ -68,6 +68,7 @@ public class PermissionsActivity extends AppCompatActivity {
         tvHeaderTitle.setTextColor(Color.WHITE);
         tvHeaderTitle.setTextSize(20f);
         tvHeaderTitle.setTypeface(null, Typeface.BOLD);
+        tvHeaderTitle.setGravity(Gravity.CENTER);
 
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);

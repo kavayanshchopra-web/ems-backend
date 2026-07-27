@@ -15697,13 +15697,13 @@ export default function App() {
               {/* RENDER ONBOARDING PERMISSIONS VIEW IN SIMULATOR */}
               {simViewMode === 'permissions' ? (
                 <div style={{ background: '#f8fafc', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
-                  {/* Header */}
-                  <div style={{ background: 'linear-gradient(135deg, #0f2b26 0%, #0d9488 100%)', padding: '18px 16px', color: 'white' }}>
-                    <div style={{ fontSize: '18px', fontWeight: '800', letterSpacing: '-0.3px' }}>App Permissions</div>
+                  {/* Centered Header */}
+                  <div style={{ background: 'linear-gradient(135deg, #0f2b26 0%, #0d9488 100%)', padding: '18px 16px', color: 'white', textAlign: 'center', justifyContent: 'center' }}>
+                    <div style={{ fontSize: '18px', fontWeight: '800', letterSpacing: '-0.3px', textAlign: 'center', width: '100%' }}>App Permissions</div>
                   </div>
 
                   {/* Generic Basic Subtitle for All App Features */}
-                  <div style={{ padding: '14px 16px', fontSize: '11px', color: '#475569', lineHeight: '1.5', fontWeight: '500' }}>
+                  <div style={{ padding: '14px 16px', fontSize: '11px', color: '#475569', lineHeight: '1.5', fontWeight: '500', textAlign: 'center' }}>
                     Please grant the required permissions below to ensure seamless operation of all app features.
                   </div>
 
@@ -15722,8 +15722,7 @@ export default function App() {
                         alignItems: 'center',
                         gap: '12px',
                         cursor: 'pointer',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-                        transition: 'all 0.2s ease'
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
                       }}
                     >
                       <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
@@ -15762,8 +15761,7 @@ export default function App() {
                         alignItems: 'center',
                         gap: '12px',
                         cursor: 'pointer',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-                        transition: 'all 0.2s ease'
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
                       }}
                     >
                       <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
@@ -15802,8 +15800,7 @@ export default function App() {
                         alignItems: 'center',
                         gap: '12px',
                         cursor: 'pointer',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-                        transition: 'all 0.2s ease'
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
                       }}
                     >
                       <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
@@ -15842,8 +15839,7 @@ export default function App() {
                         alignItems: 'center',
                         gap: '12px',
                         cursor: 'pointer',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-                        transition: 'all 0.2s ease'
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
                       }}
                     >
                       <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
@@ -15882,8 +15878,7 @@ export default function App() {
                         alignItems: 'center',
                         gap: '12px',
                         cursor: 'pointer',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-                        transition: 'all 0.2s ease'
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
                       }}
                     >
                       <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
@@ -15922,8 +15917,7 @@ export default function App() {
                         alignItems: 'center',
                         gap: '12px',
                         cursor: 'pointer',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-                        transition: 'all 0.2s ease'
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
                       }}
                     >
                       <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
@@ -15950,6 +15944,50 @@ export default function App() {
                       </div>
                     </div>
 
+                    {/* Row 7: Call Recording Storage Folder (FULL INSTRUCTION CARD) */}
+                    <div
+                      onClick={() => setSimPermissions(prev => ({ ...prev, folder: !prev.folder }))}
+                      style={{
+                        background: 'linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%)',
+                        borderRadius: '14px',
+                        padding: '14px',
+                        border: simPermissions.folder ? '1.5px solid #10b981' : '1.5px solid #3b82f6',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(59, 130, 246, 0.08)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
+                          📁
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>Call Recording Storage Folder</div>
+                          <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#3b82f6', marginTop: '1px' }}>SAF Folder Access Required</div>
+                        </div>
+                        <div style={{
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '50%',
+                          background: simPermissions.folder ? '#10b981' : '#3b82f6',
+                          color: 'white',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '12px',
+                          fontWeight: '800',
+                          flexShrink: 0
+                        }}>
+                          {simPermissions.folder ? '✓' : '📁'}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#334155', lineHeight: '1.4', background: 'rgba(255,255,255,0.7)', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                        💡 <strong>Instruction:</strong> Select your phone's native Call Recordings folder (e.g. <code>Recordings/Call/</code> or <code>MIUI/sound_recorder/call_rec/</code>) to enable automatic HD audio sync to OmniFlow CRM.
+                      </div>
+                    </div>
+
                   </div>
 
                   {/* Bottom Action Button */}
@@ -15961,7 +15999,7 @@ export default function App() {
                           setSimViewMode('app');
                         } else {
                           // Grant all
-                          setSimPermissions({ calendar: true, location: true, notifications: true, battery: true, phone: true, overlay: true });
+                          setSimPermissions({ calendar: true, location: true, notifications: true, battery: true, phone: true, overlay: true, folder: true });
                         }
                       }}
                       style={{
@@ -15978,7 +16016,7 @@ export default function App() {
                         transition: 'all 0.2s ease'
                       }}
                     >
-                      {Object.values(simPermissions).every(Boolean) ? '✓ All Permissions Granted — Launch App' : 'Grant Permissions'}
+                      {Object.values(simPermissions).every(Boolean) ? '✓ All Setup Complete — Launch App' : 'Grant Permissions & Link Folder'}
                     </button>
                   </div>
                 </div>
