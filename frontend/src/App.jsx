@@ -16326,10 +16326,7 @@ export default function App() {
                     {/* Render specific module pages based on activeTab */}
                     {(activeTab === 'admin_dashboard' || activeTab === 'dashboard') && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <h3 style={{ fontSize: '16px', fontWeight: '900', margin: 0, color: 'var(--sidebar-bg, #064e43)' }}>📊 Company Overview Dashboard</h3>
-                          <span style={{ background: '#ecfdf5', color: '#059669', fontSize: '10px', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold' }}>🟢 Live Stats</span>
-                        </div>
+                        {/* Top Key Metrics Grid */}
 
                         {/* Top Key Metrics Grid */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -16373,7 +16370,6 @@ export default function App() {
                     )}
                     {activeTab === 'inbox' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-main, #0f2b26)' }}>💬 WhatsApp Inbox Chats</div>
                         <input type="text" placeholder="🔍 Search contacts or messages..." style={{ width: '100%', padding: '10px 12px', fontSize: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', background: 'white' }} />
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           {[
@@ -16405,11 +16401,6 @@ export default function App() {
 
                     {activeTab === 'telecalling' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <h3 style={{ fontSize: '15px', fontWeight: '800', margin: 0, color: 'var(--text-main, #0f2b26)' }}>📞 Telecalling & SIM Sync</h3>
-                          <span style={{ background: '#ecfdf5', color: '#059669', fontSize: '10px', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold' }}>🟢 Service Active</span>
-                        </div>
-
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                           <div style={{ background: 'var(--sidebar-bg, #064e43)', color: 'white', padding: '12px', borderRadius: '12px' }}>
                             <div style={{ fontSize: '10px', opacity: 0.8 }}>TOTAL SIM CALLS</div>
@@ -16442,10 +16433,7 @@ export default function App() {
                     {/* 3. GPS ATTENDANCE & LIVE TRACKING MODULE */}
                     {activeTab === 'gps_attendance' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <h3 style={{ fontSize: '15px', fontWeight: '800', margin: 0, color: 'var(--sidebar-bg, #064e43)' }}>📍 GPS Live Tracking & Attendance</h3>
-                          <span style={{ background: '#ecfdf5', color: '#059669', fontSize: '10px', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold' }}>🟢 GPS Active</span>
-                        </div>
+                        {/* Location Clock-in Status Card */}
 
                         {/* Location Clock-in Status Card */}
                         <div style={{ background: 'white', borderRadius: '12px', padding: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
@@ -16481,10 +16469,6 @@ export default function App() {
                     {/* 4. EMPLOYEES DIRECTORY MODULE */}
                     {activeTab === 'employees' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <h3 style={{ fontSize: '15px', fontWeight: '800', margin: 0, color: 'var(--sidebar-bg, #064e43)' }}>👥 Employee Directory</h3>
-                          <span style={{ background: '#f0fdf4', color: '#166534', fontSize: '10px', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold' }}>24 Total Staff</span>
-                        </div>
                         {[
                           { name: 'Rahul Sharma', role: 'Field Telecaller', dept: 'Sales', status: 'Active' },
                           { name: 'Priya Verma', role: 'CRM Manager', dept: 'Operations', status: 'Active' },
@@ -16509,10 +16493,6 @@ export default function App() {
                     {/* 5. TASKS MODULE */}
                     {activeTab === 'tasks' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <h3 style={{ fontSize: '15px', fontWeight: '800', margin: 0, color: 'var(--sidebar-bg, #064e43)' }}>📋 Tasks & Work Orders</h3>
-                          <span style={{ background: '#fef3c7', color: '#d97706', fontSize: '10px', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold' }}>8 Active</span>
-                        </div>
                         {[
                           { title: 'Follow-up with Delhi Client leads', priority: 'High', due: 'Today, 5:00 PM' },
                           { title: 'Sync SIM call recording logs to CRM', priority: 'Urgent', due: 'Completed' },
@@ -16532,9 +16512,6 @@ export default function App() {
                     {/* 6. GENERAL FALLBACK MODULE (CLEAN & NO GENERIC PLACEHOLDER BOX) */}
                     {activeTab !== 'inbox' && activeTab !== 'telecalling' && activeTab !== 'admin_dashboard' && activeTab !== 'dashboard' && activeTab !== 'gps_attendance' && activeTab !== 'employees' && activeTab !== 'tasks' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--sidebar-bg, #064e43)', textTransform: 'capitalize' }}>
-                          📱 {activeTab.replace(/_/g, ' ')}
-                        </div>
                         <div style={{ background: 'white', borderRadius: '12px', padding: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
                           <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f2b26', marginBottom: '6px' }}>
                             Module Overview & Settings
