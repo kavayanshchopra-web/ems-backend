@@ -5732,24 +5732,25 @@ export default function App() {
       {/* Main Content Area */}
       <main className="main-content">
         {/* EMS-style white top header with search */}
-        <header className="top-header" style={{ display: 'flex', alignItems: 'center', padding: '0 20px' }}>
+        <header className="top-header" style={{ display: 'flex', alignItems: 'center', padding: '0 20px', background: 'var(--sidebar-bg, #064e43)', color: '#ffffff', borderBottom: '1px solid rgba(255, 255, 255, 0.12)' }}>
           <button
             className="mobile-menu-btn"
             onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
             title="Toggle Menu"
+            style={{ color: '#14d2cb' }}
           >
             <Menu size={20} />
           </button>
           
           {/* Desktop Page Title (Added as per user request to match mobile) */}
           <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '16px', marginRight: '24px', flexShrink: 0 }}>
-            <span style={{ fontSize: '20px', fontWeight: '900', color: '#0f2b26', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <span style={{ fontSize: '18px', fontWeight: '900', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '1px' }}>
                {activeTab.replace(/_/g, ' ')}
             </span>
           </div>
 
           <div style={{ position: 'relative', flex: 1, maxWidth: '420px' }} onClick={() => setShowGlobalSearchModal(true)}>
-            <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+            <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255, 255, 255, 0.65)' }} />
             <input
               type="text"
               readOnly
@@ -5757,12 +5758,12 @@ export default function App() {
               style={{
                 width: '100%',
                 padding: '9px 14px 9px 36px',
-                border: '1px solid #e2e8f0',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
                 borderRadius: '8px',
                 fontSize: '13px',
                 fontFamily: 'var(--font-body)',
-                color: '#1e293b',
-                background: '#f8fafc',
+                color: '#ffffff',
+                background: 'rgba(255, 255, 255, 0.14)',
                 outline: 'none',
                 cursor: 'pointer'
               }}
@@ -5776,7 +5777,7 @@ export default function App() {
                 const connected = sessions.find(s => s.status === 'connected');
                 if (connected) setBroadcastSessionId(connected.id);
                 setShowBroadcastModal(true);
-              }} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', fontSize: '13px' }}>
+              }} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', fontSize: '13px', background: 'rgba(255,255,255,0.18)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.25)' }}>
                 <Megaphone size={15} /> Broadcast
               </button>
             )}
@@ -5786,10 +5787,8 @@ export default function App() {
               </button>
             )}
 
-
-
             {/* Server status dot */}
-            <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#94a3b8' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'rgba(255,255,255,0.85)' }}>
               <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: serverOnline ? '#10b981' : '#ef4444', display: 'inline-block' }}></span>
               {serverOnline ? 'Live' : 'Offline'}
             </span>
@@ -5804,16 +5803,16 @@ export default function App() {
                 gap: '6px',
                 padding: '6px 12px',
                 borderRadius: '10px',
-                border: isMobilePreview ? '1px solid #3b82f6' : '1px solid #e2e8f0',
-                background: isMobilePreview ? 'rgba(59, 130, 246, 0.12)' : 'white',
-                color: isMobilePreview ? '#2563eb' : '#475569',
+                border: isMobilePreview ? '1px solid #14d2cb' : '1px solid rgba(255,255,255,0.25)',
+                background: isMobilePreview ? '#14d2cb' : 'rgba(255, 255, 255, 0.14)',
+                color: isMobilePreview ? '#064e43' : '#ffffff',
                 fontSize: '12px',
                 fontWeight: '700',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease'
               }}
             >
-              <Smartphone size={16} style={{ color: isMobilePreview ? '#2563eb' : '#3b82f6' }} />
+              <Smartphone size={16} style={{ color: isMobilePreview ? '#064e43' : '#14d2cb' }} />
               <span className="hide-mobile-text">{isMobilePreview ? '📱 Exit Simulator' : '📱 Mobile App View'}</span>
             </button>
 
@@ -5825,13 +5824,13 @@ export default function App() {
                   width: '36px',
                   height: '36px',
                   borderRadius: '10px',
-                  border: '1px solid #e2e8f0',
-                  background: showNotificationsDropdown ? '#f1f5f9' : 'white',
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
+                  background: showNotificationsDropdown ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.14)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
-                  color: '#475569',
+                  color: '#ffffff',
                   position: 'relative',
                   transition: 'all 0.2s ease'
                 }}
