@@ -5454,10 +5454,10 @@ export default function App() {
         onClick={() => setMobileSidebarOpen(false)}
       />
       <aside className={`sidebar ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
-        {/* EMS-style Sidebar Branding */}
+        {/* EMS-style Sidebar Branding - Removed OmniFlow EMS text as requested */}
         <div className="sidebar-logo" style={{ padding: '20px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-start' }}>
           <span style={{ fontSize: '18px', fontWeight: '900', color: '#14d2cb', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
-            OmniFlow EMS
+            {/* OmniFlow EMS */}
           </span>
         </div>
         <nav className="sidebar-nav" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
@@ -5732,7 +5732,7 @@ export default function App() {
       {/* Main Content Area */}
       <main className="main-content">
         {/* EMS-style white top header with search */}
-        <header className="top-header">
+        <header className="top-header" style={{ display: 'flex', alignItems: 'center', padding: '0 20px' }}>
           <button
             className="mobile-menu-btn"
             onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
@@ -5740,6 +5740,14 @@ export default function App() {
           >
             <Menu size={20} />
           </button>
+          
+          {/* Desktop Page Title (Added as per user request to match mobile) */}
+          <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '16px', marginRight: '24px', flexShrink: 0 }}>
+            <span style={{ fontSize: '20px', fontWeight: '900', color: '#0f2b26', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+               {activeTab.replace(/_/g, ' ')}
+            </span>
+          </div>
+
           <div style={{ position: 'relative', flex: 1, maxWidth: '420px' }} onClick={() => setShowGlobalSearchModal(true)}>
             <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
             <input
@@ -16072,7 +16080,7 @@ export default function App() {
 
                     {/* Center: Page Title Only (Increased Font Size) */}
                     <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '14px', fontWeight: '900', color: '#14d2cb', letterSpacing: '0.8px', textTransform: 'uppercase', lineHeight: '1.2' }}>
+                      <div style={{ fontSize: '18px', fontWeight: '900', color: '#14d2cb', letterSpacing: '0.8px', textTransform: 'uppercase', lineHeight: '1.2' }}>
                         {activeTab.replace(/_/g, ' ')}
                       </div>
                     </div>
@@ -16108,7 +16116,7 @@ export default function App() {
                         {/* Drawer Top Branding */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
                           <span style={{ fontSize: '16px', fontWeight: '900', color: '#14d2cb', letterSpacing: '1.2px', textTransform: 'uppercase' }}>
-                            OmniFlow EMS
+                            {/* OmniFlow EMS removed */}
                           </span>
                           <button
                             onClick={() => setMobileSidebarOpen(false)}
