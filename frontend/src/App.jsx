@@ -9315,10 +9315,10 @@ export default function App() {
         )}
 
         {activeTab === 'superadmin_plans' && authUser?.role === 'superadmin' && (
-          <div className="superadmin-plans-panel glass-panel" style={{ padding: '30px', margin: '16px', overflowY: 'auto', flexGrow: 1, color: '#0f2b26' }}>
+          <div className="superadmin-plans-panel glass-panel" style={{ padding: '20px 24px', margin: '16px', overflowY: 'auto', flexGrow: 1, color: '#0f2b26' }}>
 
             {/* Metric KPI Cards Row (7 Metric Cards matching screenshot) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '14px', margin: '24px 0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '14px', margin: '0 0 20px 0' }}>
               <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
                 <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '6px' }}>Companies</div>
                 <div style={{ fontSize: '26px', fontWeight: '800', color: '#0f2b26' }}>{superadminMetrics.companies}</div>
@@ -16497,31 +16497,35 @@ export default function App() {
                     {(activeTab === 'superadmin_plans' || activeTab === 'super_admin') && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         
-                        {/* Vibrant KPI Grid Cards */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                          <div style={{ background: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)', padding: '10px 8px', borderRadius: '12px', border: '1px solid #7dd3fc', textAlign: 'center' }}>
-                            <div style={{ fontSize: '10px', fontWeight: '800', color: '#0369a1' }}>Companies</div>
-                            <div style={{ fontSize: '20px', fontWeight: '900', color: '#0284c7', marginTop: '2px' }}>{superadminMetrics.companies || 1}</div>
+                        {/* Vibrant KPI Grid Cards (All 7 Superadmin Metrics) */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                          <div style={{ background: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)', padding: '8px 4px', borderRadius: '10px', border: '1px solid #7dd3fc', textAlign: 'center' }}>
+                            <div style={{ fontSize: '9px', fontWeight: '800', color: '#0369a1' }}>Companies</div>
+                            <div style={{ fontSize: '18px', fontWeight: '900', color: '#0284c7', marginTop: '2px' }}>{superadminMetrics.companies || 1}</div>
                           </div>
-                          <div style={{ background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)', padding: '10px 8px', borderRadius: '12px', border: '1px solid #86efac', textAlign: 'center' }}>
-                            <div style={{ fontSize: '10px', fontWeight: '800', color: '#15803d' }}>Branches</div>
-                            <div style={{ fontSize: '20px', fontWeight: '900', color: '#16a34a', marginTop: '2px' }}>{superadminMetrics.branches || 1}</div>
+                          <div style={{ background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)', padding: '8px 4px', borderRadius: '10px', border: '1px solid #86efac', textAlign: 'center' }}>
+                            <div style={{ fontSize: '9px', fontWeight: '800', color: '#15803d' }}>Branches</div>
+                            <div style={{ fontSize: '18px', fontWeight: '900', color: '#16a34a', marginTop: '2px' }}>{superadminMetrics.branches || 1}</div>
                           </div>
-                          <div style={{ background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', padding: '10px 8px', borderRadius: '12px', border: '1px solid #fcd34d', textAlign: 'center' }}>
-                            <div style={{ fontSize: '10px', fontWeight: '800', color: '#b45309' }}>Managers</div>
-                            <div style={{ fontSize: '20px', fontWeight: '900', color: '#d97706', marginTop: '2px' }}>{superadminMetrics.managers || 1}</div>
+                          <div style={{ background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', padding: '8px 4px', borderRadius: '10px', border: '1px solid #fcd34d', textAlign: 'center' }}>
+                            <div style={{ fontSize: '9px', fontWeight: '800', color: '#b45309' }}>Managers</div>
+                            <div style={{ fontSize: '18px', fontWeight: '900', color: '#d97706', marginTop: '2px' }}>{superadminMetrics.managers || 1}</div>
                           </div>
-                          <div style={{ background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)', padding: '10px 8px', borderRadius: '12px', border: '1px solid #d8b4fe', textAlign: 'center' }}>
-                            <div style={{ fontSize: '10px', fontWeight: '800', color: '#6b21a8' }}>Employees</div>
-                            <div style={{ fontSize: '20px', fontWeight: '900', color: '#9333ea', marginTop: '2px' }}>{superadminMetrics.employees || 5}</div>
+                          <div style={{ background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)', padding: '8px 4px', borderRadius: '10px', border: '1px solid #d8b4fe', textAlign: 'center' }}>
+                            <div style={{ fontSize: '9px', fontWeight: '800', color: '#6b21a8' }}>Employees</div>
+                            <div style={{ fontSize: '18px', fontWeight: '900', color: '#9333ea', marginTop: '2px' }}>{superadminMetrics.employees || 5}</div>
                           </div>
-                          <div style={{ background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)', padding: '10px 8px', borderRadius: '12px', border: '1px solid #fca5a5', textAlign: 'center' }}>
-                            <div style={{ fontSize: '10px', fontWeight: '800', color: '#b91c1c' }}>Super Admins</div>
-                            <div style={{ fontSize: '20px', fontWeight: '900', color: '#ef4444', marginTop: '2px' }}>{superadminMetrics.superAdmins || 2}</div>
+                          <div style={{ background: 'linear-gradient(135deg, #fae8ff 0%, #f5d0fe 100%)', padding: '8px 4px', borderRadius: '10px', border: '1px solid #f0abfc', textAlign: 'center' }}>
+                            <div style={{ fontSize: '9px', fontWeight: '800', color: '#86198f' }}>Admins</div>
+                            <div style={{ fontSize: '18px', fontWeight: '900', color: '#c026d3', marginTop: '2px' }}>{superadminMetrics.admins || 1}</div>
                           </div>
-                          <div style={{ background: 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)', padding: '10px 8px', borderRadius: '12px', border: '1px solid #6ee7b7', textAlign: 'center' }}>
-                            <div style={{ fontSize: '10px', fontWeight: '800', color: '#047857' }}>Total Users</div>
-                            <div style={{ fontSize: '20px', fontWeight: '900', color: '#059669', marginTop: '2px' }}>{superadminMetrics.totalUsers || 8}</div>
+                          <div style={{ background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)', padding: '8px 4px', borderRadius: '10px', border: '1px solid #fca5a5', textAlign: 'center' }}>
+                            <div style={{ fontSize: '9px', fontWeight: '800', color: '#b91c1c' }}>Super Admins</div>
+                            <div style={{ fontSize: '18px', fontWeight: '900', color: '#ef4444', marginTop: '2px' }}>{superadminMetrics.superAdmins || 2}</div>
+                          </div>
+                          <div style={{ gridColumn: 'span 2', background: 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)', padding: '8px 4px', borderRadius: '10px', border: '1px solid #6ee7b7', textAlign: 'center' }}>
+                            <div style={{ fontSize: '9px', fontWeight: '800', color: '#047857' }}>Total Users</div>
+                            <div style={{ fontSize: '18px', fontWeight: '900', color: '#059669', marginTop: '2px' }}>{superadminMetrics.totalUsers || 8}</div>
                           </div>
                         </div>
 
