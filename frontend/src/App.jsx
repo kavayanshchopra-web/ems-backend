@@ -440,6 +440,8 @@ const renderStatusTicks = (status) => {
 export default function App() {
   const [activeTab, setActiveTab] = useState('inbox'); // 'inbox', 'kanban', 'channels'
   const [isMobilePreview, setIsMobilePreview] = useState(false);
+  const [simViewMode, setSimViewMode] = useState('app'); // 'app' or 'permissions'
+  const [simPermissions, setSimPermissions] = useState({ calendar: false, location: false, notifications: false, battery: false, phone: false, overlay: false });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('ems_theme') || 'emerald');
 
@@ -15608,10 +15610,45 @@ export default function App() {
       {isMobilePreview && (
         <div className="mobile-simulator-overlay">
           <div className="mobile-simulator-topbar">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '700' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: '700' }}>
               <Smartphone size={18} style={{ color: '#38bdf8' }} />
               <span>OmniFlow Live Mobile Simulator (390px)</span>
             </div>
+
+            {/* Mode Switcher: App View vs Permissions Onboarding */}
+            <div style={{ display: 'flex', gap: '6px', background: 'rgba(255,255,255,0.1)', padding: '3px', borderRadius: '8px' }}>
+              <button
+                onClick={() => setSimViewMode('app')}
+                style={{
+                  background: simViewMode === 'app' ? '#0d9488' : 'transparent',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                📱 Main App View
+              </button>
+              <button
+                onClick={() => setSimViewMode('permissions')}
+                style={{
+                  background: simViewMode === 'permissions' ? '#0d9488' : 'transparent',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                🔐 Onboarding Permissions
+              </button>
+            </div>
+
             <button
               onClick={() => setIsMobilePreview(false)}
               style={{
@@ -15635,25 +15672,186 @@ export default function App() {
             </div>
             <div className="mobile-simulator-screen telecalling-page-mobile" style={{ paddingTop: '28px' }}>
               {/* Native header simulation bar inside simulator screen */}
-              <div style={{
-                background: '#0f172a',
-                padding: '10px 14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                color: 'white',
-                fontSize: '11px',
-                borderBottom: '1px solid #1e293b'
-              }}>
-                <div>
-                  <div style={{ fontWeight: 'bold', color: 'white', fontSize: '12px' }}>OmniFlow Telecalling</div>
-                  <div style={{ color: '#10b981', fontSize: '10px', fontWeight: 'bold' }}>🟢 Folder Linked: Call</div>
+              {simViewMode === 'app' && (
+                <div style={{
+                  background: '#0f172a',
+                  padding: '10px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  color: 'white',
+                  fontSize: '11px',
+                  borderBottom: '1px solid #1e293b'
+                }}>
+                  <div>
+                    <div style={{ fontWeight: 'bold', color: 'white', fontSize: '12px' }}>OmniFlow Telecalling</div>
+                    <div style={{ color: '#10b981', fontSize: '10px', fontWeight: 'bold' }}>🟢 Folder Linked: Call</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <span style={{ background: '#3b82f6', color: 'white', padding: '3px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>📁 Link Folder</span>
+                    <span style={{ background: '#10b981', color: 'white', padding: '3px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>Active</span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <span style={{ background: '#3b82f6', color: 'white', padding: '3px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>📁 Link Folder</span>
-                  <span style={{ background: '#10b981', color: 'white', padding: '3px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>Active</span>
+              )}
+
+              {/* RENDER ONBOARDING PERMISSIONS VIEW IN SIMULATOR */}
+              {simViewMode === 'permissions' ? (
+                <div style={{ background: '#f8fafc', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+                  {/* Header */}
+                  <div style={{ background: 'linear-gradient(135deg, #0f2b26 0%, #0d9488 100%)', padding: '16px 14px 14px 14px', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: '16px', fontWeight: '800' }}>App Permissions</div>
+                      <div style={{ fontSize: '10px', color: '#99f6e4', marginTop: '2px' }}>OmniFlow SIM Recorder Setup</div>
+                    </div>
+                    <button onClick={() => setSimViewMode('app')} style={{ background: 'transparent', border: 'none', color: '#99f6e4', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>
+                      Skip ✕
+                    </button>
+                  </div>
+
+                  {/* Subtitle */}
+                  <div style={{ padding: '12px 14px', fontSize: '11px', color: '#475569', lineHeight: '1.4' }}>
+                    Allow essential permissions to enable automatic SIM call recording and cloud CRM sync.
+                  </div>
+
+                  {/* Permission List Rows */}
+                  <div style={{ padding: '0 12px 12px 12px', display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+
+                    {/* Row 1: Calendar */}
+                    <div
+                      onClick={() => setSimPermissions(prev => ({ ...prev, calendar: !prev.calendar }))}
+                      style={{ background: 'white', borderRadius: '12px', padding: '10px 12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                    >
+                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                        📅
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>Calendar</div>
+                        <div style={{ fontSize: '10px', color: '#64748b' }}>To sync followup events and show timely notifications</div>
+                      </div>
+                      <span style={{ fontSize: '14px', fontWeight: 'bold', color: simPermissions.calendar ? '#10b981' : '#f59e0b' }}>
+                        {simPermissions.calendar ? '✓' : '⚠️'}
+                      </span>
+                    </div>
+
+                    {/* Row 2: Location */}
+                    <div
+                      onClick={() => setSimPermissions(prev => ({ ...prev, location: !prev.location }))}
+                      style={{ background: 'white', borderRadius: '12px', padding: '10px 12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                    >
+                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                        📍
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>Location</div>
+                        <div style={{ fontSize: '10px', color: '#64748b' }}>To tag location data with call interactions</div>
+                      </div>
+                      <span style={{ fontSize: '14px', fontWeight: 'bold', color: simPermissions.location ? '#10b981' : '#f59e0b' }}>
+                        {simPermissions.location ? '✓' : '⚠️'}
+                      </span>
+                    </div>
+
+                    {/* Row 3: Notifications */}
+                    <div
+                      onClick={() => setSimPermissions(prev => ({ ...prev, notifications: !prev.notifications }))}
+                      style={{ background: 'white', borderRadius: '12px', padding: '10px 12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                    >
+                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                        🔔
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>Notifications</div>
+                        <div style={{ fontSize: '10px', color: '#64748b' }}>To show real-time call recording service status</div>
+                      </div>
+                      <span style={{ fontSize: '14px', fontWeight: 'bold', color: simPermissions.notifications ? '#10b981' : '#f59e0b' }}>
+                        {simPermissions.notifications ? '✓' : '⚠️'}
+                      </span>
+                    </div>
+
+                    {/* Row 4: Battery */}
+                    <div
+                      onClick={() => setSimPermissions(prev => ({ ...prev, battery: !prev.battery }))}
+                      style={{ background: 'white', borderRadius: '12px', padding: '10px 12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                    >
+                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                        🔋
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>Battery Exemption</div>
+                        <div style={{ fontSize: '10px', color: '#64748b' }}>To assist OmniFlow in running in background during calls</div>
+                      </div>
+                      <span style={{ fontSize: '14px', fontWeight: 'bold', color: simPermissions.battery ? '#10b981' : '#f59e0b' }}>
+                        {simPermissions.battery ? '✓' : '⚠️'}
+                      </span>
+                    </div>
+
+                    {/* Row 5: Phone */}
+                    <div
+                      onClick={() => setSimPermissions(prev => ({ ...prev, phone: !prev.phone }))}
+                      style={{ background: 'white', borderRadius: '12px', padding: '10px 12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                    >
+                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                        📞
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>Phone & Call Log</div>
+                        <div style={{ fontSize: '10px', color: '#64748b' }}>To track and update your call logs in OmniFlow CRM</div>
+                      </div>
+                      <span style={{ fontSize: '14px', fontWeight: 'bold', color: simPermissions.phone ? '#10b981' : '#f59e0b' }}>
+                        {simPermissions.phone ? '✓' : '⚠️'}
+                      </span>
+                    </div>
+
+                    {/* Row 6: Overlay */}
+                    <div
+                      onClick={() => setSimPermissions(prev => ({ ...prev, overlay: !prev.overlay }))}
+                      style={{ background: 'white', borderRadius: '12px', padding: '10px 12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                    >
+                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                        🪟
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>Display Overlay</div>
+                        <div style={{ fontSize: '10px', color: '#64748b' }}>To show caller ID & call timer for logged calls</div>
+                      </div>
+                      <span style={{ fontSize: '14px', fontWeight: 'bold', color: simPermissions.overlay ? '#10b981' : '#f59e0b' }}>
+                        {simPermissions.overlay ? '✓' : '⚠️'}
+                      </span>
+                    </div>
+
+                  </div>
+
+                  {/* Bottom Action Button */}
+                  <div style={{ padding: '10px 12px', background: 'white', borderTop: '1px solid #e2e8f0' }}>
+                    <button
+                      onClick={() => {
+                        const all = Object.values(simPermissions).every(Boolean);
+                        if (all) {
+                          setSimViewMode('app');
+                        } else {
+                          // Grant all
+                          setSimPermissions({ calendar: true, location: true, notifications: true, battery: true, phone: true, overlay: true });
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        background: Object.values(simPermissions).every(Boolean) ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #0d9488 0%, #0f2b26 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '10px',
+                        padding: '12px',
+                        fontWeight: '800',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(13, 148, 136, 0.25)'
+                      }}
+                    >
+                      {Object.values(simPermissions).every(Boolean) ? '🚀 Launch OmniFlow Telecalling' : 'Request Permissions'}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                null
+              )}
 
               {/* Render full active page content inside simulator */}
               <div style={{ padding: '10px' }}>
