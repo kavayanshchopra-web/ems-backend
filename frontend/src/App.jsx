@@ -69,7 +69,8 @@ import {
   Settings,
   PhoneCall,
   BarChart2,
-  Menu
+  Menu,
+  ArrowLeft
 } from 'lucide-react';
 
 // Dynamic Registry - Auto-Extensible Module Config for RBAC
@@ -6024,7 +6025,7 @@ export default function App() {
 
         {/* Tab Contents */}
         {activeTab === 'inbox' && (
-          <div className="inbox-view">
+          <div className={`inbox-view ${activeContact ? 'has-active-chat' : 'no-active-chat'}`}>
             {/* Contact Chat List */}
             <div className="chat-list-panel glass-panel">
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
@@ -6194,6 +6195,23 @@ export default function App() {
                 <>
                   <div className="chat-room-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <button
+                        className="mobile-back-button"
+                        onClick={() => setActiveContact(null)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-main)',
+                          cursor: 'pointer',
+                          display: 'none',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '4px',
+                          marginRight: '4px'
+                        }}
+                      >
+                        <ArrowLeft size={20} />
+                      </button>
                       {activeContact.profile_pic_url && activeContact.profile_pic_url !== 'none' ? (
                         <img
                           src={activeContact.profile_pic_url}
@@ -9356,7 +9374,7 @@ export default function App() {
             </div>
 
             {/* Sub-Tabs Bar (5 Sub-Tabs matching reference screenshot) */}
-            <div style={{ background: '#e2e8f0', padding: '4px', borderRadius: '12px', display: 'flex', gap: '4px', marginBottom: '24px' }}>
+            <div className="superadmin-subtabs-row" style={{ background: '#e2e8f0', padding: '4px', borderRadius: '12px', display: 'flex', gap: '4px', marginBottom: '24px' }}>
               <button
                 onClick={() => setSuperadminSubTab('system_users')}
                 style={{ flex: 1, padding: '10px 16px', borderRadius: '8px', border: 'none', background: superadminSubTab === 'system_users' ? 'white' : 'transparent', fontWeight: '700', fontSize: '13px', color: superadminSubTab === 'system_users' ? '#0f2b26' : '#64748b', cursor: 'pointer', boxShadow: superadminSubTab === 'system_users' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none' }}>
@@ -10370,7 +10388,7 @@ export default function App() {
 
             {/* TAB A: CURRENT DAY LIVE TRACKING */}
             {gpsSubTab === 'live' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.8fr', gap: '30px', alignItems: 'start' }}>
+              <div className="gps-live-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1.8fr', gap: '30px', alignItems: 'start' }}>
 
                 {/* Left Column: Clock Console & Odometer / Fuel Calculator */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -11030,7 +11048,7 @@ export default function App() {
                 </div>
 
                 {/* AUDIT LOG BODY: 2 COLUMNS (Timeline Feed + Map Route Replay) */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', alignItems: 'start' }}>
+                <div className="gps-audit-grid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', alignItems: 'start' }}>
 
                   {/* Left Column: Full-Day Chronological Event Feed */}
                   <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '16px' }}>

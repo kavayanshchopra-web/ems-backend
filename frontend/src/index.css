@@ -1928,4 +1928,75 @@ h1, h2, h3, h4, h5, h6 {
   button, .btn, input, select {
     min-height: 42px;
   }
+
+  /* Responsive Inbox Styling */
+  .inbox-view {
+    flex-direction: column;
+    gap: 0;
+  }
+  .inbox-view.no-active-chat .chat-list-panel {
+    display: flex !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .inbox-view.no-active-chat .chat-room-panel,
+  .inbox-view.no-active-chat .crm-detail-panel {
+    display: none !important;
+  }
+  .inbox-view.has-active-chat .chat-list-panel,
+  .inbox-view.has-active-chat .crm-detail-panel {
+    display: none !important;
+  }
+  .inbox-view.has-active-chat .chat-room-panel {
+    display: flex !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .mobile-back-button {
+    display: flex !important;
+  }
+
+  /* Responsive GPS Attendance Styling */
+  .gps-attendance-panel {
+    padding: 16px !important;
+    margin: 8px !important;
+  }
+  .gps-attendance-panel > div:first-child {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    padding: 12px !important;
+  }
+  .gps-attendance-panel > div:first-child > div {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+  .gps-attendance-panel > div:first-child > div > button {
+    width: 100% !important;
+  }
+  .gps-attendance-panel > div:first-child > button {
+    width: 100% !important;
+  }
+  .gps-live-grid, .gps-audit-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  /* Responsive Super Admin Subtabs */
+  .superadmin-subtabs-row {
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    background: #e2e8f0 !important;
+    padding: 6px !important;
+    scrollbar-width: none !important;
+  }
+  .superadmin-subtabs-row::-webkit-scrollbar {
+    display: none !important;
+  }
+  .superadmin-subtabs-row button {
+    flex: 0 0 auto !important;
+    padding: 8px 14px !important;
+    font-size: 12px !important;
+  }
 }
