@@ -16015,53 +16015,57 @@ export default function App() {
               {simViewMode === 'app' && (
                 <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', overflow: 'hidden', background: '#f8fafc' }}>
 
-                  {/* 1. TOP MOBILE NAVBAR */}
+                  {/* 1. TOP MOBILE NAVBAR (EXACT DESKTOP SIDEBAR THEME) */}
                   <div style={{
-                    background: 'linear-gradient(135deg, #0f2b26 0%, #0d9488 100%)',
-                    padding: '10px 14px',
+                    background: 'var(--sidebar-bg, #064e43)',
+                    padding: '12px 14px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     color: 'white',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                     flexShrink: 0,
-                    zIndex: 10
+                    zIndex: 10,
+                    borderBottom: '1px solid rgba(255,255,255,0.08)'
                   }}>
                     {/* Left: Hamburger Menu Button */}
                     <button
                       onClick={() => setMobileSidebarOpen(prev => !prev)}
                       style={{
-                        background: 'rgba(255,255,255,0.15)',
+                        background: 'rgba(255,255,255,0.1)',
                         border: 'none',
-                        color: 'white',
-                        width: '32px',
-                        height: '32px',
+                        color: '#14d2cb',
+                        width: '34px',
+                        height: '34px',
                         borderRadius: '8px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '16px',
-                        cursor: 'pointer'
+                        fontSize: '18px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
                       }}
                     >
                       ☰
                     </button>
 
-                    {/* Center: App Brand */}
+                    {/* Center: App Brand (Exact Laptop Logo) */}
                     <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '13px', fontWeight: '800', letterSpacing: '-0.2px' }}>OmniFlow EMS</div>
-                      <div style={{ fontSize: '9px', color: '#99f6e4', textTransform: 'uppercase', fontWeight: '700' }}>
+                      <div style={{ fontSize: '15px', fontWeight: '900', color: '#14d2cb', letterSpacing: '1.2px', textTransform: 'uppercase' }}>
+                        OmniFlow EMS
+                      </div>
+                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', fontWeight: '600' }}>
                         {activeTab.replace(/_/g, ' ')}
                       </div>
                     </div>
 
-                    {/* Right: Quick Onboarding Permissions Button */}
+                    {/* Right: Onboarding Permissions Quick Toggle */}
                     <button
                       onClick={() => setSimViewMode('permissions')}
                       style={{
-                        background: 'rgba(255,255,255,0.15)',
-                        border: 'none',
-                        color: 'white',
+                        background: 'rgba(20,210,203,0.15)',
+                        border: '1px solid rgba(20,210,203,0.3)',
+                        color: '#14d2cb',
                         padding: '4px 8px',
                         borderRadius: '6px',
                         fontSize: '10px',
@@ -16073,7 +16077,7 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* 2. MOBILE SLIDING NAVIGATION DRAWER OVERLAY */}
+                  {/* 2. MOBILE SLIDING NAVIGATION DRAWER OVERLAY (EXACT ACCORDION SIDEBAR) */}
                   {mobileSidebarOpen && (
                     <div style={{
                       position: 'absolute',
@@ -16081,27 +16085,27 @@ export default function App() {
                       left: 0,
                       right: 0,
                       bottom: 0,
-                      background: 'rgba(15, 23, 42, 0.6)',
+                      background: 'rgba(15, 23, 42, 0.65)',
                       backdropFilter: 'blur(4px)',
                       zIndex: 60,
                       display: 'flex'
                     }}>
                       <div style={{
-                        width: '260px',
-                        background: '#0f2b26',
+                        width: '270px',
+                        background: 'var(--sidebar-bg, #064e43)',
                         height: '100%',
                         color: 'white',
                         display: 'flex',
                         flexDirection: 'column',
-                        padding: '16px',
-                        boxShadow: '4px 0 20px rgba(0,0,0,0.3)',
+                        padding: '16px 12px',
+                        boxShadow: '4px 0 20px rgba(0,0,0,0.4)',
                         overflowY: 'auto'
                       }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
-                          <div>
-                            <div style={{ fontWeight: '800', fontSize: '15px' }}>OmniFlow Mobile</div>
-                            <div style={{ fontSize: '10px', color: '#10b981' }}>🟢 Active Workspace</div>
-                          </div>
+                        {/* Drawer Top Branding */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+                          <span style={{ fontSize: '16px', fontWeight: '900', color: '#14d2cb', letterSpacing: '1.2px', textTransform: 'uppercase' }}>
+                            OmniFlow EMS
+                          </span>
                           <button
                             onClick={() => setMobileSidebarOpen(false)}
                             style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', fontWeight: 'bold' }}
@@ -16110,57 +16114,207 @@ export default function App() {
                           </button>
                         </div>
 
-                        {/* Category List */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-                          <div style={{ fontSize: '9px', fontWeight: '800', color: '#99f6e4', letterSpacing: '0.5px', marginTop: '6px', marginBottom: '2px' }}>DASHBOARDS</div>
-                          <button onClick={() => { setActiveTab('dashboard'); setMobileSidebarOpen(false); }} style={{ background: activeTab === 'dashboard' ? '#0d9488' : 'transparent', color: 'white', border: 'none', textAlign: 'left', padding: '8px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
-                            📊 Main Dashboard
-                          </button>
+                        {/* Exact Accordion Categories */}
+                        <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          {/* SYSTEM */}
+                          {(authUser?.role === 'superadmin' || authUser?.role === 'owner' || authUser?.role === 'admin') && (
+                            <AccordionCategory id="system" label="SYSTEM">
+                              {authUser?.role === 'superadmin' && (
+                                <div className={`nav-item ${activeTab === 'superadmin_plans' ? 'active' : ''}`} onClick={() => { setActiveTab('superadmin_plans'); setMobileSidebarOpen(false); }}>
+                                  <Shield size={15} />
+                                  <span style={{ fontSize: '13px' }}>Super Admin Panel</span>
+                                </div>
+                              )}
+                              <div className={`nav-item ${activeTab === 'recycle_bin' ? 'active' : ''}`} onClick={() => { setActiveTab('recycle_bin'); setMobileSidebarOpen(false); }}>
+                                <Trash2 size={15} />
+                                <span style={{ fontSize: '13px' }}>🛡️ Recycle Bin (DLP Vault)</span>
+                              </div>
+                            </AccordionCategory>
+                          )}
 
-                          <div style={{ fontSize: '9px', fontWeight: '800', color: '#99f6e4', letterSpacing: '0.5px', marginTop: '10px', marginBottom: '2px' }}>CRM & SALES</div>
-                          <button onClick={() => { setActiveTab('inbox'); setMobileSidebarOpen(false); }} style={{ background: activeTab === 'inbox' ? '#0d9488' : 'transparent', color: 'white', border: 'none', textAlign: 'left', padding: '8px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
-                            💬 WhatsApp Inbox Chats
-                          </button>
-                          <button onClick={() => { setActiveTab('pipeline'); setMobileSidebarOpen(false); }} style={{ background: activeTab === 'pipeline' ? '#0d9488' : 'transparent', color: 'white', border: 'none', textAlign: 'left', padding: '8px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
-                            📈 CRM Sales Pipeline
-                          </button>
-                          <button onClick={() => { setActiveTab('telecalling'); setMobileSidebarOpen(false); }} style={{ background: activeTab === 'telecalling' ? '#0d9488' : 'transparent', color: 'white', border: 'none', textAlign: 'left', padding: '8px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
-                            📞 SIM Call Recordings & Sync
-                          </button>
+                          {/* DASHBOARDS */}
+                          <AccordionCategory id="dashboards" label="DASHBOARDS">
+                            <div className={`nav-item ${activeTab === 'admin_dashboard' ? 'active' : ''}`} onClick={() => { setActiveTab('admin_dashboard'); setMobileSidebarOpen(false); }}>
+                              <BarChart3 size={15} />
+                              <span style={{ fontSize: '13px' }}>Company Overview</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'manager_dashboard' ? 'active' : ''}`} onClick={() => { setActiveTab('manager_dashboard'); setMobileSidebarOpen(false); }}>
+                              <BarChart3 size={15} />
+                              <span style={{ fontSize: '13px' }}>Task Analytics</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'gps_attendance' ? 'active' : ''}`} onClick={() => { setActiveTab('gps_attendance'); setMobileSidebarOpen(false); }}>
+                              <Globe size={15} />
+                              <span style={{ fontSize: '13px' }}>Live Tracking</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'audit_logs' ? 'active' : ''}`} onClick={() => { setActiveTab('audit_logs'); setMobileSidebarOpen(false); }}>
+                              <FileText size={15} />
+                              <span style={{ fontSize: '13px' }}>Audit Logs</span>
+                            </div>
+                          </AccordionCategory>
 
-                          <div style={{ fontSize: '9px', fontWeight: '800', color: '#99f6e4', letterSpacing: '0.5px', marginTop: '10px', marginBottom: '2px' }}>HR & STAFF MANAGEMENT</div>
-                          <button onClick={() => { setActiveTab('employees'); setMobileSidebarOpen(false); }} style={{ background: activeTab === 'employees' ? '#0d9488' : 'transparent', color: 'white', border: 'none', textAlign: 'left', padding: '8px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
-                            👥 Employee Directory
-                          </button>
-                          <button onClick={() => { setActiveTab('attendance'); setMobileSidebarOpen(false); }} style={{ background: activeTab === 'attendance' ? '#0d9488' : 'transparent', color: 'white', border: 'none', textAlign: 'left', padding: '8px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
-                            ⏱️ Attendance & Tracking
-                          </button>
-                          <button onClick={() => { setActiveTab('tasks'); setMobileSidebarOpen(false); }} style={{ background: activeTab === 'tasks' ? '#0d9488' : 'transparent', color: 'white', border: 'none', textAlign: 'left', padding: '8px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
-                            📋 Tasks & Operations
-                          </button>
-                          <button onClick={() => { setActiveTab('payroll'); setMobileSidebarOpen(false); }} style={{ background: activeTab === 'payroll' ? '#0d9488' : 'transparent', color: 'white', border: 'none', textAlign: 'left', padding: '8px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
-                            💰 Payroll & Finance
-                          </button>
+                          {/* HR MANAGEMENT */}
+                          <AccordionCategory id="hr_management" label="HR MANAGEMENT">
+                            <div className={`nav-item ${activeTab === 'employees' ? 'active' : ''}`} onClick={() => { setActiveTab('employees'); setMobileSidebarOpen(false); }}>
+                              <Users size={15} />
+                              <span style={{ fontSize: '13px' }}>All Employees</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'recruitment_ats' ? 'active' : ''}`} onClick={() => { setActiveTab('recruitment_ats'); setMobileSidebarOpen(false); }}>
+                              <Briefcase size={15} />
+                              <span style={{ fontSize: '13px' }}>Recruitment ATS</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'performance_kpis' ? 'active' : ''}`} onClick={() => { setActiveTab('performance_kpis'); setMobileSidebarOpen(false); }}>
+                              <Award size={15} />
+                              <span style={{ fontSize: '13px' }}>Performance KPIs</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'asset_management' ? 'active' : ''}`} onClick={() => { setActiveTab('asset_management'); setMobileSidebarOpen(false); }}>
+                              <FileText size={15} />
+                              <span style={{ fontSize: '13px' }}>Asset Management</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'verify_documents' ? 'active' : ''}`} onClick={() => { setActiveTab('verify_documents'); setMobileSidebarOpen(false); }}>
+                              <FileText size={15} />
+                              <span style={{ fontSize: '13px' }}>Verify Documents</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'offboarding' ? 'active' : ''}`} onClick={() => { setActiveTab('offboarding'); setMobileSidebarOpen(false); }}>
+                              <Trash2 size={15} />
+                              <span style={{ fontSize: '13px' }}>Offboarding Exit</span>
+                            </div>
+                          </AccordionCategory>
 
-                          <div style={{ fontSize: '9px', fontWeight: '800', color: '#99f6e4', letterSpacing: '0.5px', marginTop: '10px', marginBottom: '2px' }}>SYSTEM</div>
-                          <button onClick={() => { setActiveTab('settings'); setMobileSidebarOpen(false); }} style={{ background: activeTab === 'settings' ? '#0d9488' : 'transparent', color: 'white', border: 'none', textAlign: 'left', padding: '8px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
-                            ⚙️ General Settings
-                          </button>
-                          <button onClick={() => { setSimViewMode('permissions'); setMobileSidebarOpen(false); }} style={{ background: 'rgba(255,255,255,0.08)', color: '#99f6e4', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'left', padding: '8px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', marginTop: '4px' }}>
-                            🔐 App Permissions Setup
-                          </button>
-                        </div>
+                          {/* PAYROLL & FINANCE */}
+                          <AccordionCategory id="payroll_finance" label="PAYROLL & FINANCE">
+                            <div className={`nav-item ${activeTab === 'payroll' ? 'active' : ''}`} onClick={() => { setActiveTab('payroll'); setMobileSidebarOpen(false); }}>
+                              <CreditCard size={15} />
+                              <span style={{ fontSize: '13px' }}>Payroll Salary</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'taxes_compliance' ? 'active' : ''}`} onClick={() => { setActiveTab('taxes_compliance'); setMobileSidebarOpen(false); }}>
+                              <FileText size={15} />
+                              <span style={{ fontSize: '13px' }}>Taxes Compliance</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'incentives_bonus' ? 'active' : ''}`} onClick={() => { setActiveTab('incentives_bonus'); setMobileSidebarOpen(false); }}>
+                              <Award size={15} />
+                              <span style={{ fontSize: '13px' }}>Incentives Bonus</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'ff_settlements' ? 'active' : ''}`} onClick={() => { setActiveTab('ff_settlements'); setMobileSidebarOpen(false); }}>
+                              <Check size={15} />
+                              <span style={{ fontSize: '13px' }}>F&F Settlements</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'advances_loans' ? 'active' : ''}`} onClick={() => { setActiveTab('advances_loans'); setMobileSidebarOpen(false); }}>
+                              <CreditCard size={15} />
+                              <span style={{ fontSize: '13px' }}>Advances Loans</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'expenses' ? 'active' : ''}`} onClick={() => { setActiveTab('expenses'); setMobileSidebarOpen(false); }}>
+                              <CreditCard size={15} />
+                              <span style={{ fontSize: '13px' }}>Expenses Claim</span>
+                            </div>
+                          </AccordionCategory>
+
+                          {/* CRM & SALES */}
+                          <AccordionCategory id="crm_sales" label="CRM & SALES">
+                            <div className={`nav-item ${activeTab === 'channels' ? 'active' : ''}`} onClick={() => { setActiveTab('channels'); setMobileSidebarOpen(false); }}>
+                              <Smartphone size={15} />
+                              <span style={{ fontSize: '13px' }}>WA Channels</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'inbox' ? 'active' : ''}`} onClick={() => { setActiveTab('inbox'); setMobileSidebarOpen(false); }}>
+                              <MessageSquare size={15} />
+                              <span style={{ fontSize: '13px' }}>Inbox Chats</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'kanban' ? 'active' : ''}`} onClick={() => { setActiveTab('kanban'); setMobileSidebarOpen(false); }}>
+                              <Layers size={15} />
+                              <span style={{ fontSize: '13px' }}>CRM Pipeline</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'telecalling' ? 'active' : ''}`} onClick={() => { setActiveTab('telecalling'); setMobileSidebarOpen(false); }}>
+                              <span style={{ fontSize: '14px' }}>📞</span>
+                              <span style={{ fontSize: '13px' }}>Call Recordings & SIM Sync</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'chatbot' ? 'active' : ''}`} onClick={() => { setActiveTab('chatbot'); setMobileSidebarOpen(false); }}>
+                              <Bot size={15} />
+                              <span style={{ fontSize: '13px' }}>Chatbot Rules</span>
+                            </div>
+                          </AccordionCategory>
+
+                          {/* OPERATIONS */}
+                          <AccordionCategory id="operations" label="OPERATIONS">
+                            <div className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`} onClick={() => { setActiveTab('tasks'); setMobileSidebarOpen(false); }}>
+                              <ClipboardList size={15} />
+                              <span style={{ fontSize: '13px' }}>Tasks Board</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'office_kiosk' ? 'active' : ''}`} onClick={() => { setActiveTab('office_kiosk'); setMobileSidebarOpen(false); }}>
+                              <Clock size={15} />
+                              <span style={{ fontSize: '13px' }}>Office Kiosk</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'work_hours' ? 'active' : ''}`} onClick={() => { setActiveTab('work_hours'); setMobileSidebarOpen(false); }}>
+                              <Clock size={15} />
+                              <span style={{ fontSize: '13px' }}>Work Hours Log</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'notice_board' ? 'active' : ''}`} onClick={() => { setActiveTab('notice_board'); setMobileSidebarOpen(false); }}>
+                              <Bell size={15} />
+                              <span style={{ fontSize: '13px' }}>Notice Board</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'holidays' ? 'active' : ''}`} onClick={() => { setActiveTab('holidays'); setMobileSidebarOpen(false); }}>
+                              <Calendar size={15} />
+                              <span style={{ fontSize: '13px' }}>Holidays List</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'rewards_recognition' ? 'active' : ''}`} onClick={() => { setActiveTab('rewards_recognition'); setMobileSidebarOpen(false); }}>
+                              <Award size={15} />
+                              <span style={{ fontSize: '13px' }}>Rewards Badges</span>
+                            </div>
+                          </AccordionCategory>
+
+                          {/* MY PORTAL */}
+                          <AccordionCategory id="my_portal" label="My Portal">
+                            <div className={`nav-item ${activeTab === 'my_attendance' ? 'active' : ''}`} onClick={() => { setActiveTab('my_attendance'); setMobileSidebarOpen(false); }}>
+                              <Clock size={15} />
+                              <span style={{ fontSize: '13px' }}>Shift Attendance</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'leaves' ? 'active' : ''}`} onClick={() => { setActiveTab('leaves'); setMobileSidebarOpen(false); }}>
+                              <Calendar size={15} />
+                              <span style={{ fontSize: '13px' }}>Leaves Requests</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'shifts' ? 'active' : ''}`} onClick={() => { setActiveTab('shifts'); setMobileSidebarOpen(false); }}>
+                              <Calendar size={15} />
+                              <span style={{ fontSize: '13px' }}>Work Shift Roster</span>
+                            </div>
+                          </AccordionCategory>
+
+                          {/* HELP & SUPPORT */}
+                          <AccordionCategory id="help_support" label="Help & Support">
+                            <div className={`nav-item ${activeTab === 'app_guide' ? 'active' : ''}`} onClick={() => { setActiveTab('app_guide'); setMobileSidebarOpen(false); }}>
+                              <Globe size={15} />
+                              <span style={{ fontSize: '13px' }}>App Guide & Tour</span>
+                            </div>
+                          </AccordionCategory>
+
+                          {/* SETTINGS */}
+                          <AccordionCategory id="saas_portal" label="SETTINGS">
+                            <div className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => { setActiveTab('settings'); setMobileSidebarOpen(false); }}>
+                              <UserCheck size={15} />
+                              <span style={{ fontSize: '13px' }}>General Settings</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'roles_permissions' ? 'active' : ''}`} onClick={() => { setActiveTab('roles_permissions'); setMobileSidebarOpen(false); }}>
+                              <UserCheck size={15} />
+                              <span style={{ fontSize: '13px' }}>Roles & Permissions</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'system_dropdowns' ? 'active' : ''}`} onClick={() => { setActiveTab('system_dropdowns'); setMobileSidebarOpen(false); }}>
+                              <Tag size={15} />
+                              <span style={{ fontSize: '13px' }}>System Dropdowns</span>
+                            </div>
+                            <div className={`nav-item ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => { setActiveTab('billing'); setMobileSidebarOpen(false); }}>
+                              <Megaphone size={15} style={{ transform: 'rotate(-20deg)' }} />
+                              <span style={{ fontSize: '13px' }}>Subscription Billing</span>
+                            </div>
+                          </AccordionCategory>
+                        </nav>
                       </div>
                       <div style={{ flex: 1 }} onClick={() => setMobileSidebarOpen(false)} />
                     </div>
                   )}
 
-                  {/* 3. MAIN PAGE CONTENT CONTAINER */}
-                  <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
+                  {/* 3. MAIN PAGE CONTENT CONTAINER (EXACT LAPTOP THEME & FONTS) */}
+                  <div style={{ flex: 1, overflowY: 'auto', padding: '14px', fontFamily: 'var(--font-body, system-ui, sans-serif)' }}>
                     {/* Render specific module pages based on activeTab */}
                     {activeTab === 'inbox' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <div style={{ fontSize: '15px', fontWeight: '800', color: '#0f2b26' }}>💬 WhatsApp Inbox Chats</div>
+                        <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-main, #0f2b26)' }}>💬 WhatsApp Inbox Chats</div>
                         <input type="text" placeholder="🔍 Search contacts or messages..." style={{ width: '100%', padding: '10px 12px', fontSize: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', background: 'white' }} />
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           {[
@@ -16193,16 +16347,16 @@ export default function App() {
                     {activeTab === 'telecalling' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <h3 style={{ fontSize: '15px', fontWeight: '800', margin: 0, color: '#0f2b26' }}>📞 Telecalling & SIM Sync</h3>
+                          <h3 style={{ fontSize: '15px', fontWeight: '800', margin: 0, color: 'var(--text-main, #0f2b26)' }}>📞 Telecalling & SIM Sync</h3>
                           <span style={{ background: '#ecfdf5', color: '#059669', fontSize: '10px', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold' }}>🟢 Service Active</span>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                          <div style={{ background: '#0f2b26', color: 'white', padding: '12px', borderRadius: '12px' }}>
+                          <div style={{ background: 'var(--sidebar-bg, #064e43)', color: 'white', padding: '12px', borderRadius: '12px' }}>
                             <div style={{ fontSize: '10px', opacity: 0.8 }}>TOTAL SIM CALLS</div>
                             <div style={{ fontSize: '22px', fontWeight: '800' }}>{callLogs.length || 12}</div>
                           </div>
-                          <div style={{ background: '#10b981', color: 'white', padding: '12px', borderRadius: '12px' }}>
+                          <div style={{ background: '#0d9488', color: 'white', padding: '12px', borderRadius: '12px' }}>
                             <div style={{ fontSize: '10px', opacity: 0.8 }}>CLOUD SYNCED</div>
                             <div style={{ fontSize: '22px', fontWeight: '800' }}>100%</div>
                           </div>
@@ -16228,22 +16382,22 @@ export default function App() {
 
                     {activeTab !== 'inbox' && activeTab !== 'telecalling' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <div style={{ fontSize: '15px', fontWeight: '800', color: '#0f2b26', textTransform: 'capitalize' }}>
+                        <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-main, #0f2b26)', textTransform: 'capitalize' }}>
                           📱 {activeTab.replace(/_/g, ' ')} Module
                         </div>
                         <div style={{ background: 'white', borderRadius: '14px', padding: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-                          <div style={{ fontWeight: '800', fontSize: '13px', color: '#0f2b26', marginBottom: '4px' }}>
-                            Full Mobile View Active
+                          <div style={{ fontWeight: '800', fontSize: '13px', color: 'var(--sidebar-bg, #064e43)', marginBottom: '4px' }}>
+                            Full Responsive Mobile Layout Active
                           </div>
                           <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 10px 0', lineHeight: '1.4' }}>
-                            All tables, forms, and cards in {activeTab.replace(/_/g, ' ')} are dynamically stacked for mobile touch display.
+                            All forms, statistics, cards, and tables for {activeTab.replace(/_/g, ' ')} are synchronized with identical desktop font styling & color tokens.
                           </p>
                           <div style={{ display: 'flex', gap: '6px' }}>
                             <span style={{ background: '#f1f5f9', color: '#334155', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold' }}>
                               Tab: {activeTab}
                             </span>
                             <span style={{ background: '#ecfdf5', color: '#059669', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold' }}>
-                              ✓ Mobile Ready
+                              ✓ Mobile Theme Matched
                             </span>
                           </div>
                         </div>
@@ -16251,7 +16405,7 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* 4. MOBILE BOTTOM NAVIGATION DOCK (ALWAYS VISIBLE) */}
+                  {/* 4. MOBILE BOTTOM NAVIGATION DOCK (EXACT THEME ALIGNED) */}
                   <div style={{
                     background: '#ffffff',
                     borderTop: '1px solid #e2e8f0',
@@ -16263,8 +16417,8 @@ export default function App() {
                     zIndex: 10
                   }}>
                     <button
-                      onClick={() => setActiveTab('dashboard')}
-                      style={{ background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', color: activeTab === 'dashboard' ? '#0d9488' : '#64748b', cursor: 'pointer' }}
+                      onClick={() => setActiveTab('admin_dashboard')}
+                      style={{ background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', color: activeTab === 'admin_dashboard' ? '#0d9488' : '#64748b', cursor: 'pointer' }}
                     >
                       <span style={{ fontSize: '16px' }}>📊</span>
                       <span style={{ fontSize: '9px', fontWeight: '700' }}>Home</span>
