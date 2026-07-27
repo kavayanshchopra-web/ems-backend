@@ -2030,4 +2030,11 @@ h1, h2, h3, h4, h5, h6 {
     border-radius: 0 !important;
     padding-top: 0 !important;
   }
+  .mobile-simulator-overlay {
+    padding: 0 !important;
+    background: var(--bg-body, #f8fafc) !important;
+  }
+  .mobile-simulator-topbar {
+    display: none !important;
+  }
 }
