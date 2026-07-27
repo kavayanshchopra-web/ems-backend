@@ -147,6 +147,24 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Mobile: allow body to scroll (touch devices need this) */
+@media (max-width: 768px) {
+  html, body {
+    height: auto;
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #root {
+    min-height: 100vh;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
 /* Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
@@ -1475,7 +1493,10 @@ h1, h2, h3, h4, h5, h6 {
   /* Layout */
   .app-layout {
     flex-direction: column;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    min-height: 100vh;
+    height: auto;
   }
 
   /* Sidebar becomes slide-in drawer */
@@ -1495,11 +1516,14 @@ h1, h2, h3, h4, h5, h6 {
     left: 0;
   }
 
-  /* Main content takes full width */
+  /* Main content takes full width — auto height so it scrolls */
   .main-content {
     width: 100%;
-    height: 100vh;
+    height: auto;
+    min-height: calc(100vh - 52px);
     flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Top header */
@@ -1649,5 +1673,265 @@ h1, h2, h3, h4, h5, h6 {
   .nav-item.active:hover {
     background: #0d9488 !important;
     color: white !important;
+  }
+}
+
+/* ==========================================================================
+   📱 TELECALLING PAGE — Mobile Specific Fixes
+   ========================================================================== */
+
+/* Hide scrollbar on sub-tabs bar (keeps swipe gesture) */
+.telecalling-subtabs-bar::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+
+  /* Telecalling outer page — allow full scroll */
+  .telecalling-page-mobile {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Page header: stack left content and buttons vertically */
+  .telecalling-page-mobile .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .telecalling-page-mobile .page-header-right {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Buttons full width on mobile header */
+  .telecalling-page-mobile .page-header-right .btn {
+    flex: 1;
+    min-width: 130px;
+    justify-content: center;
+    font-size: 12px;
+    padding: 9px 12px;
+  }
+
+  /* Sub-tab buttons smaller on mobile */
+  .telecalling-subtabs-bar button {
+    padding: 8px 12px !important;
+    font-size: 11px !important;
+    flex-shrink: 0;
+  }
+
+  /* Sub-tab icons hide text on tiny screens */
+  .telecalling-subtabs-bar button span:not([style]) {
+    display: none;
+  }
+
+  /* Dashboard stat cards → 2 columns on mobile */
+  .telecalling-page-mobile [style*="repeat(auto-fit, minmax(240px"] {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* Stat card padding reduce */
+  .telecalling-page-mobile [style*="borderRadius: '14px'"],
+  .telecalling-page-mobile [style*="borderRadius: '12px'"] {
+    padding: 14px !important;
+  }
+
+  /* Stat card number smaller */
+  .telecalling-page-mobile [style*="fontSize: '36px'"] {
+    font-size: 26px !important;
+  }
+
+  /* Filter bar on recordings tab — stack */
+  .telecalling-page-mobile .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px 14px;
+  }
+
+  .telecalling-page-mobile .filter-bar select,
+  .telecalling-page-mobile .filter-bar input {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Record button full width */
+  .telecalling-page-mobile .filter-bar .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Call logs table — horizontal scroll */
+  .telecalling-page-mobile .std-table-wrap,
+  .telecalling-page-mobile [style*="overflowX: 'auto'"] {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 480px) {
+
+  /* Single column on very small phones */
+  .telecalling-page-mobile [style*="repeat(auto-fit, minmax(240px"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .telecalling-subtabs-bar button {
+    padding: 7px 10px !important;
+    font-size: 10px !important;
+  }
+
+  /* Page title smaller */
+  .telecalling-page-mobile .page-header-title {
+    font-size: 15px !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   MOBILE APP PREVIEW SIMULATOR STYLES
+   ───────────────────────────────────────────────────────────── */
+.mobile-simulator-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(8px);
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.mobile-simulator-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 420px;
+  padding: 10px 16px;
+  background: #0f172a;
+  border-radius: 14px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.mobile-simulator-frame {
+  width: 390px;
+  height: 790px;
+  max-height: 88vh;
+  background: #000000;
+  border-radius: 44px;
+  padding: 10px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 0 10px #1e293b, 0 0 0 12px #334155;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mobile-simulator-notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 130px;
+  height: 26px;
+  background: #000000;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-simulator-camera {
+  width: 8px;
+  height: 8px;
+  background: #1e293b;
+  border-radius: 50%;
+  margin-right: 8px;
+  border: 1px solid #334155;
+}
+
+.mobile-simulator-speaker {
+  width: 40px;
+  height: 4px;
+  background: #334155;
+  border-radius: 4px;
+}
+
+.mobile-simulator-screen {
+  width: 100%;
+  height: 100%;
+  background: var(--bg-body, #f8fafc);
+  border-radius: 34px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   GLOBAL RESPONSIVE MEDIA QUERIES (<768px)
+   ───────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -280px;
+    width: 280px;
+    height: 100vh;
+    z-index: 9999;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.2);
+  }
+
+  .sidebar.mobile-open {
+    left: 0;
+  }
+
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(3px);
+    z-index: 9998;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+    padding: 12px !important;
+    width: 100% !important;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+
+  .modal-container {
+    width: 95% !important;
+    max-height: 90vh !important;
+    margin: 10px !important;
+    padding: 16px !important;
+  }
+
+  button, .btn, input, select {
+    min-height: 42px;
   }
 }

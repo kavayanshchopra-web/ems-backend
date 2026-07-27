@@ -20,6 +20,12 @@ import {
   query, 
   where 
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 
 // User's Firebase Project Configuration (EMS AG)
 const firebaseConfig = {
@@ -36,11 +42,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 export {
   app,
   auth,
   db,
+  storage,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
@@ -55,5 +63,8 @@ export {
   collection,
   getDocs,
   query,
-  where
+  where,
+  ref,
+  uploadBytes,
+  getDownloadURL
 };

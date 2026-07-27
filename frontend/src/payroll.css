@@ -324,3 +324,43 @@
 .reward-title  { font-size: var(--text-md); font-weight: var(--fw-bold); color: var(--text-primary); margin-bottom: var(--space-2); }
 .reward-desc   { font-size: var(--text-xs); color: var(--text-muted); line-height: 1.5; }
 
+/* ─────────────────────────────────────────────────────────────
+   PAYROLL & HR MOBILE RESPONSIVE MEDIA QUERIES (<768px)
+   ───────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .payroll-container, .hr-container {
+    padding: 10px !important;
+  }
+
+  .payroll-stats-grid, .payroll-cards-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .payroll-stat-card {
+    padding: 12px 14px !important;
+  }
+
+  .payroll-table-wrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .payroll-table {
+    min-width: 600px;
+  }
+
+  .payroll-filter-bar {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+
+  .payroll-filter-bar input,
+  .payroll-filter-bar select {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+
