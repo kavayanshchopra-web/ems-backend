@@ -69,18 +69,9 @@ public class PermissionsActivity extends AppCompatActivity {
         tvHeaderTitle.setTextSize(20f);
         tvHeaderTitle.setTypeface(null, Typeface.BOLD);
 
-        TextView btnSkip = new TextView(this);
-        btnSkip.setText("Skip");
-        btnSkip.setTextColor(Color.parseColor("#99F6E4"));
-        btnSkip.setTextSize(14f);
-        btnSkip.setTypeface(null, Typeface.BOLD);
-        btnSkip.setPadding(20, 10, 20, 10);
-        btnSkip.setOnClickListener(v -> finishAndLaunchMain());
-
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
-            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f);
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         header.addView(tvHeaderTitle, titleParams);
-        header.addView(btnSkip);
 
         root.addView(header);
 
@@ -92,9 +83,9 @@ public class PermissionsActivity extends AppCompatActivity {
         bodyLayout.setOrientation(LinearLayout.VERTICAL);
         bodyLayout.setPadding(40, 30, 40, 30);
 
-        // Subtitle banner
+        // Generic Subtitle for all features
         TextView tvSubtitle = new TextView(this);
-        tvSubtitle.setText("Allow permissions to enable automatic SIM call recording and OmniFlow CRM cloud sync.");
+        tvSubtitle.setText("Please grant the required permissions below to ensure seamless operation of all app features.");
         tvSubtitle.setTextColor(Color.parseColor("#475569"));
         tvSubtitle.setTextSize(13f);
         tvSubtitle.setLineSpacing(0, 1.3f);

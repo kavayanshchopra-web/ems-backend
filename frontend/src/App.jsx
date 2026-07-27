@@ -15698,130 +15698,262 @@ export default function App() {
               {simViewMode === 'permissions' ? (
                 <div style={{ background: '#f8fafc', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
                   {/* Header */}
-                  <div style={{ background: 'linear-gradient(135deg, #0f2b26 0%, #0d9488 100%)', padding: '16px 14px 14px 14px', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontSize: '16px', fontWeight: '800' }}>App Permissions</div>
-                      <div style={{ fontSize: '10px', color: '#99f6e4', marginTop: '2px' }}>OmniFlow SIM Recorder Setup</div>
-                    </div>
-                    <button onClick={() => setSimViewMode('app')} style={{ background: 'transparent', border: 'none', color: '#99f6e4', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>
-                      Skip ✕
-                    </button>
+                  <div style={{ background: 'linear-gradient(135deg, #0f2b26 0%, #0d9488 100%)', padding: '18px 16px', color: 'white' }}>
+                    <div style={{ fontSize: '18px', fontWeight: '800', letterSpacing: '-0.3px' }}>App Permissions</div>
                   </div>
 
-                  {/* Subtitle */}
-                  <div style={{ padding: '12px 14px', fontSize: '11px', color: '#475569', lineHeight: '1.4' }}>
-                    Allow essential permissions to enable automatic SIM call recording and cloud CRM sync.
+                  {/* Generic Basic Subtitle for All App Features */}
+                  <div style={{ padding: '14px 16px', fontSize: '11px', color: '#475569', lineHeight: '1.5', fontWeight: '500' }}>
+                    Please grant the required permissions below to ensure seamless operation of all app features.
                   </div>
 
                   {/* Permission List Rows */}
-                  <div style={{ padding: '0 12px 12px 12px', display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+                  <div style={{ padding: '0 14px 14px 14px', display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
 
                     {/* Row 1: Calendar */}
                     <div
                       onClick={() => setSimPermissions(prev => ({ ...prev, calendar: !prev.calendar }))}
-                      style={{ background: 'white', borderRadius: '12px', padding: '10px 12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                      style={{
+                        background: 'white',
+                        borderRadius: '14px',
+                        padding: '12px 14px',
+                        border: simPermissions.calendar ? '1.5px solid #10b981' : '1px solid #e2e8f0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                        transition: 'all 0.2s ease'
+                      }}
                     >
-                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
                         📅
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>Calendar</div>
-                        <div style={{ fontSize: '10px', color: '#64748b' }}>To sync followup events and show timely notifications</div>
+                        <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>Calendar</div>
+                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px', lineHeight: '1.3' }}>To sync followup events and show timely notifications</div>
                       </div>
-                      <span style={{ fontSize: '14px', fontWeight: 'bold', color: simPermissions.calendar ? '#10b981' : '#f59e0b' }}>
-                        {simPermissions.calendar ? '✓' : '⚠️'}
-                      </span>
+                      <div style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        background: simPermissions.calendar ? '#10b981' : 'rgba(245, 158, 11, 0.15)',
+                        color: simPermissions.calendar ? 'white' : '#f59e0b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        fontWeight: '800',
+                        flexShrink: 0
+                      }}>
+                        {simPermissions.calendar ? '✓' : '!'}
+                      </div>
                     </div>
 
                     {/* Row 2: Location */}
                     <div
                       onClick={() => setSimPermissions(prev => ({ ...prev, location: !prev.location }))}
-                      style={{ background: 'white', borderRadius: '12px', padding: '10px 12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                      style={{
+                        background: 'white',
+                        borderRadius: '14px',
+                        padding: '12px 14px',
+                        border: simPermissions.location ? '1.5px solid #10b981' : '1px solid #e2e8f0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                        transition: 'all 0.2s ease'
+                      }}
                     >
-                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
                         📍
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>Location</div>
-                        <div style={{ fontSize: '10px', color: '#64748b' }}>To tag location data with call interactions</div>
+                        <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>Location</div>
+                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px', lineHeight: '1.3' }}>To tag location data with call interactions and field visits</div>
                       </div>
-                      <span style={{ fontSize: '14px', fontWeight: 'bold', color: simPermissions.location ? '#10b981' : '#f59e0b' }}>
-                        {simPermissions.location ? '✓' : '⚠️'}
-                      </span>
+                      <div style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        background: simPermissions.location ? '#10b981' : 'rgba(245, 158, 11, 0.15)',
+                        color: simPermissions.location ? 'white' : '#f59e0b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        fontWeight: '800',
+                        flexShrink: 0
+                      }}>
+                        {simPermissions.location ? '✓' : '!'}
+                      </div>
                     </div>
 
                     {/* Row 3: Notifications */}
                     <div
                       onClick={() => setSimPermissions(prev => ({ ...prev, notifications: !prev.notifications }))}
-                      style={{ background: 'white', borderRadius: '12px', padding: '10px 12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                      style={{
+                        background: 'white',
+                        borderRadius: '14px',
+                        padding: '12px 14px',
+                        border: simPermissions.notifications ? '1.5px solid #10b981' : '1px solid #e2e8f0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                        transition: 'all 0.2s ease'
+                      }}
                     >
-                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
                         🔔
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>Notifications</div>
-                        <div style={{ fontSize: '10px', color: '#64748b' }}>To show real-time call recording service status</div>
+                        <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>Notifications</div>
+                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px', lineHeight: '1.3' }}>To show real-time app and service status alerts</div>
                       </div>
-                      <span style={{ fontSize: '14px', fontWeight: 'bold', color: simPermissions.notifications ? '#10b981' : '#f59e0b' }}>
-                        {simPermissions.notifications ? '✓' : '⚠️'}
-                      </span>
+                      <div style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        background: simPermissions.notifications ? '#10b981' : 'rgba(245, 158, 11, 0.15)',
+                        color: simPermissions.notifications ? 'white' : '#f59e0b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        fontWeight: '800',
+                        flexShrink: 0
+                      }}>
+                        {simPermissions.notifications ? '✓' : '!'}
+                      </div>
                     </div>
 
                     {/* Row 4: Battery */}
                     <div
                       onClick={() => setSimPermissions(prev => ({ ...prev, battery: !prev.battery }))}
-                      style={{ background: 'white', borderRadius: '12px', padding: '10px 12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                      style={{
+                        background: 'white',
+                        borderRadius: '14px',
+                        padding: '12px 14px',
+                        border: simPermissions.battery ? '1.5px solid #10b981' : '1px solid #e2e8f0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                        transition: 'all 0.2s ease'
+                      }}
                     >
-                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
                         🔋
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>Battery Exemption</div>
-                        <div style={{ fontSize: '10px', color: '#64748b' }}>To assist OmniFlow in running in background during calls</div>
+                        <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>Battery Exemption</div>
+                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px', lineHeight: '1.3' }}>To help app run seamlessly in background</div>
                       </div>
-                      <span style={{ fontSize: '14px', fontWeight: 'bold', color: simPermissions.battery ? '#10b981' : '#f59e0b' }}>
-                        {simPermissions.battery ? '✓' : '⚠️'}
-                      </span>
+                      <div style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        background: simPermissions.battery ? '#10b981' : 'rgba(245, 158, 11, 0.15)',
+                        color: simPermissions.battery ? 'white' : '#f59e0b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        fontWeight: '800',
+                        flexShrink: 0
+                      }}>
+                        {simPermissions.battery ? '✓' : '!'}
+                      </div>
                     </div>
 
                     {/* Row 5: Phone */}
                     <div
                       onClick={() => setSimPermissions(prev => ({ ...prev, phone: !prev.phone }))}
-                      style={{ background: 'white', borderRadius: '12px', padding: '10px 12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                      style={{
+                        background: 'white',
+                        borderRadius: '14px',
+                        padding: '12px 14px',
+                        border: simPermissions.phone ? '1.5px solid #10b981' : '1px solid #e2e8f0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                        transition: 'all 0.2s ease'
+                      }}
                     >
-                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
                         📞
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>Phone & Call Log</div>
-                        <div style={{ fontSize: '10px', color: '#64748b' }}>To track and update your call logs in OmniFlow CRM</div>
+                        <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>Phone & Call Log</div>
+                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px', lineHeight: '1.3' }}>To track and update your call logs in CRM</div>
                       </div>
-                      <span style={{ fontSize: '14px', fontWeight: 'bold', color: simPermissions.phone ? '#10b981' : '#f59e0b' }}>
-                        {simPermissions.phone ? '✓' : '⚠️'}
-                      </span>
+                      <div style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        background: simPermissions.phone ? '#10b981' : 'rgba(245, 158, 11, 0.15)',
+                        color: simPermissions.phone ? 'white' : '#f59e0b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        fontWeight: '800',
+                        flexShrink: 0
+                      }}>
+                        {simPermissions.phone ? '✓' : '!'}
+                      </div>
                     </div>
 
                     {/* Row 6: Overlay */}
                     <div
                       onClick={() => setSimPermissions(prev => ({ ...prev, overlay: !prev.overlay }))}
-                      style={{ background: 'white', borderRadius: '12px', padding: '10px 12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                      style={{
+                        background: 'white',
+                        borderRadius: '14px',
+                        padding: '12px 14px',
+                        border: simPermissions.overlay ? '1.5px solid #10b981' : '1px solid #e2e8f0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                        transition: 'all 0.2s ease'
+                      }}
                     >
-                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
                         🪟
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>Display Overlay</div>
-                        <div style={{ fontSize: '10px', color: '#64748b' }}>To show caller ID & call timer for logged calls</div>
+                        <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>Display Overlay</div>
+                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px', lineHeight: '1.3' }}>To show caller ID & call widgets for active calls</div>
                       </div>
-                      <span style={{ fontSize: '14px', fontWeight: 'bold', color: simPermissions.overlay ? '#10b981' : '#f59e0b' }}>
-                        {simPermissions.overlay ? '✓' : '⚠️'}
-                      </span>
+                      <div style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        background: simPermissions.overlay ? '#10b981' : 'rgba(245, 158, 11, 0.15)',
+                        color: simPermissions.overlay ? 'white' : '#f59e0b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        fontWeight: '800',
+                        flexShrink: 0
+                      }}>
+                        {simPermissions.overlay ? '✓' : '!'}
+                      </div>
                     </div>
 
                   </div>
 
                   {/* Bottom Action Button */}
-                  <div style={{ padding: '10px 12px', background: 'white', borderTop: '1px solid #e2e8f0' }}>
+                  <div style={{ padding: '12px 14px', background: 'white', borderTop: '1px solid #e2e8f0' }}>
                     <button
                       onClick={() => {
                         const all = Object.values(simPermissions).every(Boolean);
@@ -15837,15 +15969,16 @@ export default function App() {
                         background: Object.values(simPermissions).every(Boolean) ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #0d9488 0%, #0f2b26 100%)',
                         color: 'white',
                         border: 'none',
-                        borderRadius: '10px',
-                        padding: '12px',
+                        borderRadius: '12px',
+                        padding: '14px',
                         fontWeight: '800',
-                        fontSize: '13px',
+                        fontSize: '14px',
                         cursor: 'pointer',
-                        boxShadow: '0 4px 12px rgba(13, 148, 136, 0.25)'
+                        boxShadow: '0 4px 14px rgba(13, 148, 136, 0.3)',
+                        transition: 'all 0.2s ease'
                       }}
                     >
-                      {Object.values(simPermissions).every(Boolean) ? '🚀 Launch OmniFlow Telecalling' : 'Request Permissions'}
+                      {Object.values(simPermissions).every(Boolean) ? '✓ All Permissions Granted — Launch App' : 'Grant Permissions'}
                     </button>
                   </div>
                 </div>
