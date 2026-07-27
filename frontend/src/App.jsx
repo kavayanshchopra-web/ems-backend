@@ -15671,29 +15671,6 @@ export default function App() {
               <div className="mobile-simulator-speaker" />
             </div>
             <div className="mobile-simulator-screen telecalling-page-mobile" style={{ paddingTop: '28px' }}>
-              {/* Native header simulation bar inside simulator screen */}
-              {simViewMode === 'app' && (
-                <div style={{
-                  background: '#0f172a',
-                  padding: '10px 14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  color: 'white',
-                  fontSize: '11px',
-                  borderBottom: '1px solid #1e293b'
-                }}>
-                  <div>
-                    <div style={{ fontWeight: 'bold', color: 'white', fontSize: '12px' }}>OmniFlow Telecalling</div>
-                    <div style={{ color: '#10b981', fontSize: '10px', fontWeight: 'bold' }}>🟢 Folder Linked: Call</div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <span style={{ background: '#3b82f6', color: 'white', padding: '3px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>📁 Link Folder</span>
-                    <span style={{ background: '#10b981', color: 'white', padding: '3px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>Active</span>
-                  </div>
-                </div>
-              )}
-
               {/* RENDER ONBOARDING PERMISSIONS VIEW IN SIMULATOR */}
               {simViewMode === 'permissions' ? (
                 <div style={{
