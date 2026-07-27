@@ -9317,21 +9317,6 @@ export default function App() {
         {activeTab === 'superadmin_plans' && authUser?.role === 'superadmin' && (
           <div className="superadmin-plans-panel glass-panel" style={{ padding: '30px', margin: '16px', overflowY: 'auto', flexGrow: 1, color: '#0f2b26' }}>
 
-            {/* Super Admin Control Panel Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
-              <div style={{ padding: '10px', borderRadius: '12px', background: '#fef2f2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Shield size={24} />
-              </div>
-              <div>
-                <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#0f2b26', margin: 0, fontFamily: 'var(--font-header)' }}>
-                  Super Admin Control Panel
-                </h2>
-                <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
-                  Absolute system control, user management, and white-labeling.
-                </p>
-              </div>
-            </div>
-
             {/* Metric KPI Cards Row (7 Metric Cards matching screenshot) */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '14px', margin: '24px 0' }}>
               <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
@@ -16508,8 +16493,98 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* 6. GENERAL FALLBACK MODULE (CLEAN & NO GENERIC PLACEHOLDER BOX) */}
-                    {activeTab !== 'inbox' && activeTab !== 'telecalling' && activeTab !== 'admin_dashboard' && activeTab !== 'dashboard' && activeTab !== 'gps_attendance' && activeTab !== 'employees' && activeTab !== 'tasks' && (
+                    {/* 6. SUPER ADMIN PANEL MODULE (MOBILE OPTIMIZED & VIBRANT COLORFUL) */}
+                    {(activeTab === 'superadmin_plans' || activeTab === 'super_admin') && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        
+                        {/* Vibrant KPI Grid Cards */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                          <div style={{ background: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)', padding: '10px 8px', borderRadius: '12px', border: '1px solid #7dd3fc', textAlign: 'center' }}>
+                            <div style={{ fontSize: '10px', fontWeight: '800', color: '#0369a1' }}>Companies</div>
+                            <div style={{ fontSize: '20px', fontWeight: '900', color: '#0284c7', marginTop: '2px' }}>{superadminMetrics.companies || 1}</div>
+                          </div>
+                          <div style={{ background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)', padding: '10px 8px', borderRadius: '12px', border: '1px solid #86efac', textAlign: 'center' }}>
+                            <div style={{ fontSize: '10px', fontWeight: '800', color: '#15803d' }}>Branches</div>
+                            <div style={{ fontSize: '20px', fontWeight: '900', color: '#16a34a', marginTop: '2px' }}>{superadminMetrics.branches || 1}</div>
+                          </div>
+                          <div style={{ background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', padding: '10px 8px', borderRadius: '12px', border: '1px solid #fcd34d', textAlign: 'center' }}>
+                            <div style={{ fontSize: '10px', fontWeight: '800', color: '#b45309' }}>Managers</div>
+                            <div style={{ fontSize: '20px', fontWeight: '900', color: '#d97706', marginTop: '2px' }}>{superadminMetrics.managers || 1}</div>
+                          </div>
+                          <div style={{ background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)', padding: '10px 8px', borderRadius: '12px', border: '1px solid #d8b4fe', textAlign: 'center' }}>
+                            <div style={{ fontSize: '10px', fontWeight: '800', color: '#6b21a8' }}>Employees</div>
+                            <div style={{ fontSize: '20px', fontWeight: '900', color: '#9333ea', marginTop: '2px' }}>{superadminMetrics.employees || 5}</div>
+                          </div>
+                          <div style={{ background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)', padding: '10px 8px', borderRadius: '12px', border: '1px solid #fca5a5', textAlign: 'center' }}>
+                            <div style={{ fontSize: '10px', fontWeight: '800', color: '#b91c1c' }}>Super Admins</div>
+                            <div style={{ fontSize: '20px', fontWeight: '900', color: '#ef4444', marginTop: '2px' }}>{superadminMetrics.superAdmins || 2}</div>
+                          </div>
+                          <div style={{ background: 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)', padding: '10px 8px', borderRadius: '12px', border: '1px solid #6ee7b7', textAlign: 'center' }}>
+                            <div style={{ fontSize: '10px', fontWeight: '800', color: '#047857' }}>Total Users</div>
+                            <div style={{ fontSize: '20px', fontWeight: '900', color: '#059669', marginTop: '2px' }}>{superadminMetrics.totalUsers || 8}</div>
+                          </div>
+                        </div>
+
+                        {/* Mobile Horizontal Sub-Tab Navigation */}
+                        <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
+                          {['System Users', 'Manage Companies', 'Manage Plans', 'Audit Logs', 'System Tools'].map((tabName, idx) => (
+                            <button
+                              key={idx}
+                              style={{
+                                whiteSpace: 'nowrap',
+                                padding: '6px 12px',
+                                borderRadius: '20px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                border: idx === 0 ? 'none' : '1px solid #cbd5e1',
+                                background: idx === 0 ? 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)' : '#ffffff',
+                                color: idx === 0 ? '#ffffff' : '#475569',
+                                boxShadow: idx === 0 ? '0 2px 6px rgba(13, 148, 136, 0.3)' : 'none',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {tabName}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Search & Action Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                          <input
+                            type="text"
+                            placeholder="🔍 Search system users..."
+                            style={{ flex: 1, padding: '8px 12px', fontSize: '11px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#ffffff' }}
+                          />
+                          <button style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                            + Add User
+                          </button>
+                        </div>
+
+                        {/* Vibrant System Users Mobile Cards */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {[
+                            { name: 'Kavayansh Chopra', email: 'kavayanshchopra@gmail.com', role: 'Super Admin', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
+                            { name: 'OmniFlow Global Admin', email: 'admin@omniflow.com', role: 'Super Admin', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' }
+                          ].map((user, idx) => (
+                            <div key={idx} style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.03)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div>
+                                <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>👤 {user.name}</div>
+                                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>✉️ {user.email}</div>
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                <span style={{ background: user.bg, color: user.color, border: `1px solid ${user.border}`, fontSize: '10px', padding: '3px 8px', borderRadius: '12px', fontWeight: 'bold' }}>
+                                  👑 {user.role}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                      </div>
+                    )}
+
+                    {/* 7. GENERAL FALLBACK MODULE (CLEAN & NO GENERIC PLACEHOLDER BOX) */}
+                    {activeTab !== 'inbox' && activeTab !== 'telecalling' && activeTab !== 'admin_dashboard' && activeTab !== 'dashboard' && activeTab !== 'gps_attendance' && activeTab !== 'employees' && activeTab !== 'tasks' && activeTab !== 'superadmin_plans' && activeTab !== 'super_admin' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         <div style={{ background: 'white', borderRadius: '12px', padding: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
                           <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f2b26', marginBottom: '6px' }}>
