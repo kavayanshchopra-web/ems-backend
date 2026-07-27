@@ -16016,15 +16016,15 @@ export default function App() {
               {simViewMode === 'app' && (
                 <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', overflow: 'hidden', background: '#f8fafc' }}>
 
-                  {/* 1. TOP MOBILE NAVBAR (EXACT DESKTOP SIDEBAR THEME) */}
+                  {/* 1. TOP MOBILE NAVBAR (SLEEK, COMPACT, SLIM PADDING) */}
                   <div style={{
                     background: 'var(--sidebar-bg, #064e43)',
-                    padding: '12px 14px',
+                    padding: '6px 12px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     color: 'white',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
                     flexShrink: 0,
                     zIndex: 10,
                     borderBottom: '1px solid rgba(255,255,255,0.08)'
@@ -16036,13 +16036,13 @@ export default function App() {
                         background: 'rgba(255,255,255,0.1)',
                         border: 'none',
                         color: '#14d2cb',
-                        width: '34px',
-                        height: '34px',
-                        borderRadius: '8px',
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '6px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '18px',
+                        fontSize: '15px',
                         cursor: 'pointer',
                         fontWeight: 'bold'
                       }}
@@ -16050,32 +16050,18 @@ export default function App() {
                       ☰
                     </button>
 
-                    {/* Center: App Brand (Exact Laptop Logo) */}
+                    {/* Center: App Brand (Sleek Logo Title) */}
                     <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '15px', fontWeight: '900', color: '#14d2cb', letterSpacing: '1.2px', textTransform: 'uppercase' }}>
+                      <div style={{ fontSize: '13px', fontWeight: '900', color: '#14d2cb', letterSpacing: '1px', textTransform: 'uppercase', lineHeight: '1.1' }}>
                         OmniFlow EMS
                       </div>
-                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', fontWeight: '600' }}>
+                      <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.4px' }}>
                         {activeTab.replace(/_/g, ' ')}
                       </div>
                     </div>
 
-                    {/* Right: Onboarding Permissions Quick Toggle */}
-                    <button
-                      onClick={() => setSimViewMode('permissions')}
-                      style={{
-                        background: 'rgba(20,210,203,0.15)',
-                        border: '1px solid rgba(20,210,203,0.3)',
-                        color: '#14d2cb',
-                        padding: '4px 8px',
-                        borderRadius: '6px',
-                        fontSize: '10px',
-                        fontWeight: '700',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      🔐 Permissions
-                    </button>
+                    {/* Right: Balance Spacer for Perfect Center Alignment */}
+                    <div style={{ width: '28px' }} />
                   </div>
 
                   {/* 2. MOBILE SLIDING NAVIGATION DRAWER OVERLAY (EXACT ACCORDION SIDEBAR) */}
@@ -16428,25 +16414,108 @@ export default function App() {
                       </div>
                     )}
 
-                    {activeTab !== 'inbox' && activeTab !== 'telecalling' && (
+                    {/* 3. GPS ATTENDANCE & LIVE TRACKING MODULE */}
+                    {activeTab === 'gps_attendance' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-main, #0f2b26)', textTransform: 'capitalize' }}>
-                          📱 {activeTab.replace(/_/g, ' ')} Module
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <h3 style={{ fontSize: '15px', fontWeight: '800', margin: 0, color: 'var(--sidebar-bg, #064e43)' }}>📍 GPS Live Tracking & Attendance</h3>
+                          <span style={{ background: '#ecfdf5', color: '#059669', fontSize: '10px', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold' }}>🟢 GPS Active</span>
                         </div>
-                        <div style={{ background: 'white', borderRadius: '14px', padding: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-                          <div style={{ fontWeight: '800', fontSize: '13px', color: 'var(--sidebar-bg, #064e43)', marginBottom: '4px' }}>
-                            Full Responsive Mobile Layout Active
+
+                        {/* Location Clock-in Status Card */}
+                        <div style={{ background: 'white', borderRadius: '12px', padding: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
+                          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700' }}>CURRENT GEOFENCE LOCATION</div>
+                          <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f2b26', marginTop: '2px' }}>🏢 Connaught Place Office Zone</div>
+                          <div style={{ fontSize: '10px', color: '#059669', marginTop: '4px', fontWeight: '600' }}>✓ Verified Inside Authorized Perimeter (Radius: 200m)</div>
+                          
+                          <button style={{ width: '100%', marginTop: '12px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', borderRadius: '10px', padding: '10px', fontWeight: '800', fontSize: '12px', cursor: 'pointer', boxShadow: '0 3px 10px rgba(13,148,136,0.3)' }}>
+                            ⏱️ Clock-In GPS Shift Attendance
+                          </button>
+                        </div>
+
+                        {/* Staff Location Status Grid */}
+                        <div style={{ background: 'white', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26', marginBottom: '8px' }}>📡 Live Field Staff Locations</div>
+                          {[
+                            { name: 'Rahul Sharma (Field Agent)', status: 'In Field (Rohini)', time: '2 mins ago' },
+                            { name: 'Priya Verma (Sales Exec)', status: 'Office HQ (CP)', time: 'Just now' },
+                            { name: 'Amit Kumar (Telecaller)', status: 'On-Call (Noida)', time: '10 mins ago' }
+                          ].map((staff, idx) => (
+                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: idx < 2 ? '1px solid #f1f5f9' : 'none', fontSize: '11px' }}>
+                              <div>
+                                <div style={{ fontWeight: '700', color: '#1e293b' }}>{staff.name}</div>
+                                <div style={{ fontSize: '10px', color: '#0d9488', fontWeight: '600' }}>📍 {staff.status}</div>
+                              </div>
+                              <span style={{ fontSize: '10px', color: '#94a3b8' }}>{staff.time}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 4. EMPLOYEES DIRECTORY MODULE */}
+                    {activeTab === 'employees' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <h3 style={{ fontSize: '15px', fontWeight: '800', margin: 0, color: 'var(--sidebar-bg, #064e43)' }}>👥 Employee Directory</h3>
+                          <span style={{ background: '#f0fdf4', color: '#166534', fontSize: '10px', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold' }}>24 Total Staff</span>
+                        </div>
+                        {[
+                          { name: 'Rahul Sharma', role: 'Field Telecaller', dept: 'Sales', status: 'Active' },
+                          { name: 'Priya Verma', role: 'CRM Manager', dept: 'Operations', status: 'Active' },
+                          { name: 'Amit Kumar', role: 'Support Lead', dept: 'Customer Success', status: 'Active' }
+                        ].map((emp, i) => (
+                          <div key={i} style={{ background: 'white', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#064e43', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '13px' }}>
+                                {emp.name[0]}
+                              </div>
+                              <div>
+                                <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f2b26' }}>{emp.name}</div>
+                                <div style={{ fontSize: '10px', color: '#64748b' }}>{emp.role} • {emp.dept}</div>
+                              </div>
+                            </div>
+                            <span style={{ background: '#ecfdf5', color: '#059669', fontSize: '10px', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold' }}>{emp.status}</span>
                           </div>
-                          <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 10px 0', lineHeight: '1.4' }}>
-                            All forms, statistics, cards, and tables for {activeTab.replace(/_/g, ' ')} are synchronized with identical desktop font styling & color tokens.
-                          </p>
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            <span style={{ background: '#f1f5f9', color: '#334155', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold' }}>
-                              Tab: {activeTab}
-                            </span>
-                            <span style={{ background: '#ecfdf5', color: '#059669', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold' }}>
-                              ✓ Mobile Theme Matched
-                            </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 5. TASKS MODULE */}
+                    {activeTab === 'tasks' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <h3 style={{ fontSize: '15px', fontWeight: '800', margin: 0, color: 'var(--sidebar-bg, #064e43)' }}>📋 Tasks & Work Orders</h3>
+                          <span style={{ background: '#fef3c7', color: '#d97706', fontSize: '10px', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold' }}>8 Active</span>
+                        </div>
+                        {[
+                          { title: 'Follow-up with Delhi Client leads', priority: 'High', due: 'Today, 5:00 PM' },
+                          { title: 'Sync SIM call recording logs to CRM', priority: 'Urgent', due: 'Completed' },
+                          { title: 'Weekly sales target review report', priority: 'Normal', due: 'Tomorrow' }
+                        ].map((t, idx) => (
+                          <div key={idx} style={{ background: 'white', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                            <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f2b26' }}>{t.title}</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '10px' }}>
+                              <span style={{ color: t.priority === 'Urgent' ? '#ef4444' : '#0d9488', fontWeight: 'bold' }}>🔥 {t.priority}</span>
+                              <span style={{ color: '#64748b' }}>⏰ {t.due}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 6. GENERAL FALLBACK MODULE (CLEAN & NO GENERIC PLACEHOLDER BOX) */}
+                    {activeTab !== 'inbox' && activeTab !== 'telecalling' && activeTab !== 'admin_dashboard' && activeTab !== 'dashboard' && activeTab !== 'gps_attendance' && activeTab !== 'employees' && activeTab !== 'tasks' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--sidebar-bg, #064e43)', textTransform: 'capitalize' }}>
+                          📱 {activeTab.replace(/_/g, ' ')}
+                        </div>
+                        <div style={{ background: 'white', borderRadius: '12px', padding: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f2b26', marginBottom: '6px' }}>
+                            Module Overview & Settings
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748b', lineHeight: '1.4' }}>
+                            Active configuration and operational records for {activeTab.replace(/_/g, ' ')} are synced in real time across web and mobile views.
                           </div>
                         </div>
                       </div>
