@@ -10873,7 +10873,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </div>
 
             {/* Attendance Chart & Activities */}
-            <div style={{ padding: '0 var(--space-6) var(--space-6)', display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 'var(--space-5)' }}>
+            <div className="dashboard-split-row">
               <div className="payroll-table-card">
                 <div className="payroll-table-toolbar">
                   <span className="payroll-table-title">{t('weeklyAttendanceStats')}</span>

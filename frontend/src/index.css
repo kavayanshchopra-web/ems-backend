@@ -1477,6 +1477,13 @@ h1, h2, h3, h4, h5, h6 {
   display: block;
 }
 
+.dashboard-split-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-5);
+  padding: 0 var(--space-6) var(--space-6);
+}
+
 /* ── Tablet (≤768px) ─────────────────────────────────────────────────── */
 @media (max-width: 768px) {
 
@@ -2036,5 +2043,10 @@ h1, h2, h3, h4, h5, h6 {
   }
   .mobile-simulator-topbar {
     display: none !important;
+  }
+  .dashboard-split-row {
+    grid-template-columns: 1fr !important;
+    padding: 0 var(--space-4) var(--space-4) !important;
+    gap: var(--space-4) !important;
   }
 }
