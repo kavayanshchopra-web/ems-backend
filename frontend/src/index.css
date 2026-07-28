@@ -1484,6 +1484,20 @@ h1, h2, h3, h4, h5, h6 {
   padding: 0 var(--space-6) var(--space-6);
 }
 
+.superadmin-subtabs-row {
+  overflow-x: auto !important;
+  white-space: nowrap !important;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  scrollbar-width: none !important;
+}
+.superadmin-subtabs-row::-webkit-scrollbar {
+  display: none !important;
+}
+.superadmin-subtabs-row button {
+  flex: 0 0 auto !important;
+}
+
 /* ── Tablet (≤768px) ─────────────────────────────────────────────────── */
 @media (max-width: 768px) {
 
@@ -1990,23 +2004,6 @@ h1, h2, h3, h4, h5, h6 {
     gap: 16px !important;
   }
 
-  /* Responsive Super Admin Subtabs */
-  .superadmin-subtabs-row {
-    overflow-x: auto !important;
-    white-space: nowrap !important;
-    background: #e2e8f0 !important;
-    padding: 6px !important;
-    scrollbar-width: none !important;
-  }
-  .superadmin-subtabs-row::-webkit-scrollbar {
-    display: none !important;
-  }
-  .superadmin-subtabs-row button {
-    flex: 0 0 auto !important;
-    padding: 8px 14px !important;
-    font-size: 12px !important;
-  }
-
   /* Global mobile panel padding & margin override */
   .glass-panel, 
   .superadmin-plans-panel, 
@@ -2049,4 +2046,21 @@ h1, h2, h3, h4, h5, h6 {
     padding: 0 var(--space-4) var(--space-4) !important;
     gap: var(--space-4) !important;
   }
+  .superadmin-grid-columns {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+  .superadmin-tab-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+}
+
+.superadmin-tab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 16px;
 }

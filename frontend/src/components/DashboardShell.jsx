@@ -8959,30 +8959,30 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </div>
 
             {/* Sub-Tabs Bar (5 Sub-Tabs matching reference screenshot) */}
-            <div className="superadmin-subtabs-row" style={{ background: '#e2e8f0', padding: '4px', borderRadius: '12px', display: 'flex', gap: '4px', marginBottom: '24px' }}>
+            <div className="superadmin-subtabs-row no-scrollbar" style={{ background: '#e2e8f0', padding: '4px', borderRadius: '12px', display: 'flex', gap: '4px', marginBottom: '24px', overflowX: 'auto', flexWrap: 'nowrap', WebkitOverflowScrolling: 'touch', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
               <button
                 onClick={() => setSuperadminSubTab('system_users')}
-                style={{ flex: 1, padding: '10px 16px', borderRadius: '8px', border: 'none', background: superadminSubTab === 'system_users' ? 'white' : 'transparent', fontWeight: '700', fontSize: '13px', color: superadminSubTab === 'system_users' ? '#0f2b26' : '#64748b', cursor: 'pointer', boxShadow: superadminSubTab === 'system_users' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none' }}>
+                style={{ flexShrink: 0, flexGrow: 1, whiteSpace: 'nowrap', padding: '10px 16px', borderRadius: '8px', border: 'none', background: superadminSubTab === 'system_users' ? 'white' : 'transparent', fontWeight: '700', fontSize: '13px', color: superadminSubTab === 'system_users' ? '#0f2b26' : '#64748b', cursor: 'pointer', boxShadow: superadminSubTab === 'system_users' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none' }}>
                 System Users
               </button>
               <button
                 onClick={() => setSuperadminSubTab('manage_companies')}
-                style={{ flex: 1, padding: '10px 16px', borderRadius: '8px', border: 'none', background: superadminSubTab === 'manage_companies' ? 'white' : 'transparent', fontWeight: '700', fontSize: '13px', color: superadminSubTab === 'manage_companies' ? '#0f2b26' : '#64748b', cursor: 'pointer', boxShadow: superadminSubTab === 'manage_companies' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none' }}>
+                style={{ flexShrink: 0, flexGrow: 1, whiteSpace: 'nowrap', padding: '10px 16px', borderRadius: '8px', border: 'none', background: superadminSubTab === 'manage_companies' ? 'white' : 'transparent', fontWeight: '700', fontSize: '13px', color: superadminSubTab === 'manage_companies' ? '#0f2b26' : '#64748b', cursor: 'pointer', boxShadow: superadminSubTab === 'manage_companies' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none' }}>
                 Manage Companies
               </button>
               <button
                 onClick={() => setSuperadminSubTab('manage_plans')}
-                style={{ flex: 1, padding: '10px 16px', borderRadius: '8px', border: 'none', background: superadminSubTab === 'manage_plans' ? 'white' : 'transparent', fontWeight: '700', fontSize: '13px', color: superadminSubTab === 'manage_plans' ? '#0f2b26' : '#64748b', cursor: 'pointer', boxShadow: superadminSubTab === 'manage_plans' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none' }}>
+                style={{ flexShrink: 0, flexGrow: 1, whiteSpace: 'nowrap', padding: '10px 16px', borderRadius: '8px', border: 'none', background: superadminSubTab === 'manage_plans' ? 'white' : 'transparent', fontWeight: '700', fontSize: '13px', color: superadminSubTab === 'manage_plans' ? '#0f2b26' : '#64748b', cursor: 'pointer', boxShadow: superadminSubTab === 'manage_plans' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none' }}>
                 Manage Plans
               </button>
               <button
                 onClick={() => setSuperadminSubTab('audit_logs')}
-                style={{ flex: 1, padding: '10px 16px', borderRadius: '8px', border: 'none', background: superadminSubTab === 'audit_logs' ? 'white' : 'transparent', fontWeight: '700', fontSize: '13px', color: superadminSubTab === 'audit_logs' ? '#0f2b26' : '#64748b', cursor: 'pointer', boxShadow: superadminSubTab === 'audit_logs' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none' }}>
+                style={{ flexShrink: 0, flexGrow: 1, whiteSpace: 'nowrap', padding: '10px 16px', borderRadius: '8px', border: 'none', background: superadminSubTab === 'audit_logs' ? 'white' : 'transparent', fontWeight: '700', fontSize: '13px', color: superadminSubTab === 'audit_logs' ? '#0f2b26' : '#64748b', cursor: 'pointer', boxShadow: superadminSubTab === 'audit_logs' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none' }}>
                 Audit Logs
               </button>
               <button
                 onClick={() => setSuperadminSubTab('system_tools')}
-                style={{ flex: 1, padding: '10px 16px', borderRadius: '8px', border: 'none', background: superadminSubTab === 'system_tools' ? 'white' : 'transparent', fontWeight: '700', fontSize: '13px', color: superadminSubTab === 'system_tools' ? '#0f2b26' : '#64748b', cursor: 'pointer', boxShadow: superadminSubTab === 'system_tools' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none' }}>
+                style={{ flexShrink: 0, flexGrow: 1, whiteSpace: 'nowrap', padding: '10px 16px', borderRadius: '8px', border: 'none', background: superadminSubTab === 'system_tools' ? 'white' : 'transparent', fontWeight: '700', fontSize: '13px', color: superadminSubTab === 'system_tools' ? '#0f2b26' : '#64748b', cursor: 'pointer', boxShadow: superadminSubTab === 'system_tools' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none' }}>
                 System Tools
               </button>
             </div>
@@ -9137,7 +9137,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     {adminPlansError}
                   </div>
                 )}
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '30px', alignItems: 'start' }}>
+                <div className="superadmin-grid-columns" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '30px', alignItems: 'start' }}>
                   {/* Left Side: Plans List & Add/Edit Form */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
@@ -9476,7 +9476,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             {/* Sub-Tab 4: Audit Logs */}
             {superadminSubTab === 'audit_logs' && (
               <div style={{ background: 'white', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <div className="superadmin-tab-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '16px' }}>
                   <div>
                     <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <Clock size={20} style={{ color: '#0d9488' }} /> System Audit Logs Registry
