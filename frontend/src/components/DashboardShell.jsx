@@ -6830,7 +6830,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     </div>
 
                     {/* 2X2 ANALYTICS CARDS GRID (VOXBAY UI EXACT MATCH) */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(440px, 1fr))', gap: '20px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 440px), 1fr))', gap: '20px' }}>
                       {/* CARD 1: OUTGOING CALL STATUS BREAKDOWN (DONUT + STATS) */}
                       <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #cbd5e1', padding: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
@@ -7566,7 +7566,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: '20px' }}>
                     {callLogs.filter(c => c.type === 'INCOMING' || c.type === 'OUTGOING').slice(0, 2).map((log, idx) => (
                       <div key={log.id || idx} style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #cbd5e1', padding: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.04)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
@@ -7654,7 +7654,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '24px', alignItems: 'start' }}>
+                    <div className="ivr-flow-grid">
                       {/* LEFT COLUMN: VISUAL STEP-BY-STEP FLOW NODES */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         
@@ -8923,75 +8923,116 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           <div className="superadmin-plans-panel glass-panel" style={{ padding: '20px 24px', margin: '12px', overflowY: 'auto', flexGrow: 1, color: '#0f2b26' }}>
 
             {/* Metric KPI Cards Row (7 Vibrant Metric Cards) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '12px', margin: '0 0 20px 0' }}>
-              <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '14px', padding: '14px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '11px', fontWeight: '800', color: '#0284c7', marginBottom: '4px' }}>Companies</div>
-                <div style={{ fontSize: '24px', fontWeight: '900', color: '#0369a1' }}>{superadminMetrics.companies}</div>
+            {/* Metric KPI Cards Row (7 Premium Metric Cards with icons and hover effects) */}
+            <div className="superadmin-metrics-row">
+              <div className="superadmin-metric-card metric-companies">
+                <div className="superadmin-metric-info">
+                  <span className="superadmin-metric-title">Companies</span>
+                  <span className="superadmin-metric-value">{superadminMetrics.companies}</span>
+                </div>
+                <div className="superadmin-metric-icon-box">
+                  <Briefcase size={20} />
+                </div>
               </div>
 
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '14px', padding: '14px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '11px', fontWeight: '800', color: '#16a34a', marginBottom: '4px' }}>Branches</div>
-                <div style={{ fontSize: '24px', fontWeight: '900', color: '#15803d' }}>{superadminMetrics.branches}</div>
+              <div className="superadmin-metric-card metric-branches">
+                <div className="superadmin-metric-info">
+                  <span className="superadmin-metric-title">Branches</span>
+                  <span className="superadmin-metric-value">{superadminMetrics.branches}</span>
+                </div>
+                <div className="superadmin-metric-icon-box">
+                  <Globe size={20} />
+                </div>
               </div>
 
-              <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '14px', padding: '14px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '11px', fontWeight: '800', color: '#d97706', marginBottom: '4px' }}>Managers</div>
-                <div style={{ fontSize: '24px', fontWeight: '900', color: '#b45309' }}>{superadminMetrics.managers}</div>
+              <div className="superadmin-metric-card metric-managers">
+                <div className="superadmin-metric-info">
+                  <span className="superadmin-metric-title">Managers</span>
+                  <span className="superadmin-metric-value">{superadminMetrics.managers}</span>
+                </div>
+                <div className="superadmin-metric-icon-box">
+                  <UserCheck size={20} />
+                </div>
               </div>
 
-              <div style={{ background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: '14px', padding: '14px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '11px', fontWeight: '800', color: '#9333ea', marginBottom: '4px' }}>Employees</div>
-                <div style={{ fontSize: '24px', fontWeight: '900', color: '#6b21a8' }}>{superadminMetrics.employees}</div>
+              <div className="superadmin-metric-card metric-employees">
+                <div className="superadmin-metric-info">
+                  <span className="superadmin-metric-title">Employees</span>
+                  <span className="superadmin-metric-value">{superadminMetrics.employees}</span>
+                </div>
+                <div className="superadmin-metric-icon-box">
+                  <Users size={20} />
+                </div>
               </div>
 
-              <div style={{ background: '#fdf4ff', border: '1px solid #f5d0fe', borderRadius: '14px', padding: '14px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '11px', fontWeight: '800', color: '#c026d3', marginBottom: '4px' }}>Admins</div>
-                <div style={{ fontSize: '24px', fontWeight: '900', color: '#86198f' }}>{superadminMetrics.admins}</div>
+              <div className="superadmin-metric-card metric-admins">
+                <div className="superadmin-metric-info">
+                  <span className="superadmin-metric-title">Admins</span>
+                  <span className="superadmin-metric-value">{superadminMetrics.admins}</span>
+                </div>
+                <div className="superadmin-metric-icon-box">
+                  <Shield size={20} />
+                </div>
               </div>
 
-              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '14px', padding: '14px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '11px', fontWeight: '800', color: '#ef4444', marginBottom: '4px' }}>Super Admins</div>
-                <div style={{ fontSize: '24px', fontWeight: '900', color: '#b91c1c' }}>{superadminMetrics.superAdmins}</div>
+              <div className="superadmin-metric-card metric-superadmins">
+                <div className="superadmin-metric-info">
+                  <span className="superadmin-metric-title">Super Admins</span>
+                  <span className="superadmin-metric-value">{superadminMetrics.superAdmins}</span>
+                </div>
+                <div className="superadmin-metric-icon-box">
+                  <Award size={20} />
+                </div>
               </div>
 
-              <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '14px', padding: '14px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '11px', fontWeight: '800', color: '#059669', marginBottom: '4px' }}>Total Users</div>
-                <div style={{ fontSize: '24px', fontWeight: '900', color: '#047857' }}>{superadminMetrics.totalUsers}</div>
+              <div className="superadmin-metric-card metric-totalusers">
+                <div className="superadmin-metric-info">
+                  <span className="superadmin-metric-title">Total Users</span>
+                  <span className="superadmin-metric-value">{superadminMetrics.totalUsers}</span>
+                </div>
+                <div className="superadmin-metric-icon-box">
+                  <Users size={20} />
+                </div>
               </div>
             </div>
 
             {/* Sub-Tabs Bar (5 Sub-Tabs matching reference screenshot) */}
-            <div className="superadmin-subtabs-row no-scrollbar" style={{ background: '#e2e8f0', padding: '4px', borderRadius: '12px', display: 'flex', gap: '4px', marginBottom: '24px', overflowX: 'auto', flexWrap: 'nowrap', WebkitOverflowScrolling: 'touch', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+            <div className="superadmin-subtabs-row no-scrollbar" style={{ display: 'flex', gap: '4px', marginBottom: '24px', overflowX: 'auto', flexWrap: 'nowrap', WebkitOverflowScrolling: 'touch', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
               <button
                 onClick={() => setSuperadminSubTab('system_users')}
-                style={{ flexShrink: 0, flexGrow: 1, whiteSpace: 'nowrap', padding: '10px 16px', borderRadius: '8px', border: 'none', background: superadminSubTab === 'system_users' ? 'white' : 'transparent', fontWeight: '700', fontSize: '13px', color: superadminSubTab === 'system_users' ? '#0f2b26' : '#64748b', cursor: 'pointer', boxShadow: superadminSubTab === 'system_users' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none' }}>
+                className={`superadmin-tab-btn ${superadminSubTab === 'system_users' ? 'active' : ''}`}
+              >
                 System Users
               </button>
               <button
                 onClick={() => setSuperadminSubTab('manage_companies')}
-                style={{ flexShrink: 0, flexGrow: 1, whiteSpace: 'nowrap', padding: '10px 16px', borderRadius: '8px', border: 'none', background: superadminSubTab === 'manage_companies' ? 'white' : 'transparent', fontWeight: '700', fontSize: '13px', color: superadminSubTab === 'manage_companies' ? '#0f2b26' : '#64748b', cursor: 'pointer', boxShadow: superadminSubTab === 'manage_companies' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none' }}>
+                className={`superadmin-tab-btn ${superadminSubTab === 'manage_companies' ? 'active' : ''}`}
+              >
                 Manage Companies
               </button>
               <button
                 onClick={() => setSuperadminSubTab('manage_plans')}
-                style={{ flexShrink: 0, flexGrow: 1, whiteSpace: 'nowrap', padding: '10px 16px', borderRadius: '8px', border: 'none', background: superadminSubTab === 'manage_plans' ? 'white' : 'transparent', fontWeight: '700', fontSize: '13px', color: superadminSubTab === 'manage_plans' ? '#0f2b26' : '#64748b', cursor: 'pointer', boxShadow: superadminSubTab === 'manage_plans' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none' }}>
+                className={`superadmin-tab-btn ${superadminSubTab === 'manage_plans' ? 'active' : ''}`}
+              >
                 Manage Plans
               </button>
               <button
                 onClick={() => setSuperadminSubTab('audit_logs')}
-                style={{ flexShrink: 0, flexGrow: 1, whiteSpace: 'nowrap', padding: '10px 16px', borderRadius: '8px', border: 'none', background: superadminSubTab === 'audit_logs' ? 'white' : 'transparent', fontWeight: '700', fontSize: '13px', color: superadminSubTab === 'audit_logs' ? '#0f2b26' : '#64748b', cursor: 'pointer', boxShadow: superadminSubTab === 'audit_logs' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none' }}>
+                className={`superadmin-tab-btn ${superadminSubTab === 'audit_logs' ? 'active' : ''}`}
+              >
                 Audit Logs
               </button>
               <button
                 onClick={() => setSuperadminSubTab('system_tools')}
-                style={{ flexShrink: 0, flexGrow: 1, whiteSpace: 'nowrap', padding: '10px 16px', borderRadius: '8px', border: 'none', background: superadminSubTab === 'system_tools' ? 'white' : 'transparent', fontWeight: '700', fontSize: '13px', color: superadminSubTab === 'system_tools' ? '#0f2b26' : '#64748b', cursor: 'pointer', boxShadow: superadminSubTab === 'system_tools' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none' }}>
+                className={`superadmin-tab-btn ${superadminSubTab === 'system_tools' ? 'active' : ''}`}
+              >
                 System Tools
               </button>
             </div>
 
             {/* Sub-Tab 1: System Users (Matching Screenshot 1:1) */}
             {superadminSubTab === 'system_users' && (
-              <div style={{ background: 'white', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0' }}>
+              <div className="superadmin-panel-container">
                 <div style={{ marginBottom: '20px' }}>
                   <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Users size={20} style={{ color: '#0d9488' }} /> System Users
@@ -9093,7 +9134,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
             {/* Sub-Tab 2: Manage Companies */}
             {superadminSubTab === 'manage_companies' && (
-              <div style={{ background: 'white', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0' }}>
+              <div className="superadmin-panel-container">
                 <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', marginBottom: '4px' }}>
                   🏢 Registered Tenant Companies
                 </h3>
@@ -9477,7 +9518,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
             {/* Sub-Tab 4: Audit Logs */}
             {superadminSubTab === 'audit_logs' && (
-              <div style={{ background: 'white', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0' }}>
+              <div className="superadmin-panel-container">
                 <div className="superadmin-tab-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '16px' }}>
                   <div>
                     <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -9545,7 +9586,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
             {/* Sub-Tab 5: System Tools */}
             {superadminSubTab === 'system_tools' && (
-              <div style={{ background: 'white', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0' }}>
+              <div className="superadmin-panel-container">
                 <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', marginBottom: '4px' }}>
                   🛠️ System Maintenance & Diagnostic Tools
                 </h3>
@@ -9975,7 +10016,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
             {/* TAB A: CURRENT DAY LIVE TRACKING */}
             {gpsSubTab === 'live' && (
-              <div className="gps-live-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1.8fr', gap: '30px', alignItems: 'start' }}>
+              <div className="gps-live-grid">
 
                 {/* Left Column: Clock Console & Odometer / Fuel Calculator */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -10655,7 +10696,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 </div>
 
                 {/* AUDIT LOG BODY: 2 COLUMNS (Timeline Feed + Map Route Replay) */}
-                <div className="gps-audit-grid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', alignItems: 'start' }}>
+                <div className="gps-audit-grid">
 
                   {/* Left Column: Full-Day Chronological Event Feed */}
                   <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -11644,7 +11685,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </div>
 
             <div style={{ padding: '0 var(--space-6) var(--space-6)', overflowY: 'auto', flexGrow: 1 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
+              <div className="roster-attendance-grid">
                 {/* Punch Clock Panel */}
                 <div className="simple-form-card" style={{ maxWidth: '100%' }}>
                   <h3 className="payroll-table-title" style={{ marginBottom: 'var(--space-4)' }}>Punch Clock Panel</h3>
@@ -12183,7 +12224,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </div>
 
             {/* 2-Column Master Layout Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 'var(--space-5)', alignItems: 'start' }}>
+            <div className="system-dropdowns-grid">
 
               {/* LEFT COLUMN: Categories Vertical Menu */}
               <div className="payroll-table-card" style={{ padding: 'var(--space-5)' }}>
@@ -14471,7 +14512,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '10px' }}>
+              <div className="modal-split-grid">
                 <div className="crm-group">
                   <label className="crm-label">Other Expense Desc</label>
                   <input
