@@ -5315,7 +5315,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       {/* Main Content Area */}
       <main className="main-content">
         {/* EMS-style white top header with search */}
-        <header className="top-header" style={{ display: 'flex', alignItems: 'center', padding: '0 20px', background: 'var(--sidebar-bg, #064e43)', color: '#ffffff', borderBottom: '1px solid rgba(255, 255, 255, 0.12)' }}>
+        <header className="top-header" style={{ background: 'var(--sidebar-bg, #064e43)', color: '#ffffff', borderBottom: '1px solid rgba(255, 255, 255, 0.12)' }}>
           <button
             className="mobile-menu-btn"
             onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
@@ -5332,12 +5332,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </span>
           </div>
 
-          <div style={{ position: 'relative', flex: 1, maxWidth: '420px' }} onClick={() => setShowGlobalSearchModal(true)}>
-            <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255, 255, 255, 0.65)' }} />
+          <div className="header-search-container" onClick={() => setShowGlobalSearchModal(true)}>
+            <Search size={15} className="header-search-icon" style={{ color: 'rgba(255, 255, 255, 0.65)' }} />
             <input
+              className="header-search-input"
               type="text"
               readOnly
-              placeholder="Search contacts, logs, employees... (Press Ctrl + K)"
+              placeholder="Search contacts, logs... (Ctrl+K)"
               style={{
                 width: '100%',
                 padding: '9px 14px 9px 36px',
@@ -5352,16 +5353,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               }}
             />
           </div>
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+          <div className="header-actions-group">
             {(activeTab === 'inbox' || activeTab === 'kanban') && (
-              <button className="btn btn-secondary" onClick={() => {
+              <button className="btn btn-secondary broadcast-header-btn" onClick={() => {
                 setBroadcastMessage('');
                 setBroadcastProgress(null);
                 const connected = sessions.find(s => s.status === 'connected');
                 if (connected) setBroadcastSessionId(connected.id);
                 setShowBroadcastModal(true);
               }} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', fontSize: '13px', background: 'rgba(255,255,255,0.18)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.25)' }}>
-                <Megaphone size={15} /> Broadcast
+                <Megaphone size={15} /> <span className="broadcast-btn-text">Broadcast</span>
               </button>
             )}
             {activeTab === 'channels' && (
@@ -5371,13 +5372,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             )}
 
             {/* Server status dot */}
-            <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'rgba(255,255,255,0.85)' }}>
+            <span className="server-status-container" style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'rgba(255,255,255,0.85)' }}>
               <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: serverOnline ? '#10b981' : '#ef4444', display: 'inline-block' }}></span>
-              {serverOnline ? 'Live' : 'Offline'}
+              <span className="server-status-text">{serverOnline ? 'Live' : 'Offline'}</span>
             </span>
 
             {/* Mobile App View Simulator Toggle */}
             <button
+              className="simulator-toggle-btn"
               onClick={() => setIsMobilePreview(!isMobilePreview)}
               title={isMobilePreview ? 'Close Mobile App Simulator' : 'Open Mobile App Simulator'}
               style={{
@@ -5396,7 +5398,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               }}
             >
               <Smartphone size={16} style={{ color: isMobilePreview ? '#064e43' : '#14d2cb' }} />
-              <span className="hide-mobile-text">{isMobilePreview ? '📱 Exit Simulator' : '📱 Mobile App View'}</span>
+              <span className="hide-mobile-text">{isMobilePreview ? 'Exit Simulator' : 'Mobile App View'}</span>
             </button>
 
             {/* Real-Time Notification Bell Hub */}

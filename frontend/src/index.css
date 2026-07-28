@@ -1501,13 +1501,13 @@ h1, h2, h3, h4, h5, h6 {
 /* ── Tablet (≤768px) ─────────────────────────────────────────────────── */
 @media (max-width: 768px) {
 
-  /* Layout */
+  /* Layout preserving SPA 100vh behavior */
   .app-layout {
+    display: flex;
     flex-direction: column;
-    overflow-x: hidden;
-    overflow-y: auto;
-    min-height: 100vh;
-    height: auto;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
   }
 
   /* Sidebar becomes slide-in drawer */
@@ -1527,20 +1527,50 @@ h1, h2, h3, h4, h5, h6 {
     left: 0;
   }
 
-  /* Main content takes full width — auto height so it scrolls */
+  /* Main content takes full viewport height minus header if layout changes, but here we fill layout height */
   .main-content {
-    width: 100%;
-    height: auto;
-    min-height: calc(100vh - 52px);
-    flex: 1;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    display: flex;
+    flex-direction: column;
+    width: 100% !important;
+    height: 100% !important;
+    margin-left: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
   }
 
-  /* Top header */
+  /* Tab content views except inbox auto scroll */
+  .main-content > div:not(.inbox-view):not(.top-header) {
+    flex: 1;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px !important;
+  }
+
+  /* Top header and mobile adjustments */
   .top-header {
     padding: 10px 16px;
     height: 52px;
+  }
+
+  /* Header mobile adjustments */
+  .desktop-page-title {
+    display: none !important;
+  }
+  .header-search-container {
+    display: none !important;
+  }
+  .header-actions-group {
+    gap: 8px !important;
+    margin-left: auto;
+  }
+  .broadcast-btn-text {
+    display: none !important;
+  }
+  .server-status-text {
+    display: none !important;
+  }
+  .simulator-toggle-btn {
+    display: none !important;
   }
 
   /* Show hamburger button */
@@ -1556,12 +1586,13 @@ h1, h2, h3, h4, h5, h6 {
     gap: 12px;
   }
 
-  /* Page headers */
+  /* Page headers responsive */
   .page-header {
     padding: var(--space-4) var(--space-4);
-    min-height: 60px;
-    flex-wrap: wrap;
-    gap: 8px;
+    min-height: auto;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px;
   }
 
   .page-header-title {
@@ -1570,13 +1601,21 @@ h1, h2, h3, h4, h5, h6 {
 
   .page-header-right {
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
+    width: 100%;
+  }
+  
+  .page-header-right button,
+  .page-header-right .btn {
+    flex: 1;
+    justify-content: center;
   }
 
   /* Filter bar stacks */
   .filter-bar {
     padding: var(--space-2) var(--space-4);
-    flex-wrap: wrap;
+    flex-direction: column !important;
+    align-items: stretch !important;
     gap: 8px;
     min-height: auto;
   }
@@ -1586,30 +1625,46 @@ h1, h2, h3, h4, h5, h6 {
     width: 100%;
   }
 
-  /* Tables scroll horizontally */
-  .std-table-wrap {
-    padding: var(--space-3) var(--space-3);
-    overflow-x: auto;
+  /* Tables scroll horizontally fallback */
+  .std-table-wrap,
+  .table-responsive,
+  div[style*="overflow"],
+  div[style*="overflow-x"] {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
 
-  .std-table {
-    min-width: 560px;
+  .std-table,
+  table {
+    min-width: 600px !important;
   }
 
-  /* Grids become single column */
+  /* Grids become single column or two column depending on size */
   .stats-grid,
   .summary-grid {
     grid-template-columns: 1fr 1fr !important;
     gap: 10px !important;
   }
 
-  /* Modals fit screen */
-  .modal-box {
+  /* Modals fit screen and scroll if too tall */
+  .modal-box,
+  .modal-content,
+  .modal-container,
+  div[style*="position: 'fixed'"],
+  div[style*="position: 'absolute'"][style*="z-index"] {
     width: 95vw !important;
     max-width: 95vw !important;
-    max-height: 92vh !important;
+    max-height: 90vh !important;
     margin: 4vh auto !important;
     border-radius: 16px !important;
+    overflow-y: auto !important;
+  }
+
+  /* Prevent dropdowns from going offscreen */
+  .dropdown-menu,
+  div[class*="dropdown"],
+  div[style*="position: 'absolute'"] {
+    max-width: 90vw !important;
   }
 
   /* Buttons stay accessible */
@@ -1700,111 +1755,123 @@ h1, h2, h3, h4, h5, h6 {
   height: 0 !important;
 }
 
-@media (max-width: 768px) {
+/* Telecalling & Simulator Page — responsive styles applied at root level so they trigger inside desktop simulator */
 
-  /* Telecalling outer page — allow full scroll */
-  .telecalling-page-mobile {
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Page header: stack left content and buttons vertically */
-  .telecalling-page-mobile .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 12px 14px;
-  }
-
-  .telecalling-page-mobile .page-header-right {
-    width: 100%;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  /* Buttons full width on mobile header */
-  .telecalling-page-mobile .page-header-right .btn {
-    flex: 1;
-    min-width: 130px;
-    justify-content: center;
-    font-size: 12px;
-    padding: 9px 12px;
-  }
-
-  /* Sub-tab buttons smaller on mobile */
-  .telecalling-subtabs-bar button {
-    padding: 8px 12px !important;
-    font-size: 11px !important;
-    flex-shrink: 0;
-  }
-
-  /* Sub-tab icons hide text on tiny screens */
-  .telecalling-subtabs-bar button span:not([style]) {
-    display: none;
-  }
-
-  /* Dashboard stat cards → 2 columns on mobile */
-  .telecalling-page-mobile [style*="repeat(auto-fit, minmax(240px"] {
-    grid-template-columns: 1fr 1fr !important;
-    gap: 10px !important;
-  }
-
-  /* Stat card padding reduce */
-  .telecalling-page-mobile [style*="borderRadius: '14px'"],
-  .telecalling-page-mobile [style*="borderRadius: '12px'"] {
-    padding: 14px !important;
-  }
-
-  /* Stat card number smaller */
-  .telecalling-page-mobile [style*="fontSize: '36px'"] {
-    font-size: 26px !important;
-  }
-
-  /* Filter bar on recordings tab — stack */
-  .telecalling-page-mobile .filter-bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    padding: 10px 14px;
-  }
-
-  .telecalling-page-mobile .filter-bar select,
-  .telecalling-page-mobile .filter-bar input {
-    width: 100%;
-    max-width: 100%;
-  }
-
-  /* Record button full width */
-  .telecalling-page-mobile .filter-bar .btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  /* Call logs table — horizontal scroll */
-  .telecalling-page-mobile .std-table-wrap,
-  .telecalling-page-mobile [style*="overflowX: 'auto'"] {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
-  }
+/* Telecalling outer page — allow full scroll */
+.telecalling-page-mobile {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
 }
 
-@media (max-width: 480px) {
-
-  /* Single column on very small phones */
-  .telecalling-page-mobile [style*="repeat(auto-fit, minmax(240px"] {
-    grid-template-columns: 1fr !important;
-  }
-
-  .telecalling-subtabs-bar button {
-    padding: 7px 10px !important;
-    font-size: 10px !important;
-  }
-
-  /* Page title smaller */
-  .telecalling-page-mobile .page-header-title {
-    font-size: 15px !important;
-  }
+/* Page header: stack left content and buttons vertically */
+.telecalling-page-mobile .page-header {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
 }
+
+.telecalling-page-mobile .page-header-right {
+  width: 100%;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Buttons full width on mobile header */
+.telecalling-page-mobile .page-header-right .btn {
+  flex: 1;
+  min-width: 130px;
+  justify-content: center;
+  font-size: 12px;
+  padding: 9px 12px;
+}
+
+/* Sub-tab buttons smaller on mobile */
+.telecalling-subtabs-bar button {
+  padding: 7px 10px !important;
+  font-size: 10px !important;
+  flex-shrink: 0;
+}
+
+/* Sub-tab icons hide text on tiny screens */
+.telecalling-subtabs-bar button span:not([style]) {
+  display: none;
+}
+
+/* Dashboard stat cards → 1 column by default for mobile view simulator */
+.telecalling-page-mobile [style*="repeat(auto-fit, minmax(240px"] {
+  grid-template-columns: 1fr !important;
+  gap: 10px !important;
+}
+
+/* Stat card padding reduce */
+.telecalling-page-mobile [style*="borderRadius: '14px'"],
+.telecalling-page-mobile [style*="borderRadius: '12px'"] {
+  padding: 14px !important;
+}
+
+/* Stat card number smaller */
+.telecalling-page-mobile [style*="fontSize: '36px'"] {
+  font-size: 26px !important;
+}
+
+/* Page title smaller */
+.telecalling-page-mobile .page-header-title {
+  font-size: 15px !important;
+}
+
+/* Filter bar on recordings tab — stack */
+.telecalling-page-mobile .filter-bar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 10px 14px;
+}
+
+.telecalling-page-mobile .filter-bar select,
+.telecalling-page-mobile .filter-bar input {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Record button full width */
+.telecalling-page-mobile .filter-bar .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Call logs table & other tables — horizontal scroll */
+.telecalling-page-mobile .std-table-wrap,
+.telecalling-page-mobile [style*="overflowX: 'auto'"],
+.telecalling-page-mobile .table-responsive,
+.telecalling-page-mobile div[style*="overflow"],
+.telecalling-page-mobile div[style*="overflow-x"] {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.telecalling-page-mobile table,
+.telecalling-page-mobile .std-table {
+  min-width: 600px !important;
+}
+
+/* Modals & Dropdowns constraints inside simulator */
+.telecalling-page-mobile .modal-box,
+.telecalling-page-mobile .modal-content,
+.telecalling-page-mobile .modal-container,
+.telecalling-page-mobile div[style*="position: 'fixed'"],
+.telecalling-page-mobile div[style*="position: 'absolute'"][style*="z-index"] {
+  max-width: 90vw !important;
+  max-height: 80vh !important;
+  overflow-y: auto !important;
+}
+
+.telecalling-page-mobile .dropdown-menu,
+.telecalling-page-mobile div[class*="dropdown"],
+.telecalling-page-mobile div[style*="position: 'absolute'"] {
+  max-width: 80vw !important;
+}
+
 
 /* ─────────────────────────────────────────────────────────────
    MOBILE APP PREVIEW SIMULATOR STYLES
