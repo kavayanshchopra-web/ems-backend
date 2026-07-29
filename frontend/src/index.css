@@ -1653,6 +1653,25 @@ h1, h2, h3, h4, h5, h6 {
     gap: var(--space-4) !important;
   }
 
+  .system-dropdowns-container {
+    padding: 12px !important;
+    margin: 8px 4px !important;
+  }
+
+  .system-dropdowns-mobile-select {
+    display: block !important;
+  }
+
+  .system-dropdowns-left-panel {
+    display: none !important;
+  }
+
+  .system-dropdowns-right-panel {
+    padding: 14px !important;
+    min-height: auto !important;
+    max-height: none !important;
+  }
+
   .ivr-flow-grid {
     grid-template-columns: 1fr !important;
     gap: 20px !important;

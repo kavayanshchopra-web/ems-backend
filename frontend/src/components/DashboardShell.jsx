@@ -12726,7 +12726,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
         {/* 25. SYSTEM DROPDOWNS CONFIG - 2-COLUMN MASTER LAYOUT */}
         {activeTab === 'system_dropdowns' && (
-          <div style={{ padding: 'var(--space-6)', margin: 'var(--space-4)', overflowY: 'auto', flexGrow: 1 }} className="glass-panel">
+          <div style={{ padding: 'var(--space-6)', margin: 'var(--space-4)', overflowY: 'auto', flexGrow: 1 }} className="glass-panel system-dropdowns-container">
             {/* Header Banner */}
             <div className="page-header" style={{ marginBottom: 'var(--space-5)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
@@ -12735,7 +12735,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     <Settings size={24} style={{ color: '#0d9488' }} />
                   </div>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <h1 className="page-header-title" style={{ margin: 0 }}>System Dropdowns</h1>
                       <span style={{ fontSize: '11px', fontWeight: '800', padding: '2px 8px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
                         🟢 12 Categories Active
@@ -12757,11 +12757,50 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               </div>
             </div>
 
+            {/* 📁 MOBILE-ONLY QUICK CATEGORY SELECTOR (VISIBLE ON MOBILE ≤ 768px) */}
+            <div className="system-dropdowns-mobile-select" style={{ display: 'none', marginBottom: '16px' }}>
+              <div style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #e6fffa 100%)', padding: '14px', borderRadius: '12px', border: '1.5px solid #0d9488', boxShadow: '0 2px 8px rgba(13,148,136,0.15)' }}>
+                <label style={{ fontSize: '12px', fontWeight: '800', color: '#064e43', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px', letterSpacing: '0.03em' }}>
+                  <span>📁</span> SELECT CATEGORY TO MANAGE:
+                </label>
+                <select
+                  value={selectedDropdownCategory}
+                  onChange={e => setSelectedDropdownCategory(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: '1.5px solid #0d9488',
+                    background: 'white',
+                    color: '#0f172a',
+                    fontWeight: '800',
+                    fontSize: '14px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.08)'
+                  }}
+                >
+                  <option value="departments">🏢 Departments Options ({systemDropdowns.departments?.length || 0})</option>
+                  <option value="designations">💼 Designations Options ({systemDropdowns.designations?.length || 0})</option>
+                  <option value="employment_types">⌛ Employment Types (5)</option>
+                  <option value="genders">🚻 Genders (4)</option>
+                  <option value="marital_statuses">💍 Marital Statuses (4)</option>
+                  <option value="blood_groups">🩸 Blood Groups (8)</option>
+                  <option value="leave_categories">🏖️ Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
+                  <option value="crm_stages">📊 CRM Pipeline Stages ({stages?.length || 0})</option>
+                  <option value="crm_tags">🏷️ CRM Contact Tags ({allowedTags?.length || 0})</option>
+                  <option value="expenses">💳 Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
+                  <option value="priorities">⚡ Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
+                  <option value="custom_engine">⚙️ Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
+                </select>
+              </div>
+            </div>
+
             {/* 2-Column Master Layout Grid */}
             <div className="system-dropdowns-grid">
 
-              {/* LEFT COLUMN: Categories Navigation Panel */}
-              <div className="payroll-table-card" style={{ padding: 'var(--space-5)', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid var(--border-default)', display: 'flex', flexDirection: 'column' }}>
+              {/* LEFT COLUMN: Categories Navigation Panel (Desktop Only) */}
+              <div className="payroll-table-card system-dropdowns-left-panel" style={{ padding: 'var(--space-5)', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid var(--border-default)', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <h3 className="payroll-table-title" style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>Categories</h3>
                   <span style={{ fontSize: '11px', fontWeight: '700', color: '#0d9488', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 8px', borderRadius: '10px', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
@@ -12851,7 +12890,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               </div>
 
               {/* RIGHT COLUMN: Selected Category Workspace */}
-              <div className="payroll-table-card" style={{ padding: 'var(--space-6)', minHeight: '520px', maxHeight: '620px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid var(--border-default)', display: 'flex', flexDirection: 'column', background: 'white', overflow: 'hidden' }}>
+              <div className="payroll-table-card system-dropdowns-right-panel" style={{ padding: 'var(--space-6)', minHeight: '520px', maxHeight: '620px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid var(--border-default)', display: 'flex', flexDirection: 'column', background: 'white', overflow: 'hidden' }}>
 
                 {/* 1. DEPARTMENTS */}
                 {selectedDropdownCategory === 'departments' && (() => {
@@ -12900,8 +12939,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       </div>
 
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
                           <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
                               <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
@@ -13045,8 +13084,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       </div>
 
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
                           <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
                               <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
@@ -13190,8 +13229,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       </div>
 
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
                           <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
                               <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
@@ -13335,8 +13374,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       </div>
 
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
                           <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
                               <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
@@ -13480,8 +13519,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       </div>
 
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
                           <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
                               <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
@@ -13625,8 +13664,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       </div>
 
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
                           <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
                               <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
@@ -13764,8 +13803,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       </div>
 
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
                           <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
                               <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
@@ -13899,8 +13938,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       </div>
 
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
                           <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
                               <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
@@ -14055,8 +14094,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       </div>
 
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
                           <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
                               <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
@@ -14201,8 +14240,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       </div>
 
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
                           <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
                               <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
@@ -14345,8 +14384,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       </div>
 
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
                           <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
                               <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
