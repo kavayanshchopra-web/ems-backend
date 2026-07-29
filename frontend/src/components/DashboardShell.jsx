@@ -12728,17 +12728,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {activeTab === 'system_dropdowns' && (
           <div style={{ padding: 'var(--space-6)', margin: 'var(--space-4)', overflowY: 'auto', flexGrow: 1 }} className="glass-panel system-dropdowns-container">
             {/* Header Banner */}
-            <div className="page-header" style={{ marginBottom: 'var(--space-5)' }}>
+            <div className="page-header system-dropdowns-header-banner" style={{ marginBottom: 'var(--space-5)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(13,148,136,0.15) 0%, rgba(15,118,110,0.25) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(13,148,136,0.2)' }}>
-                    <Settings size={24} style={{ color: '#0d9488' }} />
+                  <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(13,148,136,0.15) 0%, rgba(15,118,110,0.25) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(13,148,136,0.2)' }}>
+                    <Settings size={22} style={{ color: '#0d9488' }} />
                   </div>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <h1 className="page-header-title" style={{ margin: 0 }}>System Dropdowns</h1>
                       <span style={{ fontSize: '11px', fontWeight: '800', padding: '2px 8px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
-                        🟢 12 Categories Active
+                        12 Categories Active
                       </span>
                     </div>
                     <p className="page-header-subtitle" style={{ margin: '4px 0 0 0' }}>
@@ -12752,46 +12752,46 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   onClick={handleSaveMasterDropdowns}
                   style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', fontWeight: '700', borderRadius: '10px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(13, 148, 136, 0.3)', cursor: 'pointer', transition: 'all 0.2s ease' }}
                 >
-                  💾 Save All Changes
+                  Save All Changes
                 </button>
               </div>
             </div>
 
-            {/* 📁 MOBILE-ONLY QUICK CATEGORY SELECTOR (VISIBLE ON MOBILE ≤ 768px) */}
+            {/* MOBILE-ONLY QUICK CATEGORY SELECTOR (VISIBLE ON MOBILE ≤ 768px) */}
             <div className="system-dropdowns-mobile-select" style={{ display: 'none', marginBottom: '16px' }}>
-              <div style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #e6fffa 100%)', padding: '14px', borderRadius: '12px', border: '1.5px solid #0d9488', boxShadow: '0 2px 8px rgba(13,148,136,0.15)' }}>
-                <label style={{ fontSize: '12px', fontWeight: '800', color: '#064e43', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px', letterSpacing: '0.03em' }}>
-                  <span>📁</span> SELECT CATEGORY TO MANAGE:
+              <div style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #e6fffa 100%)', padding: '12px 14px', borderRadius: '12px', border: '1.5px solid #0d9488', boxShadow: '0 2px 8px rgba(13,148,136,0.15)' }}>
+                <label style={{ fontSize: '11px', fontWeight: '800', color: '#064e43', marginBottom: '6px', display: 'block', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                  SELECT CATEGORY TO MANAGE:
                 </label>
                 <select
                   value={selectedDropdownCategory}
                   onChange={e => setSelectedDropdownCategory(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '12px 14px',
-                    borderRadius: '10px',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
                     border: '1.5px solid #0d9488',
                     background: 'white',
                     color: '#0f172a',
                     fontWeight: '800',
-                    fontSize: '14px',
+                    fontSize: '13px',
                     outline: 'none',
                     cursor: 'pointer',
                     boxShadow: '0 1px 3px rgba(0,0,0,0.08)'
                   }}
                 >
-                  <option value="departments">🏢 Departments Options ({systemDropdowns.departments?.length || 0})</option>
-                  <option value="designations">💼 Designations Options ({systemDropdowns.designations?.length || 0})</option>
-                  <option value="employment_types">⌛ Employment Types (5)</option>
-                  <option value="genders">🚻 Genders (4)</option>
-                  <option value="marital_statuses">💍 Marital Statuses (4)</option>
-                  <option value="blood_groups">🩸 Blood Groups (8)</option>
-                  <option value="leave_categories">🏖️ Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
-                  <option value="crm_stages">📊 CRM Pipeline Stages ({stages?.length || 0})</option>
-                  <option value="crm_tags">🏷️ CRM Contact Tags ({allowedTags?.length || 0})</option>
-                  <option value="expenses">💳 Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
-                  <option value="priorities">⚡ Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
-                  <option value="custom_engine">⚙️ Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
+                  <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
+                  <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
+                  <option value="employment_types">Employment Types (5)</option>
+                  <option value="genders">Genders (4)</option>
+                  <option value="marital_statuses">Marital Statuses (4)</option>
+                  <option value="blood_groups">Blood Groups (8)</option>
+                  <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
+                  <option value="crm_stages">CRM Pipeline Stages ({stages?.length || 0})</option>
+                  <option value="crm_tags">CRM Contact Tags ({allowedTags?.length || 0})</option>
+                  <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
+                  <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
+                  <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
                 </select>
               </div>
             </div>
@@ -12811,11 +12811,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   Select a category to manage its options
                 </p>
 
-                {/* 🔍 Quick Search Bar for Categories */}
+                {/* Quick Search Bar for Categories */}
                 <div style={{ marginBottom: '12px', position: 'relative' }}>
                   <input
                     type="text"
-                    placeholder="🔍 Search categories..."
+                    placeholder="Search categories..."
                     value={dropdownCategorySearch}
                     onChange={e => setDropdownCategorySearch(e.target.value)}
                     style={{
@@ -12845,18 +12845,18 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 {/* Category List with Smooth Custom Scrollbar */}
                 <div className="system-dropdowns-categories-list" style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '460px', overflowY: 'auto', paddingRight: '4px' }}>
                   {[
-                    { id: 'departments', icon: '🏢', label: 'Departments', count: systemDropdowns.departments?.length || 0 },
-                    { id: 'designations', icon: '💼', label: 'Designations', count: systemDropdowns.designations?.length || 0 },
-                    { id: 'employment_types', icon: '⌛', label: 'Employment Types', count: 5 },
-                    { id: 'genders', icon: '🚻', label: 'Genders', count: 4 },
-                    { id: 'marital_statuses', icon: '💍', label: 'Marital Statuses', count: 4 },
-                    { id: 'blood_groups', icon: '🩸', label: 'Blood Groups', count: 8 },
-                    { id: 'leave_categories', icon: '🏖️', label: 'Leave Types', count: systemDropdowns.leaveCategories?.length || 0 },
-                    { id: 'crm_stages', icon: '📊', label: 'CRM Pipeline Stages', count: stages?.length || 0 },
-                    { id: 'crm_tags', icon: '🏷️', label: 'CRM Contact Tags', count: allowedTags?.length || 0 },
-                    { id: 'expenses', icon: '💳', label: 'Expense Categories', count: systemDropdowns.expenseCategories?.length || 0 },
-                    { id: 'priorities', icon: '⚡', label: 'Task Priority Levels', count: systemDropdowns.taskPriorities?.length || 0 },
-                    { id: 'custom_engine', icon: '⚙️', label: 'Custom Categories Engine', count: (systemDropdowns.customCategories || []).length }
+                    { id: 'departments', label: 'Departments', count: systemDropdowns.departments?.length || 0 },
+                    { id: 'designations', label: 'Designations', count: systemDropdowns.designations?.length || 0 },
+                    { id: 'employment_types', label: 'Employment Types', count: 5 },
+                    { id: 'genders', label: 'Genders', count: 4 },
+                    { id: 'marital_statuses', label: 'Marital Statuses', count: 4 },
+                    { id: 'blood_groups', label: 'Blood Groups', count: 8 },
+                    { id: 'leave_categories', label: 'Leave Types', count: systemDropdowns.leaveCategories?.length || 0 },
+                    { id: 'crm_stages', label: 'CRM Pipeline Stages', count: stages?.length || 0 },
+                    { id: 'crm_tags', label: 'CRM Contact Tags', count: allowedTags?.length || 0 },
+                    { id: 'expenses', label: 'Expense Categories', count: systemDropdowns.expenseCategories?.length || 0 },
+                    { id: 'priorities', label: 'Task Priority Levels', count: systemDropdowns.taskPriorities?.length || 0 },
+                    { id: 'custom_engine', label: 'Custom Categories Engine', count: (systemDropdowns.customCategories || []).length }
                   ]
                   .filter(cat => cat.label.toLowerCase().includes(dropdownCategorySearch.toLowerCase().trim()))
                   .map(cat => {
@@ -12913,7 +12913,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '20px' }}>🏢</span>
                             <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Departments Options</h3>
                           </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage functional departments across the company</p>
@@ -13058,7 +13057,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '20px' }}>💼</span>
                             <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Designations Options</h3>
                           </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage job roles & designation titles across all teams</p>
@@ -13203,7 +13201,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '20px' }}>⌛</span>
                             <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Employment Types Options</h3>
                           </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage functional employment types across the organization</p>
@@ -13348,7 +13345,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '20px' }}>🚻</span>
                             <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Genders Options</h3>
                           </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage gender category options</p>
@@ -13493,7 +13489,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '20px' }}>💍</span>
                             <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Marital Statuses Options</h3>
                           </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage marital status options</p>
@@ -13638,7 +13633,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '20px' }}>🩸</span>
                             <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Blood Groups Options</h3>
                           </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage blood group category options</p>
@@ -13780,7 +13774,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '20px' }}>🏖️</span>
                             <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Leave Types Options</h3>
                           </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage leave policies & annual quota allocations</p>
@@ -13919,7 +13912,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '20px' }}>📊</span>
                             <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>CRM Pipeline Stages Options</h3>
                           </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage lead sales deal stages & color indicators</p>
@@ -14069,7 +14061,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '20px' }}>🏷️</span>
                             <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>CRM Contact Tags Options</h3>
                           </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Predefined contact tags for lead segmentation</p>
@@ -14215,7 +14206,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '20px' }}>💳</span>
                             <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Expense Categories Options</h3>
                           </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Reimbursement claim types and allowance categories</p>
@@ -14359,7 +14349,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '20px' }}>⚡</span>
                             <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Task Priority Levels Options</h3>
                           </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Task priority rating levels & urgency badges</p>
@@ -14485,7 +14474,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '20px' }}>⚙️</span>
                           <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Custom Feature Dropdown Engine</h3>
                         </div>
                         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Create custom dropdown lists for any custom feature or module</p>
@@ -14519,7 +14507,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         {(systemDropdowns.customCategories || []).map((customCat, catIdx) => (
                           <div key={customCat.id || catIdx} style={{ padding: '16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#0f2b26', margin: 0 }}>⚙️ {customCat.title}</h4>
+                              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#0f2b26', margin: 0 }}>{customCat.title}</h4>
                               <div style={{ display: 'flex', gap: '6px' }}>
                                 <button
                                   type="button"
