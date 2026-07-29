@@ -13483,16 +13483,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <button
                           type="button"
                           onClick={() => {
-                            const val = prompt("Enter new Gender Option:");
-                            if (val && val.trim()) {
-                              const trimmed = val.trim();
-                              const exists = currentItems.some(d => d.name === trimmed);
-                              if (!exists) {
-                                const updated = [...currentItems, { name: trimmed, archived: false }];
-                                setSystemDropdowns(prev => ({ ...prev, genders: updated }));
-                                showToast(`Added Gender Option "${trimmed}"`, 'success');
-                              }
-                            }
+                            openInputModal({ title: 'Add Gender Option', subtitle: 'Enter gender identity option', placeholder: 'e.g. Non-Binary', onSave: (val) => { const trimmed = val.trim(); const exists = currentItems.some(d => d.name === trimmed); if (!exists) { const updated = [...currentItems, { name: trimmed, archived: false }]; setSystemDropdowns(prev => ({ ...prev, genders: updated })); showToast(`Added Gender Option "${trimmed}"`, 'success'); } else { showToast(`Already exists`, 'info'); } } });
                           }}
                           style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
                         >
@@ -13660,16 +13651,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <button
                           type="button"
                           onClick={() => {
-                            const val = prompt("Enter new Marital Status:");
-                            if (val && val.trim()) {
-                              const trimmed = val.trim();
-                              const exists = currentItems.some(d => d.name === trimmed);
-                              if (!exists) {
-                                const updated = [...currentItems, { name: trimmed, archived: false }];
-                                setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated }));
-                                showToast(`Added Marital Status "${trimmed}"`, 'success');
-                              }
-                            }
+                            openInputModal({ title: 'Add Marital Status', subtitle: 'Enter marital status option', placeholder: 'e.g. Widowed', onSave: (val) => { const trimmed = val.trim(); const exists = currentItems.some(d => d.name === trimmed); if (!exists) { const updated = [...currentItems, { name: trimmed, archived: false }]; setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated })); showToast(`Added Marital Status "${trimmed}"`, 'success'); } else { showToast(`Already exists`, 'info'); } } });
                           }}
                           style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
                         >
@@ -13837,16 +13819,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <button
                           type="button"
                           onClick={() => {
-                            const val = prompt("Enter new Blood Group:");
-                            if (val && val.trim()) {
-                              const trimmed = val.trim();
-                              const exists = currentItems.some(d => d.name === trimmed);
-                              if (!exists) {
-                                const updated = [...currentItems, { name: trimmed, archived: false }];
-                                setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated }));
-                                showToast(`Added Blood Group "${trimmed}"`, 'success');
-                              }
-                            }
+                            openInputModal({ title: 'Add Blood Group', subtitle: 'Enter blood group type (e.g. AB+)', placeholder: 'e.g. AB-', onSave: (val) => { const trimmed = val.trim(); const exists = currentItems.some(d => d.name === trimmed); if (!exists) { const updated = [...currentItems, { name: trimmed, archived: false }]; setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated })); showToast(`Added Blood Group "${trimmed}"`, 'success'); } else { showToast(`Already exists`, 'info'); } } });
                           }}
                           style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
                         >
@@ -14011,13 +13984,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <button
                           type="button"
                           onClick={() => {
-                            const name = prompt("Enter Leave Name (e.g. Sabbatical):");
-                            if (name && name.trim()) {
-                              const quota = prompt("Enter annual quota days:", "12");
-                              const newLc = { id: 'lc_' + Date.now(), name: name.trim(), quota: parseInt(quota || '12', 10), archived: false };
-                              setSystemDropdowns(prev => ({ ...prev, leaveCategories: [...prev.leaveCategories, newLc] }));
-                              showToast(`Added Leave Type "${name}"`, 'success');
-                            }
+                            openInputModal({ title: 'Add Leave Type', subtitle: 'Enter leave category name (quota defaults to 12 days)', placeholder: 'e.g. Sabbatical Leave', onSave: (name) => { const newLc = { id: 'lc_' + Date.now(), name: name.trim(), quota: 12, archived: false }; setSystemDropdowns(prev => ({ ...prev, leaveCategories: [...prev.leaveCategories, newLc] })); showToast(`Added Leave Type "${name}"`, 'success'); } });
                           }}
                           style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
                         >
