@@ -12830,7 +12830,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage functional departments across the company</p>
                       </div>
                       <button
-                        className="btn btn-primary"
                         type="button"
                         onClick={() => {
                           const val = prompt("Enter new Department name:");
@@ -12844,134 +12843,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           }
                         }}
                         style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                      >
-                        + Add Option
-                      </button>
-                    </div>
-
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table" style={{ width: '100%' }}>
-                        <thead>
-                          <tr>
-                            <th style={{ width: '50px' }}>#</th>
-                            <th style={{ padding: '10px 12px' }}>Department Title</th>
-                            <th style={{ width: '130px' }}>Status</th>
-                            <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {systemDropdowns.departments.length === 0 ? (
-                            <tr>
-                              <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
-                                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto', fontSize: '20px' }}>
-                                  🏢
-                                </div>
-                                <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Departments Configured</div>
-                                <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create your first department.</div>
-                              </td>
-                            </tr>
-                          ) : (
-                            systemDropdowns.departments.map((dept, idx) => {
-                            const isObj = typeof dept === 'object' && dept !== null;
-                            const title = isObj ? dept.name : dept;
-                            const isArchived = isObj ? Boolean(dept.archived) : false;
-
-                            return (
-                              <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white', transition: 'background 0.15s ease' }}>
-                                <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                <td style={{ padding: '12px', fontWeight: '700', color: isArchived ? '#94a3b8' : '#0f2b26', textDecoration: isArchived ? 'line-through' : 'none' }}>
-                                  {title}
-                                </td>
-                                <td style={{ padding: '12px' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                    {isArchived ? '📦 Archived' : '🟢 Active'}
-                                  </span>
-                                </td>
-                                <td style={{ padding: '12px', textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const newName = prompt("Rename Department:", title);
-                                        if (newName && newName.trim()) {
-                                          const updated = [...systemDropdowns.departments];
-                                          updated[idx] = { name: newName.trim(), archived: isArchived };
-                                          setSystemDropdowns(prev => ({ ...prev, departments: updated }));
-                                          showToast(`Updated to "${newName.trim()}"`, 'success');
-                                        }
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                    >
-                                      ✏️ Edit
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const updated = [...systemDropdowns.departments];
-                                        updated[idx] = { name: title, archived: !isArchived };
-                                        setSystemDropdowns(prev => ({ ...prev, departments: updated }));
-                                        showToast(isArchived ? `Restored "${title}"` : `Archived "${title}"`, 'info');
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                    >
-                                      {isArchived ? '🔄 Restore' : '📦 Archive'}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        softDeleteRecord({
-                                          originalId: `dropdown_dept_${title}`,
-                                          name: `Department Option: "${title}"`,
-                                          category: 'System Dropdown',
-                                          entityData: { category: 'departments', title },
-                                          links: 'System Dropdown Master'
-                                        });
-                                        const updated = systemDropdowns.departments.filter((_, i) => i !== idx);
-                                        setSystemDropdowns(prev => ({ ...prev, departments: updated }));
-                                        showToast(`🗑️ Moved "${title}" to Recycle Bin!`, 'info');
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                    >
-                                      🗑️ Delete
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })
-                        )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* 2. DESIGNATIONS */}
-                {selectedDropdownCategory === 'designations' && (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '20px' }}>💼</span>
-                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Designations Options</h3>
-                        </div>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage job roles & designation titles across all teams</p>
-                      </div>
-                      <button
-                        className="btn btn-primary"
-                        type="button"
-                        onClick={() => {
-                          const val = prompt("Enter new Designation role:");
-                          if (val && val.trim()) {
-                            const trimmed = val.trim();
-                            const exists = systemDropdowns.designations.some(d => (typeof d === 'object' ? d.name : d) === trimmed);
-                            if (!exists) {
-                              setSystemDropdowns(prev => ({ ...prev, designations: [...prev.designations, { name: trimmed, archived: false }] }));
-                              showToast(`Added Designation "${trimmed}"`, 'success');
-                            }
-                          }
-                        }}
-                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px' }}
                       >
                         + Add Option
                       </button>
@@ -13080,7 +12951,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage functional employment types across the organization</p>
                         </div>
                         <button
-                          className="btn btn-primary"
                           type="button"
                           onClick={() => {
                             const val = prompt("Enter new Employment Type:");
@@ -13205,7 +13075,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage gender category options</p>
                         </div>
                         <button
-                          className="btn btn-primary"
                           type="button"
                           onClick={() => {
                             const val = prompt("Enter new Gender Option:");
@@ -13330,7 +13199,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage marital status options</p>
                         </div>
                         <button
-                          className="btn btn-primary"
                           type="button"
                           onClick={() => {
                             const val = prompt("Enter new Marital Status:");
@@ -13455,7 +13323,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage blood group category options</p>
                         </div>
                         <button
-                          className="btn btn-primary"
                           type="button"
                           onClick={() => {
                             const val = prompt("Enter new Blood Group:");
@@ -13574,7 +13441,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage leave policies & annual quota allocations</p>
                       </div>
                       <button
-                        className="btn btn-primary"
                         type="button"
                         onClick={() => {
                           const name = prompt("Enter Leave Name (e.g. Sabbatical):");
@@ -13585,7 +13451,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             showToast(`Added Leave Type "${name}"`, 'success');
                           }
                         }}
-                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px' }}
+                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
                       >
                         + Add Option
                       </button>
@@ -13691,14 +13557,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage lead sales deal stages & color indicators</p>
                       </div>
                       <button
-                        className="btn btn-primary"
                         type="button"
                         onClick={() => {
                           const newId = 'stage_' + Date.now();
                           setStages([...stages, { id: newId, title: 'New Stage', color: '#0d9488', archived: false }]);
                           showToast('Added new Pipeline Stage', 'success');
                         }}
-                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px' }}
+                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
                       >
                         + Add Option
                       </button>
@@ -13710,7 +13575,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           <tr>
                             <th style={{ width: '50px' }}>#</th>
                             <th style={{ padding: '10px 12px' }}>Stage Title</th>
-                            <th style={{ padding: '10px 12px', width: '120px' }}>Color Badge</th>
+                            <th style={{ padding: '10px 12px', width: '140px' }}>Color Badge</th>
                             <th style={{ width: '130px' }}>Status</th>
                             <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
                           </tr>
@@ -13725,8 +13590,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                 <td style={{ padding: '12px' }}>
                                   <input
                                     type="text"
-                                    style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: '700', color: isArchived ? '#94a3b8' : '#0f2b26', width: '100%', maxWidth: '240px' }}
-                                    value={stage.title}
+                                    placeholder="Stage Title"
+                                    style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: '700', color: isArchived ? '#94a3b8' : '#0f2b26', background: 'white', width: '100%', maxWidth: '240px' }}
+                                    value={stage.title || ''}
                                     onChange={(e) => {
                                       const updated = [...stages];
                                       updated[idx].title = e.target.value;
@@ -13738,16 +13604,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <input
                                       type="color"
-                                      style={{ border: 'none', padding: '0', width: '28px', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
-                                      value={stage.color}
+                                      style={{ border: '2px solid #cbd5e1', padding: '0', width: '28px', height: '28px', cursor: 'pointer', borderRadius: '50%', background: 'none' }}
+                                      value={stage.color || '#0d9488'}
                                       onChange={(e) => {
                                         const updated = [...stages];
                                         updated[idx].color = e.target.value;
                                         setStages(updated);
                                       }}
                                     />
-                                    <span style={{ fontSize: '11px', fontWeight: '800', fontFamily: 'monospace', color: stage.color }}>
-                                      {stage.color}
+                                    <span style={{ fontSize: '11px', fontWeight: '800', fontFamily: 'monospace', color: stage.color || '#0d9488' }}>
+                                      {stage.color || '#0d9488'}
                                     </span>
                                   </div>
                                 </td>
@@ -13810,19 +13676,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Predefined contact tags for lead segmentation</p>
                       </div>
                       <button
-                        className="btn btn-primary"
                         type="button"
                         onClick={() => {
                           const tag = prompt("Enter new Tag name (e.g. VIP Customer):");
                           if (tag && tag.trim()) {
                             const trimmed = tag.trim();
-                            if (!allowedTags.includes(trimmed)) {
-                              setAllowedTags([...allowedTags, trimmed]);
+                            const exists = allowedTags.some(t => (typeof t === 'object' ? t.name : t) === trimmed);
+                            if (!exists) {
+                              setAllowedTags([...allowedTags, { name: trimmed, archived: false }]);
                               showToast(`Added Tag "${trimmed}"`, 'success');
                             }
                           }
                         }}
-                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px' }}
+                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
                       >
                         + Add Option
                       </button>
@@ -13839,57 +13705,76 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           </tr>
                         </thead>
                         <tbody>
-                          {allowedTags.map((tag, idx) => (
-                            <tr key={tag} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                              <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                              <td style={{ padding: '12px' }}>
-                                <span style={{ background: 'rgba(13, 148, 136, 0.08)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.25)', padding: '5px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '800' }}>
-                                  🏷️ {tag}
-                                </span>
-                              </td>
-                              <td style={{ padding: '12px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                  🟢 Active
-                                </span>
-                              </td>
-                              <td style={{ padding: '12px', textAlign: 'right' }}>
-                                <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newTag = prompt("Rename Tag:", tag);
-                                      if (newTag && newTag.trim()) {
+                          {allowedTags.map((tagItem, idx) => {
+                            const isObj = typeof tagItem === 'object' && tagItem !== null;
+                            const tagLabel = isObj ? tagItem.name : tagItem;
+                            const isArchived = isObj ? Boolean(tagItem.archived) : false;
+
+                            return (
+                              <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white' }}>
+                                <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                <td style={{ padding: '12px' }}>
+                                  <span style={{ background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.08)', color: isArchived ? '#94a3b8' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.25)', padding: '5px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '800', textDecoration: isArchived ? 'line-through' : 'none' }}>
+                                    🏷️ {tagLabel}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '12px' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                    {isArchived ? '📦 Archived' : '🟢 Active'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '12px', textAlign: 'right' }}>
+                                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newTag = prompt("Rename Tag:", tagLabel);
+                                        if (newTag && newTag.trim()) {
+                                          const updated = [...allowedTags];
+                                          updated[idx] = { name: newTag.trim(), archived: isArchived };
+                                          setAllowedTags(updated);
+                                          showToast(`Updated Tag to "${newTag.trim()}"`, 'success');
+                                        }
+                                      }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                    >
+                                      ✏️ Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
                                         const updated = [...allowedTags];
-                                        updated[idx] = newTag.trim();
+                                        updated[idx] = { name: tagLabel, archived: !isArchived };
                                         setAllowedTags(updated);
-                                        showToast(`Updated Tag to "${newTag.trim()}"`, 'success');
-                                      }
-                                    }}
-                                    style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                  >
-                                    ✏️ Edit
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      softDeleteRecord({
-                                        originalId: `tag_${tag}`,
-                                        name: `CRM Tag: "${tag}"`,
-                                        category: 'System Dropdown',
-                                        entityData: { tag },
-                                        links: 'CRM Contacts'
-                                      });
-                                      setAllowedTags(allowedTags.filter(t => t !== tag));
-                                      showToast(`🗑️ Moved "${tag}" to Recycle Bin!`, 'info');
-                                    }}
-                                    style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                  >
-                                    🗑️ Delete
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
+                                        showToast(isArchived ? `Restored "${tagLabel}"` : `Archived "${tagLabel}"`, 'info');
+                                      }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                    >
+                                      {isArchived ? '🔄 Restore' : '📦 Archive'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        softDeleteRecord({
+                                          originalId: `tag_${tagLabel}`,
+                                          name: `CRM Tag: "${tagLabel}"`,
+                                          category: 'System Dropdown',
+                                          entityData: { tagLabel },
+                                          links: 'CRM Contacts'
+                                        });
+                                        const updated = allowedTags.filter((_, i) => i !== idx);
+                                        setAllowedTags(updated);
+                                        showToast(`🗑️ Moved "${tagLabel}" to Recycle Bin!`, 'info');
+                                      }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                    >
+                                      🗑️ Delete
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -13908,7 +13793,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Reimbursement claim types and allowance categories</p>
                       </div>
                       <button
-                        className="btn btn-primary"
                         type="button"
                         onClick={() => {
                           const val = prompt("Enter Expense Category:");
@@ -13921,7 +13805,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             }
                           }
                         }}
-                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px' }}
+                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
                       >
                         + Add Option
                       </button>
@@ -14021,6 +13905,145 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           <span style={{ fontSize: '20px' }}>⚡</span>
                           <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Task Priority Levels Options</h3>
                         </div>
+                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Task priority rating levels & urgency badges</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const val = prompt("Enter Priority Level (e.g. Critical Urgent):");
+                          if (val && val.trim()) {
+                            const trimmed = val.trim();
+                            const exists = systemDropdowns.taskPriorities.some(p => (typeof p === 'object' ? p.name : p) === trimmed);
+                            if (!exists) {
+                              setSystemDropdowns(prev => ({ ...prev, taskPriorities: [...prev.taskPriorities, { name: trimmed, archived: false }] }));
+                              showToast(`Added Priority Level "${trimmed}"`, 'success');
+                            }
+                          }
+                        }}
+                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
+                      >
+                        + Add Option
+                      </button>
+                    </div>
+
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="std-table" style={{ width: '100%' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ width: '50px' }}>#</th>
+                            <th style={{ padding: '10px 12px' }}>Priority Rating</th>
+                            <th style={{ width: '130px' }}>Status</th>
+                            <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {systemDropdowns.taskPriorities.map((pri, idx) => {
+                            const isObj = typeof pri === 'object' && pri !== null;
+                            const title = isObj ? pri.name : pri;
+                            const isArchived = isObj ? Boolean(pri.archived) : false;
+
+                            return (
+                              <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white' }}>
+                                <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                <td style={{ padding: '12px', fontWeight: '700', color: isArchived ? '#94a3b8' : '#0f2b26', textDecoration: isArchived ? 'line-through' : 'none' }}>
+                                  {title}
+                                </td>
+                                <td style={{ padding: '12px' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                    {isArchived ? '📦 Archived' : '🟢 Active'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '12px', textAlign: 'right' }}>
+                                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newName = prompt("Rename Priority Level:", title);
+                                        if (newName && newName.trim()) {
+                                          const updated = [...systemDropdowns.taskPriorities];
+                                          updated[idx] = { name: newName.trim(), archived: isArchived };
+                                          setSystemDropdowns(prev => ({ ...prev, taskPriorities: updated }));
+                                          showToast(`Updated to "${newName.trim()}"`, 'success');
+                                        }
+                                      }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                    >
+                                      ✏️ Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = [...systemDropdowns.taskPriorities];
+                                        updated[idx] = { name: title, archived: !isArchived };
+                                        setSystemDropdowns(prev => ({ ...prev, taskPriorities: updated }));
+                                        showToast(isArchived ? `Restored "${title}"` : `Archived "${title}"`, 'info');
+                                      }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                    >
+                                      {isArchived ? '🔄 Restore' : '📦 Archive'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        softDeleteRecord({
+                                          originalId: `dropdown_priority_${title}`,
+                                          name: `Task Priority Level: "${title}"`,
+                                          category: 'System Dropdown',
+                                          entityData: { category: 'priorities', title },
+                                          links: 'Task Manager'
+                                        });
+                                        const updated = systemDropdowns.taskPriorities.filter((_, i) => i !== idx);
+                                        setSystemDropdowns(prev => ({ ...prev, taskPriorities: updated }));
+                                        showToast(`🗑️ Moved "${title}" to Recycle Bin!`, 'info');
+                                      }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                    >
+                                      🗑️ Delete
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* 12. CUSTOM ENGINE */}
+                {selectedDropdownCategory === 'custom_engine' && (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '20px' }}>⚙️</span>
+                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Custom Feature Dropdown Engine</h3>
+                        </div>
+                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Create custom dropdown lists for any custom feature or module</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const categoryTitle = prompt("Enter title for the new Dropdown Category (e.g. Office Branches):");
+                          if (categoryTitle && categoryTitle.trim()) {
+                            const newCat = {
+                              id: 'cat_' + Date.now(),
+                              title: categoryTitle.trim(),
+                              options: ['Option 1', 'Option 2']
+                            };
+                            setSystemDropdowns(prev => ({
+                              ...prev,
+                              customCategories: [...(prev.customCategories || []), newCat]
+                            }));
+                            showToast(`Created Custom Category "${categoryTitle.trim()}"`, 'success');
+                          }
+                        }}
+                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
+                      >
+                        + Add Custom Category
+                      </button>
+                    </div>     </div>
                         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Task priority rating levels & urgency badges</p>
                       </div>
                       <button
@@ -14133,7 +14156,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Create custom dropdown lists for any custom feature or module</p>
                       </div>
                       <button
-                        className="btn btn-primary"
                         type="button"
                         onClick={() => {
                           const categoryTitle = prompt("Enter title for the new Dropdown Category (e.g. Office Branches):");
@@ -14150,7 +14172,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             showToast(`Created Custom Category "${categoryTitle.trim()}"`, 'success');
                           }
                         }}
-                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px' }}
+                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
                       >
                         + Add Custom Category
                       </button>
