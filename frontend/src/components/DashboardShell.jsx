@@ -2417,6 +2417,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     { id: 'won', title: 'Closed Won', color: '#10b981' }
   ]);
   const [allowedTags, setAllowedTags] = useState(['VIP', 'Hot', 'Follow Up', 'Won']);
+  const [dropdownCategorySearch, setDropdownCategorySearch] = useState('');
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsError, setSettingsError] = useState(null);
 
@@ -12759,19 +12760,50 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             <div className="system-dropdowns-grid">
 
               {/* LEFT COLUMN: Categories Navigation Panel */}
-              <div className="payroll-table-card" style={{ padding: 'var(--space-5)', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid var(--border-default)' }}>
+              <div className="payroll-table-card" style={{ padding: 'var(--space-5)', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid var(--border-default)', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <h3 className="payroll-table-title" style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>Categories</h3>
                   <span style={{ fontSize: '11px', fontWeight: '700', color: '#0d9488', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 8px', borderRadius: '10px', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
                     12 Total
                   </span>
                 </div>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '14px' }}>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>
                   Select a category to manage its options
                 </p>
 
-                {/* Category List */}
-                <div className="system-dropdowns-categories-list" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {/* 🔍 Quick Search Bar for Categories */}
+                <div style={{ marginBottom: '12px', position: 'relative' }}>
+                  <input
+                    type="text"
+                    placeholder="🔍 Search categories..."
+                    value={dropdownCategorySearch}
+                    onChange={e => setDropdownCategorySearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      fontSize: '12px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      background: '#f8fafc',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      color: '#0f172a',
+                      fontWeight: '600'
+                    }}
+                  />
+                  {dropdownCategorySearch && (
+                    <button
+                      type="button"
+                      onClick={() => setDropdownCategorySearch('')}
+                      style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', color: '#94a3b8', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                    >
+                      ✖
+                    </button>
+                  )}
+                </div>
+
+                {/* Category List with Smooth Custom Scrollbar */}
+                <div className="system-dropdowns-categories-list" style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '460px', overflowY: 'auto', paddingRight: '4px' }}>
                   {[
                     { id: 'departments', icon: '🏢', label: 'Departments', count: systemDropdowns.departments?.length || 0 },
                     { id: 'designations', icon: '💼', label: 'Designations', count: systemDropdowns.designations?.length || 0 },
@@ -12785,7 +12817,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     { id: 'expenses', icon: '💳', label: 'Expense Categories', count: systemDropdowns.expenseCategories?.length || 0 },
                     { id: 'priorities', icon: '⚡', label: 'Task Priority Levels', count: systemDropdowns.taskPriorities?.length || 0 },
                     { id: 'custom_engine', icon: '⚙️', label: 'Custom Categories Engine', count: (systemDropdowns.customCategories || []).length }
-                  ].map(cat => {
+                  ]
+                  .filter(cat => cat.label.toLowerCase().includes(dropdownCategorySearch.toLowerCase().trim()))
+                  .map(cat => {
                     const isSelected = selectedDropdownCategory === cat.id;
                     return (
                       <button
@@ -12816,7 +12850,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               </div>
 
               {/* RIGHT COLUMN: Selected Category Workspace */}
-              <div className="payroll-table-card" style={{ padding: 'var(--space-6)', minHeight: '520px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid var(--border-default)' }}>
+              <div className="payroll-table-card" style={{ padding: 'var(--space-6)', minHeight: '520px', maxHeight: '580px', overflowY: 'auto', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid var(--border-default)' }}>
 
                 {/* 1. DEPARTMENTS */}
                 {selectedDropdownCategory === 'departments' && (() => {
@@ -12884,7 +12918,41 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     </span>
                                   </td>
                                   <td style={{ padding: '12px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                      <button
+                                        type="button"
+                                        disabled={idx === 0}
+                                        onClick={() => {
+                                          if (idx === 0) return;
+                                          const updated = [...currentItems];
+                                          const temp = updated[idx];
+                                          updated[idx] = updated[idx - 1];
+                                          updated[idx - 1] = temp;
+                                          setSystemDropdowns(prev => ({ ...prev, departments: updated }));
+                                          showToast(`Moved "${item.name}" up`, 'info');
+                                        }}
+                                        title="Move Up"
+                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                      >
+                                        ⬆️
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={idx === currentItems.length - 1}
+                                        onClick={() => {
+                                          if (idx === currentItems.length - 1) return;
+                                          const updated = [...currentItems];
+                                          const temp = updated[idx];
+                                          updated[idx] = updated[idx + 1];
+                                          updated[idx + 1] = temp;
+                                          setSystemDropdowns(prev => ({ ...prev, departments: updated }));
+                                          showToast(`Moved "${item.name}" down`, 'info');
+                                        }}
+                                        title="Move Down"
+                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === currentItems.length - 1 ? '#f1f5f9' : 'white', color: idx === currentItems.length - 1 ? '#94a3b8' : '#334155', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer' }}
+                                      >
+                                        ⬇️
+                                      </button>
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -13008,7 +13076,41 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     </span>
                                   </td>
                                   <td style={{ padding: '12px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                      <button
+                                        type="button"
+                                        disabled={idx === 0}
+                                        onClick={() => {
+                                          if (idx === 0) return;
+                                          const updated = [...currentItems];
+                                          const temp = updated[idx];
+                                          updated[idx] = updated[idx - 1];
+                                          updated[idx - 1] = temp;
+                                          setSystemDropdowns(prev => ({ ...prev, designations: updated }));
+                                          showToast(`Moved "${item.name}" up`, 'info');
+                                        }}
+                                        title="Move Up"
+                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                      >
+                                        ⬆️
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={idx === currentItems.length - 1}
+                                        onClick={() => {
+                                          if (idx === currentItems.length - 1) return;
+                                          const updated = [...currentItems];
+                                          const temp = updated[idx];
+                                          updated[idx] = updated[idx + 1];
+                                          updated[idx + 1] = temp;
+                                          setSystemDropdowns(prev => ({ ...prev, designations: updated }));
+                                          showToast(`Moved "${item.name}" down`, 'info');
+                                        }}
+                                        title="Move Down"
+                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === currentItems.length - 1 ? '#f1f5f9' : 'white', color: idx === currentItems.length - 1 ? '#94a3b8' : '#334155', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer' }}
+                                      >
+                                        ⬇️
+                                      </button>
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -13132,7 +13234,41 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     </span>
                                   </td>
                                   <td style={{ padding: '12px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                      <button
+                                        type="button"
+                                        disabled={idx === 0}
+                                        onClick={() => {
+                                          if (idx === 0) return;
+                                          const updated = [...currentItems];
+                                          const temp = updated[idx];
+                                          updated[idx] = updated[idx - 1];
+                                          updated[idx - 1] = temp;
+                                          setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
+                                          showToast(`Moved "${item.name}" up`, 'info');
+                                        }}
+                                        title="Move Up"
+                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                      >
+                                        ⬆️
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={idx === currentItems.length - 1}
+                                        onClick={() => {
+                                          if (idx === currentItems.length - 1) return;
+                                          const updated = [...currentItems];
+                                          const temp = updated[idx];
+                                          updated[idx] = updated[idx + 1];
+                                          updated[idx + 1] = temp;
+                                          setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
+                                          showToast(`Moved "${item.name}" down`, 'info');
+                                        }}
+                                        title="Move Down"
+                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === currentItems.length - 1 ? '#f1f5f9' : 'white', color: idx === currentItems.length - 1 ? '#94a3b8' : '#334155', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer' }}
+                                      >
+                                        ⬇️
+                                      </button>
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -13256,7 +13392,41 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     </span>
                                   </td>
                                   <td style={{ padding: '12px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                      <button
+                                        type="button"
+                                        disabled={idx === 0}
+                                        onClick={() => {
+                                          if (idx === 0) return;
+                                          const updated = [...currentItems];
+                                          const temp = updated[idx];
+                                          updated[idx] = updated[idx - 1];
+                                          updated[idx - 1] = temp;
+                                          setSystemDropdowns(prev => ({ ...prev, genders: updated }));
+                                          showToast(`Moved "${item.name}" up`, 'info');
+                                        }}
+                                        title="Move Up"
+                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                      >
+                                        ⬆️
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={idx === currentItems.length - 1}
+                                        onClick={() => {
+                                          if (idx === currentItems.length - 1) return;
+                                          const updated = [...currentItems];
+                                          const temp = updated[idx];
+                                          updated[idx] = updated[idx + 1];
+                                          updated[idx + 1] = temp;
+                                          setSystemDropdowns(prev => ({ ...prev, genders: updated }));
+                                          showToast(`Moved "${item.name}" down`, 'info');
+                                        }}
+                                        title="Move Down"
+                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === currentItems.length - 1 ? '#f1f5f9' : 'white', color: idx === currentItems.length - 1 ? '#94a3b8' : '#334155', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer' }}
+                                      >
+                                        ⬇️
+                                      </button>
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -13380,7 +13550,41 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     </span>
                                   </td>
                                   <td style={{ padding: '12px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                      <button
+                                        type="button"
+                                        disabled={idx === 0}
+                                        onClick={() => {
+                                          if (idx === 0) return;
+                                          const updated = [...currentItems];
+                                          const temp = updated[idx];
+                                          updated[idx] = updated[idx - 1];
+                                          updated[idx - 1] = temp;
+                                          setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated }));
+                                          showToast(`Moved "${item.name}" up`, 'info');
+                                        }}
+                                        title="Move Up"
+                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                      >
+                                        ⬆️
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={idx === currentItems.length - 1}
+                                        onClick={() => {
+                                          if (idx === currentItems.length - 1) return;
+                                          const updated = [...currentItems];
+                                          const temp = updated[idx];
+                                          updated[idx] = updated[idx + 1];
+                                          updated[idx + 1] = temp;
+                                          setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated }));
+                                          showToast(`Moved "${item.name}" down`, 'info');
+                                        }}
+                                        title="Move Down"
+                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === currentItems.length - 1 ? '#f1f5f9' : 'white', color: idx === currentItems.length - 1 ? '#94a3b8' : '#334155', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer' }}
+                                      >
+                                        ⬇️
+                                      </button>
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -13504,7 +13708,41 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     </span>
                                   </td>
                                   <td style={{ padding: '12px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                      <button
+                                        type="button"
+                                        disabled={idx === 0}
+                                        onClick={() => {
+                                          if (idx === 0) return;
+                                          const updated = [...currentItems];
+                                          const temp = updated[idx];
+                                          updated[idx] = updated[idx - 1];
+                                          updated[idx - 1] = temp;
+                                          setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated }));
+                                          showToast(`Moved "${item.name}" up`, 'info');
+                                        }}
+                                        title="Move Up"
+                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                      >
+                                        ⬆️
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={idx === currentItems.length - 1}
+                                        onClick={() => {
+                                          if (idx === currentItems.length - 1) return;
+                                          const updated = [...currentItems];
+                                          const temp = updated[idx];
+                                          updated[idx] = updated[idx + 1];
+                                          updated[idx + 1] = temp;
+                                          setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated }));
+                                          showToast(`Moved "${item.name}" down`, 'info');
+                                        }}
+                                        title="Move Down"
+                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === currentItems.length - 1 ? '#f1f5f9' : 'white', color: idx === currentItems.length - 1 ? '#94a3b8' : '#334155', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer' }}
+                                      >
+                                        ⬇️
+                                      </button>
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -13620,7 +13858,41 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                   </span>
                                 </td>
                                 <td style={{ padding: '12px', textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                    <button
+                                      type="button"
+                                      disabled={idx === 0}
+                                      onClick={() => {
+                                        if (idx === 0) return;
+                                        const updated = [...systemDropdowns.leaveCategories];
+                                        const temp = updated[idx];
+                                        updated[idx] = updated[idx - 1];
+                                        updated[idx - 1] = temp;
+                                        setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated }));
+                                        showToast(`Moved "${lc.name}" up`, 'info');
+                                      }}
+                                      title="Move Up"
+                                      style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                    >
+                                      ⬆️
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={idx === systemDropdowns.leaveCategories.length - 1}
+                                      onClick={() => {
+                                        if (idx === systemDropdowns.leaveCategories.length - 1) return;
+                                        const updated = [...systemDropdowns.leaveCategories];
+                                        const temp = updated[idx];
+                                        updated[idx] = updated[idx + 1];
+                                        updated[idx + 1] = temp;
+                                        setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated }));
+                                        showToast(`Moved "${lc.name}" down`, 'info');
+                                      }}
+                                      title="Move Down"
+                                      style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === systemDropdowns.leaveCategories.length - 1 ? '#f1f5f9' : 'white', color: idx === systemDropdowns.leaveCategories.length - 1 ? '#94a3b8' : '#334155', cursor: idx === systemDropdowns.leaveCategories.length - 1 ? 'not-allowed' : 'pointer' }}
+                                    >
+                                      ⬇️
+                                    </button>
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -13857,7 +14129,41 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                   </span>
                                 </td>
                                 <td style={{ padding: '12px', textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                    <button
+                                      type="button"
+                                      disabled={idx === 0}
+                                      onClick={() => {
+                                        if (idx === 0) return;
+                                        const updated = [...allowedTags];
+                                        const temp = updated[idx];
+                                        updated[idx] = updated[idx - 1];
+                                        updated[idx - 1] = temp;
+                                        setAllowedTags(updated);
+                                        showToast(`Moved "${tagLabel}" up`, 'info');
+                                      }}
+                                      title="Move Up"
+                                      style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                    >
+                                      ⬆️
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={idx === allowedTags.length - 1}
+                                      onClick={() => {
+                                        if (idx === allowedTags.length - 1) return;
+                                        const updated = [...allowedTags];
+                                        const temp = updated[idx];
+                                        updated[idx] = updated[idx + 1];
+                                        updated[idx + 1] = temp;
+                                        setAllowedTags(updated);
+                                        showToast(`Moved "${tagLabel}" down`, 'info');
+                                      }}
+                                      title="Move Down"
+                                      style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === allowedTags.length - 1 ? '#f1f5f9' : 'white', color: idx === allowedTags.length - 1 ? '#94a3b8' : '#334155', cursor: idx === allowedTags.length - 1 ? 'not-allowed' : 'pointer' }}
+                                    >
+                                      ⬇️
+                                    </button>
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -13972,7 +14278,41 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                   </span>
                                 </td>
                                 <td style={{ padding: '12px', textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                    <button
+                                      type="button"
+                                      disabled={idx === 0}
+                                      onClick={() => {
+                                        if (idx === 0) return;
+                                        const updated = [...systemDropdowns.expenseCategories];
+                                        const temp = updated[idx];
+                                        updated[idx] = updated[idx - 1];
+                                        updated[idx - 1] = temp;
+                                        setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated }));
+                                        showToast(`Moved "${title}" up`, 'info');
+                                      }}
+                                      title="Move Up"
+                                      style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                    >
+                                      ⬆️
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={idx === systemDropdowns.expenseCategories.length - 1}
+                                      onClick={() => {
+                                        if (idx === systemDropdowns.expenseCategories.length - 1) return;
+                                        const updated = [...systemDropdowns.expenseCategories];
+                                        const temp = updated[idx];
+                                        updated[idx] = updated[idx + 1];
+                                        updated[idx + 1] = temp;
+                                        setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated }));
+                                        showToast(`Moved "${title}" down`, 'info');
+                                      }}
+                                      title="Move Down"
+                                      style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === systemDropdowns.expenseCategories.length - 1 ? '#f1f5f9' : 'white', color: idx === systemDropdowns.expenseCategories.length - 1 ? '#94a3b8' : '#334155', cursor: idx === systemDropdowns.expenseCategories.length - 1 ? 'not-allowed' : 'pointer' }}
+                                    >
+                                      ⬇️
+                                    </button>
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -14087,7 +14427,41 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                   </span>
                                 </td>
                                 <td style={{ padding: '12px', textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                    <button
+                                      type="button"
+                                      disabled={idx === 0}
+                                      onClick={() => {
+                                        if (idx === 0) return;
+                                        const updated = [...systemDropdowns.taskPriorities];
+                                        const temp = updated[idx];
+                                        updated[idx] = updated[idx - 1];
+                                        updated[idx - 1] = temp;
+                                        setSystemDropdowns(prev => ({ ...prev, taskPriorities: updated }));
+                                        showToast(`Moved "${title}" up`, 'info');
+                                      }}
+                                      title="Move Up"
+                                      style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                    >
+                                      ⬆️
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={idx === systemDropdowns.taskPriorities.length - 1}
+                                      onClick={() => {
+                                        if (idx === systemDropdowns.taskPriorities.length - 1) return;
+                                        const updated = [...systemDropdowns.taskPriorities];
+                                        const temp = updated[idx];
+                                        updated[idx] = updated[idx + 1];
+                                        updated[idx + 1] = temp;
+                                        setSystemDropdowns(prev => ({ ...prev, taskPriorities: updated }));
+                                        showToast(`Moved "${title}" down`, 'info');
+                                      }}
+                                      title="Move Down"
+                                      style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === systemDropdowns.taskPriorities.length - 1 ? '#f1f5f9' : 'white', color: idx === systemDropdowns.taskPriorities.length - 1 ? '#94a3b8' : '#334155', cursor: idx === systemDropdowns.taskPriorities.length - 1 ? 'not-allowed' : 'pointer' }}
+                                    >
+                                      ⬇️
+                                    </button>
                                     <button
                                       type="button"
                                       onClick={() => {
