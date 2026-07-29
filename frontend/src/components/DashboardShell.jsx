@@ -502,6 +502,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [binCategoryFilter, setBinCategoryFilter] = useState('all');
   const [selectedBinTenant, setSelectedBinTenant] = useState('all');
   const [binSearchQuery, setBinSearchQuery] = useState('');
+  const [binSortConfig, setBinSortConfig] = useState({ key: 'deletedAt', dir: 'desc' });
+  const [binCurrentPage, setBinCurrentPage] = useState(1);
+  const [binPageSize, setBinPageSize] = useState(10);
 
   const [recycleBinItems, setRecycleBinItems] = useState([
     {
@@ -14985,6 +14988,34 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             return matchesCategory && matchesTenant && matchesQuery;
           });
 
+          // Sorting logic
+          const sortedBinItems = [...filteredBinItems].sort((a, b) => {
+            if (!binSortConfig.key) return 0;
+            let valA = a[binSortConfig.key] || '';
+            let valB = b[binSortConfig.key] || '';
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+            if (valA < valB) return binSortConfig.dir === 'asc' ? -1 : 1;
+            if (valA > valB) return binSortConfig.dir === 'asc' ? 1 : -1;
+            return 0;
+          });
+
+          const handleBinSort = (key) => {
+            setBinSortConfig(prev => ({
+              key,
+              dir: prev.key === key && prev.dir === 'asc' ? 'desc' : 'asc'
+            }));
+            setBinCurrentPage(1);
+          };
+
+          // Pagination calculations
+          const totalBinItems = sortedBinItems.length;
+          const totalBinPages = Math.ceil(totalBinItems / binPageSize) || 1;
+          const validBinPage = Math.min(binCurrentPage, totalBinPages);
+          const binStartIndex = (validBinPage - 1) * binPageSize;
+          const binEndIndex = Math.min(binStartIndex + binPageSize, totalBinItems);
+          const paginatedBinItems = sortedBinItems.slice(binStartIndex, binEndIndex);
+
           const handleEmptyBinVault = () => {
             openConfirm({
               title: 'Empty Recycle Bin Vault?',
@@ -15013,14 +15044,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-                  <span className="badge-success" style={{ padding: 'var(--space-2) var(--space-4)', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-bold)' }}>
+                  <span className="badge-success" style={{ padding: '8px 16px', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-bold)' }}>
                     🛡️ Zero Data Loss Active
                   </span>
                   {recycleBinItems.length > 0 && (
                     <button
                       type="button"
                       className="btn btn-danger"
-                      style={{ padding: '8px 16px', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-bold)' }}
+                      style={{ padding: '8px 16px', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-bold)', boxShadow: '0 2px 8px rgba(239,68,68,0.3)' }}
                       onClick={handleEmptyBinVault}
                     >
                       🔥 Empty Bin Vault ({recycleBinItems.length})
@@ -15031,7 +15062,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
               {/* Quick Stats Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
-                <div className="glass-card" style={{ padding: '16px', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <div className="glass-card" style={{ padding: '16px 20px', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span>📦</span> Total Vault Items
                   </div>
@@ -15039,7 +15070,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     {recycleBinItems.length}
                   </div>
                 </div>
-                <div className="glass-card" style={{ padding: '16px', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <div className="glass-card" style={{ padding: '16px 20px', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span>👥</span> Soft-Deleted Employees
                   </div>
@@ -15047,7 +15078,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     {recycleBinItems.filter(i => (i.category || '').toLowerCase() === 'employee').length}
                   </div>
                 </div>
-                <div className="glass-card" style={{ padding: '16px', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <div className="glass-card" style={{ padding: '16px 20px', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span>📋</span> Archived Leads &amp; Tasks
                   </div>
@@ -15055,39 +15086,58 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     {recycleBinItems.filter(i => ['crm lead', 'task', 'system dropdown'].includes((i.category || '').toLowerCase())).length}
                   </div>
                 </div>
-                <div className="glass-card" style={{ padding: '16px', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <div className="glass-card" style={{ padding: '16px 20px', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span>🛡️</span> Data Loss Rate
                   </div>
-                  <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#059669', marginTop: '6px', display: 'inline-block', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 10px', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#059669', marginTop: '6px', display: 'inline-block', background: 'rgba(16, 185, 129, 0.1)', padding: '3px 10px', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
                     0.0% (Protected)
                   </div>
                 </div>
               </div>
 
               {/* Search & Category Filter Toolbar */}
-              <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-6)', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-5)', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {['all', 'employee', 'crm lead', 'task', 'system dropdown'].map(cat => (
-                    <button
-                      key={cat}
-                      type="button"
-                      className={`btn ${binCategoryFilter === cat ? 'btn-primary' : 'btn-secondary'}`}
-                      style={{ padding: '6px 14px', fontSize: '12px', fontWeight: '700', borderRadius: '8px' }}
-                      onClick={() => setBinCategoryFilter(cat)}
-                    >
-                      {cat === 'all' ? '📁 All Categories' : (cat === 'system dropdown' ? '⚙️ System Dropdown' : (cat === 'crm lead' ? '💬 CRM Lead' : (cat === 'employee' ? '👥 Employee' : '📋 Task')))}
-                    </button>
-                  ))}
+                  {['all', 'employee', 'crm lead', 'task', 'system dropdown'].map(cat => {
+                    const isSelected = binCategoryFilter === cat;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        style={{
+                          padding: '8px 16px',
+                          fontSize: '12px',
+                          fontWeight: isSelected ? '800' : '600',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          border: isSelected ? 'none' : '1px solid #cbd5e1',
+                          background: isSelected ? 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)' : '#ffffff',
+                          color: isSelected ? '#ffffff' : '#334155',
+                          boxShadow: isSelected ? '0 2px 8px rgba(13, 148, 136, 0.3)' : 'none'
+                        }}
+                        onClick={() => {
+                          setBinCategoryFilter(cat);
+                          setBinCurrentPage(1);
+                        }}
+                      >
+                        {cat === 'all' ? '📁 All Categories' : (cat === 'system dropdown' ? '⚙️ System Dropdown' : (cat === 'crm lead' ? '💬 CRM Lead' : (cat === 'employee' ? '👥 Employee' : '📋 Task')))}
+                      </button>
+                    );
+                  })}
                 </div>
 
-                <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                   {isSuperAdmin && (
                     <select
                       className="form-control"
-                      style={{ padding: '6px 12px', fontSize: 'var(--text-xs)', width: '180px' }}
+                      style={{ padding: '8px 12px', fontSize: '12px', width: '180px', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'white' }}
                       value={selectedBinTenant}
-                      onChange={(e) => setSelectedBinTenant(e.target.value)}
+                      onChange={(e) => {
+                        setSelectedBinTenant(e.target.value);
+                        setBinCurrentPage(1);
+                      }}
                     >
                       <option value="all">🏢 All Companies (SaaS)</option>
                       <option value="acme_corp">Acme Corp</option>
@@ -15098,75 +15148,129 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     type="text"
                     className="form-control"
                     placeholder="🔍 Search deleted records..."
-                    style={{ padding: '6px 14px', fontSize: 'var(--text-xs)', width: '220px' }}
+                    style={{ padding: '8px 14px', fontSize: '12px', width: '220px', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'white' }}
                     value={binSearchQuery}
-                    onChange={(e) => setBinSearchQuery(e.target.value)}
+                    onChange={(e) => {
+                      setBinSearchQuery(e.target.value);
+                      setBinCurrentPage(1);
+                    }}
                   />
                 </div>
               </div>
 
               {/* Table Card */}
-              <div className="payroll-table-card">
-                <div style={{ padding: 'var(--space-4) var(--space-6)', borderBottom: '1px solid var(--border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3 className="payroll-table-title">Archived Items ({filteredBinItems.length})</h3>
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+              <div className="payroll-table-card" style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 className="payroll-table-title" style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>Archived Items ({filteredBinItems.length})</h3>
+                  <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>
                     Auto-purged after 90 days retention period
                   </span>
                 </div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="std-table">
-                    <thead>
-                      <tr>
-                        <th>Archived Item</th>
-                        <th>Category</th>
-                        <th>Deleted By</th>
-                        <th>Soft-Deleted Date</th>
-                        <th>Preserved Dependent Links</th>
-                        <th style={{ textAlign: 'right' }}>Actions</th>
+
+                <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', padding: '4px 12px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
+                
+                {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
+                <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', borderBottom: '1px solid #e2e8f0', maxHeight: '440px', background: 'white' }}>
+                  <table className="std-table" style={{ width: '100%', minWidth: '700px', borderCollapse: 'separate', borderSpacing: 0 }}>
+                    <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                      <tr style={{ userSelect: 'none' }}>
+                        <th 
+                          onClick={() => handleBinSort('name')}
+                          style={{ cursor: 'pointer', background: '#f8fafc', padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                        >
+                          ARCHIVED ITEM <span style={{ color: binSortConfig.key === 'name' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{binSortConfig.key === 'name' ? (binSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                        </th>
+                        <th 
+                          onClick={() => handleBinSort('category')}
+                          style={{ cursor: 'pointer', background: '#f8fafc', padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                        >
+                          CATEGORY <span style={{ color: binSortConfig.key === 'category' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{binSortConfig.key === 'category' ? (binSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                        </th>
+                        <th 
+                          onClick={() => handleBinSort('deletedBy')}
+                          style={{ cursor: 'pointer', background: '#f8fafc', padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                        >
+                          DELETED BY <span style={{ color: binSortConfig.key === 'deletedBy' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{binSortConfig.key === 'deletedBy' ? (binSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                        </th>
+                        <th 
+                          onClick={() => handleBinSort('deletedAt')}
+                          style={{ cursor: 'pointer', background: '#f8fafc', padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                        >
+                          SOFT-DELETED DATE <span style={{ color: binSortConfig.key === 'deletedAt' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{binSortConfig.key === 'deletedAt' ? (binSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                        </th>
+                        <th style={{ background: '#f8fafc', padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          PRESERVED DEPENDENT LINKS
+                        </th>
+                        <th style={{ textAlign: 'right', background: '#f8fafc', padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          ACTIONS
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredBinItems.length === 0 ? (
+                      {paginatedBinItems.length === 0 ? (
                         <tr>
-                          <td colSpan="6" style={{ padding: 'var(--space-10)', textAlign: 'center', color: 'var(--text-muted)' }}>
-                            <div style={{ fontSize: '2rem', marginBottom: 'var(--space-3)' }}>🗑️</div>
+                          <td colSpan="6" style={{ padding: '48px 20px', textAlign: 'center', color: '#94a3b8' }}>
+                            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🗑️</div>
                             No archived items match your filter criteria.
                           </td>
                         </tr>
                       ) : (
-                        filteredBinItems.map(item => (
-                          <tr key={item.id}>
-                            <td style={{ fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)' }}>
+                        paginatedBinItems.map(item => (
+                          <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '12px 16px', fontWeight: '700', color: '#0f2b26' }}>
                               <div>{item.name}</div>
                               {isSuperAdmin && item.tenantName && (
-                                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Company: {item.tenantName}</span>
+                                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>Company: {item.tenantName}</span>
                               )}
                             </td>
-                            <td>
-                              <span className="badge-info" style={{ fontWeight: '700' }}>{item.category || 'General'}</span>
+                            <td style={{ padding: '12px 16px' }}>
+                              <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                {item.category || 'General'}
+                              </span>
                             </td>
-                            <td style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-xs)' }}>
+                            <td style={{ padding: '12px 16px', color: '#334155', fontSize: '12px', fontWeight: '600' }}>
                               <div>{item.deletedBy || 'System User'}</div>
-                              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{item.deletedByEmail}</div>
+                              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>{item.deletedByEmail}</div>
                             </td>
-                            <td style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-xs)' }}>{item.deletedAt}</td>
-                            <td>
-                              <span className="badge-success" style={{ fontWeight: '700' }}>🛡️ Intact: {item.links || 'Full History Intact'}</span>
+                            <td style={{ padding: '12px 16px', color: '#475569', fontSize: '12px', fontWeight: '600' }}>{item.deletedAt}</td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.1)', color: '#059669', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                                🛡️ Intact: {item.links || 'Full History Intact'}
+                              </span>
                             </td>
-                            <td>
-                              <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end' }}>
+                            <td style={{ padding: '12px 16px' }}>
+                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                 <button
                                   type="button"
-                                  className="btn btn-success"
-                                  style={{ padding: '6px 14px', fontSize: 'var(--text-xs)' }}
+                                  style={{
+                                    padding: '6px 14px',
+                                    fontSize: '12px',
+                                    fontWeight: '700',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)',
+                                    color: '#ffffff',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)',
+                                    transition: 'all 0.15s ease'
+                                  }}
                                   onClick={() => handleRestoreBinItem(item)}
                                 >
                                   🔄 Restore
                                 </button>
                                 <button
                                   type="button"
-                                  className="btn btn-danger"
-                                  style={{ padding: '6px 14px', fontSize: 'var(--text-xs)' }}
+                                  style={{
+                                    padding: '6px 14px',
+                                    fontSize: '12px',
+                                    fontWeight: '700',
+                                    borderRadius: '8px',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                    background: 'rgba(239, 68, 68, 0.1)',
+                                    color: '#ef4444',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease'
+                                  }}
                                   onClick={() => handlePermanentDeleteBinItem(item.id, item.name)}
                                 >
                                   ❌ Purge
@@ -15179,6 +15283,54 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Table Footer with Pagination */}
+                <div style={{ padding: '12px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', flexWrap: 'wrap', gap: '12px' }}>
+                  <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>
+                    {totalBinItems > 0
+                      ? `Showing ${binStartIndex + 1} to ${binEndIndex} of ${totalBinItems} entries`
+                      : `Showing 0 to 0 of 0 entries`}
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b' }}>
+                      <span>Rows:</span>
+                      <select
+                        value={binPageSize}
+                        onChange={(e) => {
+                          setBinPageSize(Number(e.target.value));
+                          setBinCurrentPage(1);
+                        }}
+                        style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', background: 'white' }}
+                      >
+                        <option value={10}>10</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button
+                        type="button"
+                        disabled={validBinPage <= 1}
+                        onClick={() => setBinCurrentPage(prev => Math.max(prev - 1, 1))}
+                        style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: validBinPage <= 1 ? '#f1f5f9' : 'white', color: validBinPage <= 1 ? '#cbd5e1' : '#334155', cursor: validBinPage <= 1 ? 'not-allowed' : 'pointer' }}
+                      >
+                        ‹ Prev
+                      </button>
+                      <span style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '700', borderRadius: '6px', background: '#0d9488', color: 'white' }}>
+                        {validBinPage} / {totalBinPages}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={validBinPage >= totalBinPages}
+                        onClick={() => setBinCurrentPage(prev => Math.min(prev + 1, totalBinPages))}
+                        style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: validBinPage >= totalBinPages ? '#f1f5f9' : 'white', color: validBinPage >= totalBinPages ? '#cbd5e1' : '#334155', cursor: validBinPage >= totalBinPages ? 'not-allowed' : 'pointer' }}
+                      >
+                        Next ›
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </div>
           );
