@@ -12751,8 +12751,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 <option value="marital_statuses">Marital Statuses (4)</option>
                 <option value="blood_groups">Blood Groups (8)</option>
                 <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
-                <option value="crm_stages">CRM Pipeline Stages ({stages?.length || 0})</option>
-                <option value="crm_tags">CRM Contact Tags ({allowedTags?.length || 0})</option>
+                <option value="crm_stages">CRM Pipeline Stages (5)</option>
+                <option value="crm_tags">CRM Contact Tags (6)</option>
                 <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
                 <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
                 <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
