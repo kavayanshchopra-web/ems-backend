@@ -14985,6 +14985,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             return matchesCategory && matchesTenant && matchesQuery;
           });
 
+          const handleEmptyBinVault = () => {
+            openConfirm({
+              title: 'Empty Recycle Bin Vault?',
+              message: `Are you sure you want to permanently purge all ${recycleBinItems.length} soft-deleted items? This action cannot be undone.`,
+              confirmText: 'Yes, Purge All Items',
+              danger: true,
+              onConfirm: () => {
+                setRecycleBinItems([]);
+                showToast(`🔥 Vault Emptied! All items permanently purged.`, 'info');
+              }
+            });
+          };
+
           return (
             <div style={{ padding: 'var(--space-6)', margin: 'var(--space-4)', overflowY: 'auto', flexGrow: 1 }} className="glass-panel">
 
@@ -15018,27 +15031,35 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
               {/* Quick Stats Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
-                <div className="glass-card" style={{ padding: 'var(--space-4)', borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-default)' }}>
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Total Vault Items</div>
-                  <div style={{ fontSize: '1.6rem', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', marginTop: '4px' }}>
+                <div className="glass-card" style={{ padding: '16px', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>📦</span> Total Vault Items
+                  </div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#0f2b26', marginTop: '6px' }}>
                     {recycleBinItems.length}
                   </div>
                 </div>
-                <div className="glass-card" style={{ padding: 'var(--space-4)', borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-default)' }}>
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Soft-Deleted Employees</div>
-                  <div style={{ fontSize: '1.6rem', fontWeight: 'var(--fw-bold)', color: 'var(--color-warning)', marginTop: '4px' }}>
+                <div className="glass-card" style={{ padding: '16px', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>👥</span> Soft-Deleted Employees
+                  </div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#d97706', marginTop: '6px' }}>
                     {recycleBinItems.filter(i => (i.category || '').toLowerCase() === 'employee').length}
                   </div>
                 </div>
-                <div className="glass-card" style={{ padding: 'var(--space-4)', borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-default)' }}>
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Archived Leads &amp; Tasks</div>
-                  <div style={{ fontSize: '1.6rem', fontWeight: 'var(--fw-bold)', color: 'var(--color-primary)', marginTop: '4px' }}>
-                    {recycleBinItems.filter(i => ['crm lead', 'task'].includes((i.category || '').toLowerCase())).length}
+                <div className="glass-card" style={{ padding: '16px', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>📋</span> Archived Leads &amp; Tasks
+                  </div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#0d9488', marginTop: '6px' }}>
+                    {recycleBinItems.filter(i => ['crm lead', 'task', 'system dropdown'].includes((i.category || '').toLowerCase())).length}
                   </div>
                 </div>
-                <div className="glass-card" style={{ padding: 'var(--space-4)', borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-default)' }}>
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Data Loss Rate</div>
-                  <div style={{ fontSize: '1.6rem', fontWeight: 'var(--fw-bold)', color: '#10b981', marginTop: '4px' }}>
+                <div className="glass-card" style={{ padding: '16px', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>🛡️</span> Data Loss Rate
+                  </div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#059669', marginTop: '6px', display: 'inline-block', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 10px', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
                     0.0% (Protected)
                   </div>
                 </div>
@@ -15046,16 +15067,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
               {/* Search & Category Filter Toolbar */}
               <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-6)', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                  {['all', 'employee', 'crm lead', 'task'].map(cat => (
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {['all', 'employee', 'crm lead', 'task', 'system dropdown'].map(cat => (
                     <button
                       key={cat}
                       type="button"
                       className={`btn ${binCategoryFilter === cat ? 'btn-primary' : 'btn-secondary'}`}
-                      style={{ padding: '6px 14px', fontSize: 'var(--text-xs)', textTransform: 'capitalize' }}
+                      style={{ padding: '6px 14px', fontSize: '12px', fontWeight: '700', borderRadius: '8px' }}
                       onClick={() => setBinCategoryFilter(cat)}
                     >
-                      {cat === 'all' ? '📁 All Categories' : cat}
+                      {cat === 'all' ? '📁 All Categories' : (cat === 'system dropdown' ? '⚙️ System Dropdown' : (cat === 'crm lead' ? '💬 CRM Lead' : (cat === 'employee' ? '👥 Employee' : '📋 Task')))}
                     </button>
                   ))}
                 </div>
@@ -15122,7 +15143,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                               )}
                             </td>
                             <td>
-                              <span className="badge-info">{item.category || 'General'}</span>
+                              <span className="badge-info" style={{ fontWeight: '700' }}>{item.category || 'General'}</span>
                             </td>
                             <td style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-xs)' }}>
                               <div>{item.deletedBy || 'System User'}</div>
@@ -15130,7 +15151,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             </td>
                             <td style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-xs)' }}>{item.deletedAt}</td>
                             <td>
-                              <span className="badge-success">🛡️ Intact: {item.links || 'Full History Intact'}</span>
+                              <span className="badge-success" style={{ fontWeight: '700' }}>🛡️ Intact: {item.links || 'Full History Intact'}</span>
                             </td>
                             <td>
                               <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end' }}>
