@@ -12813,8 +12813,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     { id: 'marital_statuses', label: 'Marital Statuses', count: 4 },
                     { id: 'blood_groups', label: 'Blood Groups', count: 8 },
                     { id: 'leave_categories', label: 'Leave Types', count: systemDropdowns.leaveCategories?.length || 0 },
-                    { id: 'crm_stages', label: 'CRM Pipeline Stages', count: stages?.length || 0 },
-                    { id: 'crm_tags', label: 'CRM Contact Tags', count: allowedTags?.length || 0 },
+                    { id: 'crm_stages', label: 'CRM Pipeline Stages', count: 5 },
+                    { id: 'crm_tags', label: 'CRM Contact Tags', count: 6 },
                     { id: 'expenses', label: 'Expense Categories', count: systemDropdowns.expenseCategories?.length || 0 },
                     { id: 'priorities', label: 'Task Priority Levels', count: systemDropdowns.taskPriorities?.length || 0 },
                     { id: 'custom_engine', label: 'Custom Categories Engine', count: (systemDropdowns.customCategories || []).length }
