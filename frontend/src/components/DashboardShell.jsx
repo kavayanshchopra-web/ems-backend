@@ -12748,7 +12748,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   className="btn btn-primary"
                   type="button"
                   onClick={handleSaveMasterDropdowns}
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', fontWeight: '700', borderRadius: '8px', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', fontWeight: '700', borderRadius: '10px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(13, 148, 136, 0.3)', cursor: 'pointer', transition: 'all 0.2s ease' }}
                 >
                   💾 Save All Changes
                 </button>
@@ -12761,8 +12761,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               {/* LEFT COLUMN: Categories Navigation Panel */}
               <div className="payroll-table-card" style={{ padding: 'var(--space-5)', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid var(--border-default)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <h3 className="payroll-table-title" style={{ margin: 0, fontSize: '15px', fontWeight: '800' }}>Categories</h3>
-                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', background: '#f1f5f9', padding: '2px 8px', borderRadius: '10px' }}>
+                  <h3 className="payroll-table-title" style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>Categories</h3>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#0d9488', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 8px', borderRadius: '10px', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
                     12 Total
                   </span>
                 </div>
@@ -12771,7 +12771,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 </p>
 
                 {/* Category List */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div className="system-dropdowns-categories-list" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {[
                     { id: 'departments', icon: '🏢', label: 'Departments', count: systemDropdowns.departments?.length || 0 },
                     { id: 'designations', icon: '💼', label: 'Designations', count: systemDropdowns.designations?.length || 0 },
@@ -12795,31 +12795,33 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          justify: 'space-between',
+                          justifyContent: 'space-between',
                           padding: '10px 12px',
-                          borderRadius: '8px',
+                          borderRadius: '10px',
                           fontSize: '13px',
                           fontWeight: isSelected ? '700' : '500',
                           textAlign: 'left',
-                          border: isSelected ? '1px solid rgba(37,99,235,0.3)' : '1px solid transparent',
-                          background: isSelected ? 'rgba(37,99,235,0.08)' : 'transparent',
-                          color: isSelected ? '#2563eb' : '#334155',
+                          border: isSelected ? '1px solid rgba(13,148,136,0.35)' : '1px solid transparent',
+                          background: isSelected ? 'rgba(13,148,136,0.08)' : 'transparent',
+                          color: isSelected ? '#0d9488' : '#334155',
                           cursor: 'pointer',
                           transition: 'all 0.15s ease',
-                          boxShadow: isSelected ? '0 1px 3px rgba(37,99,235,0.1)' : 'none'
+                          boxShadow: isSelected ? '0 2px 6px rgba(13,148,136,0.12)' : 'none'
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '15px' }}>{cat.icon}</span>
-                          <span>{cat.label}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <span style={{ fontSize: '15px', flexShrink: 0 }}>{cat.icon}</span>
+                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cat.label}</span>
                         </div>
                         <span style={{
                           fontSize: '11px',
                           fontWeight: '800',
-                          padding: '2px 7px',
+                          padding: '2px 8px',
                           borderRadius: '10px',
-                          background: isSelected ? '#2563eb' : '#e2e8f0',
-                          color: isSelected ? 'white' : '#64748b'
+                          background: isSelected ? '#0d9488' : '#f1f5f9',
+                          color: isSelected ? 'white' : '#64748b',
+                          flexShrink: 0,
+                          marginLeft: '8px'
                         }}>
                           {cat.count}
                         </span>
@@ -12857,7 +12859,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             }
                           }
                         }}
-                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px' }}
+                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
                       >
                         + Add Option
                       </button>
@@ -12874,7 +12876,18 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           </tr>
                         </thead>
                         <tbody>
-                          {systemDropdowns.departments.map((dept, idx) => {
+                          {systemDropdowns.departments.length === 0 ? (
+                            <tr>
+                              <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
+                                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto', fontSize: '20px' }}>
+                                  🏢
+                                </div>
+                                <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Departments Configured</div>
+                                <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create your first department.</div>
+                              </td>
+                            </tr>
+                          ) : (
+                            systemDropdowns.departments.map((dept, idx) => {
                             const isObj = typeof dept === 'object' && dept !== null;
                             const title = isObj ? dept.name : dept;
                             const isArchived = isObj ? Boolean(dept.archived) : false;
@@ -12941,7 +12954,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                 </td>
                               </tr>
                             );
-                          })}
+                          })
+                        )}
                         </tbody>
                       </table>
                     </div>
