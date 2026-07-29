@@ -13063,164 +13063,504 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 )}
 
                 {/* 3. EMPLOYMENT TYPES */}
-                {selectedDropdownCategory === 'employment_types' && (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '20px' }}>⌛</span>
-                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Employment Types Options</h3>
+                {selectedDropdownCategory === 'employment_types' && (() => {
+                  const defaultList = ['Full-Time Permanent', 'Part-Time Employee', 'Contractor / Freelancer', 'Trainee / Intern', 'Probationary Employee'].map(n => ({ name: n, archived: false }));
+                  const currentItems = (systemDropdowns.employmentTypes && systemDropdowns.employmentTypes.length > 0)
+                    ? systemDropdowns.employmentTypes.map(item => typeof item === 'object' && item !== null ? item : { name: item, archived: false })
+                    : defaultList;
+
+                  return (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '20px' }}>⌛</span>
+                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Employment Types Options</h3>
+                          </div>
+                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage functional employment types across the organization</p>
                         </div>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Full-Time, Part-Time, Contract, Trainee, Probationary</p>
+                        <button
+                          className="btn btn-primary"
+                          type="button"
+                          onClick={() => {
+                            const val = prompt("Enter new Employment Type:");
+                            if (val && val.trim()) {
+                              const trimmed = val.trim();
+                              const exists = currentItems.some(d => d.name === trimmed);
+                              if (!exists) {
+                                const updated = [...currentItems, { name: trimmed, archived: false }];
+                                setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
+                                showToast(`Added Employment Type "${trimmed}"`, 'success');
+                              }
+                            }
+                          }}
+                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
+                        >
+                          + Add Option
+                        </button>
+                      </div>
+
+                      <div style={{ overflowX: 'auto' }}>
+                        <table className="std-table" style={{ width: '100%' }}>
+                          <thead>
+                            <tr>
+                              <th style={{ width: '50px' }}>#</th>
+                              <th style={{ padding: '10px 12px' }}>Employment Type Label</th>
+                              <th style={{ width: '130px' }}>Status</th>
+                              <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {currentItems.length === 0 ? (
+                              <tr>
+                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
+                                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Employment Types Configured</div>
+                                  <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create your first employment type.</div>
+                                </td>
+                              </tr>
+                            ) : (
+                              currentItems.map((item, idx) => (
+                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
+                                  <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                  <td style={{ padding: '12px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
+                                  <td style={{ padding: '12px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                      {item.archived ? '📦 Archived' : '🟢 Active'}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newName = prompt("Rename Employment Type:", item.name);
+                                          if (newName && newName.trim()) {
+                                            const updated = [...currentItems];
+                                            updated[idx] = { name: newName.trim(), archived: item.archived };
+                                            setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
+                                            showToast(`Updated to "${newName.trim()}"`, 'success');
+                                          }
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                      >
+                                        ✏️ Edit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = [...currentItems];
+                                          updated[idx] = { name: item.name, archived: !item.archived };
+                                          setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
+                                          showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                      >
+                                        {item.archived ? '🔄 Restore' : '📦 Archive'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          softDeleteRecord({
+                                            originalId: `dropdown_emptype_${item.name}`,
+                                            name: `Employment Type Option: "${item.name}"`,
+                                            category: 'System Dropdown',
+                                            entityData: { category: 'employmentTypes', title: item.name },
+                                            links: 'System Dropdown Master'
+                                          });
+                                          const updated = currentItems.filter((_, i) => i !== idx);
+                                          setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
+                                          showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                      >
+                                        🗑️ Delete
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
-
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table" style={{ width: '100%' }}>
-                        <thead>
-                          <tr>
-                            <th style={{ width: '50px' }}>#</th>
-                            <th style={{ padding: '10px 12px' }}>Employment Type Label</th>
-                            <th style={{ width: '130px' }}>Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {['Full-Time Permanent', 'Part-Time Employee', 'Contractor / Freelancer', 'Trainee / Intern', 'Probationary Employee'].map((empType, idx) => (
-                            <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                              <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                              <td style={{ padding: '12px', fontWeight: '700', color: '#0f2b26' }}>{empType}</td>
-                              <td style={{ padding: '12px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                  🟢 Active
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* 4. GENDERS */}
-                {selectedDropdownCategory === 'genders' && (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '20px' }}>🚻</span>
-                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Genders Options</h3>
+                {selectedDropdownCategory === 'genders' && (() => {
+                  const defaultList = ['Male', 'Female', 'Non-Binary', 'Other / Prefer not to say'].map(n => ({ name: n, archived: false }));
+                  const currentItems = (systemDropdowns.genders && systemDropdowns.genders.length > 0)
+                    ? systemDropdowns.genders.map(item => typeof item === 'object' && item !== null ? item : { name: item, archived: false })
+                    : defaultList;
+
+                  return (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '20px' }}>🚻</span>
+                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Genders Options</h3>
+                          </div>
+                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage gender category options</p>
                         </div>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Male, Female, Non-Binary, Prefer not to say</p>
+                        <button
+                          className="btn btn-primary"
+                          type="button"
+                          onClick={() => {
+                            const val = prompt("Enter new Gender Option:");
+                            if (val && val.trim()) {
+                              const trimmed = val.trim();
+                              const exists = currentItems.some(d => d.name === trimmed);
+                              if (!exists) {
+                                const updated = [...currentItems, { name: trimmed, archived: false }];
+                                setSystemDropdowns(prev => ({ ...prev, genders: updated }));
+                                showToast(`Added Gender Option "${trimmed}"`, 'success');
+                              }
+                            }
+                          }}
+                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
+                        >
+                          + Add Option
+                        </button>
+                      </div>
+
+                      <div style={{ overflowX: 'auto' }}>
+                        <table className="std-table" style={{ width: '100%' }}>
+                          <thead>
+                            <tr>
+                              <th style={{ width: '50px' }}>#</th>
+                              <th style={{ padding: '10px 12px' }}>Gender Label</th>
+                              <th style={{ width: '130px' }}>Status</th>
+                              <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {currentItems.length === 0 ? (
+                              <tr>
+                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
+                                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Gender Options Configured</div>
+                                  <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create a gender option.</div>
+                                </td>
+                              </tr>
+                            ) : (
+                              currentItems.map((item, idx) => (
+                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
+                                  <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                  <td style={{ padding: '12px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
+                                  <td style={{ padding: '12px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                      {item.archived ? '📦 Archived' : '🟢 Active'}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newName = prompt("Rename Gender Option:", item.name);
+                                          if (newName && newName.trim()) {
+                                            const updated = [...currentItems];
+                                            updated[idx] = { name: newName.trim(), archived: item.archived };
+                                            setSystemDropdowns(prev => ({ ...prev, genders: updated }));
+                                            showToast(`Updated to "${newName.trim()}"`, 'success');
+                                          }
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                      >
+                                        ✏️ Edit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = [...currentItems];
+                                          updated[idx] = { name: item.name, archived: !item.archived };
+                                          setSystemDropdowns(prev => ({ ...prev, genders: updated }));
+                                          showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                      >
+                                        {item.archived ? '🔄 Restore' : '📦 Archive'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          softDeleteRecord({
+                                            originalId: `dropdown_gender_${item.name}`,
+                                            name: `Gender Option: "${item.name}"`,
+                                            category: 'System Dropdown',
+                                            entityData: { category: 'genders', title: item.name },
+                                            links: 'System Dropdown Master'
+                                          });
+                                          const updated = currentItems.filter((_, i) => i !== idx);
+                                          setSystemDropdowns(prev => ({ ...prev, genders: updated }));
+                                          showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                      >
+                                        🗑️ Delete
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
-
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table" style={{ width: '100%' }}>
-                        <thead>
-                          <tr>
-                            <th style={{ width: '50px' }}>#</th>
-                            <th style={{ padding: '10px 12px' }}>Gender Label</th>
-                            <th style={{ width: '130px' }}>Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {['Male', 'Female', 'Non-Binary', 'Other / Prefer not to say'].map((gen, idx) => (
-                            <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                              <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                              <td style={{ padding: '12px', fontWeight: '700', color: '#0f2b26' }}>{gen}</td>
-                              <td style={{ padding: '12px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                  🟢 Active
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* 5. MARITAL STATUSES */}
-                {selectedDropdownCategory === 'marital_statuses' && (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '20px' }}>💍</span>
-                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Marital Statuses Options</h3>
+                {selectedDropdownCategory === 'marital_statuses' && (() => {
+                  const defaultList = ['Single', 'Married', 'Divorced', 'Widowed'].map(n => ({ name: n, archived: false }));
+                  const currentItems = (systemDropdowns.maritalStatuses && systemDropdowns.maritalStatuses.length > 0)
+                    ? systemDropdowns.maritalStatuses.map(item => typeof item === 'object' && item !== null ? item : { name: item, archived: false })
+                    : defaultList;
+
+                  return (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '20px' }}>💍</span>
+                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Marital Statuses Options</h3>
+                          </div>
+                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage marital status options</p>
                         </div>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Single, Married, Divorced, Widowed</p>
+                        <button
+                          className="btn btn-primary"
+                          type="button"
+                          onClick={() => {
+                            const val = prompt("Enter new Marital Status:");
+                            if (val && val.trim()) {
+                              const trimmed = val.trim();
+                              const exists = currentItems.some(d => d.name === trimmed);
+                              if (!exists) {
+                                const updated = [...currentItems, { name: trimmed, archived: false }];
+                                setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated }));
+                                showToast(`Added Marital Status "${trimmed}"`, 'success');
+                              }
+                            }
+                          }}
+                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
+                        >
+                          + Add Option
+                        </button>
+                      </div>
+
+                      <div style={{ overflowX: 'auto' }}>
+                        <table className="std-table" style={{ width: '100%' }}>
+                          <thead>
+                            <tr>
+                              <th style={{ width: '50px' }}>#</th>
+                              <th style={{ padding: '10px 12px' }}>Marital Status Label</th>
+                              <th style={{ width: '130px' }}>Status</th>
+                              <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {currentItems.length === 0 ? (
+                              <tr>
+                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
+                                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Marital Status Options Configured</div>
+                                  <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create a marital status option.</div>
+                                </td>
+                              </tr>
+                            ) : (
+                              currentItems.map((item, idx) => (
+                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
+                                  <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                  <td style={{ padding: '12px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
+                                  <td style={{ padding: '12px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                      {item.archived ? '📦 Archived' : '🟢 Active'}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newName = prompt("Rename Marital Status:", item.name);
+                                          if (newName && newName.trim()) {
+                                            const updated = [...currentItems];
+                                            updated[idx] = { name: newName.trim(), archived: item.archived };
+                                            setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated }));
+                                            showToast(`Updated to "${newName.trim()}"`, 'success');
+                                          }
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                      >
+                                        ✏️ Edit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = [...currentItems];
+                                          updated[idx] = { name: item.name, archived: !item.archived };
+                                          setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated }));
+                                          showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                      >
+                                        {item.archived ? '🔄 Restore' : '📦 Archive'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          softDeleteRecord({
+                                            originalId: `dropdown_marital_${item.name}`,
+                                            name: `Marital Status Option: "${item.name}"`,
+                                            category: 'System Dropdown',
+                                            entityData: { category: 'maritalStatuses', title: item.name },
+                                            links: 'System Dropdown Master'
+                                          });
+                                          const updated = currentItems.filter((_, i) => i !== idx);
+                                          setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated }));
+                                          showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                      >
+                                        🗑️ Delete
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
-
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table" style={{ width: '100%' }}>
-                        <thead>
-                          <tr>
-                            <th style={{ width: '50px' }}>#</th>
-                            <th style={{ padding: '10px 12px' }}>Marital Status Label</th>
-                            <th style={{ width: '130px' }}>Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {['Single', 'Married', 'Divorced', 'Widowed'].map((mStat, idx) => (
-                            <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                              <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                              <td style={{ padding: '12px', fontWeight: '700', color: '#0f2b26' }}>{mStat}</td>
-                              <td style={{ padding: '12px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                  🟢 Active
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* 6. BLOOD GROUPS */}
-                {selectedDropdownCategory === 'blood_groups' && (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '20px' }}>🩸</span>
-                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Blood Groups Options</h3>
+                {selectedDropdownCategory === 'blood_groups' && (() => {
+                  const defaultList = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(n => ({ name: n, archived: false }));
+                  const currentItems = (systemDropdowns.bloodGroups && systemDropdowns.bloodGroups.length > 0)
+                    ? systemDropdowns.bloodGroups.map(item => typeof item === 'object' && item !== null ? item : { name: item, archived: false })
+                    : defaultList;
+
+                  return (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '20px' }}>🩸</span>
+                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Blood Groups Options</h3>
+                          </div>
+                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage blood group category options</p>
                         </div>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>A+, A-, B+, B-, O+, O-, AB+, AB-</p>
+                        <button
+                          className="btn btn-primary"
+                          type="button"
+                          onClick={() => {
+                            const val = prompt("Enter new Blood Group:");
+                            if (val && val.trim()) {
+                              const trimmed = val.trim();
+                              const exists = currentItems.some(d => d.name === trimmed);
+                              if (!exists) {
+                                const updated = [...currentItems, { name: trimmed, archived: false }];
+                                setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated }));
+                                showToast(`Added Blood Group "${trimmed}"`, 'success');
+                              }
+                            }
+                          }}
+                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
+                        >
+                          + Add Option
+                        </button>
+                      </div>
+
+                      <div style={{ overflowX: 'auto' }}>
+                        <table className="std-table" style={{ width: '100%' }}>
+                          <thead>
+                            <tr>
+                              <th style={{ width: '50px' }}>#</th>
+                              <th style={{ padding: '10px 12px' }}>Blood Group Label</th>
+                              <th style={{ width: '130px' }}>Status</th>
+                              <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {currentItems.length === 0 ? (
+                              <tr>
+                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
+                                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Blood Group Options Configured</div>
+                                  <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create a blood group option.</div>
+                                </td>
+                              </tr>
+                            ) : (
+                              currentItems.map((item, idx) => (
+                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
+                                  <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                  <td style={{ padding: '12px', fontWeight: '800', color: item.archived ? '#94a3b8' : '#0d9488', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
+                                  <td style={{ padding: '12px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                      {item.archived ? '📦 Archived' : '🟢 Active'}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newName = prompt("Rename Blood Group:", item.name);
+                                          if (newName && newName.trim()) {
+                                            const updated = [...currentItems];
+                                            updated[idx] = { name: newName.trim(), archived: item.archived };
+                                            setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated }));
+                                            showToast(`Updated to "${newName.trim()}"`, 'success');
+                                          }
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                      >
+                                        ✏️ Edit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = [...currentItems];
+                                          updated[idx] = { name: item.name, archived: !item.archived };
+                                          setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated }));
+                                          showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                      >
+                                        {item.archived ? '🔄 Restore' : '📦 Archive'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          softDeleteRecord({
+                                            originalId: `dropdown_blood_${item.name}`,
+                                            name: `Blood Group Option: "${item.name}"`,
+                                            category: 'System Dropdown',
+                                            entityData: { category: 'bloodGroups', title: item.name },
+                                            links: 'System Dropdown Master'
+                                          });
+                                          const updated = currentItems.filter((_, i) => i !== idx);
+                                          setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated }));
+                                          showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                      >
+                                        🗑️ Delete
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
-
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table" style={{ width: '100%' }}>
-                        <thead>
-                          <tr>
-                            <th style={{ width: '50px' }}>#</th>
-                            <th style={{ padding: '10px 12px' }}>Blood Group Label</th>
-                            <th style={{ width: '130px' }}>Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map((bg, idx) => (
-                            <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                              <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                              <td style={{ padding: '12px', fontWeight: '800', color: '#0d9488' }}>{bg}</td>
-                              <td style={{ padding: '12px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                  🟢 Active
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* 7. LEAVE TYPES */}
                 {selectedDropdownCategory === 'leave_categories' && (
