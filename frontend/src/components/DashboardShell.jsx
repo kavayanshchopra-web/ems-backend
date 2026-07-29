@@ -13002,7 +13002,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         <button
                                           type="button"
                                           onClick={() => {
-                                            const newName = prompt("Rename Department:", item.name);
+                                            const newName = ''; openInputModal({ title: 'Rename Department', subtitle: `Update department name for "${item.name}"`, defaultValue: item.name, placeholder: 'Department name', onSave: (val) => { const updated = [...currentItems]; updated[realIdx] = { name: val.trim(), archived: item.archived }; setSystemDropdowns(prev => ({ ...prev, departments: updated })); showToast(`Updated to "${val.trim()}"`, 'success'); } }); return;
                                             if (newName && newName.trim()) {
                                               const updated = [...currentItems];
                                               updated[realIdx] = { name: newName.trim(), archived: item.archived };
@@ -13185,7 +13185,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         <button
                                           type="button"
                                           onClick={() => {
-                                            const newName = prompt("Rename Designation:", item.name);
+                                            openInputModal({ title: 'Rename Designation', subtitle: `Update designation title for "${item.name}"`, defaultValue: item.name, placeholder: 'Designation title', onSave: (newName) => { const updated = [...currentItems]; updated[realIdx] = { name: newName.trim(), archived: item.archived }; setSystemDropdowns(prev => ({ ...prev, designations: updated })); showToast(`Updated to "${newName.trim()}"`, 'success'); } }); return;
                                             if (newName && newName.trim()) {
                                               const updated = [...currentItems];
                                               updated[realIdx] = { name: newName.trim(), archived: item.archived };
@@ -13368,7 +13368,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         <button
                                           type="button"
                                           onClick={() => {
-                                            const newName = prompt("Rename Employment Type:", item.name);
+                                            openInputModal({ title: 'Rename Employment Type', subtitle: `Update employment type for "${item.name}"`, defaultValue: item.name, placeholder: 'Employment type name', onSave: (newName) => { const updated = [...currentItems]; updated[realIdx] = { name: newName.trim(), archived: item.archived }; setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated })); showToast(`Updated to "${newName.trim()}"`, 'success'); } }); return;
                                             if (newName && newName.trim()) {
                                               const updated = [...currentItems];
                                               updated[realIdx] = { name: newName.trim(), archived: item.archived };
@@ -13536,7 +13536,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         <button
                                           type="button"
                                           onClick={() => {
-                                            const newName = prompt("Rename Gender Option:", item.name);
+                                            openInputModal({ title: 'Rename Gender Option', subtitle: `Update name for "${item.name}"`, defaultValue: item.name, placeholder: 'Gender option name', onSave: (newName) => { const updated = [...currentItems]; updated[realIdx] = { name: newName.trim(), archived: item.archived }; setSystemDropdowns(prev => ({ ...prev, genders: updated })); showToast(`Updated to "${newName.trim()}"`, 'success'); } }); return;
                                             if (newName && newName.trim()) {
                                               const updated = [...currentItems];
                                               updated[realIdx] = { name: newName.trim(), archived: item.archived };
@@ -13704,7 +13704,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         <button
                                           type="button"
                                           onClick={() => {
-                                            const newName = prompt("Rename Marital Status:", item.name);
+                                            openInputModal({ title: 'Rename Marital Status', subtitle: `Update name for "${item.name}"`, defaultValue: item.name, placeholder: 'Marital status name', onSave: (newName) => { const updated = [...currentItems]; updated[realIdx] = { name: newName.trim(), archived: item.archived }; setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated })); showToast(`Updated to "${newName.trim()}"`, 'success'); } }); return;
                                             if (newName && newName.trim()) {
                                               const updated = [...currentItems];
                                               updated[realIdx] = { name: newName.trim(), archived: item.archived };
@@ -13872,7 +13872,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         <button
                                           type="button"
                                           onClick={() => {
-                                            const newName = prompt("Rename Blood Group:", item.name);
+                                            openInputModal({ title: 'Rename Blood Group', subtitle: `Update name for "${item.name}"`, defaultValue: item.name, placeholder: 'Blood group name', onSave: (newName) => { const updated = [...currentItems]; updated[realIdx] = { name: newName.trim(), archived: item.archived }; setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated })); showToast(`Updated to "${newName.trim()}"`, 'success'); } }); return;
                                             if (newName && newName.trim()) {
                                               const updated = [...currentItems];
                                               updated[realIdx] = { name: newName.trim(), archived: item.archived };
@@ -14039,7 +14039,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                       <button
                                         type="button"
                                         onClick={() => {
-                                          const newName = prompt("Edit Leave Name:", lc.name);
+                                          openInputModal({ title: 'Edit Leave Type', subtitle: `Update name for "${lc.name}"`, defaultValue: lc.name, placeholder: 'Leave type name', onSave: (newName) => { const updated = [...systemDropdowns.leaveCategories]; updated[realIdx] = { ...lc, name: newName.trim() }; setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated })); showToast(`Updated "${newName.trim()}"`, 'success'); } }); return;
                                           if (newName && newName.trim()) {
                                             const newQuota = prompt("Edit Annual Quota Days:", lc.quota);
                                             const updated = [...systemDropdowns.leaveCategories];
@@ -14331,7 +14331,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <button
                           type="button"
                           onClick={() => {
-                            const tag = prompt("Enter new Tag name (e.g. VIP Customer):");
+                            openInputModal({ title: 'Add Contact Tag', subtitle: 'Enter new contact tag label', placeholder: 'e.g. High Value Lead', onSave: (tag) => { const trimmed = tag.trim(); const exists = allowedTags.some(t => (typeof t === 'object' ? t.name : t) === trimmed); if (!exists) { setAllowedTags([...allowedTags, { name: trimmed, archived: false }]); showToast(`Added Tag "${trimmed}"`, 'success'); } else { showToast(`Tag "${trimmed}" already exists`, 'info'); } } }); return;
                             if (tag && tag.trim()) {
                               const trimmed = tag.trim();
                               const exists = allowedTags.some(t => (typeof t === 'object' ? t.name : t) === trimmed);
@@ -14392,7 +14392,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                       <button
                                         type="button"
                                         onClick={() => {
-                                          const newTag = prompt("Rename Tag:", tagLabel);
+                                          openInputModal({ title: 'Rename CRM Tag', subtitle: `Update label for "${tagLabel}"`, defaultValue: tagLabel, placeholder: 'CRM tag label', onSave: (newTag) => { const updated = [...allowedTags]; updated[realIdx] = { name: newTag.trim(), archived: isArchived }; setAllowedTags(updated); showToast(`Updated Tag to "${newTag.trim()}"`, 'success'); } }); return;
                                           if (newTag && newTag.trim()) {
                                             const updated = [...allowedTags];
                                             updated[realIdx] = { name: newTag.trim(), archived: isArchived };
@@ -14509,7 +14509,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <button
                           type="button"
                           onClick={() => {
-                            const val = prompt("Enter Expense Category:");
+                            openInputModal({ title: 'Add Expense Category', subtitle: 'Enter reimbursement claim category name', placeholder: 'e.g. Travel Allowance', onSave: (val) => { const trimmed = val.trim(); const exists = systemDropdowns.expenseCategories.some(e => (typeof e === 'object' ? e.name : e) === trimmed); if (!exists) { setSystemDropdowns(prev => ({ ...prev, expenseCategories: [...prev.expenseCategories, { name: trimmed, archived: false }] })); showToast(`Added Expense Category "${trimmed}"`, 'success'); } else { showToast(`Expense category "${trimmed}" already exists`, 'info'); } } }); return;
                             if (val && val.trim()) {
                               const trimmed = val.trim();
                               const exists = systemDropdowns.expenseCategories.some(e => (typeof e === 'object' ? e.name : e) === trimmed);
@@ -14568,7 +14568,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                       <button
                                         type="button"
                                         onClick={() => {
-                                          const newName = prompt("Rename Expense Category:", title);
+                                          openInputModal({ title: 'Rename Expense Category', subtitle: `Update category title for "${title}"`, defaultValue: title, placeholder: 'Expense category name', onSave: (newName) => { const updated = [...systemDropdowns.expenseCategories]; updated[realIdx] = { name: newName.trim(), archived: isArchived }; setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated })); showToast(`Updated to "${newName.trim()}"`, 'success'); } }); return;
                                           if (newName && newName.trim()) {
                                             const updated = [...systemDropdowns.expenseCategories];
                                             updated[realIdx] = { name: newName.trim(), archived: isArchived };
@@ -18375,50 +18375,94 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         </div>
       )}
 
-      {/* Sleek Custom Input Modal Dialog */}
+      {/* Sleek Custom Input Modal Dialog - Premium Dark/Teal Glassmorphism Popup */}
       {inputModal.isOpen && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 99999,
-          background: 'rgba(15, 23, 42, 0.65)',
-          backdropFilter: 'blur(6px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '16px'
-        }}>
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setInputModal(prev => ({ ...prev, isOpen: false }));
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 999999,
+            background: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
           <div style={{
             width: '100%',
-            maxWidth: '440px',
-            background: 'white',
-            borderRadius: '16px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+            maxWidth: '460px',
+            background: '#ffffff',
+            borderRadius: '20px',
+            boxShadow: '0 25px 60px -15px rgba(0,0,0,0.4), 0 0 0 1px rgba(13, 148, 136, 0.25)',
             overflow: 'hidden',
-            border: '1px solid rgba(13, 148, 136, 0.2)',
-            animation: 'modalSlideUp 0.25s ease-out'
+            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            transform: 'scale(1)',
+            fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
           }}>
             {/* Modal Header */}
             <div style={{
-              background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)',
-              padding: '18px 24px',
-              color: 'white',
+              background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 50%, #064e43 100%)',
+              padding: '20px 24px',
+              color: '#ffffff',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between'
+              justifyContent: 'space-between',
+              position: 'relative',
+              boxShadow: '0 4px 20px rgba(13, 148, 136, 0.3)'
             }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800' }}>{inputModal.title}</h3>
-                {inputModal.subtitle && (
-                  <p style={{ margin: '2px 0 0 0', fontSize: '12px', opacity: 0.85 }}>{inputModal.subtitle}</p>
-                )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '12px',
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  backdropFilter: 'blur(4px)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '20px',
+                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.4)'
+                }}>
+                  ✨
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800', letterSpacing: '-0.01em', color: '#ffffff' }}>
+                    {inputModal.title || 'Configure Option'}
+                  </h3>
+                  {inputModal.subtitle && (
+                    <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: 'rgba(255, 255, 255, 0.85)', fontWeight: '500' }}>
+                      {inputModal.subtitle}
+                    </p>
+                  )}
+                </div>
               </div>
+
               <button
                 type="button"
                 onClick={() => setInputModal(prev => ({ ...prev, isOpen: false }))}
-                style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.15)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: '#ffffff',
+                  borderRadius: '10px',
+                  width: '32px',
+                  height: '32px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'}
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
 
@@ -18430,45 +18474,95 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 setInputModal(prev => ({ ...prev, isOpen: false }));
               }
             }}>
-              <div style={{ padding: '20px 24px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '8px' }}>
-                  Option Title / Name
+              <div style={{ padding: '24px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                  Option Title / Value
                 </label>
-                <input
-                  type="text"
-                  autoFocus
-                  placeholder={inputModal.placeholder}
-                  value={inputModal.value}
-                  onChange={(e) => setInputModal(prev => ({ ...prev, value: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '10px',
-                    border: '2px solid #0d9488',
-                    fontSize: '14px',
-                    fontWeight: '700',
-                    color: '#0f172a',
-                    outline: 'none',
-                    background: '#f0fdf4',
-                    boxSizing: 'border-box'
-                  }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder={inputModal.placeholder || 'Enter value...'}
+                    value={inputModal.value || ''}
+                    onChange={(e) => setInputModal(prev => ({ ...prev, value: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      borderRadius: '12px',
+                      border: '2px solid #0d9488',
+                      fontSize: '15px',
+                      fontWeight: '700',
+                      color: '#0f172a',
+                      outline: 'none',
+                      background: '#f0fdf4',
+                      boxSizing: 'border-box',
+                      boxShadow: '0 2px 8px rgba(13, 148, 136, 0.12)',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#0d9488';
+                      e.target.style.boxShadow = '0 0 0 4px rgba(13, 148, 136, 0.2)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.boxShadow = '0 2px 8px rgba(13, 148, 136, 0.12)';
+                    }}
+                  />
+                </div>
+                <p style={{ margin: '8px 0 0 0', fontSize: '11px', color: '#64748b', fontWeight: '500' }}>
+                  💡 Press <strong style={{ color: '#0d9488' }}>Enter ↵</strong> to save or <strong style={{ color: '#64748b' }}>Esc</strong> to cancel.
+                </p>
               </div>
 
               {/* Modal Actions */}
-              <div style={{ padding: '12px 24px 20px', display: 'flex', justifyContent: 'flex-end', gap: '10px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+              <div style={{
+                padding: '16px 24px',
+                display: 'flex',
+                justify: 'flex-end',
+                alignItems: 'center',
+                gap: '12px',
+                background: '#f8fafc',
+                borderTop: '1px solid #e2e8f0'
+              }}>
                 <button
                   type="button"
                   onClick={() => setInputModal(prev => ({ ...prev, isOpen: false }))}
-                  style={{ padding: '8px 16px', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'white', color: '#475569', cursor: 'pointer' }}
+                  style={{
+                    padding: '10px 18px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    borderRadius: '10px',
+                    border: '1.5px solid #cbd5e1',
+                    background: '#ffffff',
+                    color: '#475569',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = '#ffffff'}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  style={{ padding: '8px 20px', fontSize: '13px', fontWeight: '800', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13,148,136,0.3)' }}
+                  disabled={!inputModal.value || !inputModal.value.trim()}
+                  style={{
+                    padding: '10px 24px',
+                    fontSize: '13px',
+                    fontWeight: '800',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: inputModal.value && inputModal.value.trim() 
+                      ? 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)' 
+                      : '#94a3b8',
+                    color: '#ffffff',
+                    cursor: inputModal.value && inputModal.value.trim() ? 'pointer' : 'not-allowed',
+                    boxShadow: inputModal.value && inputModal.value.trim() 
+                      ? '0 4px 14px rgba(13, 148, 136, 0.4)' 
+                      : 'none',
+                    transition: 'all 0.2s ease'
+                  }}
                 >
-                  Save Option
+                  Save & Apply
                 </button>
               </div>
             </form>
