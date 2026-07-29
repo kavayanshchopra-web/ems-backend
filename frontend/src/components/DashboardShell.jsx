@@ -12724,44 +12724,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </div>
         )}
 
-        {activeTab === 'system_dropdowns' && (() => {
-          const renderMobileCategorySelect = () => (
-            <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
-              <select
-                value={selectedDropdownCategory}
-                onChange={e => setSelectedDropdownCategory(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 10px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #0d9488',
-                  background: '#f0fdf4',
-                  color: '#0f172a',
-                  fontWeight: '800',
-                  fontSize: '13px',
-                  outline: 'none',
-                  cursor: 'pointer',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                }}
-              >
-                <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
-                <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
-                <option value="employment_types">Employment Types (5)</option>
-                <option value="genders">Genders (4)</option>
-                <option value="marital_statuses">Marital Statuses (4)</option>
-                <option value="blood_groups">Blood Groups (8)</option>
-                <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
-                <option value="crm_stages">CRM Pipeline Stages (5)</option>
-                <option value="crm_tags">CRM Contact Tags (6)</option>
-                <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
-                <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
-                <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
-              </select>
-            </div>
-          );
-
-          return (
-            <div style={{ overflowY: 'auto', flexGrow: 1 }} className="glass-panel system-dropdowns-container">
+        {/* 25. SYSTEM DROPDOWNS CONFIG - 2-COLUMN MASTER LAYOUT */}
+        {activeTab === 'system_dropdowns' && (
+          <div style={{ overflowY: 'auto', flexGrow: 1 }} className="glass-panel system-dropdowns-container">
               {/* Header Banner */}
               <div className="page-header system-dropdowns-header-banner" style={{ marginBottom: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
@@ -12911,7 +12876,38 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Departments Options</h3>
                           </div>
-                          {renderMobileCategorySelect()}
+                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
+                            <select
+                              value={selectedDropdownCategory}
+                              onChange={e => setSelectedDropdownCategory(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '8px 10px',
+                                borderRadius: '8px',
+                                border: '1.5px solid #0d9488',
+                                background: '#f0fdf4',
+                                color: '#0f172a',
+                                fontWeight: '800',
+                                fontSize: '13px',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                              }}
+                            >
+                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
+                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
+                              <option value="employment_types">Employment Types (5)</option>
+                              <option value="genders">Genders (4)</option>
+                              <option value="marital_statuses">Marital Statuses (4)</option>
+                              <option value="blood_groups">Blood Groups (8)</option>
+                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
+                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
+                              <option value="crm_tags">CRM Contact Tags (6)</option>
+                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
+                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
+                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
+                            </select>
+                          </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage functional departments across the company</p>
                         </div>
                         <button
@@ -13057,7 +13053,38 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Designations Options</h3>
                           </div>
-                          {renderMobileCategorySelect()}
+                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
+                            <select
+                              value={selectedDropdownCategory}
+                              onChange={e => setSelectedDropdownCategory(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '8px 10px',
+                                borderRadius: '8px',
+                                border: '1.5px solid #0d9488',
+                                background: '#f0fdf4',
+                                color: '#0f172a',
+                                fontWeight: '800',
+                                fontSize: '13px',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                              }}
+                            >
+                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
+                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
+                              <option value="employment_types">Employment Types (5)</option>
+                              <option value="genders">Genders (4)</option>
+                              <option value="marital_statuses">Marital Statuses (4)</option>
+                              <option value="blood_groups">Blood Groups (8)</option>
+                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
+                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
+                              <option value="crm_tags">CRM Contact Tags (6)</option>
+                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
+                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
+                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
+                            </select>
+                          </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage job roles & designation titles across all teams</p>
                         </div>
                         <button
@@ -13203,7 +13230,38 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Employment Types Options</h3>
                           </div>
-                          {renderMobileCategorySelect()}
+                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
+                            <select
+                              value={selectedDropdownCategory}
+                              onChange={e => setSelectedDropdownCategory(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '8px 10px',
+                                borderRadius: '8px',
+                                border: '1.5px solid #0d9488',
+                                background: '#f0fdf4',
+                                color: '#0f172a',
+                                fontWeight: '800',
+                                fontSize: '13px',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                              }}
+                            >
+                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
+                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
+                              <option value="employment_types">Employment Types (5)</option>
+                              <option value="genders">Genders (4)</option>
+                              <option value="marital_statuses">Marital Statuses (4)</option>
+                              <option value="blood_groups">Blood Groups (8)</option>
+                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
+                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
+                              <option value="crm_tags">CRM Contact Tags (6)</option>
+                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
+                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
+                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
+                            </select>
+                          </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage functional employment types across the organization</p>
                         </div>
                         <button
@@ -13349,7 +13407,38 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Genders Options</h3>
                           </div>
-                          {renderMobileCategorySelect()}
+                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
+                            <select
+                              value={selectedDropdownCategory}
+                              onChange={e => setSelectedDropdownCategory(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '8px 10px',
+                                borderRadius: '8px',
+                                border: '1.5px solid #0d9488',
+                                background: '#f0fdf4',
+                                color: '#0f172a',
+                                fontWeight: '800',
+                                fontSize: '13px',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                              }}
+                            >
+                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
+                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
+                              <option value="employment_types">Employment Types (5)</option>
+                              <option value="genders">Genders (4)</option>
+                              <option value="marital_statuses">Marital Statuses (4)</option>
+                              <option value="blood_groups">Blood Groups (8)</option>
+                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
+                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
+                              <option value="crm_tags">CRM Contact Tags (6)</option>
+                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
+                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
+                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
+                            </select>
+                          </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage gender category options</p>
                         </div>
                         <button
@@ -13495,7 +13584,38 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Marital Statuses Options</h3>
                           </div>
-                          {renderMobileCategorySelect()}
+                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
+                            <select
+                              value={selectedDropdownCategory}
+                              onChange={e => setSelectedDropdownCategory(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '8px 10px',
+                                borderRadius: '8px',
+                                border: '1.5px solid #0d9488',
+                                background: '#f0fdf4',
+                                color: '#0f172a',
+                                fontWeight: '800',
+                                fontSize: '13px',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                              }}
+                            >
+                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
+                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
+                              <option value="employment_types">Employment Types (5)</option>
+                              <option value="genders">Genders (4)</option>
+                              <option value="marital_statuses">Marital Statuses (4)</option>
+                              <option value="blood_groups">Blood Groups (8)</option>
+                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
+                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
+                              <option value="crm_tags">CRM Contact Tags (6)</option>
+                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
+                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
+                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
+                            </select>
+                          </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage marital status options</p>
                         </div>
                         <button
@@ -13641,7 +13761,38 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Blood Groups Options</h3>
                           </div>
-                          {renderMobileCategorySelect()}
+                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
+                            <select
+                              value={selectedDropdownCategory}
+                              onChange={e => setSelectedDropdownCategory(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '8px 10px',
+                                borderRadius: '8px',
+                                border: '1.5px solid #0d9488',
+                                background: '#f0fdf4',
+                                color: '#0f172a',
+                                fontWeight: '800',
+                                fontSize: '13px',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                              }}
+                            >
+                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
+                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
+                              <option value="employment_types">Employment Types (5)</option>
+                              <option value="genders">Genders (4)</option>
+                              <option value="marital_statuses">Marital Statuses (4)</option>
+                              <option value="blood_groups">Blood Groups (8)</option>
+                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
+                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
+                              <option value="crm_tags">CRM Contact Tags (6)</option>
+                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
+                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
+                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
+                            </select>
+                          </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage blood group category options</p>
                         </div>
                         <button
@@ -13784,7 +13935,38 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Leave Types Options</h3>
                           </div>
-                          {renderMobileCategorySelect()}
+                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
+                            <select
+                              value={selectedDropdownCategory}
+                              onChange={e => setSelectedDropdownCategory(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '8px 10px',
+                                borderRadius: '8px',
+                                border: '1.5px solid #0d9488',
+                                background: '#f0fdf4',
+                                color: '#0f172a',
+                                fontWeight: '800',
+                                fontSize: '13px',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                              }}
+                            >
+                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
+                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
+                              <option value="employment_types">Employment Types (5)</option>
+                              <option value="genders">Genders (4)</option>
+                              <option value="marital_statuses">Marital Statuses (4)</option>
+                              <option value="blood_groups">Blood Groups (8)</option>
+                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
+                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
+                              <option value="crm_tags">CRM Contact Tags (6)</option>
+                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
+                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
+                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
+                            </select>
+                          </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage leave policies & annual quota allocations</p>
                         </div>
                         <button
@@ -13924,7 +14106,38 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>CRM Pipeline Stages Options</h3>
                           </div>
-                          {renderMobileCategorySelect()}
+                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
+                            <select
+                              value={selectedDropdownCategory}
+                              onChange={e => setSelectedDropdownCategory(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '8px 10px',
+                                borderRadius: '8px',
+                                border: '1.5px solid #0d9488',
+                                background: '#f0fdf4',
+                                color: '#0f172a',
+                                fontWeight: '800',
+                                fontSize: '13px',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                              }}
+                            >
+                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
+                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
+                              <option value="employment_types">Employment Types (5)</option>
+                              <option value="genders">Genders (4)</option>
+                              <option value="marital_statuses">Marital Statuses (4)</option>
+                              <option value="blood_groups">Blood Groups (8)</option>
+                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
+                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
+                              <option value="crm_tags">CRM Contact Tags (6)</option>
+                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
+                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
+                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
+                            </select>
+                          </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage lead sales deal stages & color indicators</p>
                         </div>
                         <button
@@ -14075,7 +14288,38 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>CRM Contact Tags Options</h3>
                           </div>
-                          {renderMobileCategorySelect()}
+                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
+                            <select
+                              value={selectedDropdownCategory}
+                              onChange={e => setSelectedDropdownCategory(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '8px 10px',
+                                borderRadius: '8px',
+                                border: '1.5px solid #0d9488',
+                                background: '#f0fdf4',
+                                color: '#0f172a',
+                                fontWeight: '800',
+                                fontSize: '13px',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                              }}
+                            >
+                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
+                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
+                              <option value="employment_types">Employment Types (5)</option>
+                              <option value="genders">Genders (4)</option>
+                              <option value="marital_statuses">Marital Statuses (4)</option>
+                              <option value="blood_groups">Blood Groups (8)</option>
+                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
+                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
+                              <option value="crm_tags">CRM Contact Tags (6)</option>
+                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
+                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
+                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
+                            </select>
+                          </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Predefined contact tags for lead segmentation</p>
                         </div>
                         <button
@@ -14222,7 +14466,38 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Expense Categories Options</h3>
                           </div>
-                          {renderMobileCategorySelect()}
+                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
+                            <select
+                              value={selectedDropdownCategory}
+                              onChange={e => setSelectedDropdownCategory(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '8px 10px',
+                                borderRadius: '8px',
+                                border: '1.5px solid #0d9488',
+                                background: '#f0fdf4',
+                                color: '#0f172a',
+                                fontWeight: '800',
+                                fontSize: '13px',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                              }}
+                            >
+                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
+                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
+                              <option value="employment_types">Employment Types (5)</option>
+                              <option value="genders">Genders (4)</option>
+                              <option value="marital_statuses">Marital Statuses (4)</option>
+                              <option value="blood_groups">Blood Groups (8)</option>
+                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
+                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
+                              <option value="crm_tags">CRM Contact Tags (6)</option>
+                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
+                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
+                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
+                            </select>
+                          </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Reimbursement claim types and allowance categories</p>
                         </div>
                         <button
@@ -14367,7 +14642,38 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Task Priority Levels Options</h3>
                           </div>
-                          {renderMobileCategorySelect()}
+                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
+                            <select
+                              value={selectedDropdownCategory}
+                              onChange={e => setSelectedDropdownCategory(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '8px 10px',
+                                borderRadius: '8px',
+                                border: '1.5px solid #0d9488',
+                                background: '#f0fdf4',
+                                color: '#0f172a',
+                                fontWeight: '800',
+                                fontSize: '13px',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                              }}
+                            >
+                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
+                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
+                              <option value="employment_types">Employment Types (5)</option>
+                              <option value="genders">Genders (4)</option>
+                              <option value="marital_statuses">Marital Statuses (4)</option>
+                              <option value="blood_groups">Blood Groups (8)</option>
+                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
+                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
+                              <option value="crm_tags">CRM Contact Tags (6)</option>
+                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
+                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
+                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
+                            </select>
+                          </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Task priority rating levels & urgency badges</p>
                         </div>
                         <button
@@ -14494,7 +14800,38 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Custom Feature Dropdown Engine</h3>
                           </div>
-                          {renderMobileCategorySelect()}
+                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
+                            <select
+                              value={selectedDropdownCategory}
+                              onChange={e => setSelectedDropdownCategory(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '8px 10px',
+                                borderRadius: '8px',
+                                border: '1.5px solid #0d9488',
+                                background: '#f0fdf4',
+                                color: '#0f172a',
+                                fontWeight: '800',
+                                fontSize: '13px',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                              }}
+                            >
+                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
+                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
+                              <option value="employment_types">Employment Types (5)</option>
+                              <option value="genders">Genders (4)</option>
+                              <option value="marital_statuses">Marital Statuses (4)</option>
+                              <option value="blood_groups">Blood Groups (8)</option>
+                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
+                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
+                              <option value="crm_tags">CRM Contact Tags (6)</option>
+                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
+                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
+                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
+                            </select>
+                          </div>
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Create custom dropdown lists for any custom feature or module</p>
                         </div>
                       <button
@@ -14596,12 +14933,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       </div>
                     </div>
                   </div>
-                )}
               </div>
             </div>
           </div>
-        );
-      })()}
+        )}
 
         {/* 26. RECYCLE BIN VAULT & SOFT DELETE RECOVERY */}
         {activeTab === 'recycle_bin' && (() => {
