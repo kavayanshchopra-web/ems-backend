@@ -12568,8 +12568,35 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   className="btn btn-secondary"
                   type="button"
                   onClick={() => {
-                    const roleTitle = prompt("Enter Custom Role Name (e.g. Finance Auditor):");
-                    if (roleTitle && roleTitle.trim()) {
+                    openInputModal({
+                      title: 'Add Custom Role',
+                      subtitle: 'Enter new custom role title',
+                      placeholder: 'e.g. Finance Auditor',
+                      onSave: (roleTitle) => {
+                        const roleKey = 'role_' + Date.now();
+                        const newRoleObj = { key: roleKey, label: roleTitle.trim() };
+                        setCustomRoles(prev => [...prev, newRoleObj]);
+                        setRbacMatrix(prev => ({
+                          ...prev,
+                          [roleKey]: {
+                            dashboards: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
+                            employees: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
+                            departments: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
+                            attendance: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
+                            payroll: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
+                            leaves: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
+                            crm_leads: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
+                            whatsapp: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
+                            calls: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
+                            expenses: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
+                            assets: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
+                            settings: { create: false, read: true, edit: false, delete: false, export: false, approve: false }
+                          }
+                        }));
+                        showToast(`Created Custom Role "${roleTitle.trim()}"`, 'success');
+                      }
+                    });
+                  }}
                       const roleKey = 'role_' + Date.now();
                       const newRoleObj = { key: roleKey, label: roleTitle.trim() };
                       setCustomRoles(prev => [...prev, newRoleObj]);
@@ -13002,8 +13029,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         <button
                                           type="button"
                                           onClick={() => {
-                                            const newName = ''; openInputModal({ title: 'Rename Department', subtitle: `Update department name for "${item.name}"`, defaultValue: item.name, placeholder: 'Department name', onSave: (val) => { const updated = [...currentItems]; updated[realIdx] = { name: val.trim(), archived: item.archived }; setSystemDropdowns(prev => ({ ...prev, departments: updated })); showToast(`Updated to "${val.trim()}"`, 'success'); } }); return;
-                                            if (newName && newName.trim()) {
+                                            openInputModal({ title: 'Rename Department', subtitle: `Update department name for "${item.name}"`, defaultValue: item.name, placeholder: 'Department name', onSave: (val) => { const updated = [...currentItems]; updated[realIdx] = { name: val.trim(), archived: item.archived }; setSystemDropdowns(prev => ({ ...prev, departments: updated })); showToast(`Updated to "${val.trim()}"`, 'success'); } });
+                                            if (typeof newName !== 'undefined' && newName) {
                                               const updated = [...currentItems];
                                               updated[realIdx] = { name: newName.trim(), archived: item.archived };
                                               setSystemDropdowns(prev => ({ ...prev, departments: updated }));
@@ -13186,7 +13213,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           type="button"
                                           onClick={() => {
                                             openInputModal({ title: 'Rename Designation', subtitle: `Update designation title for "${item.name}"`, defaultValue: item.name, placeholder: 'Designation title', onSave: (newName) => { const updated = [...currentItems]; updated[realIdx] = { name: newName.trim(), archived: item.archived }; setSystemDropdowns(prev => ({ ...prev, designations: updated })); showToast(`Updated to "${newName.trim()}"`, 'success'); } }); return;
-                                            if (newName && newName.trim()) {
+                                            if (typeof newName !== 'undefined' && newName) {
                                               const updated = [...currentItems];
                                               updated[realIdx] = { name: newName.trim(), archived: item.archived };
                                               setSystemDropdowns(prev => ({ ...prev, designations: updated }));
@@ -13369,7 +13396,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           type="button"
                                           onClick={() => {
                                             openInputModal({ title: 'Rename Employment Type', subtitle: `Update employment type for "${item.name}"`, defaultValue: item.name, placeholder: 'Employment type name', onSave: (newName) => { const updated = [...currentItems]; updated[realIdx] = { name: newName.trim(), archived: item.archived }; setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated })); showToast(`Updated to "${newName.trim()}"`, 'success'); } }); return;
-                                            if (newName && newName.trim()) {
+                                            if (typeof newName !== 'undefined' && newName) {
                                               const updated = [...currentItems];
                                               updated[realIdx] = { name: newName.trim(), archived: item.archived };
                                               setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
@@ -13537,7 +13564,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           type="button"
                                           onClick={() => {
                                             openInputModal({ title: 'Rename Gender Option', subtitle: `Update name for "${item.name}"`, defaultValue: item.name, placeholder: 'Gender option name', onSave: (newName) => { const updated = [...currentItems]; updated[realIdx] = { name: newName.trim(), archived: item.archived }; setSystemDropdowns(prev => ({ ...prev, genders: updated })); showToast(`Updated to "${newName.trim()}"`, 'success'); } }); return;
-                                            if (newName && newName.trim()) {
+                                            if (typeof newName !== 'undefined' && newName) {
                                               const updated = [...currentItems];
                                               updated[realIdx] = { name: newName.trim(), archived: item.archived };
                                               setSystemDropdowns(prev => ({ ...prev, genders: updated }));
@@ -13705,7 +13732,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           type="button"
                                           onClick={() => {
                                             openInputModal({ title: 'Rename Marital Status', subtitle: `Update name for "${item.name}"`, defaultValue: item.name, placeholder: 'Marital status name', onSave: (newName) => { const updated = [...currentItems]; updated[realIdx] = { name: newName.trim(), archived: item.archived }; setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated })); showToast(`Updated to "${newName.trim()}"`, 'success'); } }); return;
-                                            if (newName && newName.trim()) {
+                                            if (typeof newName !== 'undefined' && newName) {
                                               const updated = [...currentItems];
                                               updated[realIdx] = { name: newName.trim(), archived: item.archived };
                                               setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated }));
@@ -13873,7 +13900,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           type="button"
                                           onClick={() => {
                                             openInputModal({ title: 'Rename Blood Group', subtitle: `Update name for "${item.name}"`, defaultValue: item.name, placeholder: 'Blood group name', onSave: (newName) => { const updated = [...currentItems]; updated[realIdx] = { name: newName.trim(), archived: item.archived }; setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated })); showToast(`Updated to "${newName.trim()}"`, 'success'); } }); return;
-                                            if (newName && newName.trim()) {
+                                            if (typeof newName !== 'undefined' && newName) {
                                               const updated = [...currentItems];
                                               updated[realIdx] = { name: newName.trim(), archived: item.archived };
                                               setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated }));
@@ -14040,8 +14067,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         type="button"
                                         onClick={() => {
                                           openInputModal({ title: 'Edit Leave Type', subtitle: `Update name for "${lc.name}"`, defaultValue: lc.name, placeholder: 'Leave type name', onSave: (newName) => { const updated = [...systemDropdowns.leaveCategories]; updated[realIdx] = { ...lc, name: newName.trim() }; setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated })); showToast(`Updated "${newName.trim()}"`, 'success'); } }); return;
-                                          if (newName && newName.trim()) {
-                                            const newQuota = prompt("Edit Annual Quota Days:", lc.quota);
+                                          if (typeof newName !== 'undefined' && newName) {
+                                            const newQuota = lc.quota;
                                             const updated = [...systemDropdowns.leaveCategories];
                                             updated[realIdx] = { ...lc, name: newName.trim(), quota: parseInt(newQuota || lc.quota, 10) };
                                             setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated }));
@@ -14332,7 +14359,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           type="button"
                           onClick={() => {
                             openInputModal({ title: 'Add Contact Tag', subtitle: 'Enter new contact tag label', placeholder: 'e.g. High Value Lead', onSave: (tag) => { const trimmed = tag.trim(); const exists = allowedTags.some(t => (typeof t === 'object' ? t.name : t) === trimmed); if (!exists) { setAllowedTags([...allowedTags, { name: trimmed, archived: false }]); showToast(`Added Tag "${trimmed}"`, 'success'); } else { showToast(`Tag "${trimmed}" already exists`, 'info'); } } }); return;
-                            if (tag && tag.trim()) {
+                            if (typeof tag !== 'undefined' && tag) {
                               const trimmed = tag.trim();
                               const exists = allowedTags.some(t => (typeof t === 'object' ? t.name : t) === trimmed);
                               if (!exists) {
@@ -14393,7 +14420,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         type="button"
                                         onClick={() => {
                                           openInputModal({ title: 'Rename CRM Tag', subtitle: `Update label for "${tagLabel}"`, defaultValue: tagLabel, placeholder: 'CRM tag label', onSave: (newTag) => { const updated = [...allowedTags]; updated[realIdx] = { name: newTag.trim(), archived: isArchived }; setAllowedTags(updated); showToast(`Updated Tag to "${newTag.trim()}"`, 'success'); } }); return;
-                                          if (newTag && newTag.trim()) {
+                                          if (typeof newTag !== 'undefined' && newTag) {
                                             const updated = [...allowedTags];
                                             updated[realIdx] = { name: newTag.trim(), archived: isArchived };
                                             setAllowedTags(updated);
@@ -14510,7 +14537,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           type="button"
                           onClick={() => {
                             openInputModal({ title: 'Add Expense Category', subtitle: 'Enter reimbursement claim category name', placeholder: 'e.g. Travel Allowance', onSave: (val) => { const trimmed = val.trim(); const exists = systemDropdowns.expenseCategories.some(e => (typeof e === 'object' ? e.name : e) === trimmed); if (!exists) { setSystemDropdowns(prev => ({ ...prev, expenseCategories: [...prev.expenseCategories, { name: trimmed, archived: false }] })); showToast(`Added Expense Category "${trimmed}"`, 'success'); } else { showToast(`Expense category "${trimmed}" already exists`, 'info'); } } }); return;
-                            if (val && val.trim()) {
+                            if (typeof val !== 'undefined' && val) {
                               const trimmed = val.trim();
                               const exists = systemDropdowns.expenseCategories.some(e => (typeof e === 'object' ? e.name : e) === trimmed);
                               if (!exists) {
@@ -14569,7 +14596,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         type="button"
                                         onClick={() => {
                                           openInputModal({ title: 'Rename Expense Category', subtitle: `Update category title for "${title}"`, defaultValue: title, placeholder: 'Expense category name', onSave: (newName) => { const updated = [...systemDropdowns.expenseCategories]; updated[realIdx] = { name: newName.trim(), archived: isArchived }; setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated })); showToast(`Updated to "${newName.trim()}"`, 'success'); } }); return;
-                                          if (newName && newName.trim()) {
+                                          if (typeof newName !== 'undefined' && newName) {
                                             const updated = [...systemDropdowns.expenseCategories];
                                             updated[realIdx] = { name: newName.trim(), archived: isArchived };
                                             setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated }));
@@ -14685,8 +14712,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <button
                           type="button"
                           onClick={() => {
-                            const val = prompt("Enter Priority Level (e.g. Critical Urgent):");
-                            if (val && val.trim()) {
+                            openInputModal({ title: 'Add Priority Level', subtitle: 'Enter task priority rating level label', placeholder: 'e.g. Critical Urgent', onSave: (val) => { const trimmed = val.trim(); const exists = systemDropdowns.taskPriorities.some(p => (typeof p === 'object' ? p.name : p) === trimmed); if (!exists) { setSystemDropdowns(prev => ({ ...prev, taskPriorities: [...prev.taskPriorities, { name: trimmed, archived: false }] })); showToast(`Added Priority Level "${trimmed}"`, 'success'); } else { showToast(`Priority level "${trimmed}" already exists`, 'info'); } } });
+                            if (typeof val !== 'undefined' && val) {
                               const trimmed = val.trim();
                               const exists = systemDropdowns.taskPriorities.some(p => (typeof p === 'object' ? p.name : p) === trimmed);
                               if (!exists) {
@@ -15174,22 +15201,25 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     className="btn btn-secondary"
                     style={{ padding: '10px 16px', fontSize: 'var(--text-sm)' }}
                     onClick={() => {
-                      const title = prompt('Enter New Guide Step Title (e.g. AI Broadcast Engine):');
-                      if (title) {
-                        const desc = prompt('Enter Step Instructions:') || 'New feature setup step.';
-                        const newStep = {
-                          id: 'step_' + Date.now(),
-                          stepNumber: guideSteps.length + 1,
-                          icon: '🚀',
-                          title: title,
-                          category: 'New Feature',
-                          targetTab: 'sessions',
-                          description: desc,
-                          isLive: true
-                        };
-                        setGuideSteps(prev => [...prev, newStep]);
-                        showToast(`Added Step #${newStep.stepNumber}: "${title}" live to guide!`, 'success');
-                      }
+                      openInputModal({
+                        title: 'Add New Guide Step',
+                        subtitle: 'Enter feature walkthrough step title',
+                        placeholder: 'e.g. AI Broadcast Engine',
+                        onSave: (title) => {
+                          const newStep = {
+                            id: 'step_' + Date.now(),
+                            stepNumber: guideSteps.length + 1,
+                            icon: '🚀',
+                            title: title.trim(),
+                            category: 'New Feature',
+                            targetTab: 'sessions',
+                            description: 'New feature setup step.',
+                            isLive: true
+                          };
+                          setGuideSteps(prev => [...prev, newStep]);
+                          showToast(`Added Step #${newStep.stepNumber}: "${title.trim()}" live to guide!`, 'success');
+                        }
+                      });
                     }}
                   >
                     ➕ Add Custom Step
