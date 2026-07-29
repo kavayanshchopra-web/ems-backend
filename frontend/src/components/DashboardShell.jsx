@@ -578,6 +578,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     'Callback Requested'
   ]);
   const [showManageDropdownsModal, setShowManageDropdownsModal] = useState(false);
+  const [dropdownSortConfig, setDropdownSortConfig] = useState({ key: null, dir: 'asc' });
   const [newOptionInput, setNewOptionInput] = useState('');
   const [showAutoFollowupModal, setShowAutoFollowupModal] = useState(false);
   const [selectedLogForAutoFollowup, setSelectedLogForAutoFollowup] = useState(null);
@@ -12859,6 +12860,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     ? systemDropdowns.departments.map(item => typeof item === 'object' && item !== null ? item : { name: item, archived: false })
                     : defaultList;
 
+                  const displayItems = [...currentItems];
+                  if (dropdownSortConfig.key === 'title') {
+                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
+                  } else if (dropdownSortConfig.key === 'status') {
+                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? Number(a.archived) - Number(b.archived) : Number(b.archived) - Number(a.archived));
+                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
+                    displayItems.reverse();
+                  }
+
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
@@ -12894,120 +12904,92 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
                           <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
-                              <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
-                              <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Department Title</th>
-                              <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
-                              <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
-                              <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                DEPARTMENT TITLE <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
+                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
-                            {currentItems.length === 0 ? (
+                            {displayItems.length === 0 ? (
                               <tr>
-                                <td colSpan="5" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
+                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
                                   <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Departments Configured</div>
                                   <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create your first department.</div>
                                 </td>
                               </tr>
                             ) : (
-                              currentItems.map((item, idx) => (
-                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
-                                  <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                  <td style={{ padding: '12px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
-                                  <td style={{ padding: '12px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                      {item.archived ? '📦 Archived' : '🟢 Active'}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '12px', textAlign: 'center' }}>
-                                    <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                                      <button
-                                        type="button"
-                                        disabled={idx === 0}
-                                        onClick={() => {
-                                          if (idx === 0) return;
-                                          const updated = [...currentItems];
-                                          const temp = updated[idx];
-                                          updated[idx] = updated[idx - 1];
-                                          updated[idx - 1] = temp;
-                                          setSystemDropdowns(prev => ({ ...prev, departments: updated }));
-                                          showToast(`Moved "${item.name}" up`, 'info');
-                                        }}
-                                        title="Move Up"
-                                        style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                      >
-                                        ⬆️
-                                      </button>
-                                      <button
-                                        type="button"
-                                        disabled={idx === currentItems.length - 1}
-                                        onClick={() => {
-                                          if (idx === currentItems.length - 1) return;
-                                          const updated = [...currentItems];
-                                          const temp = updated[idx];
-                                          updated[idx] = updated[idx + 1];
-                                          updated[idx + 1] = temp;
-                                          setSystemDropdowns(prev => ({ ...prev, departments: updated }));
-                                          showToast(`Moved "${item.name}" down`, 'info');
-                                        }}
-                                        title="Move Down"
-                                        style={{ border: 'none', background: 'transparent', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === currentItems.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                      >
-                                        ⬇️
-                                      </button>
-                                    </div>
-                                  </td>
-                                  <td style={{ padding: '12px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const newName = prompt("Rename Department:", item.name);
-                                          if (newName && newName.trim()) {
+                              displayItems.map((item, idx) => {
+                                const realIdx = currentItems.findIndex(orig => orig.name === item.name);
+                                return (
+                                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
+                                    <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                    <td style={{ padding: '12px 14px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
+                                    <td style={{ padding: '12px 14px' }}>
+                                      <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                        {item.archived ? '📦 Archived' : '🟢 Active'}
+                                      </span>
+                                    </td>
+                                    <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const newName = prompt("Rename Department:", item.name);
+                                            if (newName && newName.trim()) {
+                                              const updated = [...currentItems];
+                                              updated[realIdx] = { name: newName.trim(), archived: item.archived };
+                                              setSystemDropdowns(prev => ({ ...prev, departments: updated }));
+                                              showToast(`Updated to "${newName.trim()}"`, 'success');
+                                            }
+                                          }}
+                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                        >
+                                          ✏️ Edit
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
                                             const updated = [...currentItems];
-                                            updated[idx] = { name: newName.trim(), archived: item.archived };
+                                            updated[realIdx] = { name: item.name, archived: !item.archived };
                                             setSystemDropdowns(prev => ({ ...prev, departments: updated }));
-                                            showToast(`Updated to "${newName.trim()}"`, 'success');
-                                          }
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                      >
-                                        ✏️ Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const updated = [...currentItems];
-                                          updated[idx] = { name: item.name, archived: !item.archived };
-                                          setSystemDropdowns(prev => ({ ...prev, departments: updated }));
-                                          showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                      >
-                                        {item.archived ? '🔄 Restore' : '📦 Archive'}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          softDeleteRecord({
-                                            originalId: `dropdown_dept_${item.name}`,
-                                            name: `Department Option: "${item.name}"`,
-                                            category: 'System Dropdown',
-                                            entityData: { category: 'departments', title: item.name },
-                                            links: 'System Dropdown Master'
-                                          });
-                                          const updated = currentItems.filter((_, i) => i !== idx);
-                                          setSystemDropdowns(prev => ({ ...prev, departments: updated }));
-                                          showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                      >
-                                        🗑️ Delete
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))
+                                            showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
+                                          }}
+                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                        >
+                                          {item.archived ? '🔄 Restore' : '📦 Archive'}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            softDeleteRecord({
+                                              originalId: `dropdown_dept_${item.name}`,
+                                              name: `Department Option: "${item.name}"`,
+                                              category: 'System Dropdown',
+                                              entityData: { category: 'departments', title: item.name },
+                                              links: 'System Dropdown Master'
+                                            });
+                                            const updated = currentItems.filter((_, i) => i !== realIdx);
+                                            setSystemDropdowns(prev => ({ ...prev, departments: updated }));
+                                            showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
+                                          }}
+                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                        >
+                                          🗑️ Delete
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })
                             )}
                           </tbody>
                         </table>
@@ -13022,6 +13004,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   const currentItems = (systemDropdowns.designations && systemDropdowns.designations.length > 0)
                     ? systemDropdowns.designations.map(item => typeof item === 'object' && item !== null ? item : { name: item, archived: false })
                     : defaultList;
+
+                  const displayItems = [...currentItems];
+                  if (dropdownSortConfig.key === 'title') {
+                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
+                  } else if (dropdownSortConfig.key === 'status') {
+                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? Number(a.archived) - Number(b.archived) : Number(b.archived) - Number(a.archived));
+                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
+                    displayItems.reverse();
+                  }
 
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -13058,120 +13049,92 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
                           <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
-                              <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
-                              <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Role / Designation Title</th>
-                              <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
-                              <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
-                              <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                ROLE / DESIGNATION TITLE <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
+                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
-                            {currentItems.length === 0 ? (
+                            {displayItems.length === 0 ? (
                               <tr>
-                                <td colSpan="5" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
+                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
                                   <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Designations Configured</div>
                                   <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create your first designation.</div>
                                 </td>
                               </tr>
                             ) : (
-                              currentItems.map((item, idx) => (
-                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
-                                  <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                  <td style={{ padding: '12px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
-                                  <td style={{ padding: '12px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                      {item.archived ? '📦 Archived' : '🟢 Active'}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '12px', textAlign: 'center' }}>
-                                    <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                                      <button
-                                        type="button"
-                                        disabled={idx === 0}
-                                        onClick={() => {
-                                          if (idx === 0) return;
-                                          const updated = [...currentItems];
-                                          const temp = updated[idx];
-                                          updated[idx] = updated[idx - 1];
-                                          updated[idx - 1] = temp;
-                                          setSystemDropdowns(prev => ({ ...prev, designations: updated }));
-                                          showToast(`Moved "${item.name}" up`, 'info');
-                                        }}
-                                        title="Move Up"
-                                        style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                      >
-                                        ⬆️
-                                      </button>
-                                      <button
-                                        type="button"
-                                        disabled={idx === currentItems.length - 1}
-                                        onClick={() => {
-                                          if (idx === currentItems.length - 1) return;
-                                          const updated = [...currentItems];
-                                          const temp = updated[idx];
-                                          updated[idx] = updated[idx + 1];
-                                          updated[idx + 1] = temp;
-                                          setSystemDropdowns(prev => ({ ...prev, designations: updated }));
-                                          showToast(`Moved "${item.name}" down`, 'info');
-                                        }}
-                                        title="Move Down"
-                                        style={{ border: 'none', background: 'transparent', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === currentItems.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                      >
-                                        ⬇️
-                                      </button>
-                                    </div>
-                                  </td>
-                                  <td style={{ padding: '12px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const newName = prompt("Rename Designation:", item.name);
-                                          if (newName && newName.trim()) {
+                              displayItems.map((item, idx) => {
+                                const realIdx = currentItems.findIndex(orig => orig.name === item.name);
+                                return (
+                                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
+                                    <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                    <td style={{ padding: '12px 14px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
+                                    <td style={{ padding: '12px 14px' }}>
+                                      <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                        {item.archived ? '📦 Archived' : '🟢 Active'}
+                                      </span>
+                                    </td>
+                                    <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const newName = prompt("Rename Designation:", item.name);
+                                            if (newName && newName.trim()) {
+                                              const updated = [...currentItems];
+                                              updated[realIdx] = { name: newName.trim(), archived: item.archived };
+                                              setSystemDropdowns(prev => ({ ...prev, designations: updated }));
+                                              showToast(`Updated to "${newName.trim()}"`, 'success');
+                                            }
+                                          }}
+                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                        >
+                                          ✏️ Edit
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
                                             const updated = [...currentItems];
-                                            updated[idx] = { name: newName.trim(), archived: item.archived };
+                                            updated[realIdx] = { name: item.name, archived: !item.archived };
                                             setSystemDropdowns(prev => ({ ...prev, designations: updated }));
-                                            showToast(`Updated to "${newName.trim()}"`, 'success');
-                                          }
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                      >
-                                        ✏️ Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const updated = [...currentItems];
-                                          updated[idx] = { name: item.name, archived: !item.archived };
-                                          setSystemDropdowns(prev => ({ ...prev, designations: updated }));
-                                          showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                      >
-                                        {item.archived ? '🔄 Restore' : '📦 Archive'}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          softDeleteRecord({
-                                            originalId: `dropdown_desig_${item.name}`,
-                                            name: `Designation Option: "${item.name}"`,
-                                            category: 'System Dropdown',
-                                            entityData: { category: 'designations', title: item.name },
-                                            links: 'System Dropdown Master'
-                                          });
-                                          const updated = currentItems.filter((_, i) => i !== idx);
-                                          setSystemDropdowns(prev => ({ ...prev, designations: updated }));
-                                          showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                      >
-                                        🗑️ Delete
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))
+                                            showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
+                                          }}
+                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                        >
+                                          {item.archived ? '🔄 Restore' : '📦 Archive'}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            softDeleteRecord({
+                                              originalId: `dropdown_desig_${item.name}`,
+                                              name: `Designation Option: "${item.name}"`,
+                                              category: 'System Dropdown',
+                                              entityData: { category: 'designations', title: item.name },
+                                              links: 'System Dropdown Master'
+                                            });
+                                            const updated = currentItems.filter((_, i) => i !== realIdx);
+                                            setSystemDropdowns(prev => ({ ...prev, designations: updated }));
+                                            showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
+                                          }}
+                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                        >
+                                          🗑️ Delete
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })
                             )}
                           </tbody>
                         </table>
@@ -13186,6 +13149,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   const currentItems = (systemDropdowns.employmentTypes && systemDropdowns.employmentTypes.length > 0)
                     ? systemDropdowns.employmentTypes.map(item => typeof item === 'object' && item !== null ? item : { name: item, archived: false })
                     : defaultList;
+
+                  const displayItems = [...currentItems];
+                  if (dropdownSortConfig.key === 'title') {
+                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
+                  } else if (dropdownSortConfig.key === 'status') {
+                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? Number(a.archived) - Number(b.archived) : Number(b.archived) - Number(a.archived));
+                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
+                    displayItems.reverse();
+                  }
 
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -13222,120 +13194,92 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
                           <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
-                              <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
-                              <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Employment Type Label</th>
-                              <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
-                              <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
-                              <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                EMPLOYMENT TYPE LABEL <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
+                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
-                            {currentItems.length === 0 ? (
+                            {displayItems.length === 0 ? (
                               <tr>
-                                <td colSpan="5" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
+                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
                                   <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Employment Types Configured</div>
                                   <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create your first employment type.</div>
                                 </td>
                               </tr>
                             ) : (
-                              currentItems.map((item, idx) => (
-                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
-                                  <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                  <td style={{ padding: '12px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
-                                  <td style={{ padding: '12px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                      {item.archived ? '📦 Archived' : '🟢 Active'}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '12px', textAlign: 'center' }}>
-                                    <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                                      <button
-                                        type="button"
-                                        disabled={idx === 0}
-                                        onClick={() => {
-                                          if (idx === 0) return;
-                                          const updated = [...currentItems];
-                                          const temp = updated[idx];
-                                          updated[idx] = updated[idx - 1];
-                                          updated[idx - 1] = temp;
-                                          setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
-                                          showToast(`Moved "${item.name}" up`, 'info');
-                                        }}
-                                        title="Move Up"
-                                        style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                      >
-                                        ⬆️
-                                      </button>
-                                      <button
-                                        type="button"
-                                        disabled={idx === currentItems.length - 1}
-                                        onClick={() => {
-                                          if (idx === currentItems.length - 1) return;
-                                          const updated = [...currentItems];
-                                          const temp = updated[idx];
-                                          updated[idx] = updated[idx + 1];
-                                          updated[idx + 1] = temp;
-                                          setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
-                                          showToast(`Moved "${item.name}" down`, 'info');
-                                        }}
-                                        title="Move Down"
-                                        style={{ border: 'none', background: 'transparent', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === currentItems.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                      >
-                                        ⬇️
-                                      </button>
-                                    </div>
-                                  </td>
-                                  <td style={{ padding: '12px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const newName = prompt("Rename Employment Type:", item.name);
-                                          if (newName && newName.trim()) {
+                              displayItems.map((item, idx) => {
+                                const realIdx = currentItems.findIndex(orig => orig.name === item.name);
+                                return (
+                                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
+                                    <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                    <td style={{ padding: '12px 14px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
+                                    <td style={{ padding: '12px 14px' }}>
+                                      <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                        {item.archived ? '📦 Archived' : '🟢 Active'}
+                                      </span>
+                                    </td>
+                                    <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const newName = prompt("Rename Employment Type:", item.name);
+                                            if (newName && newName.trim()) {
+                                              const updated = [...currentItems];
+                                              updated[realIdx] = { name: newName.trim(), archived: item.archived };
+                                              setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
+                                              showToast(`Updated to "${newName.trim()}"`, 'success');
+                                            }
+                                          }}
+                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                        >
+                                          ✏️ Edit
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
                                             const updated = [...currentItems];
-                                            updated[idx] = { name: newName.trim(), archived: item.archived };
+                                            updated[realIdx] = { name: item.name, archived: !item.archived };
                                             setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
-                                            showToast(`Updated to "${newName.trim()}"`, 'success');
-                                          }
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                      >
-                                        ✏️ Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const updated = [...currentItems];
-                                          updated[idx] = { name: item.name, archived: !item.archived };
-                                          setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
-                                          showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                      >
-                                        {item.archived ? '🔄 Restore' : '📦 Archive'}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          softDeleteRecord({
-                                            originalId: `dropdown_emptype_${item.name}`,
-                                            name: `Employment Type Option: "${item.name}"`,
-                                            category: 'System Dropdown',
-                                            entityData: { category: 'employmentTypes', title: item.name },
-                                            links: 'System Dropdown Master'
-                                          });
-                                          const updated = currentItems.filter((_, i) => i !== idx);
-                                          setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
-                                          showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                      >
-                                        🗑️ Delete
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))
+                                            showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
+                                          }}
+                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                        >
+                                          {item.archived ? '🔄 Restore' : '📦 Archive'}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            softDeleteRecord({
+                                              originalId: `dropdown_emptype_${item.name}`,
+                                              name: `Employment Type Option: "${item.name}"`,
+                                              category: 'System Dropdown',
+                                              entityData: { category: 'employmentTypes', title: item.name },
+                                              links: 'System Dropdown Master'
+                                            });
+                                            const updated = currentItems.filter((_, i) => i !== realIdx);
+                                            setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
+                                            showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
+                                          }}
+                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                        >
+                                          🗑️ Delete
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })
                             )}
                           </tbody>
                         </table>
@@ -13350,6 +13294,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   const currentItems = (systemDropdowns.genders && systemDropdowns.genders.length > 0)
                     ? systemDropdowns.genders.map(item => typeof item === 'object' && item !== null ? item : { name: item, archived: false })
                     : defaultList;
+
+                  const displayItems = [...currentItems];
+                  if (dropdownSortConfig.key === 'title') {
+                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
+                  } else if (dropdownSortConfig.key === 'status') {
+                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? Number(a.archived) - Number(b.archived) : Number(b.archived) - Number(a.archived));
+                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
+                    displayItems.reverse();
+                  }
 
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -13386,120 +13339,92 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
                           <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
-                              <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
-                              <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Gender Label</th>
-                              <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
-                              <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
-                              <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                GENDER LABEL <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
+                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
-                            {currentItems.length === 0 ? (
+                            {displayItems.length === 0 ? (
                               <tr>
-                                <td colSpan="5" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
+                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
                                   <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Gender Options Configured</div>
                                   <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create a gender option.</div>
                                 </td>
                               </tr>
                             ) : (
-                              currentItems.map((item, idx) => (
-                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
-                                  <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                  <td style={{ padding: '12px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
-                                  <td style={{ padding: '12px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                      {item.archived ? '📦 Archived' : '🟢 Active'}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '12px', textAlign: 'center' }}>
-                                    <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                                      <button
-                                        type="button"
-                                        disabled={idx === 0}
-                                        onClick={() => {
-                                          if (idx === 0) return;
-                                          const updated = [...currentItems];
-                                          const temp = updated[idx];
-                                          updated[idx] = updated[idx - 1];
-                                          updated[idx - 1] = temp;
-                                          setSystemDropdowns(prev => ({ ...prev, genders: updated }));
-                                          showToast(`Moved "${item.name}" up`, 'info');
-                                        }}
-                                        title="Move Up"
-                                        style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                      >
-                                        ⬆️
-                                      </button>
-                                      <button
-                                        type="button"
-                                        disabled={idx === currentItems.length - 1}
-                                        onClick={() => {
-                                          if (idx === currentItems.length - 1) return;
-                                          const updated = [...currentItems];
-                                          const temp = updated[idx];
-                                          updated[idx] = updated[idx + 1];
-                                          updated[idx + 1] = temp;
-                                          setSystemDropdowns(prev => ({ ...prev, genders: updated }));
-                                          showToast(`Moved "${item.name}" down`, 'info');
-                                        }}
-                                        title="Move Down"
-                                        style={{ border: 'none', background: 'transparent', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === currentItems.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                      >
-                                        ⬇️
-                                      </button>
-                                    </div>
-                                  </td>
-                                  <td style={{ padding: '12px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const newName = prompt("Rename Gender Option:", item.name);
-                                          if (newName && newName.trim()) {
+                              displayItems.map((item, idx) => {
+                                const realIdx = currentItems.findIndex(orig => orig.name === item.name);
+                                return (
+                                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
+                                    <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                    <td style={{ padding: '12px 14px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
+                                    <td style={{ padding: '12px 14px' }}>
+                                      <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                        {item.archived ? '📦 Archived' : '🟢 Active'}
+                                      </span>
+                                    </td>
+                                    <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const newName = prompt("Rename Gender Option:", item.name);
+                                            if (newName && newName.trim()) {
+                                              const updated = [...currentItems];
+                                              updated[realIdx] = { name: newName.trim(), archived: item.archived };
+                                              setSystemDropdowns(prev => ({ ...prev, genders: updated }));
+                                              showToast(`Updated to "${newName.trim()}"`, 'success');
+                                            }
+                                          }}
+                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                        >
+                                          ✏️ Edit
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
                                             const updated = [...currentItems];
-                                            updated[idx] = { name: newName.trim(), archived: item.archived };
+                                            updated[realIdx] = { name: item.name, archived: !item.archived };
                                             setSystemDropdowns(prev => ({ ...prev, genders: updated }));
-                                            showToast(`Updated to "${newName.trim()}"`, 'success');
-                                          }
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                      >
-                                        ✏️ Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const updated = [...currentItems];
-                                          updated[idx] = { name: item.name, archived: !item.archived };
-                                          setSystemDropdowns(prev => ({ ...prev, genders: updated }));
-                                          showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                      >
-                                        {item.archived ? '🔄 Restore' : '📦 Archive'}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          softDeleteRecord({
-                                            originalId: `dropdown_gender_${item.name}`,
-                                            name: `Gender Option: "${item.name}"`,
-                                            category: 'System Dropdown',
-                                            entityData: { category: 'genders', title: item.name },
-                                            links: 'System Dropdown Master'
-                                          });
-                                          const updated = currentItems.filter((_, i) => i !== idx);
-                                          setSystemDropdowns(prev => ({ ...prev, genders: updated }));
-                                          showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                      >
-                                        🗑️ Delete
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))
+                                            showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
+                                          }}
+                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                        >
+                                          {item.archived ? '🔄 Restore' : '📦 Archive'}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            softDeleteRecord({
+                                              originalId: `dropdown_gender_${item.name}`,
+                                              name: `Gender Option: "${item.name}"`,
+                                              category: 'System Dropdown',
+                                              entityData: { category: 'genders', title: item.name },
+                                              links: 'System Dropdown Master'
+                                            });
+                                            const updated = currentItems.filter((_, i) => i !== realIdx);
+                                            setSystemDropdowns(prev => ({ ...prev, genders: updated }));
+                                            showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
+                                          }}
+                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                        >
+                                          🗑️ Delete
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })
                             )}
                           </tbody>
                         </table>
@@ -13514,6 +13439,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   const currentItems = (systemDropdowns.maritalStatuses && systemDropdowns.maritalStatuses.length > 0)
                     ? systemDropdowns.maritalStatuses.map(item => typeof item === 'object' && item !== null ? item : { name: item, archived: false })
                     : defaultList;
+
+                  const displayItems = [...currentItems];
+                  if (dropdownSortConfig.key === 'title') {
+                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
+                  } else if (dropdownSortConfig.key === 'status') {
+                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? Number(a.archived) - Number(b.archived) : Number(b.archived) - Number(a.archived));
+                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
+                    displayItems.reverse();
+                  }
 
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -13550,120 +13484,92 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
                           <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
-                              <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
-                              <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Marital Status Label</th>
-                              <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
-                              <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
-                              <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                MARITAL STATUS LABEL <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
+                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
-                            {currentItems.length === 0 ? (
+                            {displayItems.length === 0 ? (
                               <tr>
-                                <td colSpan="5" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
+                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
                                   <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Marital Status Options Configured</div>
                                   <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create a marital status option.</div>
                                 </td>
                               </tr>
                             ) : (
-                              currentItems.map((item, idx) => (
-                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
-                                  <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                  <td style={{ padding: '12px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
-                                  <td style={{ padding: '12px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                      {item.archived ? '📦 Archived' : '🟢 Active'}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '12px', textAlign: 'center' }}>
-                                    <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                                      <button
-                                        type="button"
-                                        disabled={idx === 0}
-                                        onClick={() => {
-                                          if (idx === 0) return;
-                                          const updated = [...currentItems];
-                                          const temp = updated[idx];
-                                          updated[idx] = updated[idx - 1];
-                                          updated[idx - 1] = temp;
-                                          setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated }));
-                                          showToast(`Moved "${item.name}" up`, 'info');
-                                        }}
-                                        title="Move Up"
-                                        style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                      >
-                                        ⬆️
-                                      </button>
-                                      <button
-                                        type="button"
-                                        disabled={idx === currentItems.length - 1}
-                                        onClick={() => {
-                                          if (idx === currentItems.length - 1) return;
-                                          const updated = [...currentItems];
-                                          const temp = updated[idx];
-                                          updated[idx] = updated[idx + 1];
-                                          updated[idx + 1] = temp;
-                                          setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated }));
-                                          showToast(`Moved "${item.name}" down`, 'info');
-                                        }}
-                                        title="Move Down"
-                                        style={{ border: 'none', background: 'transparent', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === currentItems.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                      >
-                                        ⬇️
-                                      </button>
-                                    </div>
-                                  </td>
-                                  <td style={{ padding: '12px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const newName = prompt("Rename Marital Status:", item.name);
-                                          if (newName && newName.trim()) {
+                              displayItems.map((item, idx) => {
+                                const realIdx = currentItems.findIndex(orig => orig.name === item.name);
+                                return (
+                                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
+                                    <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                    <td style={{ padding: '12px 14px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
+                                    <td style={{ padding: '12px 14px' }}>
+                                      <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                        {item.archived ? '📦 Archived' : '🟢 Active'}
+                                      </span>
+                                    </td>
+                                    <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const newName = prompt("Rename Marital Status:", item.name);
+                                            if (newName && newName.trim()) {
+                                              const updated = [...currentItems];
+                                              updated[realIdx] = { name: newName.trim(), archived: item.archived };
+                                              setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated }));
+                                              showToast(`Updated to "${newName.trim()}"`, 'success');
+                                            }
+                                          }}
+                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                        >
+                                          ✏️ Edit
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
                                             const updated = [...currentItems];
-                                            updated[idx] = { name: newName.trim(), archived: item.archived };
+                                            updated[realIdx] = { name: item.name, archived: !item.archived };
                                             setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated }));
-                                            showToast(`Updated to "${newName.trim()}"`, 'success');
-                                          }
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                      >
-                                        ✏️ Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const updated = [...currentItems];
-                                          updated[idx] = { name: item.name, archived: !item.archived };
-                                          setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated }));
-                                          showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                      >
-                                        {item.archived ? '🔄 Restore' : '📦 Archive'}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          softDeleteRecord({
-                                            originalId: `dropdown_marital_${item.name}`,
-                                            name: `Marital Status Option: "${item.name}"`,
-                                            category: 'System Dropdown',
-                                            entityData: { category: 'maritalStatuses', title: item.name },
-                                            links: 'System Dropdown Master'
-                                          });
-                                          const updated = currentItems.filter((_, i) => i !== idx);
-                                          setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated }));
-                                          showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                      >
-                                        🗑️ Delete
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))
+                                            showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
+                                          }}
+                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                        >
+                                          {item.archived ? '🔄 Restore' : '📦 Archive'}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            softDeleteRecord({
+                                              originalId: `dropdown_marital_${item.name}`,
+                                              name: `Marital Status Option: "${item.name}"`,
+                                              category: 'System Dropdown',
+                                              entityData: { category: 'maritalStatuses', title: item.name },
+                                              links: 'System Dropdown Master'
+                                            });
+                                            const updated = currentItems.filter((_, i) => i !== realIdx);
+                                            setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated }));
+                                            showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
+                                          }}
+                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                        >
+                                          🗑️ Delete
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })
                             )}
                           </tbody>
                         </table>
@@ -13678,6 +13584,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   const currentItems = (systemDropdowns.bloodGroups && systemDropdowns.bloodGroups.length > 0)
                     ? systemDropdowns.bloodGroups.map(item => typeof item === 'object' && item !== null ? item : { name: item, archived: false })
                     : defaultList;
+
+                  const displayItems = [...currentItems];
+                  if (dropdownSortConfig.key === 'title') {
+                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
+                  } else if (dropdownSortConfig.key === 'status') {
+                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? Number(a.archived) - Number(b.archived) : Number(b.archived) - Number(a.archived));
+                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
+                    displayItems.reverse();
+                  }
 
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -13714,79 +13629,624 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
                           <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
-                              <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
-                              <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Blood Group Label</th>
-                              <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
-                              <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
-                              <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                BLOOD GROUP LABEL <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
+                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
-                            {currentItems.length === 0 ? (
+                            {displayItems.length === 0 ? (
                               <tr>
-                                <td colSpan="5" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
+                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
                                   <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Blood Group Options Configured</div>
                                   <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create a blood group option.</div>
                                 </td>
                               </tr>
                             ) : (
-                              currentItems.map((item, idx) => (
-                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
-                                  <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                  <td style={{ padding: '12px', fontWeight: '800', color: item.archived ? '#94a3b8' : '#0d9488', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
-                                  <td style={{ padding: '12px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                      {item.archived ? '📦 Archived' : '🟢 Active'}
+                              displayItems.map((item, idx) => {
+                                const realIdx = currentItems.findIndex(orig => orig.name === item.name);
+                                return (
+                                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
+                                    <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                    <td style={{ padding: '12px 14px', fontWeight: '800', color: item.archived ? '#94a3b8' : '#0d9488', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
+                                    <td style={{ padding: '12px 14px' }}>
+                                      <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                        {item.archived ? '📦 Archived' : '🟢 Active'}
+                                      </span>
+                                    </td>
+                                    <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const newName = prompt("Rename Blood Group:", item.name);
+                                            if (newName && newName.trim()) {
+                                              const updated = [...currentItems];
+                                              updated[realIdx] = { name: newName.trim(), archived: item.archived };
+                                              setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated }));
+                                              showToast(`Updated to "${newName.trim()}"`, 'success');
+                                            }
+                                          }}
+                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                        >
+                                          ✏️ Edit
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const updated = [...currentItems];
+                                            updated[realIdx] = { name: item.name, archived: !item.archived };
+                                            setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated }));
+                                            showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
+                                          }}
+                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                        >
+                                          {item.archived ? '🔄 Restore' : '📦 Archive'}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            softDeleteRecord({
+                                              originalId: `dropdown_blood_${item.name}`,
+                                              name: `Blood Group Option: "${item.name}"`,
+                                              category: 'System Dropdown',
+                                              entityData: { category: 'bloodGroups', title: item.name },
+                                              links: 'System Dropdown Master'
+                                            });
+                                            const updated = currentItems.filter((_, i) => i !== realIdx);
+                                            setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated }));
+                                            showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
+                                          }}
+                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                        >
+                                          🗑️ Delete
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 7. LEAVE TYPES */}
+                {selectedDropdownCategory === 'leave_categories' && (() => {
+                  const displayItems = [...systemDropdowns.leaveCategories];
+                  if (dropdownSortConfig.key === 'title') {
+                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
+                  } else if (dropdownSortConfig.key === 'quota') {
+                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? (a.quota || 0) - (b.quota || 0) : (b.quota || 0) - (a.quota || 0));
+                  } else if (dropdownSortConfig.key === 'status') {
+                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? Number(a.archived) - Number(b.archived) : Number(b.archived) - Number(a.archived));
+                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
+                    displayItems.reverse();
+                  }
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '20px' }}>🏖️</span>
+                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Leave Types Options</h3>
+                          </div>
+                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage leave policies & annual quota allocations</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const name = prompt("Enter Leave Name (e.g. Sabbatical):");
+                            if (name && name.trim()) {
+                              const quota = prompt("Enter annual quota days:", "12");
+                              const newLc = { id: 'lc_' + Date.now(), name: name.trim(), quota: parseInt(quota || '12', 10), archived: false };
+                              setSystemDropdowns(prev => ({ ...prev, leaveCategories: [...prev.leaveCategories, newLc] }));
+                              showToast(`Added Leave Type "${name}"`, 'success');
+                            }
+                          }}
+                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
+                        >
+                          + Add Option
+                        </button>
+                      </div>
+
+                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
+                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                            <tr>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                LEAVE CATEGORY <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'quota', dir: prev.key === 'quota' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                ANNUAL QUOTA <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'quota' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'quota' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
+                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {displayItems.map((lc, idx) => {
+                              const isArchived = Boolean(lc.archived);
+                              const realIdx = systemDropdowns.leaveCategories.findIndex(orig => orig.id === lc.id || orig.name === lc.name);
+
+                              return (
+                                <tr key={lc.id || idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white' }}>
+                                  <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                  <td style={{ padding: '12px 14px', fontWeight: '800', color: isArchived ? '#94a3b8' : '#0f2b26', textDecoration: isArchived ? 'line-through' : 'none' }}>
+                                    {lc.name}
+                                  </td>
+                                  <td style={{ padding: '12px 14px', fontWeight: '700', color: '#0d9488' }}>
+                                    {lc.quota} Days / Year
+                                  </td>
+                                  <td style={{ padding: '12px 14px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                      {isArchived ? '📦 Archived' : '🟢 Active'}
                                     </span>
                                   </td>
-                                  <td style={{ padding: '12px', textAlign: 'center' }}>
-                                    <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                                  <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                       <button
                                         type="button"
-                                        disabled={idx === 0}
                                         onClick={() => {
-                                          if (idx === 0) return;
-                                          const updated = [...currentItems];
-                                          const temp = updated[idx];
-                                          updated[idx] = updated[idx - 1];
-                                          updated[idx - 1] = temp;
-                                          setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated }));
-                                          showToast(`Moved "${item.name}" up`, 'info');
+                                          const newName = prompt("Edit Leave Name:", lc.name);
+                                          if (newName && newName.trim()) {
+                                            const newQuota = prompt("Edit Annual Quota Days:", lc.quota);
+                                            const updated = [...systemDropdowns.leaveCategories];
+                                            updated[realIdx] = { ...lc, name: newName.trim(), quota: parseInt(newQuota || lc.quota, 10) };
+                                            setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated }));
+                                            showToast(`Updated "${newName.trim()}"`, 'success');
+                                          }
                                         }}
-                                        title="Move Up"
-                                        style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
                                       >
-                                        ⬆️
+                                        ✏️ Edit
                                       </button>
                                       <button
                                         type="button"
-                                        disabled={idx === currentItems.length - 1}
                                         onClick={() => {
-                                          if (idx === currentItems.length - 1) return;
-                                          const updated = [...currentItems];
-                                          const temp = updated[idx];
-                                          updated[idx] = updated[idx + 1];
-                                          updated[idx + 1] = temp;
-                                          setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated }));
-                                          showToast(`Moved "${item.name}" down`, 'info');
+                                          const updated = [...systemDropdowns.leaveCategories];
+                                          updated[realIdx] = { ...lc, archived: !isArchived };
+                                          setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated }));
+                                          showToast(isArchived ? `Restored "${lc.name}"` : `Archived "${lc.name}"`, 'info');
                                         }}
-                                        title="Move Down"
-                                        style={{ border: 'none', background: 'transparent', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === currentItems.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
                                       >
-                                        ⬇️
+                                        {isArchived ? '🔄 Restore' : '📦 Archive'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          softDeleteRecord({
+                                            originalId: lc.id || `leave_${lc.name}`,
+                                            name: `Leave Type: "${lc.name}"`,
+                                            category: 'System Dropdown',
+                                            entityData: lc,
+                                            links: 'Leave Management'
+                                          });
+                                          const updated = systemDropdowns.leaveCategories.filter((_, i) => i !== realIdx);
+                                          setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated }));
+                                          showToast(`🗑️ Moved "${lc.name}" to Recycle Bin!`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                      >
+                                        🗑️ Delete
                                       </button>
                                     </div>
                                   </td>
-                                  <td style={{ padding: '12px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 8. CRM PIPELINE STAGES */}
+                {selectedDropdownCategory === 'crm_stages' && (() => {
+                  const displayItems = [...stages];
+                  if (dropdownSortConfig.key === 'title') {
+                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? (a.title || '').localeCompare(b.title || '') : (b.title || '').localeCompare(a.title || ''));
+                  } else if (dropdownSortConfig.key === 'status') {
+                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? Number(a.archived) - Number(b.archived) : Number(b.archived) - Number(a.archived));
+                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
+                    displayItems.reverse();
+                  }
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '20px' }}>📊</span>
+                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>CRM Pipeline Stages Options</h3>
+                          </div>
+                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage lead sales deal stages & color indicators</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newId = 'stage_' + Date.now();
+                            setStages([...stages, { id: newId, title: 'New Stage', color: '#0d9488', archived: false }]);
+                            showToast('Added new Pipeline Stage', 'success');
+                          }}
+                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
+                        >
+                          + Add Option
+                        </button>
+                      </div>
+
+                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
+                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                            <tr>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                STAGE TITLE <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th style={{ padding: '12px 14px', width: '150px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
+                                COLOR BADGE <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
+                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {displayItems.map((stage, idx) => {
+                              const isArchived = Boolean(stage.archived);
+                              const realIdx = stages.findIndex(s => s.id === stage.id);
+
+                              return (
+                                <tr key={stage.id} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white' }}>
+                                  <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                  <td style={{ padding: '12px 14px' }}>
+                                    <input
+                                      type="text"
+                                      placeholder="Stage Title"
+                                      style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: '700', color: isArchived ? '#94a3b8' : '#0f2b26', background: 'white', width: '100%', maxWidth: '240px' }}
+                                      value={stage.title || ''}
+                                      onChange={(e) => {
+                                        const updated = [...stages];
+                                        updated[realIdx].title = e.target.value;
+                                        setStages(updated);
+                                      }}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '12px 14px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <input
+                                        type="color"
+                                        style={{ border: '2px solid #cbd5e1', padding: '0', width: '28px', height: '28px', cursor: 'pointer', borderRadius: '50%', background: 'none' }}
+                                        value={stage.color || '#0d9488'}
+                                        onChange={(e) => {
+                                          const updated = [...stages];
+                                          updated[realIdx].color = e.target.value;
+                                          setStages(updated);
+                                        }}
+                                      />
+                                      <span style={{ fontSize: '11px', fontWeight: '800', fontFamily: 'monospace', color: stage.color || '#0d9488' }}>
+                                        {stage.color || '#0d9488'}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '12px 14px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                      {isArchived ? '📦 Archived' : '🟢 Active'}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                       <button
                                         type="button"
                                         onClick={() => {
-                                          const newName = prompt("Rename Blood Group:", item.name);
+                                          const updated = [...stages];
+                                          updated[realIdx].archived = !isArchived;
+                                          setStages(updated);
+                                          showToast(isArchived ? `Restored "${stage.title}"` : `Archived "${stage.title}"`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                      >
+                                        {isArchived ? '🔄 Restore' : '📦 Archive'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          softDeleteRecord({
+                                            originalId: stage.id,
+                                            name: `CRM Stage: "${stage.title}"`,
+                                            category: 'System Dropdown',
+                                            entityData: stage,
+                                            links: 'CRM Pipeline'
+                                          });
+                                          setStages(stages.filter(s => s.id !== stage.id));
+                                          showToast(`🗑️ Moved "${stage.title}" to Recycle Bin!`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                      >
+                                        🗑️ Delete
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 9. CRM CONTACT TAGS */}
+                {selectedDropdownCategory === 'crm_tags' && (() => {
+                  const displayItems = [...allowedTags];
+                  if (dropdownSortConfig.key === 'title') {
+                    displayItems.sort((a, b) => {
+                      const nameA = typeof a === 'object' ? a.name : a;
+                      const nameB = typeof b === 'object' ? b.name : b;
+                      return dropdownSortConfig.dir === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+                    });
+                  } else if (dropdownSortConfig.key === 'status') {
+                    displayItems.sort((a, b) => {
+                      const archA = typeof a === 'object' ? Boolean(a.archived) : false;
+                      const archB = typeof b === 'object' ? Boolean(b.archived) : false;
+                      return dropdownSortConfig.dir === 'asc' ? Number(archA) - Number(archB) : Number(archB) - Number(archA);
+                    });
+                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
+                    displayItems.reverse();
+                  }
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '20px' }}>🏷️</span>
+                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>CRM Contact Tags Options</h3>
+                          </div>
+                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Predefined contact tags for lead segmentation</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const tag = prompt("Enter new Tag name (e.g. VIP Customer):");
+                            if (tag && tag.trim()) {
+                              const trimmed = tag.trim();
+                              const exists = allowedTags.some(t => (typeof t === 'object' ? t.name : t) === trimmed);
+                              if (!exists) {
+                                setAllowedTags([...allowedTags, { name: trimmed, archived: false }]);
+                                showToast(`Added Tag "${trimmed}"`, 'success');
+                              }
+                            }
+                          }}
+                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
+                        >
+                          + Add Option
+                        </button>
+                      </div>
+
+                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
+                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                            <tr>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                TAG LABEL <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
+                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {displayItems.map((tagItem, idx) => {
+                              const isObj = typeof tagItem === 'object' && tagItem !== null;
+                              const tagLabel = isObj ? tagItem.name : tagItem;
+                              const isArchived = isObj ? Boolean(tagItem.archived) : false;
+                              const realIdx = allowedTags.findIndex(t => (typeof t === 'object' ? t.name : t) === tagLabel);
+
+                              return (
+                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white' }}>
+                                  <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                  <td style={{ padding: '12px 14px' }}>
+                                    <span style={{ background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.08)', color: isArchived ? '#94a3b8' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.25)', padding: '5px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '800', textDecoration: isArchived ? 'line-through' : 'none' }}>
+                                      🏷️ {tagLabel}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '12px 14px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                      {isArchived ? '📦 Archived' : '🟢 Active'}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newTag = prompt("Rename Tag:", tagLabel);
+                                          if (newTag && newTag.trim()) {
+                                            const updated = [...allowedTags];
+                                            updated[realIdx] = { name: newTag.trim(), archived: isArchived };
+                                            setAllowedTags(updated);
+                                            showToast(`Updated Tag to "${newTag.trim()}"`, 'success');
+                                          }
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                      >
+                                        ✏️ Edit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = [...allowedTags];
+                                          updated[realIdx] = { name: tagLabel, archived: !isArchived };
+                                          setAllowedTags(updated);
+                                          showToast(isArchived ? `Restored "${tagLabel}"` : `Archived "${tagLabel}"`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                      >
+                                        {isArchived ? '🔄 Restore' : '📦 Archive'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          softDeleteRecord({
+                                            originalId: `tag_${tagLabel}`,
+                                            name: `CRM Tag: "${tagLabel}"`,
+                                            category: 'System Dropdown',
+                                            entityData: { tagLabel },
+                                            links: 'CRM Contacts'
+                                          });
+                                          const updated = allowedTags.filter((_, i) => i !== realIdx);
+                                          setAllowedTags(updated);
+                                          showToast(`🗑️ Moved "${tagLabel}" to Recycle Bin!`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                      >
+                                        🗑️ Delete
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 10. EXPENSE CATEGORIES */}
+                {selectedDropdownCategory === 'expenses' && (() => {
+                  const displayItems = [...systemDropdowns.expenseCategories];
+                  if (dropdownSortConfig.key === 'title') {
+                    displayItems.sort((a, b) => {
+                      const nameA = typeof a === 'object' ? a.name : a;
+                      const nameB = typeof b === 'object' ? b.name : b;
+                      return dropdownSortConfig.dir === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+                    });
+                  } else if (dropdownSortConfig.key === 'status') {
+                    displayItems.sort((a, b) => {
+                      const archA = typeof a === 'object' ? Boolean(a.archived) : false;
+                      const archB = typeof b === 'object' ? Boolean(b.archived) : false;
+                      return dropdownSortConfig.dir === 'asc' ? Number(archA) - Number(archB) : Number(archB) - Number(archA);
+                    });
+                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
+                    displayItems.reverse();
+                  }
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '20px' }}>💳</span>
+                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Expense Categories Options</h3>
+                          </div>
+                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Reimbursement claim types and allowance categories</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const val = prompt("Enter Expense Category:");
+                            if (val && val.trim()) {
+                              const trimmed = val.trim();
+                              const exists = systemDropdowns.expenseCategories.some(e => (typeof e === 'object' ? e.name : e) === trimmed);
+                              if (!exists) {
+                                setSystemDropdowns(prev => ({ ...prev, expenseCategories: [...prev.expenseCategories, { name: trimmed, archived: false }] }));
+                                showToast(`Added Expense Category "${trimmed}"`, 'success');
+                              }
+                            }
+                          }}
+                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
+                        >
+                          + Add Option
+                        </button>
+                      </div>
+
+                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
+                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                            <tr>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                EXPENSE CATEGORY TITLE <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
+                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {displayItems.map((exp, idx) => {
+                              const isObj = typeof exp === 'object' && exp !== null;
+                              const title = isObj ? exp.name : exp;
+                              const isArchived = isObj ? Boolean(exp.archived) : false;
+                              const realIdx = systemDropdowns.expenseCategories.findIndex(e => (typeof e === 'object' ? e.name : e) === title);
+
+                              return (
+                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white' }}>
+                                  <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                  <td style={{ padding: '12px 14px', fontWeight: '700', color: isArchived ? '#94a3b8' : '#0f2b26', textDecoration: isArchived ? 'line-through' : 'none' }}>
+                                    {title}
+                                  </td>
+                                  <td style={{ padding: '12px 14px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                      {isArchived ? '📦 Archived' : '🟢 Active'}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newName = prompt("Rename Expense Category:", title);
                                           if (newName && newName.trim()) {
-                                            const updated = [...currentItems];
-                                            updated[idx] = { name: newName.trim(), archived: item.archived };
-                                            setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated }));
+                                            const updated = [...systemDropdowns.expenseCategories];
+                                            updated[realIdx] = { name: newName.trim(), archived: isArchived };
+                                            setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated }));
                                             showToast(`Updated to "${newName.trim()}"`, 'success');
                                           }
                                         }}
@@ -13797,28 +14257,28 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                       <button
                                         type="button"
                                         onClick={() => {
-                                          const updated = [...currentItems];
-                                          updated[idx] = { name: item.name, archived: !item.archived };
-                                          setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated }));
-                                          showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
+                                          const updated = [...systemDropdowns.expenseCategories];
+                                          updated[realIdx] = { name: title, archived: !isArchived };
+                                          setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated }));
+                                          showToast(isArchived ? `Restored "${title}"` : `Archived "${title}"`, 'info');
                                         }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
                                       >
-                                        {item.archived ? '🔄 Restore' : '📦 Archive'}
+                                        {isArchived ? '🔄 Restore' : '📦 Archive'}
                                       </button>
                                       <button
                                         type="button"
                                         onClick={() => {
                                           softDeleteRecord({
-                                            originalId: `dropdown_blood_${item.name}`,
-                                            name: `Blood Group Option: "${item.name}"`,
+                                            originalId: `dropdown_expense_${title}`,
+                                            name: `Expense Category: "${title}"`,
                                             category: 'System Dropdown',
-                                            entityData: { category: 'bloodGroups', title: item.name },
-                                            links: 'System Dropdown Master'
+                                            entityData: { category: 'expenses', title },
+                                            links: 'Expense Claims'
                                           });
-                                          const updated = currentItems.filter((_, i) => i !== idx);
-                                          setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated }));
-                                          showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
+                                          const updated = systemDropdowns.expenseCategories.filter((_, i) => i !== realIdx);
+                                          setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated }));
+                                          showToast(`🗑️ Moved "${title}" to Recycle Bin!`, 'info');
                                         }}
                                         style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                       >
@@ -13827,8 +14287,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     </div>
                                   </td>
                                 </tr>
-                              ))
-                            )}
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
@@ -13836,787 +14296,149 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   );
                 })()}
 
-                {/* 7. LEAVE TYPES */}
-                {selectedDropdownCategory === 'leave_categories' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '20px' }}>🏖️</span>
-                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Leave Types Options</h3>
-                        </div>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage leave policies & annual quota allocations</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const name = prompt("Enter Leave Name (e.g. Sabbatical):");
-                          if (name && name.trim()) {
-                            const quota = prompt("Enter annual quota days:", "12");
-                            const newLc = { id: 'lc_' + Date.now(), name: name.trim(), quota: parseInt(quota || '12', 10), archived: false };
-                            setSystemDropdowns(prev => ({ ...prev, leaveCategories: [...prev.leaveCategories, newLc] }));
-                            showToast(`Added Leave Type "${name}"`, 'success');
-                          }
-                        }}
-                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                      >
-                        + Add Option
-                      </button>
-                    </div>
-
-                    {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                    <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                      <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
-                        <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                          <tr>
-                            <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
-                            <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Leave Category</th>
-                            <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Annual Quota</th>
-                            <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
-                            <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
-                            <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {systemDropdowns.leaveCategories.map((lc, idx) => {
-                            const isArchived = Boolean(lc.archived);
-
-                            return (
-                              <tr key={lc.id || idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white' }}>
-                                <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                <td style={{ padding: '12px', fontWeight: '800', color: isArchived ? '#94a3b8' : '#0f2b26', textDecoration: isArchived ? 'line-through' : 'none' }}>
-                                  {lc.name}
-                                </td>
-                                <td style={{ padding: '12px', fontWeight: '700', color: '#0d9488' }}>
-                                  {lc.quota} Days / Year
-                                </td>
-                                <td style={{ padding: '12px' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                    {isArchived ? '📦 Archived' : '🟢 Active'}
-                                  </span>
-                                </td>
-                                <td style={{ padding: '12px', textAlign: 'center' }}>
-                                  <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                                    <button
-                                      type="button"
-                                      disabled={idx === 0}
-                                      onClick={() => {
-                                        if (idx === 0) return;
-                                        const updated = [...systemDropdowns.leaveCategories];
-                                        const temp = updated[idx];
-                                        updated[idx] = updated[idx - 1];
-                                        updated[idx - 1] = temp;
-                                        setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated }));
-                                        showToast(`Moved "${lc.name}" up`, 'info');
-                                      }}
-                                      title="Move Up"
-                                      style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                    >
-                                      ⬆️
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={idx === systemDropdowns.leaveCategories.length - 1}
-                                      onClick={() => {
-                                        if (idx === systemDropdowns.leaveCategories.length - 1) return;
-                                        const updated = [...systemDropdowns.leaveCategories];
-                                        const temp = updated[idx];
-                                        updated[idx] = updated[idx + 1];
-                                        updated[idx + 1] = temp;
-                                        setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated }));
-                                        showToast(`Moved "${lc.name}" down`, 'info');
-                                      }}
-                                      title="Move Down"
-                                      style={{ border: 'none', background: 'transparent', cursor: idx === systemDropdowns.leaveCategories.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === systemDropdowns.leaveCategories.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                    >
-                                      ⬇️
-                                    </button>
-                                  </div>
-                                </td>
-                                <td style={{ padding: '12px', textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const newName = prompt("Edit Leave Name:", lc.name);
-                                        if (newName && newName.trim()) {
-                                          const newQuota = prompt("Edit Annual Quota Days:", lc.quota);
-                                          const updated = [...systemDropdowns.leaveCategories];
-                                          updated[idx] = { ...lc, name: newName.trim(), quota: parseInt(newQuota || lc.quota, 10) };
-                                          setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated }));
-                                          showToast(`Updated "${newName.trim()}"`, 'success');
-                                        }
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                    >
-                                      ✏️ Edit
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const updated = [...systemDropdowns.leaveCategories];
-                                        updated[idx] = { ...lc, archived: !isArchived };
-                                        setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated }));
-                                        showToast(isArchived ? `Restored "${lc.name}"` : `Archived "${lc.name}"`, 'info');
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                    >
-                                      {isArchived ? '🔄 Restore' : '📦 Archive'}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        softDeleteRecord({
-                                          originalId: lc.id || `leave_${lc.name}`,
-                                          name: `Leave Type: "${lc.name}"`,
-                                          category: 'System Dropdown',
-                                          entityData: lc,
-                                          links: 'Leave Management'
-                                        });
-                                        const updated = systemDropdowns.leaveCategories.filter((_, i) => i !== idx);
-                                        setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated }));
-                                        showToast(`🗑️ Moved "${lc.name}" to Recycle Bin!`, 'info');
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                    >
-                                      🗑️ Delete
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* 8. CRM PIPELINE STAGES */}
-                {selectedDropdownCategory === 'crm_stages' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '20px' }}>📊</span>
-                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>CRM Pipeline Stages Options</h3>
-                        </div>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage lead sales deal stages & color indicators</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newId = 'stage_' + Date.now();
-                          setStages([...stages, { id: newId, title: 'New Stage', color: '#0d9488', archived: false }]);
-                          showToast('Added new Pipeline Stage', 'success');
-                        }}
-                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                      >
-                        + Add Option
-                      </button>
-                    </div>
-
-                    {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                    <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                      <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
-                        <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                          <tr>
-                            <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
-                            <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Stage Title</th>
-                            <th style={{ padding: '10px 12px', width: '140px', background: '#f8fafc' }}>Color Badge</th>
-                            <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
-                            <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
-                            <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {stages.map((stage, idx) => {
-                            const isArchived = Boolean(stage.archived);
-
-                            return (
-                              <tr key={stage.id} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white' }}>
-                                <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                <td style={{ padding: '12px' }}>
-                                  <input
-                                    type="text"
-                                    placeholder="Stage Title"
-                                    style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: '700', color: isArchived ? '#94a3b8' : '#0f2b26', background: 'white', width: '100%', maxWidth: '240px' }}
-                                    value={stage.title || ''}
-                                    onChange={(e) => {
-                                      const updated = [...stages];
-                                      updated[idx].title = e.target.value;
-                                      setStages(updated);
-                                    }}
-                                  />
-                                </td>
-                                <td style={{ padding: '12px' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <input
-                                      type="color"
-                                      style={{ border: '2px solid #cbd5e1', padding: '0', width: '28px', height: '28px', cursor: 'pointer', borderRadius: '50%', background: 'none' }}
-                                      value={stage.color || '#0d9488'}
-                                      onChange={(e) => {
-                                        const updated = [...stages];
-                                        updated[idx].color = e.target.value;
-                                        setStages(updated);
-                                      }}
-                                    />
-                                    <span style={{ fontSize: '11px', fontWeight: '800', fontFamily: 'monospace', color: stage.color || '#0d9488' }}>
-                                      {stage.color || '#0d9488'}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td style={{ padding: '12px' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                    {isArchived ? '📦 Archived' : '🟢 Active'}
-                                  </span>
-                                </td>
-                                <td style={{ padding: '12px', textAlign: 'center' }}>
-                                  <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                                    <button
-                                      type="button"
-                                      disabled={idx === 0}
-                                      onClick={() => {
-                                        if (idx === 0) return;
-                                        const updated = [...stages];
-                                        const temp = updated[idx];
-                                        updated[idx] = updated[idx - 1];
-                                        updated[idx - 1] = temp;
-                                        setStages(updated);
-                                        showToast(`Moved "${stage.title}" up`, 'info');
-                                      }}
-                                      title="Move Up"
-                                      style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                    >
-                                      ⬆️
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={idx === stages.length - 1}
-                                      onClick={() => {
-                                        if (idx === stages.length - 1) return;
-                                        const updated = [...stages];
-                                        const temp = updated[idx];
-                                        updated[idx] = updated[idx + 1];
-                                        updated[idx + 1] = temp;
-                                        setStages(updated);
-                                        showToast(`Moved "${stage.title}" down`, 'info');
-                                      }}
-                                      title="Move Down"
-                                      style={{ border: 'none', background: 'transparent', cursor: idx === stages.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === stages.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                    >
-                                      ⬇️
-                                    </button>
-                                  </div>
-                                </td>
-                                <td style={{ padding: '12px', textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const updated = [...stages];
-                                        updated[idx].archived = !isArchived;
-                                        setStages(updated);
-                                        showToast(isArchived ? `Restored "${stage.title}"` : `Archived "${stage.title}"`, 'info');
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                    >
-                                      {isArchived ? '🔄 Restore' : '📦 Archive'}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        softDeleteRecord({
-                                          originalId: stage.id,
-                                          name: `CRM Stage: "${stage.title}"`,
-                                          category: 'System Dropdown',
-                                          entityData: stage,
-                                          links: 'CRM Pipeline'
-                                        });
-                                        setStages(stages.filter(s => s.id !== stage.id));
-                                        showToast(`🗑️ Moved "${stage.title}" to Recycle Bin!`, 'info');
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                    >
-                                      🗑️ Delete
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* 9. CRM CONTACT TAGS */}
-                {selectedDropdownCategory === 'crm_tags' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '20px' }}>🏷️</span>
-                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>CRM Contact Tags Options</h3>
-                        </div>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Predefined contact tags for lead segmentation</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const tag = prompt("Enter new Tag name (e.g. VIP Customer):");
-                          if (tag && tag.trim()) {
-                            const trimmed = tag.trim();
-                            const exists = allowedTags.some(t => (typeof t === 'object' ? t.name : t) === trimmed);
-                            if (!exists) {
-                              setAllowedTags([...allowedTags, { name: trimmed, archived: false }]);
-                              showToast(`Added Tag "${trimmed}"`, 'success');
-                            }
-                          }
-                        }}
-                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                      >
-                        + Add Option
-                      </button>
-                    </div>
-
-                    {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                    <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                      <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
-                        <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                          <tr>
-                            <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
-                            <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Tag Label</th>
-                            <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
-                            <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
-                            <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {allowedTags.map((tagItem, idx) => {
-                            const isObj = typeof tagItem === 'object' && tagItem !== null;
-                            const tagLabel = isObj ? tagItem.name : tagItem;
-                            const isArchived = isObj ? Boolean(tagItem.archived) : false;
-
-                            return (
-                              <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white' }}>
-                                <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                <td style={{ padding: '12px' }}>
-                                  <span style={{ background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.08)', color: isArchived ? '#94a3b8' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.25)', padding: '5px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '800', textDecoration: isArchived ? 'line-through' : 'none' }}>
-                                    🏷️ {tagLabel}
-                                  </span>
-                                </td>
-                                <td style={{ padding: '12px' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                    {isArchived ? '📦 Archived' : '🟢 Active'}
-                                  </span>
-                                </td>
-                                <td style={{ padding: '12px', textAlign: 'center' }}>
-                                  <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                                    <button
-                                      type="button"
-                                      disabled={idx === 0}
-                                      onClick={() => {
-                                        if (idx === 0) return;
-                                        const updated = [...allowedTags];
-                                        const temp = updated[idx];
-                                        updated[idx] = updated[idx - 1];
-                                        updated[idx - 1] = temp;
-                                        setAllowedTags(updated);
-                                        showToast(`Moved "${tagLabel}" up`, 'info');
-                                      }}
-                                      title="Move Up"
-                                      style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                    >
-                                      ⬆️
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={idx === allowedTags.length - 1}
-                                      onClick={() => {
-                                        if (idx === allowedTags.length - 1) return;
-                                        const updated = [...allowedTags];
-                                        const temp = updated[idx];
-                                        updated[idx] = updated[idx + 1];
-                                        updated[idx + 1] = temp;
-                                        setAllowedTags(updated);
-                                        showToast(`Moved "${tagLabel}" down`, 'info');
-                                      }}
-                                      title="Move Down"
-                                      style={{ border: 'none', background: 'transparent', cursor: idx === allowedTags.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === allowedTags.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                    >
-                                      ⬇️
-                                    </button>
-                                  </div>
-                                </td>
-                                <td style={{ padding: '12px', textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const newTag = prompt("Rename Tag:", tagLabel);
-                                        if (newTag && newTag.trim()) {
-                                          const updated = [...allowedTags];
-                                          updated[idx] = { name: newTag.trim(), archived: isArchived };
-                                          setAllowedTags(updated);
-                                          showToast(`Updated Tag to "${newTag.trim()}"`, 'success');
-                                        }
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                    >
-                                      ✏️ Edit
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const updated = [...allowedTags];
-                                        updated[idx] = { name: tagLabel, archived: !isArchived };
-                                        setAllowedTags(updated);
-                                        showToast(isArchived ? `Restored "${tagLabel}"` : `Archived "${tagLabel}"`, 'info');
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                    >
-                                      {isArchived ? '🔄 Restore' : '📦 Archive'}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        softDeleteRecord({
-                                          originalId: `tag_${tagLabel}`,
-                                          name: `CRM Tag: "${tagLabel}"`,
-                                          category: 'System Dropdown',
-                                          entityData: { tagLabel },
-                                          links: 'CRM Contacts'
-                                        });
-                                        const updated = allowedTags.filter((_, i) => i !== idx);
-                                        setAllowedTags(updated);
-                                        showToast(`🗑️ Moved "${tagLabel}" to Recycle Bin!`, 'info');
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                    >
-                                      🗑️ Delete
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* 10. EXPENSE CATEGORIES */}
-                {selectedDropdownCategory === 'expenses' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '20px' }}>💳</span>
-                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Expense Categories Options</h3>
-                        </div>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Reimbursement claim types and allowance categories</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const val = prompt("Enter Expense Category:");
-                          if (val && val.trim()) {
-                            const trimmed = val.trim();
-                            const exists = systemDropdowns.expenseCategories.some(e => (typeof e === 'object' ? e.name : e) === trimmed);
-                            if (!exists) {
-                              setSystemDropdowns(prev => ({ ...prev, expenseCategories: [...prev.expenseCategories, { name: trimmed, archived: false }] }));
-                              showToast(`Added Expense Category "${trimmed}"`, 'success');
-                            }
-                          }
-                        }}
-                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                      >
-                        + Add Option
-                      </button>
-                    </div>
-
-                    {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                    <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                      <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
-                        <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                          <tr>
-                            <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
-                            <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Expense Category Title</th>
-                            <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
-                            <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
-                            <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {systemDropdowns.expenseCategories.map((exp, idx) => {
-                            const isObj = typeof exp === 'object' && exp !== null;
-                            const title = isObj ? exp.name : exp;
-                            const isArchived = isObj ? Boolean(exp.archived) : false;
-
-                            return (
-                              <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white' }}>
-                                <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                <td style={{ padding: '12px', fontWeight: '700', color: isArchived ? '#94a3b8' : '#0f2b26', textDecoration: isArchived ? 'line-through' : 'none' }}>
-                                  {title}
-                                </td>
-                                <td style={{ padding: '12px' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                    {isArchived ? '📦 Archived' : '🟢 Active'}
-                                  </span>
-                                </td>
-                                <td style={{ padding: '12px', textAlign: 'center' }}>
-                                  <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                                    <button
-                                      type="button"
-                                      disabled={idx === 0}
-                                      onClick={() => {
-                                        if (idx === 0) return;
-                                        const updated = [...systemDropdowns.expenseCategories];
-                                        const temp = updated[idx];
-                                        updated[idx] = updated[idx - 1];
-                                        updated[idx - 1] = temp;
-                                        setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated }));
-                                        showToast(`Moved "${title}" up`, 'info');
-                                      }}
-                                      title="Move Up"
-                                      style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                    >
-                                      ⬆️
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={idx === systemDropdowns.expenseCategories.length - 1}
-                                      onClick={() => {
-                                        if (idx === systemDropdowns.expenseCategories.length - 1) return;
-                                        const updated = [...systemDropdowns.expenseCategories];
-                                        const temp = updated[idx];
-                                        updated[idx] = updated[idx + 1];
-                                        updated[idx + 1] = temp;
-                                        setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated }));
-                                        showToast(`Moved "${title}" down`, 'info');
-                                      }}
-                                      title="Move Down"
-                                      style={{ border: 'none', background: 'transparent', cursor: idx === systemDropdowns.expenseCategories.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === systemDropdowns.expenseCategories.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                    >
-                                      ⬇️
-                                    </button>
-                                  </div>
-                                </td>
-                                <td style={{ padding: '12px', textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const newName = prompt("Rename Expense Category:", title);
-                                        if (newName && newName.trim()) {
-                                          const updated = [...systemDropdowns.expenseCategories];
-                                          updated[idx] = { name: newName.trim(), archived: isArchived };
-                                          setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated }));
-                                          showToast(`Updated to "${newName.trim()}"`, 'success');
-                                        }
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                    >
-                                      ✏️ Edit
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const updated = [...systemDropdowns.expenseCategories];
-                                        updated[idx] = { name: title, archived: !isArchived };
-                                        setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated }));
-                                        showToast(isArchived ? `Restored "${title}"` : `Archived "${title}"`, 'info');
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                    >
-                                      {isArchived ? '🔄 Restore' : '📦 Archive'}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        softDeleteRecord({
-                                          originalId: `dropdown_expense_${title}`,
-                                          name: `Expense Category: "${title}"`,
-                                          category: 'System Dropdown',
-                                          entityData: { category: 'expenses', title },
-                                          links: 'Expense Claims'
-                                        });
-                                        const updated = systemDropdowns.expenseCategories.filter((_, i) => i !== idx);
-                                        setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated }));
-                                        showToast(`🗑️ Moved "${title}" to Recycle Bin!`, 'info');
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                    >
-                                      🗑️ Delete
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
                 {/* 11. TASK PRIORITIES */}
-                {selectedDropdownCategory === 'priorities' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '20px' }}>⚡</span>
-                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Task Priority Levels Options</h3>
+                {selectedDropdownCategory === 'priorities' && (() => {
+                  const displayItems = [...systemDropdowns.taskPriorities];
+                  if (dropdownSortConfig.key === 'title') {
+                    displayItems.sort((a, b) => {
+                      const nameA = typeof a === 'object' ? a.name : a;
+                      const nameB = typeof b === 'object' ? b.name : b;
+                      return dropdownSortConfig.dir === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+                    });
+                  } else if (dropdownSortConfig.key === 'status') {
+                    displayItems.sort((a, b) => {
+                      const archA = typeof a === 'object' ? Boolean(a.archived) : false;
+                      const archB = typeof b === 'object' ? Boolean(b.archived) : false;
+                      return dropdownSortConfig.dir === 'asc' ? Number(archA) - Number(archB) : Number(archB) - Number(archA);
+                    });
+                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
+                    displayItems.reverse();
+                  }
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '20px' }}>⚡</span>
+                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Task Priority Levels Options</h3>
+                          </div>
+                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Task priority rating levels & urgency badges</p>
                         </div>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Task priority rating levels & urgency badges</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const val = prompt("Enter Priority Level (e.g. Critical Urgent):");
-                          if (val && val.trim()) {
-                            const trimmed = val.trim();
-                            const exists = systemDropdowns.taskPriorities.some(p => (typeof p === 'object' ? p.name : p) === trimmed);
-                            if (!exists) {
-                              setSystemDropdowns(prev => ({ ...prev, taskPriorities: [...prev.taskPriorities, { name: trimmed, archived: false }] }));
-                              showToast(`Added Priority Level "${trimmed}"`, 'success');
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const val = prompt("Enter Priority Level (e.g. Critical Urgent):");
+                            if (val && val.trim()) {
+                              const trimmed = val.trim();
+                              const exists = systemDropdowns.taskPriorities.some(p => (typeof p === 'object' ? p.name : p) === trimmed);
+                              if (!exists) {
+                                setSystemDropdowns(prev => ({ ...prev, taskPriorities: [...prev.taskPriorities, { name: trimmed, archived: false }] }));
+                                showToast(`Added Priority Level "${trimmed}"`, 'success');
+                              }
                             }
-                          }
-                        }}
-                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                      >
-                        + Add Option
-                      </button>
-                    </div>
+                          }}
+                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
+                        >
+                          + Add Option
+                        </button>
+                      </div>
 
-                    {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                    <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                      <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
-                        <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                          <tr>
-                            <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
-                            <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Priority Rating</th>
-                            <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
-                            <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
-                            <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {systemDropdowns.taskPriorities.map((pri, idx) => {
-                            const isObj = typeof pri === 'object' && pri !== null;
-                            const title = isObj ? pri.name : pri;
-                            const isArchived = isObj ? Boolean(pri.archived) : false;
+                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
+                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                            <tr>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                PRIORITY RATING <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
+                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
+                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {displayItems.map((pri, idx) => {
+                              const isObj = typeof pri === 'object' && pri !== null;
+                              const title = isObj ? pri.name : pri;
+                              const isArchived = isObj ? Boolean(pri.archived) : false;
+                              const realIdx = systemDropdowns.taskPriorities.findIndex(p => (typeof p === 'object' ? p.name : p) === title);
 
-                            return (
-                              <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white' }}>
-                                <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                <td style={{ padding: '12px', fontWeight: '700', color: isArchived ? '#94a3b8' : '#0f2b26', textDecoration: isArchived ? 'line-through' : 'none' }}>
-                                  {title}
-                                </td>
-                                <td style={{ padding: '12px' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                    {isArchived ? '📦 Archived' : '🟢 Active'}
-                                  </span>
-                                </td>
-                                <td style={{ padding: '12px', textAlign: 'center' }}>
-                                  <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                                    <button
-                                      type="button"
-                                      disabled={idx === 0}
-                                      onClick={() => {
-                                        if (idx === 0) return;
-                                        const updated = [...systemDropdowns.taskPriorities];
-                                        const temp = updated[idx];
-                                        updated[idx] = updated[idx - 1];
-                                        updated[idx - 1] = temp;
-                                        setSystemDropdowns(prev => ({ ...prev, taskPriorities: updated }));
-                                        showToast(`Moved "${title}" up`, 'info');
-                                      }}
-                                      title="Move Up"
-                                      style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                    >
-                                      ⬆️
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={idx === systemDropdowns.taskPriorities.length - 1}
-                                      onClick={() => {
-                                        if (idx === systemDropdowns.taskPriorities.length - 1) return;
-                                        const updated = [...systemDropdowns.taskPriorities];
-                                        const temp = updated[idx];
-                                        updated[idx] = updated[idx + 1];
-                                        updated[idx + 1] = temp;
-                                        setSystemDropdowns(prev => ({ ...prev, taskPriorities: updated }));
-                                        showToast(`Moved "${title}" down`, 'info');
-                                      }}
-                                      title="Move Down"
-                                      style={{ border: 'none', background: 'transparent', cursor: idx === systemDropdowns.taskPriorities.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === systemDropdowns.taskPriorities.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
-                                    >
-                                      ⬇️
-                                    </button>
-                                  </div>
-                                </td>
-                                <td style={{ padding: '12px', textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const newName = prompt("Rename Priority Level:", title);
-                                        if (newName && newName.trim()) {
+                              return (
+                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white' }}>
+                                  <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                  <td style={{ padding: '12px 14px', fontWeight: '700', color: isArchived ? '#94a3b8' : '#0f2b26', textDecoration: isArchived ? 'line-through' : 'none' }}>
+                                    {title}
+                                  </td>
+                                  <td style={{ padding: '12px 14px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                      {isArchived ? '📦 Archived' : '🟢 Active'}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newName = prompt("Rename Priority Level:", title);
+                                          if (newName && newName.trim()) {
+                                            const updated = [...systemDropdowns.taskPriorities];
+                                            updated[realIdx] = { name: newName.trim(), archived: isArchived };
+                                            setSystemDropdowns(prev => ({ ...prev, taskPriorities: updated }));
+                                            showToast(`Updated to "${newName.trim()}"`, 'success');
+                                          }
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                      >
+                                        ✏️ Edit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
                                           const updated = [...systemDropdowns.taskPriorities];
-                                          updated[idx] = { name: newName.trim(), archived: isArchived };
+                                          updated[realIdx] = { name: title, archived: !isArchived };
                                           setSystemDropdowns(prev => ({ ...prev, taskPriorities: updated }));
-                                          showToast(`Updated to "${newName.trim()}"`, 'success');
-                                        }
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                    >
-                                      ✏️ Edit
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const updated = [...systemDropdowns.taskPriorities];
-                                        updated[idx] = { name: title, archived: !isArchived };
-                                        setSystemDropdowns(prev => ({ ...prev, taskPriorities: updated }));
-                                        showToast(isArchived ? `Restored "${title}"` : `Archived "${title}"`, 'info');
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                    >
-                                      {isArchived ? '🔄 Restore' : '📦 Archive'}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        softDeleteRecord({
-                                          originalId: `dropdown_priority_${title}`,
-                                          name: `Task Priority Level: "${title}"`,
-                                          category: 'System Dropdown',
-                                          entityData: { category: 'priorities', title },
-                                          links: 'Task Manager'
-                                        });
-                                        const updated = systemDropdowns.taskPriorities.filter((_, i) => i !== idx);
-                                        setSystemDropdowns(prev => ({ ...prev, taskPriorities: updated }));
-                                        showToast(`🗑️ Moved "${title}" to Recycle Bin!`, 'info');
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                    >
-                                      🗑️ Delete
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                                          showToast(isArchived ? `Restored "${title}"` : `Archived "${title}"`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                      >
+                                        {isArchived ? '🔄 Restore' : '📦 Archive'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          softDeleteRecord({
+                                            originalId: `dropdown_priority_${title}`,
+                                            name: `Task Priority Level: "${title}"`,
+                                            category: 'System Dropdown',
+                                            entityData: { category: 'priorities', title },
+                                            links: 'Task Manager'
+                                          });
+                                          const updated = systemDropdowns.taskPriorities.filter((_, i) => i !== realIdx);
+                                          setSystemDropdowns(prev => ({ ...prev, taskPriorities: updated }));
+                                          showToast(`🗑️ Moved "${title}" to Recycle Bin!`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                      >
+                                        🗑️ Delete
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* 12. CUSTOM ENGINE */}
                 {selectedDropdownCategory === 'custom_engine' && (
@@ -14694,9 +14516,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', background: 'white', borderRadius: '6px', overflow: 'hidden' }}>
                                 <thead>
                                   <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1', textAlign: 'left' }}>
-                                    <th style={{ padding: '10px 12px', width: '50px' }}>#</th>
-                                    <th style={{ padding: '10px 12px' }}>Option Item Title</th>
-                                    <th style={{ padding: '10px 12px', textAlign: 'right', width: '150px' }}>Actions</th>
+                                    <th style={{ padding: '10px 12px', width: '60px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}># ⇅</th>
+                                    <th style={{ padding: '10px 12px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>OPTION ITEM TITLE ⇅</th>
+                                    <th style={{ padding: '10px 12px', textAlign: 'right', width: '180px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ACTIONS ⇅</th>
                                   </tr>
                                 </thead>
                                 <tbody>
