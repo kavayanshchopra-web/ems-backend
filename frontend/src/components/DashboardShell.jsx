@@ -12724,80 +12724,76 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </div>
         )}
 
-        {/* 25. SYSTEM DROPDOWNS CONFIG - 2-COLUMN MASTER LAYOUT */}
-        {activeTab === 'system_dropdowns' && (
-          <div style={{ overflowY: 'auto', flexGrow: 1 }} className="glass-panel system-dropdowns-container">
-            {/* Header Banner */}
-            <div className="page-header system-dropdowns-header-banner" style={{ marginBottom: 'var(--space-5)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-                  <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(13,148,136,0.15) 0%, rgba(15,118,110,0.25) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(13,148,136,0.2)' }}>
-                    <Settings size={22} style={{ color: '#0d9488' }} />
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <h1 className="page-header-title" style={{ margin: 0 }}>System Dropdowns</h1>
-                      <span style={{ fontSize: '11px', fontWeight: '800', padding: '2px 8px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
-                        12 Categories Active
-                      </span>
+        {activeTab === 'system_dropdowns' && (() => {
+          const renderMobileCategorySelect = () => (
+            <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
+              <select
+                value={selectedDropdownCategory}
+                onChange={e => setSelectedDropdownCategory(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '8px',
+                  border: '1.5px solid #0d9488',
+                  background: '#f0fdf4',
+                  color: '#0f172a',
+                  fontWeight: '800',
+                  fontSize: '13px',
+                  outline: 'none',
+                  cursor: 'pointer',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                }}
+              >
+                <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
+                <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
+                <option value="employment_types">Employment Types (5)</option>
+                <option value="genders">Genders (4)</option>
+                <option value="marital_statuses">Marital Statuses (4)</option>
+                <option value="blood_groups">Blood Groups (8)</option>
+                <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
+                <option value="crm_stages">CRM Pipeline Stages ({stages?.length || 0})</option>
+                <option value="crm_tags">CRM Contact Tags ({allowedTags?.length || 0})</option>
+                <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
+                <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
+                <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
+              </select>
+            </div>
+          );
+
+          return (
+            <div style={{ overflowY: 'auto', flexGrow: 1 }} className="glass-panel system-dropdowns-container">
+              {/* Header Banner */}
+              <div className="page-header system-dropdowns-header-banner" style={{ marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div className="sys-header-icon-box" style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg, rgba(13,148,136,0.15) 0%, rgba(15,118,110,0.25) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(13,148,136,0.2)', flexShrink: 0 }}>
+                      <Settings size={20} style={{ color: '#0d9488' }} />
                     </div>
-                    <p className="page-header-subtitle" style={{ margin: '4px 0 0 0' }}>
-                      Configure global categories, job roles, leave types, CRM pipeline stages, contact tags, and expense types
-                    </p>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <h1 className="page-header-title" style={{ margin: 0, fontSize: '18px', fontWeight: '800' }}>System Dropdowns</h1>
+                        <span style={{ fontSize: '11px', fontWeight: '800', padding: '2px 8px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
+                          12 Categories Active
+                        </span>
+                      </div>
+                      <p className="page-header-subtitle sys-header-sub" style={{ margin: '2px 0 0 0', fontSize: '12px' }}>
+                        Configure global categories, job roles, leave types, CRM pipeline stages, contact tags, and expense types
+                      </p>
+                    </div>
                   </div>
+                  <button
+                    className="btn btn-primary sys-header-save-btn"
+                    type="button"
+                    onClick={handleSaveMasterDropdowns}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)', cursor: 'pointer', transition: 'all 0.2s ease' }}
+                  >
+                    Save All Changes
+                  </button>
                 </div>
-                <button
-                  className="btn btn-primary"
-                  type="button"
-                  onClick={handleSaveMasterDropdowns}
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', fontWeight: '700', borderRadius: '10px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(13, 148, 136, 0.3)', cursor: 'pointer', transition: 'all 0.2s ease' }}
-                >
-                  Save All Changes
-                </button>
               </div>
-            </div>
 
-            {/* MOBILE-ONLY QUICK CATEGORY SELECTOR (VISIBLE ON MOBILE ≤ 768px) */}
-            <div className="system-dropdowns-mobile-select" style={{ display: 'none', marginBottom: '16px' }}>
-              <div style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #e6fffa 100%)', padding: '12px 14px', borderRadius: '12px', border: '1.5px solid #0d9488', boxShadow: '0 2px 8px rgba(13,148,136,0.15)' }}>
-                <label style={{ fontSize: '11px', fontWeight: '800', color: '#064e43', marginBottom: '6px', display: 'block', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                  SELECT CATEGORY TO MANAGE:
-                </label>
-                <select
-                  value={selectedDropdownCategory}
-                  onChange={e => setSelectedDropdownCategory(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    border: '1.5px solid #0d9488',
-                    background: 'white',
-                    color: '#0f172a',
-                    fontWeight: '800',
-                    fontSize: '13px',
-                    outline: 'none',
-                    cursor: 'pointer',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.08)'
-                  }}
-                >
-                  <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
-                  <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
-                  <option value="employment_types">Employment Types (5)</option>
-                  <option value="genders">Genders (4)</option>
-                  <option value="marital_statuses">Marital Statuses (4)</option>
-                  <option value="blood_groups">Blood Groups (8)</option>
-                  <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
-                  <option value="crm_stages">CRM Pipeline Stages ({stages?.length || 0})</option>
-                  <option value="crm_tags">CRM Contact Tags ({allowedTags?.length || 0})</option>
-                  <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
-                  <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
-                  <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
-                </select>
-              </div>
-            </div>
-
-            {/* 2-Column Master Layout Grid */}
-            <div className="system-dropdowns-grid">
+              {/* 2-Column Master Layout Grid */}
+              <div className="system-dropdowns-grid">
 
               {/* LEFT COLUMN: Categories Navigation Panel (Desktop Only) */}
               <div className="payroll-table-card system-dropdowns-left-panel" style={{ padding: 'var(--space-5)', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid var(--border-default)', display: 'flex', flexDirection: 'column' }}>
@@ -12911,10 +12907,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div>
+                        <div style={{ flex: 1, minWidth: '180px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Departments Options</h3>
+                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Departments Options</h3>
                           </div>
+                          {renderMobileCategorySelect()}
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage functional departments across the company</p>
                         </div>
                         <button
@@ -13056,10 +13053,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div>
+                        <div style={{ flex: 1, minWidth: '180px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Designations Options</h3>
+                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Designations Options</h3>
                           </div>
+                          {renderMobileCategorySelect()}
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage job roles & designation titles across all teams</p>
                         </div>
                         <button
@@ -13201,10 +13199,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div>
+                        <div style={{ flex: 1, minWidth: '180px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Employment Types Options</h3>
+                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Employment Types Options</h3>
                           </div>
+                          {renderMobileCategorySelect()}
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage functional employment types across the organization</p>
                         </div>
                         <button
@@ -13346,10 +13345,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div>
+                        <div style={{ flex: 1, minWidth: '180px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Genders Options</h3>
+                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Genders Options</h3>
                           </div>
+                          {renderMobileCategorySelect()}
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage gender category options</p>
                         </div>
                         <button
@@ -13491,10 +13491,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div>
+                        <div style={{ flex: 1, minWidth: '180px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Marital Statuses Options</h3>
+                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Marital Statuses Options</h3>
                           </div>
+                          {renderMobileCategorySelect()}
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage marital status options</p>
                         </div>
                         <button
@@ -13636,10 +13637,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div>
+                        <div style={{ flex: 1, minWidth: '180px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Blood Groups Options</h3>
+                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Blood Groups Options</h3>
                           </div>
+                          {renderMobileCategorySelect()}
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage blood group category options</p>
                         </div>
                         <button
@@ -13778,10 +13780,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div>
+                        <div style={{ flex: 1, minWidth: '180px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Leave Types Options</h3>
+                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Leave Types Options</h3>
                           </div>
+                          {renderMobileCategorySelect()}
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage leave policies & annual quota allocations</p>
                         </div>
                         <button
@@ -13917,10 +13920,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div>
+                        <div style={{ flex: 1, minWidth: '180px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>CRM Pipeline Stages Options</h3>
+                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>CRM Pipeline Stages Options</h3>
                           </div>
+                          {renderMobileCategorySelect()}
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage lead sales deal stages & color indicators</p>
                         </div>
                         <button
@@ -14067,10 +14071,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div>
+                        <div style={{ flex: 1, minWidth: '180px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>CRM Contact Tags Options</h3>
+                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>CRM Contact Tags Options</h3>
                           </div>
+                          {renderMobileCategorySelect()}
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Predefined contact tags for lead segmentation</p>
                         </div>
                         <button
@@ -14213,10 +14218,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div>
+                        <div style={{ flex: 1, minWidth: '180px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Expense Categories Options</h3>
+                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Expense Categories Options</h3>
                           </div>
+                          {renderMobileCategorySelect()}
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Reimbursement claim types and allowance categories</p>
                         </div>
                         <button
@@ -14357,10 +14363,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div>
+                        <div style={{ flex: 1, minWidth: '180px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Task Priority Levels Options</h3>
+                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Task Priority Levels Options</h3>
                           </div>
+                          {renderMobileCategorySelect()}
                           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Task priority rating levels & urgency badges</p>
                         </div>
                         <button
@@ -14483,12 +14490,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 {selectedDropdownCategory === 'custom_engine' && (
                   <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Custom Feature Dropdown Engine</h3>
+                        <div style={{ flex: 1, minWidth: '180px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Custom Feature Dropdown Engine</h3>
+                          </div>
+                          {renderMobileCategorySelect()}
+                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Create custom dropdown lists for any custom feature or module</p>
                         </div>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Create custom dropdown lists for any custom feature or module</p>
-                      </div>
                       <button
                         type="button"
                         onClick={() => {
@@ -14589,11 +14597,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     </div>
                   </div>
                 )}
-
               </div>
             </div>
           </div>
-        )}
+        );
+      })()}
 
         {/* 26. RECYCLE BIN VAULT & SOFT DELETE RECOVERY */}
         {activeTab === 'recycle_bin' && (() => {

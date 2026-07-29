@@ -1648,12 +1648,36 @@ h1, h2, h3, h4, h5, h6 {
     gap: var(--space-4) !important;
   }
 
+.desktop-cat-title {
+  display: block;
+}
+
+.mobile-cat-select-wrapper {
+  display: none;
+}
+
 .system-dropdowns-container {
   padding: var(--space-6);
   margin: var(--space-4);
 }
 
 @media (max-width: 768px) {
+  .desktop-cat-title {
+    display: none !important;
+  }
+
+  .mobile-cat-select-wrapper {
+    display: block !important;
+  }
+
+  .sys-header-sub {
+    display: none !important;
+  }
+
+  .sys-header-icon-box {
+    display: none !important;
+  }
+
   .mobile-swipe-hint {
     display: block !important;
   }
@@ -1674,7 +1698,7 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   .system-dropdowns-header-banner {
-    padding: 10px 12px !important;
+    padding: 8px 12px !important;
     margin-bottom: 8px !important;
     border-radius: 10px !important;
     background: white !important;
