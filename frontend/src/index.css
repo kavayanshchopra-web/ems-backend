@@ -1727,6 +1727,21 @@ h1, h2, h3, h4, h5, h6 {
     box-sizing: border-box !important;
   }
 
+  .bin-toolbar-right {
+    width: 100% !important;
+  }
+
+  .bin-toolbar-right select,
+  .bin-toolbar-right input {
+    width: 100% !important;
+    min-width: 100% !important;
+  }
+
+  .bin-category-filter-pills {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
   .ivr-flow-grid {
     grid-template-columns: 1fr !important;
     gap: 20px !important;

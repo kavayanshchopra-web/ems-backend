@@ -15035,7 +15035,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               {/* Header */}
               <div className="page-header" style={{ marginBottom: 'var(--space-6)', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-                  <div style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-md)', background: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px' }}>
+                  <div style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-md)', background: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
                     🗑️
                   </div>
                   <div>
@@ -15043,15 +15043,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     <p className="page-header-subtitle">Soft-deleted records archived safely. Linked data (Attendance, Payslips, Chats) is 100% preserved.</p>
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-                  <span className="badge-success" style={{ padding: '8px 16px', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-bold)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+                  <span className="badge-success" style={{ padding: '8px 16px', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-bold)', whiteSpace: 'nowrap' }}>
                     🛡️ Zero Data Loss Active
                   </span>
                   {recycleBinItems.length > 0 && (
                     <button
                       type="button"
                       className="btn btn-danger"
-                      style={{ padding: '8px 16px', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-bold)', boxShadow: '0 2px 8px rgba(239,68,68,0.3)' }}
+                      style={{ padding: '8px 16px', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-bold)', boxShadow: '0 2px 8px rgba(239,68,68,0.3)', whiteSpace: 'nowrap' }}
                       onClick={handleEmptyBinVault}
                     >
                       🔥 Empty Bin Vault ({recycleBinItems.length})
@@ -15098,7 +15098,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
               {/* Search & Category Filter Toolbar */}
               <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-5)', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <div className="bin-category-filter-pills" style={{ display: 'flex', gap: '8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '4px', maxWidth: '100%' }}>
                   {['all', 'employee', 'crm lead', 'task', 'system dropdown'].map(cat => {
                     const isSelected = binCategoryFilter === cat;
                     return (
@@ -15111,6 +15111,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           fontWeight: isSelected ? '800' : '600',
                           borderRadius: '8px',
                           cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0,
                           transition: 'all 0.15s ease',
                           border: isSelected ? 'none' : '1px solid #cbd5e1',
                           background: isSelected ? 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)' : '#ffffff',
@@ -15128,11 +15130,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   })}
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <div className="bin-toolbar-right" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                   {isSuperAdmin && (
                     <select
                       className="form-control"
-                      style={{ padding: '8px 12px', fontSize: '12px', width: '180px', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'white' }}
+                      style={{ padding: '8px 12px', fontSize: '12px', minWidth: '170px', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'white' }}
                       value={selectedBinTenant}
                       onChange={(e) => {
                         setSelectedBinTenant(e.target.value);
@@ -15148,7 +15150,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     type="text"
                     className="form-control"
                     placeholder="🔍 Search deleted records..."
-                    style={{ padding: '8px 14px', fontSize: '12px', width: '220px', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'white' }}
+                    style={{ padding: '8px 14px', fontSize: '12px', minWidth: '180px', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'white' }}
                     value={binSearchQuery}
                     onChange={(e) => {
                       setBinSearchQuery(e.target.value);
@@ -15160,7 +15162,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
               {/* Table Card */}
               <div className="payroll-table-card" style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                   <h3 className="payroll-table-title" style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>Archived Items ({filteredBinItems.length})</h3>
                   <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>
                     Auto-purged after 90 days retention period
