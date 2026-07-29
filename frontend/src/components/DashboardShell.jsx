@@ -12795,8 +12795,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '10px 12px',
+                          padding: '10px 14px',
                           borderRadius: '10px',
                           fontSize: '13px',
                           fontWeight: isSelected ? '700' : '500',
@@ -12809,22 +12808,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           boxShadow: isSelected ? '0 2px 6px rgba(13,148,136,0.12)' : 'none'
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          <span style={{ fontSize: '15px', flexShrink: 0 }}>{cat.icon}</span>
-                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cat.label}</span>
-                        </div>
-                        <span style={{
-                          fontSize: '11px',
-                          fontWeight: '800',
-                          padding: '2px 8px',
-                          borderRadius: '10px',
-                          background: isSelected ? '#0d9488' : '#f1f5f9',
-                          color: isSelected ? 'white' : '#64748b',
-                          flexShrink: 0,
-                          marginLeft: '8px'
-                        }}>
-                          {cat.count}
-                        </span>
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cat.label}</span>
                       </button>
                     );
                   })}
