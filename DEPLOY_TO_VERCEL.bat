@@ -6,21 +6,57 @@ echo OMNIFLOW EMS - LIVE VERCEL DEPLOYMENT TOOL
 echo ========================================================
 echo.
 
-cd /d "d:\AG Projects\whatsapp-crm"
+cd /d "%~dp0"
 
-echo [1/2] Pushing latest updates to Git repository...
-git add .
-git commit -m "Deploy Mobile View Simulator & Responsive Layouts"
-git push
+echo [1/3] Building frontend locally to ensure 0 build errors...
+cd /d "%~dp0frontend"
+call npm run build
+if %errorlevel% neq 0 (
+  color 0C
+  echo.
+  echo ========================================================
+  echo ❌ LOCAL BUILD FAILED! Deployment aborted.
+  echo Fix the build errors shown above before deploying.
+  echo ========================================================
+  pause
+  exit /b %errorlevel%
+)
 
 echo.
-echo [2/2] Deploying frontend directly to Vercel Live...
-cd /d "d:\AG Projects\whatsapp-crm\frontend"
+echo [2/3] Pushing latest updates to Git repository...
+cd /d "%~dp0"
+git add .
+git commit -m "Fix Vercel build and update deployment scripts"
+git push
+if %errorlevel% neq 0 (
+  color 0C
+  echo.
+  echo ========================================================
+  echo ❌ GIT PUSH FAILED!
+  echo ========================================================
+  pause
+  exit /b %errorlevel%
+)
+
+echo.
+echo [3/3] Deploying frontend directly to Vercel Live...
+cd /d "%~dp0frontend"
 call npx vercel --prod --yes
+if %errorlevel% neq 0 (
+  color 0C
+  echo.
+  echo ========================================================
+  echo ❌ VERCEL DEPLOYMENT FAILED!
+  echo Check Vercel build logs above.
+  echo ========================================================
+  pause
+  exit /b %errorlevel%
+)
 
 echo.
 echo ========================================================
-echo 🎉 SUCCESS! Latest mobile updates deployed to Vercel!
+color 0A
+echo 🎉 SUCCESS! Latest updates deployed to Vercel!
 echo Check live site: https://ems-crm-sandy.vercel.app
 echo ========================================================
 pause

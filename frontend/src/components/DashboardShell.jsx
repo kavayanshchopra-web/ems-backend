@@ -12593,27 +12593,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             settings: { create: false, read: true, edit: false, delete: false, export: false, approve: false }
                           }
                         }));
+                        setSelectedRbacRole(roleKey);
                         showToast(`Created Custom Role "${roleTitle.trim()}"`, 'success');
                       }
                     });
-                  }}
-                      const roleKey = 'role_' + Date.now();
-                      const newRoleObj = { key: roleKey, label: roleTitle.trim() };
-                      setCustomRoles(prev => [...prev, newRoleObj]);
-                      setRbacMatrix(prev => ({
-                        ...prev,
-                        [roleKey]: {
-                          dashboards: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
-                          employees: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
-                          payroll: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
-                          crm: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
-                          operations: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
-                          settings: { create: false, read: false, edit: false, delete: false, export: false, approve: false }
-                        }
-                      }));
-                      setSelectedRbacRole(roleKey);
-                      showToast(`New Role "${roleTitle}" created!`, 'success');
-                    }
                   }}
                 >
                   + Add Custom Role
@@ -14977,6 +14960,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           </div>
                         ))}
                       </div>
+                    </div>
                   </div>
                 )}
               </div>
