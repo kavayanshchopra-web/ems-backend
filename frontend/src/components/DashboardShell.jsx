@@ -12850,7 +12850,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               </div>
 
               {/* RIGHT COLUMN: Selected Category Workspace */}
-              <div className="payroll-table-card" style={{ padding: 'var(--space-6)', minHeight: '520px', maxHeight: '580px', overflowY: 'auto', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid var(--border-default)' }}>
+              <div className="payroll-table-card" style={{ padding: 'var(--space-6)', minHeight: '520px', maxHeight: '620px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid var(--border-default)', display: 'flex', flexDirection: 'column', background: 'white', overflow: 'hidden' }}>
 
                 {/* 1. DEPARTMENTS */}
                 {selectedDropdownCategory === 'departments' && (() => {
@@ -12860,8 +12860,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     : defaultList;
 
                   return (
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '20px' }}>🏢</span>
@@ -12889,20 +12889,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         </button>
                       </div>
 
-                      <div style={{ overflowX: 'auto' }}>
-                        <table className="std-table" style={{ width: '100%' }}>
-                          <thead>
+                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
+                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
-                              <th style={{ width: '50px' }}>#</th>
-                              <th style={{ padding: '10px 12px' }}>Department Title</th>
-                              <th style={{ width: '130px' }}>Status</th>
-                              <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
+                              <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
+                              <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Department Title</th>
+                              <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
+                              <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
+                              <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
                             </tr>
                           </thead>
                           <tbody>
                             {currentItems.length === 0 ? (
                               <tr>
-                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
+                                <td colSpan="5" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
                                   <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Departments Configured</div>
                                   <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create your first department.</div>
                                 </td>
@@ -12917,8 +12919,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                       {item.archived ? '📦 Archived' : '🟢 Active'}
                                     </span>
                                   </td>
-                                  <td style={{ padding: '12px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                  <td style={{ padding: '12px', textAlign: 'center' }}>
+                                    <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                                       <button
                                         type="button"
                                         disabled={idx === 0}
@@ -12932,7 +12934,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           showToast(`Moved "${item.name}" up`, 'info');
                                         }}
                                         title="Move Up"
-                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                        style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                       >
                                         ⬆️
                                       </button>
@@ -12949,10 +12951,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           showToast(`Moved "${item.name}" down`, 'info');
                                         }}
                                         title="Move Down"
-                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === currentItems.length - 1 ? '#f1f5f9' : 'white', color: idx === currentItems.length - 1 ? '#94a3b8' : '#334155', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer' }}
+                                        style={{ border: 'none', background: 'transparent', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === currentItems.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                       >
                                         ⬇️
                                       </button>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -13018,8 +13024,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     : defaultList;
 
                   return (
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '20px' }}>💼</span>
@@ -13047,20 +13053,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         </button>
                       </div>
 
-                      <div style={{ overflowX: 'auto' }}>
-                        <table className="std-table" style={{ width: '100%' }}>
-                          <thead>
+                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
+                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
-                              <th style={{ width: '50px' }}>#</th>
-                              <th style={{ padding: '10px 12px' }}>Role / Designation Title</th>
-                              <th style={{ width: '130px' }}>Status</th>
-                              <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
+                              <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
+                              <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Role / Designation Title</th>
+                              <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
+                              <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
+                              <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
                             </tr>
                           </thead>
                           <tbody>
                             {currentItems.length === 0 ? (
                               <tr>
-                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
+                                <td colSpan="5" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
                                   <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Designations Configured</div>
                                   <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create your first designation.</div>
                                 </td>
@@ -13075,8 +13083,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                       {item.archived ? '📦 Archived' : '🟢 Active'}
                                     </span>
                                   </td>
-                                  <td style={{ padding: '12px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                  <td style={{ padding: '12px', textAlign: 'center' }}>
+                                    <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                                       <button
                                         type="button"
                                         disabled={idx === 0}
@@ -13090,7 +13098,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           showToast(`Moved "${item.name}" up`, 'info');
                                         }}
                                         title="Move Up"
-                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                        style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                       >
                                         ⬆️
                                       </button>
@@ -13107,10 +13115,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           showToast(`Moved "${item.name}" down`, 'info');
                                         }}
                                         title="Move Down"
-                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === currentItems.length - 1 ? '#f1f5f9' : 'white', color: idx === currentItems.length - 1 ? '#94a3b8' : '#334155', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer' }}
+                                        style={{ border: 'none', background: 'transparent', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === currentItems.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                       >
                                         ⬇️
                                       </button>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -13176,8 +13188,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     : defaultList;
 
                   return (
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '20px' }}>⌛</span>
@@ -13205,20 +13217,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         </button>
                       </div>
 
-                      <div style={{ overflowX: 'auto' }}>
-                        <table className="std-table" style={{ width: '100%' }}>
-                          <thead>
+                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
+                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
-                              <th style={{ width: '50px' }}>#</th>
-                              <th style={{ padding: '10px 12px' }}>Employment Type Label</th>
-                              <th style={{ width: '130px' }}>Status</th>
-                              <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
+                              <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
+                              <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Employment Type Label</th>
+                              <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
+                              <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
+                              <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
                             </tr>
                           </thead>
                           <tbody>
                             {currentItems.length === 0 ? (
                               <tr>
-                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
+                                <td colSpan="5" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
                                   <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Employment Types Configured</div>
                                   <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create your first employment type.</div>
                                 </td>
@@ -13233,8 +13247,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                       {item.archived ? '📦 Archived' : '🟢 Active'}
                                     </span>
                                   </td>
-                                  <td style={{ padding: '12px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                  <td style={{ padding: '12px', textAlign: 'center' }}>
+                                    <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                                       <button
                                         type="button"
                                         disabled={idx === 0}
@@ -13248,7 +13262,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           showToast(`Moved "${item.name}" up`, 'info');
                                         }}
                                         title="Move Up"
-                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                        style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                       >
                                         ⬆️
                                       </button>
@@ -13265,10 +13279,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           showToast(`Moved "${item.name}" down`, 'info');
                                         }}
                                         title="Move Down"
-                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === currentItems.length - 1 ? '#f1f5f9' : 'white', color: idx === currentItems.length - 1 ? '#94a3b8' : '#334155', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer' }}
+                                        style={{ border: 'none', background: 'transparent', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === currentItems.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                       >
                                         ⬇️
                                       </button>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -13334,8 +13352,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     : defaultList;
 
                   return (
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '20px' }}>🚻</span>
@@ -13363,20 +13381,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         </button>
                       </div>
 
-                      <div style={{ overflowX: 'auto' }}>
-                        <table className="std-table" style={{ width: '100%' }}>
-                          <thead>
+                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
+                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
-                              <th style={{ width: '50px' }}>#</th>
-                              <th style={{ padding: '10px 12px' }}>Gender Label</th>
-                              <th style={{ width: '130px' }}>Status</th>
-                              <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
+                              <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
+                              <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Gender Label</th>
+                              <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
+                              <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
+                              <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
                             </tr>
                           </thead>
                           <tbody>
                             {currentItems.length === 0 ? (
                               <tr>
-                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
+                                <td colSpan="5" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
                                   <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Gender Options Configured</div>
                                   <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create a gender option.</div>
                                 </td>
@@ -13391,8 +13411,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                       {item.archived ? '📦 Archived' : '🟢 Active'}
                                     </span>
                                   </td>
-                                  <td style={{ padding: '12px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                  <td style={{ padding: '12px', textAlign: 'center' }}>
+                                    <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                                       <button
                                         type="button"
                                         disabled={idx === 0}
@@ -13406,7 +13426,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           showToast(`Moved "${item.name}" up`, 'info');
                                         }}
                                         title="Move Up"
-                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                        style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                       >
                                         ⬆️
                                       </button>
@@ -13423,10 +13443,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           showToast(`Moved "${item.name}" down`, 'info');
                                         }}
                                         title="Move Down"
-                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === currentItems.length - 1 ? '#f1f5f9' : 'white', color: idx === currentItems.length - 1 ? '#94a3b8' : '#334155', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer' }}
+                                        style={{ border: 'none', background: 'transparent', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === currentItems.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                       >
                                         ⬇️
                                       </button>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -13492,8 +13516,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     : defaultList;
 
                   return (
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '20px' }}>💍</span>
@@ -13521,20 +13545,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         </button>
                       </div>
 
-                      <div style={{ overflowX: 'auto' }}>
-                        <table className="std-table" style={{ width: '100%' }}>
-                          <thead>
+                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
+                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
-                              <th style={{ width: '50px' }}>#</th>
-                              <th style={{ padding: '10px 12px' }}>Marital Status Label</th>
-                              <th style={{ width: '130px' }}>Status</th>
-                              <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
+                              <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
+                              <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Marital Status Label</th>
+                              <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
+                              <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
+                              <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
                             </tr>
                           </thead>
                           <tbody>
                             {currentItems.length === 0 ? (
                               <tr>
-                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
+                                <td colSpan="5" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
                                   <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Marital Status Options Configured</div>
                                   <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create a marital status option.</div>
                                 </td>
@@ -13549,8 +13575,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                       {item.archived ? '📦 Archived' : '🟢 Active'}
                                     </span>
                                   </td>
-                                  <td style={{ padding: '12px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                  <td style={{ padding: '12px', textAlign: 'center' }}>
+                                    <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                                       <button
                                         type="button"
                                         disabled={idx === 0}
@@ -13564,7 +13590,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           showToast(`Moved "${item.name}" up`, 'info');
                                         }}
                                         title="Move Up"
-                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                        style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                       >
                                         ⬆️
                                       </button>
@@ -13581,10 +13607,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           showToast(`Moved "${item.name}" down`, 'info');
                                         }}
                                         title="Move Down"
-                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === currentItems.length - 1 ? '#f1f5f9' : 'white', color: idx === currentItems.length - 1 ? '#94a3b8' : '#334155', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer' }}
+                                        style={{ border: 'none', background: 'transparent', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === currentItems.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                       >
                                         ⬇️
                                       </button>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -13650,8 +13680,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     : defaultList;
 
                   return (
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '20px' }}>🩸</span>
@@ -13679,20 +13709,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         </button>
                       </div>
 
-                      <div style={{ overflowX: 'auto' }}>
-                        <table className="std-table" style={{ width: '100%' }}>
-                          <thead>
+                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
+                      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                             <tr>
-                              <th style={{ width: '50px' }}>#</th>
-                              <th style={{ padding: '10px 12px' }}>Blood Group Label</th>
-                              <th style={{ width: '130px' }}>Status</th>
-                              <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
+                              <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
+                              <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Blood Group Label</th>
+                              <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
+                              <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
+                              <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
                             </tr>
                           </thead>
                           <tbody>
                             {currentItems.length === 0 ? (
                               <tr>
-                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
+                                <td colSpan="5" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
                                   <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Blood Group Options Configured</div>
                                   <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create a blood group option.</div>
                                 </td>
@@ -13707,8 +13739,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                       {item.archived ? '📦 Archived' : '🟢 Active'}
                                     </span>
                                   </td>
-                                  <td style={{ padding: '12px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                  <td style={{ padding: '12px', textAlign: 'center' }}>
+                                    <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                                       <button
                                         type="button"
                                         disabled={idx === 0}
@@ -13722,7 +13754,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           showToast(`Moved "${item.name}" up`, 'info');
                                         }}
                                         title="Move Up"
-                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                        style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                       >
                                         ⬆️
                                       </button>
@@ -13739,10 +13771,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           showToast(`Moved "${item.name}" down`, 'info');
                                         }}
                                         title="Move Down"
-                                        style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === currentItems.length - 1 ? '#f1f5f9' : 'white', color: idx === currentItems.length - 1 ? '#94a3b8' : '#334155', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer' }}
+                                        style={{ border: 'none', background: 'transparent', cursor: idx === currentItems.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === currentItems.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                       >
                                         ⬇️
                                       </button>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -13802,8 +13838,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
                 {/* 7. LEAVE TYPES */}
                 {selectedDropdownCategory === 'leave_categories' && (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{ fontSize: '20px' }}>🏖️</span>
@@ -13828,15 +13864,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       </button>
                     </div>
 
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table" style={{ width: '100%' }}>
-                        <thead>
+                    {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
+                    <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                      <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                        <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                           <tr>
-                            <th style={{ width: '50px' }}>#</th>
-                            <th style={{ padding: '10px 12px' }}>Leave Category</th>
-                            <th style={{ padding: '10px 12px' }}>Annual Quota</th>
-                            <th style={{ width: '130px' }}>Status</th>
-                            <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
+                            <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
+                            <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Leave Category</th>
+                            <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Annual Quota</th>
+                            <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
+                            <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
+                            <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -13857,8 +13895,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     {isArchived ? '📦 Archived' : '🟢 Active'}
                                   </span>
                                 </td>
-                                <td style={{ padding: '12px', textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                <td style={{ padding: '12px', textAlign: 'center' }}>
+                                  <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                                     <button
                                       type="button"
                                       disabled={idx === 0}
@@ -13872,7 +13910,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         showToast(`Moved "${lc.name}" up`, 'info');
                                       }}
                                       title="Move Up"
-                                      style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                      style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                     >
                                       ⬆️
                                     </button>
@@ -13889,10 +13927,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         showToast(`Moved "${lc.name}" down`, 'info');
                                       }}
                                       title="Move Down"
-                                      style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === systemDropdowns.leaveCategories.length - 1 ? '#f1f5f9' : 'white', color: idx === systemDropdowns.leaveCategories.length - 1 ? '#94a3b8' : '#334155', cursor: idx === systemDropdowns.leaveCategories.length - 1 ? 'not-allowed' : 'pointer' }}
+                                      style={{ border: 'none', background: 'transparent', cursor: idx === systemDropdowns.leaveCategories.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === systemDropdowns.leaveCategories.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                     >
                                       ⬇️
                                     </button>
+                                  </div>
+                                </td>
+                                <td style={{ padding: '12px', textAlign: 'right' }}>
+                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -13952,8 +13994,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
                 {/* 8. CRM PIPELINE STAGES */}
                 {selectedDropdownCategory === 'crm_stages' && (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{ fontSize: '20px' }}>📊</span>
@@ -13974,15 +14016,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       </button>
                     </div>
 
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table" style={{ width: '100%' }}>
-                        <thead>
+                    {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
+                    <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                      <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                        <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                           <tr>
-                            <th style={{ width: '50px' }}>#</th>
-                            <th style={{ padding: '10px 12px' }}>Stage Title</th>
-                            <th style={{ padding: '10px 12px', width: '140px' }}>Color Badge</th>
-                            <th style={{ width: '130px' }}>Status</th>
-                            <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
+                            <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
+                            <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Stage Title</th>
+                            <th style={{ padding: '10px 12px', width: '140px', background: '#f8fafc' }}>Color Badge</th>
+                            <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
+                            <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
+                            <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -14027,8 +14071,46 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     {isArchived ? '📦 Archived' : '🟢 Active'}
                                   </span>
                                 </td>
+                                <td style={{ padding: '12px', textAlign: 'center' }}>
+                                  <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                                    <button
+                                      type="button"
+                                      disabled={idx === 0}
+                                      onClick={() => {
+                                        if (idx === 0) return;
+                                        const updated = [...stages];
+                                        const temp = updated[idx];
+                                        updated[idx] = updated[idx - 1];
+                                        updated[idx - 1] = temp;
+                                        setStages(updated);
+                                        showToast(`Moved "${stage.title}" up`, 'info');
+                                      }}
+                                      title="Move Up"
+                                      style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
+                                    >
+                                      ⬆️
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={idx === stages.length - 1}
+                                      onClick={() => {
+                                        if (idx === stages.length - 1) return;
+                                        const updated = [...stages];
+                                        const temp = updated[idx];
+                                        updated[idx] = updated[idx + 1];
+                                        updated[idx + 1] = temp;
+                                        setStages(updated);
+                                        showToast(`Moved "${stage.title}" down`, 'info');
+                                      }}
+                                      title="Move Down"
+                                      style={{ border: 'none', background: 'transparent', cursor: idx === stages.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === stages.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
+                                    >
+                                      ⬇️
+                                    </button>
+                                  </div>
+                                </td>
                                 <td style={{ padding: '12px', textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -14071,8 +14153,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
                 {/* 9. CRM CONTACT TAGS */}
                 {selectedDropdownCategory === 'crm_tags' && (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{ fontSize: '20px' }}>🏷️</span>
@@ -14099,14 +14181,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       </button>
                     </div>
 
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table" style={{ width: '100%' }}>
-                        <thead>
+                    {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
+                    <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                      <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                        <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                           <tr>
-                            <th style={{ width: '50px' }}>#</th>
-                            <th style={{ padding: '10px 12px' }}>Tag Label</th>
-                            <th style={{ width: '130px' }}>Status</th>
-                            <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
+                            <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
+                            <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Tag Label</th>
+                            <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
+                            <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
+                            <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -14128,8 +14212,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     {isArchived ? '📦 Archived' : '🟢 Active'}
                                   </span>
                                 </td>
-                                <td style={{ padding: '12px', textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                <td style={{ padding: '12px', textAlign: 'center' }}>
+                                  <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                                     <button
                                       type="button"
                                       disabled={idx === 0}
@@ -14143,7 +14227,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         showToast(`Moved "${tagLabel}" up`, 'info');
                                       }}
                                       title="Move Up"
-                                      style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                      style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                     >
                                       ⬆️
                                     </button>
@@ -14160,10 +14244,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         showToast(`Moved "${tagLabel}" down`, 'info');
                                       }}
                                       title="Move Down"
-                                      style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === allowedTags.length - 1 ? '#f1f5f9' : 'white', color: idx === allowedTags.length - 1 ? '#94a3b8' : '#334155', cursor: idx === allowedTags.length - 1 ? 'not-allowed' : 'pointer' }}
+                                      style={{ border: 'none', background: 'transparent', cursor: idx === allowedTags.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === allowedTags.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                     >
                                       ⬇️
                                     </button>
+                                  </div>
+                                </td>
+                                <td style={{ padding: '12px', textAlign: 'right' }}>
+                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -14222,8 +14310,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
                 {/* 10. EXPENSE CATEGORIES */}
                 {selectedDropdownCategory === 'expenses' && (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{ fontSize: '20px' }}>💳</span>
@@ -14250,14 +14338,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       </button>
                     </div>
 
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table" style={{ width: '100%' }}>
-                        <thead>
+                    {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
+                    <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                      <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                        <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                           <tr>
-                            <th style={{ width: '50px' }}>#</th>
-                            <th style={{ padding: '10px 12px' }}>Expense Category Title</th>
-                            <th style={{ width: '130px' }}>Status</th>
-                            <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
+                            <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
+                            <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Expense Category Title</th>
+                            <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
+                            <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
+                            <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -14277,8 +14367,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     {isArchived ? '📦 Archived' : '🟢 Active'}
                                   </span>
                                 </td>
-                                <td style={{ padding: '12px', textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                <td style={{ padding: '12px', textAlign: 'center' }}>
+                                  <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                                     <button
                                       type="button"
                                       disabled={idx === 0}
@@ -14292,7 +14382,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         showToast(`Moved "${title}" up`, 'info');
                                       }}
                                       title="Move Up"
-                                      style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                      style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                     >
                                       ⬆️
                                     </button>
@@ -14309,10 +14399,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         showToast(`Moved "${title}" down`, 'info');
                                       }}
                                       title="Move Down"
-                                      style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === systemDropdowns.expenseCategories.length - 1 ? '#f1f5f9' : 'white', color: idx === systemDropdowns.expenseCategories.length - 1 ? '#94a3b8' : '#334155', cursor: idx === systemDropdowns.expenseCategories.length - 1 ? 'not-allowed' : 'pointer' }}
+                                      style={{ border: 'none', background: 'transparent', cursor: idx === systemDropdowns.expenseCategories.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === systemDropdowns.expenseCategories.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                     >
                                       ⬇️
                                     </button>
+                                  </div>
+                                </td>
+                                <td style={{ padding: '12px', textAlign: 'right' }}>
+                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -14371,8 +14465,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
                 {/* 11. TASK PRIORITIES */}
                 {selectedDropdownCategory === 'priorities' && (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{ fontSize: '20px' }}>⚡</span>
@@ -14399,14 +14493,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       </button>
                     </div>
 
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table" style={{ width: '100%' }}>
-                        <thead>
+                    {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
+                    <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                      <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                        <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                           <tr>
-                            <th style={{ width: '50px' }}>#</th>
-                            <th style={{ padding: '10px 12px' }}>Priority Rating</th>
-                            <th style={{ width: '130px' }}>Status</th>
-                            <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
+                            <th style={{ width: '50px', background: '#f8fafc', padding: '10px 12px' }}>#</th>
+                            <th style={{ padding: '10px 12px', background: '#f8fafc' }}>Priority Rating</th>
+                            <th style={{ width: '120px', background: '#f8fafc', padding: '10px 12px' }}>Status</th>
+                            <th style={{ width: '100px', textAlign: 'center', background: '#f8fafc', padding: '10px 12px' }}>Order ↕️</th>
+                            <th style={{ textAlign: 'right', width: '180px', background: '#f8fafc', padding: '10px 12px' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -14426,8 +14522,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     {isArchived ? '📦 Archived' : '🟢 Active'}
                                   </span>
                                 </td>
-                                <td style={{ padding: '12px', textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                <td style={{ padding: '12px', textAlign: 'center' }}>
+                                  <div style={{ display: 'inline-flex', gap: '2px', background: '#f1f5f9', padding: '2px 4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                                     <button
                                       type="button"
                                       disabled={idx === 0}
@@ -14441,7 +14537,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         showToast(`Moved "${title}" up`, 'info');
                                       }}
                                       title="Move Up"
-                                      style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === 0 ? '#f1f5f9' : 'white', color: idx === 0 ? '#94a3b8' : '#334155', cursor: idx === 0 ? 'not-allowed' : 'pointer' }}
+                                      style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                     >
                                       ⬆️
                                     </button>
@@ -14458,10 +14554,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         showToast(`Moved "${title}" down`, 'info');
                                       }}
                                       title="Move Down"
-                                      style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: idx === systemDropdowns.taskPriorities.length - 1 ? '#f1f5f9' : 'white', color: idx === systemDropdowns.taskPriorities.length - 1 ? '#94a3b8' : '#334155', cursor: idx === systemDropdowns.taskPriorities.length - 1 ? 'not-allowed' : 'pointer' }}
+                                      style={{ border: 'none', background: 'transparent', cursor: idx === systemDropdowns.taskPriorities.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === systemDropdowns.taskPriorities.length - 1 ? 0.35 : 1, fontSize: '12px', padding: '2px 4px' }}
                                     >
                                       ⬇️
                                     </button>
+                                  </div>
+                                </td>
+                                <td style={{ padding: '12px', textAlign: 'right' }}>
+                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -14520,8 +14620,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
                 {/* 12. CUSTOM ENGINE */}
                 {selectedDropdownCategory === 'custom_engine' && (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{ fontSize: '20px' }}>⚙️</span>
@@ -14552,77 +14652,80 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       </button>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      {(systemDropdowns.customCategories || []).map((customCat, catIdx) => (
-                        <div key={customCat.id || catIdx} style={{ padding: '16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                            <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#0f2b26', margin: 0 }}>⚙️ {customCat.title}</h4>
-                            <div style={{ display: 'flex', gap: '6px' }}>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const opt = prompt(`Add Option to "${customCat.title}":`);
-                                  if (opt && opt.trim()) {
-                                    const updated = [...(systemDropdowns.customCategories || [])];
-                                    updated[catIdx].options = [...(updated[catIdx].options || []), opt.trim()];
+                    {/* INNER SCROLLABLE BOX CONTAINER */}
+                    <div style={{ flex: 1, overflowY: 'auto', maxHeight: '460px', paddingRight: '4px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {(systemDropdowns.customCategories || []).map((customCat, catIdx) => (
+                          <div key={customCat.id || catIdx} style={{ padding: '16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#0f2b26', margin: 0 }}>⚙️ {customCat.title}</h4>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const opt = prompt(`Add Option to "${customCat.title}":`);
+                                    if (opt && opt.trim()) {
+                                      const updated = [...(systemDropdowns.customCategories || [])];
+                                      updated[catIdx].options = [...(updated[catIdx].options || []), opt.trim()];
+                                      setSystemDropdowns(prev => ({ ...prev, customCategories: updated }));
+                                      showToast(`Added option "${opt.trim()}"`, 'success');
+                                    }
+                                  }}
+                                  style={{ padding: '5px 12px', fontSize: '11px', fontWeight: '800', background: '#0d9488', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                                >
+                                  + Add Option
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const catName = customCat.title;
+                                    const updated = (systemDropdowns.customCategories || []).filter((_, i) => i !== catIdx);
                                     setSystemDropdowns(prev => ({ ...prev, customCategories: updated }));
-                                    showToast(`Added option "${opt.trim()}"`, 'success');
-                                  }
-                                }}
-                                style={{ padding: '5px 12px', fontSize: '11px', fontWeight: '800', background: '#0d9488', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
-                              >
-                                + Add Option
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const catName = customCat.title;
-                                  const updated = (systemDropdowns.customCategories || []).filter((_, i) => i !== catIdx);
-                                  setSystemDropdowns(prev => ({ ...prev, customCategories: updated }));
-                                  showToast(`Deleted category "${catName}"`, 'info');
-                                }}
-                                style={{ padding: '5px 12px', fontSize: '11px', fontWeight: '800', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
-                              >
-                                Delete Category
-                              </button>
+                                    showToast(`Deleted category "${catName}"`, 'info');
+                                  }}
+                                  style={{ padding: '5px 12px', fontSize: '11px', fontWeight: '800', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                                >
+                                  Delete Category
+                                </button>
+                              </div>
+                            </div>
+
+                            <div style={{ overflowX: 'auto' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', background: 'white', borderRadius: '6px', overflow: 'hidden' }}>
+                                <thead>
+                                  <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1', textAlign: 'left' }}>
+                                    <th style={{ padding: '10px 12px', width: '50px' }}>#</th>
+                                    <th style={{ padding: '10px 12px' }}>Option Item Title</th>
+                                    <th style={{ padding: '10px 12px', textAlign: 'right', width: '150px' }}>Actions</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {(customCat.options || []).map((opt, optIdx) => (
+                                    <tr key={optIdx} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                      <td style={{ padding: '10px 12px', fontWeight: '800', color: '#64748b' }}>#{optIdx + 1}</td>
+                                      <td style={{ padding: '10px 12px', fontWeight: '700', color: '#0f2b26' }}>{opt}</td>
+                                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const updated = [...(systemDropdowns.customCategories || [])];
+                                            updated[catIdx].options = updated[catIdx].options.filter((_, i) => i !== optIdx);
+                                            setSystemDropdowns(prev => ({ ...prev, customCategories: updated }));
+                                            showToast(`Deleted option "${opt}"`, 'info');
+                                          }}
+                                          style={{ border: 'none', background: 'rgba(239,68,68,0.1)', padding: '4px 10px', borderRadius: '6px', color: '#ef4444', cursor: 'pointer', fontSize: '11px', fontWeight: '800' }}
+                                        >
+                                          Delete
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
                           </div>
-
-                          <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', background: 'white', borderRadius: '6px', overflow: 'hidden' }}>
-                              <thead>
-                                <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1', textAlign: 'left' }}>
-                                  <th style={{ padding: '10px 12px', width: '50px' }}>#</th>
-                                  <th style={{ padding: '10px 12px' }}>Option Item Title</th>
-                                  <th style={{ padding: '10px 12px', textAlign: 'right', width: '150px' }}>Actions</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {(customCat.options || []).map((opt, optIdx) => (
-                                  <tr key={optIdx} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                    <td style={{ padding: '10px 12px', fontWeight: '800', color: '#64748b' }}>#{optIdx + 1}</td>
-                                    <td style={{ padding: '10px 12px', fontWeight: '700', color: '#0f2b26' }}>{opt}</td>
-                                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const updated = [...(systemDropdowns.customCategories || [])];
-                                          updated[catIdx].options = updated[catIdx].options.filter((_, i) => i !== optIdx);
-                                          setSystemDropdowns(prev => ({ ...prev, customCategories: updated }));
-                                          showToast(`Deleted option "${opt}"`, 'info');
-                                        }}
-                                        style={{ border: 'none', background: 'rgba(239,68,68,0.1)', padding: '4px 10px', borderRadius: '6px', color: '#ef4444', cursor: 'pointer', fontSize: '11px', fontWeight: '800' }}
-                                      >
-                                        Delete
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
