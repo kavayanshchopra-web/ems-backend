@@ -580,6 +580,27 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [showManageDropdownsModal, setShowManageDropdownsModal] = useState(false);
   const [dropdownSortConfig, setDropdownSortConfig] = useState({ key: null, dir: 'asc' });
   const [newOptionInput, setNewOptionInput] = useState('');
+
+  // Sleek Custom Input Modal State for System Dropdowns
+  const [inputModal, setInputModal] = useState({
+    isOpen: false,
+    title: 'Add New Option',
+    subtitle: '',
+    placeholder: 'Enter title...',
+    value: '',
+    onSave: null
+  });
+
+  const openInputModal = ({ title = 'Add New Item', subtitle = '', placeholder = 'Enter title...', defaultValue = '', onSave }) => {
+    setInputModal({
+      isOpen: true,
+      title,
+      subtitle,
+      placeholder,
+      value: defaultValue,
+      onSave
+    });
+  };
   const [showAutoFollowupModal, setShowAutoFollowupModal] = useState(false);
   const [selectedLogForAutoFollowup, setSelectedLogForAutoFollowup] = useState(null);
   const [autoFollowupText, setAutoFollowupText] = useState('');
@@ -12913,16 +12934,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <button
                           type="button"
                           onClick={() => {
-                            const val = prompt("Enter new Department name:");
-                            if (val && val.trim()) {
-                              const trimmed = val.trim();
-                              const exists = currentItems.some(d => d.name === trimmed);
-                              if (!exists) {
-                                const updated = [...currentItems, { name: trimmed, archived: false }];
-                                setSystemDropdowns(prev => ({ ...prev, departments: updated }));
-                                showToast(`Added Department "${trimmed}"`, 'success');
+                            openInputModal({
+                              title: 'Add New Department',
+                              subtitle: 'Enter functional department name for staff',
+                              placeholder: 'e.g. Marketing & Sales',
+                              onSave: (val) => {
+                                const trimmed = val.trim();
+                                const exists = currentItems.some(d => d.name === trimmed);
+                                if (!exists) {
+                                  const updated = [...currentItems, { name: trimmed, archived: false }];
+                                  setSystemDropdowns(prev => ({ ...prev, departments: updated }));
+                                  showToast(`Added Department "${trimmed}"`, 'success');
+                                } else {
+                                  showToast(`Department "${trimmed}" already exists`, 'info');
+                                }
                               }
-                            }
+                            });
                           }}
                           style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
                         >
@@ -13090,16 +13117,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <button
                           type="button"
                           onClick={() => {
-                            const val = prompt("Enter new Designation role:");
-                            if (val && val.trim()) {
-                              const trimmed = val.trim();
-                              const exists = currentItems.some(d => d.name === trimmed);
-                              if (!exists) {
-                                const updated = [...currentItems, { name: trimmed, archived: false }];
-                                setSystemDropdowns(prev => ({ ...prev, designations: updated }));
-                                showToast(`Added Designation "${trimmed}"`, 'success');
+                            openInputModal({
+                              title: 'Add New Designation',
+                              subtitle: 'Enter job title / role designation across teams',
+                              placeholder: 'e.g. Senior Tech Lead',
+                              onSave: (val) => {
+                                const trimmed = val.trim();
+                                const exists = currentItems.some(d => d.name === trimmed);
+                                if (!exists) {
+                                  const updated = [...currentItems, { name: trimmed, archived: false }];
+                                  setSystemDropdowns(prev => ({ ...prev, designations: updated }));
+                                  showToast(`Added Designation "${trimmed}"`, 'success');
+                                } else {
+                                  showToast(`Designation "${trimmed}" already exists`, 'info');
+                                }
                               }
-                            }
+                            });
                           }}
                           style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
                         >
@@ -13267,16 +13300,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         <button
                           type="button"
                           onClick={() => {
-                            const val = prompt("Enter new Employment Type:");
-                            if (val && val.trim()) {
-                              const trimmed = val.trim();
-                              const exists = currentItems.some(d => d.name === trimmed);
-                              if (!exists) {
-                                const updated = [...currentItems, { name: trimmed, archived: false }];
-                                setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
-                                showToast(`Added Employment Type "${trimmed}"`, 'success');
+                            openInputModal({
+                              title: 'Add Employment Type',
+                              subtitle: 'Enter functional employment classification',
+                              placeholder: 'e.g. Contractual / Intern',
+                              onSave: (val) => {
+                                const trimmed = val.trim();
+                                const exists = currentItems.some(d => d.name === trimmed);
+                                if (!exists) {
+                                  const updated = [...currentItems, { name: trimmed, archived: false }];
+                                  setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
+                                  showToast(`Added Employment Type "${trimmed}"`, 'success');
+                                } else {
+                                  showToast(`Employment Type "${trimmed}" already exists`, 'info');
+                                }
                               }
-                            }
+                            });
                           }}
                           style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
                         >
@@ -14738,13 +14777,18 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                       <button
                                         type="button"
                                         onClick={() => {
-                                          const newName = prompt("Rename Priority Level:", title);
-                                          if (newName && newName.trim()) {
-                                            const updated = [...systemDropdowns.taskPriorities];
-                                            updated[realIdx] = { name: newName.trim(), archived: isArchived };
-                                            setSystemDropdowns(prev => ({ ...prev, taskPriorities: updated }));
-                                            showToast(`Updated to "${newName.trim()}"`, 'success');
-                                          }
+                                          openInputModal({
+                                            title: 'Rename Priority Level',
+                                            subtitle: `Update title for "${title}"`,
+                                            defaultValue: title,
+                                            placeholder: 'Priority rating title',
+                                            onSave: (newName) => {
+                                              const updated = [...systemDropdowns.taskPriorities];
+                                              updated[realIdx] = { name: newName.trim(), archived: isArchived };
+                                              setSystemDropdowns(prev => ({ ...prev, taskPriorities: updated }));
+                                              showToast(`Updated to "${newName.trim()}"`, 'success');
+                                            }
+                                          });
                                         }}
                                         style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
                                       >
@@ -14837,19 +14881,23 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       <button
                         type="button"
                         onClick={() => {
-                          const categoryTitle = prompt("Enter title for the new Dropdown Category (e.g. Office Branches):");
-                          if (categoryTitle && categoryTitle.trim()) {
-                            const newCat = {
-                              id: 'cat_' + Date.now(),
-                              title: categoryTitle.trim(),
-                              options: ['Option 1', 'Option 2']
-                            };
-                            setSystemDropdowns(prev => ({
-                              ...prev,
-                              customCategories: [...(prev.customCategories || []), newCat]
-                            }));
-                            showToast(`Created Custom Category "${categoryTitle.trim()}"`, 'success');
-                          }
+                          openInputModal({
+                            title: 'Create Custom Dropdown Category',
+                            subtitle: 'Enter title for the new dropdown category',
+                            placeholder: 'e.g. Office Branches',
+                            onSave: (categoryTitle) => {
+                              const newCat = {
+                                id: 'cat_' + Date.now(),
+                                title: categoryTitle.trim(),
+                                options: ['Option 1', 'Option 2']
+                              };
+                              setSystemDropdowns(prev => ({
+                                ...prev,
+                                customCategories: [...(prev.customCategories || []), newCat]
+                              }));
+                              showToast(`Created Custom Category "${categoryTitle.trim()}"`, 'success');
+                            }
+                          });
                         }}
                         style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
                       >
@@ -14868,13 +14916,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const opt = prompt(`Add Option to "${customCat.title}":`);
-                                    if (opt && opt.trim()) {
-                                      const updated = [...(systemDropdowns.customCategories || [])];
-                                      updated[catIdx].options = [...(updated[catIdx].options || []), opt.trim()];
-                                      setSystemDropdowns(prev => ({ ...prev, customCategories: updated }));
-                                      showToast(`Added option "${opt.trim()}"`, 'success');
-                                    }
+                                    openInputModal({
+                                      title: `Add Option to "${customCat.title}"`,
+                                      subtitle: 'Enter title for the new option item',
+                                      placeholder: 'e.g. New Branch / Location',
+                                      onSave: (opt) => {
+                                        const updated = [...(systemDropdowns.customCategories || [])];
+                                        updated[catIdx].options = [...(updated[catIdx].options || []), opt.trim()];
+                                        setSystemDropdowns(prev => ({ ...prev, customCategories: updated }));
+                                        showToast(`Added option "${opt.trim()}"`, 'success');
+                                      }
+                                    });
                                   }}
                                   style={{ padding: '5px 12px', fontSize: '11px', fontWeight: '800', background: '#0d9488', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
                                 >
@@ -18352,6 +18404,107 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 {confirmModal.confirmText || 'Confirm'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sleek Custom Input Modal Dialog */}
+      {inputModal.isOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 99999,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px'
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '440px',
+            background: 'white',
+            borderRadius: '16px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+            overflow: 'hidden',
+            border: '1px solid rgba(13, 148, 136, 0.2)',
+            animation: 'modalSlideUp 0.25s ease-out'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)',
+              padding: '18px 24px',
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800' }}>{inputModal.title}</h3>
+                {inputModal.subtitle && (
+                  <p style={{ margin: '2px 0 0 0', fontSize: '12px', opacity: 0.85 }}>{inputModal.subtitle}</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setInputModal(prev => ({ ...prev, isOpen: false }))}
+                style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Body Form */}
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (inputModal.value && inputModal.value.trim() && inputModal.onSave) {
+                inputModal.onSave(inputModal.value.trim());
+                setInputModal(prev => ({ ...prev, isOpen: false }));
+              }
+            }}>
+              <div style={{ padding: '20px 24px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '8px' }}>
+                  Option Title / Name
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder={inputModal.placeholder}
+                  value={inputModal.value}
+                  onChange={(e) => setInputModal(prev => ({ ...prev, value: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '2px solid #0d9488',
+                    fontSize: '14px',
+                    fontWeight: '700',
+                    color: '#0f172a',
+                    outline: 'none',
+                    background: '#f0fdf4',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              {/* Modal Actions */}
+              <div style={{ padding: '12px 24px 20px', display: 'flex', justifyContent: 'flex-end', gap: '10px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+                <button
+                  type="button"
+                  onClick={() => setInputModal(prev => ({ ...prev, isOpen: false }))}
+                  style={{ padding: '8px 16px', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'white', color: '#475569', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{ padding: '8px 20px', fontSize: '13px', fontWeight: '800', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13,148,136,0.3)' }}
+                >
+                  Save Option
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
