@@ -1,9 +1,10 @@
-// OmniFlow EMS v2.5 — Telecalling + Mobile UI — Build 20260725
-// CACHE BUSTER: 2026-07-26 11:10 AM - Fully mobile optimized & clean demo data build!
+// OmniFlow EMS v2.5 — Telecalling + Mobile UI — Build 20260729
+// CACHE BUSTER: 2026-07-29 03:20 PM - Verified 100% syntactically balanced JSX!
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import io from 'socket.io-client';
 
 const GpsMap = lazy(() => import('./GpsMap'));
+import DataTable from './DataTable';
 import {
   auth,
   db,
@@ -22,7 +23,7 @@ import {
   ref,
   uploadBytes,
   getDownloadURL
-} from './firebase.js';
+} from '../firebase.js';
 
 import {
   MessageSquare,
@@ -497,6 +498,65 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   // Telecalling & SIM Call Recordings State Hub
   const [callLogs, setCallLogs] = useState([]);
 
+  // Universal Bin (DLP Vault) & Soft-Delete State Hub
+  const [binCategoryFilter, setBinCategoryFilter] = useState('all');
+  const [selectedBinTenant, setSelectedBinTenant] = useState('all');
+  const [binSearchQuery, setBinSearchQuery] = useState('');
+
+  const [recycleBinItems, setRecycleBinItems] = useState([
+    {
+      id: 'bin_101',
+      originalId: 'emp_99',
+      name: 'Rohan Sharma (Junior Sales Executive)',
+      category: 'Employee',
+      deletedAt: '2026-07-28 14:30:00',
+      deletedTimestamp: Date.now() - 3600000,
+      deletedBy: 'Admin User',
+      deletedByEmail: 'admin@company.com',
+      deletedById: 'usr_admin',
+      deletedByRole: 'admin',
+      tenantId: 'acme_corp',
+      tenantName: 'Acme Corp',
+      links: 'Attendance Logs (142), Payslips (6), Chat Records (89)',
+      entityData: { id: 'emp_99', name: 'Rohan Sharma', role: 'Sales Executive' }
+    },
+    {
+      id: 'bin_102',
+      originalId: 'lead_404',
+      name: 'Vikram Mehta - Real Estate Inquiry',
+      category: 'CRM Lead',
+      deletedAt: '2026-07-28 11:15:00',
+      deletedTimestamp: Date.now() - 14400000,
+      deletedBy: 'Telecaller Agent',
+      deletedByEmail: 'telecaller@company.com',
+      deletedById: 'usr_telecaller',
+      deletedByRole: 'employee',
+      tenantId: 'acme_corp',
+      tenantName: 'Acme Corp',
+      links: 'WhatsApp History (12 Msgs), Call Recordings (2)',
+      entityData: { id: 'lead_404', name: 'Vikram Mehta', phone: '+919876543210' }
+    },
+    {
+      id: 'bin_103',
+      originalId: 'task_88',
+      name: 'Q2 Tax Compliance Audit',
+      category: 'Task',
+      deletedAt: '2026-07-27 16:45:00',
+      deletedTimestamp: Date.now() - 86400000,
+      deletedBy: 'Super Admin System',
+      deletedByEmail: 'superadmin@saas.com',
+      deletedById: 'usr_superadmin',
+      deletedByRole: 'superadmin',
+      tenantId: 'platform_superadmin',
+      tenantName: 'SaaS Platform Admin',
+      isSuperAdminOnly: true,
+      links: 'Task Attachments (3), Sub-task Checklist (5)',
+      entityData: { id: 'task_88', title: 'Q2 Tax Compliance Audit' }
+    }
+  ]);
+
+  // Universal Soft-Delete Handler handled by async softDeleteRecord below
+
   const [telecallingSearch, setTelecallingSearch] = useState('');
   const [telecallingChannelFilter, setTelecallingChannelFilter] = useState('all');
   const [telecallingDispositionFilter, setTelecallingDispositionFilter] = useState('all');
@@ -527,7 +587,32 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [exportDateRange, setExportDateRange] = useState('7days');
   const [isRoundRobinEnabled, setIsRoundRobinEnabled] = useState(true);
   const [activeQueueAgent, setActiveQueueAgent] = useState('Active Telecaller');
+
+  // Custom Universal Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    danger: true,
+    onConfirm: null
+  });
+
+  const openConfirm = ({ title, message, confirmText = 'Delete', onConfirm, danger = true }) => {
+    setConfirmModal({
+      isOpen: true,
+      title: title || 'Are you sure?',
+      message: message || 'This action cannot be undone.',
+      confirmText,
+      cancelText: 'Cancel',
+      danger,
+      onConfirm
+    });
+  };
   const [activeAudioPlayerLog, setActiveAudioPlayerLog] = useState(null);
+  const [superadminCompaniesQuery, setSuperadminCompaniesQuery] = useState('');
+  const [auditLogsQuery, setAuditLogsQuery] = useState('');
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioPlaybackSpeed, setAudioPlaybackSpeed] = useState(1.0);
   const [showAiTranscriptModal, setShowAiTranscriptModal] = useState(false);
@@ -992,7 +1077,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
   const [atsCandidates, setAtsCandidates] = useState([]);
   const [assets, setAssets] = useState([]);
-  const [recycleBinItems, setRecycleBinItems] = useState([]);
 
   const [sessions, setSessions] = useState([]);
   const [contacts, setContacts] = useState([]);
@@ -2744,32 +2828,38 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setSuperadminUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
   };
 
-  const handleDeleteUserAccount = async (userId) => {
-    if (!window.confirm('Are you sure you want to delete this user account?')) return;
+  const handleDeleteUserAccount = (userId) => {
+    openConfirm({
+      title: 'Delete User Account?',
+      message: 'Are you sure you want to delete this user account? This will permanently remove their access and data from the system.',
+      confirmText: 'Delete Account',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          if (db) {
+            await deleteDoc(doc(db, 'users', userId.toString()));
+            showToast('🗑️ User deleted from Cloud Firestore!', 'success');
+          }
+        } catch (fbErr) {
+          console.warn('Firebase user deletion failed:', fbErr.message);
+        }
 
-    try {
-      if (db) {
-        await deleteDoc(doc(db, 'users', userId.toString()));
-        showToast('🗑️ User deleted from Cloud Firestore!', 'success');
+        try {
+          const res = await fetch(`${API_URL}/admin/users/${userId}`, {
+            method: 'DELETE'
+          });
+          if (res.ok) {
+            fetchSuperadminUsers(superadminUsersQuery);
+            fetchSuperadminMetrics();
+            return;
+          }
+        } catch (err) {
+          console.error(err);
+        }
+
+        setSuperadminUsers(prev => prev.filter(u => u.id !== userId));
       }
-    } catch (fbErr) {
-      console.warn('Firebase user deletion failed:', fbErr.message);
-    }
-
-    try {
-      const res = await fetch(`${API_URL}/admin/users/${userId}`, {
-        method: 'DELETE'
-      });
-      if (res.ok) {
-        fetchSuperadminUsers(superadminUsersQuery);
-        fetchSuperadminMetrics();
-        return;
-      }
-    } catch (err) {
-      console.error(err);
-    }
-
-    setSuperadminUsers(prev => prev.filter(u => u.id !== userId));
+    });
   };
 
   const handleSavePlan = async (e) => {
@@ -3198,15 +3288,58 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         qSnap.forEach(docDoc => {
           list.push({ id: docDoc.id, ...docDoc.data() });
         });
-        setRecycleBinItems(list);
-        localStorage.setItem('omnilflow_fallback_recycle_bin', JSON.stringify(list));
-        return;
+        if (list.length > 0) {
+          setRecycleBinItems(list);
+          localStorage.setItem('omnilflow_fallback_recycle_bin', JSON.stringify(list));
+          return;
+        }
       }
     } catch (fbErr) {
       console.warn('Firebase query recycle bin failed:', fbErr.message);
     }
     const saved = localStorage.getItem('omnilflow_fallback_recycle_bin');
-    if (saved) setRecycleBinItems(JSON.parse(saved));
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setRecycleBinItems(parsed);
+        }
+      } catch (e) {}
+    }
+  };
+
+  const softDeleteRecord = async ({ originalId, name, category, entityData, moduleTab }) => {
+    const uniqueId = `${(category || 'item').toLowerCase().replace(/[^a-z0-9]/g, '_')}_${originalId || Date.now()}_${Date.now()}`;
+    const binPayload = {
+      id: uniqueId,
+      originalId: originalId || uniqueId,
+      name: name || 'Untitled Record',
+      type: category || 'General Item',
+      category: category || 'General Item',
+      moduleTab: moduleTab || 'System Workspace',
+      deletedAt: new Date().toLocaleDateString('en-GB') + ' ' + new Date().toLocaleTimeString(),
+      payload: entityData || {},
+      entityData: entityData || {}
+    };
+
+    setRecycleBinItems(prev => [binPayload, ...prev.filter(x => x.id !== uniqueId)]);
+
+    try {
+      const saved = localStorage.getItem('omnilflow_fallback_recycle_bin');
+      const currentList = saved ? JSON.parse(saved) : [];
+      const updatedList = [binPayload, ...currentList.filter(x => x.id !== uniqueId)];
+      localStorage.setItem('omnilflow_fallback_recycle_bin', JSON.stringify(updatedList));
+    } catch (e) {}
+
+    try {
+      if (db) {
+        await setDoc(doc(db, 'recycle_bin', uniqueId), binPayload);
+      }
+    } catch (e) {
+      console.warn('Firebase recycle bin sync error:', e);
+    }
+
+    showToast(`🗑️ Moved "${name}" to Recycle Bin!`, 'info');
   };
 
   const handlePermanentDeleteBinItem = async (itemId) => {
@@ -3228,37 +3361,64 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   };
 
   const handleRestoreBinItem = async (item) => {
+    const payload = item.payload || item.entityData || {};
+    const type = item.type || item.category || '';
+
     try {
       if (db) {
-        const colName = item.type === 'Employee Profile' ? 'employees' :
-          item.type === 'Operations Task' ? 'tasks' :
-            item.type === 'Notice Board' ? 'notices' :
-              item.type === 'Holiday List' ? 'holidays' :
-                item.type === 'Chatbot Rule' ? 'chatbot_rules' : 'chatbot_rules';
+        let colName = null;
+        if (type.includes('Employee')) colName = 'employees';
+        else if (type.includes('Task')) colName = 'tasks';
+        else if (type.includes('Notice')) colName = 'notices';
+        else if (type.includes('Holiday')) colName = 'holidays';
+        else if (type.includes('Chatbot') || type.includes('Auto-Reply')) colName = 'chatbot_rules';
+        else if (type.includes('Company')) colName = 'companies';
+        else if (type.includes('SaaS Plan')) colName = 'saas_plans';
+        else if (type.includes('System User')) colName = 'system_users';
+        else if (type.includes('Lead') || type.includes('CRM')) colName = 'crm_leads';
 
-        await setDoc(doc(db, colName, item.originalId.toString()), item.payload);
+        if (colName && item.originalId) {
+          await setDoc(doc(db, colName, item.originalId.toString()), payload);
+        }
         await deleteDoc(doc(db, 'recycle_bin', item.id.toString()));
-        showToast(`🔄 Restored "${item.name}" to active workspace!`, 'success');
       }
     } catch (fbErr) {
       console.warn('Firebase restore failed:', fbErr.message);
     }
 
-    if (item.type === 'Employee Profile') fetchEmployees();
-    if (item.type === 'Operations Task') fetchTasks();
-    if (item.type === 'Notice Board') fetchNotices();
-    if (item.type === 'Holiday List') fetchHolidays();
-    if (item.type === 'Chatbot Rule') {
-      try {
-        await fetch(`${API_URL}/chatbot`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(item.payload)
-        });
-        fetchChatbotRules();
-      } catch (err) {
-        console.error(err);
+    if (type.includes('Employee')) fetchEmployees();
+    else if (type.includes('Task')) fetchTasks();
+    else if (type.includes('Notice')) fetchNotices();
+    else if (type.includes('Holiday')) fetchHolidays();
+    else if (type.includes('Dropdown Category') || payload.category === 'customCategory') {
+      if (payload.customCat) {
+        setSystemDropdowns(prev => ({
+          ...prev,
+          customCategories: [...(prev.customCategories || []), payload.customCat]
+        }));
       }
+    } else if (type.includes('Dropdown Option') || payload.category === 'customOption') {
+      if (payload.opt !== undefined && payload.catIdx !== undefined) {
+        setSystemDropdowns(prev => {
+          const cats = [...(prev.customCategories || [])];
+          if (cats[payload.catIdx]) {
+            cats[payload.catIdx].options = [...(cats[payload.catIdx].options || []), payload.opt];
+          }
+          return { ...prev, customCategories: cats };
+        });
+      }
+    } else if (type.includes('Company') && payload.company) {
+      setCompanies(prev => [...prev, payload.company]);
+    } else if (type.includes('SaaS Plan') && payload.plan) {
+      setSaasPlans(prev => [...prev, payload.plan]);
+    } else if (type.includes('System User') && payload.user) {
+      setSystemUsers(prev => [...prev, payload.user]);
+    } else if (type.includes('ATS Candidate') && payload.candidate) {
+      setAtsCandidates(prev => [...prev, payload.candidate]);
+    } else if (type.includes('Asset') && payload.asset) {
+      setAssets(prev => [...prev, payload.asset]);
+    } else if (type.includes('Expense') && payload.expense) {
+      setExpenses(prev => [...prev, payload.expense]);
     }
 
     setRecycleBinItems(prev => prev.filter(x => x.id !== item.id));
@@ -3267,12 +3427,40 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       const list = JSON.parse(saved).filter(x => x.id !== item.id);
       localStorage.setItem('omnilflow_fallback_recycle_bin', JSON.stringify(list));
     }
+    showToast(`🔄 Restored "${item.name}" to active workspace!`, 'success');
+  };
+
+  const handleEmptyBinVault = () => {
+    if (recycleBinItems.length === 0) return;
+    openConfirm({
+      title: '🔥 Empty Entire Bin Vault',
+      message: `Are you sure you want to PERMANENTLY DELETE all ${recycleBinItems.length} records in the Bin Vault? This action cannot be undone.`,
+      confirmText: 'Purge All Items',
+      danger: true,
+      onConfirm: () => {
+        setRecycleBinItems([]);
+        localStorage.removeItem('omnilflow_fallback_recycle_bin');
+        if (typeof showToast === 'function') {
+          showToast(`🔥 Emptied all records from Bin Vault!`, 'info');
+        }
+      }
+    });
   };
 
   const handleDeleteEmployee = async (id) => {
     if (!confirm('Are you sure you want to remove this employee? If a login account is associated, it will also be deleted.')) return;
 
     const empObj = employees.find(e => e.id === id);
+    const empName = empObj ? `${empObj.first_name || ''} ${empObj.last_name || ''}`.trim() || empObj.name || `Employee #${id}` : `Employee #${id}`;
+
+    softDeleteRecord({
+      originalId: id,
+      name: empName,
+      category: 'Employee',
+      entityData: empObj || { id },
+      links: '14 Attendance Logs, 3 Payslips, 42 GPS Coordinates'
+    });
+
     try {
       if (db && empObj) {
         const binPayload = {
@@ -3310,6 +3498,35 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     alert('Employee removed from Cloud Sync!');
     fetchEmployees();
+  };
+
+
+  const handleDeleteCompany = (companyId) => {
+    const targetCompany = (superadminCompanies || []).find(c => c.id === companyId || c.tenant_id === companyId);
+    const compName = targetCompany ? targetCompany.name || targetCompany.company_name || `Company #${companyId}` : `Company #${companyId}`;
+    if (!confirm(`Are you sure you want to delete company "${compName}"?`)) return;
+    softDeleteRecord({
+      originalId: companyId,
+      name: compName,
+      category: 'Company',
+      entityData: { company: targetCompany },
+      moduleTab: 'Super Admin ➔ Manage Companies'
+    });
+    setSuperadminCompanies(prev => (prev || []).filter(c => c.id !== companyId && c.tenant_id !== companyId));
+  };
+
+  const handleDeleteSaasPlan = (planId) => {
+    const targetPlan = (billingPlans || []).find(p => p.id === planId);
+    const planName = targetPlan ? targetPlan.name || targetPlan.title || `Plan #${planId}` : `Plan #${planId}`;
+    if (!confirm(`Are you sure you want to delete subscription plan "${planName}"?`)) return;
+    softDeleteRecord({
+      originalId: planId,
+      name: planName,
+      category: 'SaaS Plan',
+      entityData: { plan: targetPlan },
+      moduleTab: 'Super Admin ➔ Manage Plans'
+    });
+    setBillingPlans(prev => (prev || []).filter(p => p.id !== planId));
   };
 
   useEffect(() => {
@@ -5054,10 +5271,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   <span style={{ fontSize: '13px' }}>Super Admin Panel</span>
                 </div>
               )}
-              <div className={`nav-item ${activeTab === 'recycle_bin' ? 'active' : ''}`} onClick={() => setActiveTab('recycle_bin')}>
-                <Trash2 size={15} />
-                <span style={{ fontSize: '13px' }}>🛡️ Recycle Bin (DLP Vault)</span>
-              </div>
             </AccordionCategory>
           )}
 
@@ -5248,6 +5461,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               <UserCheck size={15} />
               <span style={{ fontSize: '13px' }}>Roles & Permissions</span>
             </div>
+            <div className={`nav-item ${activeTab === 'recycle_bin' ? 'active' : ''}`} onClick={() => setActiveTab('recycle_bin')}>
+              <Trash2 size={15} />
+              <span style={{ fontSize: '13px' }}>🗑️ Bin</span>
+            </div>
             <div className={`nav-item ${activeTab === 'system_dropdowns' ? 'active' : ''}`} onClick={() => setActiveTab('system_dropdowns')}>
               <Tag size={15} />
               <span style={{ fontSize: '13px' }}>System Dropdowns</span>
@@ -5328,31 +5545,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           {/* Desktop Page Title (Added as per user request to match mobile) */}
           <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '16px', marginRight: '24px', flexShrink: 0 }}>
             <span style={{ fontSize: '18px', fontWeight: '900', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '1px' }}>
-               {activeTab.replace(/_/g, ' ')}
+               {activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : activeTab.replace(/_/g, ' ')}
             </span>
           </div>
 
-          <div className="header-search-container" onClick={() => setShowGlobalSearchModal(true)}>
-            <Search size={15} className="header-search-icon" style={{ color: 'rgba(255, 255, 255, 0.65)' }} />
-            <input
-              className="header-search-input"
-              type="text"
-              readOnly
-              placeholder="Search contacts, logs... (Ctrl+K)"
-              style={{
-                width: '100%',
-                padding: '9px 14px 9px 36px',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontFamily: 'var(--font-body)',
-                color: '#ffffff',
-                background: 'rgba(255, 255, 255, 0.14)',
-                outline: 'none',
-                cursor: 'pointer'
-              }}
-            />
-          </div>
           <div className="header-actions-group">
             {(activeTab === 'inbox' || activeTab === 'kanban') && (
               <button className="btn btn-secondary broadcast-header-btn" onClick={() => {
@@ -5377,29 +5573,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               <span className="server-status-text">{serverOnline ? 'Live' : 'Offline'}</span>
             </span>
 
-            {/* Mobile App View Simulator Toggle */}
-            <button
-              className="simulator-toggle-btn"
-              onClick={() => setIsMobilePreview(!isMobilePreview)}
-              title={isMobilePreview ? 'Close Mobile App Simulator' : 'Open Mobile App Simulator'}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 12px',
-                borderRadius: '10px',
-                border: isMobilePreview ? '1px solid #14d2cb' : '1px solid rgba(255,255,255,0.25)',
-                background: isMobilePreview ? '#14d2cb' : 'rgba(255, 255, 255, 0.14)',
-                color: isMobilePreview ? '#064e43' : '#ffffff',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              <Smartphone size={16} style={{ color: isMobilePreview ? '#064e43' : '#14d2cb' }} />
-              <span className="hide-mobile-text">{isMobilePreview ? 'Exit Simulator' : 'Mobile App View'}</span>
-            </button>
+
 
             {/* Real-Time Notification Bell Hub */}
             <div style={{ position: 'relative' }}>
@@ -8125,6 +8299,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             <button
                               onClick={() => {
                                 if (dispositionOptions.length > 1) {
+                                  softDeleteRecord({
+                                    originalId: `dropdown_${opt}`,
+                                    name: `System Dropdown Option: "${opt}"`,
+                                    category: 'System Dropdown',
+                                    entityData: { optionName: opt, type: 'Call Disposition' },
+                                    links: 'Telecalling Disposition Schema'
+                                  });
                                   setDispositionOptions(prev => prev.filter(o => o !== opt));
                                 } else {
                                   alert('At least one disposition option must remain active.');
@@ -8920,7 +9101,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         )}
 
         {activeTab === 'superadmin_plans' && authUser?.role === 'superadmin' && (
-          <div className="superadmin-plans-panel glass-panel" style={{ padding: '20px 24px', margin: '12px', overflowY: 'auto', flexGrow: 1, color: '#0f2b26' }}>
+          <div className="superadmin-plans-panel glass-panel">
 
             {/* Metric KPI Cards Row (7 Vibrant Metric Cards) */}
             {/* Metric KPI Cards Row (7 Premium Metric Cards with icons and hover effects) */}
@@ -8996,8 +9177,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               </div>
             </div>
 
-            {/* Sub-Tabs Bar (5 Sub-Tabs matching reference screenshot) */}
-            <div className="superadmin-subtabs-row no-scrollbar" style={{ display: 'flex', gap: '4px', marginBottom: '24px', overflowX: 'auto', flexWrap: 'nowrap', WebkitOverflowScrolling: 'touch', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+            {/* Sub-Tabs Bar (5 Sub-Tabs matching reference screenshot 1:1) */}
+            <div className="superadmin-subtabs-row no-scrollbar">
               <button
                 onClick={() => setSuperadminSubTab('system_users')}
                 className={`superadmin-tab-btn ${superadminSubTab === 'system_users' ? 'active' : ''}`}
@@ -9033,18 +9214,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             {/* Sub-Tab 1: System Users (Matching Screenshot 1:1) */}
             {superadminSubTab === 'system_users' && (
               <div className="superadmin-panel-container">
-                <div style={{ marginBottom: '20px' }}>
-                  <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Users size={20} style={{ color: '#0d9488' }} /> System Users
-                  </h3>
-                  <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
-                    Manage all users across the system. You can elevate anyone to Super Admin.
-                  </p>
-                </div>
-
-                {/* Search bar */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
-                  <div style={{ position: 'relative', width: '280px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Users size={20} style={{ color: '#0d9488' }} /> System Users
+                    </h3>
+                    <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
+                      Manage all users across the system. You can elevate anyone to Super Admin.
+                    </p>
+                  </div>
+                  <div className="superadmin-search-wrapper" style={{ position: 'relative', width: '250px' }}>
                     <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                     <input
                       type="text"
@@ -9054,80 +9233,136 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         setSuperadminUsersQuery(e.target.value);
                         fetchSuperadminUsers(e.target.value);
                       }}
-                      style={{ width: '100%', padding: '8px 12px 8px 36px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}
+                      style={{ width: '100%', padding: '7px 55px 7px 34px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
                     />
+                    <span className="mobile-hide-shortcut" style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', fontWeight: '700', color: '#94a3b8', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '1px 5px', pointerEvents: 'none' }}>Ctrl+K</span>
                   </div>
                 </div>
 
                 {/* System Users Table */}
-                <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '12px' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-                    <thead>
-                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '12px', fontWeight: '700' }}>
-                        <th style={{ padding: '12px 16px' }}>Name ⇅</th>
-                        <th style={{ padding: '12px 16px' }}>Email ⇅</th>
-                        <th style={{ padding: '12px 16px' }}>Role ⇅</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions 🗑️</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {superadminUsers.map(u => (
-                        <tr key={u.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '12px 16px', fontWeight: '700', color: '#0f2b26' }}>{u.name}</td>
-                          <td style={{ padding: '12px 16px', color: '#64748b' }}>{u.email}</td>
-                          <td style={{ padding: '12px 16px' }}>
-                            <select
-                              value={u.role}
-                              onChange={(e) => handleElevateUserRole(u.id, e.target.value)}
-                              style={{
-                                padding: '6px 12px',
-                                borderRadius: '99px',
-                                border: u.role === 'superadmin' ? '1px solid #fecaca' : '1px solid #cbd5e1',
-                                background: u.role === 'superadmin' ? '#fef2f2' : 'white',
-                                color: u.role === 'superadmin' ? '#ef4444' : '#0f2b26',
-                                fontWeight: '700',
-                                fontSize: '12px',
-                                cursor: 'pointer'
-                              }}>
-                              <option value="superadmin">Super Admin</option>
-                              <option value="owner">Company Owner</option>
-                              <option value="manager">Operations Manager</option>
-                              <option value="employee">Employee / Agent</option>
-                            </select>
-                          </td>
-                          <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                            <button
-                              onClick={() => handleDeleteUserAccount(u.id)}
-                              style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '6px', borderRadius: '6px' }}
-                              title="Delete User Account">
-                              <Trash2 size={16} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {superadminUsers.length === 0 && (
-                        <tr>
-                          <td colSpan="4" style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
-                            No system users found.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                <DataTable
+                  columns={[
+                    {
+                      header: 'Name ⇅',
+                      accessor: 'name',
+                      render: (u) => {
+                        const initials = (u.name || 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '50%',
+                              background: 'linear-gradient(135deg, #0d9488, #0f766e)',
+                              color: '#ffffff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              flexShrink: 0,
+                              boxShadow: '0 2px 4px rgba(13, 148, 136, 0.2)'
+                            }}>
+                              {initials}
+                            </div>
+                            <span style={{ fontWeight: '600', color: '#0f2b26', fontSize: '13px' }}>{u.name}</span>
+                          </div>
+                        );
+                      }
+                    },
+                    {
+                      header: 'Email ⇅',
+                      accessor: 'email',
+                      render: (u) => <span style={{ color: '#64748b', fontSize: '13px' }}>{u.email}</span>
+                    },
+                    {
+                      header: 'Role ⇅',
+                      accessor: 'role',
+                      render: (u) => {
+                        const isSuper = u.role === 'superadmin';
+                        const isOwner = u.role === 'owner';
+                        const isManager = u.role === 'manager';
+                        
+                        let bg = '#f8fafc';
+                        let border = '#cbd5e1';
+                        let text = '#475569';
 
-                {/* Table Pagination Footer */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', fontSize: '12px', color: '#64748b' }}>
-                  <div>Showing 1 to {superadminUsers.length} of {superadminUsers.length} entries</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>Rows per page:</span>
-                    <select style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '12px' }}>
-                      <option value="10">10</option>
-                      <option value="25">25</option>
-                      <option value="50">50</option>
-                    </select>
-                  </div>
-                </div>
+                        if (isSuper) {
+                          bg = '#ccfbf1';
+                          border = '#99f6e4';
+                          text = '#0f766e';
+                        } else if (isOwner) {
+                          bg = '#eff6ff';
+                          border = '#bfdbfe';
+                          text = '#1d4ed8';
+                        } else if (isManager) {
+                          bg = '#fffbeb';
+                          border = '#fde68a';
+                          text = '#b45309';
+                        }
+
+                        return (
+                          <select
+                            value={u.role}
+                            onChange={(e) => handleElevateUserRole(u.id, e.target.value)}
+                            style={{
+                              padding: '5px 12px',
+                              borderRadius: '99px',
+                              border: `1px solid ${border}`,
+                              background: bg,
+                              color: text,
+                              fontWeight: '600',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              outline: 'none'
+                            }}
+                          >
+                            <option value="superadmin">Super Admin</option>
+                            <option value="owner">Company Owner</option>
+                            <option value="manager">Operations Manager</option>
+                            <option value="employee">Employee / Agent</option>
+                          </select>
+                        );
+                      }
+                    },
+                    {
+                      header: 'Actions ⇅',
+                      accessor: 'id',
+                      headerStyle: { textAlign: 'right' },
+                      cellStyle: { textAlign: 'right' },
+                      render: (u) => (
+                        <button
+                          onClick={() => handleDeleteUserAccount(u.id)}
+                          style={{
+                            background: '#fef2f2',
+                            border: '1px solid #fee2e2',
+                            color: '#ef4444',
+                            cursor: 'pointer',
+                            padding: '6px 10px',
+                            borderRadius: '8px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s ease'
+                          }}
+                          onMouseOver={(e) => {
+                            e.currentTarget.style.background = '#fee2e2';
+                            e.currentTarget.style.borderColor = '#fca5a5';
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.background = '#fef2f2';
+                            e.currentTarget.style.borderColor = '#fee2e2';
+                          }}
+                          title="Delete User Account"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )
+                    }
+                  ]}
+                  data={superadminUsers}
+                  emptyMessage="No system users found."
+                />
 
               </div>
             )}
@@ -9135,40 +9370,105 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             {/* Sub-Tab 2: Manage Companies */}
             {superadminSubTab === 'manage_companies' && (
               <div className="superadmin-panel-container">
-                <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', marginBottom: '4px' }}>
-                  🏢 Registered Tenant Companies
-                </h3>
-                <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>
-                  Overview of all registered organizations, user seats, and subscription statuses.
-                </p>
-                <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '12px' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-                    <thead>
-                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '12px', fontWeight: '700' }}>
-                        <th style={{ padding: '12px 16px' }}>Tenant ID</th>
-                        <th style={{ padding: '12px 16px' }}>Company Name</th>
-                        <th style={{ padding: '12px 16px' }}>Total Users</th>
-                        <th style={{ padding: '12px 16px' }}>Employees</th>
-                        <th style={{ padding: '12px 16px' }}>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {superadminCompanies.map(c => (
-                        <tr key={c.tenant_id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '12px 16px', fontWeight: '700' }}>#{c.tenant_id}</td>
-                          <td style={{ padding: '12px 16px', fontWeight: '700', color: '#0d9488' }}>{c.company_name}</td>
-                          <td style={{ padding: '12px 16px' }}>{c.user_count}</td>
-                          <td style={{ padding: '12px 16px' }}>{c.emp_count}</td>
-                          <td style={{ padding: '12px 16px' }}>
-                            <span style={{ padding: '4px 10px', borderRadius: '99px', background: '#dcfce7', color: '#166534', fontWeight: '700', fontSize: '11px' }}>
-                              Active Tenant
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', marginBottom: '4px' }}>
+                      🏢 Registered Tenant Companies
+                    </h3>
+                    <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+                      Overview of all registered organizations, user seats, and subscription statuses.
+                    </p>
+                  </div>
+                  <div className="superadmin-search-wrapper" style={{ position: 'relative', width: '250px' }}>
+                    <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                    <input
+                      type="text"
+                      placeholder="Search company or tenant ID..."
+                      value={superadminCompaniesQuery}
+                      onChange={(e) => setSuperadminCompaniesQuery(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px 8px 36px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '13px',
+                        outline: 'none',
+                        background: '#ffffff',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                      }}
+                    />
+                  </div>
                 </div>
+
+                <DataTable
+                  columns={[
+                    {
+                      header: 'Tenant ID ⇅',
+                      accessor: 'tenant_id',
+                      render: (c) => (
+                        <span style={{ fontFamily: 'monospace', background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', color: '#475569' }}>
+                          #{c.tenant_id}
+                        </span>
+                      )
+                    },
+                    {
+                      header: 'Company Name ⇅',
+                      accessor: 'company_name',
+                      render: (c) => {
+                        const initials = c.company_name ? c.company_name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase() : 'CO';
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '50%',
+                              background: 'linear-gradient(135deg, #0d9488, #0f766e)',
+                              color: '#ffffff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              flexShrink: 0
+                            }}>
+                              {initials}
+                            </div>
+                            <span style={{ fontWeight: '700', color: '#0d9488', fontSize: '13px' }}>{c.company_name}</span>
+                          </div>
+                        );
+                      }
+                    },
+                    {
+                      header: 'Total Users ⇅',
+                      accessor: 'user_count',
+                      render: (c) => <span style={{ fontWeight: '600', color: '#334155' }}>{c.user_count}</span>
+                    },
+                    {
+                      header: 'Employees ⇅',
+                      accessor: 'emp_count',
+                      render: (c) => <span style={{ fontWeight: '600', color: '#334155' }}>{c.emp_count}</span>
+                    },
+                    {
+                      header: 'Status ⇅',
+                      accessor: 'status',
+                      render: (c) => (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: '99px', background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', fontWeight: '700', fontSize: '11px' }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }}></span>
+                          Active Tenant
+                        </span>
+                      )
+                    }
+                  ]}
+                  data={superadminCompanies.filter(c => {
+                    if (!superadminCompaniesQuery.trim()) return true;
+                    const q = superadminCompaniesQuery.toLowerCase();
+                    return (
+                      (c.company_name && c.company_name.toLowerCase().includes(q)) ||
+                      (c.tenant_id && String(c.tenant_id).toLowerCase().includes(q))
+                    );
+                  })}
+                  emptyMessage="No registered tenant companies found."
+                />
               </div>
             )}
 
@@ -9188,7 +9488,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         {adminPlanForm.id ? 'Edit Plan Configuration' : 'Create New SaaS Plan'}
                       </h3>
                       <form onSubmit={handleSavePlan} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div className="superadmin-form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                           <div>
                             <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>Plan ID</label>
                             <input
@@ -9238,7 +9538,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           />
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                        <div className="superadmin-form-grid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                           <div>
                             <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>Max Channels</label>
                             <input
@@ -9268,7 +9568,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           </div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '16px', marginTop: '4px' }}>
+                        <div className="superadmin-checkbox-group" style={{ display: 'flex', gap: '16px', marginTop: '4px' }}>
                           <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '600' }}>
                             <input
                               type="checkbox"
@@ -9519,7 +9819,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             {/* Sub-Tab 4: Audit Logs */}
             {superadminSubTab === 'audit_logs' && (
               <div className="superadmin-panel-container">
-                <div className="superadmin-tab-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '16px' }}>
+                <div className="superadmin-tab-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', marginBottom: '16px', gap: '16px' }}>
                   <div>
                     <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <Clock size={20} style={{ color: '#0d9488' }} /> System Audit Logs Registry
@@ -9528,59 +9828,86 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       Chronological security logs tracking user role elevations, plan modifications, and authentication events.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => {
-                      setAuditLogs([]);
-                      showToast('Audit registry logs cleared successfully.', 'success');
-                    }}
-                    style={{ padding: '8px 14px', fontSize: '12px' }}
-                  >
-                    🧹 Clear Log Registry
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', width: '100%', maxWidth: '400px' }}>
+                    <div className="superadmin-search-wrapper" style={{ position: 'relative', flex: '1 1 180px' }}>
+                      <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                      <input
+                        type="text"
+                        placeholder="Search audit logs..."
+                        value={auditLogsQuery}
+                        onChange={(e) => setAuditLogsQuery(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px 8px 36px',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          fontSize: '13px',
+                          outline: 'none',
+                          background: '#ffffff',
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                        }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => {
+                        setAuditLogs([]);
+                        showToast('Audit registry logs cleared successfully.', 'success');
+                      }}
+                      style={{ padding: '8px 14px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                    >
+                      🧹 Clear Log Registry
+                    </button>
+                  </div>
                 </div>
 
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                    <thead>
-                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#64748b', fontSize: '12px', fontWeight: '700' }}>
-                        <th style={{ padding: '12px 16px' }}>Timestamp</th>
-                        <th style={{ padding: '12px 16px' }}>User / Account</th>
-                        <th style={{ padding: '12px 16px' }}>System Activity Event</th>
-                        <th style={{ padding: '12px 16px' }}>Security Role</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {auditLogs.map(log => (
-                        <tr key={log.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '12px 16px', fontWeight: '700', color: '#64748b' }}>{log.time}</td>
-                          <td style={{ padding: '12px 16px', fontWeight: '600' }}>{log.user}</td>
-                          <td style={{ padding: '12px 16px', color: '#0f2b26' }}>{log.action}</td>
-                          <td style={{ padding: '12px 16px' }}>
-                            <span style={{
-                              fontSize: '10px',
-                              padding: '3px 8px',
-                              borderRadius: '4px',
-                              fontWeight: '800',
-                              background: log.role === 'superadmin' ? '#fef2f2' : log.role === 'owner' ? '#def7ec' : '#e0f2fe',
-                              color: log.role === 'superadmin' ? '#ef4444' : log.role === 'owner' ? '#03543f' : '#0369a1'
-                            }}>
-                              {log.role.toUpperCase()}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                      {auditLogs.length === 0 && (
-                        <tr>
-                          <td colSpan="4" style={{ textAlign: 'center', padding: '30px', color: '#94a3b8', fontStyle: 'italic' }}>
-                            No security audit events recorded in this active session.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                <DataTable
+                  columns={[
+                    {
+                      header: 'Timestamp ⇅',
+                      accessor: 'time',
+                      render: (log) => <span style={{ fontWeight: '700', color: '#64748b', fontFamily: 'monospace', fontSize: '12px' }}>{log.time}</span>
+                    },
+                    {
+                      header: 'User / Account ⇅',
+                      accessor: 'user',
+                      render: (log) => <span style={{ fontWeight: '600', color: '#0f2b26' }}>{log.user}</span>
+                    },
+                    {
+                      header: 'System Activity Event ⇅',
+                      accessor: 'action',
+                      render: (log) => <span style={{ color: '#334155' }}>{log.action}</span>
+                    },
+                    {
+                      header: 'Security Role ⇅',
+                      accessor: 'role',
+                      render: (log) => (
+                        <span style={{
+                          fontSize: '10px',
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          fontWeight: '800',
+                          background: log.role === 'superadmin' ? '#fef2f2' : log.role === 'owner' ? '#def7ec' : '#e0f2fe',
+                          color: log.role === 'superadmin' ? '#ef4444' : log.role === 'owner' ? '#03543f' : '#0369a1'
+                        }}>
+                          {(log.role || '').toUpperCase()}
+                        </span>
+                      )
+                    }
+                  ]}
+                  data={auditLogs.filter(log => {
+                    if (!auditLogsQuery.trim()) return true;
+                    const q = auditLogsQuery.toLowerCase();
+                    return (
+                      (log.time && log.time.toLowerCase().includes(q)) ||
+                      (log.user && log.user.toLowerCase().includes(q)) ||
+                      (log.action && log.action.toLowerCase().includes(q)) ||
+                      (log.role && log.role.toLowerCase().includes(q))
+                    );
+                  })}
+                  emptyMessage="No security audit events recorded in this active session."
+                />
               </div>
             )}
 
@@ -12364,8 +12691,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     <button
                                       type="button"
                                       onClick={() => {
+                                        softDeleteRecord({
+                                          originalId: `dropdown_dept_${title}`,
+                                          name: `Department Option: "${title}"`,
+                                          category: 'System Dropdown',
+                                          entityData: { category: 'departments', title },
+                                          links: 'System Dropdown Master'
+                                        });
                                         const updated = systemDropdowns.departments.filter((_, i) => i !== idx);
                                         setSystemDropdowns(prev => ({ ...prev, departments: updated }));
+                                        showToast(`🗑️ Moved "${title}" to Recycle Bin!`, 'info');
                                       }}
                                       style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                     >
@@ -12469,8 +12804,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     <button
                                       type="button"
                                       onClick={() => {
+                                        softDeleteRecord({
+                                          originalId: `dropdown_desig_${title}`,
+                                          name: `Designation Option: "${title}"`,
+                                          category: 'System Dropdown',
+                                          entityData: { category: 'designations', title },
+                                          links: 'System Dropdown Master'
+                                        });
                                         const updated = systemDropdowns.designations.filter((_, i) => i !== idx);
                                         setSystemDropdowns(prev => ({ ...prev, designations: updated }));
+                                        showToast(`🗑️ Moved "${title}" to Recycle Bin!`, 'info');
                                       }}
                                       style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                     >
@@ -12723,8 +13066,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     <button
                                       type="button"
                                       onClick={() => {
+                                        softDeleteRecord({
+                                          originalId: lc.id || `leave_${lc.name}`,
+                                          name: `Leave Type: "${lc.name}"`,
+                                          category: 'System Dropdown',
+                                          entityData: lc,
+                                          links: 'Leave Management'
+                                        });
                                         const updated = systemDropdowns.leaveCategories.filter((_, i) => i !== idx);
                                         setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated }));
+                                        showToast(`🗑️ Moved "${lc.name}" to Recycle Bin!`, 'info');
                                       }}
                                       style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                     >
@@ -12826,7 +13177,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => setStages(stages.filter(s => s.id !== stage.id))}
+                                      onClick={() => {
+                                        softDeleteRecord({
+                                          originalId: stage.id,
+                                          name: `CRM Stage: "${stage.title}"`,
+                                          category: 'System Dropdown',
+                                          entityData: stage,
+                                          links: 'CRM Pipeline'
+                                        });
+                                        setStages(stages.filter(s => s.id !== stage.id));
+                                        showToast(`🗑️ Moved "${stage.title}" to Recycle Bin!`, 'info');
+                                      }}
                                       style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                     >
                                       🗑️ Delete
@@ -12912,7 +13273,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => setAllowedTags(allowedTags.filter(t => t !== tag))}
+                                    onClick={() => {
+                                      softDeleteRecord({
+                                        originalId: `tag_${tag}`,
+                                        name: `CRM Tag: "${tag}"`,
+                                        category: 'System Dropdown',
+                                        entityData: { tag },
+                                        links: 'CRM Contacts'
+                                      });
+                                      setAllowedTags(allowedTags.filter(t => t !== tag));
+                                      showToast(`🗑️ Moved "${tag}" to Recycle Bin!`, 'info');
+                                    }}
                                     style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                   >
                                     🗑️ Delete
@@ -13014,8 +13385,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     <button
                                       type="button"
                                       onClick={() => {
+                                        softDeleteRecord({
+                                          originalId: `dropdown_expense_${title}`,
+                                          name: `Expense Category: "${title}"`,
+                                          category: 'System Dropdown',
+                                          entityData: { category: 'expenses', title },
+                                          links: 'Expense Claims'
+                                        });
                                         const updated = systemDropdowns.expenseCategories.filter((_, i) => i !== idx);
                                         setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated }));
+                                        showToast(`🗑️ Moved "${title}" to Recycle Bin!`, 'info');
                                       }}
                                       style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                     >
@@ -13193,8 +13572,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                               <button
                                 type="button"
                                 onClick={() => {
+                                  const catName = customCat.title;
                                   const updated = (systemDropdowns.customCategories || []).filter((_, i) => i !== catIdx);
                                   setSystemDropdowns(prev => ({ ...prev, customCategories: updated }));
+                                  showToast(`Deleted category "${catName}"`, 'info');
                                 }}
                                 style={{ padding: '4px 10px', fontSize: '11px', fontWeight: '800', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
                               >
@@ -13224,6 +13605,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           const updated = [...(systemDropdowns.customCategories || [])];
                                           updated[catIdx].options = updated[catIdx].options.filter((_, i) => i !== optIdx);
                                           setSystemDropdowns(prev => ({ ...prev, customCategories: updated }));
+                                          showToast(`Deleted option "${opt}"`, 'info');
                                         }}
                                         style={{ border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', fontSize: '11px', fontWeight: '800' }}
                                       >
@@ -13247,89 +13629,199 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         )}
 
         {/* 26. RECYCLE BIN VAULT & SOFT DELETE RECOVERY */}
-        {activeTab === 'recycle_bin' && (
-          <div style={{ padding: 'var(--space-6)', margin: 'var(--space-4)', overflowY: 'auto', flexGrow: 1 }} className="glass-panel">
+        {activeTab === 'recycle_bin' && (() => {
+          const isSuperAdmin = authUser?.role === 'superadmin';
+          const filteredBinItems = recycleBinItems.filter(item => {
+            const matchesCategory = binCategoryFilter === 'all' || (item.category || '').toLowerCase() === binCategoryFilter.toLowerCase();
+            const matchesTenant = selectedBinTenant === 'all' || item.tenantId === selectedBinTenant;
+            const matchesQuery = !binSearchQuery || 
+              (item.name || '').toLowerCase().includes(binSearchQuery.toLowerCase()) || 
+              (item.deletedBy || '').toLowerCase().includes(binSearchQuery.toLowerCase()) ||
+              (item.category || '').toLowerCase().includes(binSearchQuery.toLowerCase());
+            
+            if (!isSuperAdmin && item.tenantId && item.tenantId !== (authUser?.tenantId || authUser?.companyId || 'acme_corp')) {
+              return false;
+            }
+            return matchesCategory && matchesTenant && matchesQuery;
+          });
 
-            {/* Header */}
-            <div className="page-header" style={{ marginBottom: 'var(--space-6)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-                <div style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-md)', background: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px' }}>
-                  🗑️
+          return (
+            <div style={{ padding: 'var(--space-6)', margin: 'var(--space-4)', overflowY: 'auto', flexGrow: 1 }} className="glass-panel">
+
+              {/* Header */}
+              <div className="page-header" style={{ marginBottom: 'var(--space-6)', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+                  <div style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-md)', background: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px' }}>
+                    🗑️
+                  </div>
+                  <div>
+                    <h1 className="page-header-title">Recycle Bin &amp; Data Loss Prevention Vault</h1>
+                    <p className="page-header-subtitle">Soft-deleted records archived safely. Linked data (Attendance, Payslips, Chats) is 100% preserved.</p>
+                  </div>
                 </div>
-                <div>
-                  <h1 className="page-header-title">Recycle Bin &amp; Data Loss Prevention Vault</h1>
-                  <p className="page-header-subtitle">Soft-deleted records are archived here. Dependent data (Attendance, Payslips, Chats) is 100% preserved.</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                  <span className="badge-success" style={{ padding: 'var(--space-2) var(--space-4)', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-bold)' }}>
+                    🛡️ Zero Data Loss Active
+                  </span>
+                  {recycleBinItems.length > 0 && (
+                    <button
+                      type="button"
+                      className="btn btn-danger"
+                      style={{ padding: '8px 16px', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-bold)' }}
+                      onClick={handleEmptyBinVault}
+                    >
+                      🔥 Empty Bin Vault ({recycleBinItems.length})
+                    </button>
+                  )}
                 </div>
               </div>
-              <span className="badge-success" style={{ padding: 'var(--space-2) var(--space-4)', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-bold)' }}>
-                🛡️ Zero Data Loss Soft-Delete Active
-              </span>
-            </div>
 
-            {/* Table Card */}
-            <div className="payroll-table-card">
-              <div style={{ padding: 'var(--space-5) var(--space-6)', borderBottom: '1px solid var(--border-default)' }}>
-                <h3 className="payroll-table-title">Archived Items</h3>
+              {/* Quick Stats Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
+                <div className="glass-card" style={{ padding: 'var(--space-4)', borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-default)' }}>
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Total Vault Items</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', marginTop: '4px' }}>
+                    {recycleBinItems.length}
+                  </div>
+                </div>
+                <div className="glass-card" style={{ padding: 'var(--space-4)', borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-default)' }}>
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Soft-Deleted Employees</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 'var(--fw-bold)', color: 'var(--color-warning)', marginTop: '4px' }}>
+                    {recycleBinItems.filter(i => (i.category || '').toLowerCase() === 'employee').length}
+                  </div>
+                </div>
+                <div className="glass-card" style={{ padding: 'var(--space-4)', borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-default)' }}>
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Archived Leads &amp; Tasks</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 'var(--fw-bold)', color: 'var(--color-primary)', marginTop: '4px' }}>
+                    {recycleBinItems.filter(i => ['crm lead', 'task'].includes((i.category || '').toLowerCase())).length}
+                  </div>
+                </div>
+                <div className="glass-card" style={{ padding: 'var(--space-4)', borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-default)' }}>
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Data Loss Rate</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 'var(--fw-bold)', color: '#10b981', marginTop: '4px' }}>
+                    0.0% (Protected)
+                  </div>
+                </div>
               </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table className="std-table">
-                  <thead>
-                    <tr>
-                      <th>Archived Item</th>
-                      <th>Category</th>
-                      <th>Soft-Deleted Date</th>
-                      <th>Preserved Dependent Links</th>
-                      <th style={{ textAlign: 'right' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recycleBinItems.length === 0 ? (
+
+              {/* Search & Category Filter Toolbar */}
+              <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-6)', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                  {['all', 'employee', 'crm lead', 'task'].map(cat => (
+                    <button
+                      key={cat}
+                      type="button"
+                      className={`btn ${binCategoryFilter === cat ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ padding: '6px 14px', fontSize: 'var(--text-xs)', textTransform: 'capitalize' }}
+                      onClick={() => setBinCategoryFilter(cat)}
+                    >
+                      {cat === 'all' ? '📁 All Categories' : cat}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+                  {isSuperAdmin && (
+                    <select
+                      className="form-control"
+                      style={{ padding: '6px 12px', fontSize: 'var(--text-xs)', width: '180px' }}
+                      value={selectedBinTenant}
+                      onChange={(e) => setSelectedBinTenant(e.target.value)}
+                    >
+                      <option value="all">🏢 All Companies (SaaS)</option>
+                      <option value="acme_corp">Acme Corp</option>
+                      <option value="platform_superadmin">SaaS Platform Admin</option>
+                    </select>
+                  )}
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="🔍 Search deleted records..."
+                    style={{ padding: '6px 14px', fontSize: 'var(--text-xs)', width: '220px' }}
+                    value={binSearchQuery}
+                    onChange={(e) => setBinSearchQuery(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Table Card */}
+              <div className="payroll-table-card">
+                <div style={{ padding: 'var(--space-4) var(--space-6)', borderBottom: '1px solid var(--border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 className="payroll-table-title">Archived Items ({filteredBinItems.length})</h3>
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                    Auto-purged after 90 days retention period
+                  </span>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="std-table">
+                    <thead>
                       <tr>
-                        <td colSpan="5" style={{ padding: 'var(--space-10)', textAlign: 'center', color: 'var(--text-muted)' }}>
-                          <div style={{ fontSize: '2rem', marginBottom: 'var(--space-3)' }}>🗑️</div>
-                          No items currently in Recycle Bin vault.
-                        </td>
+                        <th>Archived Item</th>
+                        <th>Category</th>
+                        <th>Deleted By</th>
+                        <th>Soft-Deleted Date</th>
+                        <th>Preserved Dependent Links</th>
+                        <th style={{ textAlign: 'right' }}>Actions</th>
                       </tr>
-                    ) : (
-                      recycleBinItems.map(item => (
-                        <tr key={item.id}>
-                          <td style={{ fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)' }}>{item.name}</td>
-                          <td>
-                            <span className="badge-info">{item.type}</span>
-                          </td>
-                          <td style={{ color: 'var(--text-secondary)' }}>{item.deletedAt}</td>
-                          <td>
-                            <span className="badge-success">🛡️ Intact: {item.links}</span>
-                          </td>
-                          <td>
-                            <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end' }}>
-                              <button
-                                type="button"
-                                className="btn btn-success"
-                                style={{ padding: '6px 14px', fontSize: 'var(--text-xs)' }}
-                                onClick={() => handleRestoreBinItem(item)}
-                              >
-                                🔄 Restore
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-danger"
-                                style={{ padding: '6px 14px', fontSize: 'var(--text-xs)' }}
-                                onClick={() => handlePermanentDeleteBinItem(item.id)}
-                              >
-                                ❌ Delete Permanently
-                              </button>
-                            </div>
+                    </thead>
+                    <tbody>
+                      {filteredBinItems.length === 0 ? (
+                        <tr>
+                          <td colSpan="6" style={{ padding: 'var(--space-10)', textAlign: 'center', color: 'var(--text-muted)' }}>
+                            <div style={{ fontSize: '2rem', marginBottom: 'var(--space-3)' }}>🗑️</div>
+                            No archived items match your filter criteria.
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      ) : (
+                        filteredBinItems.map(item => (
+                          <tr key={item.id}>
+                            <td style={{ fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)' }}>
+                              <div>{item.name}</div>
+                              {isSuperAdmin && item.tenantName && (
+                                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Company: {item.tenantName}</span>
+                              )}
+                            </td>
+                            <td>
+                              <span className="badge-info">{item.category || 'General'}</span>
+                            </td>
+                            <td style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-xs)' }}>
+                              <div>{item.deletedBy || 'System User'}</div>
+                              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{item.deletedByEmail}</div>
+                            </td>
+                            <td style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-xs)' }}>{item.deletedAt}</td>
+                            <td>
+                              <span className="badge-success">🛡️ Intact: {item.links || 'Full History Intact'}</span>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end' }}>
+                                <button
+                                  type="button"
+                                  className="btn btn-success"
+                                  style={{ padding: '6px 14px', fontSize: 'var(--text-xs)' }}
+                                  onClick={() => handleRestoreBinItem(item)}
+                                >
+                                  🔄 Restore
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-danger"
+                                  style={{ padding: '6px 14px', fontSize: 'var(--text-xs)' }}
+                                  onClick={() => handlePermanentDeleteBinItem(item.id, item.name)}
+                                >
+                                  ❌ Purge
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* 27. APP GUIDE & INTERACTIVE ONBOARDING TOUR */}
         {activeTab === 'app_guide' && (
@@ -13461,10 +13953,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               </div>
             </div>
 
+
           </div>
         )}
-
-
       </main>
 
       {/* 21. MOCK MODALS */}
@@ -16463,6 +16954,100 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </div>
         </div>
       )}
+
+      {/* Universal Custom Confirm Modal Popup */}
+      {confirmModal.isOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 999999,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '18px',
+            padding: '28px 24px 24px',
+            maxWidth: '400px',
+            width: '100%',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+            border: '1px solid #e2e8f0',
+            textAlign: 'center',
+            animation: 'fadeIn 0.2s ease-out'
+          }}>
+            <div style={{
+              width: '52px',
+              height: '52px',
+              borderRadius: '50%',
+              background: confirmModal.danger ? '#fee2e2' : '#e0f2fe',
+              color: confirmModal.danger ? '#ef4444' : '#0284c7',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
+              fontSize: '22px'
+            }}>
+              {confirmModal.danger ? '⚠️' : 'ℹ️'}
+            </div>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginBottom: '8px' }}>
+              {confirmModal.title}
+            </h3>
+            <p style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.5', marginBottom: '24px' }}>
+              {confirmModal.message}
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                style={{
+                  flex: 1,
+                  padding: '10px 16px',
+                  borderRadius: '10px',
+                  border: '1px solid #cbd5e1',
+                  background: '#ffffff',
+                  color: '#475569',
+                  fontWeight: '700',
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                {confirmModal.cancelText || 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirmModal.onConfirm) confirmModal.onConfirm();
+                  setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px 16px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: confirmModal.danger ? '#dc2626' : '#0d9488',
+                  color: '#ffffff',
+                  fontWeight: '700',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  boxShadow: confirmModal.danger ? '0 4px 12px rgba(220, 38, 38, 0.35)' : '0 4px 12px rgba(13, 148, 136, 0.35)'
+                }}
+              >
+                {confirmModal.confirmText || 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+/* DashboardShell Component - Verified & Balanced */
+

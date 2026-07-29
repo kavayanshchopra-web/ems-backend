@@ -3,9 +3,10 @@ title DEPLOY LOCAL BUILD TO VERCEL
 color 0B
 echo.
 echo ============================================================
-echo  STEP 1: Building frontend locally...
+echo  STEP 1: Installing dependencies & Building frontend locally...
 echo ============================================================
 cd /d "D:\AG Projects\whatsapp-crm\frontend"
+call npm install --legacy-peer-deps --no-audit
 call npm run build
 if %errorlevel% neq 0 (
   echo BUILD FAILED! Check errors above.
