@@ -12819,119 +12819,252 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               <div className="payroll-table-card" style={{ padding: 'var(--space-6)', minHeight: '520px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid var(--border-default)' }}>
 
                 {/* 1. DEPARTMENTS */}
-                {selectedDropdownCategory === 'departments' && (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '20px' }}>🏢</span>
-                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Departments Options</h3>
+                {selectedDropdownCategory === 'departments' && (() => {
+                  const defaultList = ['Sales', 'Engineering', 'Human Resources', 'Operations', 'Finance & Payroll', 'Customer Support'].map(n => ({ name: n, archived: false }));
+                  const currentItems = (systemDropdowns.departments && systemDropdowns.departments.length > 0)
+                    ? systemDropdowns.departments.map(item => typeof item === 'object' && item !== null ? item : { name: item, archived: false })
+                    : defaultList;
+
+                  return (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '20px' }}>🏢</span>
+                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Departments Options</h3>
+                          </div>
+                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage functional departments across the company</p>
                         </div>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage functional departments across the company</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const val = prompt("Enter new Department name:");
-                          if (val && val.trim()) {
-                            const trimmed = val.trim();
-                            const exists = systemDropdowns.departments.some(d => (typeof d === 'object' ? d.name : d) === trimmed);
-                            if (!exists) {
-                              setSystemDropdowns(prev => ({ ...prev, departments: [...prev.departments, { name: trimmed, archived: false }] }));
-                              showToast(`Added Department "${trimmed}"`, 'success');
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const val = prompt("Enter new Department name:");
+                            if (val && val.trim()) {
+                              const trimmed = val.trim();
+                              const exists = currentItems.some(d => d.name === trimmed);
+                              if (!exists) {
+                                const updated = [...currentItems, { name: trimmed, archived: false }];
+                                setSystemDropdowns(prev => ({ ...prev, departments: updated }));
+                                showToast(`Added Department "${trimmed}"`, 'success');
+                              }
                             }
-                          }
-                        }}
-                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                      >
-                        + Add Option
-                      </button>
-                    </div>
+                          }}
+                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
+                        >
+                          + Add Option
+                        </button>
+                      </div>
 
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table" style={{ width: '100%' }}>
-                        <thead>
-                          <tr>
-                            <th style={{ width: '50px' }}>#</th>
-                            <th style={{ padding: '10px 12px' }}>Role / Designation Title</th>
-                            <th style={{ width: '130px' }}>Status</th>
-                            <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {systemDropdowns.designations.map((desig, idx) => {
-                            const isObj = typeof desig === 'object' && desig !== null;
-                            const title = isObj ? desig.name : desig;
-                            const isArchived = isObj ? Boolean(desig.archived) : false;
-
-                            return (
-                              <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white', transition: 'background 0.15s ease' }}>
-                                <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                <td style={{ padding: '12px', fontWeight: '700', color: isArchived ? '#94a3b8' : '#0f2b26', textDecoration: isArchived ? 'line-through' : 'none' }}>
-                                  {title}
-                                </td>
-                                <td style={{ padding: '12px' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                    {isArchived ? '📦 Archived' : '🟢 Active'}
-                                  </span>
-                                </td>
-                                <td style={{ padding: '12px', textAlign: 'right' }}>
-                                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const newName = prompt("Rename Designation:", title);
-                                        if (newName && newName.trim()) {
-                                          const updated = [...systemDropdowns.designations];
-                                          updated[idx] = { name: newName.trim(), archived: isArchived };
-                                          setSystemDropdowns(prev => ({ ...prev, designations: updated }));
-                                          showToast(`Updated to "${newName.trim()}"`, 'success');
-                                        }
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                    >
-                                      ✏️ Edit
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const updated = [...systemDropdowns.designations];
-                                        updated[idx] = { name: title, archived: !isArchived };
-                                        setSystemDropdowns(prev => ({ ...prev, designations: updated }));
-                                        showToast(isArchived ? `Restored "${title}"` : `Archived "${title}"`, 'info');
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                    >
-                                      {isArchived ? '🔄 Restore' : '📦 Archive'}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        softDeleteRecord({
-                                          originalId: `dropdown_desig_${title}`,
-                                          name: `Designation Option: "${title}"`,
-                                          category: 'System Dropdown',
-                                          entityData: { category: 'designations', title },
-                                          links: 'System Dropdown Master'
-                                        });
-                                        const updated = systemDropdowns.designations.filter((_, i) => i !== idx);
-                                        setSystemDropdowns(prev => ({ ...prev, designations: updated }));
-                                        showToast(`🗑️ Moved "${title}" to Recycle Bin!`, 'info');
-                                      }}
-                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                    >
-                                      🗑️ Delete
-                                    </button>
-                                  </div>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table className="std-table" style={{ width: '100%' }}>
+                          <thead>
+                            <tr>
+                              <th style={{ width: '50px' }}>#</th>
+                              <th style={{ padding: '10px 12px' }}>Department Title</th>
+                              <th style={{ width: '130px' }}>Status</th>
+                              <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {currentItems.length === 0 ? (
+                              <tr>
+                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
+                                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Departments Configured</div>
+                                  <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create your first department.</div>
                                 </td>
                               </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                            ) : (
+                              currentItems.map((item, idx) => (
+                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
+                                  <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                  <td style={{ padding: '12px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
+                                  <td style={{ padding: '12px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                      {item.archived ? '📦 Archived' : '🟢 Active'}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newName = prompt("Rename Department:", item.name);
+                                          if (newName && newName.trim()) {
+                                            const updated = [...currentItems];
+                                            updated[idx] = { name: newName.trim(), archived: item.archived };
+                                            setSystemDropdowns(prev => ({ ...prev, departments: updated }));
+                                            showToast(`Updated to "${newName.trim()}"`, 'success');
+                                          }
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                      >
+                                        ✏️ Edit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = [...currentItems];
+                                          updated[idx] = { name: item.name, archived: !item.archived };
+                                          setSystemDropdowns(prev => ({ ...prev, departments: updated }));
+                                          showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                      >
+                                        {item.archived ? '🔄 Restore' : '📦 Archive'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          softDeleteRecord({
+                                            originalId: `dropdown_dept_${item.name}`,
+                                            name: `Department Option: "${item.name}"`,
+                                            category: 'System Dropdown',
+                                            entityData: { category: 'departments', title: item.name },
+                                            links: 'System Dropdown Master'
+                                          });
+                                          const updated = currentItems.filter((_, i) => i !== idx);
+                                          setSystemDropdowns(prev => ({ ...prev, departments: updated }));
+                                          showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                      >
+                                        🗑️ Delete
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
+
+                {/* 2. DESIGNATIONS */}
+                {selectedDropdownCategory === 'designations' && (() => {
+                  const defaultList = ['Software Engineer', 'Sales Representative', 'HR Specialist', 'Field Agent', 'Accountant', 'Team Lead'].map(n => ({ name: n, archived: false }));
+                  const currentItems = (systemDropdowns.designations && systemDropdowns.designations.length > 0)
+                    ? systemDropdowns.designations.map(item => typeof item === 'object' && item !== null ? item : { name: item, archived: false })
+                    : defaultList;
+
+                  return (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '20px' }}>💼</span>
+                            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Designations Options</h3>
+                          </div>
+                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage job roles & designation titles across all teams</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const val = prompt("Enter new Designation role:");
+                            if (val && val.trim()) {
+                              const trimmed = val.trim();
+                              const exists = currentItems.some(d => d.name === trimmed);
+                              if (!exists) {
+                                const updated = [...currentItems, { name: trimmed, archived: false }];
+                                setSystemDropdowns(prev => ({ ...prev, designations: updated }));
+                                showToast(`Added Designation "${trimmed}"`, 'success');
+                              }
+                            }
+                          }}
+                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
+                        >
+                          + Add Option
+                        </button>
+                      </div>
+
+                      <div style={{ overflowX: 'auto' }}>
+                        <table className="std-table" style={{ width: '100%' }}>
+                          <thead>
+                            <tr>
+                              <th style={{ width: '50px' }}>#</th>
+                              <th style={{ padding: '10px 12px' }}>Role / Designation Title</th>
+                              <th style={{ width: '130px' }}>Status</th>
+                              <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {currentItems.length === 0 ? (
+                              <tr>
+                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
+                                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Designations Configured</div>
+                                  <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create your first designation.</div>
+                                </td>
+                              </tr>
+                            ) : (
+                              currentItems.map((item, idx) => (
+                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
+                                  <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                  <td style={{ padding: '12px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
+                                  <td style={{ padding: '12px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                      {item.archived ? '📦 Archived' : '🟢 Active'}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newName = prompt("Rename Designation:", item.name);
+                                          if (newName && newName.trim()) {
+                                            const updated = [...currentItems];
+                                            updated[idx] = { name: newName.trim(), archived: item.archived };
+                                            setSystemDropdowns(prev => ({ ...prev, designations: updated }));
+                                            showToast(`Updated to "${newName.trim()}"`, 'success');
+                                          }
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                      >
+                                        ✏️ Edit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = [...currentItems];
+                                          updated[idx] = { name: item.name, archived: !item.archived };
+                                          setSystemDropdowns(prev => ({ ...prev, designations: updated }));
+                                          showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                      >
+                                        {item.archived ? '🔄 Restore' : '📦 Archive'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          softDeleteRecord({
+                                            originalId: `dropdown_desig_${item.name}`,
+                                            name: `Designation Option: "${item.name}"`,
+                                            category: 'System Dropdown',
+                                            entityData: { category: 'designations', title: item.name },
+                                            links: 'System Dropdown Master'
+                                          });
+                                          const updated = currentItems.filter((_, i) => i !== idx);
+                                          setSystemDropdowns(prev => ({ ...prev, designations: updated }));
+                                          showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                      >
+                                        🗑️ Delete
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* 3. EMPLOYMENT TYPES */}
                 {selectedDropdownCategory === 'employment_types' && (() => {
