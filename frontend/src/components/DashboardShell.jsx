@@ -14931,8 +14931,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           </div>
                         ))}
                       </div>
-                    </div>
                   </div>
+                )}
               </div>
             </div>
           </div>
