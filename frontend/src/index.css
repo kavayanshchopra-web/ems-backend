@@ -1648,9 +1648,14 @@ h1, h2, h3, h4, h5, h6 {
     gap: var(--space-4) !important;
   }
 
-  .system-dropdowns-grid {
-    grid-template-columns: 1fr !important;
-    gap: var(--space-4) !important;
+.system-dropdowns-container {
+  padding: var(--space-6);
+  margin: var(--space-4);
+}
+
+@media (max-width: 768px) {
+  .mobile-swipe-hint {
+    display: block !important;
   }
 
   .system-dropdowns-container {

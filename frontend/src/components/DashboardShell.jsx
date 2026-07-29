@@ -12726,7 +12726,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
         {/* 25. SYSTEM DROPDOWNS CONFIG - 2-COLUMN MASTER LAYOUT */}
         {activeTab === 'system_dropdowns' && (
-          <div style={{ padding: 'var(--space-6)', margin: 'var(--space-4)', overflowY: 'auto', flexGrow: 1 }} className="glass-panel system-dropdowns-container">
+          <div style={{ overflowY: 'auto', flexGrow: 1 }} className="glass-panel system-dropdowns-container">
             {/* Header Banner */}
             <div className="page-header system-dropdowns-header-banner" style={{ marginBottom: 'var(--space-5)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
@@ -12937,6 +12937,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         </button>
                       </div>
 
+                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
                       <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
                         <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
@@ -12973,7 +12974,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     <td style={{ padding: '12px 14px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
                                     <td style={{ padding: '12px 14px' }}>
                                       <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                        {item.archived ? '📦 Archived' : '🟢 Active'}
+                                        {item.archived ? 'Archived' : 'Active'}
                                       </span>
                                     </td>
                                     <td style={{ padding: '12px 14px', textAlign: 'right' }}>
@@ -12991,7 +12992,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           }}
                                           style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
                                         >
-                                          ✏️ Edit
+                                          Edit
                                         </button>
                                         <button
                                           type="button"
@@ -13003,7 +13004,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           }}
                                           style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
                                         >
-                                          {item.archived ? '🔄 Restore' : '📦 Archive'}
+                                          {item.archived ? 'Restore' : 'Archive'}
                                         </button>
                                         <button
                                           type="button"
@@ -13021,7 +13022,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           }}
                                           style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                         >
-                                          🗑️ Delete
+                                          Delete
                                         </button>
                                       </div>
                                     </td>
@@ -13081,6 +13082,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         </button>
                       </div>
 
+                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
                       <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
                         <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
@@ -13117,7 +13119,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     <td style={{ padding: '12px 14px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
                                     <td style={{ padding: '12px 14px' }}>
                                       <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                        {item.archived ? '📦 Archived' : '🟢 Active'}
+                                        {item.archived ? 'Archived' : 'Active'}
                                       </span>
                                     </td>
                                     <td style={{ padding: '12px 14px', textAlign: 'right' }}>
@@ -13135,7 +13137,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           }}
                                           style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
                                         >
-                                          ✏️ Edit
+                                          Edit
                                         </button>
                                         <button
                                           type="button"
@@ -13147,7 +13149,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           }}
                                           style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
                                         >
-                                          {item.archived ? '🔄 Restore' : '📦 Archive'}
+                                          {item.archived ? 'Restore' : 'Archive'}
                                         </button>
                                         <button
                                           type="button"
@@ -13165,7 +13167,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           }}
                                           style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                         >
-                                          🗑️ Delete
+                                          Delete
                                         </button>
                                       </div>
                                     </td>
@@ -13225,6 +13227,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         </button>
                       </div>
 
+                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
                       <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
                         <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
@@ -13261,7 +13264,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     <td style={{ padding: '12px 14px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
                                     <td style={{ padding: '12px 14px' }}>
                                       <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                        {item.archived ? '📦 Archived' : '🟢 Active'}
+                                        {item.archived ? 'Archived' : 'Active'}
                                       </span>
                                     </td>
                                     <td style={{ padding: '12px 14px', textAlign: 'right' }}>
@@ -13279,7 +13282,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           }}
                                           style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
                                         >
-                                          ✏️ Edit
+                                          Edit
                                         </button>
                                         <button
                                           type="button"
@@ -13291,7 +13294,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           }}
                                           style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
                                         >
-                                          {item.archived ? '🔄 Restore' : '📦 Archive'}
+                                          {item.archived ? 'Restore' : 'Archive'}
                                         </button>
                                         <button
                                           type="button"
@@ -13309,7 +13312,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           }}
                                           style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                         >
-                                          🗑️ Delete
+                                          Delete
                                         </button>
                                       </div>
                                     </td>
@@ -13369,6 +13372,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         </button>
                       </div>
 
+                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
                       <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
                         <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
@@ -13405,7 +13409,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     <td style={{ padding: '12px 14px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
                                     <td style={{ padding: '12px 14px' }}>
                                       <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                        {item.archived ? '📦 Archived' : '🟢 Active'}
+                                        {item.archived ? 'Archived' : 'Active'}
                                       </span>
                                     </td>
                                     <td style={{ padding: '12px 14px', textAlign: 'right' }}>
@@ -13423,7 +13427,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           }}
                                           style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
                                         >
-                                          ✏️ Edit
+                                          Edit
                                         </button>
                                         <button
                                           type="button"
@@ -13435,7 +13439,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           }}
                                           style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
                                         >
-                                          {item.archived ? '🔄 Restore' : '📦 Archive'}
+                                          {item.archived ? 'Restore' : 'Archive'}
                                         </button>
                                         <button
                                           type="button"
@@ -13453,7 +13457,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           }}
                                           style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                         >
-                                          🗑️ Delete
+                                          Delete
                                         </button>
                                       </div>
                                     </td>
@@ -13513,6 +13517,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         </button>
                       </div>
 
+                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
                       <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
                         <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
@@ -13549,7 +13554,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     <td style={{ padding: '12px 14px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
                                     <td style={{ padding: '12px 14px' }}>
                                       <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                        {item.archived ? '📦 Archived' : '🟢 Active'}
+                                        {item.archived ? 'Archived' : 'Active'}
                                       </span>
                                     </td>
                                     <td style={{ padding: '12px 14px', textAlign: 'right' }}>
@@ -13567,7 +13572,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           }}
                                           style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
                                         >
-                                          ✏️ Edit
+                                          Edit
                                         </button>
                                         <button
                                           type="button"
@@ -13579,7 +13584,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           }}
                                           style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
                                         >
-                                          {item.archived ? '🔄 Restore' : '📦 Archive'}
+                                          {item.archived ? 'Restore' : 'Archive'}
                                         </button>
                                         <button
                                           type="button"
@@ -13597,7 +13602,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           }}
                                           style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                         >
-                                          🗑️ Delete
+                                          Delete
                                         </button>
                                       </div>
                                     </td>
@@ -13657,6 +13662,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         </button>
                       </div>
 
+                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
                       <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
                         <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
@@ -13693,7 +13699,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     <td style={{ padding: '12px 14px', fontWeight: '800', color: item.archived ? '#94a3b8' : '#0d9488', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
                                     <td style={{ padding: '12px 14px' }}>
                                       <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                        {item.archived ? '📦 Archived' : '🟢 Active'}
+                                        {item.archived ? 'Archived' : 'Active'}
                                       </span>
                                     </td>
                                     <td style={{ padding: '12px 14px', textAlign: 'right' }}>
@@ -13711,7 +13717,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           }}
                                           style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
                                         >
-                                          ✏️ Edit
+                                          Edit
                                         </button>
                                         <button
                                           type="button"
@@ -13723,7 +13729,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           }}
                                           style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
                                         >
-                                          {item.archived ? '🔄 Restore' : '📦 Archive'}
+                                          {item.archived ? 'Restore' : 'Archive'}
                                         </button>
                                         <button
                                           type="button"
@@ -13741,7 +13747,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           }}
                                           style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                         >
-                                          🗑️ Delete
+                                          Delete
                                         </button>
                                       </div>
                                     </td>
@@ -13795,6 +13801,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         </button>
                       </div>
 
+                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
                       <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
                         <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
@@ -13833,7 +13840,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                   </td>
                                   <td style={{ padding: '12px 14px' }}>
                                     <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                      {isArchived ? '📦 Archived' : '🟢 Active'}
+                                      {isArchived ? 'Archived' : 'Active'}
                                     </span>
                                   </td>
                                   <td style={{ padding: '12px 14px', textAlign: 'right' }}>
@@ -13852,7 +13859,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         }}
                                         style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
                                       >
-                                        ✏️ Edit
+                                        Edit
                                       </button>
                                       <button
                                         type="button"
@@ -13864,7 +13871,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         }}
                                         style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
                                       >
-                                        {isArchived ? '🔄 Restore' : '📦 Archive'}
+                                        {isArchived ? 'Restore' : 'Archive'}
                                       </button>
                                       <button
                                         type="button"
@@ -13882,7 +13889,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         }}
                                         style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                       >
-                                        🗑️ Delete
+                                        Delete
                                       </button>
                                     </div>
                                   </td>
@@ -13929,6 +13936,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         </button>
                       </div>
 
+                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
                       <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
                         <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
@@ -13991,7 +13999,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                   </td>
                                   <td style={{ padding: '12px 14px' }}>
                                     <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                      {isArchived ? '📦 Archived' : '🟢 Active'}
+                                      {isArchived ? 'Archived' : 'Active'}
                                     </span>
                                   </td>
                                   <td style={{ padding: '12px 14px', textAlign: 'right' }}>
@@ -14006,7 +14014,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         }}
                                         style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
                                       >
-                                        {isArchived ? '🔄 Restore' : '📦 Archive'}
+                                        {isArchived ? 'Restore' : 'Archive'}
                                       </button>
                                       <button
                                         type="button"
@@ -14023,7 +14031,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         }}
                                         style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                       >
-                                        🗑️ Delete
+                                        Delete
                                       </button>
                                     </div>
                                   </td>
@@ -14084,6 +14092,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         </button>
                       </div>
 
+                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
                       <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
                         <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
@@ -14120,7 +14129,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                   </td>
                                   <td style={{ padding: '12px 14px' }}>
                                     <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                      {isArchived ? '📦 Archived' : '🟢 Active'}
+                                      {isArchived ? 'Archived' : 'Active'}
                                     </span>
                                   </td>
                                   <td style={{ padding: '12px 14px', textAlign: 'right' }}>
@@ -14138,7 +14147,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         }}
                                         style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
                                       >
-                                        ✏️ Edit
+                                        Edit
                                       </button>
                                       <button
                                         type="button"
@@ -14150,7 +14159,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         }}
                                         style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
                                       >
-                                        {isArchived ? '🔄 Restore' : '📦 Archive'}
+                                        {isArchived ? 'Restore' : 'Archive'}
                                       </button>
                                       <button
                                         type="button"
@@ -14168,7 +14177,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         }}
                                         style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                       >
-                                        🗑️ Delete
+                                        Delete
                                       </button>
                                     </div>
                                   </td>
@@ -14229,6 +14238,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         </button>
                       </div>
 
+                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
                       <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
                         <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
@@ -14263,7 +14273,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                   </td>
                                   <td style={{ padding: '12px 14px' }}>
                                     <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                      {isArchived ? '📦 Archived' : '🟢 Active'}
+                                      {isArchived ? 'Archived' : 'Active'}
                                     </span>
                                   </td>
                                   <td style={{ padding: '12px 14px', textAlign: 'right' }}>
@@ -14281,7 +14291,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         }}
                                         style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
                                       >
-                                        ✏️ Edit
+                                        Edit
                                       </button>
                                       <button
                                         type="button"
@@ -14293,7 +14303,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         }}
                                         style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
                                       >
-                                        {isArchived ? '🔄 Restore' : '📦 Archive'}
+                                        {isArchived ? 'Restore' : 'Archive'}
                                       </button>
                                       <button
                                         type="button"
@@ -14311,7 +14321,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         }}
                                         style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                       >
-                                        🗑️ Delete
+                                        Delete
                                       </button>
                                     </div>
                                   </td>
@@ -14372,6 +14382,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         </button>
                       </div>
 
+                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
                       {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
                       <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
                         <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
@@ -14406,7 +14417,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                   </td>
                                   <td style={{ padding: '12px 14px' }}>
                                     <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                      {isArchived ? '📦 Archived' : '🟢 Active'}
+                                      {isArchived ? 'Archived' : 'Active'}
                                     </span>
                                   </td>
                                   <td style={{ padding: '12px 14px', textAlign: 'right' }}>
@@ -14424,7 +14435,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         }}
                                         style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
                                       >
-                                        ✏️ Edit
+                                        Edit
                                       </button>
                                       <button
                                         type="button"
@@ -14436,7 +14447,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         }}
                                         style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
                                       >
-                                        {isArchived ? '🔄 Restore' : '📦 Archive'}
+                                        {isArchived ? 'Restore' : 'Archive'}
                                       </button>
                                       <button
                                         type="button"
@@ -14454,7 +14465,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         }}
                                         style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                       >
-                                        🗑️ Delete
+                                        Delete
                                       </button>
                                     </div>
                                   </td>
