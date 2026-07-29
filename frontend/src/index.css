@@ -7,61 +7,61 @@
 
 :root {
 
-  /* ── BRAND COLORS ───────────────────────────────────────── */
-  --color-primary:       #0d9488;
-  --color-primary-dark:  #064e43;
-  --color-primary-hover: #0f766e;
-  --color-primary-light: #f0fdfb;
-  --color-primary-glow:  rgba(13, 148, 136, 0.15);
+  /* ── BRAND COLORS — Modern Enterprise SaaS (Slate Indigo & Royal Blue) ── */
+  --color-primary:       #2563eb;
+  --color-primary-dark:  #1d4ed8;
+  --color-primary-hover: #1e40af;
+  --color-primary-light: #eff6ff;
+  --color-primary-glow:  rgba(37, 99, 235, 0.15);
 
   /* ── STATUS COLORS ──────────────────────────────────────── */
   --color-success:       #10b981;
-  --color-success-bg:    #dcfce7;
-  --color-success-text:  #16a34a;
+  --color-success-bg:    #ecfdf5;
+  --color-success-text:  #047857;
   --color-warning:       #f59e0b;
-  --color-warning-bg:    #fef9c3;
-  --color-warning-text:  #ca8a04;
+  --color-warning-bg:    #fffbeb;
+  --color-warning-text:  #b45309;
   --color-danger:        #ef4444;
-  --color-danger-bg:     #fee2e2;
-  --color-danger-text:   #dc2626;
+  --color-danger-bg:     #fef2f2;
+  --color-danger-text:   #b91c1c;
   --color-info:          #3b82f6;
-  --color-info-bg:       #dbeafe;
+  --color-info-bg:       #eff6ff;
   --color-info-text:     #1d4ed8;
 
   /* ── TEXT HIERARCHY ─────────────────────────────────────── */
-  --text-primary:    #111827;
-  --text-body:       #374151;
-  --text-secondary:  #6b7280;
-  --text-muted:      #9ca3af;
-  --text-dim:        #b0b8c8;
-  --text-disabled:   #d1d5db;
-  --text-main:       #111827;
+  --text-primary:    #0f172a;
+  --text-body:       #334155;
+  --text-secondary:  #64748b;
+  --text-muted:      #94a3b8;
+  --text-dim:        #cbd5e1;
+  --text-disabled:   #e2e8f0;
+  --text-main:       #0f172a;
 
   /* ── BACKGROUND COLORS ──────────────────────────────────── */
-  --bg-page:         #f3f6f9;
+  --bg-page:         #f8fafc;
   --bg-card:         #ffffff;
-  --bg-input:        #f9fafb;
+  --bg-input:        #ffffff;
   --bg-table-head:   #f8fafc;
   --bg-row-hover:    #f8fafc;
-  --bg-main:         #f3f6f9;
+  --bg-main:         #f8fafc;
   --bg-glass:        #ffffff;
   --bg-card-hover:   #ffffff;
   --bg-subtle:       #f8fafc;
 
-  /* ── SIDEBAR ────────────────────────────────────────────── */
+  /* ── SIDEBAR — Deep Teal Dark SaaS Sidebar ─────────────── */
   --sidebar-bg:          #064e43;
-  --sidebar-hover:       rgba(255, 255, 255, 0.08);
+  --sidebar-hover:       rgba(255, 255, 255, 0.1);
   --sidebar-active-bg:   #0d9488;
-  --sidebar-text:        rgba(255, 255, 255, 0.8);
+  --sidebar-text:        #cbd5e1;
   --sidebar-text-active: #ffffff;
-  --sidebar-cat-text:    rgba(255, 255, 255, 0.45);
+  --sidebar-cat-text:    #5eead4;
 
   /* ── BORDERS ────────────────────────────────────────────── */
-  --border-default:  #e5e7eb;
-  --border-focus:    #0d9488;
+  --border-default:  #e2e8f0;
+  --border-focus:    #2563eb;
   --border-subtle:   #f1f5f9;
-  --border-card:     #e5e7eb;
-  --border-glass:    rgba(255, 255, 255, 0.8);
+  --border-card:     #e2e8f0;
+  --border-glass:    #e2e8f0;
 
   /* ── TYPOGRAPHY — Inter Font ────────────────────────────── */
   --font-header: 'Inter', ui-sans-serif, system-ui, sans-serif;

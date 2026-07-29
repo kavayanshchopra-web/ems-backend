@@ -1171,6 +1171,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     customEngine: false
   });
 
+  // System Dropdowns Search & Inline Quick Add State
+  const [dropdownSearchQuery, setDropdownSearchQuery] = useState('');
+  const [inlineQuickAddText, setInlineQuickAddText] = useState('');
+
   const toggleDropdownAccordion = (key) => {
     setDropdownAccordionsOpen(prev => ({ ...prev, [key]: !prev[key] }));
   };
@@ -1236,6 +1240,88 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.error("Save master dropdowns error:", err);
       showToast('Saved successfully!', 'success');
     }
+  };
+
+  const handleMoveOption = (categoryKey, index, direction) => {
+    const targetIndex = index + direction;
+    if (categoryKey === 'crm_stages') {
+      if (targetIndex < 0 || targetIndex >= stages.length) return;
+      const updated = [...stages];
+      const temp = updated[index];
+      updated[index] = updated[targetIndex];
+      updated[targetIndex] = temp;
+      setStages(updated);
+    } else if (categoryKey === 'crm_tags') {
+      if (targetIndex < 0 || targetIndex >= allowedTags.length) return;
+      const updated = [...allowedTags];
+      const temp = updated[index];
+      updated[index] = updated[targetIndex];
+      updated[targetIndex] = temp;
+      setAllowedTags(updated);
+    } else {
+      const list = systemDropdowns[categoryKey];
+      if (!list || targetIndex < 0 || targetIndex >= list.length) return;
+      const updated = [...list];
+      const temp = updated[index];
+      updated[index] = updated[targetIndex];
+      updated[targetIndex] = temp;
+      setSystemDropdowns(prev => ({ ...prev, [categoryKey]: updated }));
+    }
+  };
+
+  const handleQuickAddOption = () => {
+    if (!inlineQuickAddText || !inlineQuickAddText.trim()) return;
+    const val = inlineQuickAddText.trim();
+
+    if (selectedDropdownCategory === 'departments') {
+      const exists = (systemDropdowns.departments || []).some(d => (typeof d === 'object' ? d.name : d) === val);
+      if (!exists) {
+        setSystemDropdowns(prev => ({ ...prev, departments: [...(prev.departments || []), { name: val, archived: false }] }));
+        showToast(`Added Department "${val}"`, 'success');
+      } else {
+        showToast(`Department "${val}" already exists!`, 'warning');
+      }
+    } else if (selectedDropdownCategory === 'designations') {
+      const exists = (systemDropdowns.designations || []).some(d => (typeof d === 'object' ? d.name : d) === val);
+      if (!exists) {
+        setSystemDropdowns(prev => ({ ...prev, designations: [...(prev.designations || []), { name: val, archived: false }] }));
+        showToast(`Added Designation "${val}"`, 'success');
+      } else {
+        showToast(`Designation "${val}" already exists!`, 'warning');
+      }
+    } else if (selectedDropdownCategory === 'leave_categories') {
+      const newLc = { id: 'lc_' + Date.now(), name: val, quota: 12, archived: false };
+      setSystemDropdowns(prev => ({ ...prev, leaveCategories: [...(prev.leaveCategories || []), newLc] }));
+      showToast(`Added Leave Type "${val}"`, 'success');
+    } else if (selectedDropdownCategory === 'crm_stages') {
+      const newStage = { id: 'stage_' + Date.now(), title: val, color: '#0d9488', archived: false };
+      setStages(prev => [...prev, newStage]);
+      showToast(`Added Pipeline Stage "${val}"`, 'success');
+    } else if (selectedDropdownCategory === 'crm_tags') {
+      if (!allowedTags.includes(val)) {
+        setAllowedTags(prev => [...prev, val]);
+        showToast(`Added Tag "${val}"`, 'success');
+      } else {
+        showToast(`Tag "${val}" already exists!`, 'warning');
+      }
+    } else if (selectedDropdownCategory === 'expenses') {
+      const exists = (systemDropdowns.expenseCategories || []).some(e => (typeof e === 'object' ? e.name : e) === val);
+      if (!exists) {
+        setSystemDropdowns(prev => ({ ...prev, expenseCategories: [...(prev.expenseCategories || []), { name: val, archived: false }] }));
+        showToast(`Added Expense Category "${val}"`, 'success');
+      } else {
+        showToast(`Expense Category "${val}" already exists!`, 'warning');
+      }
+    } else if (selectedDropdownCategory === 'priorities') {
+      const exists = (systemDropdowns.taskPriorities || []).some(p => (typeof p === 'object' ? p.name : p) === val);
+      if (!exists) {
+        setSystemDropdowns(prev => ({ ...prev, taskPriorities: [...(prev.taskPriorities || []), { name: val, archived: false }] }));
+        showToast(`Added Task Priority "${val}"`, 'success');
+      } else {
+        showToast(`Priority "${val}" already exists!`, 'warning');
+      }
+    }
+    setInlineQuickAddText('');
   };
 
   const addNotification = (title, message, linkTab = 'admin_dashboard') => {
@@ -11242,36 +11328,148 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               </div>
             </div>
 
-            {/* Attendance Chart & Activities */}
-            <div className="dashboard-split-row">
-              <div className="payroll-table-card">
-                <div className="payroll-table-toolbar">
-                  <span className="payroll-table-title">{t('weeklyAttendanceStats')}</span>
+            {/* Attendance Chart & Workspace Notices */}
+            <div className="dashboard-split-row" style={{ padding: '0 var(--space-6) var(--space-4)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-4)' }}>
+              {/* Weekly Attendance Statistics Card */}
+              <div className="payroll-table-card" style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <BarChart2 size={18} style={{ color: '#0d9488' }} />
+                    <span style={{ fontWeight: '800', fontSize: '15px', color: '#0f172a' }}>{t('weeklyAttendanceStats')}</span>
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: '800', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', padding: '4px 10px', borderRadius: '12px' }}>
+                    📈 94.8% Weekly Avg
+                  </span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', height: '150px', padding: 'var(--space-4) var(--space-5)', borderBottom: '1px solid var(--border-default)' }}>
-                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, idx) => {
-                    const heights = [80, 95, 90, 75, 85];
-                    return (
-                      <div key={day} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '40px' }}>
-                        <div style={{ width: '100%', height: `${heights[idx]}%`, background: 'linear-gradient(to top, var(--color-primary-dark, #065f46), var(--color-primary))', borderRadius: '4px 4px 0 0' }} />
-                        <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-semibold)', color: 'var(--text-muted)' }}>{day}</span>
+
+                {/* Bar Chart Bars Container */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', height: '180px', padding: '16px 12px 8px 12px', background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  {[
+                    { day: 'Mon', pct: 92, count: '22/24', color: 'linear-gradient(180deg, #0d9488 0%, #044e43 100%)' },
+                    { day: 'Tue', pct: 96, count: '23/24', color: 'linear-gradient(180deg, #10b981 0%, #059669 100%)' },
+                    { day: 'Wed', pct: 95, count: '23/24', color: 'linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%)' },
+                    { day: 'Thu', pct: 88, count: '21/24', color: 'linear-gradient(180deg, #8b5cf6 0%, #6d28d9 100%)' },
+                    { day: 'Fri', pct: 94, count: '22/24', color: 'linear-gradient(180deg, #f59e0b 0%, #d97706 100%)' }
+                  ].map((bar) => (
+                    <div key={bar.day} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flex: 1, height: '100%', justifyContent: 'flex-end' }}>
+                      {/* Top Percentage Label Pill */}
+                      <span style={{ fontSize: '10px', fontWeight: '800', color: '#0f172a', background: '#ffffff', padding: '2px 6px', borderRadius: '6px', boxShadow: '0 2px 4px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0' }}>
+                        {bar.pct}%
+                      </span>
+                      {/* Outer Pillar Frame */}
+                      <div style={{ width: '38px', height: `${Math.max(20, bar.pct * 1.1)}px`, maxHeight: '110px', background: '#e2e8f0', borderRadius: '8px', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'flex-end' }}>
+                        <div style={{ width: '100%', height: '100%', background: bar.color, borderRadius: '8px', transition: 'height 0.4s ease' }} />
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="payroll-table-card">
-                <div className="payroll-table-toolbar">
-                  <span className="payroll-table-title">{t('workspaceNotices')}</span>
-                </div>
-                <div style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                  {notices.slice(0, 3).map(n => (
-                    <div key={n.id} style={{ borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-3)' }}>
-                      <div style={{ fontWeight: 'var(--fw-bold)', fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}>{n.title}</div>
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)' }}>{n.content}</div>
+                      {/* Day Label */}
+                      <span style={{ fontSize: '12px', fontWeight: '800', color: '#475569' }}>{bar.day}</span>
                     </div>
                   ))}
-                  {notices.length === 0 && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>No active announcements.</div>}
+                </div>
+
+                {/* Footer Sub-Metrics Bar */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #f1f5f9', fontSize: '11px', color: '#64748b' }}>
+                  <span>🟢 Total Present Today: <strong style={{ color: '#0f172a' }}>21 Staff</strong></span>
+                  <span>⏳ Late Arrivals: <strong style={{ color: '#d97706' }}>2</strong></span>
+                  <span>🏖️ On Leave: <strong style={{ color: '#ef4444' }}>1</strong></span>
+                </div>
+              </div>
+
+              {/* Workspace Notices Card */}
+              <div className="payroll-table-card" style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Bell size={18} style={{ color: '#f59e0b' }} />
+                    <span style={{ fontWeight: '800', fontSize: '15px', color: '#0f172a' }}>{t('workspaceNotices')}</span>
+                  </div>
+                  <button
+                    onClick={() => { setNewNoticeForm({ title: '', content: '' }); setShowAddNoticeModal(true); }}
+                    style={{ background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: 'none', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '800', cursor: 'pointer' }}
+                  >
+                    + Publish Notice
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flexGrow: 1 }}>
+                  {notices.length > 0 ? (
+                    notices.slice(0, 3).map(n => (
+                      <div key={n.id} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ fontWeight: '800', fontSize: '13px', color: '#0f172a', display: 'flex', justifyContent: 'space-between' }}>
+                          <span>📢 {n.title}</span>
+                          <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600' }}>{new Date(n.created_at || Date.now()).toLocaleDateString()}</span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#475569', lineHeight: '1.4' }}>{n.content}</div>
+                      </div>
+                    ))
+                  ) : (
+                    <>
+                      <div style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #e6fffa 100%)', border: '1px solid #99f6e4', borderRadius: '10px', padding: '12px' }}>
+                        <div style={{ fontWeight: '800', fontSize: '13px', color: '#0f766e' }}>📢 All-Hands Q3 Review & Strategy Meeting</div>
+                        <div style={{ fontSize: '11px', color: '#115e59', marginTop: '4px' }}>Friday at 4:00 PM in Conference Room A & Google Meet link.</div>
+                      </div>
+                      <div style={{ background: 'linear-gradient(135deg, #eff6ff 0%, #e0f2fe 100%)', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '12px' }}>
+                        <div style={{ fontWeight: '800', fontSize: '13px', color: '#1e40af' }}>🚀 SIM Call Recording & Live GPS Tracking Activated</div>
+                        <div style={{ fontSize: '11px', color: '#1e3a8a', marginTop: '4px' }}>Automated call log sync and mileage calculation active for field staff.</div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions Toolbar & Department Performance Bar */}
+            <div style={{ padding: '0 var(--space-6) var(--space-6)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-4)' }}>
+              {/* Department Workload Summary Card */}
+              <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  🏢 Department Productivity Progress
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {[
+                    { dept: 'Sales & Telecalling', pct: 92, color: '#10b981' },
+                    { dept: 'Field Operations & GPS', pct: 88, color: '#3b82f6' },
+                    { dept: 'Customer Support & CRM', pct: 95, color: '#0d9488' },
+                    { dept: 'Finance & Payroll', pct: 100, color: '#8b5cf6' }
+                  ].map((d) => (
+                    <div key={d.dept}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                        <span>{d.dept}</span>
+                        <span style={{ color: d.color, fontWeight: '900' }}>{d.pct}%</span>
+                      </div>
+                      <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ width: `${d.pct}%`, height: '100%', background: d.color, borderRadius: '4px', transition: 'width 0.3s' }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quick Operational Actions Card */}
+              <div style={{ background: 'linear-gradient(135deg, #044e43 0%, #065f54 100%)', borderRadius: '14px', padding: '20px', color: '#ffffff', boxShadow: '0 8px 20px rgba(4, 78, 69, 0.25)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#99f6e4', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '4px' }}>
+                    EXECUTIVE SHORTCUTS
+                  </div>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: '#ffffff' }}>
+                    Quick Management Actions
+                  </h3>
+                  <p style={{ fontSize: '12px', color: '#ccfbf1', marginTop: '4px', lineHeight: '1.4' }}>
+                    Instantly jump to critical modules or dispatch live updates to field employees.
+                  </p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '16px' }}>
+                  <button onClick={() => setActiveTab('employees')} style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: '8px', padding: '10px', color: 'white', fontSize: '12px', fontWeight: '800', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    👥 + Add Employee
+                  </button>
+                  <button onClick={() => setActiveTab('telecalling')} style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: '8px', padding: '10px', color: 'white', fontSize: '12px', fontWeight: '800', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    📞 Call Logs
+                  </button>
+                  <button onClick={() => setActiveTab('gps_attendance')} style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: '8px', padding: '10px', color: 'white', fontSize: '12px', fontWeight: '800', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    🗺️ Live GPS Map
+                  </button>
+                  <button onClick={() => setActiveTab('payroll')} style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: '8px', padding: '10px', color: 'white', fontSize: '12px', fontWeight: '800', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    💳 Run Payroll
+                  </button>
                 </div>
               </div>
             </div>
@@ -12529,51 +12727,64 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           <div style={{ padding: 'var(--space-6)', margin: 'var(--space-4)', overflowY: 'auto', flexGrow: 1 }} className="glass-panel">
             {/* Header Banner */}
             <div className="page-header" style={{ marginBottom: 'var(--space-5)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-                <div style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-md)', background: 'var(--color-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Settings size={22} style={{ color: 'var(--color-primary)' }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(13,148,136,0.15) 0%, rgba(15,118,110,0.25) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(13,148,136,0.2)' }}>
+                    <Settings size={24} style={{ color: '#0d9488' }} />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <h1 className="page-header-title" style={{ margin: 0 }}>System Dropdowns</h1>
+                      <span style={{ fontSize: '11px', fontWeight: '800', padding: '2px 8px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
+                        🟢 12 Categories Active
+                      </span>
+                    </div>
+                    <p className="page-header-subtitle" style={{ margin: '4px 0 0 0' }}>
+                      Configure global categories, job roles, leave types, CRM pipeline stages, contact tags, and expense types
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h1 className="page-header-title">System Dropdowns</h1>
-                  <p className="page-header-subtitle">
-                    Manage dropdown options across the system (add, edit, archive, or delete)
-                  </p>
-                </div>
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={handleSaveMasterDropdowns}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', fontWeight: '700', borderRadius: '8px', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
+                >
+                  💾 Save All Changes
+                </button>
               </div>
-              <button
-                className="btn btn-primary"
-                type="button"
-                onClick={handleSaveMasterDropdowns}
-                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}
-              >
-                💾 Save All Changes
-              </button>
             </div>
 
             {/* 2-Column Master Layout Grid */}
             <div className="system-dropdowns-grid">
 
-              {/* LEFT COLUMN: Categories Vertical Menu */}
-              <div className="payroll-table-card" style={{ padding: 'var(--space-5)' }}>
-                <h3 className="payroll-table-title" style={{ marginBottom: 'var(--space-2)' }}>Categories</h3>
-                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-4)' }}>
+              {/* LEFT COLUMN: Categories Navigation Panel */}
+              <div className="payroll-table-card" style={{ padding: 'var(--space-5)', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid var(--border-default)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <h3 className="payroll-table-title" style={{ margin: 0, fontSize: '15px', fontWeight: '800' }}>Categories</h3>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', background: '#f1f5f9', padding: '2px 8px', borderRadius: '10px' }}>
+                    12 Total
+                  </span>
+                </div>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '14px' }}>
                   Select a category to manage its options
                 </p>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {/* Category List */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {[
-                    { id: 'departments', label: 'Departments' },
-                    { id: 'designations', label: 'Designations' },
-                    { id: 'employment_types', label: 'Employment Types' },
-                    { id: 'genders', label: 'Genders' },
-                    { id: 'marital_statuses', label: 'Marital Statuses' },
-                    { id: 'blood_groups', label: 'Blood Groups' },
-                    { id: 'leave_categories', label: 'Leave Types' },
-                    { id: 'crm_stages', label: 'CRM Pipeline Stages' },
-                    { id: 'crm_tags', label: 'CRM Contact Tags' },
-                    { id: 'expenses', label: 'Expense Categories' },
-                    { id: 'priorities', label: 'Task Priority Levels' },
-                    { id: 'custom_engine', label: '⚡ Custom Categories Engine' }
+                    { id: 'departments', icon: '🏢', label: 'Departments', count: systemDropdowns.departments?.length || 0 },
+                    { id: 'designations', icon: '💼', label: 'Designations', count: systemDropdowns.designations?.length || 0 },
+                    { id: 'employment_types', icon: '⌛', label: 'Employment Types', count: 5 },
+                    { id: 'genders', icon: '🚻', label: 'Genders', count: 4 },
+                    { id: 'marital_statuses', icon: '💍', label: 'Marital Statuses', count: 4 },
+                    { id: 'blood_groups', icon: '🩸', label: 'Blood Groups', count: 8 },
+                    { id: 'leave_categories', icon: '🏖️', label: 'Leave Types', count: systemDropdowns.leaveCategories?.length || 0 },
+                    { id: 'crm_stages', icon: '📊', label: 'CRM Pipeline Stages', count: stages?.length || 0 },
+                    { id: 'crm_tags', icon: '🏷️', label: 'CRM Contact Tags', count: allowedTags?.length || 0 },
+                    { id: 'expenses', icon: '💳', label: 'Expense Categories', count: systemDropdowns.expenseCategories?.length || 0 },
+                    { id: 'priorities', icon: '⚡', label: 'Task Priority Levels', count: systemDropdowns.taskPriorities?.length || 0 },
+                    { id: 'custom_engine', icon: '⚙️', label: 'Custom Categories Engine', count: (systemDropdowns.customCategories || []).length }
                   ].map(cat => {
                     const isSelected = selectedDropdownCategory === cat.id;
                     return (
@@ -12582,34 +12793,54 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         type="button"
                         onClick={() => setSelectedDropdownCategory(cat.id)}
                         style={{
-                          padding: '10px 14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justify: 'space-between',
+                          padding: '10px 12px',
                           borderRadius: '8px',
                           fontSize: '13px',
                           fontWeight: isSelected ? '700' : '500',
                           textAlign: 'left',
-                          border: 'none',
-                          background: isSelected ? '#e6f4f1' : 'transparent',
-                          color: isSelected ? '#0d9488' : '#475569',
+                          border: isSelected ? '1px solid rgba(37,99,235,0.3)' : '1px solid transparent',
+                          background: isSelected ? 'rgba(37,99,235,0.08)' : 'transparent',
+                          color: isSelected ? '#2563eb' : '#334155',
                           cursor: 'pointer',
-                          transition: 'all 0.15s ease'
+                          transition: 'all 0.15s ease',
+                          boxShadow: isSelected ? '0 1px 3px rgba(37,99,235,0.1)' : 'none'
                         }}
                       >
-                        {cat.label}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '15px' }}>{cat.icon}</span>
+                          <span>{cat.label}</span>
+                        </div>
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: '800',
+                          padding: '2px 7px',
+                          borderRadius: '10px',
+                          background: isSelected ? '#2563eb' : '#e2e8f0',
+                          color: isSelected ? 'white' : '#64748b'
+                        }}>
+                          {cat.count}
+                        </span>
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              {/* RIGHT COLUMN: Selected Category Content Panel */}
-              <div className="payroll-table-card" style={{ padding: 'var(--space-6)', minHeight: '480px' }}>
+              {/* RIGHT COLUMN: Selected Category Workspace */}
+              <div className="payroll-table-card" style={{ padding: 'var(--space-6)', minHeight: '520px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid var(--border-default)' }}>
 
                 {/* 1. DEPARTMENTS */}
                 {selectedDropdownCategory === 'departments' && (
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
                       <div>
-                        <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Departments Options</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '20px' }}>🏢</span>
+                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Departments Options</h3>
+                        </div>
                         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage functional departments across the company</p>
                       </div>
                       <button
@@ -12626,20 +12857,20 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             }
                           }
                         }}
-                        style={{ fontSize: 'var(--text-sm)' }}
+                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px' }}
                       >
                         + Add Option
                       </button>
                     </div>
 
                     <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table">
+                      <table className="std-table" style={{ width: '100%' }}>
                         <thead>
                           <tr>
                             <th style={{ width: '50px' }}>#</th>
                             <th style={{ padding: '10px 12px' }}>Department Title</th>
-                            <th style={{ width: '120px' }}>Status</th>
-                            <th style={{ textAlign: 'right', width: '200px' }}>Actions</th>
+                            <th style={{ width: '130px' }}>Status</th>
+                            <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -12649,13 +12880,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             const isArchived = isObj ? Boolean(dept.archived) : false;
 
                             return (
-                              <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white' }}>
+                              <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white', transition: 'background 0.15s ease' }}>
                                 <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
                                 <td style={{ padding: '12px', fontWeight: '700', color: isArchived ? '#94a3b8' : '#0f2b26', textDecoration: isArchived ? 'line-through' : 'none' }}>
                                   {title}
                                 </td>
                                 <td style={{ padding: '12px' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
                                     {isArchived ? '📦 Archived' : '🟢 Active'}
                                   </span>
                                 </td>
@@ -12672,7 +12903,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           showToast(`Updated to "${newName.trim()}"`, 'success');
                                         }
                                       }}
-                                      style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
                                     >
                                       ✏️ Edit
                                     </button>
@@ -12684,7 +12915,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         setSystemDropdowns(prev => ({ ...prev, departments: updated }));
                                         showToast(isArchived ? `Restored "${title}"` : `Archived "${title}"`, 'info');
                                       }}
-                                      style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
                                     >
                                       {isArchived ? '🔄 Restore' : '📦 Archive'}
                                     </button>
@@ -12702,7 +12933,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         setSystemDropdowns(prev => ({ ...prev, departments: updated }));
                                         showToast(`🗑️ Moved "${title}" to Recycle Bin!`, 'info');
                                       }}
-                                      style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                     >
                                       🗑️ Delete
                                     </button>
@@ -12720,10 +12951,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 {/* 2. DESIGNATIONS */}
                 {selectedDropdownCategory === 'designations' && (
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
                       <div>
-                        <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Designations Options</h3>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage job roles & designations</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '20px' }}>💼</span>
+                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Designations Options</h3>
+                        </div>
+                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage job roles & designation titles across all teams</p>
                       </div>
                       <button
                         className="btn btn-primary"
@@ -12739,20 +12973,20 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             }
                           }
                         }}
-                        style={{ fontSize: 'var(--text-sm)' }}
+                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px' }}
                       >
                         + Add Option
                       </button>
                     </div>
 
                     <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table">
+                      <table className="std-table" style={{ width: '100%' }}>
                         <thead>
                           <tr>
                             <th style={{ width: '50px' }}>#</th>
                             <th style={{ padding: '10px 12px' }}>Role / Designation Title</th>
-                            <th style={{ width: '120px' }}>Status</th>
-                            <th style={{ textAlign: 'right', width: '200px' }}>Actions</th>
+                            <th style={{ width: '130px' }}>Status</th>
+                            <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -12762,13 +12996,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             const isArchived = isObj ? Boolean(desig.archived) : false;
 
                             return (
-                              <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white' }}>
+                              <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white', transition: 'background 0.15s ease' }}>
                                 <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
                                 <td style={{ padding: '12px', fontWeight: '700', color: isArchived ? '#94a3b8' : '#0f2b26', textDecoration: isArchived ? 'line-through' : 'none' }}>
                                   {title}
                                 </td>
                                 <td style={{ padding: '12px' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
                                     {isArchived ? '📦 Archived' : '🟢 Active'}
                                   </span>
                                 </td>
@@ -12785,7 +13019,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           showToast(`Updated to "${newName.trim()}"`, 'success');
                                         }
                                       }}
-                                      style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
                                     >
                                       ✏️ Edit
                                     </button>
@@ -12797,7 +13031,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         setSystemDropdowns(prev => ({ ...prev, designations: updated }));
                                         showToast(isArchived ? `Restored "${title}"` : `Archived "${title}"`, 'info');
                                       }}
-                                      style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
                                     >
                                       {isArchived ? '🔄 Restore' : '📦 Archive'}
                                     </button>
@@ -12815,7 +13049,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         setSystemDropdowns(prev => ({ ...prev, designations: updated }));
                                         showToast(`🗑️ Moved "${title}" to Recycle Bin!`, 'info');
                                       }}
-                                      style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                     >
                                       🗑️ Delete
                                     </button>
@@ -12835,18 +13069,21 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)' }}>
                       <div>
-                        <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Employment Types Options</h3>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Full-Time, Part-Time, Contract, Intern</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '20px' }}>⌛</span>
+                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Employment Types Options</h3>
+                        </div>
+                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Full-Time, Part-Time, Contract, Trainee, Probationary</p>
                       </div>
                     </div>
 
                     <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table">
+                      <table className="std-table" style={{ width: '100%' }}>
                         <thead>
                           <tr>
                             <th style={{ width: '50px' }}>#</th>
-                            <th style={{ padding: '10px 12px' }}>Employment Type</th>
-                            <th style={{ width: '120px' }}>Status</th>
+                            <th style={{ padding: '10px 12px' }}>Employment Type Label</th>
+                            <th style={{ width: '130px' }}>Status</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -12855,7 +13092,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                               <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
                               <td style={{ padding: '12px', fontWeight: '700', color: '#0f2b26' }}>{empType}</td>
                               <td style={{ padding: '12px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488' }}>
+                                <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
                                   🟢 Active
                                 </span>
                               </td>
@@ -12872,18 +13109,21 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)' }}>
                       <div>
-                        <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Genders Options</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '20px' }}>🚻</span>
+                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Genders Options</h3>
+                        </div>
                         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Male, Female, Non-Binary, Prefer not to say</p>
                       </div>
                     </div>
 
                     <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table">
+                      <table className="std-table" style={{ width: '100%' }}>
                         <thead>
                           <tr>
                             <th style={{ width: '50px' }}>#</th>
                             <th style={{ padding: '10px 12px' }}>Gender Label</th>
-                            <th style={{ width: '120px' }}>Status</th>
+                            <th style={{ width: '130px' }}>Status</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -12892,7 +13132,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                               <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
                               <td style={{ padding: '12px', fontWeight: '700', color: '#0f2b26' }}>{gen}</td>
                               <td style={{ padding: '12px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488' }}>
+                                <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
                                   🟢 Active
                                 </span>
                               </td>
@@ -12909,18 +13149,21 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)' }}>
                       <div>
-                        <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Marital Statuses Options</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '20px' }}>💍</span>
+                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Marital Statuses Options</h3>
+                        </div>
                         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Single, Married, Divorced, Widowed</p>
                       </div>
                     </div>
 
                     <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table">
+                      <table className="std-table" style={{ width: '100%' }}>
                         <thead>
                           <tr>
                             <th style={{ width: '50px' }}>#</th>
-                            <th style={{ padding: '10px 12px' }}>Marital Status</th>
-                            <th style={{ width: '120px' }}>Status</th>
+                            <th style={{ padding: '10px 12px' }}>Marital Status Label</th>
+                            <th style={{ width: '130px' }}>Status</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -12929,7 +13172,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                               <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
                               <td style={{ padding: '12px', fontWeight: '700', color: '#0f2b26' }}>{mStat}</td>
                               <td style={{ padding: '12px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488' }}>
+                                <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
                                   🟢 Active
                                 </span>
                               </td>
@@ -12946,18 +13189,21 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)' }}>
                       <div>
-                        <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Blood Groups Options</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '20px' }}>🩸</span>
+                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Blood Groups Options</h3>
+                        </div>
                         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>A+, A-, B+, B-, O+, O-, AB+, AB-</p>
                       </div>
                     </div>
 
                     <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table">
+                      <table className="std-table" style={{ width: '100%' }}>
                         <thead>
                           <tr>
                             <th style={{ width: '50px' }}>#</th>
-                            <th style={{ padding: '10px 12px' }}>Blood Group</th>
-                            <th style={{ width: '120px' }}>Status</th>
+                            <th style={{ padding: '10px 12px' }}>Blood Group Label</th>
+                            <th style={{ width: '130px' }}>Status</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -12966,7 +13212,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                               <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
                               <td style={{ padding: '12px', fontWeight: '800', color: '#0d9488' }}>{bg}</td>
                               <td style={{ padding: '12px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488' }}>
+                                <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
                                   🟢 Active
                                 </span>
                               </td>
@@ -12981,10 +13227,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 {/* 7. LEAVE TYPES */}
                 {selectedDropdownCategory === 'leave_categories' && (
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
                       <div>
-                        <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Leave Types Options</h3>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage leave policies & annual quotas</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '20px' }}>🏖️</span>
+                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Leave Types Options</h3>
+                        </div>
+                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage leave policies & annual quota allocations</p>
                       </div>
                       <button
                         className="btn btn-primary"
@@ -12998,21 +13247,21 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             showToast(`Added Leave Type "${name}"`, 'success');
                           }
                         }}
-                        style={{ fontSize: 'var(--text-sm)' }}
+                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px' }}
                       >
                         + Add Option
                       </button>
                     </div>
 
                     <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table">
+                      <table className="std-table" style={{ width: '100%' }}>
                         <thead>
                           <tr>
                             <th style={{ width: '50px' }}>#</th>
                             <th style={{ padding: '10px 12px' }}>Leave Category</th>
                             <th style={{ padding: '10px 12px' }}>Annual Quota</th>
-                            <th style={{ width: '120px' }}>Status</th>
-                            <th style={{ textAlign: 'right', width: '200px' }}>Actions</th>
+                            <th style={{ width: '130px' }}>Status</th>
+                            <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -13029,7 +13278,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                   {lc.quota} Days / Year
                                 </td>
                                 <td style={{ padding: '12px' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
                                     {isArchived ? '📦 Archived' : '🟢 Active'}
                                   </span>
                                 </td>
@@ -13047,7 +13296,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           showToast(`Updated "${newName.trim()}"`, 'success');
                                         }
                                       }}
-                                      style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
                                     >
                                       ✏️ Edit
                                     </button>
@@ -13059,7 +13308,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated }));
                                         showToast(isArchived ? `Restored "${lc.name}"` : `Archived "${lc.name}"`, 'info');
                                       }}
-                                      style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
                                     >
                                       {isArchived ? '🔄 Restore' : '📦 Archive'}
                                     </button>
@@ -13077,7 +13326,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated }));
                                         showToast(`🗑️ Moved "${lc.name}" to Recycle Bin!`, 'info');
                                       }}
-                                      style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                     >
                                       🗑️ Delete
                                     </button>
@@ -13095,10 +13344,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 {/* 8. CRM PIPELINE STAGES */}
                 {selectedDropdownCategory === 'crm_stages' && (
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
                       <div>
-                        <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>CRM Pipeline Stages Options</h3>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage lead sales deal stages</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '20px' }}>📊</span>
+                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>CRM Pipeline Stages Options</h3>
+                        </div>
+                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage lead sales deal stages & color indicators</p>
                       </div>
                       <button
                         className="btn btn-primary"
@@ -13108,21 +13360,21 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           setStages([...stages, { id: newId, title: 'New Stage', color: '#0d9488', archived: false }]);
                           showToast('Added new Pipeline Stage', 'success');
                         }}
-                        style={{ fontSize: 'var(--text-sm)' }}
+                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px' }}
                       >
                         + Add Option
                       </button>
                     </div>
 
                     <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table">
+                      <table className="std-table" style={{ width: '100%' }}>
                         <thead>
                           <tr>
                             <th style={{ width: '50px' }}>#</th>
                             <th style={{ padding: '10px 12px' }}>Stage Title</th>
-                            <th style={{ padding: '10px 12px', width: '100px' }}>Color Badge</th>
-                            <th style={{ width: '120px' }}>Status</th>
-                            <th style={{ textAlign: 'right', width: '200px' }}>Actions</th>
+                            <th style={{ padding: '10px 12px', width: '120px' }}>Color Badge</th>
+                            <th style={{ width: '130px' }}>Status</th>
+                            <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -13135,7 +13387,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                 <td style={{ padding: '12px' }}>
                                   <input
                                     type="text"
-                                    style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: '700', color: isArchived ? '#94a3b8' : '#0f2b26' }}
+                                    style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: '700', color: isArchived ? '#94a3b8' : '#0f2b26', width: '100%', maxWidth: '240px' }}
                                     value={stage.title}
                                     onChange={(e) => {
                                       const updated = [...stages];
@@ -13145,19 +13397,24 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                   />
                                 </td>
                                 <td style={{ padding: '12px' }}>
-                                  <input
-                                    type="color"
-                                    style={{ border: 'none', padding: '0', width: '28px', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
-                                    value={stage.color}
-                                    onChange={(e) => {
-                                      const updated = [...stages];
-                                      updated[idx].color = e.target.value;
-                                      setStages(updated);
-                                    }}
-                                  />
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <input
+                                      type="color"
+                                      style={{ border: 'none', padding: '0', width: '28px', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
+                                      value={stage.color}
+                                      onChange={(e) => {
+                                        const updated = [...stages];
+                                        updated[idx].color = e.target.value;
+                                        setStages(updated);
+                                      }}
+                                    />
+                                    <span style={{ fontSize: '11px', fontWeight: '800', fontFamily: 'monospace', color: stage.color }}>
+                                      {stage.color}
+                                    </span>
+                                  </div>
                                 </td>
                                 <td style={{ padding: '12px' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
                                     {isArchived ? '📦 Archived' : '🟢 Active'}
                                   </span>
                                 </td>
@@ -13171,7 +13428,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         setStages(updated);
                                         showToast(isArchived ? `Restored "${stage.title}"` : `Archived "${stage.title}"`, 'info');
                                       }}
-                                      style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
                                     >
                                       {isArchived ? '🔄 Restore' : '📦 Archive'}
                                     </button>
@@ -13188,7 +13445,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         setStages(stages.filter(s => s.id !== stage.id));
                                         showToast(`🗑️ Moved "${stage.title}" to Recycle Bin!`, 'info');
                                       }}
-                                      style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                     >
                                       🗑️ Delete
                                     </button>
@@ -13206,9 +13463,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 {/* 9. CRM CONTACT TAGS */}
                 {selectedDropdownCategory === 'crm_tags' && (
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
                       <div>
-                        <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>CRM Contact Tags Options</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '20px' }}>🏷️</span>
+                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>CRM Contact Tags Options</h3>
+                        </div>
                         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Predefined contact tags for lead segmentation</p>
                       </div>
                       <button
@@ -13224,20 +13484,20 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             }
                           }
                         }}
-                        style={{ fontSize: 'var(--text-sm)' }}
+                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px' }}
                       >
                         + Add Option
                       </button>
                     </div>
 
                     <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table">
+                      <table className="std-table" style={{ width: '100%' }}>
                         <thead>
                           <tr>
                             <th style={{ width: '50px' }}>#</th>
                             <th style={{ padding: '10px 12px' }}>Tag Label</th>
-                            <th style={{ width: '120px' }}>Status</th>
-                            <th style={{ textAlign: 'right', width: '200px' }}>Actions</th>
+                            <th style={{ width: '130px' }}>Status</th>
+                            <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -13245,12 +13505,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             <tr key={tag} style={{ borderBottom: '1px solid #f1f5f9' }}>
                               <td style={{ padding: '12px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
                               <td style={{ padding: '12px' }}>
-                                <span style={{ background: 'rgba(13, 148, 136, 0.08)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '800' }}>
-                                  {tag}
+                                <span style={{ background: 'rgba(13, 148, 136, 0.08)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.25)', padding: '5px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '800' }}>
+                                  🏷️ {tag}
                                 </span>
                               </td>
                               <td style={{ padding: '12px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488' }}>
+                                <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
                                   🟢 Active
                                 </span>
                               </td>
@@ -13267,7 +13527,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         showToast(`Updated Tag to "${newTag.trim()}"`, 'success');
                                       }
                                     }}
-                                    style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                    style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
                                   >
                                     ✏️ Edit
                                   </button>
@@ -13284,7 +13544,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                       setAllowedTags(allowedTags.filter(t => t !== tag));
                                       showToast(`🗑️ Moved "${tag}" to Recycle Bin!`, 'info');
                                     }}
-                                    style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                    style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                   >
                                     🗑️ Delete
                                   </button>
@@ -13301,10 +13561,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 {/* 10. EXPENSE CATEGORIES */}
                 {selectedDropdownCategory === 'expenses' && (
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
                       <div>
-                        <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Expense Categories Options</h3>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Reimbursement claim types</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '20px' }}>💳</span>
+                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Expense Categories Options</h3>
+                        </div>
+                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Reimbursement claim types and allowance categories</p>
                       </div>
                       <button
                         className="btn btn-primary"
@@ -13320,20 +13583,20 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             }
                           }
                         }}
-                        style={{ fontSize: 'var(--text-sm)' }}
+                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px' }}
                       >
                         + Add Option
                       </button>
                     </div>
 
                     <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table">
+                      <table className="std-table" style={{ width: '100%' }}>
                         <thead>
                           <tr>
                             <th style={{ width: '50px' }}>#</th>
-                            <th style={{ padding: '10px 12px' }}>Expense Category</th>
-                            <th style={{ width: '120px' }}>Status</th>
-                            <th style={{ textAlign: 'right', width: '200px' }}>Actions</th>
+                            <th style={{ padding: '10px 12px' }}>Expense Category Title</th>
+                            <th style={{ width: '130px' }}>Status</th>
+                            <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -13349,7 +13612,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                   {title}
                                 </td>
                                 <td style={{ padding: '12px' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
                                     {isArchived ? '📦 Archived' : '🟢 Active'}
                                   </span>
                                 </td>
@@ -13366,7 +13629,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           showToast(`Updated to "${newName.trim()}"`, 'success');
                                         }
                                       }}
-                                      style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
                                     >
                                       ✏️ Edit
                                     </button>
@@ -13378,7 +13641,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated }));
                                         showToast(isArchived ? `Restored "${title}"` : `Archived "${title}"`, 'info');
                                       }}
-                                      style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
                                     >
                                       {isArchived ? '🔄 Restore' : '📦 Archive'}
                                     </button>
@@ -13396,7 +13659,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated }));
                                         showToast(`🗑️ Moved "${title}" to Recycle Bin!`, 'info');
                                       }}
-                                      style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                     >
                                       🗑️ Delete
                                     </button>
@@ -13414,10 +13677,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 {/* 11. TASK PRIORITIES */}
                 {selectedDropdownCategory === 'priorities' && (
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
                       <div>
-                        <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Task Priority Levels Options</h3>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Task priority ratings</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '20px' }}>⚡</span>
+                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Task Priority Levels Options</h3>
+                        </div>
+                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Task priority rating levels & urgency badges</p>
                       </div>
                       <button
                         className="btn btn-primary"
@@ -13433,20 +13699,20 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             }
                           }
                         }}
-                        style={{ fontSize: 'var(--text-sm)' }}
+                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px' }}
                       >
                         + Add Option
                       </button>
                     </div>
 
                     <div style={{ overflowX: 'auto' }}>
-                      <table className="std-table">
+                      <table className="std-table" style={{ width: '100%' }}>
                         <thead>
                           <tr>
                             <th style={{ width: '50px' }}>#</th>
                             <th style={{ padding: '10px 12px' }}>Priority Rating</th>
-                            <th style={{ width: '120px' }}>Status</th>
-                            <th style={{ textAlign: 'right', width: '200px' }}>Actions</th>
+                            <th style={{ width: '130px' }}>Status</th>
+                            <th style={{ textAlign: 'right', width: '220px' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -13462,7 +13728,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                   {title}
                                 </td>
                                 <td style={{ padding: '12px' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
                                     {isArchived ? '📦 Archived' : '🟢 Active'}
                                   </span>
                                 </td>
@@ -13479,7 +13745,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           showToast(`Updated to "${newName.trim()}"`, 'success');
                                         }
                                       }}
-                                      style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
                                     >
                                       ✏️ Edit
                                     </button>
@@ -13491,7 +13757,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                         setSystemDropdowns(prev => ({ ...prev, taskPriorities: updated }));
                                         showToast(isArchived ? `Restored "${title}"` : `Archived "${title}"`, 'info');
                                       }}
-                                      style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
                                     >
                                       {isArchived ? '🔄 Restore' : '📦 Archive'}
                                     </button>
@@ -13500,8 +13766,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                       onClick={() => {
                                         const updated = systemDropdowns.taskPriorities.filter((_, i) => i !== idx);
                                         setSystemDropdowns(prev => ({ ...prev, taskPriorities: updated }));
+                                        showToast(`Deleted priority "${title}"`, 'info');
                                       }}
-                                      style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                      style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
                                     >
                                       🗑️ Delete
                                     </button>
@@ -13519,10 +13786,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 {/* 12. CUSTOM ENGINE */}
                 {selectedDropdownCategory === 'custom_engine' && (
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px' }}>
                       <div>
-                        <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Custom Feature Dropdown Engine</h3>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Create custom dropdown lists for any future app feature</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '20px' }}>⚙️</span>
+                          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Custom Feature Dropdown Engine</h3>
+                        </div>
+                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Create custom dropdown lists for any custom feature or module</p>
                       </div>
                       <button
                         className="btn btn-primary"
@@ -13542,7 +13812,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             showToast(`Created Custom Category "${categoryTitle.trim()}"`, 'success');
                           }
                         }}
-                        style={{ fontSize: 'var(--text-sm)' }}
+                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px' }}
                       >
                         + Add Custom Category
                       </button>
@@ -13550,9 +13820,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                       {(systemDropdowns.customCategories || []).map((customCat, catIdx) => (
-                        <div key={customCat.id || catIdx} style={{ padding: '16px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                            <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#0f2b26', margin: 0 }}>⚡ {customCat.title}</h4>
+                        <div key={customCat.id || catIdx} style={{ padding: '16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                            <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#0f2b26', margin: 0 }}>⚙️ {customCat.title}</h4>
                             <div style={{ display: 'flex', gap: '6px' }}>
                               <button
                                 type="button"
@@ -13565,7 +13835,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     showToast(`Added option "${opt.trim()}"`, 'success');
                                   }
                                 }}
-                                style={{ padding: '4px 10px', fontSize: '11px', fontWeight: '800', background: '#0d9488', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                                style={{ padding: '5px 12px', fontSize: '11px', fontWeight: '800', background: '#0d9488', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
                               >
                                 + Add Option
                               </button>
@@ -13577,7 +13847,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                   setSystemDropdowns(prev => ({ ...prev, customCategories: updated }));
                                   showToast(`Deleted category "${catName}"`, 'info');
                                 }}
-                                style={{ padding: '4px 10px', fontSize: '11px', fontWeight: '800', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                                style={{ padding: '5px 12px', fontSize: '11px', fontWeight: '800', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
                               >
                                 Delete Category
                               </button>
@@ -13585,20 +13855,20 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                           </div>
 
                           <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', background: 'white', borderRadius: '6px' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', background: 'white', borderRadius: '6px', overflow: 'hidden' }}>
                               <thead>
-                                <tr style={{ background: '#edf2f7', borderBottom: '1px solid #cbd5e1', textAlign: 'left' }}>
-                                  <th style={{ padding: '8px 12px', width: '40px' }}>#</th>
-                                  <th style={{ padding: '8px 12px' }}>Option Item</th>
-                                  <th style={{ padding: '8px 12px', textAlign: 'right', width: '150px' }}>Actions</th>
+                                <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1', textAlign: 'left' }}>
+                                  <th style={{ padding: '10px 12px', width: '50px' }}>#</th>
+                                  <th style={{ padding: '10px 12px' }}>Option Item Title</th>
+                                  <th style={{ padding: '10px 12px', textAlign: 'right', width: '150px' }}>Actions</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {(customCat.options || []).map((opt, optIdx) => (
                                   <tr key={optIdx} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                    <td style={{ padding: '8px 12px', fontWeight: '800', color: '#64748b' }}>#{optIdx + 1}</td>
-                                    <td style={{ padding: '8px 12px', fontWeight: '700', color: '#0f2b26' }}>{opt}</td>
-                                    <td style={{ padding: '8px 12px', textAlign: 'right' }}>
+                                    <td style={{ padding: '10px 12px', fontWeight: '800', color: '#64748b' }}>#{optIdx + 1}</td>
+                                    <td style={{ padding: '10px 12px', fontWeight: '700', color: '#0f2b26' }}>{opt}</td>
+                                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -13607,7 +13877,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                           setSystemDropdowns(prev => ({ ...prev, customCategories: updated }));
                                           showToast(`Deleted option "${opt}"`, 'info');
                                         }}
-                                        style={{ border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', fontSize: '11px', fontWeight: '800' }}
+                                        style={{ border: 'none', background: 'rgba(239,68,68,0.1)', padding: '4px 10px', borderRadius: '6px', color: '#ef4444', cursor: 'pointer', fontSize: '11px', fontWeight: '800' }}
                                       >
                                         Delete
                                       </button>
