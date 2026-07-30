@@ -124,6 +124,26 @@
   --transition-fast:   all 0.1s ease;
   --transition-smooth: all 0.15s ease-in-out;
   --transition-slow:   all 0.25s ease;
+
+  /* ── Z-INDEX SCALE ────────────────────────────────────────── */
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-header: 100;
+  --z-drawer: 200;
+  --z-dropdown: 300;
+  --z-modal-backdrop: 400;
+  --z-modal: 500;
+  --z-popover: 600;
+  --z-toast: 700;
+  --z-tooltip: 800;
+
+  /* ── BRAND EMERALD ACCENTS & THEME LOCK ──────────────────── */
+  --color-accent-teal: #0d9488;
+  --color-accent-darkteal: #064e43;
+  --color-accent-gradient: linear-gradient(135deg, #0d9488 0%, #064e43 100%);
+  --color-accent-gradient-hover: linear-gradient(135deg, #0f766e 0%, #043e35 100%);
+  --color-bg-dark-slate: #0f2b26;
+  --color-bg-slate-navy: #0f172a;
 }
 
 
