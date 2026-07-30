@@ -54,10 +54,6 @@ export default function ListPattern({
           </div>
         )}
 
-        <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', padding: '4px 12px', textAlign: 'right' }}>
-          Swipe table horizontally ↔
-        </div>
-
         {children}
 
         {tableFooter}
