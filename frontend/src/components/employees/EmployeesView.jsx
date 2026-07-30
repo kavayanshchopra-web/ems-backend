@@ -27,9 +27,9 @@ const getValString = (val, fallback = '') => {
 };
 
 /**
- * Phase 2B — All Employees Listing View (Final QA Verified)
+ * Phase 2B — All Employees Listing View (Final Micro Polished)
  * Preserves exact Emerald Teal palette (#0d9488 -> #064e43) and 100% business logic.
- * Correctly renders Toolbar (SearchInput, Role Filter, Sort) directly above Staff Table.
+ * Efficient single-line desktop toolbar + responsive non-cramped table header.
  */
 export default function EmployeesView({
   authUser,
@@ -166,7 +166,7 @@ export default function EmployeesView({
   };
 
   const toolbarLeft = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', width: '100%' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
       <SearchInput
         value={searchQuery}
         onChange={(e) => {
@@ -289,7 +289,7 @@ export default function EmployeesView({
 
       {/* Table Container with Controlled Scroll */}
       <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-        <div className="table-header-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', padding: '10px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+        <div className="table-header-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px', padding: '10px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
           <span style={{ fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>
             Staff Roster Directory ({sorted.length})
           </span>
