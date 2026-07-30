@@ -27,9 +27,9 @@ const getValString = (val, fallback = '') => {
 };
 
 /**
- * Phase 2B — All Employees Listing View (Final Micro Polished)
+ * Phase 2B — All Employees Listing View (Final Locked Version)
  * Preserves exact Emerald Teal palette (#0d9488 -> #064e43) and 100% business logic.
- * Efficient single-line desktop toolbar + responsive non-cramped table header.
+ * Single-line desktop toolbar + locked primary Emerald Teal CTA treatment.
  */
 export default function EmployeesView({
   authUser,
@@ -184,6 +184,7 @@ export default function EmployeesView({
           setCurrentPage(1);
         }}
         options={roleOptions}
+        style={{ width: '160px' }}
       />
     </div>
   );

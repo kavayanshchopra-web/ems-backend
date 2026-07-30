@@ -15375,6 +15375,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 <button
                   type="submit"
                   className="btn btn-primary"
+                  style={{ background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: '#ffffff', border: 'none', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
                   disabled={isEmployeesLoading}
                 >
                   {isEmployeesLoading ? 'Saving...' : (newEmployeeForm.id ? 'Save Profile' : 'Add Profile')}
