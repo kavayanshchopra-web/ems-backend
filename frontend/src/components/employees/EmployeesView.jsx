@@ -29,7 +29,7 @@ const getValString = (val, fallback = '') => {
 /**
  * Phase 2B — All Employees Listing View (Final QA Verified)
  * Preserves exact Emerald Teal palette (#0d9488 -> #064e43) and 100% business logic.
- * Clean desktop density, enhanced Employee ID typography, and responsive swipe hint.
+ * Correctly renders Toolbar (SearchInput, Role Filter, Sort) directly above Staff Table.
  */
 export default function EmployeesView({
   authUser,
@@ -200,6 +200,42 @@ export default function EmployeesView({
     </div>
   );
 
+  const statsGrid = (
+    <>
+      <StatCard
+        icon="👥"
+        title="TOTAL STAFF"
+        value={totalCount}
+        subtitle="Registered Team Members"
+        trend="Directory"
+        badgeText="Active Roster"
+        badgeBg="rgba(13, 148, 136, 0.1)"
+        badgeColor="#0d9488"
+      />
+      <StatCard
+        icon="🟢"
+        title="ACTIVE EMPLOYEES"
+        value={activeCount}
+        subtitle="Active Shift Status"
+        trend="Operational"
+        trendDirection="up"
+        badgeText="Active"
+        badgeBg="rgba(16, 185, 129, 0.1)"
+        badgeColor="#059669"
+      />
+      <StatCard
+        icon="⚪"
+        title="SUSPENDED / INACTIVE"
+        value={suspendedCount}
+        subtitle="Inactive Accounts"
+        trend="Hold"
+        badgeText="Suspended"
+        badgeBg="rgba(100, 116, 139, 0.1)"
+        badgeColor="#64748b"
+      />
+    </>
+  );
+
   return (
     <ListPattern
       icon="👥"
@@ -207,6 +243,7 @@ export default function EmployeesView({
       subtitle="Manage organization staff members, system roles, department structures and base salaries."
       badgeText={`${totalCount} Total Registered`}
       headerActions={headerActions}
+      statsGrid={statsGrid}
       toolbarLeft={toolbarLeft}
       toolbarRight={toolbarRight}
       pagination={
@@ -225,41 +262,6 @@ export default function EmployeesView({
         ) : null
       }
     >
-      {/* Employee KPI Metrics Overview */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-        <StatCard
-          icon="👥"
-          title="TOTAL STAFF"
-          value={totalCount}
-          subtitle="Registered Team Members"
-          trend="Directory"
-          badgeText="Active Roster"
-          badgeBg="rgba(13, 148, 136, 0.1)"
-          badgeColor="#0d9488"
-        />
-        <StatCard
-          icon="🟢"
-          title="ACTIVE EMPLOYEES"
-          value={activeCount}
-          subtitle="Active Shift Status"
-          trend="Operational"
-          trendDirection="up"
-          badgeText="Active"
-          badgeBg="rgba(16, 185, 129, 0.1)"
-          badgeColor="#059669"
-        />
-        <StatCard
-          icon="⚪"
-          title="SUSPENDED / INACTIVE"
-          value={suspendedCount}
-          subtitle="Inactive Accounts"
-          trend="Hold"
-          badgeText="Suspended"
-          badgeBg="rgba(100, 116, 139, 0.1)"
-          badgeColor="#64748b"
-        />
-      </div>
-
       {/* Seat Usage Indicator */}
       {billingTenant && (
         <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '12px' }}>

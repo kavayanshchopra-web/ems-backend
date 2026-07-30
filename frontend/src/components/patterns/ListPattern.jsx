@@ -14,6 +14,7 @@ export default function ListPattern({
   headerActions,
   statsGrid = null,
   filterTabs = null,
+  toolbarLeft = null,
   toolbarRight = null,
   tableCardTitle,
   tableSubtitle,
@@ -22,6 +23,8 @@ export default function ListPattern({
   style = {},
   className = ''
 }) {
+  const leftContent = toolbarLeft || filterTabs;
+
   return (
     <PageContainer maxWidth="1600px" style={style} className={className}>
       <PageHeader
@@ -38,8 +41,8 @@ export default function ListPattern({
         </div>
       )}
 
-      {(filterTabs || toolbarRight) && (
-        <Toolbar leftContent={filterTabs} rightContent={toolbarRight} />
+      {(leftContent || toolbarRight) && (
+        <Toolbar leftContent={leftContent} rightContent={toolbarRight} />
       )}
 
       <div className="payroll-table-card" style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
