@@ -27,9 +27,9 @@ const getValString = (val, fallback = '') => {
 };
 
 /**
- * Phase 2B — All Employees Listing View (Runtime Bug Corrected)
+ * Phase 2B — All Employees Listing View (Final QA Verified)
  * Preserves exact Emerald Teal palette (#0d9488 -> #064e43) and 100% business logic.
- * Safely renders string or object values ({ name, archived }) without React Error #31.
+ * Clean desktop density, enhanced Employee ID typography, and responsive swipe hint.
  */
 export default function EmployeesView({
   authUser,
@@ -53,7 +53,7 @@ export default function EmployeesView({
 
   if (!canView) {
     return (
-      <div style={{ padding: '40px 20px', textAlign: 'center', background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', margin: '16px' }}>
+      <div style={{ padding: '36px 20px', textAlign: 'center', background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', margin: '16px' }}>
         <div style={{ fontSize: '36px', marginBottom: '8px' }}>🔒</div>
         <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0 }}>Access Restricted</h3>
         <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
@@ -226,7 +226,7 @@ export default function EmployeesView({
       }
     >
       {/* Employee KPI Metrics Overview */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '12px' }}>
         <StatCard
           icon="👥"
           title="TOTAL STAFF"
@@ -262,7 +262,7 @@ export default function EmployeesView({
 
       {/* Seat Usage Indicator */}
       {billingTenant && (
-        <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+        <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '12px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
             <span style={{ fontSize: '11px', fontWeight: '700', color: '#475569' }}>
               Workspace Plan Seat Usage
@@ -287,12 +287,12 @@ export default function EmployeesView({
 
       {/* Table Container with Controlled Scroll */}
       <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-        <div className="table-header-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+        <div className="table-header-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', padding: '10px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
           <span style={{ fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>
             Staff Roster Directory ({sorted.length})
           </span>
           <span className="mobile-swipe-hint" style={{ fontSize: '11px', color: '#0d9488', fontWeight: '700' }}>
-            Swipe table horizontally ↔
+            Swipe horizontally ↔
           </span>
         </div>
 
@@ -382,7 +382,7 @@ export default function EmployeesView({
                             <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {firstName} {lastName}
                             </div>
-                            <div style={{ fontSize: '10px', color: '#64748b' }}>ID: {emp.id}</div>
+                            <div style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '600', color: '#64748b', opacity: 0.9 }}>ID: {emp.id}</div>
                           </div>
                         </div>
                       </td>
