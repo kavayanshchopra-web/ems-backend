@@ -5,7 +5,8 @@ import io from 'socket.io-client';
 
 const GpsMap = lazy(() => import('./GpsMap'));
 import DataTable from './DataTable';
-import AdminDashboardView from './dashboard/AdminDashboardView';
+import CompanyOverviewView from './dashboard/CompanyOverviewView';
+import TaskAnalyticsView from './dashboard/TaskAnalyticsView';
 import {
   auth,
   db,
@@ -11300,20 +11301,28 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </div>
         )}
 
-        {/* 1 & 2. DASHBOARD VIEW (ADMIN & MANAGER) */}
-        {(activeTab === 'admin_dashboard' || activeTab === 'manager_dashboard') && (
-          <AdminDashboardView
+        {/* 1. COMPANY OVERVIEW VIEW (ADMIN DASHBOARD) */}
+        {activeTab === 'admin_dashboard' && (
+          <CompanyOverviewView
             authUser={authUser}
             employees={employees}
             liveLocations={liveLocations}
             callLogs={callLogs}
             notices={notices}
-            tasks={tasks}
             t={t}
             showToast={showToast}
             setActiveTab={setActiveTab}
             setShowAddNoticeModal={setShowAddNoticeModal}
             setNewNoticeForm={setNewNoticeForm}
+          />
+        )}
+
+        {/* 2. TASK ANALYTICS VIEW (MANAGER DASHBOARD) */}
+        {activeTab === 'manager_dashboard' && (
+          <TaskAnalyticsView
+            employees={employees}
+            tasks={tasks}
+            t={t}
           />
         )}
 
