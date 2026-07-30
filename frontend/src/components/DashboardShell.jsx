@@ -7,6 +7,7 @@ const GpsMap = lazy(() => import('./GpsMap'));
 import DataTable from './DataTable';
 import CompanyOverviewView from './dashboard/CompanyOverviewView';
 import TaskAnalyticsView from './dashboard/TaskAnalyticsView';
+import EmployeesView from './employees/EmployeesView';
 import {
   auth,
   db,
@@ -10143,229 +10144,18 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </div>
         )}
 
-        {activeTab === 'employees' && !(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager' || authUser?.role === 'superadmin') && (
-          <div className="glass-panel" style={{ padding: '60px', margin: '16px', textAlign: 'center', color: '#64748b' }}>
-            <h3>🔒 Access Denied</h3>
-            <p style={{ fontSize: '13px', marginTop: '6px' }}>You do not have permission to view employee salary details and management portals. Please use the Employee Search Directory.</p>
-          </div>
-        )}
-
-        {activeTab === 'employees' && (authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager' || authUser?.role === 'superadmin') && (
-          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', background: 'var(--bg-page)' }}>
-
-            {/* ── Page Header ── */}
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">Employee Directory</h1>
-                <p className="page-header-subtitle">
-                  Manage team members, roles, departments and payroll base structures
-                </p>
-              </div>
-              <div className="page-header-right">
-                {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'superadmin') && (
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => {
-                      setNewEmployeeForm({ id: '', firstName: '', lastName: '', email: '', phone: '', role: 'employee', department: 'Sales', salary: '', createLoginAccount: false, password: '', status: 'active' });
-                      setShowAddEmployeeModal(true);
-                    }}
-                  >
-                    <Plus size={16} /> Add Employee
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* ── Plan Limit Bar ── */}
-            {billingTenant && (
-              <div style={{ padding: '12px 24px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-subtle)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--fw-semibold)', color: 'var(--text-secondary)' }}>
-                    Workspace Seat Usage
-                  </span>
-                  <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--fw-bold)', color: 'var(--color-primary)' }}>
-                    {employees.length} / {billingTenant.plan?.max_employees || 5}
-                  </span>
-                </div>
-                <div style={{ width: '100%', height: '6px', background: 'var(--border-default)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
-                  <div style={{
-                    width: `${Math.min(100, (employees.length / (billingTenant.plan?.max_employees || 5)) * 100)}%`,
-                    height: '100%',
-                    background: 'var(--color-primary)',
-                    borderRadius: 'var(--radius-full)',
-                    transition: 'width 0.3s ease'
-                  }} />
-                </div>
-              </div>
-            )}
-
-            {/* ── Filter Bar ── */}
-            <div className="filter-bar">
-              <div className="filter-search">
-                <Search size={14} className="filter-search-icon" />
-                <input
-                  type="text"
-                  placeholder="Search by name, role or department..."
-                  value={localEmpQuery}
-                  onChange={(e) => { setLocalEmpQuery(e.target.value); setEmployeeCurrentPage(1); }}
-                />
-              </div>
-              <select
-                className="filter-select"
-                value={employeeSortKey}
-                onChange={(e) => setEmployeeSortKey(e.target.value)}
-              >
-                <option value="first_name">Sort: Name</option>
-                <option value="role">Sort: Role</option>
-                <option value="department">Sort: Department</option>
-                <option value="salary">Sort: Salary</option>
-              </select>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => setEmployeeSortDir(prev => prev === 'asc' ? 'desc' : 'asc')}
-              >
-                {employeeSortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
-              </button>
-            </div>
-
-            {/* ── Main Content ── */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
-              {(() => {
-                const filtered = employees.filter(emp => {
-                  const q = localEmpQuery.toLowerCase().trim();
-                  if (!q) return true;
-                  return (
-                    emp.first_name.toLowerCase().includes(q) ||
-                    (emp.last_name || '').toLowerCase().includes(q) ||
-                    (emp.role || '').toLowerCase().includes(q) ||
-                    (emp.department || '').toLowerCase().includes(q)
-                  );
-                });
-                const sorted = [...filtered].sort((a, b) => {
-                  let valA = a[employeeSortKey] || '', valB = b[employeeSortKey] || '';
-                  if (typeof valA === 'string') valA = valA.toLowerCase();
-                  if (typeof valB === 'string') valB = valB.toLowerCase();
-                  if (employeeSortKey === 'salary') { valA = parseFloat(valA) || 0; valB = parseFloat(valB) || 0; }
-                  if (valA < valB) return employeeSortDir === 'asc' ? -1 : 1;
-                  if (valA > valB) return employeeSortDir === 'asc' ? 1 : -1;
-                  return 0;
-                });
-                const totalPages = Math.ceil(sorted.length / employeeItemsPerPage) || 1;
-                const paginated = sorted.slice((employeeCurrentPage - 1) * employeeItemsPerPage, employeeCurrentPage * employeeItemsPerPage);
-
-                if (isEmployeesLoading) return (
-                  <div style={{ background: 'var(--bg-card)', padding: '24px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-default)' }}>
-                    <div className="shimmer-line" style={{ width: '100%', height: '40px', marginBottom: '12px' }} />
-                    {[1,2,3,4].map(i => <div key={i} className="shimmer-line" style={{ width: '100%', height: '50px', marginBottom: '8px' }} />)}
-                  </div>
-                );
-
-                const roleColors = {
-                  admin: { bg: 'var(--color-danger-bg)', color: 'var(--color-danger-text)' },
-                  manager: { bg: 'var(--color-warning-bg)', color: 'var(--color-warning-text)' },
-                  agent: { bg: 'var(--color-success-bg)', color: 'var(--color-success-text)' },
-                  employee: { bg: '#f1f5f9', color: 'var(--text-secondary)' }
-                };
-
-                return (
-                  <>
-                    <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-default)', overflow: 'hidden' }}>
-                      <table className="std-table">
-                        <thead>
-                          <tr>
-                            <th onClick={() => { if (employeeSortKey === 'first_name') setEmployeeSortDir(p => p === 'asc' ? 'desc' : 'asc'); else { setEmployeeSortKey('first_name'); setEmployeeSortDir('asc'); } }} style={{ cursor: 'pointer' }}>
-                              EMPLOYEE {employeeSortKey === 'first_name' ? (employeeSortDir === 'asc' ? '▲' : '▼') : '⇅'}
-                            </th>
-                            <th onClick={() => { if (employeeSortKey === 'role') setEmployeeSortDir(p => p === 'asc' ? 'desc' : 'asc'); else { setEmployeeSortKey('role'); setEmployeeSortDir('asc'); } }} style={{ cursor: 'pointer' }}>
-                              ROLE {employeeSortKey === 'role' ? (employeeSortDir === 'asc' ? '▲' : '▼') : '⇅'}
-                            </th>
-                            <th onClick={() => { if (employeeSortKey === 'department') setEmployeeSortDir(p => p === 'asc' ? 'desc' : 'asc'); else { setEmployeeSortKey('department'); setEmployeeSortDir('asc'); } }} style={{ cursor: 'pointer' }}>
-                              DEPARTMENT {employeeSortKey === 'department' ? (employeeSortDir === 'asc' ? '▲' : '▼') : '⇅'}
-                            </th>
-                            <th>CONTACT</th>
-                            <th onClick={() => { if (employeeSortKey === 'salary') setEmployeeSortDir(p => p === 'asc' ? 'desc' : 'asc'); else { setEmployeeSortKey('salary'); setEmployeeSortDir('asc'); } }} style={{ cursor: 'pointer' }}>
-                              BASE SALARY {employeeSortKey === 'salary' ? (employeeSortDir === 'asc' ? '▲' : '▼') : '⇅'}
-                            </th>
-                            <th>STATUS</th>
-                            {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'superadmin') && <th style={{ textAlign: 'right' }}>ACTIONS</th>}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {paginated.map(emp => {
-                            const badge = roleColors[emp.role] || roleColors.employee;
-                            return (
-                              <tr key={emp.id}>
-                                <td>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'var(--color-primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'var(--fw-bold)', flexShrink: 0 }}>
-                                      {emp.first_name[0]}{(emp.last_name || '')[0] || ''}
-                                    </div>
-                                    <div>
-                                      <div style={{ fontWeight: 'var(--fw-semibold)', color: 'var(--text-primary)', fontSize: 'var(--text-base)' }}>{emp.first_name} {emp.last_name || ''}</div>
-                                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>ID: {emp.id}</div>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td>
-                                  <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-semibold)', padding: '3px 10px', borderRadius: 'var(--radius-full)', background: badge.bg, color: badge.color, textTransform: 'uppercase' }}>
-                                    {emp.role}
-                                  </span>
-                                </td>
-                                <td style={{ color: 'var(--text-body)', fontWeight: 'var(--fw-medium)' }}>{emp.department || 'Sales'}</td>
-                                <td>
-                                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>{emp.email}</div>
-                                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>{emp.phone || '—'}</div>
-                                </td>
-                                <td style={{ fontWeight: 'var(--fw-semibold)', color: 'var(--color-primary)' }}>
-                                  ₹{emp.salary ? parseFloat(emp.salary).toLocaleString() : '0'} /mo
-                                </td>
-                                <td>
-                                  <span className={emp.status === 'active' ? 'badge-success' : 'badge-neutral'}>
-                                    {emp.status === 'active' ? 'Active' : 'Suspended'}
-                                  </span>
-                                </td>
-                                {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'superadmin') && (
-                                  <td style={{ textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end' }}>
-                                      <button className="btn-icon" title="Edit" onClick={() => { setNewEmployeeForm({ id: emp.id, firstName: emp.first_name, lastName: emp.last_name || '', email: emp.email || '', phone: emp.phone || '', role: emp.role, department: emp.department || 'Sales', salary: emp.salary || '', createLoginAccount: !!emp.user_id, password: '', status: emp.status }); setShowAddEmployeeModal(true); }}>
-                                        ✏️
-                                      </button>
-                                      <button className="btn-icon" title="Delete" style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger-bg)' }} onClick={() => handleDeleteEmployee(emp.id)}>
-                                        🗑️
-                                      </button>
-                                    </div>
-                                  </td>
-                                )}
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                      {sorted.length === 0 && (
-                        <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)', fontSize: 'var(--text-base)' }}>
-                          No employees found matching your search.
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Pagination */}
-                    {sorted.length > 0 && (
-                      <div className="pagination-bar no-print">
-                        <span>Showing {paginated.length} of {sorted.length} employees</span>
-                        <div className="pagination-controls">
-                          <button className="pagination-btn" disabled={employeeCurrentPage === 1} onClick={() => setEmployeeCurrentPage(p => Math.max(1, p - 1))}>‹</button>
-                          {[...Array(Math.min(totalPages, 5))].map((_, i) => (
-                            <button key={i} className={`pagination-btn ${employeeCurrentPage === i + 1 ? 'active' : ''}`} onClick={() => setEmployeeCurrentPage(i + 1)}>{i + 1}</button>
-                          ))}
-                          <button className="pagination-btn" disabled={employeeCurrentPage === totalPages} onClick={() => setEmployeeCurrentPage(p => Math.min(totalPages, p + 1))}>›</button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
-          </div>
+        {/* ALL EMPLOYEES VIEW */}
+        {activeTab === 'employees' && (
+          <EmployeesView
+            authUser={authUser}
+            employees={employees}
+            billingTenant={billingTenant}
+            isEmployeesLoading={isEmployeesLoading}
+            setNewEmployeeForm={setNewEmployeeForm}
+            setShowAddEmployeeModal={setShowAddEmployeeModal}
+            handleDeleteEmployee={handleDeleteEmployee}
+            showToast={showToast}
+          />
         )}
 
 
