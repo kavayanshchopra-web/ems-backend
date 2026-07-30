@@ -15295,9 +15295,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, department: e.target.value })}
                     style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '13px', background: 'white' }}
                   >
-                    {systemDropdowns.departments.map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
+                    {(systemDropdowns.departments || []).map((dept, idx) => {
+                      const deptName = typeof dept === 'object' && dept !== null ? dept.name : dept;
+                      return (
+                        <option key={deptName || idx} value={deptName}>{deptName}</option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>
