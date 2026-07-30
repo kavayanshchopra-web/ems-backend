@@ -2909,3 +2909,14 @@ h1, h2, h3, h4, h5, h6 {
     display: inline-block !important;
   }
 }
+
+/* ATS Stage Card — Desktop 340px min-height, Mobile content-driven height */
+.ats-stage-card {
+  min-height: 340px;
+}
+
+@media (max-width: 768px) {
+  .ats-stage-card {
+    min-height: auto !important;
+  }
+}

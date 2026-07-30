@@ -32,9 +32,8 @@ const DEFAULT_DEMO_CANDIDATES = [
 ];
 
 /**
- * Phase 2C — Recruitment ATS View (Global Design System v2.0)
- * Strictly preserves exact Emerald Teal palette (#0d9488 -> #064e43) and 100% business logic.
- * Zero invented features; pure presentation migration to KanbanPattern.
+ * Phase 2C — Recruitment ATS View (Global Design System v2.0 - Micro Polished)
+ * Content-driven height on mobile/tablet to eliminate blank stage whitespace.
  */
 export default function RecruitmentAtsView({
   atsCandidates = []
@@ -170,6 +169,7 @@ export default function RecruitmentAtsView({
             return (
               <div
                 key={stage.id}
+                className="ats-stage-card"
                 style={{
                   background: '#ffffff',
                   borderRadius: '12px',
@@ -177,7 +177,6 @@ export default function RecruitmentAtsView({
                   boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
                   display: 'flex',
                   flexDirection: 'column',
-                  minHeight: '340px',
                   overflow: 'hidden'
                 }}
               >
@@ -215,7 +214,7 @@ export default function RecruitmentAtsView({
                 {/* Candidate Cards Column Content */}
                 <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
                   {stage.list.length === 0 ? (
-                    <div style={{ padding: '24px 12px', textAlign: 'center' }}>
+                    <div style={{ padding: '16px 12px', textAlign: 'center' }}>
                       <EmptyState
                         title=""
                         description="No applicants in this stage."
@@ -235,21 +234,22 @@ export default function RecruitmentAtsView({
                             padding: '12px 14px',
                             borderRadius: '8px',
                             border: '1px solid #e2e8f0',
-                            transition: 'all 0.15s ease'
+                            transition: 'all 0.15s ease',
+                            overflow: 'hidden'
                           }}
                         >
-                          <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '13px' }}>
+                          <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '13px', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                             {candName}
                           </div>
-                          <div style={{ color: '#64748b', fontSize: '11px', fontWeight: '600', marginTop: '2px' }}>
+                          <div style={{ color: '#64748b', fontSize: '11px', fontWeight: '600', marginTop: '2px', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                             {candPosition}
                           </div>
 
                           {candResume && (
-                            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Badge variant="info">
-                                <FileText size={10} style={{ marginRight: '3px' }} />
-                                {candResume}
+                            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '100%', overflow: 'hidden' }}>
+                              <Badge variant="info" style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <FileText size={10} style={{ marginRight: '3px', flexShrink: 0 }} />
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{candResume}</span>
                               </Badge>
                             </div>
                           )}
