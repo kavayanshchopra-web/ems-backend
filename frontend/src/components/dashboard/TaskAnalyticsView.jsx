@@ -5,6 +5,17 @@ import Badge from '../ui/Badge';
 import SearchInput from '../ui/SearchInput';
 import EmptyState from '../ui/EmptyState';
 
+const getValString = (val, fallback = '') => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'string' || typeof val === 'number') return String(val);
+  if (typeof val === 'object') {
+    if (typeof val.name === 'string') return val.name;
+    if (typeof val.title === 'string') return val.title;
+    if (typeof val.label === 'string') return val.label;
+  }
+  return fallback;
+};
+
 /**
  * Phase 2A — Task Analytics & Workload Pipeline View (Manager Dashboard)
  * Preserves exact original Manager Task Analytics functionality & table sorting
@@ -162,8 +173,11 @@ export default function TaskAnalyticsView({
             <tbody>
               {(() => {
                 const filtered = employees.filter(emp => {
-                  const fullName = `${emp.first_name || ''} ${emp.last_name || ''}`.toLowerCase();
-                  return fullName.includes(searchFilter.toLowerCase()) || (emp.role || '').toLowerCase().includes(searchFilter.toLowerCase());
+                  const firstName = getValString(emp.first_name);
+                  const lastName = getValString(emp.last_name);
+                  const role = getValString(emp.role);
+                  const fullName = `${firstName} ${lastName}`.toLowerCase();
+                  return fullName.includes(searchFilter.toLowerCase()) || role.toLowerCase().includes(searchFilter.toLowerCase());
                 });
 
                 if (filtered.length === 0) {
@@ -181,13 +195,13 @@ export default function TaskAnalyticsView({
 
                 const sorted = [...filtered].sort((a, b) => {
                   if (workloadSortKey === 'first_name') {
-                    const nameA = `${a.first_name} ${a.last_name || ''}`.toLowerCase();
-                    const nameB = `${b.first_name} ${b.last_name || ''}`.toLowerCase();
+                    const nameA = `${getValString(a.first_name)} ${getValString(a.last_name)}`.toLowerCase();
+                    const nameB = `${getValString(b.first_name)} ${getValString(b.last_name)}`.toLowerCase();
                     return workloadSortDir === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
                   }
                   if (workloadSortKey === 'role') {
-                    const roleA = (a.role || '').toLowerCase();
-                    const roleB = (b.role || '').toLowerCase();
+                    const roleA = getValString(a.role).toLowerCase();
+                    const roleB = getValString(b.role).toLowerCase();
                     return workloadSortDir === 'asc' ? roleA.localeCompare(roleB) : roleB.localeCompare(roleA);
                   }
                   if (workloadSortKey === 'assigned_tasks') {
@@ -206,6 +220,9 @@ export default function TaskAnalyticsView({
                 });
 
                 return sorted.map((emp) => {
+                  const firstName = getValString(emp.first_name, 'Staff');
+                  const lastName = getValString(emp.last_name);
+                  const roleStr = getValString(emp.role, 'Staff Member');
                   const taskCount = tasks.filter(t => t.assigned_to === emp.id).length;
                   const isOverloaded = taskCount > 3;
 
@@ -214,15 +231,15 @@ export default function TaskAnalyticsView({
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(135deg, #0d9488, #064e43)', color: 'white', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px' }}>
-                            {(emp.first_name || '')[0]}{(emp.last_name || '')[0] || ''}
+                            {(firstName[0] || 'E')}{(lastName[0] || '')}
                           </div>
                           <span style={{ fontWeight: '700', color: '#0f172a', fontSize: '13px' }}>
-                            {emp.first_name} {emp.last_name || ''}
+                            {firstName} {lastName}
                           </span>
                         </div>
                       </td>
                       <td style={{ padding: '12px 16px', textTransform: 'capitalize', color: '#475569', fontSize: '12px', fontWeight: '600' }}>
-                        {emp.role || 'Staff Member'}
+                        {roleStr}
                       </td>
                       <td style={{ padding: '12px 16px', fontSize: '12px' }}>
                         <strong style={{ color: '#0f172a' }}>{taskCount}</strong> Tasks

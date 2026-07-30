@@ -11,9 +11,25 @@ import StatCard from '../ui/StatCard';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 
 /**
- * Phase 2B — All Employees Listing View (Visual QA Corrected)
+ * Defensive string extractor helper
+ * Safely handles strings, numbers, nulls, and legacy objects like { name, archived }
+ */
+const getValString = (val, fallback = '') => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'string' || typeof val === 'number') return String(val);
+  if (typeof val === 'object') {
+    if (typeof val.name === 'string') return val.name;
+    if (typeof val.title === 'string') return val.title;
+    if (typeof val.label === 'string') return val.label;
+    if (typeof val.value === 'string') return val.value;
+  }
+  return fallback;
+};
+
+/**
+ * Phase 2B — All Employees Listing View (Runtime Bug Corrected)
  * Preserves exact Emerald Teal palette (#0d9488 -> #064e43) and 100% business logic.
- * Eliminates empty viewport height, adds sticky mobile table columns, and refines sort indicators.
+ * Safely renders string or object values ({ name, archived }) without React Error #31.
  */
 export default function EmployeesView({
   authUser,
@@ -56,32 +72,41 @@ export default function EmployeesView({
     }
   };
 
-  // Filter & Sort Logic
+  // Filter & Sort Logic with Defensive String Extraction
   const filtered = employees.filter(emp => {
     const q = searchQuery.toLowerCase().trim();
+    const firstName = getValString(emp.first_name).toLowerCase();
+    const lastName = getValString(emp.last_name).toLowerCase();
+    const role = getValString(emp.role, 'employee').toLowerCase();
+    const department = getValString(emp.department, 'Sales').toLowerCase();
+    const email = getValString(emp.email).toLowerCase();
+    const phone = getValString(emp.phone).toLowerCase();
+
     const matchesSearch = !q || (
-      (emp.first_name || '').toLowerCase().includes(q) ||
-      (emp.last_name || '').toLowerCase().includes(q) ||
-      (emp.role || '').toLowerCase().includes(q) ||
-      (emp.department || '').toLowerCase().includes(q) ||
-      (emp.email || '').toLowerCase().includes(q) ||
-      (emp.phone || '').includes(q)
+      firstName.includes(q) ||
+      lastName.includes(q) ||
+      role.includes(q) ||
+      department.includes(q) ||
+      email.includes(q) ||
+      phone.includes(q)
     );
 
-    const matchesRole = selectedRoleFilter === 'all' || (emp.role || '').toLowerCase() === selectedRoleFilter.toLowerCase();
+    const matchesRole = selectedRoleFilter === 'all' || role === selectedRoleFilter.toLowerCase();
     return matchesSearch && matchesRole;
   });
 
   const sorted = [...filtered].sort((a, b) => {
-    let valA = a[sortKey] || '';
-    let valB = b[sortKey] || '';
+    let valA = getValString(a[sortKey]);
+    let valB = getValString(b[sortKey]);
 
-    if (typeof valA === 'string') valA = valA.toLowerCase();
-    if (typeof valB === 'string') valB = valB.toLowerCase();
     if (sortKey === 'salary') {
-      valA = parseFloat(valA) || 0;
-      valB = parseFloat(valB) || 0;
+      valA = parseFloat(a.salary || 0) || 0;
+      valB = parseFloat(b.salary || 0) || 0;
+      return sortDir === 'asc' ? valA - valB : valB - valA;
     }
+
+    valA = valA.toLowerCase();
+    valB = valB.toLowerCase();
 
     if (valA < valB) return sortDir === 'asc' ? -1 : 1;
     if (valA > valB) return sortDir === 'asc' ? 1 : -1;
@@ -93,7 +118,10 @@ export default function EmployeesView({
 
   // Summary Metrics Calculation
   const totalCount = employees.length;
-  const activeCount = employees.filter(e => e.status === 'active' || !e.status).length;
+  const activeCount = employees.filter(e => {
+    const st = getValString(e.status, 'active').toLowerCase();
+    return st === 'active';
+  }).length;
   const suspendedCount = totalCount - activeCount;
 
   const headerActions = canManage ? (
@@ -327,22 +355,32 @@ export default function EmployeesView({
                 </tr>
               ) : (
                 paginated.map((emp) => {
-                  const roleLower = (emp.role || 'employee').toLowerCase();
+                  const firstName = getValString(emp.first_name, 'Staff');
+                  const lastName = getValString(emp.last_name);
+                  const roleStr = getValString(emp.role, 'employee');
+                  const deptStr = getValString(emp.department, 'Sales');
+                  const emailStr = getValString(emp.email);
+                  const phoneStr = getValString(emp.phone);
+                  const statusStr = getValString(emp.status, 'active');
+
+                  const roleLower = roleStr.toLowerCase();
                   let badgeVariant = 'neutral';
                   if (roleLower === 'admin' || roleLower === 'owner' || roleLower === 'superadmin') badgeVariant = 'danger';
                   else if (roleLower === 'manager') badgeVariant = 'warning';
                   else if (roleLower === 'agent') badgeVariant = 'info';
+
+                  const isStatusActive = statusStr.toLowerCase() === 'active';
 
                   return (
                     <tr key={emp.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                       <td style={{ padding: '10px 14px', position: 'sticky', left: 0, background: '#ffffff', zIndex: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', maxWidth: '200px' }}>
                           <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(135deg, #0d9488, #064e43)', color: '#ffffff', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', flexShrink: 0 }}>
-                            {(emp.first_name || '')[0]}{(emp.last_name || '')[0] || ''}
+                            {(firstName[0] || 'E')}{(lastName[0] || '')}
                           </div>
                           <div style={{ overflow: 'hidden' }}>
                             <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {emp.first_name} {emp.last_name || ''}
+                              {firstName} {lastName}
                             </div>
                             <div style={{ fontSize: '10px', color: '#64748b' }}>ID: {emp.id}</div>
                           </div>
@@ -350,22 +388,22 @@ export default function EmployeesView({
                       </td>
                       <td style={{ padding: '10px 14px' }}>
                         <Badge variant={badgeVariant}>
-                          {emp.role || 'employee'}
+                          {roleStr}
                         </Badge>
                       </td>
                       <td style={{ padding: '10px 14px', color: '#334155', fontSize: '12px', fontWeight: '600', maxWidth: '140px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {emp.department || 'Sales'}
+                        {deptStr}
                       </td>
                       <td style={{ padding: '10px 14px', maxWidth: '180px', overflow: 'hidden' }}>
-                        <div style={{ fontSize: '12px', color: '#0f172a', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.email}</div>
-                        <div style={{ fontSize: '10px', color: '#64748b' }}>{emp.phone || '—'}</div>
+                        <div style={{ fontSize: '12px', color: '#0f172a', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emailStr}</div>
+                        <div style={{ fontSize: '10px', color: '#64748b' }}>{phoneStr || '—'}</div>
                       </td>
                       <td style={{ padding: '10px 14px', fontWeight: '800', color: '#0d9488', fontSize: '12px', whiteSpace: 'nowrap' }}>
                         ₹{emp.salary ? parseFloat(emp.salary).toLocaleString('en-IN') : '0'} /mo
                       </td>
                       <td style={{ padding: '10px 14px' }}>
-                        <Badge variant={emp.status === 'active' || !emp.status ? 'success' : 'neutral'}>
-                          {emp.status === 'active' || !emp.status ? 'Active' : 'Suspended'}
+                        <Badge variant={isStatusActive ? 'success' : 'neutral'}>
+                          {isStatusActive ? 'Active' : 'Suspended'}
                         </Badge>
                       </td>
                       {canManage && (
@@ -378,16 +416,16 @@ export default function EmployeesView({
                               onClick={() => {
                                 setNewEmployeeForm({
                                   id: emp.id,
-                                  firstName: emp.first_name,
-                                  lastName: emp.last_name || '',
-                                  email: emp.email || '',
-                                  phone: emp.phone || '',
-                                  role: emp.role,
-                                  department: emp.department || 'Sales',
+                                  firstName: firstName,
+                                  lastName: lastName,
+                                  email: emailStr,
+                                  phone: phoneStr,
+                                  role: roleStr,
+                                  department: deptStr,
                                   salary: emp.salary || '',
                                   createLoginAccount: !!emp.user_id,
                                   password: '',
-                                  status: emp.status || 'active'
+                                  status: statusStr
                                 });
                                 setShowAddEmployeeModal(true);
                               }}
