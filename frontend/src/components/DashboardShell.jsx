@@ -8,6 +8,7 @@ import DataTable from './DataTable';
 import CompanyOverviewView from './dashboard/CompanyOverviewView';
 import TaskAnalyticsView from './dashboard/TaskAnalyticsView';
 import EmployeesView from './employees/EmployeesView';
+import RecruitmentAtsView from './recruitment/RecruitmentAtsView';
 import {
   auth,
   db,
@@ -11119,48 +11120,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
         {/* 4. RECRUITMENT & ATS BOARD */}
         {activeTab === 'recruitment_ats' && (
-          <div className="payroll-page glass-panel payroll-panel">
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">🧑‍💼 Applicant Tracking System (ATS)</h1>
-                <p className="page-header-subtitle">Monitor job postings, candidate applications, and hire trails.</p>
-              </div>
-            </div>
-            <div style={{ padding: '0 var(--space-6) var(--space-6)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-4)' }}>
-              {[
-                { name: 'Applied', emoji: '📥', list: atsCandidates.filter(c => c.status === 'Applied' || c.status === 'applied') },
-                { name: 'Interviewing', emoji: '🗣️', list: atsCandidates.filter(c => c.status === 'Interviewing' || c.status === 'interviewing') },
-                { name: 'Offered', emoji: '📋', list: atsCandidates.filter(c => c.status === 'Offered' || c.status === 'offered') },
-                { name: 'Hired', emoji: '✅', list: atsCandidates.filter(c => c.status === 'Hired' || c.status === 'hired') }
-              ].map((col) => (
-                <div key={col.name} className="payroll-table-card" style={{ minHeight: '300px' }}>
-                  <div className="payroll-table-toolbar">
-                    <span className="payroll-table-title">{col.emoji} {col.name}</span>
-                    <span className="payroll-table-hint">{col.list.length} candidates</span>
-                  </div>
-                  <div style={{ padding: 'var(--space-3)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                    {col.list.length === 0 ? (
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dim)', textAlign: 'center', padding: 'var(--space-6)', fontStyle: 'italic' }}>
-                        No applicants in this stage.
-                      </div>
-                    ) : (
-                      col.list.map(cand => (
-                        <div key={cand.id} style={{ background: 'var(--bg-subtle)', padding: 'var(--space-3)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-default)', fontSize: 'var(--text-sm)' }}>
-                          <div style={{ fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)' }}>{cand.name}</div>
-                          <div style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-1)' }}>{cand.position}</div>
-                          {cand.resume && (
-                            <span className="badge-info" style={{ marginTop: 'var(--space-2)', display: 'inline-block' }}>
-                              {cand.resume}
-                            </span>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <RecruitmentAtsView atsCandidates={atsCandidates} />
         )}
 
         {/* 5. PERFORMANCE MANAGER */}
