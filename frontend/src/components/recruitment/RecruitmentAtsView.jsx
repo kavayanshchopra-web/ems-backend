@@ -1,9 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import KanbanPattern from '../patterns/KanbanPattern';
+import ListPattern from '../patterns/ListPattern';
 import StatCard from '../ui/StatCard';
 import Badge from '../ui/Badge';
+import Button from '../ui/Button';
+import SearchInput from '../ui/SearchInput';
+import Select from '../ui/Select';
 import EmptyState from '../ui/EmptyState';
-import { FileText } from 'lucide-react';
+import Modal from '../ui/Modal';
+import { Plus, Edit2, Trash2, Eye, FileText, ArrowRightLeft, LayoutGrid, List } from 'lucide-react';
 
 /**
  * Defensive string extractor helper
@@ -22,247 +27,1072 @@ const getValString = (val, fallback = '') => {
 };
 
 /**
- * Initial Default Candidates (Presentation Display when workspace pool is empty)
- */
-const DEFAULT_DEMO_CANDIDATES = [
-  { id: 'cand_1', name: 'Vikram Sharma', position: 'Senior Full Stack Engineer', status: 'Applied', resume: 'Resume_Vikram_Sharma.pdf' },
-  { id: 'cand_2', name: 'Ananya Roy', position: 'UI/UX Product Designer', status: 'Interviewing', resume: 'Portfolio_Ananya_2026.pdf' },
-  { id: 'cand_3', name: 'Rahul Verma', position: 'Technical Product Manager', status: 'Offered', resume: 'Rahul_Verma_CV.pdf' },
-  { id: 'cand_4', name: 'Priya Sundaram', position: 'QA Automation Lead', status: 'Hired', resume: 'Priya_Sundaram_Resume.pdf' }
-];
-
-/**
- * Phase 2C — Recruitment ATS View (Global Design System v2.0 - Micro Polished)
- * Content-driven height on mobile/tablet to eliminate blank stage whitespace.
+ * Phase 2C.1 — Production ATS Candidate Management View
+ * Features: Persistence (localStorage + state), Search, Stage Filter, Position Filter,
+ * Kanban / List Toggle, Add/Edit Modal, Stage Movement (Forward & Backward), Detail Modal,
+ * Recycle Bin Integration & Strict Theme Lock (#0d9488 -> #064e43).
  */
 export default function RecruitmentAtsView({
-  atsCandidates = []
+  authUser,
+  atsCandidates = [],
+  setAtsCandidates = () => {},
+  softDeleteRecord = () => {},
+  showToast = () => {}
 }) {
-  const displayCandidates = atsCandidates && atsCandidates.length > 0 ? atsCandidates : DEFAULT_DEMO_CANDIDATES;
+  const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'list'
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStageFilter, setSelectedStageFilter] = useState('all');
+  const [selectedPositionFilter, setSelectedPositionFilter] = useState('all');
+  const [sortKey, setSortKey] = useState('createdAt');
+  const [sortDir, setSortDir] = useState('desc');
 
-  // Normalize and calculate metrics safely
-  const totalApplicants = displayCandidates.length;
+  // Modal States
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const interviewingCount = displayCandidates.filter(c => {
+  // Form State
+  const [candidateForm, setCandidateForm] = useState({
+    id: '',
+    name: '',
+    position: '',
+    status: 'Applied',
+    email: '',
+    phone: '',
+    resume: ''
+  });
+  const [formErrors, setFormErrors] = useState({});
+
+  const canManage = authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager' || authUser?.role === 'superadmin';
+
+  // Derived unique positions for Position Filter
+  const uniquePositions = Array.from(
+    new Set(atsCandidates.map(c => getValString(c.position)).filter(Boolean))
+  );
+
+  const positionOptions = [
+    { label: 'All Positions', value: 'all' },
+    ...uniquePositions.map(pos => ({ label: pos, value: pos }))
+  ];
+
+  const stageOptions = [
+    { label: 'All Stages', value: 'all' },
+    { label: 'Applied', value: 'Applied' },
+    { label: 'Interviewing', value: 'Interviewing' },
+    { label: 'Offered', value: 'Offered' },
+    { label: 'Hired', value: 'Hired' }
+  ];
+
+  // Filtering & Sorting Logic
+  const filteredCandidates = atsCandidates.filter(c => {
+    const q = searchQuery.toLowerCase().trim();
+    const nameStr = getValString(c.name).toLowerCase();
+    const posStr = getValString(c.position).toLowerCase();
+    const emailStr = getValString(c.email).toLowerCase();
+    const phoneStr = getValString(c.phone).toLowerCase();
+    const statusStr = getValString(c.status).toLowerCase();
+
+    const matchesSearch = !q || (
+      nameStr.includes(q) ||
+      posStr.includes(q) ||
+      emailStr.includes(q) ||
+      phoneStr.includes(q)
+    );
+
+    const matchesStage = selectedStageFilter === 'all' || statusStr === selectedStageFilter.toLowerCase();
+    const matchesPosition = selectedPositionFilter === 'all' || posStr === selectedPositionFilter.toLowerCase();
+
+    return matchesSearch && matchesStage && matchesPosition;
+  });
+
+  const sortedCandidates = [...filteredCandidates].sort((a, b) => {
+    let valA = a[sortKey];
+    let valB = b[sortKey];
+
+    if (sortKey === 'createdAt') {
+      valA = new Date(a.createdAt || 0).getTime();
+      valB = new Date(b.createdAt || 0).getTime();
+      return sortDir === 'asc' ? valA - valB : valB - valA;
+    }
+
+    valA = getValString(valA).toLowerCase();
+    valB = getValString(valB).toLowerCase();
+
+    if (valA < valB) return sortDir === 'asc' ? -1 : 1;
+    if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  // Derived Metrics from persisted dataset
+  const totalApplicants = atsCandidates.length;
+
+  const interviewingCount = atsCandidates.filter(c => {
     const st = getValString(c.status).toLowerCase();
     return st === 'interviewing';
   }).length;
 
-  const offeredCount = displayCandidates.filter(c => {
+  const offeredCount = atsCandidates.filter(c => {
     const st = getValString(c.status).toLowerCase();
     return st === 'offered';
   }).length;
 
-  const hiredCount = displayCandidates.filter(c => {
+  const hiredCount = atsCandidates.filter(c => {
     const st = getValString(c.status).toLowerCase();
     return st === 'hired';
   }).length;
 
-  // Pipeline Stage Configuration
-  const stages = [
+  // Validation Handler
+  const validateForm = () => {
+    const errors = {};
+    if (!candidateForm.name.trim()) errors.name = 'Candidate Name is required';
+    if (!candidateForm.position.trim()) errors.position = 'Position / Applied For is required';
+    if (candidateForm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidateForm.email.trim())) {
+      errors.email = 'Enter a valid email address';
+    }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Add / Edit Save Handler
+  const handleSaveCandidate = (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    setIsSaving(true);
+    const now = new Date().toISOString();
+
+    if (candidateForm.id) {
+      // Edit mode
+      const updatedList = atsCandidates.map(c => {
+        if (c.id === candidateForm.id) {
+          return {
+            ...c,
+            name: candidateForm.name.trim(),
+            position: candidateForm.position.trim(),
+            status: candidateForm.status,
+            email: candidateForm.email.trim(),
+            phone: candidateForm.phone.trim(),
+            updatedAt: now
+          };
+        }
+        return c;
+      });
+      setAtsCandidates(updatedList);
+      showToast(`Updated candidate profile "${candidateForm.name.trim()}"`, 'success');
+      setShowEditModal(false);
+    } else {
+      // Add mode
+      const newCand = {
+        id: 'cand_' + Date.now(),
+        name: candidateForm.name.trim(),
+        position: candidateForm.position.trim(),
+        status: candidateForm.status || 'Applied',
+        email: candidateForm.email.trim(),
+        phone: candidateForm.phone.trim(),
+        resume: candidateForm.resume.trim(),
+        createdAt: now,
+        updatedAt: now
+      };
+      setAtsCandidates(prev => [newCand, ...prev]);
+      showToast(`Added candidate "${newCand.name}" to ${newCand.status} stage!`, 'success');
+      setShowAddModal(false);
+    }
+
+    setIsSaving(false);
+  };
+
+  // Stage Movement Handler (Forward & Backward)
+  const handleMoveStage = (candId, newStage) => {
+    const cand = atsCandidates.find(c => c.id === candId);
+    if (!cand) return;
+
+    const oldStage = getValString(cand.status, 'Applied');
+    if (oldStage.toLowerCase() === newStage.toLowerCase()) return;
+
+    const updatedList = atsCandidates.map(c => {
+      if (c.id === candId) {
+        return {
+          ...c,
+          status: newStage,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return c;
+    });
+
+    setAtsCandidates(updatedList);
+    showToast(`Moved "${getValString(cand.name)}" to ${newStage}`, 'info');
+
+    if (selectedCandidate && selectedCandidate.id === candId) {
+      setSelectedCandidate(prev => prev ? { ...prev, status: newStage } : null);
+    }
+  };
+
+  // Archive / Soft Delete Handler
+  const handleArchiveCandidate = (cand) => {
+    if (!window.confirm(`Are you sure you want to archive "${getValString(cand.name)}"?`)) return;
+
+    const candName = getValString(cand.name, 'Candidate');
+    softDeleteRecord({
+      originalId: cand.id,
+      name: `ATS Candidate: "${candName}"`,
+      category: 'ATS Candidate',
+      entityData: { candidate: cand },
+      moduleTab: 'recruitment_ats'
+    });
+
+    const updatedList = atsCandidates.filter(c => c.id !== cand.id);
+    setAtsCandidates(updatedList);
+    showToast(`🗑️ Moved "${candName}" to Recycle Bin!`, 'info');
+
+    setShowDetailModal(false);
+    setShowEditModal(false);
+  };
+
+  // Open Edit Modal Helper
+  const openEditModalForCandidate = (cand) => {
+    setCandidateForm({
+      id: cand.id,
+      name: getValString(cand.name),
+      position: getValString(cand.position),
+      status: getValString(cand.status, 'Applied'),
+      email: getValString(cand.email),
+      phone: getValString(cand.phone),
+      resume: getValString(cand.resume)
+    });
+    setFormErrors({});
+    setShowEditModal(true);
+  };
+
+  // Open Add Modal Helper
+  const openAddModal = () => {
+    setCandidateForm({
+      id: '',
+      name: '',
+      position: '',
+      status: 'Applied',
+      email: '',
+      phone: '',
+      resume: ''
+    });
+    setFormErrors({});
+    setShowAddModal(true);
+  };
+
+  // Shared Header Actions
+  const headerActions = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', background: '#f1f5f9', padding: '2px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+        <button
+          type="button"
+          onClick={() => setViewMode('kanban')}
+          style={{
+            padding: '6px 12px',
+            fontSize: '12px',
+            fontWeight: '700',
+            borderRadius: '6px',
+            border: 'none',
+            background: viewMode === 'kanban' ? '#ffffff' : 'transparent',
+            color: viewMode === 'kanban' ? '#0d9488' : '#64748b',
+            boxShadow: viewMode === 'kanban' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          <LayoutGrid size={14} /> Kanban
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode('list')}
+          style={{
+            padding: '6px 12px',
+            fontSize: '12px',
+            fontWeight: '700',
+            borderRadius: '6px',
+            border: 'none',
+            background: viewMode === 'list' ? '#ffffff' : 'transparent',
+            color: viewMode === 'list' ? '#0d9488' : '#64748b',
+            boxShadow: viewMode === 'list' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          <List size={14} /> List
+        </button>
+      </div>
+
+      {canManage && (
+        <Button
+          variant="primary"
+          size="md"
+          icon={<Plus size={16} />}
+          onClick={openAddModal}
+        >
+          Add Candidate
+        </Button>
+      )}
+    </div>
+  );
+
+  // Shared Toolbar Left Controls
+  const toolbarLeft = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+      <SearchInput
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        onClear={() => setSearchQuery('')}
+        placeholder="Search candidates..."
+        width="240px"
+      />
+      <Select
+        value={selectedStageFilter}
+        onChange={(e) => setSelectedStageFilter(e.target.value)}
+        options={stageOptions}
+        style={{ width: '150px' }}
+      />
+      {uniquePositions.length > 0 && (
+        <Select
+          value={selectedPositionFilter}
+          onChange={(e) => setSelectedPositionFilter(e.target.value)}
+          options={positionOptions}
+          style={{ width: '160px' }}
+        />
+      )}
+    </div>
+  );
+
+  // Shared Toolbar Right Controls
+  const toolbarRight = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'))}
+      >
+        Sort: {sortKey === 'createdAt' ? 'Date' : 'Name'} {sortDir === 'asc' ? '↑' : '↓'}
+      </Button>
+    </div>
+  );
+
+  // Shared Stat Cards Grid
+  const statsGrid = (
+    <>
+      <StatCard
+        icon="👥"
+        title="TOTAL APPLICANTS"
+        value={totalApplicants}
+        subtitle="Registered Talent Roster"
+        trend="Active Pool"
+        badgeText="All Applicants"
+        badgeBg="rgba(13, 148, 136, 0.1)"
+        badgeColor="#0d9488"
+      />
+      <StatCard
+        icon="🗣️"
+        title="INTERVIEWING"
+        value={interviewingCount}
+        subtitle="Active Screening & Rounds"
+        trend="In Review"
+        trendDirection="up"
+        badgeText="Interviewing"
+        badgeBg="rgba(37, 99, 235, 0.1)"
+        badgeColor="#2563eb"
+      />
+      <StatCard
+        icon="📋"
+        title="OFFERS EXTENDED"
+        value={offeredCount}
+        subtitle="Pending Acceptance"
+        trend="Offer Stage"
+        badgeText="Offered"
+        badgeBg="rgba(245, 158, 11, 0.1)"
+        badgeColor="#d97706"
+      />
+      <StatCard
+        icon="✅"
+        title="HIRED"
+        value={hiredCount}
+        subtitle="Successful Onboardings"
+        trend="Completed"
+        trendDirection="up"
+        badgeText="Hired"
+        badgeBg="rgba(16, 185, 129, 0.1)"
+        badgeColor="#059669"
+      />
+    </>
+  );
+
+  // Stage Configurations for Kanban
+  const kanbanStages = [
     {
-      id: 'applied',
+      id: 'Applied',
       name: 'Applied',
       emoji: '📥',
-      list: displayCandidates.filter(c => {
-        const st = getValString(c.status).toLowerCase();
-        return st === 'applied';
-      })
+      list: sortedCandidates.filter(c => getValString(c.status).toLowerCase() === 'applied')
     },
     {
-      id: 'interviewing',
+      id: 'Interviewing',
       name: 'Interviewing',
       emoji: '🗣️',
-      list: displayCandidates.filter(c => {
-        const st = getValString(c.status).toLowerCase();
-        return st === 'interviewing';
-      })
+      list: sortedCandidates.filter(c => getValString(c.status).toLowerCase() === 'interviewing')
     },
     {
-      id: 'offered',
+      id: 'Offered',
       name: 'Offered',
       emoji: '📋',
-      list: displayCandidates.filter(c => {
-        const st = getValString(c.status).toLowerCase();
-        return st === 'offered';
-      })
+      list: sortedCandidates.filter(c => getValString(c.status).toLowerCase() === 'offered')
     },
     {
-      id: 'hired',
+      id: 'Hired',
       name: 'Hired',
       emoji: '✅',
-      list: displayCandidates.filter(c => {
-        const st = getValString(c.status).toLowerCase();
-        return st === 'hired';
-      })
+      list: sortedCandidates.filter(c => getValString(c.status).toLowerCase() === 'hired')
     }
   ];
 
-  return (
-    <KanbanPattern
-      icon="🧑‍💼"
-      title="Recruitment ATS"
-      subtitle="Candidate Pipeline & Hiring Overview"
-      badgeText={`${totalApplicants} Total Candidates`}
-    >
-      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        {/* KPI Metrics Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-          <StatCard
-            icon="👥"
-            title="TOTAL APPLICANTS"
-            value={totalApplicants}
-            subtitle="Registered Talent Roster"
-            trend="Active Pool"
-            badgeText="All Applicants"
-            badgeBg="rgba(13, 148, 136, 0.1)"
-            badgeColor="#0d9488"
-          />
-          <StatCard
-            icon="🗣️"
-            title="INTERVIEWING"
-            value={interviewingCount}
-            subtitle="Active Screening & Rounds"
-            trend="In Review"
-            trendDirection="up"
-            badgeText="Interviewing"
-            badgeBg="rgba(37, 99, 235, 0.1)"
-            badgeColor="#2563eb"
-          />
-          <StatCard
-            icon="📋"
-            title="OFFERS EXTENDED"
-            value={offeredCount}
-            subtitle="Pending Acceptance"
-            trend="Offer Stage"
-            badgeText="Offered"
-            badgeBg="rgba(245, 158, 11, 0.1)"
-            badgeColor="#d97706"
-          />
-          <StatCard
-            icon="✅"
-            title="HIRED"
-            value={hiredCount}
-            subtitle="Successful Onboardings"
-            trend="Completed"
-            trendDirection="up"
-            badgeText="Hired"
-            badgeBg="rgba(16, 185, 129, 0.1)"
-            badgeColor="#059669"
-          />
-        </div>
+  // Helper Badge Color mapping for stages
+  const getStageBadgeVariant = (st) => {
+    const lower = getValString(st).toLowerCase();
+    if (lower === 'hired') return 'success';
+    if (lower === 'offered') return 'warning';
+    if (lower === 'interviewing') return 'info';
+    return 'neutral';
+  };
 
-        {/* 4-Stage Kanban Columns Viewport */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: '16px',
-            alignItems: 'start',
-            width: '100%',
-            overflowX: 'auto',
-            WebkitOverflowScrolling: 'touch',
-            paddingBottom: '8px'
-          }}
+  return (
+    <>
+      {viewMode === 'kanban' ? (
+        <KanbanPattern
+          icon="🧑‍💼"
+          title="Recruitment ATS"
+          subtitle="Candidate Pipeline & Hiring Overview"
+          badgeText={`${totalApplicants} Candidates`}
+          headerActions={headerActions}
+          pipelineSelector={toolbarLeft}
+          toolbarRight={toolbarRight}
         >
-          {stages.map((stage) => {
-            return (
-              <div
-                key={stage.id}
-                className="ats-stage-card"
-                style={{
-                  background: '#ffffff',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  overflow: 'hidden'
-                }}
-              >
-                {/* Stage Header */}
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Stat Cards Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+              {statsGrid}
+            </div>
+
+            {/* 4-Stage Kanban Columns Viewport */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gap: '16px',
+                alignItems: 'start',
+                width: '100%',
+                overflowX: 'auto',
+                WebkitOverflowScrolling: 'touch',
+                paddingBottom: '8px'
+              }}
+            >
+              {kanbanStages.map((stage) => (
                 <div
+                  key={stage.id}
+                  className="ats-stage-card"
                   style={{
-                    padding: '12px 16px',
-                    background: '#f8fafc',
-                    borderBottom: '1px solid #e2e8f0',
+                    background: '#ffffff',
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
                     display: 'flex',
-                    justify: 'space-between',
-                    alignItems: 'center'
+                    flexDirection: 'column',
+                    overflow: 'hidden'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '14px' }}>{stage.emoji}</span>
-                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a' }}>
-                      {stage.name}
-                    </span>
-                  </div>
-                  <span
+                  {/* Column Header */}
+                  <div
                     style={{
-                      fontSize: '11px',
-                      fontWeight: '800',
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      background: 'rgba(13, 148, 136, 0.1)',
-                      color: '#0d9488'
+                      padding: '12px 16px',
+                      background: '#f8fafc',
+                      borderBottom: '1px solid #e2e8f0',
+                      display: 'flex',
+                      justify: 'space-between',
+                      alignItems: 'center'
                     }}
                   >
-                    {stage.list.length}
-                  </span>
-                </div>
-
-                {/* Candidate Cards Column Content */}
-                <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
-                  {stage.list.length === 0 ? (
-                    <div style={{ padding: '16px 12px', textAlign: 'center' }}>
-                      <EmptyState
-                        title=""
-                        description="No applicants in this stage."
-                      />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '14px' }}>{stage.emoji}</span>
+                      <span style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a' }}>
+                        {stage.name}
+                      </span>
                     </div>
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: '800',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        background: 'rgba(13, 148, 136, 0.1)',
+                        color: '#0d9488'
+                      }}
+                    >
+                      {stage.list.length}
+                    </span>
+                  </div>
+
+                  {/* Candidate Cards Column Content */}
+                  <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+                    {stage.list.length === 0 ? (
+                      <div style={{ padding: '20px 12px', textAlign: 'center' }}>
+                        <EmptyState
+                          title=""
+                          description={searchQuery || selectedStageFilter !== 'all' ? 'No candidates match filter.' : 'No applicants in this stage.'}
+                        />
+                      </div>
+                    ) : (
+                      stage.list.map((cand, idx) => {
+                        const candName = getValString(cand.name, 'Applicant');
+                        const candPosition = getValString(cand.position, 'Position Pending');
+                        const candEmail = getValString(cand.email);
+                        const candPhone = getValString(cand.phone);
+                        const candResume = getValString(cand.resume);
+                        const candStage = getValString(cand.status, 'Applied');
+
+                        return (
+                          <div
+                            key={cand.id || idx}
+                            style={{
+                              background: '#f8fafc',
+                              padding: '12px 14px',
+                              borderRadius: '8px',
+                              border: '1px solid #e2e8f0',
+                              transition: 'all 0.15s ease',
+                              overflow: 'hidden'
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                              <div>
+                                <div
+                                  onClick={() => { setSelectedCandidate(cand); setShowDetailModal(true); }}
+                                  style={{ fontWeight: '700', color: '#0f172a', fontSize: '13px', wordBreak: 'break-word', cursor: 'pointer', textDecoration: 'none' }}
+                                  className="cand-name-hover"
+                                >
+                                  {candName}
+                                </div>
+                                <div style={{ color: '#64748b', fontSize: '11px', fontWeight: '600', marginTop: '2px', wordBreak: 'break-word' }}>
+                                  {candPosition}
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                title="View Details"
+                                onClick={() => { setSelectedCandidate(cand); setShowDetailModal(true); }}
+                                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '2px' }}
+                              >
+                                <Eye size={14} />
+                              </button>
+                            </div>
+
+                            {(candEmail || candPhone) && (
+                              <div style={{ marginTop: '6px', fontSize: '10px', color: '#475569' }}>
+                                {candEmail && <div>{candEmail}</div>}
+                                {candPhone && <div>{candPhone}</div>}
+                              </div>
+                            )}
+
+                            {candResume && (
+                              <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '100%', overflow: 'hidden' }}>
+                                <Badge variant="info" style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  <FileText size={10} style={{ marginRight: '3px', flexShrink: 0 }} />
+                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{candResume}</span>
+                                </Badge>
+                              </div>
+                            )}
+
+                            {/* Move Stage Selector + Actions Bar */}
+                            {canManage && (
+                              <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                <select
+                                  value={candStage}
+                                  onChange={(e) => handleMoveStage(cand.id, e.target.value)}
+                                  style={{ fontSize: '10px', fontWeight: '700', padding: '3px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
+                                >
+                                  <option value="Applied">Stage: Applied</option>
+                                  <option value="Interviewing">Stage: Interviewing</option>
+                                  <option value="Offered">Stage: Offered</option>
+                                  <option value="Hired">Stage: Hired</option>
+                                </select>
+
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => openEditModalForCandidate(cand)}
+                                    style={{ padding: '3px 6px', fontSize: '10px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#334155', cursor: 'pointer' }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleArchiveCandidate(cand)}
+                                    style={{ padding: '3px 6px', fontSize: '10px', borderRadius: '4px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                  >
+                                    Archive
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </KanbanPattern>
+      ) : (
+        /* LIST VIEW PATTERN */
+        <ListPattern
+          icon="🧑‍💼"
+          title="Recruitment ATS Directory"
+          subtitle="Manage talent candidates, positions, application stages and contact details."
+          badgeText={`${totalApplicants} Total Candidates`}
+          headerActions={headerActions}
+          statsGrid={statsGrid}
+          toolbarLeft={toolbarLeft}
+          toolbarRight={toolbarRight}
+        >
+          <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+            <div style={{ padding: '10px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>
+                Candidate Roster ({sortedCandidates.length})
+              </span>
+              <span className="mobile-swipe-hint" style={{ fontSize: '11px', color: '#0d9488', fontWeight: '700' }}>
+                Swipe horizontally ↔
+              </span>
+            </div>
+
+            <div style={{ overflowX: 'auto', width: '100%' }}>
+              <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc' }}>
+                    <th style={{ padding: '10px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', position: 'sticky', left: 0, background: '#f8fafc', zIndex: 2 }}>
+                      Candidate
+                    </th>
+                    <th style={{ padding: '10px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>
+                      Position
+                    </th>
+                    <th style={{ padding: '10px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>
+                      Contact Details
+                    </th>
+                    <th style={{ padding: '10px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>
+                      Stage / Status
+                    </th>
+                    <th style={{ padding: '10px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>
+                      Resume
+                    </th>
+                    <th style={{ padding: '10px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>
+                      Created
+                    </th>
+                    {canManage && (
+                      <th style={{ padding: '10px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', textAlign: 'right' }}>
+                        Actions
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedCandidates.length === 0 ? (
+                    <tr>
+                      <td colSpan={canManage ? 7 : 6} style={{ padding: '32px', textAlign: 'center' }}>
+                        <EmptyState
+                          title="No candidates found"
+                          description={searchQuery ? `No candidates match "${searchQuery}".` : 'No candidate records exist in the ATS database.'}
+                        />
+                      </td>
+                    </tr>
                   ) : (
-                    stage.list.map((cand, idx) => {
+                    sortedCandidates.map((cand, idx) => {
                       const candName = getValString(cand.name, 'Applicant');
                       const candPosition = getValString(cand.position, 'Position Pending');
+                      const candEmail = getValString(cand.email);
+                      const candPhone = getValString(cand.phone);
                       const candResume = getValString(cand.resume);
+                      const candStage = getValString(cand.status, 'Applied');
+                      const createdDate = cand.createdAt ? new Date(cand.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
                       return (
-                        <div
-                          key={cand.id || idx}
-                          style={{
-                            background: '#f8fafc',
-                            padding: '12px 14px',
-                            borderRadius: '8px',
-                            border: '1px solid #e2e8f0',
-                            transition: 'all 0.15s ease',
-                            overflow: 'hidden'
-                          }}
-                        >
-                          <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '13px', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                            {candName}
-                          </div>
-                          <div style={{ color: '#64748b', fontSize: '11px', fontWeight: '600', marginTop: '2px', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                            {candPosition}
-                          </div>
-
-                          {candResume && (
-                            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '100%', overflow: 'hidden' }}>
-                              <Badge variant="info" style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                <FileText size={10} style={{ marginRight: '3px', flexShrink: 0 }} />
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{candResume}</span>
-                              </Badge>
+                        <tr key={cand.id || idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '10px 14px', position: 'sticky', left: 0, background: '#ffffff', zIndex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', maxWidth: '200px' }}>
+                              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(135deg, #0d9488, #064e43)', color: '#ffffff', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', flexShrink: 0 }}>
+                                {(candName[0] || 'C')}
+                              </div>
+                              <div style={{ overflow: 'hidden' }}>
+                                <div
+                                  onClick={() => { setSelectedCandidate(cand); setShowDetailModal(true); }}
+                                  style={{ fontWeight: '700', color: '#0f172a', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}
+                                >
+                                  {candName}
+                                </div>
+                                <div style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '600', color: '#64748b' }}>ID: {cand.id}</div>
+                              </div>
                             </div>
+                          </td>
+                          <td style={{ padding: '10px 14px', color: '#334155', fontSize: '12px', fontWeight: '600' }}>
+                            {candPosition}
+                          </td>
+                          <td style={{ padding: '10px 14px' }}>
+                            <div style={{ fontSize: '12px', color: '#0f172a', fontWeight: '600' }}>{candEmail || '—'}</div>
+                            <div style={{ fontSize: '10px', color: '#64748b' }}>{candPhone || '—'}</div>
+                          </td>
+                          <td style={{ padding: '10px 14px' }}>
+                            {canManage ? (
+                              <select
+                                value={candStage}
+                                onChange={(e) => handleMoveStage(cand.id, e.target.value)}
+                                style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
+                              >
+                                <option value="Applied">Applied</option>
+                                <option value="Interviewing">Interviewing</option>
+                                <option value="Offered">Offered</option>
+                                <option value="Hired">Hired</option>
+                              </select>
+                            ) : (
+                              <Badge variant={getStageBadgeVariant(candStage)}>
+                                {candStage}
+                              </Badge>
+                            )}
+                          </td>
+                          <td style={{ padding: '10px 14px' }}>
+                            {candResume ? (
+                              <Badge variant="info">
+                                <FileText size={10} style={{ marginRight: '3px' }} />
+                                {candResume}
+                              </Badge>
+                            ) : (
+                              <span style={{ fontSize: '11px', color: '#94a3b8' }}>—</span>
+                            )}
+                          </td>
+                          <td style={{ padding: '10px 14px', fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
+                            {createdDate}
+                          </td>
+                          {canManage && (
+                            <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  icon={<Eye size={12} />}
+                                  onClick={() => { setSelectedCandidate(cand); setShowDetailModal(true); }}
+                                >
+                                  View
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  icon={<Edit2 size={12} />}
+                                  onClick={() => openEditModalForCandidate(cand)}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  variant="danger"
+                                  size="sm"
+                                  icon={<Trash2 size={12} />}
+                                  onClick={() => handleArchiveCandidate(cand)}
+                                >
+                                  Archive
+                                </Button>
+                              </div>
+                            </td>
                           )}
-                        </div>
+                        </tr>
                       );
                     })
                   )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </ListPattern>
+      )}
+
+      {/* ADD CANDIDATE MODAL */}
+      {showAddModal && (
+        <Modal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          title="Add New Candidate"
+          subtitle="Register candidate into the recruitment ATS pipeline."
+        >
+          <form onSubmit={handleSaveCandidate} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                Candidate Name <span style={{ color: '#ef4444' }}>*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Vikram Sharma"
+                value={candidateForm.name}
+                onChange={(e) => setCandidateForm({ ...candidateForm, name: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: formErrors.name ? '1.5px solid #ef4444' : '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+              />
+              {formErrors.name && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '600' }}>{formErrors.name}</span>}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                Position / Applied For <span style={{ color: '#ef4444' }}>*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Senior Full Stack Engineer"
+                value={candidateForm.position}
+                onChange={(e) => setCandidateForm({ ...candidateForm, position: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: formErrors.position ? '1.5px solid #ef4444' : '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+              />
+              {formErrors.position && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '600' }}>{formErrors.position}</span>}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>Email Address</label>
+                <input
+                  type="email"
+                  placeholder="e.g. vikram@example.com"
+                  value={candidateForm.email}
+                  onChange={(e) => setCandidateForm({ ...candidateForm, email: e.target.value })}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: formErrors.email ? '1.5px solid #ef4444' : '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+                />
+                {formErrors.email && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '600' }}>{formErrors.email}</span>}
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>Phone Number</label>
+                <input
+                  type="text"
+                  placeholder="e.g. +91 9876543210"
+                  value={candidateForm.phone}
+                  onChange={(e) => setCandidateForm({ ...candidateForm, phone: e.target.value })}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                Initial Pipeline Stage <span style={{ color: '#ef4444' }}>*</span>
+              </label>
+              <select
+                value={candidateForm.status}
+                onChange={(e) => setCandidateForm({ ...candidateForm, status: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#ffffff', outline: 'none' }}
+              >
+                <option value="Applied">Applied</option>
+                <option value="Interviewing">Interviewing</option>
+                <option value="Offered">Offered</option>
+                <option value="Hired">Hired</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '12px' }}>
+              <Button variant="secondary" size="md" onClick={() => setShowAddModal(false)} type="button">
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                type="submit"
+                disabled={isSaving}
+                style={{ background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none' }}
+              >
+                {isSaving ? 'Saving...' : 'Add Candidate'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* EDIT CANDIDATE MODAL */}
+      {showEditModal && (
+        <Modal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          title="Edit Candidate Profile"
+          subtitle={`Update profile details for ${candidateForm.name || 'Candidate'}.`}
+        >
+          <form onSubmit={handleSaveCandidate} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                Candidate Name <span style={{ color: '#ef4444' }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={candidateForm.name}
+                onChange={(e) => setCandidateForm({ ...candidateForm, name: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: formErrors.name ? '1.5px solid #ef4444' : '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+              />
+              {formErrors.name && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '600' }}>{formErrors.name}</span>}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                Position / Applied For <span style={{ color: '#ef4444' }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={candidateForm.position}
+                onChange={(e) => setCandidateForm({ ...candidateForm, position: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: formErrors.position ? '1.5px solid #ef4444' : '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+              />
+              {formErrors.position && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '600' }}>{formErrors.position}</span>}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>Email Address</label>
+                <input
+                  type="email"
+                  value={candidateForm.email}
+                  onChange={(e) => setCandidateForm({ ...candidateForm, email: e.target.value })}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: formErrors.email ? '1.5px solid #ef4444' : '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+                />
+                {formErrors.email && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '600' }}>{formErrors.email}</span>}
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>Phone Number</label>
+                <input
+                  type="text"
+                  value={candidateForm.phone}
+                  onChange={(e) => setCandidateForm({ ...candidateForm, phone: e.target.value })}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>Pipeline Stage</label>
+              <select
+                value={candidateForm.status}
+                onChange={(e) => setCandidateForm({ ...candidateForm, status: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#ffffff', outline: 'none' }}
+              >
+                <option value="Applied">Applied</option>
+                <option value="Interviewing">Interviewing</option>
+                <option value="Offered">Offered</option>
+                <option value="Hired">Hired</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '12px' }}>
+              <Button variant="secondary" size="md" onClick={() => setShowEditModal(false)} type="button">
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                type="submit"
+                disabled={isSaving}
+                style={{ background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none' }}
+              >
+                {isSaving ? 'Saving...' : 'Save Profile'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* CANDIDATE DETAIL DRAWER / MODAL */}
+      {showDetailModal && selectedCandidate && (
+        <Modal
+          isOpen={showDetailModal}
+          onClose={() => setShowDetailModal(false)}
+          title="Candidate Profile"
+          subtitle={`Detailed ATS application record for ${getValString(selectedCandidate.name)}.`}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'linear-gradient(135deg, #0d9488, #064e43)', color: '#ffffff', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', flexShrink: 0 }}>
+                {(getValString(selectedCandidate.name)[0] || 'C')}
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+                  {getValString(selectedCandidate.name)}
+                </h3>
+                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', marginTop: '2px' }}>
+                  {getValString(selectedCandidate.position)}
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </div>
-    </KanbanPattern>
+              <Badge variant={getStageBadgeVariant(selectedCandidate.status)}>
+                {getValString(selectedCandidate.status, 'Applied')}
+              </Badge>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '12px' }}>
+              <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', display: 'block' }}>Email Address</span>
+                <span style={{ fontWeight: '700', color: '#0f172a' }}>{getValString(selectedCandidate.email) || '—'}</span>
+              </div>
+              <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', display: 'block' }}>Phone Number</span>
+                <span style={{ fontWeight: '700', color: '#0f172a' }}>{getValString(selectedCandidate.phone) || '—'}</span>
+              </div>
+            </div>
+
+            {selectedCandidate.resume && (
+              <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '12px' }}>
+                <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Resume Document</span>
+                <Badge variant="info">
+                  <FileText size={10} style={{ marginRight: '3px' }} />
+                  {getValString(selectedCandidate.resume)}
+                </Badge>
+              </div>
+            )}
+
+            {canManage && (
+              <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '12px' }}>
+                <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Move Pipeline Stage</span>
+                <select
+                  value={getValString(selectedCandidate.status, 'Applied')}
+                  onChange={(e) => handleMoveStage(selectedCandidate.id, e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', fontSize: '12px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
+                >
+                  <option value="Applied">Applied Stage</option>
+                  <option value="Interviewing">Interviewing Stage</option>
+                  <option value="Offered">Offered Stage</option>
+                  <option value="Hired">Hired Stage</option>
+                </select>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                ID: {selectedCandidate.id}
+              </span>
+              {canManage && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setShowDetailModal(false); openEditModalForCandidate(selectedCandidate); }}
+                  >
+                    Edit Profile
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => handleArchiveCandidate(selectedCandidate)}
+                  >
+                    Archive
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }

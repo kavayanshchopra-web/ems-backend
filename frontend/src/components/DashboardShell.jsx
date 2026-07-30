@@ -1104,7 +1104,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     reason: ''
   });
 
-  const [atsCandidates, setAtsCandidates] = useState([]);
+  const [atsCandidates, setAtsCandidates] = useState(() => {
+    const saved = localStorage.getItem('omnilflow_ats_candidates');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('omnilflow_ats_candidates', JSON.stringify(atsCandidates));
+  }, [atsCandidates]);
   const [assets, setAssets] = useState([]);
 
   const [sessions, setSessions] = useState([]);
@@ -11120,7 +11130,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
         {/* 4. RECRUITMENT & ATS BOARD */}
         {activeTab === 'recruitment_ats' && (
-          <RecruitmentAtsView atsCandidates={atsCandidates} />
+          <RecruitmentAtsView
+            authUser={authUser}
+            atsCandidates={atsCandidates}
+            setAtsCandidates={setAtsCandidates}
+            softDeleteRecord={softDeleteRecord}
+            showToast={showToast}
+          />
         )}
 
         {/* 5. PERFORMANCE MANAGER */}
