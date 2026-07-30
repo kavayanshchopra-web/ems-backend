@@ -8,7 +8,7 @@ import SearchInput from '../ui/SearchInput';
 import Select from '../ui/Select';
 import EmptyState from '../ui/EmptyState';
 import Modal from '../ui/Modal';
-import { Plus, Edit2, Trash2, Eye, FileText, ArrowRightLeft, LayoutGrid, List } from 'lucide-react';
+import { Plus, Edit2, Archive, Eye, FileText, LayoutGrid, List, RotateCcw, Trash2, FilterX } from 'lucide-react';
 
 /**
  * Defensive string extractor helper
@@ -27,15 +27,18 @@ const getValString = (val, fallback = '') => {
 };
 
 /**
- * Phase 2C.1 — Production ATS Candidate Management View
- * Features: Persistence (localStorage + state), Search, Stage Filter, Position Filter,
- * Kanban / List Toggle, Add/Edit Modal, Stage Movement (Forward & Backward), Detail Modal,
- * Recycle Bin Integration & Strict Theme Lock (#0d9488 -> #064e43).
+ * Phase 2C.1A — Recruitment ATS View (UX Correction & Archive Entry Point Pass)
+ * Features: Discoverable Archived Candidates Entry Point, Restore & Permanent Delete,
+ * Neutral Archive Visual Semantics, Stable Position Filter, Filtered Result Counter,
+ * Lightweight Clear Filters, and Strict Emerald Teal Palette (#0d9488 -> #064e43).
  */
 export default function RecruitmentAtsView({
   authUser,
   atsCandidates = [],
   setAtsCandidates = () => {},
+  recycleBinItems = [],
+  handleRestoreBinItem = () => {},
+  handlePermanentDeleteBinItem = () => {},
   softDeleteRecord = () => {},
   showToast = () => {}
 }) {
@@ -50,6 +53,7 @@ export default function RecruitmentAtsView({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showArchivedModal, setShowArchivedModal] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -66,6 +70,12 @@ export default function RecruitmentAtsView({
   const [formErrors, setFormErrors] = useState({});
 
   const canManage = authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager' || authUser?.role === 'superadmin';
+
+  // Filtered Archived ATS Candidates from global Recycle Bin
+  const archivedAtsItems = (recycleBinItems || []).filter(item => {
+    const cat = getValString(item.category || item.type).toLowerCase();
+    return cat.includes('ats candidate');
+  });
 
   // Derived unique positions for Position Filter
   const uniquePositions = Array.from(
@@ -84,6 +94,17 @@ export default function RecruitmentAtsView({
     { label: 'Offered', value: 'Offered' },
     { label: 'Hired', value: 'Hired' }
   ];
+
+  // Active filters check
+  const isFilterActive = Boolean(
+    searchQuery.trim() || selectedStageFilter !== 'all' || selectedPositionFilter !== 'all'
+  );
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setSelectedStageFilter('all');
+    setSelectedPositionFilter('all');
+  };
 
   // Filtering & Sorting Logic
   const filteredCandidates = atsCandidates.filter(c => {
@@ -125,7 +146,7 @@ export default function RecruitmentAtsView({
     return 0;
   });
 
-  // Derived Metrics from persisted dataset
+  // Global Dataset Metrics (Preserved, unmodified by filters)
   const totalApplicants = atsCandidates.length;
 
   const interviewingCount = atsCandidates.filter(c => {
@@ -155,7 +176,7 @@ export default function RecruitmentAtsView({
     return Object.keys(errors).length === 0;
   };
 
-  // Add / Edit Save Handler
+  // Save Candidate (Add or Edit)
   const handleSaveCandidate = (e) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -164,7 +185,7 @@ export default function RecruitmentAtsView({
     const now = new Date().toISOString();
 
     if (candidateForm.id) {
-      // Edit mode
+      // Edit Mode
       const updatedList = atsCandidates.map(c => {
         if (c.id === candidateForm.id) {
           return {
@@ -183,7 +204,7 @@ export default function RecruitmentAtsView({
       showToast(`Updated candidate profile "${candidateForm.name.trim()}"`, 'success');
       setShowEditModal(false);
     } else {
-      // Add mode
+      // Add Mode
       const newCand = {
         id: 'cand_' + Date.now(),
         name: candidateForm.name.trim(),
@@ -230,11 +251,11 @@ export default function RecruitmentAtsView({
     }
   };
 
-  // Archive / Soft Delete Handler
+  // Neutral Archive Handler
   const handleArchiveCandidate = (cand) => {
-    if (!window.confirm(`Are you sure you want to archive "${getValString(cand.name)}"?`)) return;
-
     const candName = getValString(cand.name, 'Candidate');
+    if (!window.confirm(`Archive "${candName}"? Candidate will be moved to Archived Candidates.`)) return;
+
     softDeleteRecord({
       originalId: cand.id,
       name: `ATS Candidate: "${candName}"`,
@@ -245,7 +266,7 @@ export default function RecruitmentAtsView({
 
     const updatedList = atsCandidates.filter(c => c.id !== cand.id);
     setAtsCandidates(updatedList);
-    showToast(`🗑️ Moved "${candName}" to Recycle Bin!`, 'info');
+    showToast(`📦 Archived "${candName}". Accessible in Archived Candidates.`, 'info');
 
     setShowDetailModal(false);
     setShowEditModal(false);
@@ -327,6 +348,15 @@ export default function RecruitmentAtsView({
         </button>
       </div>
 
+      <Button
+        variant="secondary"
+        size="md"
+        icon={<Archive size={14} />}
+        onClick={() => setShowArchivedModal(true)}
+      >
+        Archived ({archivedAtsItems.length})
+      </Button>
+
       {canManage && (
         <Button
           variant="primary"
@@ -356,13 +386,22 @@ export default function RecruitmentAtsView({
         options={stageOptions}
         style={{ width: '150px' }}
       />
-      {uniquePositions.length > 0 && (
-        <Select
-          value={selectedPositionFilter}
-          onChange={(e) => setSelectedPositionFilter(e.target.value)}
-          options={positionOptions}
-          style={{ width: '160px' }}
-        />
+      <Select
+        value={selectedPositionFilter}
+        onChange={(e) => setSelectedPositionFilter(e.target.value)}
+        options={positionOptions}
+        disabled={uniquePositions.length === 0}
+        style={{ width: '160px' }}
+      />
+      {isFilterActive && (
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<FilterX size={13} />}
+          onClick={handleResetFilters}
+        >
+          Clear filters
+        </Button>
       )}
     </div>
   );
@@ -483,6 +522,16 @@ export default function RecruitmentAtsView({
               {statsGrid}
             </div>
 
+            {/* Filtered Result Counter Indicator */}
+            {isFilterActive && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '8px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px', fontWeight: '700', color: '#475569' }}>
+                <span>Showing {sortedCandidates.length} of {totalApplicants} candidates</span>
+                <Button variant="secondary" size="sm" icon={<FilterX size={12} />} onClick={handleResetFilters}>
+                  Clear filters
+                </Button>
+              </div>
+            )}
+
             {/* 4-Stage Kanban Columns Viewport */}
             <div
               style={{
@@ -547,7 +596,7 @@ export default function RecruitmentAtsView({
                       <div style={{ padding: '20px 12px', textAlign: 'center' }}>
                         <EmptyState
                           title=""
-                          description={searchQuery || selectedStageFilter !== 'all' ? 'No candidates match filter.' : 'No applicants in this stage.'}
+                          description={isFilterActive ? 'No candidates match filter.' : 'No applicants in this stage.'}
                         />
                       </div>
                     ) : (
@@ -575,8 +624,7 @@ export default function RecruitmentAtsView({
                               <div>
                                 <div
                                   onClick={() => { setSelectedCandidate(cand); setShowDetailModal(true); }}
-                                  style={{ fontWeight: '700', color: '#0f172a', fontSize: '13px', wordBreak: 'break-word', cursor: 'pointer', textDecoration: 'none' }}
-                                  className="cand-name-hover"
+                                  style={{ fontWeight: '700', color: '#0f172a', fontSize: '13px', wordBreak: 'break-word', cursor: 'pointer' }}
                                 >
                                   {candName}
                                 </div>
@@ -586,7 +634,7 @@ export default function RecruitmentAtsView({
                               </div>
                               <button
                                 type="button"
-                                title="View Details"
+                                title="View Profile"
                                 onClick={() => { setSelectedCandidate(cand); setShowDetailModal(true); }}
                                 style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '2px' }}
                               >
@@ -610,7 +658,7 @@ export default function RecruitmentAtsView({
                               </div>
                             )}
 
-                            {/* Move Stage Selector + Actions Bar */}
+                            {/* Move Stage Selector + Neutral Archive Actions Bar */}
                             {canManage && (
                               <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                 <select
@@ -634,10 +682,11 @@ export default function RecruitmentAtsView({
                                   </button>
                                   <button
                                     type="button"
+                                    title="Archive Candidate"
                                     onClick={() => handleArchiveCandidate(cand)}
-                                    style={{ padding: '3px 6px', fontSize: '10px', borderRadius: '4px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
+                                    style={{ padding: '3px 6px', fontSize: '10px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
                                   >
-                                    Archive
+                                    <Archive size={10} /> Archive
                                   </button>
                                 </div>
                               </div>
@@ -665,9 +714,10 @@ export default function RecruitmentAtsView({
           toolbarRight={toolbarRight}
         >
           <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-            <div style={{ padding: '10px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '10px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               <span style={{ fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>
                 Candidate Roster ({sortedCandidates.length})
+                {isFilterActive && <span style={{ color: '#0d9488', marginLeft: '6px' }}>(Filtered from {totalApplicants})</span>}
               </span>
               <span className="mobile-swipe-hint" style={{ fontSize: '11px', color: '#0d9488', fontWeight: '700' }}>
                 Swipe horizontally ↔
@@ -708,9 +758,16 @@ export default function RecruitmentAtsView({
                     <tr>
                       <td colSpan={canManage ? 7 : 6} style={{ padding: '32px', textAlign: 'center' }}>
                         <EmptyState
-                          title="No candidates found"
-                          description={searchQuery ? `No candidates match "${searchQuery}".` : 'No candidate records exist in the ATS database.'}
+                          title={totalApplicants === 0 ? 'No candidates in ATS' : 'No candidates match search'}
+                          description={totalApplicants === 0 ? 'Click "+ Add Candidate" to register a new talent applicant.' : `No candidate records match "${searchQuery}".`}
                         />
+                        {isFilterActive && (
+                          <div style={{ marginTop: '12px' }}>
+                            <Button variant="secondary" size="sm" icon={<FilterX size={13} />} onClick={handleResetFilters}>
+                              Clear filters
+                            </Button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ) : (
@@ -799,9 +856,9 @@ export default function RecruitmentAtsView({
                                   Edit
                                 </Button>
                                 <Button
-                                  variant="danger"
+                                  variant="outline"
                                   size="sm"
-                                  icon={<Trash2 size={12} />}
+                                  icon={<Archive size={12} />}
                                   onClick={() => handleArchiveCandidate(cand)}
                                 >
                                   Archive
@@ -818,6 +875,94 @@ export default function RecruitmentAtsView({
             </div>
           </div>
         </ListPattern>
+      )}
+
+      {/* ARCHIVED CANDIDATES MODAL */}
+      {showArchivedModal && (
+        <Modal
+          isOpen={showArchivedModal}
+          onClose={() => setShowArchivedModal(false)}
+          title={`Archived Candidates (${archivedAtsItems.length})`}
+          subtitle="View soft-deleted ATS candidate records. Restore candidates back to active pipeline or permanently purge."
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {archivedAtsItems.length === 0 ? (
+              <div style={{ padding: '24px 12px', textAlign: 'center' }}>
+                <EmptyState
+                  title="No Archived Candidates"
+                  description="There are currently no archived candidate records in the Recycle Bin."
+                />
+              </div>
+            ) : (
+              archivedAtsItems.map((item, idx) => {
+                const candData = item.entityData?.candidate || item.payload || {};
+                const candName = getValString(item.name || candData.name, 'Archived Candidate').replace('ATS Candidate: ', '').replace(/"/g, '');
+                const candPosition = getValString(candData.position, 'Candidate Record');
+                const origStage = getValString(candData.status, 'Applied');
+
+                return (
+                  <div
+                    key={item.id || idx}
+                    style={{
+                      display: 'flex',
+                      justify: 'space-between',
+                      alignItems: 'center',
+                      padding: '12px 14px',
+                      background: '#f8fafc',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0',
+                      flexWrap: 'wrap',
+                      gap: '8px'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '13px' }}>
+                        {candName}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
+                        {candPosition} • Original Stage: <Badge variant={getStageBadgeVariant(origStage)}>{origStage}</Badge>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        icon={<RotateCcw size={12} />}
+                        onClick={() => {
+                          handleRestoreBinItem(item);
+                          showToast(`🔄 Restored "${candName}" to ${origStage} stage!`, 'success');
+                        }}
+                      >
+                        Restore
+                      </Button>
+                      {canManage && (
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          icon={<Trash2 size={12} />}
+                          onClick={() => {
+                            if (window.confirm(`PERMANENTLY DELETE "${candName}"? This action cannot be undone.`)) {
+                              handlePermanentDeleteBinItem(item.id);
+                            }
+                          }}
+                        >
+                          Permanently Delete
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+              <Button variant="secondary" size="md" onClick={() => setShowArchivedModal(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {/* ADD CANDIDATE MODAL */}
@@ -1081,8 +1226,9 @@ export default function RecruitmentAtsView({
                     Edit Profile
                   </Button>
                   <Button
-                    variant="danger"
+                    variant="outline"
                     size="sm"
+                    icon={<Archive size={12} />}
                     onClick={() => handleArchiveCandidate(selectedCandidate)}
                   >
                     Archive

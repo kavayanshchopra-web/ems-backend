@@ -11134,6 +11134,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             authUser={authUser}
             atsCandidates={atsCandidates}
             setAtsCandidates={setAtsCandidates}
+            recycleBinItems={recycleBinItems}
+            handleRestoreBinItem={handleRestoreBinItem}
+            handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
             softDeleteRecord={softDeleteRecord}
             showToast={showToast}
           />
