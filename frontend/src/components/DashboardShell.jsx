@@ -63,6 +63,7 @@ import {
   Paperclip,
   BarChart3,
   Briefcase,
+  Sliders,
   Palette,
   Award,
   CreditCard,
