@@ -11180,51 +11180,56 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
         {/* 1. COMPANY OVERVIEW VIEW (ADMIN DASHBOARD) */}
         {activeTab === 'admin_dashboard' && (
-          <CompanyOverviewView
-            authUser={authUser}
-            employees={employees}
-            liveLocations={liveLocations}
-            callLogs={callLogs}
-            notices={notices}
-            t={t}
-            showToast={showToast}
-            setActiveTab={setActiveTab}
-            setShowAddNoticeModal={setShowAddNoticeModal}
-            setNewNoticeForm={setNewNoticeForm}
-          />
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Company Overview...</div>}>
+            <CompanyOverviewView
+              authUser={authUser}
+              employees={employees}
+              liveLocations={liveLocations}
+              callLogs={callLogs}
+              notices={notices}
+              t={t}
+              showToast={showToast}
+              setActiveTab={setActiveTab}
+              setShowAddNoticeModal={setShowAddNoticeModal}
+              setNewNoticeForm={setNewNoticeForm}
+            />
+          </Suspense>
         )}
 
         {/* 2. TASK ANALYTICS VIEW (MANAGER DASHBOARD) */}
         {activeTab === 'manager_dashboard' && (
-          <TaskAnalyticsView
-            employees={employees}
-            tasks={tasks}
-            t={t}
-          />
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Task Analytics...</div>}>
+            <TaskAnalyticsView
+              employees={employees}
+              tasks={tasks}
+              t={t}
+            />
+          </Suspense>
         )}
-
 
         {/* 4. RECRUITMENT & ATS BOARD */}
         {activeTab === 'recruitment_ats' && (
-          <RecruitmentAtsView
-            authUser={authUser}
-            atsCandidates={atsCandidates}
-            setAtsCandidates={setAtsCandidates}
-            systemDropdowns={systemDropdowns}
-            onManageStages={() => {
-              setActiveTab('system_dropdowns');
-              setSelectedDropdownCategory('ats_stages');
-            }}
-            onOpenModuleConfig={(modId) => {
-              setPreselectedConfigModuleId(modId || 'recruitment_ats');
-              setActiveTab('module_configuration');
-            }}
-            recycleBinItems={recycleBinItems}
-            handleRestoreBinItem={handleRestoreBinItem}
-            handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
-            softDeleteRecord={softDeleteRecord}
-            showToast={showToast}
-          />
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Recruitment ATS...</div>}>
+            <RecruitmentAtsView
+              authUser={authUser}
+              atsCandidates={atsCandidates}
+              setAtsCandidates={setAtsCandidates}
+              systemDropdowns={systemDropdowns}
+              onManageStages={() => {
+                setActiveTab('system_dropdowns');
+                setSelectedDropdownCategory('ats_stages');
+              }}
+              onOpenModuleConfig={(modId) => {
+                setPreselectedConfigModuleId(modId || 'recruitment_ats');
+                setActiveTab('module_configuration');
+              }}
+              recycleBinItems={recycleBinItems}
+              handleRestoreBinItem={handleRestoreBinItem}
+              handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+              softDeleteRecord={softDeleteRecord}
+              showToast={showToast}
+            />
+          </Suspense>
         )}
 
         {/* 5. PERFORMANCE MANAGER */}
