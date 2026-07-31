@@ -57,6 +57,21 @@ export default function RecruitmentAtsView({
   const [moduleConfig, setModuleConfig] = useState(() => moduleConfigService.getModuleConfig(companyId, 'recruitment_ats'));
   const [recruitmentPositions, setRecruitmentPositions] = useState(() => atsStorageService.getRecruitmentPositions(companyId));
 
+  // Live Re-hydration Effect: sync moduleConfig when storage updates or config modal closes
+  useEffect(() => {
+    const syncConfig = () => {
+      const latest = moduleConfigService.getModuleConfig(companyId, 'recruitment_ats');
+      setModuleConfig(latest);
+    };
+
+    syncConfig();
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('omnilflow_config_updated', syncConfig);
+      return () => window.removeEventListener('omnilflow_config_updated', syncConfig);
+    }
+  }, [companyId, showConfigModal]);
+
   // Modal / Popover States
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showPositionModal, setShowPositionModal] = useState(false);
@@ -339,6 +354,8 @@ export default function RecruitmentAtsView({
 
   // Open Edit Modal — STAGE SELECTION PRESERVATION
   const openEditModalForCandidate = (cand) => {
+    const freshConfig = moduleConfigService.getModuleConfig(companyId, 'recruitment_ats');
+    setModuleConfig(freshConfig);
     const candStatusStr = getValString(cand.status);
     const matchedStageObj = activePipelineStages.find(s => {
       const st = candStatusStr.toLowerCase();
@@ -367,6 +384,8 @@ export default function RecruitmentAtsView({
 
   // Open Add Modal
   const openAddModal = () => {
+    const freshConfig = moduleConfigService.getModuleConfig(companyId, 'recruitment_ats');
+    setModuleConfig(freshConfig);
     setCandidateForm({
       id: '',
       name: '',

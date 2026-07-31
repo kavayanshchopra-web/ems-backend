@@ -42,6 +42,9 @@ export const moduleConfigService = {
   saveModuleConfig(companyId, moduleId = 'recruitment_ats', config) {
     if (moduleId === 'recruitment_ats') {
       saveAtsModuleConfig(companyId, config);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('omnilflow_config_updated', { detail: { moduleId, companyId } }));
+      }
       return;
     }
 
@@ -57,6 +60,9 @@ export const moduleConfigService = {
         updatedAt: new Date().toISOString()
       };
       localStorage.setItem(key, JSON.stringify(allConfigs));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('omnilflow_config_updated', { detail: { moduleId, companyId } }));
+      }
     } catch (e) {
       console.error(`Error saving module config for ${moduleId}:`, e);
     }
