@@ -2457,7 +2457,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   };
 
   // Connection & Offline status
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isOnline, setIsOnline] = useState(() => typeof navigator !== 'undefined' ? (navigator.onLine !== false) : true);
 
   // Auto Session Expiry
   const [showSessionWarning, setShowSessionWarning] = useState(false);
