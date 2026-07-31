@@ -230,6 +230,15 @@ const LIVE_BACKEND = 'https://ems-backend-9hig.onrender.com';
 const SOCKET_URL = IS_DEV ? 'http://localhost:5000' : LIVE_BACKEND;
 const API_URL = IS_DEV ? 'http://localhost:5000/api' : `${LIVE_BACKEND}/api`;
 
+// Safe reference to original fetch — must be captured lazily to avoid Rolldown TDZ in production bundle
+let _originalFetch = null;
+function getOriginalFetch() {
+  if (!_originalFetch) {
+    _originalFetch = typeof window !== 'undefined' ? window.fetch.bind(window) : fetch;
+  }
+  return _originalFetch;
+}
+
 // Safe Fallback Provider for Backend Errors / Offline / Master Login Mode
 const getSafeFallbackData = (url, method = 'GET') => {
   const cleanMethod = (method || 'GET').toUpperCase();
@@ -313,8 +322,13 @@ const getSafeFallbackData = (url, method = 'GET') => {
 };
 
 // Globally override fetch to inject bearer tokens, resolve relative paths, and handle 401/403/network errors safely
-const originalFetch = window.fetch;
-window.fetch = async (input, options = {}) => {
+// Installed lazily on first render to avoid Rolldown module-scope TDZ in production bundle
+function installFetchInterceptor() {
+  if (typeof window === 'undefined' || window.__omniflow_fetch_installed) return;
+  window.__omniflow_fetch_installed = true;
+  const originalFetch = window.fetch.bind(window);
+  _originalFetch = originalFetch;
+  window.fetch = async (input, options = {}) => {
   const rawUrl = typeof input === 'string' ? input : (input?.url || '');
   const isApiRequest = rawUrl.startsWith('/api/') || rawUrl.startsWith(API_URL) || rawUrl.includes('.onrender.com/api');
 
@@ -370,7 +384,8 @@ window.fetch = async (input, options = {}) => {
   }
 
   return originalFetch(input, options);
-};
+  }; // end window.fetch override
+} // end installFetchInterceptor
 
 const formatJidName = (jid) => {
   if (!jid) return '';
@@ -498,6 +513,9 @@ function AccordionCategory({ id, label, isExpanded, onToggle, children }) {
 }
 
 export default function DashboardShell({ authUser, setAuthUser }) {
+  // Install fetch interceptor lazily (not at module scope) to avoid Rolldown TDZ in production bundle
+  installFetchInterceptor();
+
   const [activeTab, setActiveTab] = useState('inbox'); // 'inbox', 'kanban', 'channels'
   const [isMobilePreview, setIsMobilePreview] = useState(false);
   const [simViewMode, setSimViewMode] = useState('app'); // 'app' or 'permissions'
