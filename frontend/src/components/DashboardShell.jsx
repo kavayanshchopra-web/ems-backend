@@ -12703,6 +12703,40 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                     <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                       <button
                                         type="button"
+                                        disabled={realIdx === 0}
+                                        onClick={() => {
+                                          if (realIdx > 0) {
+                                            const updated = [...currentItems];
+                                            const temp = updated[realIdx - 1];
+                                            updated[realIdx - 1] = updated[realIdx];
+                                            updated[realIdx] = temp;
+                                            setSystemDropdowns(prev => ({ ...prev, atsStages: updated }));
+                                          }
+                                        }}
+                                        style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', cursor: realIdx === 0 ? 'not-allowed' : 'pointer', opacity: realIdx === 0 ? 0.4 : 1 }}
+                                        title="Move Stage Up"
+                                      >
+                                        ▲
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={realIdx === currentItems.length - 1}
+                                        onClick={() => {
+                                          if (realIdx < currentItems.length - 1) {
+                                            const updated = [...currentItems];
+                                            const temp = updated[realIdx + 1];
+                                            updated[realIdx + 1] = updated[realIdx];
+                                            updated[realIdx] = temp;
+                                            setSystemDropdowns(prev => ({ ...prev, atsStages: updated }));
+                                          }
+                                        }}
+                                        style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', cursor: realIdx === currentItems.length - 1 ? 'not-allowed' : 'pointer', opacity: realIdx === currentItems.length - 1 ? 0.4 : 1 }}
+                                        title="Move Stage Down"
+                                      >
+                                        ▼
+                                      </button>
+                                      <button
+                                        type="button"
                                         onClick={() => {
                                           openInputModal({
                                             title: 'Rename ATS Stage',
@@ -12724,6 +12758,18 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                       <button
                                         type="button"
                                         onClick={() => {
+                                          if (!item.archived) {
+                                            const occupiedCount = (atsCandidates || []).filter(c => {
+                                              const st = String(c.status || '').toLowerCase();
+                                              return st === item.name.toLowerCase() || st === (item.id || '').toLowerCase() || st === (item.key || '').toLowerCase();
+                                            }).length;
+
+                                            if (occupiedCount > 0) {
+                                              alert(`Cannot archive stage "${item.name}" because it contains ${occupiedCount} active candidate(s). Please reassign candidates before archiving.`);
+                                              return;
+                                            }
+                                          }
+
                                           const updated = [...currentItems];
                                           updated[realIdx] = { ...item, archived: !item.archived };
                                           setSystemDropdowns(prev => ({ ...prev, atsStages: updated }));
