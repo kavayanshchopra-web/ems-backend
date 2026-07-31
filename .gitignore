@@ -8,6 +8,8 @@ database.sqlite
 flutter_sim_app/build/
 flutter_sim_app/.dart_tool/
 flutter_sim_app/android/.gradle/
+android_companion_app/.gradle/
+.gradle/
 flutter_sim_app/*.zip
 *.zip
 *.apk

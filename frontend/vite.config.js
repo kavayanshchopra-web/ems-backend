@@ -10,7 +10,7 @@ export default defineConfig({
     allowedHosts: true
   },
   build: {
-    target: 'esnext',
+    target: 'es2022',
     minify: 'esbuild',
     cssMinify: true,
     sourcemap: false,

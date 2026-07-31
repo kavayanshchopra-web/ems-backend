@@ -5,11 +5,11 @@ import io from 'socket.io-client';
 
 const GpsMap = lazy(() => import('./GpsMap'));
 import DataTable from './DataTable';
-import CompanyOverviewView from './dashboard/CompanyOverviewView';
-import TaskAnalyticsView from './dashboard/TaskAnalyticsView';
-import EmployeesView from './employees/EmployeesView';
-import RecruitmentAtsView from './recruitment/RecruitmentAtsView';
-import ModuleConfigCenter from './config/ModuleConfigCenter';
+const CompanyOverviewView = lazy(() => import('./dashboard/CompanyOverviewView'));
+const TaskAnalyticsView = lazy(() => import('./dashboard/TaskAnalyticsView'));
+const EmployeesView = lazy(() => import('./employees/EmployeesView'));
+const RecruitmentAtsView = lazy(() => import('./recruitment/RecruitmentAtsView'));
+const ModuleConfigCenter = lazy(() => import('./config/ModuleConfigCenter'));
 import {
   auth,
   db,

@@ -58,6 +58,13 @@ export default function RecruitmentAtsView({
   const [moduleConfig, setModuleConfig] = useState(() => moduleConfigService.getModuleConfig(companyId, 'recruitment_ats'));
   const [recruitmentPositions, setRecruitmentPositions] = useState(() => atsStorageService.getRecruitmentPositions(companyId));
 
+  // Modal / Popover States
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showPositionModal, setShowPositionModal] = useState(false);
+  const [showManageDropdown, setShowManageDropdown] = useState(false);
+  const [showFilterPopover, setShowFilterPopover] = useState(false);
+  const [showSortPopover, setShowSortPopover] = useState(false);
+
   // Live Re-hydration Effect: sync moduleConfig when storage updates or config modal closes
   useEffect(() => {
     const syncConfig = () => {
@@ -72,13 +79,6 @@ export default function RecruitmentAtsView({
       return () => window.removeEventListener('omnilflow_config_updated', syncConfig);
     }
   }, [companyId, showConfigModal]);
-
-  // Modal / Popover States
-  const [showConfigModal, setShowConfigModal] = useState(false);
-  const [showPositionModal, setShowPositionModal] = useState(false);
-  const [showManageDropdown, setShowManageDropdown] = useState(false);
-  const [showFilterPopover, setShowFilterPopover] = useState(false);
-  const [showSortPopover, setShowSortPopover] = useState(false);
 
   // View mode state
   const availableViews = moduleConfig.views?.availableViews || ['kanban', 'list'];
