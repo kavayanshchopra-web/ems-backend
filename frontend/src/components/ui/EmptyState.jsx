@@ -5,7 +5,7 @@ import Button from './Button';
  * Global Design System v2.0 - EmptyState Primitive
  */
 export default function EmptyState({
-  icon = '🗑️',
+  icon = '📋',
   title = 'No records found',
   description = 'No items match your filter criteria.',
   actionLabel = null,

@@ -11156,6 +11156,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               setActiveTab('system_dropdowns');
               setSelectedDropdownCategory('ats_stages');
             }}
+            onManagePositions={() => {
+              setActiveTab('system_dropdowns');
+              setSelectedDropdownCategory('designations');
+            }}
             recycleBinItems={recycleBinItems}
             handleRestoreBinItem={handleRestoreBinItem}
             handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}

@@ -8,7 +8,7 @@ import SearchInput from '../ui/SearchInput';
 import Select from '../ui/Select';
 import EmptyState from '../ui/EmptyState';
 import Modal from '../ui/Modal';
-import { Plus, Edit2, Archive, Eye, FileText, LayoutGrid, List, RotateCcw, Trash2, FilterX, Settings } from 'lucide-react';
+import { Plus, Edit2, Archive, Eye, FileText, LayoutGrid, List, RotateCcw, Trash2, FilterX, Settings, Briefcase } from 'lucide-react';
 
 /**
  * Defensive string extractor helper
@@ -39,7 +39,7 @@ const DEFAULT_PIPELINE_STAGES = [
 /**
  * Phase ATS-1 — Recruitment ATS Central Configuration Integration
  * Features: Central System Dropdowns Configuration Engine, Dynamic Kanban Generation,
- * Semantic Stage Mapping, Settings Direct Management Route, Multi-tenant Isolation.
+ * Managed Designation / Position Integration, Semantic Stage Mapping, Settings Direct Routes.
  */
 export default function RecruitmentAtsView({
   authUser,
@@ -47,6 +47,7 @@ export default function RecruitmentAtsView({
   setAtsCandidates = () => {},
   systemDropdowns = null,
   onManageStages = () => {},
+  onManagePositions = () => {},
   recycleBinItems = [],
   handleRestoreBinItem = () => {},
   handlePermanentDeleteBinItem = () => {},
@@ -101,9 +102,15 @@ export default function RecruitmentAtsView({
     return cat.includes('ats candidate');
   });
 
-  // Derived unique positions for Position Filter
+  // Derived positions from Central System Dropdowns (Designations) + existing candidates
+  const managedDesignations = (systemDropdowns && Array.isArray(systemDropdowns.designations))
+    ? systemDropdowns.designations.map(d => getValString(d)).filter(Boolean)
+    : [];
+
+  const candidatePositions = atsCandidates.map(c => getValString(c.position)).filter(Boolean);
+
   const uniquePositions = Array.from(
-    new Set(atsCandidates.map(c => getValString(c.position)).filter(Boolean))
+    new Set([...managedDesignations, ...candidatePositions])
   );
 
   const positionOptions = [
@@ -172,7 +179,6 @@ export default function RecruitmentAtsView({
 
   const interviewingCount = atsCandidates.filter(c => {
     const st = getValString(c.status).toLowerCase();
-    // Check match against active stages with INTERVIEW semantic type or 'interviewing'
     return activePipelineStages.some(s =>
       (s.semanticType === 'INTERVIEW' || s.id === 'interviewing') &&
       (st === getValString(s.name).toLowerCase() || st === getValString(s.id).toLowerCase() || st === 'interviewing')
@@ -401,6 +407,17 @@ export default function RecruitmentAtsView({
 
       {canManage && (
         <Button
+          variant="secondary"
+          size="md"
+          icon={<Briefcase size={14} />}
+          onClick={onManagePositions}
+        >
+          Manage Positions ⚙️
+        </Button>
+      )}
+
+      {canManage && (
+        <Button
           variant="primary"
           size="md"
           icon={<Plus size={16} />}
@@ -545,6 +562,13 @@ export default function RecruitmentAtsView({
 
   return (
     <>
+      {/* Datalist for Position Auto-complete in Add/Edit Modals */}
+      <datalist id="ats-designations-list">
+        {uniquePositions.map((pos, idx) => (
+          <option key={idx} value={pos} />
+        ))}
+      </datalist>
+
       {viewMode === 'kanban' ? (
         <KanbanPattern
           icon="🧑‍💼"
@@ -634,6 +658,7 @@ export default function RecruitmentAtsView({
                     {stage.list.length === 0 ? (
                       <div style={{ padding: '20px 12px', textAlign: 'center' }}>
                         <EmptyState
+                          icon="📋"
                           title=""
                           description={isFilterActive ? 'No candidates match filter.' : 'No applicants in this stage.'}
                         />
@@ -798,6 +823,7 @@ export default function RecruitmentAtsView({
                     <tr>
                       <td colSpan={canManage ? 7 : 6} style={{ padding: '32px', textAlign: 'center' }}>
                         <EmptyState
+                          icon="📋"
                           title={totalApplicants === 0 ? 'No candidates in ATS' : 'No candidates match search'}
                           description={totalApplicants === 0 ? 'Click "+ Add Candidate" to register a new talent applicant.' : `No candidate records match "${searchQuery}".`}
                         />
@@ -930,6 +956,7 @@ export default function RecruitmentAtsView({
             {archivedAtsItems.length === 0 ? (
               <div style={{ padding: '24px 12px', textAlign: 'center' }}>
                 <EmptyState
+                  icon="📋"
                   title="No Archived Candidates"
                   description="There are currently no archived candidate records in the Recycle Bin."
                 />
@@ -1035,7 +1062,8 @@ export default function RecruitmentAtsView({
               </label>
               <input
                 type="text"
-                placeholder="e.g. Senior Full Stack Engineer"
+                list="ats-designations-list"
+                placeholder="Select or type position (e.g. Software Engineer)"
                 value={candidateForm.position}
                 onChange={(e) => setCandidateForm({ ...candidateForm, position: e.target.value })}
                 style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: formErrors.position ? '1.5px solid #ef4444' : '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
@@ -1130,6 +1158,8 @@ export default function RecruitmentAtsView({
               </label>
               <input
                 type="text"
+                list="ats-designations-list"
+                placeholder="Select or type position (e.g. Software Engineer)"
                 value={candidateForm.position}
                 onChange={(e) => setCandidateForm({ ...candidateForm, position: e.target.value })}
                 style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: formErrors.position ? '1.5px solid #ef4444' : '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
