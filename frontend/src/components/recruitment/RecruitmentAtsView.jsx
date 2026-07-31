@@ -6,6 +6,7 @@ import SearchInput from '../ui/SearchInput';
 import EmptyState from '../ui/EmptyState';
 import Modal from '../ui/Modal';
 import ModuleConfigEditor from '../config/ModuleConfigEditor';
+import PositionManagerModal from './PositionManagerModal';
 import { moduleConfigService } from '../../services/moduleConfigService';
 import { atsStorageService } from '../../services/atsStorageService';
 import { Plus, Edit2, Archive, Eye, FileText, LayoutGrid, List, RotateCcw, Trash2, FilterX, Settings, Briefcase, Sliders, X, Filter, ArrowUpDown } from 'lucide-react';
