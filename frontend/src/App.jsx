@@ -16,11 +16,11 @@ import {
 
 const DashboardShell = lazy(() => import('./components/DashboardShell'));
 
-const IS_DEV = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 const LIVE_BACKEND = 'https://ems-backend-9hig.onrender.com';
 const API_URL = IS_DEV ? 'http://localhost:5000/api' : `${LIVE_BACKEND}/api`;
 
-const originalFetch = window.fetch;
+const originalFetch = typeof window !== 'undefined' ? window.fetch : fetch;
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('login'); // 'login' or 'register'
