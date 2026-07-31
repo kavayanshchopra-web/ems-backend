@@ -540,15 +540,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   }, [currentTheme]);
 
   const [expandedCategories, setExpandedCategories] = useState({
-    system: false,
-    dashboards: false,
-    hr_management: false,
-    payroll_finance: false,
+    system: true,
+    dashboards: true,
+    hr_management: true,
+    payroll_finance: true,
     crm_sales: true,
-    operations: false,
-    my_portal: false,
-    saas_portal: false,
-    help_support: false
+    operations: true,
+    my_portal: true,
+    saas_portal: true,
+    help_support: true
   });
 
   const toggleCategory = (cat) => {
@@ -5579,7 +5579,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </AccordionCategory>
 
           {/* CATEGORY: OPERATIONS */}
-          <AccordionCategory id="operations" label="OPERATIONS">
+          <AccordionCategory id="operations" label="OPERATIONS" isExpanded={!!expandedCategories.operations} onToggle={toggleCategory}>
             <div className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`} onClick={() => setActiveTab('tasks')}>
               <ClipboardList size={15} />
               <span style={{ fontSize: '13px' }}>Tasks Board</span>
@@ -5607,7 +5607,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </AccordionCategory>
 
           {/* CATEGORY: MY PORTAL */}
-          <AccordionCategory id="my_portal" label="My Portal">
+          <AccordionCategory id="my_portal" label="My Portal" isExpanded={!!expandedCategories.my_portal} onToggle={toggleCategory}>
             <div className={`nav-item ${activeTab === 'my_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('my_attendance')}>
               <Clock size={15} />
               <span style={{ fontSize: '13px' }}>Shift Attendance</span>
@@ -5623,7 +5623,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </AccordionCategory>
 
           {/* CATEGORY: HELP & SUPPORT */}
-          <AccordionCategory id="help_support" label="Help & Support">
+          <AccordionCategory id="help_support" label="Help & Support" isExpanded={!!expandedCategories.help_support} onToggle={toggleCategory}>
             <div className={`nav-item ${activeTab === 'app_guide' ? 'active' : ''}`} onClick={() => setActiveTab('app_guide')}>
               <Globe size={15} />
               <span style={{ fontSize: '13px' }}>App Guide & Tour</span>
@@ -5631,7 +5631,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </AccordionCategory>
 
           {/* CATEGORY: SETTINGS */}
-          <AccordionCategory id="saas_portal" label="SETTINGS">
+          <AccordionCategory id="saas_portal" label="SETTINGS" isExpanded={!!expandedCategories.saas_portal} onToggle={toggleCategory}>
             <div className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
               <UserCheck size={15} />
               <span style={{ fontSize: '13px' }}>General Settings</span>
@@ -11207,6 +11207,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </Suspense>
         )}
 
+        {/* 3. ALL EMPLOYEES VIEW */}
+        {activeTab === 'employees' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading All Employees...</div>}>
+            <EmployeesView
+              authUser={authUser}
+              employees={employees}
+              billingTenant={billingTenant}
+              isEmployeesLoading={isEmployeesLoading}
+              setNewEmployeeForm={setNewEmployeeForm}
+              setShowAddEmployeeModal={setShowAddEmployeeModal}
+              handleDeleteEmployee={handleDeleteEmployee}
+              showToast={showToast}
+            />
+          </Suspense>
+        )}
+
         {/* 4. RECRUITMENT & ATS BOARD */}
         {activeTab === 'recruitment_ats' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Recruitment ATS...</div>}>
@@ -12360,15 +12376,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {/* 24.5 MODULE CONFIGURATION CENTER */}
         {activeTab === 'module_configuration' && (
           <div style={{ overflowY: 'auto', flexGrow: 1, padding: '16px' }}>
-            <ModuleConfigCenter
-              companyId={authUser?.companyId || 'default_tenant'}
-              preselectedModuleId={preselectedConfigModuleId}
-              systemDropdowns={systemDropdowns}
-              atsCandidates={atsCandidates}
-              activePipelineStages={(systemDropdowns?.atsStages || []).filter(s => !s.archived)}
-              showToast={showToast}
-              onNavigateBack={() => setActiveTab('recruitment_ats')}
-            />
+            <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Module Configuration...</div>}>
+              <ModuleConfigCenter
+                companyId={authUser?.companyId || 'default_tenant'}
+                preselectedModuleId={preselectedConfigModuleId}
+                systemDropdowns={systemDropdowns}
+                atsCandidates={atsCandidates}
+                activePipelineStages={(systemDropdowns?.atsStages || []).filter(s => !s.archived)}
+                showToast={showToast}
+                onNavigateBack={() => setActiveTab('recruitment_ats')}
+              />
+            </Suspense>
           </div>
         )}
 
