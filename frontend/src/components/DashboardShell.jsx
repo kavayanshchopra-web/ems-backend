@@ -470,19 +470,20 @@ function AccordionCategoryItem({ id, label, isExpanded, onToggle, children }) {
         style={{
           display: 'flex',
           alignItems: 'center',
-          justify: 'space-between',
+          justifyContent: 'space-between',
           padding: '8px 12px',
           cursor: 'pointer',
           fontSize: '11px',
           fontWeight: '700',
-          color: 'rgba(255, 255, 255, 0.4)',
+          color: isExpanded ? '#14d2cb' : 'rgba(255, 255, 255, 0.45)',
           textTransform: 'uppercase',
           letterSpacing: '0.05em',
-          userSelect: 'none'
+          userSelect: 'none',
+          transition: 'color 0.2s ease'
         }}
       >
         <span>{label}</span>
-        {isExpanded ? <ChevronDown size={12} style={{ color: 'rgba(255, 255, 255, 0.3)' }} /> : <ChevronRight size={12} style={{ color: 'rgba(255, 255, 255, 0.3)' }} />}
+        {isExpanded ? <ChevronDown size={12} style={{ color: '#14d2cb' }} /> : <ChevronRight size={12} style={{ color: 'rgba(255, 255, 255, 0.3)' }} />}
       </div>
       <div style={{
         display: 'flex',
@@ -540,22 +541,33 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   }, [currentTheme]);
 
   const [expandedCategories, setExpandedCategories] = useState({
-    system: true,
-    dashboards: true,
-    hr_management: true,
-    payroll_finance: true,
+    system: false,
+    dashboards: false,
+    hr_management: false,
+    payroll_finance: false,
     crm_sales: true,
-    operations: true,
-    my_portal: true,
-    saas_portal: true,
-    help_support: true
+    operations: false,
+    my_portal: false,
+    saas_portal: false,
+    help_support: false
   });
 
   const toggleCategory = (cat) => {
-    setExpandedCategories(prev => ({
-      ...prev,
-      [cat]: !prev[cat]
-    }));
+    setExpandedCategories(prev => {
+      const isCurrentlyOpen = !!prev[cat];
+      return {
+        system: false,
+        dashboards: false,
+        hr_management: false,
+        payroll_finance: false,
+        crm_sales: false,
+        operations: false,
+        my_portal: false,
+        saas_portal: false,
+        help_support: false,
+        [cat]: !isCurrentlyOpen
+      };
+    });
   };
 
   // SaaS Feature Gating & Subscription Tier Control
