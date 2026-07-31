@@ -10224,40 +10224,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </div>
         )}
 
-        {/* ALL EMPLOYEES VIEW */}
-        {activeTab === 'employees' && (
-          <EmployeesView
-            authUser={authUser}
-            employees={employees}
-            billingTenant={billingTenant}
-            isEmployeesLoading={isEmployeesLoading}
-            setNewEmployeeForm={setNewEmployeeForm}
-            setShowAddEmployeeModal={setShowAddEmployeeModal}
-            handleDeleteEmployee={handleDeleteEmployee}
-            showToast={showToast}
-          />
-        )}
-        {/* RECRUITMENT ATS MODULE */}
-        {activeTab === 'recruitment_ats' && (
-          <RecruitmentAtsView
-            companyId={authUser?.tenantId || authUser?.companyId || 'comp-default'}
-            authUser={authUser}
-            systemDropdowns={systemDropdowns}
-            showToast={showToast}
-          />
-        )}
 
-        {/* MASTER MODULE CONFIGURATION CENTER */}
-        {activeTab === 'module_configuration' && (
-          <div style={{ padding: '20px', margin: '16px', flexGrow: 1, overflowY: 'auto' }}>
-            <ModuleConfigCenter
-              companyId={authUser?.tenantId || authUser?.companyId || 'comp-default'}
-              systemDropdowns={systemDropdowns}
-              showToast={showToast}
-              onNavigateBack={() => setActiveTab('settings')}
-            />
-          </div>
-        )}
 
 
 
