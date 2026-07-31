@@ -21,6 +21,9 @@ class ErrorBoundary extends Component {
 
   render() {
     if (this.state.hasError) {
+      const errStr = (this.state.error || '').toString().toLowerCase();
+      const isSessionError = errStr.includes('session') || errStr.includes('unauthorized') || errStr.includes('jwt') || errStr.includes('token');
+
       return (
         <div style={{
           padding: '40px',
@@ -35,10 +38,12 @@ class ErrorBoundary extends Component {
           justifyContent: 'center'
         }}>
           <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '10px', color: '#14d2cb' }}>
-            ⚠️ Application Session Reloaded
+            {isSessionError ? '⚠️ Session Expired' : '⚠️ Application Error'}
           </h2>
           <p style={{ fontSize: '14px', color: '#94a3b8', maxWidth: '480px', marginBottom: '16px' }}>
-            A temporary session mismatch occurred. Click below to clear cache and load your active workspace.
+            {isSessionError 
+              ? 'Your active session has expired. Click below to sign in again.'
+              : 'An unexpected application runtime error occurred.'}
           </p>
 
           {this.state.error && (
@@ -60,11 +65,13 @@ class ErrorBoundary extends Component {
 
           <button 
             onClick={() => {
-              try {
-                localStorage.removeItem('omnilflow_token');
-                localStorage.removeItem('omnilflow_user');
-              } catch (e) {}
-              window.location.href = window.location.pathname;
+              if (isSessionError) {
+                try {
+                  localStorage.removeItem('omnilflow_token');
+                  localStorage.removeItem('omnilflow_user');
+                } catch (e) {}
+              }
+              window.location.reload();
             }}
             style={{
               padding: '12px 28px',
@@ -75,9 +82,9 @@ class ErrorBoundary extends Component {
               fontWeight: '700',
               cursor: 'pointer',
               fontSize: '14px',
-              boxShadow: '0 4px 14px rgba(13, 180, 158, 0.3)'
+              boxShadow: '0 4px 14px rgba(13, 148, 136, 0.3)'
             }}>
-            🔄 Refresh App Workspace
+            {isSessionError ? '🔄 Sign In Again' : '🔄 Reload Application'}
           </button>
         </div>
       );
