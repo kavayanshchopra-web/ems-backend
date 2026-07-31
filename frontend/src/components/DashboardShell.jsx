@@ -484,6 +484,19 @@ function AccordionCategoryItem({ id, label, isExpanded, onToggle, children }) {
   );
 }
 
+function AccordionCategory({ id, label, isExpanded, onToggle, children }) {
+  return (
+    <AccordionCategoryItem
+      id={id}
+      label={label}
+      isExpanded={isExpanded}
+      onToggle={onToggle}
+    >
+      {children}
+    </AccordionCategoryItem>
+  );
+}
+
 export default function DashboardShell({ authUser, setAuthUser }) {
   const [activeTab, setActiveTab] = useState('inbox'); // 'inbox', 'kanban', 'channels'
   const [isMobilePreview, setIsMobilePreview] = useState(false);
@@ -5244,8 +5257,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isArchived: !isCurrentlyArchived })
       });
-      const data = await res.json();
       if (!res.ok) throw new Error('Failed to toggle archive');
+      const data = await res.json();
 
       // Update local contacts list
       setContacts(prev => prev.map(c => c.id === data.id ? { ...c, is_archived: data.is_archived } : c));
@@ -5393,16 +5406,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
 
 
-  const AccordionCategory = ({ id, label, children }) => (
-    <AccordionCategoryItem
-      id={id}
-      label={label}
-      isExpanded={!!expandedCategories[id]}
-      onToggle={toggleCategory}
-    >
-      {children}
-    </AccordionCategoryItem>
-  );
+
 
   return (
     <div className="app-layout">
@@ -5421,18 +5425,25 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
           {/* CATEGORY: SYSTEM (Superadmin / Owner / Admin - Placed at Top) */}
           {(authUser?.role === 'superadmin' || authUser?.role === 'owner' || authUser?.role === 'admin') && (
-            <AccordionCategory id="system" label="SYSTEM">
+            <AccordionCategory id="system" label="SYSTEM" isExpanded={!!expandedCategories.system} onToggle={toggleCategory}>
               {authUser?.role === 'superadmin' && (
                 <div className={`nav-item ${activeTab === 'superadmin_plans' ? 'active' : ''}`} onClick={() => setActiveTab('superadmin_plans')}>
                   <Shield size={15} />
                   <span style={{ fontSize: '13px' }}>Super Admin Panel</span>
                 </div>
               )}
+              {/* Global Audit Logs tab */}
+              {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager' || authUser?.role === 'superadmin') && (
+                <div className={`nav-item ${activeTab === 'audit_logs' ? 'active' : ''}`} onClick={() => setActiveTab('audit_logs')}>
+                  <FileText size={15} />
+                  <span style={{ fontSize: '13px' }}>Audit Logs</span>
+                </div>
+              )}
             </AccordionCategory>
           )}
 
           {/* CATEGORY: DASHBOARDS */}
-          <AccordionCategory id="dashboards" label="DASHBOARDS">
+          <AccordionCategory id="dashboards" label="DASHBOARDS" isExpanded={!!expandedCategories.dashboards} onToggle={toggleCategory}>
             <div className={`nav-item ${activeTab === 'admin_dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('admin_dashboard')}>
               <BarChart3 size={15} />
               <span style={{ fontSize: '13px' }}>Company Overview</span>
@@ -5445,17 +5456,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               <Globe size={15} />
               <span style={{ fontSize: '13px' }}>Live Tracking</span>
             </div>
-            {/* Global Audit Logs tab */}
-            {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager' || authUser?.role === 'superadmin') && (
-              <div className={`nav-item ${activeTab === 'audit_logs' ? 'active' : ''}`} onClick={() => setActiveTab('audit_logs')}>
-                <FileText size={15} />
-                <span style={{ fontSize: '13px' }}>Audit Logs</span>
-              </div>
-            )}
           </AccordionCategory>
 
           {/* CATEGORY: HR MANAGEMENT */}
-          <AccordionCategory id="hr_management" label="HR MANAGEMENT">
+          <AccordionCategory id="hr_management" label="HR MANAGEMENT" isExpanded={!!expandedCategories.hr_management} onToggle={toggleCategory}>
             {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager' || authUser?.role === 'superadmin') && (
               <div className={`nav-item ${activeTab === 'employees' ? 'active' : ''}`} onClick={() => setActiveTab('employees')}>
                 <Users size={15} />
@@ -5485,7 +5489,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </AccordionCategory>
 
           {/* CATEGORY: PAYROLL & FINANCE */}
-          <AccordionCategory id="payroll_finance" label="PAYROLL & FINANCE">
+          <AccordionCategory id="payroll_finance" label="PAYROLL & FINANCE" isExpanded={!!expandedCategories.payroll_finance} onToggle={toggleCategory}>
             <div className={`nav-item ${activeTab === 'payroll' ? 'active' : ''}`} onClick={() => setActiveTab('payroll')}>
               <CreditCard size={15} />
               <span style={{ fontSize: '13px' }}>Payroll Salary</span>
@@ -5513,7 +5517,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </AccordionCategory>
 
           {/* CATEGORY: CRM & SALES */}
-          <AccordionCategory id="crm_sales" label="CRM & SALES">
+          <AccordionCategory id="crm_sales" label="CRM & SALES" isExpanded={!!expandedCategories.crm_sales} onToggle={toggleCategory}>
             <div className={`nav-item ${activeTab === 'channels' ? 'active' : ''}`} onClick={() => setActiveTab('channels')}>
               <Smartphone size={15} />
               <span style={{ fontSize: '13px' }}>WA Channels</span>
