@@ -5,8 +5,8 @@ import Button from '../ui/Button';
 import SearchInput from '../ui/SearchInput';
 import EmptyState from '../ui/EmptyState';
 import Modal from '../ui/Modal';
-import AtsConfigModal from './AtsConfigModal';
-import PositionManagerModal from './PositionManagerModal';
+import ModuleConfigEditor from '../config/ModuleConfigEditor';
+import { moduleConfigService } from '../../services/moduleConfigService';
 import { atsStorageService } from '../../services/atsStorageService';
 import { Plus, Edit2, Archive, Eye, FileText, LayoutGrid, List, RotateCcw, Trash2, FilterX, Settings, Briefcase, Sliders, X, Filter, ArrowUpDown } from 'lucide-react';
 
@@ -36,7 +36,7 @@ const DEFAULT_PIPELINE_STAGES = [
 ];
 
 /**
- * Phase 3A — Recruitment ATS Frontend Configuration Complete Reference Implementation
+ * Phase 3B — Recruitment ATS Frontend Configuration Reference Implementation
  */
 export default function RecruitmentAtsView({
   authUser,
@@ -44,6 +44,7 @@ export default function RecruitmentAtsView({
   setAtsCandidates = () => {},
   systemDropdowns = null,
   onManageStages = () => {},
+  onOpenModuleConfig = null,
   recycleBinItems = [],
   handleRestoreBinItem = () => {},
   handlePermanentDeleteBinItem = () => {},
@@ -52,8 +53,8 @@ export default function RecruitmentAtsView({
 }) {
   const companyId = authUser?.companyId || authUser?.tenantId || 'default_tenant';
 
-  // Storage Service Hydration
-  const [moduleConfig, setModuleConfig] = useState(() => atsStorageService.getModuleConfig(companyId));
+  // Storage Service Hydration via Master Service
+  const [moduleConfig, setModuleConfig] = useState(() => moduleConfigService.getModuleConfig(companyId, 'recruitment_ats'));
   const [recruitmentPositions, setRecruitmentPositions] = useState(() => atsStorageService.getRecruitmentPositions(companyId));
 
   // Modal / Popover States
@@ -111,7 +112,7 @@ export default function RecruitmentAtsView({
   // Save Module Config via Service
   const handleSaveModuleConfig = (newConfig) => {
     setModuleConfig(newConfig);
-    atsStorageService.saveModuleConfig(companyId, newConfig);
+    moduleConfigService.saveModuleConfig(companyId, 'recruitment_ats', newConfig);
 
     const newViews = newConfig.views?.availableViews || ['kanban', 'list'];
     if (!newViews.includes(viewMode)) {
@@ -553,7 +554,14 @@ export default function RecruitmentAtsView({
                   <div style={{ borderTop: '1px solid #e2e8f0', margin: '4px 0' }} />
                   <button
                     type="button"
-                    onClick={() => { setShowManageDropdown(false); setShowConfigModal(true); }}
+                    onClick={() => {
+                      setShowManageDropdown(false);
+                      if (onOpenModuleConfig) {
+                        onOpenModuleConfig('recruitment_ats');
+                      } else {
+                        setShowConfigModal(true);
+                      }
+                    }}
                     style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: '600', color: '#0d9488', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
                   >
                     <Sliders size={13} /> Configure Module
@@ -1178,17 +1186,26 @@ export default function RecruitmentAtsView({
         </div>
       )}
 
-      {/* ADMIN CONFIGURATION MODAL */}
+      {/* ADMIN CONFIGURATION MODAL (FALLBACK MODAL WRAPPER) */}
       {showConfigModal && (
-        <AtsConfigModal
+        <Modal
           isOpen={showConfigModal}
           onClose={() => setShowConfigModal(false)}
-          moduleConfig={moduleConfig}
-          onSaveConfig={handleSaveModuleConfig}
-          activePipelineStages={activePipelineStages}
-          atsCandidates={atsCandidates}
-          showToast={showToast}
-        />
+          title="Configure Recruitment ATS Module"
+          subtitle="Master Module Configuration Editor"
+        >
+          <ModuleConfigEditor
+            companyId={companyId}
+            moduleDef={moduleConfigService.getModuleDefinition('recruitment_ats')}
+            initialConfig={moduleConfig}
+            onSaveConfig={handleSaveModuleConfig}
+            activePipelineStages={activePipelineStages}
+            atsCandidates={atsCandidates}
+            systemDropdowns={systemDropdowns}
+            onClose={() => setShowConfigModal(false)}
+            showToast={showToast}
+          />
+        </Modal>
       )}
 
       {/* RECRUITMENT POSITIONS REQUISITION MANAGER MODAL */}

@@ -9,6 +9,7 @@ import CompanyOverviewView from './dashboard/CompanyOverviewView';
 import TaskAnalyticsView from './dashboard/TaskAnalyticsView';
 import EmployeesView from './employees/EmployeesView';
 import RecruitmentAtsView from './recruitment/RecruitmentAtsView';
+import ModuleConfigCenter from './config/ModuleConfigCenter';
 import {
   auth,
   db,
@@ -1111,6 +1112,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     return [];
   });
+
+  const [preselectedConfigModuleId, setPreselectedConfigModuleId] = useState(null);
 
   useEffect(() => {
     localStorage.setItem('omnilflow_ats_candidates', JSON.stringify(atsCandidates));
@@ -5611,6 +5614,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             <div className={`nav-item ${activeTab === 'system_dropdowns' ? 'active' : ''}`} onClick={() => setActiveTab('system_dropdowns')}>
               <Tag size={15} />
               <span style={{ fontSize: '13px' }}>System Dropdowns</span>
+            </div>
+            <div className={`nav-item ${activeTab === 'module_configuration' ? 'active' : ''}`} onClick={() => { setPreselectedConfigModuleId(null); setActiveTab('module_configuration'); }}>
+              <Sliders size={15} />
+              <span style={{ fontSize: '13px' }}>Module Configuration</span>
             </div>
             <div className={`nav-item ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>
               <Megaphone size={15} style={{ transform: 'rotate(-20deg)' }} />
@@ -11156,9 +11163,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               setActiveTab('system_dropdowns');
               setSelectedDropdownCategory('ats_stages');
             }}
-            onManagePositions={() => {
-              setActiveTab('system_dropdowns');
-              setSelectedDropdownCategory('designations');
+            onOpenModuleConfig={(modId) => {
+              setPreselectedConfigModuleId(modId || 'recruitment_ats');
+              setActiveTab('module_configuration');
             }}
             recycleBinItems={recycleBinItems}
             handleRestoreBinItem={handleRestoreBinItem}
@@ -12290,6 +12297,21 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* 24.5 MODULE CONFIGURATION CENTER */}
+        {activeTab === 'module_configuration' && (
+          <div style={{ overflowY: 'auto', flexGrow: 1, padding: '16px' }}>
+            <ModuleConfigCenter
+              companyId={authUser?.companyId || 'default_tenant'}
+              preselectedModuleId={preselectedConfigModuleId}
+              systemDropdowns={systemDropdowns}
+              atsCandidates={atsCandidates}
+              activePipelineStages={(systemDropdowns?.atsStages || []).filter(s => !s.archived)}
+              showToast={showToast}
+              onNavigateBack={() => setActiveTab('recruitment_ats')}
+            />
           </div>
         )}
 

@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
-import { Plus, Edit2, Archive, Briefcase, MapPin, Users } from 'lucide-react';
+import { Plus, Edit2, Archive, MapPin, Users } from 'lucide-react';
 
 /**
  * Recruitment Position Requisition Manager Modal
- * Manages active job hiring openings linked to System Dropdowns Designations & Departments.
+ * Responsive container & table overflow prevents action clipping.
  */
 export default function PositionManagerModal({
   isOpen,
@@ -102,7 +102,6 @@ export default function PositionManagerModal({
     showToast(`Archived position "${pos.title}"`, 'info');
   };
 
-  // Derive Candidate count per position
   const getCandidateCount = (posTitle, posDesignation) => {
     return (atsCandidates || []).filter(c => {
       const p = String(c.position || '').toLowerCase();
@@ -117,7 +116,7 @@ export default function PositionManagerModal({
       title="Manage Recruitment Positions & Requisitions"
       subtitle="Define hiring openings linked to System Designations and track active candidate applications."
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: '100%' }}>
 
         {!showAddForm ? (
           <>
@@ -130,8 +129,8 @@ export default function PositionManagerModal({
               </Button>
             </div>
 
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden', maxHeight: '380px', overflowY: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', overflowX: 'auto', overflowY: 'auto', maxHeight: '380px' }}>
+              <table style={{ width: '100%', minWidth: '650px', borderCollapse: 'collapse', fontSize: '12px' }}>
                 <thead style={{ background: '#f8fafc', position: 'sticky', top: 0, zIndex: 5 }}>
                   <tr>
                     <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: '800', color: '#475569' }}>POSITION TITLE</th>
@@ -139,7 +138,7 @@ export default function PositionManagerModal({
                     <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: '800', color: '#475569' }}>OPENINGS</th>
                     <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: '800', color: '#475569' }}>CANDIDATES</th>
                     <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: '800', color: '#475569' }}>STATUS</th>
-                    <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '800', color: '#475569' }}>ACTIONS</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '800', color: '#475569', minWidth: '130px' }}>ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -183,7 +182,7 @@ export default function PositionManagerModal({
                               </Badge>
                             </button>
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', minWidth: '130px' }}>
                             <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                               <button
                                 type="button"
