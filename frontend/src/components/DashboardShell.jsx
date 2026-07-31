@@ -2365,7 +2365,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   // Voice Speech Synthesizer Function (Multi-Lingual TTS Engine)
   const playTourVoiceText = (step) => {
     if (!step) return;
-    const langKey = language || 'en';
+    const langKey = 'en';
     const voiceText = (step.scripts && step.scripts[langKey]) || (step.scripts && step.scripts.hi) || step.voiceScript || `${step.title}. ${step.description}`;
 
     setTourVoiceStatus(`🎙️ Speaking (${langKey.toUpperCase()}): ${step.title}`);
