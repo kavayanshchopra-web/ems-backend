@@ -2694,7 +2694,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
     // 3. Backend REST API Fallback Login
     try {
-      const res = await originalFetch(`${API_URL}/auth/login`, {
+      const res = await getOriginalFetch()(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail, password })
@@ -2732,7 +2732,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
 
     try {
-      const res = await originalFetch(`${API_URL}/auth/forgot-password`, {
+      const res = await getOriginalFetch()(`${API_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2784,7 +2784,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
 
     try {
-      const res = await originalFetch(`${API_URL}/auth/register`, {
+      const res = await getOriginalFetch()(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail, password, companyName })

@@ -20,8 +20,6 @@ const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'l
 const LIVE_BACKEND = 'https://ems-backend-9hig.onrender.com';
 const API_URL = IS_DEV ? 'http://localhost:5000/api' : `${LIVE_BACKEND}/api`;
 
-const originalFetch = typeof window !== 'undefined' ? window.fetch : fetch;
-
 export default function App() {
   const [activeTab, setActiveTab] = useState('login'); // 'login' or 'register'
   const [showPassword, setShowPassword] = useState(false);
@@ -105,7 +103,7 @@ export default function App() {
 
     // 3. Backend REST API Fallback Login
     try {
-      const res = await originalFetch(`${API_URL}/auth/login`, {
+      const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail, password })
@@ -142,7 +140,7 @@ export default function App() {
     }
 
     try {
-      const res = await originalFetch(`${API_URL}/auth/forgot-password`, {
+      const res = await fetch(`${API_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -193,7 +191,7 @@ export default function App() {
     }
 
     try {
-      const res = await originalFetch(`${API_URL}/auth/register`, {
+      const res = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail, password, companyName })
