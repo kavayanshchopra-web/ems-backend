@@ -5393,15 +5393,43 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
 
 
-  const AccordionCategory = ({ id, label, children }) => (
-    <AccordionCategoryItem
-      id={id}
-      label={label}
-      isExpanded={!!expandedCategories[id]}
-      onToggle={toggleCategory}
-    >
-      {children}
-    </AccordionCategoryItem>  );
+  const AccordionCategory = ({ id, label, children }) => {
+    const isExpanded = !!expandedCategories[id];
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '8px' }}>
+        <div
+          onClick={() => toggleCategory(id)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justify: 'space-between',
+            padding: '8px 12px',
+            cursor: 'pointer',
+            fontSize: '11px',
+            fontWeight: '700',
+            color: 'rgba(255, 255, 255, 0.4)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            userSelect: 'none'
+          }}
+        >
+          <span>{label}</span>
+          {isExpanded ? <ChevronDown size={12} style={{ color: 'rgba(255, 255, 255, 0.3)' }} /> : <ChevronRight size={12} style={{ color: 'rgba(255, 255, 255, 0.3)' }} />}
+        </div>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '2px',
+          overflow: 'hidden',
+          maxHeight: isExpanded ? '800px' : '0px',
+          opacity: isExpanded ? 1 : 0,
+          transition: 'max-height 0.3s ease, opacity 0.3s ease'
+        }}>
+          {children}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="app-layout">
