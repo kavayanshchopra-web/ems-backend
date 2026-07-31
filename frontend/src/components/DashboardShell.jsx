@@ -12373,6 +12373,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   {[
                     { id: 'departments', label: 'Departments', count: systemDropdowns.departments?.length || 0 },
                     { id: 'designations', label: 'Designations', count: systemDropdowns.designations?.length || 0 },
+                    { id: 'ats_stages', label: 'Recruitment ATS Stages', count: (systemDropdowns.atsStages || []).length },
                     { id: 'employment_types', label: 'Employment Types', count: 5 },
                     { id: 'genders', label: 'Genders', count: 4 },
                     { id: 'marital_statuses', label: 'Marital Statuses', count: 4 },
@@ -12595,6 +12596,144 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                 );
                               })
                             )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 1.5. RECRUITMENT ATS STAGES */}
+                {selectedDropdownCategory === 'ats_stages' && (() => {
+                  const defaultList = [
+                    { id: 'applied', key: 'APPLIED', name: 'Applied', emoji: '📥', color: '#0d9488', semanticType: 'APPLIED', archived: false, sortOrder: 1 },
+                    { id: 'interviewing', key: 'INTERVIEWING', name: 'Interviewing', emoji: '🗣️', color: '#2563eb', semanticType: 'INTERVIEW', archived: false, sortOrder: 2 },
+                    { id: 'offered', key: 'OFFERED', name: 'Offered', emoji: '📋', color: '#d97706', semanticType: 'OFFER', archived: false, sortOrder: 3 },
+                    { id: 'hired', key: 'HIRED', name: 'Hired', emoji: '✅', color: '#059669', semanticType: 'HIRED', archived: false, sortOrder: 4 }
+                  ];
+
+                  const currentItems = (systemDropdowns.atsStages && systemDropdowns.atsStages.length > 0)
+                    ? systemDropdowns.atsStages
+                    : defaultList;
+
+                  const displayItems = [...currentItems];
+                  if (dropdownSortConfig.key === 'title') {
+                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
+                  } else if (dropdownSortConfig.key === 'status') {
+                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? Number(a.archived) - Number(b.archived) : Number(b.archived) - Number(a.archived));
+                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
+                    displayItems.reverse();
+                  }
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
+                        <div style={{ flex: 1, minWidth: '180px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Recruitment ATS Stages</h3>
+                          </div>
+                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage hiring pipeline stages, Kanban columns, and candidate lifecycle steps</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            openInputModal({
+                              title: 'Add New ATS Stage',
+                              subtitle: 'Enter recruitment pipeline stage name (e.g. Technical Round)',
+                              placeholder: 'e.g. Technical Assessment',
+                              onSave: (val) => {
+                                const trimmed = val.trim();
+                                const exists = currentItems.some(d => d.name.toLowerCase() === trimmed.toLowerCase());
+                                if (!exists) {
+                                  const newStageObj = {
+                                    id: 'stage_' + Date.now(),
+                                    key: trimmed.toUpperCase().replace(/\s+/g, '_'),
+                                    name: trimmed,
+                                    emoji: '📋',
+                                    color: '#0d9488',
+                                    semanticType: 'CUSTOM',
+                                    archived: false,
+                                    sortOrder: currentItems.length + 1
+                                  };
+                                  const updated = [...currentItems, newStageObj];
+                                  setSystemDropdowns(prev => ({ ...prev, atsStages: updated }));
+                                  showToast(`Added ATS Stage "${trimmed}"`, 'success');
+                                } else {
+                                  showToast(`Stage "${trimmed}" already exists`, 'info');
+                                }
+                              }
+                            });
+                          }}
+                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
+                        >
+                          + Add Option
+                        </button>
+                      </div>
+
+                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
+                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
+                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
+                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                            <tr>
+                              <th style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>#</th>
+                              <th style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>STAGE NAME</th>
+                              <th style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>STATUS</th>
+                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>ACTIONS</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {displayItems.map((item, idx) => {
+                              const realIdx = currentItems.findIndex(orig => orig.id === item.id || orig.name === item.name);
+                              return (
+                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
+                                  <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
+                                  <td style={{ padding: '12px 14px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>
+                                    {item.emoji || '📋'} {item.name}
+                                  </td>
+                                  <td style={{ padding: '12px 14px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
+                                      {item.archived ? 'Archived' : 'Active'}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          openInputModal({
+                                            title: 'Rename ATS Stage',
+                                            subtitle: `Update stage title for "${item.name}"`,
+                                            defaultValue: item.name,
+                                            placeholder: 'Stage name',
+                                            onSave: (val) => {
+                                              const updated = [...currentItems];
+                                              updated[realIdx] = { ...item, name: val.trim() };
+                                              setSystemDropdowns(prev => ({ ...prev, atsStages: updated }));
+                                              showToast(`Updated stage to "${val.trim()}"`, 'success');
+                                            }
+                                          });
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
+                                      >
+                                        Edit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = [...currentItems];
+                                          updated[realIdx] = { ...item, archived: !item.archived };
+                                          setSystemDropdowns(prev => ({ ...prev, atsStages: updated }));
+                                          showToast(item.archived ? `Restored Stage "${item.name}"` : `Archived Stage "${item.name}"`, 'info');
+                                        }}
+                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
+                                      >
+                                        {item.archived ? 'Restore' : 'Archive'}
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
