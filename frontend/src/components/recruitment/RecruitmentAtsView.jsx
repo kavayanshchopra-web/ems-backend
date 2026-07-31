@@ -8,7 +8,7 @@ import SearchInput from '../ui/SearchInput';
 import Select from '../ui/Select';
 import EmptyState from '../ui/EmptyState';
 import Modal from '../ui/Modal';
-import { Plus, Edit2, Archive, Eye, FileText, LayoutGrid, List, RotateCcw, Trash2, FilterX } from 'lucide-react';
+import { Plus, Edit2, Archive, Eye, FileText, LayoutGrid, List, RotateCcw, Trash2, FilterX, Settings } from 'lucide-react';
 
 /**
  * Defensive string extractor helper
@@ -27,15 +27,26 @@ const getValString = (val, fallback = '') => {
 };
 
 /**
- * Phase 2C.1A — Recruitment ATS View (UX Correction & Archive Entry Point Pass)
- * Features: Discoverable Archived Candidates Entry Point, Restore & Permanent Delete,
- * Neutral Archive Visual Semantics, Stable Position Filter, Filtered Result Counter,
- * Lightweight Clear Filters, and Strict Emerald Teal Palette (#0d9488 -> #064e43).
+ * Platform Default ATS Pipeline Stages Configuration
+ */
+const DEFAULT_PIPELINE_STAGES = [
+  { id: 'applied', key: 'APPLIED', name: 'Applied', emoji: '📥', color: '#0d9488', semanticType: 'APPLIED', archived: false, sortOrder: 1 },
+  { id: 'interviewing', key: 'INTERVIEWING', name: 'Interviewing', emoji: '🗣️', color: '#2563eb', semanticType: 'INTERVIEW', archived: false, sortOrder: 2 },
+  { id: 'offered', key: 'OFFERED', name: 'Offered', emoji: '📋', color: '#d97706', semanticType: 'OFFER', archived: false, sortOrder: 3 },
+  { id: 'hired', key: 'HIRED', name: 'Hired', emoji: '✅', color: '#059669', semanticType: 'HIRED', archived: false, sortOrder: 4 }
+];
+
+/**
+ * Phase ATS-1 — Recruitment ATS Central Configuration Integration
+ * Features: Central System Dropdowns Configuration Engine, Dynamic Kanban Generation,
+ * Semantic Stage Mapping, Settings Direct Management Route, Multi-tenant Isolation.
  */
 export default function RecruitmentAtsView({
   authUser,
   atsCandidates = [],
   setAtsCandidates = () => {},
+  systemDropdowns = null,
+  onManageStages = () => {},
   recycleBinItems = [],
   handleRestoreBinItem = () => {},
   handlePermanentDeleteBinItem = () => {},
@@ -57,12 +68,25 @@ export default function RecruitmentAtsView({
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Derive Central Pipeline Stages from System Dropdowns Configuration
+  const configuredStagesRaw = (systemDropdowns && Array.isArray(systemDropdowns.atsStages) && systemDropdowns.atsStages.length > 0)
+    ? systemDropdowns.atsStages
+    : DEFAULT_PIPELINE_STAGES;
+
+  // Active non-archived stages ordered by sortOrder
+  const activePipelineStages = configuredStagesRaw
+    .filter(s => typeof s === 'object' && s !== null && !s.archived)
+    .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+  // Default initial stage for forms
+  const defaultInitialStage = activePipelineStages[0]?.name || 'Applied';
+
   // Form State
   const [candidateForm, setCandidateForm] = useState({
     id: '',
     name: '',
     position: '',
-    status: 'Applied',
+    status: defaultInitialStage,
     email: '',
     phone: '',
     resume: ''
@@ -89,10 +113,7 @@ export default function RecruitmentAtsView({
 
   const stageOptions = [
     { label: 'All Stages', value: 'all' },
-    { label: 'Applied', value: 'Applied' },
-    { label: 'Interviewing', value: 'Interviewing' },
-    { label: 'Offered', value: 'Offered' },
-    { label: 'Hired', value: 'Hired' }
+    ...activePipelineStages.map(s => ({ label: getValString(s.name), value: getValString(s.name) }))
   ];
 
   // Active filters check
@@ -146,22 +167,32 @@ export default function RecruitmentAtsView({
     return 0;
   });
 
-  // Global Dataset Metrics (Preserved, unmodified by filters)
+  // Global Dataset Metrics (Semantic-Type Aware)
   const totalApplicants = atsCandidates.length;
 
   const interviewingCount = atsCandidates.filter(c => {
     const st = getValString(c.status).toLowerCase();
-    return st === 'interviewing';
+    // Check match against active stages with INTERVIEW semantic type or 'interviewing'
+    return activePipelineStages.some(s =>
+      (s.semanticType === 'INTERVIEW' || s.id === 'interviewing') &&
+      (st === getValString(s.name).toLowerCase() || st === getValString(s.id).toLowerCase() || st === 'interviewing')
+    );
   }).length;
 
   const offeredCount = atsCandidates.filter(c => {
     const st = getValString(c.status).toLowerCase();
-    return st === 'offered';
+    return activePipelineStages.some(s =>
+      (s.semanticType === 'OFFER' || s.id === 'offered') &&
+      (st === getValString(s.name).toLowerCase() || st === getValString(s.id).toLowerCase() || st === 'offered')
+    );
   }).length;
 
   const hiredCount = atsCandidates.filter(c => {
     const st = getValString(c.status).toLowerCase();
-    return st === 'hired';
+    return activePipelineStages.some(s =>
+      (s.semanticType === 'HIRED' || s.id === 'hired') &&
+      (st === getValString(s.name).toLowerCase() || st === getValString(s.id).toLowerCase() || st === 'hired')
+    );
   }).length;
 
   // Validation Handler
@@ -209,7 +240,7 @@ export default function RecruitmentAtsView({
         id: 'cand_' + Date.now(),
         name: candidateForm.name.trim(),
         position: candidateForm.position.trim(),
-        status: candidateForm.status || 'Applied',
+        status: candidateForm.status || defaultInitialStage,
         email: candidateForm.email.trim(),
         phone: candidateForm.phone.trim(),
         resume: candidateForm.resume.trim(),
@@ -229,7 +260,7 @@ export default function RecruitmentAtsView({
     const cand = atsCandidates.find(c => c.id === candId);
     if (!cand) return;
 
-    const oldStage = getValString(cand.status, 'Applied');
+    const oldStage = getValString(cand.status, defaultInitialStage);
     if (oldStage.toLowerCase() === newStage.toLowerCase()) return;
 
     const updatedList = atsCandidates.map(c => {
@@ -278,7 +309,7 @@ export default function RecruitmentAtsView({
       id: cand.id,
       name: getValString(cand.name),
       position: getValString(cand.position),
-      status: getValString(cand.status, 'Applied'),
+      status: getValString(cand.status, defaultInitialStage),
       email: getValString(cand.email),
       phone: getValString(cand.phone),
       resume: getValString(cand.resume)
@@ -293,7 +324,7 @@ export default function RecruitmentAtsView({
       id: '',
       name: '',
       position: '',
-      status: 'Applied',
+      status: defaultInitialStage,
       email: '',
       phone: '',
       resume: ''
@@ -356,6 +387,17 @@ export default function RecruitmentAtsView({
       >
         Archived ({archivedAtsItems.length})
       </Button>
+
+      {canManage && (
+        <Button
+          variant="secondary"
+          size="md"
+          icon={<Settings size={14} />}
+          onClick={onManageStages}
+        >
+          Manage Stages ⚙️
+        </Button>
+      )}
 
       {canManage && (
         <Button
@@ -467,33 +509,30 @@ export default function RecruitmentAtsView({
     </>
   );
 
-  // Stage Configurations for Kanban
-  const kanbanStages = [
-    {
-      id: 'Applied',
-      name: 'Applied',
-      emoji: '📥',
-      list: sortedCandidates.filter(c => getValString(c.status).toLowerCase() === 'applied')
-    },
-    {
-      id: 'Interviewing',
-      name: 'Interviewing',
-      emoji: '🗣️',
-      list: sortedCandidates.filter(c => getValString(c.status).toLowerCase() === 'interviewing')
-    },
-    {
-      id: 'Offered',
-      name: 'Offered',
-      emoji: '📋',
-      list: sortedCandidates.filter(c => getValString(c.status).toLowerCase() === 'offered')
-    },
-    {
-      id: 'Hired',
-      name: 'Hired',
-      emoji: '✅',
-      list: sortedCandidates.filter(c => getValString(c.status).toLowerCase() === 'hired')
-    }
-  ];
+  // Dynamic Kanban Columns Auto-Generated from Active Central Pipeline Stages
+  const autoGeneratedKanbanColumns = activePipelineStages.map(stage => {
+    const stageName = getValString(stage.name);
+    const stageId = getValString(stage.id);
+    const stageKey = getValString(stage.key);
+
+    const stageCandidates = sortedCandidates.filter(c => {
+      const candStatus = getValString(c.status).toLowerCase();
+      return (
+        candStatus === stageName.toLowerCase() ||
+        candStatus === stageId.toLowerCase() ||
+        candStatus === stageKey.toLowerCase()
+      );
+    });
+
+    return {
+      id: stageId || stageName,
+      name: stageName,
+      emoji: stage.emoji || '📋',
+      color: stage.color || '#0d9488',
+      semanticType: stage.semanticType || 'CUSTOM',
+      list: stageCandidates
+    };
+  });
 
   // Helper Badge Color mapping for stages
   const getStageBadgeVariant = (st) => {
@@ -532,11 +571,11 @@ export default function RecruitmentAtsView({
               </div>
             )}
 
-            {/* 4-Stage Kanban Columns Viewport */}
+            {/* Managed Auto-Generated Kanban Columns Viewport */}
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gridTemplateColumns: `repeat(${Math.max(1, autoGeneratedKanbanColumns.length)}, minmax(240px, 1fr))`,
                 gap: '16px',
                 alignItems: 'start',
                 width: '100%',
@@ -545,7 +584,7 @@ export default function RecruitmentAtsView({
                 paddingBottom: '8px'
               }}
             >
-              {kanbanStages.map((stage) => (
+              {autoGeneratedKanbanColumns.map((stage) => (
                 <div
                   key={stage.id}
                   className="ats-stage-card"
@@ -583,7 +622,7 @@ export default function RecruitmentAtsView({
                         padding: '2px 8px',
                         borderRadius: '12px',
                         background: 'rgba(13, 148, 136, 0.1)',
-                        color: '#0d9488'
+                        color: stage.color || '#0d9488'
                       }}
                     >
                       {stage.list.length}
@@ -606,7 +645,7 @@ export default function RecruitmentAtsView({
                         const candEmail = getValString(cand.email);
                         const candPhone = getValString(cand.phone);
                         const candResume = getValString(cand.resume);
-                        const candStage = getValString(cand.status, 'Applied');
+                        const candStage = getValString(cand.status, defaultInitialStage);
 
                         return (
                           <div
@@ -658,7 +697,7 @@ export default function RecruitmentAtsView({
                               </div>
                             )}
 
-                            {/* Move Stage Selector + Neutral Archive Actions Bar */}
+                            {/* Move Stage Selector (Auto-Generated Options) + Neutral Archive Bar */}
                             {canManage && (
                               <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                 <select
@@ -666,10 +705,11 @@ export default function RecruitmentAtsView({
                                   onChange={(e) => handleMoveStage(cand.id, e.target.value)}
                                   style={{ fontSize: '10px', fontWeight: '700', padding: '3px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
                                 >
-                                  <option value="Applied">Stage: Applied</option>
-                                  <option value="Interviewing">Stage: Interviewing</option>
-                                  <option value="Offered">Stage: Offered</option>
-                                  <option value="Hired">Stage: Hired</option>
+                                  {activePipelineStages.map(s => (
+                                    <option key={s.id || s.name} value={getValString(s.name)}>
+                                      Stage: {getValString(s.name)}
+                                    </option>
+                                  ))}
                                 </select>
 
                                 <div style={{ display: 'flex', gap: '4px' }}>
@@ -777,7 +817,7 @@ export default function RecruitmentAtsView({
                       const candEmail = getValString(cand.email);
                       const candPhone = getValString(cand.phone);
                       const candResume = getValString(cand.resume);
-                      const candStage = getValString(cand.status, 'Applied');
+                      const candStage = getValString(cand.status, defaultInitialStage);
                       const createdDate = cand.createdAt ? new Date(cand.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
                       return (
@@ -812,10 +852,11 @@ export default function RecruitmentAtsView({
                                 onChange={(e) => handleMoveStage(cand.id, e.target.value)}
                                 style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
                               >
-                                <option value="Applied">Applied</option>
-                                <option value="Interviewing">Interviewing</option>
-                                <option value="Offered">Offered</option>
-                                <option value="Hired">Hired</option>
+                                {activePipelineStages.map(s => (
+                                  <option key={s.id || s.name} value={getValString(s.name)}>
+                                    {getValString(s.name)}
+                                  </option>
+                                ))}
                               </select>
                             ) : (
                               <Badge variant={getStageBadgeVariant(candStage)}>
@@ -898,7 +939,7 @@ export default function RecruitmentAtsView({
                 const candData = item.entityData?.candidate || item.payload || {};
                 const candName = getValString(item.name || candData.name, 'Archived Candidate').replace('ATS Candidate: ', '').replace(/"/g, '');
                 const candPosition = getValString(candData.position, 'Candidate Record');
-                const origStage = getValString(candData.status, 'Applied');
+                const origStage = getValString(candData.status, defaultInitialStage);
 
                 return (
                   <div
@@ -1035,10 +1076,11 @@ export default function RecruitmentAtsView({
                 onChange={(e) => setCandidateForm({ ...candidateForm, status: e.target.value })}
                 style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#ffffff', outline: 'none' }}
               >
-                <option value="Applied">Applied</option>
-                <option value="Interviewing">Interviewing</option>
-                <option value="Offered">Offered</option>
-                <option value="Hired">Hired</option>
+                {activePipelineStages.map(s => (
+                  <option key={s.id || s.name} value={getValString(s.name)}>
+                    {getValString(s.name)}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -1124,10 +1166,11 @@ export default function RecruitmentAtsView({
                 onChange={(e) => setCandidateForm({ ...candidateForm, status: e.target.value })}
                 style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#ffffff', outline: 'none' }}
               >
-                <option value="Applied">Applied</option>
-                <option value="Interviewing">Interviewing</option>
-                <option value="Offered">Offered</option>
-                <option value="Hired">Hired</option>
+                {activePipelineStages.map(s => (
+                  <option key={s.id || s.name} value={getValString(s.name)}>
+                    {getValString(s.name)}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -1171,7 +1214,7 @@ export default function RecruitmentAtsView({
                 </div>
               </div>
               <Badge variant={getStageBadgeVariant(selectedCandidate.status)}>
-                {getValString(selectedCandidate.status, 'Applied')}
+                {getValString(selectedCandidate.status, defaultInitialStage)}
               </Badge>
             </div>
 
@@ -1200,14 +1243,15 @@ export default function RecruitmentAtsView({
               <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '12px' }}>
                 <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Move Pipeline Stage</span>
                 <select
-                  value={getValString(selectedCandidate.status, 'Applied')}
+                  value={getValString(selectedCandidate.status, defaultInitialStage)}
                   onChange={(e) => handleMoveStage(selectedCandidate.id, e.target.value)}
                   style={{ width: '100%', padding: '8px 10px', fontSize: '12px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
                 >
-                  <option value="Applied">Applied Stage</option>
-                  <option value="Interviewing">Interviewing Stage</option>
-                  <option value="Offered">Offered Stage</option>
-                  <option value="Hired">Hired Stage</option>
+                  {activePipelineStages.map(s => (
+                    <option key={s.id || s.name} value={getValString(s.name)}>
+                      Stage: {getValString(s.name)}
+                    </option>
+                  ))}
                 </select>
               </div>
             )}

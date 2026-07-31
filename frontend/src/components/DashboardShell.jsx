@@ -1179,11 +1179,28 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [systemDropdowns, setSystemDropdowns] = useState(() => {
     const saved = localStorage.getItem('omnilflow_system_dropdowns');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+      try {
+        const parsed = JSON.parse(saved);
+        if (!parsed.atsStages || !Array.isArray(parsed.atsStages)) {
+          parsed.atsStages = [
+            { id: 'applied', key: 'APPLIED', name: 'Applied', emoji: '📥', color: '#0d9488', semanticType: 'APPLIED', archived: false, sortOrder: 1 },
+            { id: 'interviewing', key: 'INTERVIEWING', name: 'Interviewing', emoji: '🗣️', color: '#2563eb', semanticType: 'INTERVIEW', archived: false, sortOrder: 2 },
+            { id: 'offered', key: 'OFFERED', name: 'Offered', emoji: '📋', color: '#d97706', semanticType: 'OFFER', archived: false, sortOrder: 3 },
+            { id: 'hired', key: 'HIRED', name: 'Hired', emoji: '✅', color: '#059669', semanticType: 'HIRED', archived: false, sortOrder: 4 }
+          ];
+        }
+        return parsed;
+      } catch (e) { console.error(e); }
     }
     return {
       departments: ['IT & Engineering', 'Sales & Marketing', 'Field Operations', 'HR & Administration', 'Finance & Accounting'],
       designations: ['Software Engineer', 'Sales Representative', 'HR Specialist', 'Field Agent', 'Accountant', 'Team Lead'],
+      atsStages: [
+        { id: 'applied', key: 'APPLIED', name: 'Applied', emoji: '📥', color: '#0d9488', semanticType: 'APPLIED', archived: false, sortOrder: 1 },
+        { id: 'interviewing', key: 'INTERVIEWING', name: 'Interviewing', emoji: '🗣️', color: '#2563eb', semanticType: 'INTERVIEW', archived: false, sortOrder: 2 },
+        { id: 'offered', key: 'OFFERED', name: 'Offered', emoji: '📋', color: '#d97706', semanticType: 'OFFER', archived: false, sortOrder: 3 },
+        { id: 'hired', key: 'HIRED', name: 'Hired', emoji: '✅', color: '#059669', semanticType: 'HIRED', archived: false, sortOrder: 4 }
+      ],
       leaveCategories: [
         { id: 'sick', name: 'Sick Leave', quota: 12 },
         { id: 'casual', name: 'Casual Leave', quota: 12 },
@@ -11134,6 +11151,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             authUser={authUser}
             atsCandidates={atsCandidates}
             setAtsCandidates={setAtsCandidates}
+            systemDropdowns={systemDropdowns}
+            onManageStages={() => {
+              setActiveTab('system_dropdowns');
+              setSelectedDropdownCategory('ats_stages');
+            }}
             recycleBinItems={recycleBinItems}
             handleRestoreBinItem={handleRestoreBinItem}
             handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
@@ -12439,6 +12461,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             >
                               <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
                               <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
+                              <option value="ats_stages">Recruitment ATS Stages ({(systemDropdowns.atsStages || []).length})</option>
                               <option value="employment_types">Employment Types (5)</option>
                               <option value="genders">Genders (4)</option>
                               <option value="marital_statuses">Marital Statuses (4)</option>
