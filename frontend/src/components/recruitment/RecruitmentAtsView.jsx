@@ -1261,7 +1261,7 @@ export default function RecruitmentAtsView({
             ) : (
               archivedAtsItems.map((item, idx) => {
                 const candData = item.entityData?.candidate || item.payload || {};
-                const candName = getValString(item.name || candData.name, 'Archived Candidate').replace('ATS Candidate: ', '').replace(/"/g, '');
+                const candName = String(getValString(item.name || candData.name, 'Archived Candidate') || '').replace('ATS Candidate: ', '').replace(/"/g, '');
                 const candPosition = getValString(candData.position, 'Candidate Record');
                 const origStage = getValString(candData.status, defaultInitialStage);
 

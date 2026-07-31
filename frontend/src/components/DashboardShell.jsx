@@ -5740,7 +5740,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           {/* Desktop Page Title (Added as per user request to match mobile) */}
           <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '16px', marginRight: '24px', flexShrink: 0 }}>
             <span style={{ fontSize: '18px', fontWeight: '900', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '1px' }}>
-               {activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : activeTab.replace(/_/g, ' ')}
+               {activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' ')}
             </span>
           </div>
 
@@ -8228,7 +8228,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                 setIvrTestKeyResult(res);
 
                                 if ('speechSynthesis' in window) {
-                                  const text = res.replace(/[^a-zA-Z0-9\s]/g, '');
+                                  const text = String(res || '').replace(/[^a-zA-Z0-9\s]/g, '');
                                   const utterance = new SpeechSynthesisUtterance(text);
                                   utterance.lang = 'en-US';
                                   window.speechSynthesis.speak(utterance);
@@ -8873,7 +8873,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               <div key={sess.id} className="channel-card glass-panel">
                 <div className="channel-status-indicator">
                   <span className={`status-dot ${sess.status}`}></span>
-                  <span style={{ textTransform: 'capitalize', color: 'var(--text-muted)' }}>{sess.status.replace('_', ' ')}</span>
+                  <span style={{ textTransform: 'capitalize', color: 'var(--text-muted)' }}>{(sess.status || '').replace('_', ' ')}</span>
                 </div>
 
                 <div className="avatar-wrapper" style={{ margin: '8px 0', display: 'flex', justifyContent: 'center' }}>
@@ -12727,7 +12727,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                 if (!exists) {
                                   const newStageObj = {
                                     id: 'stage_' + Date.now(),
-                                    key: trimmed.toUpperCase().replace(/\s+/g, '_'),
+                                    key: String(trimmed || '').toUpperCase().replace(/\s+/g, '_'),
                                     name: trimmed,
                                     emoji: '📋',
                                     color: '#0d9488',
@@ -17561,7 +17561,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     {/* Center: Page Title Only (Increased Font Size) */}
                     <div style={{ textAlign: 'center' }}>
                       <div style={{ fontSize: '18px', fontWeight: '900', color: '#14d2cb', letterSpacing: '0.8px', textTransform: 'uppercase', lineHeight: '1.2' }}>
-                        {activeTab.replace(/_/g, ' ')}
+                        {(activeTab || '').replace(/_/g, ' ')}
                       </div>
                     </div>
 
@@ -18212,7 +18212,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             Module Overview & Settings
                           </div>
                           <div style={{ fontSize: '11px', color: '#64748b', lineHeight: '1.4' }}>
-                            Active configuration and operational records for {activeTab.replace(/_/g, ' ')} are synced in real time across web and mobile views.
+                            Active configuration and operational records for {(activeTab || '').replace(/_/g, ' ')} are synced in real time across web and mobile views.
                           </div>
                         </div>
                       </div>

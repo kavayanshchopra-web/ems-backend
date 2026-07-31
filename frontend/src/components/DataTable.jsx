@@ -103,7 +103,7 @@ export default function DataTable({
                     title={isSortable ? `Click to sort by ${col.header}` : undefined}
                   >
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <span>{col.header.replace(/[⇅↑↓]/g, '').trim()}</span>
+                      <span>{String(col.header || '').replace(/[⇅↑↓]/g, '').trim()}</span>
                       {isSortable && (
                         <span style={{ fontSize: '11px', color: isSorted ? '#0d9488' : '#94a3b8' }}>
                           {isSorted ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
