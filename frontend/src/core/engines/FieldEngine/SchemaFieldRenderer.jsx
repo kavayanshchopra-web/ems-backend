@@ -6,9 +6,6 @@
 import React from 'react';
 import { FileText, User, Calendar, CheckSquare, Hash, DollarSign, Mail, Phone, Link, Sparkles } from 'lucide-react';
 
-/**
- * Defensive string extractor helper
- */
 const getValString = (val, fallback = '') => {
   if (val === null || val === undefined) return fallback;
   if (typeof val === 'string' || typeof val === 'number') return String(val);
@@ -27,6 +24,7 @@ export default function SchemaFieldRenderer({
   onChange = () => {},
   error = null,
   mode = 'create', // 'create' | 'edit' | 'view'
+  compact = false,
   systemDropdowns = null,
   activePipelineStages = [],
   allPositions = [],
@@ -48,7 +46,7 @@ export default function SchemaFieldRenderer({
   if (field.optionsSource === 'positions') optionsList = allPositions;
 
   // ----------------------------------------------------
-  // READ-ONLY / VIEW DRAWER MODE RENDERER
+  // READ-ONLY / VIEW MODE RENDERER
   // ----------------------------------------------------
   if (isViewMode) {
     let displayVal = valStr || '—';
@@ -56,6 +54,14 @@ export default function SchemaFieldRenderer({
       displayVal = rawVal ? 'Yes' : 'No';
     } else if (field.type === 'currency' && valStr) {
       displayVal = `$${Number(valStr).toLocaleString()}`;
+    }
+
+    if (compact) {
+      return (
+        <span style={{ fontWeight: '600', color: valStr ? '#334155' : '#94a3b8', fontSize: '12px', wordBreak: 'break-word' }}>
+          {displayVal}
+        </span>
+      );
     }
 
     return (
@@ -100,184 +106,65 @@ export default function SchemaFieldRenderer({
     fontSize: '11px',
     fontWeight: '700',
     color: '#334155',
-    marginBottom: '4px'
-  };
-
-  const renderInputField = () => {
-    switch (field.type) {
-      case 'textarea':
-        return (
-          <textarea
-            id={field.id}
-            rows={field.rows || 3}
-            placeholder={field.placeholder || `Enter ${field.label}...`}
-            value={valStr}
-            onChange={(e) => onChange(e.target.value)}
-            style={{ ...baseInputStyle, resize: 'vertical' }}
-            aria-invalid={Boolean(error)}
-          />
-        );
-
-      case 'dropdown':
-      case 'select':
-      case 'radio':
-        return (
-          <select
-            id={field.id}
-            value={valStr}
-            onChange={(e) => onChange(e.target.value)}
-            style={baseInputStyle}
-            aria-invalid={Boolean(error)}
-          >
-            <option value="">Select {field.label}...</option>
-            {optionsList.map((opt, i) => (
-              <option key={i} value={opt}>{opt}</option>
-            ))}
-          </select>
-        );
-
-      case 'checkbox':
-      case 'boolean':
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
-            <input
-              type="checkbox"
-              id={field.id}
-              checked={Boolean(rawVal)}
-              onChange={(e) => onChange(e.target.checked)}
-              style={{ accentColor: '#0d9488', width: '16px', height: '16px', cursor: 'pointer' }}
-            />
-            <label htmlFor={field.id} style={{ fontSize: '12px', fontWeight: '700', color: '#334155', cursor: 'pointer', margin: 0 }}>
-              {field.label} {field.required && <span style={{ color: '#ef4444' }}>*</span>}
-            </label>
-          </div>
-        );
-
-      case 'number':
-      case 'currency':
-        return (
-          <input
-            type="number"
-            id={field.id}
-            placeholder={field.placeholder || `0.00`}
-            value={valStr}
-            onChange={(e) => onChange(e.target.value)}
-            style={baseInputStyle}
-            aria-invalid={Boolean(error)}
-          />
-        );
-
-      case 'date':
-        return (
-          <input
-            type="date"
-            id={field.id}
-            value={valStr}
-            onChange={(e) => onChange(e.target.value)}
-            style={baseInputStyle}
-            aria-invalid={Boolean(error)}
-          />
-        );
-
-      case 'datetime':
-        return (
-          <input
-            type="datetime-local"
-            id={field.id}
-            value={valStr}
-            onChange={(e) => onChange(e.target.value)}
-            style={baseInputStyle}
-            aria-invalid={Boolean(error)}
-          />
-        );
-
-      case 'email':
-        return (
-          <input
-            type="email"
-            id={field.id}
-            placeholder={field.placeholder || `e.g. user@example.com`}
-            value={valStr}
-            onChange={(e) => onChange(e.target.value)}
-            style={baseInputStyle}
-            aria-invalid={Boolean(error)}
-          />
-        );
-
-      case 'phone':
-        return (
-          <input
-            type="tel"
-            id={field.id}
-            placeholder={field.placeholder || `e.g. +91 9876543210`}
-            value={valStr}
-            onChange={(e) => onChange(e.target.value)}
-            style={baseInputStyle}
-            aria-invalid={Boolean(error)}
-          />
-        );
-
-      case 'file':
-      case 'image':
-        return (
-          <input
-            type="text"
-            id={field.id}
-            placeholder={field.placeholder || `Enter ${field.label} URL / Filename...`}
-            value={valStr}
-            onChange={(e) => onChange(e.target.value)}
-            style={baseInputStyle}
-            aria-invalid={Boolean(error)}
-          />
-        );
-
-      case 'ai':
-        return (
-          <div style={{ position: 'relative' }}>
-            <input
-              type="text"
-              id={field.id}
-              placeholder={field.placeholder || `AI Assistant Prompt / Result...`}
-              value={valStr}
-              onChange={(e) => onChange(e.target.value)}
-              style={{ ...baseInputStyle, paddingRight: '32px' }}
-            />
-            <Sparkles size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#0d9488' }} />
-          </div>
-        );
-
-      case 'text':
-      default:
-        return (
-          <input
-            type="text"
-            id={field.id}
-            placeholder={field.placeholder || `Enter ${field.label}...`}
-            value={valStr}
-            onChange={(e) => onChange(e.target.value)}
-            style={baseInputStyle}
-            aria-invalid={Boolean(error)}
-          />
-        );
-    }
+    marginBottom: '4px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.02em'
   };
 
   return (
-    <div key={field.id} className="schema-field-container" style={{ display: 'flex', flexDirection: 'column' }}>
-      {field.type !== 'checkbox' && field.type !== 'boolean' && (
-        <label htmlFor={field.id} style={labelStyle}>
-          {field.label} {field.required && <span style={{ color: '#ef4444' }}>*</span>}
-        </label>
-      )}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%' }}>
+      <label style={labelStyle}>
+        {field.label}
+        {field.required && <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>}
+      </label>
 
-      {renderInputField()}
-
-      {field.helpText && !error && (
-        <span style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>{field.helpText}</span>
+      {/* DROPDOWN / SELECT */}
+      {field.type === 'dropdown' || field.type === 'select' ? (
+        <select
+          value={valStr}
+          onChange={(e) => onChange(e.target.value)}
+          style={{ ...baseInputStyle, cursor: 'pointer' }}
+        >
+          <option value="">Select {field.label}...</option>
+          {optionsList.map((opt, idx) => {
+            const optVal = getValString(opt);
+            return (
+              <option key={idx} value={optVal}>
+                {optVal}
+              </option>
+            );
+          })}
+        </select>
+      ) : field.type === 'textarea' ? (
+        <textarea
+          rows={3}
+          value={valStr}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={field.placeholder || `Enter ${field.label}...`}
+          style={{ ...baseInputStyle, resize: 'vertical' }}
+        />
+      ) : field.type === 'checkbox' || field.type === 'boolean' ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '4px' }}>
+          <input
+            type="checkbox"
+            checked={Boolean(rawVal)}
+            onChange={(e) => onChange(e.target.checked)}
+            style={{ accentColor: '#0d9488', width: '16px', height: '16px', cursor: 'pointer' }}
+          />
+          <span style={{ fontSize: '13px', color: '#334155' }}>{field.label}</span>
+        </div>
+      ) : (
+        <input
+          type={field.type === 'email' ? 'email' : field.type === 'number' || field.type === 'currency' ? 'number' : field.type === 'phone' ? 'tel' : 'text'}
+          value={valStr}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={field.placeholder || `Enter ${field.label}...`}
+          style={baseInputStyle}
+        />
       )}
 
       {error && (
-        <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '600', marginTop: '2px' }}>
+        <span style={{ fontSize: '11px', color: '#ef4444', marginTop: '2px', fontWeight: '600' }}>
           {error}
         </span>
       )}

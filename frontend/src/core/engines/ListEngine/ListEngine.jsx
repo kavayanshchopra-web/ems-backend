@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Eye, Edit2, Archive, FileText } from 'lucide-react';
+import { Eye, Edit2, Archive } from 'lucide-react';
 import SchemaFieldRenderer from '../FieldEngine/SchemaFieldRenderer';
 import { LabelEngine } from '../LabelEngine';
 import Button from '../../../components/ui/Button';
@@ -118,7 +118,7 @@ export default function ListEngine({
                   </th>
                 ))}
                 {canManage && (
-                  <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', textAlign: 'right' }}>
+                  <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', textAlign: 'right', width: '160px' }}>
                     Actions
                   </th>
                 )}
@@ -214,6 +214,7 @@ export default function ListEngine({
                               field={fieldDef || { id: col.fieldKey || col.id, label: col.label, type: 'text' }}
                               value={record[col.fieldKey] || record.customFields?.[col.fieldKey]}
                               mode="view"
+                              compact={true}
                               systemDropdowns={systemDropdowns}
                             />
                           </td>
@@ -221,32 +222,32 @@ export default function ListEngine({
                       })}
 
                       {canManage && (
-                        <td style={{ padding: '12px 16px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>
-                          <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              icon={<Eye size={12} />}
+                        <td style={{ padding: '12px 16px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', width: '160px' }}>
+                          <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              title="View Profile"
                               onClick={() => onViewRecord(record)}
+                              style={{ padding: '5px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: '700' }}
                             >
-                              View
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              icon={<Edit2 size={12} />}
+                              <Eye size={12} /> View
+                            </button>
+                            <button
+                              type="button"
+                              title="Edit Candidate"
                               onClick={() => onEditRecord(record)}
+                              style={{ padding: '5px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: '700' }}
                             >
-                              Edit
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              icon={<Archive size={12} />}
+                              <Edit2 size={12} /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              title="Archive Candidate"
                               onClick={() => onArchiveRecord(record)}
+                              style={{ padding: '5px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: '700' }}
                             >
-                              Archive
-                            </Button>
+                              <Archive size={12} /> Archive
+                            </button>
                           </div>
                         </td>
                       )}
