@@ -81,13 +81,15 @@ export default function ActionEngine({
     const nameStr = record.name || record.title || 'Record';
     const entityName = LabelEngine.getEntityName(moduleConfig);
 
-    softDeleteRecord({
-      originalId: record.id,
-      name: `${entityName}: "${nameStr}"`,
-      category: `${entityName} Record`,
-      entityData: { record },
-      moduleTab: moduleConfig.moduleId
-    });
+    if (typeof softDeleteRecord === 'function') {
+      softDeleteRecord({
+        originalId: record.id,
+        name: `${entityName}: "${nameStr}"`,
+        category: `${entityName} Record`,
+        entityData: { record },
+        moduleTab: moduleConfig.moduleId
+      });
+    }
 
     const updatedList = records.filter(r => r.id !== record.id);
     setRecords(updatedList);

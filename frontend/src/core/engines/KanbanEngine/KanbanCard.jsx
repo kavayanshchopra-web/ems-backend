@@ -112,7 +112,7 @@ export default function KanbanCard({
           <div style={{ display: 'flex', gap: '4px' }}>
             <button
               type="button"
-              onClick={() => onEditRecord(record)}
+              onClick={(e) => { e.stopPropagation(); onEditRecord(record); }}
               style={{ padding: '3px 6px', fontSize: '10px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#334155', cursor: 'pointer' }}
             >
               Edit
@@ -120,7 +120,7 @@ export default function KanbanCard({
             <button
               type="button"
               title="Archive Record"
-              onClick={() => onArchiveRecord(record)}
+              onClick={(e) => { e.stopPropagation(); onArchiveRecord(record); }}
               style={{ padding: '3px 6px', fontSize: '10px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
             >
               <Archive size={10} /> Archive
