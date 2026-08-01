@@ -67,8 +67,8 @@ export const RECRUITMENT_ATS_MANIFEST = {
   defaultColumns: [
     { id: 'candidate', label: 'Candidate Name', visible: true, fieldKey: 'name', order: 1 },
     { id: 'position', label: 'Position', visible: true, fieldKey: 'position', order: 2 },
-    { id: 'contact', label: 'Contact', visible: true, fieldKey: 'email', order: 3 },
-    { id: 'stage', label: 'Pipeline Stage', visible: true, fieldKey: 'status', order: 4 },
+    { id: 'contact', label: 'Contact Details', visible: true, fieldKey: 'contact', order: 3 },
+    { id: 'stage', label: 'Stage / Status', visible: true, fieldKey: 'status', order: 4 },
     { id: 'resume', label: 'Resume', visible: true, fieldKey: 'resume', order: 5 },
     { id: 'createdAt', label: 'Applied Date', visible: true, fieldKey: 'createdAt', order: 6 }
   ],

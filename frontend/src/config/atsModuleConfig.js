@@ -129,11 +129,11 @@ export const DEFAULT_ATS_SUMMARY_WIDGETS = [
 ];
 
 export const DEFAULT_ATS_COLUMNS = [
-  { id: 'name', label: 'Candidate Name', visible: true, fieldKey: 'name', sortOrder: 1 },
+  { id: 'candidate', label: 'Candidate Name', visible: true, fieldKey: 'name', sortOrder: 1 },
   { id: 'position', label: 'Position', visible: true, fieldKey: 'position', sortOrder: 2 },
-  { id: 'email', label: 'Email', visible: true, fieldKey: 'email', sortOrder: 3 },
-  { id: 'phone', label: 'Phone', visible: true, fieldKey: 'phone', sortOrder: 4 },
-  { id: 'status', label: 'Pipeline Stage', visible: true, fieldKey: 'status', sortOrder: 5 },
+  { id: 'contact', label: 'Contact Details', visible: true, fieldKey: 'contact', sortOrder: 3 },
+  { id: 'status', label: 'Stage / Status', visible: true, fieldKey: 'status', sortOrder: 4 },
+  { id: 'resume', label: 'Resume', visible: true, fieldKey: 'resume', sortOrder: 5 },
   { id: 'createdAt', label: 'Applied Date', visible: true, fieldKey: 'createdAt', sortOrder: 6 }
 ];
 
@@ -170,8 +170,8 @@ export function loadAtsModuleConfig(companyId) {
         schemaVersion: SCHEMA_VERSION,
         fields: Array.isArray(parsed.fields) ? parsed.fields : DEFAULT_ATS_FIELDS,
         summaryWidgets: Array.isArray(parsed.summaryWidgets) ? parsed.summaryWidgets : DEFAULT_ATS_SUMMARY_WIDGETS,
-        columns: Array.isArray(parsed.columns) ? parsed.columns : DEFAULT_ATS_COLUMNS,
-        kanbanFields: parsed.kanbanFields || DEFAULT_KANBAN_FIELDS,
+        columns: DEFAULT_ATS_COLUMNS,
+        kanbanFields: DEFAULT_KANBAN_FIELDS,
         views: parsed.views || DEFAULT_VIEW_CONFIG,
         idConfig: { ...DEFAULT_ID_CONFIG, ...(parsed.idConfig || {}) }
       };

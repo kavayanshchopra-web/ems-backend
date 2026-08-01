@@ -38,14 +38,58 @@ export const DEFAULT_RECRUITMENT_POSITIONS = [
 
 export const DEFAULT_RECRUITMENT_CANDIDATES = [
   {
-    id: 'ATS-001',
-    name: 'Kavay Sharma',
-    position: 'Senior React Developer — Chandigarh',
+    id: 'ATS-005',
+    name: 'Kavayansh Chopra',
+    position: 'Sales Representative',
     status: 'Applied',
     stage: 'Applied',
-    email: 'kavay@example.com',
-    phone: '+91 9876543210',
-    resume: 'Kavay_CV.pdf',
+    email: 'kavayanshchopra@gmail.com',
+    phone: '8566883642',
+    resume: 'Resume.pdf',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'ATS-004',
+    name: 'Kavayansh Chopra',
+    position: 'Software Engineer',
+    status: 'Applied',
+    stage: 'Applied',
+    email: 'kavayanshchopra@gmail.com',
+    phone: '8566883642',
+    resume: 'Resume.pdf',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'ATS-003',
+    name: 'Kavayansh Chopra',
+    position: 'Sales Representative',
+    status: 'Applied',
+    stage: 'Applied',
+    email: 'kavayanshchopra@gmail.com',
+    phone: '8566883642',
+    resume: 'Resume.pdf',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'ATS-002',
+    name: 'Kavayansh Chopra',
+    position: 'Software Engineer',
+    status: 'Applied',
+    stage: 'Applied',
+    email: 'kavayanshchopra@gmail.com',
+    phone: '8566883642',
+    resume: 'Resume.pdf',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'ATS-001',
+    name: 'Kavayansh Chopra',
+    position: 'Sales Representative',
+    status: 'Applied',
+    stage: 'Applied',
+    email: 'kavayanshchopra@gmail.com',
+    phone: '8566883642',
+    resume: 'Resume.pdf',
     createdAt: new Date().toISOString()
   }
 ];
