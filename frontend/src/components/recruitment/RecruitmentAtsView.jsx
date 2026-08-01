@@ -3,11 +3,10 @@
  * 100% Schema-Driven Reference Implementation using Global EMS Configuration Engine
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
-import AtsConfigModal from './AtsConfigModal';
-import PositionManagerModal from './PositionManagerModal';
+import PositionManagerView from './PositionManagerView';
 import { atsStorageService } from '../../services/atsStorageService';
 
 const DEFAULT_PIPELINE_STAGES = [
@@ -33,8 +32,11 @@ export default function RecruitmentAtsView({
   const companyId = authUser?.companyId || authUser?.tenantId || 'default_tenant';
 
   // 1. Consume Master Module Registry Configuration
-  const { config, refreshConfig } = useModuleRegistry(companyId, 'recruitment_ats');
+  const { config } = useModuleRegistry(companyId, 'recruitment_ats');
   const [positions, setPositions] = useState(() => atsStorageService.getRecruitmentPositions(companyId));
+
+  // Page View Switcher ('candidates' | 'requisitions')
+  const [activeSubView, setActiveSubView] = useState('candidates');
 
   // Persistent Candidate Roster State
   const [candidatesState, setCandidatesState] = useState(() => {
@@ -53,10 +55,6 @@ export default function RecruitmentAtsView({
     atsStorageService.saveCandidates(companyId, updated);
   };
 
-  // 2. Modal Popover States
-  const [showConfigModal, setShowConfigModal] = useState(false);
-  const [showPositionModal, setShowPositionModal] = useState(false);
-
   // 3. Active Central Pipeline Stages & Positions
   const configuredStagesRaw = (systemDropdowns && Array.isArray(systemDropdowns.atsStages) && systemDropdowns.atsStages.length > 0)
     ? systemDropdowns.atsStages
@@ -69,51 +67,41 @@ export default function RecruitmentAtsView({
 
   return (
     <div className="recruitment-ats-view-shell" style={{ width: '100%' }}>
-      {/* 100% CONFIGURATION-DRIVEN LAYOUT ENGINE PAGE SHELL */}
-      <LayoutEngine
-        moduleConfig={config}
-        records={candidatesState}
-        setRecords={handleUpdateCandidates}
-        authUser={authUser}
-        systemDropdowns={systemDropdowns}
-        activePipelineStages={activePipelineStages}
-        allPositions={allPositions}
-        recycleBinItems={recycleBinItems}
-        handleRestoreBinItem={handleRestoreBinItem}
-        handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
-        softDeleteRecord={softDeleteRecord}
-        showToast={showToast}
-        onOpenModuleConfig={() => setShowConfigModal(true)}
-        onManageStages={onManageStages}
-        onOpenPositionModal={() => setShowPositionModal(true)}
-      />
-
-      {/* MODULE CONFIGURATION ENGINE MODAL */}
-      {showConfigModal && (
-        <AtsConfigModal
-          isOpen={showConfigModal}
-          onClose={() => { setShowConfigModal(false); refreshConfig(); }}
-          moduleConfig={config}
-          systemDropdowns={systemDropdowns}
-          companyId={companyId}
-          showToast={showToast}
-        />
-      )}
-
-      {/* REQUISITION MANAGER MODAL */}
-      {showPositionModal && (
-        <PositionManagerModal
-          isOpen={showPositionModal}
-          onClose={() => {
-            setShowPositionModal(false);
-            setPositions(atsStorageService.getRecruitmentPositions(companyId));
-          }}
+      {activeSubView === 'requisitions' ? (
+        /* FULL PAGE REQUISITIONS & POSITIONS MANAGEMENT VIEW (NO POPUP MODAL) */
+        <PositionManagerView
           positions={positions}
           onSavePositions={(updated) => {
             atsStorageService.saveRecruitmentPositions(companyId, updated);
             setPositions(updated);
-            showToast('Updated job requisitions list.', 'success');
           }}
+          systemDropdowns={systemDropdowns}
+          atsCandidates={candidatesState}
+          showToast={showToast}
+          onBack={() => setActiveSubView('candidates')}
+        />
+      ) : (
+        /* 100% CONFIGURATION-DRIVEN LAYOUT ENGINE PAGE SHELL */
+        <LayoutEngine
+          moduleConfig={config}
+          records={candidatesState}
+          setRecords={handleUpdateCandidates}
+          authUser={authUser}
+          systemDropdowns={systemDropdowns}
+          activePipelineStages={activePipelineStages}
+          allPositions={allPositions}
+          recycleBinItems={recycleBinItems}
+          handleRestoreBinItem={handleRestoreBinItem}
+          handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+          softDeleteRecord={softDeleteRecord}
+          showToast={showToast}
+          onOpenModuleConfig={() => {
+            if (typeof onOpenModuleConfig === 'function') {
+              onOpenModuleConfig('recruitment_ats');
+            }
+          }}
+          onManageStages={onManageStages}
+          onOpenPositionModal={() => setActiveSubView('requisitions')}
         />
       )}
     </div>
