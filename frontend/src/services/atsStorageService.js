@@ -39,7 +39,7 @@ export const DEFAULT_RECRUITMENT_POSITIONS = [
 export const DEFAULT_RECRUITMENT_CANDIDATES = [
   {
     id: 'ATS-005',
-    name: 'Kavayansh Chopra',
+    name: 'a',
     position: 'Sales Representative',
     status: 'Applied',
     stage: 'Applied',
@@ -196,7 +196,7 @@ export const atsStorageService = {
     }
   },
 
-  // Candidate Data Entity Storage (Local Storage Persistence)
+  // Candidate Data Entity Storage (Local Storage Persistence & Defensive Field Normalization)
   getCandidates(companyId) {
     const tenantKey = companyId ? String(companyId).replace(/[^a-zA-Z0-9_-]/g, '_') : 'default';
     const key = `${CANDIDATES_STORAGE_KEY_PREFIX}${tenantKey}`;
@@ -206,6 +206,10 @@ export const atsStorageService = {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed.map((c, idx) => ({
+            position: c.position || 'Sales Representative',
+            email: c.email || 'kavayanshchopra@gmail.com',
+            phone: c.phone || '8566883642',
+            resume: c.resume || 'Resume.pdf',
             ...c,
             id: formatCandidateId(c.id, idx)
           }));
