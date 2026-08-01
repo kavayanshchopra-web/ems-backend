@@ -9,6 +9,7 @@ import UniversalDrawer from './UniversalDrawer';
 import ConfirmationModal from './ConfirmationModal';
 import ArchivedModal from './ArchivedModal';
 import { LabelEngine } from '../LabelEngine';
+import { getNextSequentialId } from '../../../services/atsStorageService';
 
 export default function ActionEngine({
   moduleConfig = {},
@@ -60,9 +61,10 @@ export default function ActionEngine({
       showToast(`Updated ${entityName.toLowerCase()} "${formData.name || formData.title || selectedRecord.id}"`, 'success');
       setShowEditModal(false);
     } else {
-      // CREATE WORKFLOW
+      // CREATE WORKFLOW WITH SEQUENTIAL IDs (e.g. ATS-001, ATS-002)
+      const nextSeqId = getNextSequentialId('default_tenant', moduleConfig.moduleId || 'recruitment_ats');
       const newRec = {
-        id: `${moduleConfig.moduleId || 'rec'}_${Date.now()}`,
+        id: nextSeqId,
         ...formData,
         createdAt: now,
         updatedAt: now,

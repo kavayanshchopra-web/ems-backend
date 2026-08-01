@@ -38,7 +38,7 @@ export const DEFAULT_RECRUITMENT_POSITIONS = [
 
 export const DEFAULT_RECRUITMENT_CANDIDATES = [
   {
-    id: 'cand_101',
+    id: 'ATS-001',
     name: 'Kavay Sharma',
     position: 'Senior React Developer — Chandigarh',
     status: 'Applied',
@@ -49,6 +49,27 @@ export const DEFAULT_RECRUITMENT_CANDIDATES = [
     createdAt: new Date().toISOString()
   }
 ];
+
+export function getNextSequentialId(companyId, moduleId = 'recruitment_ats') {
+  const tenantKey = companyId ? String(companyId).replace(/[^a-zA-Z0-9_-]/g, '_') : 'default';
+  const prefixMap = {
+    recruitment_ats: 'ATS',
+    crm_deals: 'DEAL',
+    employees: 'EMP',
+    payroll: 'PAY'
+  };
+  const prefix = prefixMap[moduleId] || 'ATS';
+  const storageKey = `omnilflow_seq_${tenantKey}_${moduleId}`;
+
+  try {
+    const currentSeq = parseInt(localStorage.getItem(storageKey) || '1', 10);
+    const nextSeq = currentSeq + 1;
+    localStorage.setItem(storageKey, String(nextSeq));
+    return `${prefix}-${String(currentSeq).padStart(3, '0')}`;
+  } catch (e) {
+    return `${prefix}-001`;
+  }
+}
 
 export const atsStorageService = {
   // Module Configuration
@@ -94,7 +115,7 @@ export const atsStorageService = {
       const saved = localStorage.getItem(key);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch (e) {
       console.error('Error reading candidates:', e);

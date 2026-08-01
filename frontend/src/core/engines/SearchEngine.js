@@ -3,9 +3,6 @@
  * Enterprise Multi-Field Search, Ranking, Matcher & Highlighting Engine
  */
 
-/**
- * Defensive string extractor helper
- */
 const getValString = (val, fallback = '') => {
   if (val === null || val === undefined) return fallback;
   if (typeof val === 'string' || typeof val === 'number') return String(val);
@@ -19,24 +16,11 @@ const getValString = (val, fallback = '') => {
 };
 
 export class SearchEngine {
-  /**
-   * Get all searchable field definitions from module configuration
-   * @param {Object} moduleConfig 
-   * @returns {Array<Object>}
-   */
   static getSearchableFields(moduleConfig) {
     if (!moduleConfig || !Array.isArray(moduleConfig.fields)) return [];
     return moduleConfig.fields.filter(f => f.searchable !== false);
   }
 
-  /**
-   * Filter records based on searchQuery and moduleConfig searchable fields
-   * @param {Array<Object>} records 
-   * @param {string} searchQuery 
-   * @param {Object} moduleConfig 
-   * @param {Object} options { matchMode: 'CONTAINS' | 'EXACT' | 'STARTS_WITH', minChars: 1 }
-   * @returns {Array<Object>} Filtered and relevance-ranked records
-   */
   static search(records = [], searchQuery = '', moduleConfig = {}, options = {}) {
     if (!Array.isArray(records) || records.length === 0) return [];
     
@@ -53,6 +37,13 @@ export class SearchEngine {
     records.forEach(record => {
       let maxScore = 0;
       const matchedFieldIds = [];
+
+      // Check Candidate ID directly (e.g. ATS-001)
+      const recIdStr = getValString(record.id).toLowerCase();
+      if (recIdStr && recIdStr.includes(q)) {
+        maxScore = 100;
+        matchedFieldIds.push('id');
+      }
 
       searchableFields.forEach(field => {
         let rawFieldValue = '';
@@ -76,11 +67,9 @@ export class SearchEngine {
           matches = valLower.startsWith(q);
           score = matches ? 80 : 0;
         } else {
-          // CONTAINS / FUZZY
           matches = valLower.includes(q);
           if (matches) {
             score = 50;
-            // Primary field bonus (name, title, displayField)
             if (field.id === 'name' || field.id === 'title' || field.id === moduleConfig.displayField) {
               score += 30;
             }
@@ -105,18 +94,11 @@ export class SearchEngine {
       }
     });
 
-    // Sort by relevance score descending
     scoredResults.sort((a, b) => b.score - a.score);
 
     return scoredResults.map(res => res.record);
   }
 
-  /**
-   * Highlight search query within a text string
-   * @param {string} text 
-   * @param {string} query 
-   * @returns {{ before: string, match: string, after: string } | string}
-   */
   static getHighlightSnippet(text, query) {
     const str = getValString(text);
     if (!str || !query) return str;

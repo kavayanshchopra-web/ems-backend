@@ -1,6 +1,6 @@
 /**
  * UNIVERSAL KANBAN CARD COMPONENT
- * 100% Schema-Driven Card Renderer for any EMS Module Record
+ * 100% Schema-Driven Card Renderer with Polished Typography & Candidate ID
  */
 
 import React from 'react';
@@ -36,6 +36,7 @@ export default function KanbanCard({
   const cardPhone = getValString(record.phone);
   const cardFile = getValString(record.resume || record.attachment);
   const currentStage = getValString(record.status || record.stage);
+  const cardId = record.id || 'ATS-001';
 
   const kanbanCardsConfig = moduleConfig.kanbanFields || { position: true, email: true, phone: true, resume: true };
 
@@ -43,25 +44,31 @@ export default function KanbanCard({
     <div
       className="kanban-card-container"
       style={{
-        background: '#f8fafc',
-        padding: '12px 14px',
-        borderRadius: '8px',
+        background: '#ffffff',
+        padding: '14px',
+        borderRadius: '10px',
         border: '1px solid #e2e8f0',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.03)',
         transition: 'all 0.15s ease',
         overflow: 'hidden'
       }}
     >
-      {/* HEADER: TITLE + VIEW EYE BUTTON */}
+      {/* HEADER: ID BADGE + TITLE + VIEW EYE BUTTON */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
         <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+            <span style={{ fontSize: '10px', fontWeight: '800', padding: '1px 6px', borderRadius: '4px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', fontFamily: 'monospace' }}>
+              {cardId}
+            </span>
+          </div>
           <div
             onClick={() => onViewRecord(record)}
-            style={{ fontWeight: '700', color: '#0f172a', fontSize: '13px', wordBreak: 'break-word', cursor: 'pointer' }}
+            style={{ fontWeight: '800', color: '#0f172a', fontSize: '13px', lineHeight: 1.3, wordBreak: 'break-word', cursor: 'pointer' }}
           >
             {cardName}
           </div>
           {kanbanCardsConfig.position && cardSubtitle && (
-            <div style={{ color: '#0d9488', fontSize: '11px', fontWeight: '600', marginTop: '2px', wordBreak: 'break-word' }}>
+            <div style={{ color: '#0d9488', fontSize: '11px', fontWeight: '700', marginTop: '3px', wordBreak: 'break-word' }}>
               {cardSubtitle}
             </div>
           )}
@@ -78,7 +85,7 @@ export default function KanbanCard({
 
       {/* CONTACT INFO */}
       {(kanbanCardsConfig.email || kanbanCardsConfig.phone) && (cardEmail || cardPhone) && (
-        <div style={{ marginTop: '6px', fontSize: '10px', color: '#475569' }}>
+        <div style={{ marginTop: '8px', fontSize: '11px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '2px' }}>
           {kanbanCardsConfig.email && cardEmail && <div>📧 {cardEmail}</div>}
           {kanbanCardsConfig.phone && cardPhone && cardPhone !== cardSubtitle && <div>📞 {cardPhone}</div>}
         </div>
@@ -96,7 +103,7 @@ export default function KanbanCard({
 
       {/* FOOTER ACTIONS & STAGE MOVER */}
       {canManage && (
-        <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+        <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           <select
             value={currentStage}
             onChange={(e) => onMoveStage(record.id, e.target.value)}

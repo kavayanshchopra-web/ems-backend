@@ -1,6 +1,6 @@
 /**
  * UNIVERSAL KANBAN COLUMN COMPONENT
- * Renders a single pipeline stage column with cards list
+ * Renders a single pipeline stage column with sticky header and cards list
  */
 
 import React from 'react';
@@ -29,12 +29,16 @@ export default function KanbanColumn({
         boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
         display: 'flex',
         flexDirection: 'column',
+        height: '100%',
         overflow: 'hidden'
       }}
     >
-      {/* COLUMN HEADER */}
+      {/* STICKY COLUMN HEADER */}
       <div
         style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
           padding: '12px 16px',
           background: '#f8fafc',
           borderBottom: '1px solid #e2e8f0',
@@ -64,13 +68,13 @@ export default function KanbanColumn({
       </div>
 
       {/* CARDS LIST CONTAINER */}
-      <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+      <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, minHeight: '180px' }}>
         {records.length === 0 ? (
-          <div style={{ padding: '20px 12px', textAlign: 'center' }}>
+          <div style={{ padding: '24px 12px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
             <EmptyState
-              icon="📋"
+              icon="📥"
               title=""
-              description={isFilterActive ? 'No records match filter.' : 'No records in this stage.'}
+              description={isFilterActive ? 'No records match filter.' : 'No candidates in this stage.'}
             />
           </div>
         ) : (

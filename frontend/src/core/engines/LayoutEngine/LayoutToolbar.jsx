@@ -50,6 +50,9 @@ export default function LayoutToolbar({
       {/* 1. TOP HEADER & MAIN ACTION STRIP */}
       <div
         style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 50,
           display: 'flex',
           alignItems: 'center',
           justify: 'space-between',
@@ -59,7 +62,7 @@ export default function LayoutToolbar({
           padding: '14px 18px',
           borderRadius: '12px',
           border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+          boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
         }}
       >
         {/* Module Title & Badge */}
