@@ -36,7 +36,7 @@ export default function Modal({
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 'var(--z-modal-backdrop, 400)',
+        zIndex: 999999,
         background: 'rgba(15, 23, 42, 0.75)',
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',

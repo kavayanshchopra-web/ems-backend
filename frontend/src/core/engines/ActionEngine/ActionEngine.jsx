@@ -167,7 +167,7 @@ export default function ActionEngine({
       )}
 
       {/* ARCHIVE CONFIRMATION MODAL */}
-      {showArchiveModal && archiveRecordTarget && (
+      {showArchiveModal && (
         <ConfirmationModal
           isOpen={showArchiveModal}
           onClose={() => {
