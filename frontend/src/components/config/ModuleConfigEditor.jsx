@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
-import { Plus, Trash2, Eye, EyeOff, Sliders, LayoutGrid, List, Search, Filter, Layers, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, Sliders, LayoutGrid, List, Search, Filter, Layers, ArrowLeft, Hash } from 'lucide-react';
 
 /**
  * Generic Capability-Driven Module Configuration Editor
@@ -26,7 +26,8 @@ export default function ModuleConfigEditor({
     summaryWidgets: [...(initialConfig.summaryWidgets || [])],
     columns: [...(initialConfig.columns || [])],
     kanbanFields: { ...(initialConfig.kanbanFields || { position: true, email: true, phone: true, resume: true }) },
-    views: { ...(initialConfig.views || { availableViews: ['kanban', 'list'], defaultView: 'kanban' }) }
+    views: { ...(initialConfig.views || { availableViews: ['kanban', 'list'], defaultView: 'kanban' }) },
+    idConfig: { ...(initialConfig.idConfig || { prefix: 'ATS', padding: 3 }) }
   });
 
   // New Custom Field State
@@ -242,6 +243,7 @@ export default function ModuleConfigEditor({
 
   const navItems = [
     capabilities.forms && { id: 'fields', label: 'Forms & Fields', icon: <Sliders size={16} /> },
+    { id: 'id_config', label: 'ID Format & Prefix', icon: <Hash size={16} /> },
     capabilities.summary && { id: 'summary', label: 'Summary', icon: <Layers size={16} /> },
     capabilities.searchFilters && { id: 'search_filters', label: 'Search & Filters', icon: <Filter size={16} /> },
     capabilities.listView && { id: 'columns', label: 'List View', icon: <List size={16} /> },
@@ -525,6 +527,84 @@ export default function ModuleConfigEditor({
                 <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={handleAddStageWidget}>
                   Add Widget
                 </Button>
+              </div>
+            </div>
+          )}
+
+          {/* SECTION: ID FORMAT & PREFIX */}
+          {activeNav === 'id_config' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '14px', marginBottom: '4px' }}>
+                  🔢 Module Candidate & Record ID Format Configuration
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '16px' }}>
+                  Configure the sequential ID prefix and number padding for records in this module (e.g. ATS-001, CAND-001, REQ-001).
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                  {/* PREFIX INPUT */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                      ID Prefix Code (e.g. ATS, CAND, REQ, JOB, DEAL)
+                    </label>
+                    <input
+                      type="text"
+                      value={configState.idConfig?.prefix || 'ATS'}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+                        setConfigState(prev => ({
+                          ...prev,
+                          idConfig: {
+                            ...(prev.idConfig || {}),
+                            prefix: val || 'ATS'
+                          }
+                        }));
+                      }}
+                      placeholder="e.g. ATS"
+                      style={{ width: '100%', padding: '8px 12px', fontSize: '13px', fontWeight: '800', borderRadius: '6px', border: '1px solid #cbd5e1', textTransform: 'uppercase' }}
+                    />
+                  </div>
+
+                  {/* PADDING DROPDOWN */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                      Number Digits / Padding Length
+                    </label>
+                    <select
+                      value={configState.idConfig?.padding || 3}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        setConfigState(prev => ({
+                          ...prev,
+                          idConfig: {
+                            ...(prev.idConfig || {}),
+                            padding: val
+                          }
+                        }));
+                      }}
+                      style={{ width: '100%', padding: '8px 12px', fontSize: '13px', fontWeight: '800', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                    >
+                      <option value={3}>3 Digits (e.g. 001, 002)</option>
+                      <option value={4}>4 Digits (e.g. 0001, 0002)</option>
+                      <option value={5}>5 Digits (e.g. 00001, 00002)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* LIVE PREVIEW BADGE */}
+                <div style={{ marginTop: '16px', padding: '12px 16px', background: '#ffffff', borderRadius: '8px', border: '1px dashed #0d9488', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: '#0f172a' }}>Live Sample Preview:</span>
+                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '3px 10px', borderRadius: '6px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', fontFamily: 'monospace' }}>
+                    {(configState.idConfig?.prefix || 'ATS')}-{'1'.padStart(configState.idConfig?.padding || 3, '0')}
+                  </span>
+                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '3px 10px', borderRadius: '6px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', fontFamily: 'monospace' }}>
+                    {(configState.idConfig?.prefix || 'ATS')}-{'2'.padStart(configState.idConfig?.padding || 3, '0')}
+                  </span>
+                  <span style={{ fontSize: '11px', fontWeight: '800', padding: '3px 10px', borderRadius: '6px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', fontFamily: 'monospace' }}>
+                    {(configState.idConfig?.prefix || 'ATS')}-{'3'.padStart(configState.idConfig?.padding || 3, '0')}
+                  </span>
+                </div>
               </div>
             </div>
           )}

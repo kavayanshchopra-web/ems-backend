@@ -147,7 +147,7 @@ export default function ListEngine({
                   const isSelected = selectedIds.includes(record.id);
                   const recordName = getValString(record.name || record.title, LabelEngine.getEntityName(moduleConfig));
                   const recordStatus = getValString(record.status || record.stage);
-                  const displayId = formatCandidateId(record.id, idx);
+                  const displayId = formatCandidateId(record.id, idx, moduleConfig);
 
                   return (
                     <tr key={record.id || idx} style={{ borderBottom: '1px solid #e2e8f0', background: isSelected ? 'rgba(13,148,136,0.04)' : '#ffffff' }}>

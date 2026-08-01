@@ -62,7 +62,7 @@ export default function ActionEngine({
       setShowEditModal(false);
     } else {
       // CREATE WORKFLOW WITH SEQUENTIAL IDs (e.g. ATS-001, ATS-002)
-      const nextSeqId = getNextSequentialId('default_tenant', moduleConfig.moduleId || 'recruitment_ats');
+      const nextSeqId = getNextSequentialId('default_tenant', moduleConfig.moduleId || 'recruitment_ats', moduleConfig);
       const newRec = {
         id: nextSeqId,
         ...formData,

@@ -37,7 +37,7 @@ export default function KanbanCard({
   const cardPhone = getValString(record.phone);
   const cardFile = getValString(record.resume || record.attachment);
   const currentStage = getValString(record.status || record.stage);
-  const displayId = formatCandidateId(record.id);
+  const displayId = formatCandidateId(record.id, 0, moduleConfig);
 
   const kanbanCardsConfig = moduleConfig.kanbanFields || { position: true, email: true, phone: true, resume: true };
 

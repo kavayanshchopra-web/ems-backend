@@ -149,6 +149,11 @@ export const DEFAULT_VIEW_CONFIG = {
   defaultView: 'kanban'
 };
 
+export const DEFAULT_ID_CONFIG = {
+  prefix: 'ATS',
+  padding: 3
+};
+
 function getStorageKey(companyId) {
   const tenantKey = companyId ? String(companyId).replace(/[^a-zA-Z0-9_-]/g, '_') : 'default';
   return `omnilflow_config_${tenantKey}_ats`;
@@ -166,7 +171,8 @@ export function loadAtsModuleConfig(companyId) {
         summaryWidgets: Array.isArray(parsed.summaryWidgets) ? parsed.summaryWidgets : DEFAULT_ATS_SUMMARY_WIDGETS,
         columns: Array.isArray(parsed.columns) ? parsed.columns : DEFAULT_ATS_COLUMNS,
         kanbanFields: parsed.kanbanFields || DEFAULT_KANBAN_FIELDS,
-        views: parsed.views || DEFAULT_VIEW_CONFIG
+        views: parsed.views || DEFAULT_VIEW_CONFIG,
+        idConfig: parsed.idConfig || DEFAULT_ID_CONFIG
       };
     }
   } catch (e) {
@@ -179,7 +185,8 @@ export function loadAtsModuleConfig(companyId) {
     summaryWidgets: DEFAULT_ATS_SUMMARY_WIDGETS,
     columns: DEFAULT_ATS_COLUMNS,
     kanbanFields: DEFAULT_KANBAN_FIELDS,
-    views: DEFAULT_VIEW_CONFIG
+    views: DEFAULT_VIEW_CONFIG,
+    idConfig: DEFAULT_ID_CONFIG
   };
 }
 
