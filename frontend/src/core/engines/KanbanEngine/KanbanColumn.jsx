@@ -1,6 +1,6 @@
 /**
  * UNIVERSAL KANBAN COLUMN COMPONENT
- * Renders a single pipeline stage column with sticky header and visible vertical scrollbar
+ * Renders a single pipeline stage column with sticky header and smooth vertical scrollbar
  */
 
 import React from 'react';
@@ -30,13 +30,13 @@ export default function KanbanColumn({
         display: 'flex',
         flexDirection: 'column',
         height: 'calc(100vh - 290px)',
-        minHeight: '400px',
+        minHeight: '420px',
         overflow: 'hidden'
       }}
     >
       <style>{`
         .kanban-column-cards-scroll::-webkit-scrollbar {
-          width: 8px !important;
+          width: 6px !important;
           display: block !important;
         }
         .kanban-column-cards-scroll::-webkit-scrollbar-track {
@@ -62,7 +62,7 @@ export default function KanbanColumn({
           background: '#f8fafc',
           borderBottom: '1px solid #e2e8f0',
           display: 'flex',
-          justifyContent: 'space-between',
+          justify: 'space-between',
           alignItems: 'center',
           flexShrink: 0
         }}
@@ -87,7 +87,7 @@ export default function KanbanColumn({
         </span>
       </div>
 
-      {/* CARDS LIST CONTAINER WITH PROMINENT VERTICAL SCROLLBAR */}
+      {/* CARDS LIST CONTAINER WITH SMOOTH VERTICAL SCROLLBAR */}
       <div
         className="kanban-column-cards-scroll"
         style={{
@@ -96,7 +96,7 @@ export default function KanbanColumn({
           flexDirection: 'column',
           gap: '12px',
           flex: 1,
-          overflowY: 'scroll',
+          overflowY: 'auto',
           overflowX: 'hidden',
           WebkitOverflowScrolling: 'touch',
           scrollbarWidth: 'thin',

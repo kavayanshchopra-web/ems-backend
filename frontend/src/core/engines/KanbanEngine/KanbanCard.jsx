@@ -11,12 +11,15 @@ import { formatCandidateId } from '../../../services/atsStorageService';
 
 const getValString = (val, fallback = '') => {
   if (val === null || val === undefined) return fallback;
-  if (typeof val === 'string' || typeof val === 'number') return String(val);
+  if (typeof val === 'string') {
+    return val.trim().length > 0 ? val.trim() : fallback;
+  }
+  if (typeof val === 'number') return String(val);
   if (typeof val === 'object') {
-    if (typeof val.name === 'string') return val.name;
-    if (typeof val.title === 'string') return val.title;
-    if (typeof val.label === 'string') return val.label;
-    if (typeof val.value === 'string') return val.value;
+    if (typeof val.name === 'string' && val.name.trim()) return val.name.trim();
+    if (typeof val.title === 'string' && val.title.trim()) return val.title.trim();
+    if (typeof val.label === 'string' && val.label.trim()) return val.label.trim();
+    if (typeof val.value === 'string' && val.value.trim()) return val.value.trim();
   }
   return fallback;
 };
