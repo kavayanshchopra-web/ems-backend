@@ -6,6 +6,8 @@
 import React, { useState } from 'react';
 import UniversalModal from './UniversalModal';
 import UniversalDrawer from './UniversalDrawer';
+import ConfirmationModal from './ConfirmationModal';
+import { LabelEngine } from '../LabelEngine';
 
 export default function ActionEngine({
   moduleConfig = {},
@@ -17,6 +19,8 @@ export default function ActionEngine({
   setShowEditModal = () => {},
   showDetailModal = false,
   setShowDetailModal = () => {},
+  showArchiveModal = false,
+  setShowArchiveModal = () => {},
   selectedRecord = null,
   setSelectedRecord = () => {},
   canManage = true,
@@ -26,9 +30,11 @@ export default function ActionEngine({
   softDeleteRecord = () => {},
   showToast = () => {}
 }) {
+  const [internalRecordToArchive, setInternalRecordToArchive] = useState(null);
+
   const handleSaveRecord = (formData) => {
     const now = new Date().toISOString();
-    const entityName = moduleConfig.entityName || 'Record';
+    const entityName = LabelEngine.getEntityName(moduleConfig);
 
     if (selectedRecord && selectedRecord.id) {
       // EDIT WORKFLOW
@@ -59,12 +65,18 @@ export default function ActionEngine({
     }
   };
 
-  const handleArchiveRecord = (record) => {
+  const handleTriggerArchivePrompt = (record) => {
     if (!record) return;
-    const nameStr = record.name || record.title || 'Record';
-    const entityName = moduleConfig.entityName || 'Record';
+    setInternalRecordToArchive(record);
+    setShowArchiveModal(true);
+  };
 
-    if (!window.confirm(`Archive "${nameStr}"? Item will be moved to the Recycle Bin.`)) return;
+  const handleConfirmArchive = () => {
+    const record = internalRecordToArchive || selectedRecord;
+    if (!record) return;
+
+    const nameStr = record.name || record.title || 'Record';
+    const entityName = LabelEngine.getEntityName(moduleConfig);
 
     softDeleteRecord({
       originalId: record.id,
@@ -76,8 +88,10 @@ export default function ActionEngine({
 
     const updatedList = records.filter(r => r.id !== record.id);
     setRecords(updatedList);
-    showToast(`📦 Archived "${nameStr}". Accessible in Archived Records.`, 'info');
+    showToast(`📦 Archived ${entityName.toLowerCase()} "${nameStr}". Accessible in Archived Records.`, 'info');
 
+    setShowArchiveModal(false);
+    setInternalRecordToArchive(null);
     setShowDetailModal(false);
     setShowEditModal(false);
   };
@@ -96,6 +110,10 @@ export default function ActionEngine({
       setSelectedRecord(prev => prev ? { ...prev, status: newStage, stage: newStage } : null);
     }
   };
+
+  const archiveRecordTarget = internalRecordToArchive || selectedRecord;
+  const targetName = archiveRecordTarget ? (archiveRecordTarget.name || archiveRecordTarget.title || 'Record') : 'Record';
+  const targetEntity = LabelEngine.getEntityName(moduleConfig);
 
   return (
     <>
@@ -136,11 +154,24 @@ export default function ActionEngine({
           record={selectedRecord}
           moduleConfig={moduleConfig}
           onEditRecord={(rec) => { setSelectedRecord(rec); setShowEditModal(true); }}
-          onArchiveRecord={handleArchiveRecord}
+          onArchiveRecord={handleTriggerArchivePrompt}
           onMoveStage={handleMoveStage}
           canManage={canManage}
           systemDropdowns={systemDropdowns}
           activePipelineStages={activePipelineStages}
+        />
+      )}
+
+      {/* ARCHIVE CONFIRMATION MODAL */}
+      {showArchiveModal && archiveRecordTarget && (
+        <ConfirmationModal
+          isOpen={showArchiveModal}
+          onClose={() => { setShowArchiveModal(false); setInternalRecordToArchive(null); }}
+          onConfirm={handleConfirmArchive}
+          title={`Archive ${targetEntity}`}
+          message={`Are you sure you want to archive ${targetEntity.toLowerCase()} "${targetName}"? The record will be safely moved to the Archived Records repository.`}
+          confirmText="Archive Record"
+          cancelText="Cancel"
         />
       )}
     </>

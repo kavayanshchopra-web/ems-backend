@@ -56,6 +56,7 @@ export default function LayoutEngine({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showArchivedModal, setShowArchivedModal] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
 
@@ -164,13 +165,7 @@ export default function LayoutEngine({
         canManage={canManage}
         onViewRecord={(rec) => { setSelectedRecord(rec); setShowDetailModal(true); }}
         onEditRecord={(rec) => { setSelectedRecord(rec); setShowEditModal(true); }}
-        onArchiveRecord={(rec) => {
-          if (window.confirm(`Archive "${rec.name || rec.title}"?`)) {
-            softDeleteRecord({ originalId: rec.id, name: rec.name || rec.title, category: moduleConfig.entityName, entityData: { record: rec }, moduleTab: moduleConfig.moduleId });
-            setRecords(records.filter(r => r.id !== rec.id));
-            showToast(`Archived record`, 'info');
-          }
-        }}
+        onArchiveRecord={(rec) => { setSelectedRecord(rec); setShowArchiveModal(true); }}
         onMoveStage={(recId, newStage) => {
           const updated = records.map(r => r.id === recId ? { ...r, status: newStage, stage: newStage } : r);
           setRecords(updated);
@@ -192,6 +187,8 @@ export default function LayoutEngine({
         setShowEditModal={setShowEditModal}
         showDetailModal={showDetailModal}
         setShowDetailModal={setShowDetailModal}
+        showArchiveModal={showArchiveModal}
+        setShowArchiveModal={setShowArchiveModal}
         selectedRecord={selectedRecord}
         setSelectedRecord={setSelectedRecord}
         canManage={canManage}
