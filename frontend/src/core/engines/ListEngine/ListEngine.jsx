@@ -99,8 +99,8 @@ export default function ListEngine({
           </span>
         </div>
 
-        {/* RESPONSIVE TABLE CONTAINER */}
-        <div style={{ overflowX: 'auto', width: '100%' }}>
+        {/* RESPONSIVE TABLE CONTAINER WITH VERTICAL MAX HEIGHT */}
+        <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 290px)', width: '100%' }}>
           <table className="std-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>
@@ -179,6 +179,21 @@ export default function ListEngine({
                                   </div>
                                   <div style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '700', color: '#0d9488' }}>ID: {displayId}</div>
                                 </div>
+                              </div>
+                            </td>
+                          );
+                        }
+
+                        // Special Contact Details Column Renderer (Email & Phone)
+                        if (col.id === 'contact' || col.id === 'contact_details' || col.fieldKey === 'contact' || col.fieldKey === 'phone') {
+                          const emailStr = getValString(record.email);
+                          const phoneStr = getValString(record.phone);
+                          return (
+                            <td key={col.id} style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px' }}>
+                                {emailStr && <div style={{ color: '#0f172a', fontWeight: '700' }}>📧 {emailStr}</div>}
+                                {phoneStr && <div style={{ color: '#475569', fontWeight: '600' }}>📞 {phoneStr}</div>}
+                                {!emailStr && !phoneStr && <span style={{ color: '#94a3b8' }}>—</span>}
                               </div>
                             </td>
                           );
