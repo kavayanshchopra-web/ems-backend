@@ -89,6 +89,7 @@ export default function RecruitmentAtsView({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStageFilter, setSelectedStageFilter] = useState('all');
   const [selectedPositionFilter, setSelectedPositionFilter] = useState('all');
+  const [customFilterValues, setCustomFilterValues] = useState({});
   const [sortKey, setSortKey] = useState('createdAt'); // 'createdAt' | 'name' | 'stage' | 'position'
   const [sortDir, setSortDir] = useState('desc'); // 'asc' | 'desc'
 
@@ -153,15 +154,20 @@ export default function RecruitmentAtsView({
   const candidatePositionStrings = atsCandidates.map(c => getValString(c.position)).filter(Boolean);
   const allUniquePositions = Array.from(new Set([...activePositionTitles, ...candidatePositionStrings]));
 
+  // Dynamic Filterable Fields from Schema
+  const customFilterableFields = (moduleConfig.fields || []).filter(f => f.filterable && f.id !== 'position' && f.id !== 'status');
+  const hasActiveCustomFilters = Object.values(customFilterValues).some(v => Boolean(v && String(v).trim() && v !== 'all'));
+
   // Active Filters Check
   const isFilterActive = Boolean(
-    searchQuery.trim() || selectedStageFilter !== 'all' || selectedPositionFilter !== 'all'
+    searchQuery.trim() || selectedStageFilter !== 'all' || selectedPositionFilter !== 'all' || hasActiveCustomFilters
   );
 
   const handleResetFilters = () => {
     setSearchQuery('');
     setSelectedStageFilter('all');
     setSelectedPositionFilter('all');
+    setCustomFilterValues({});
   };
 
   // Configurable Search Matching Engine
@@ -187,7 +193,17 @@ export default function RecruitmentAtsView({
     const matchesStage = selectedStageFilter === 'all' || statusStr === selectedStageFilter.toLowerCase();
     const matchesPosition = selectedPositionFilter === 'all' || posStr === selectedPositionFilter.toLowerCase();
 
-    return matchesSearch && matchesStage && matchesPosition;
+    const matchesCustomFilters = customFilterableFields.every(field => {
+      const filterVal = customFilterValues[field.id];
+      if (!filterVal || filterVal === 'all') return true;
+      let candVal = '';
+      if (field.id === 'email') candVal = getValString(c.email);
+      else if (field.id === 'phone') candVal = getValString(c.phone);
+      else candVal = getValString(c.customFields?.[field.id]);
+      return candVal.toLowerCase().includes(String(filterVal).toLowerCase().trim());
+    });
+
+    return matchesSearch && matchesStage && matchesPosition && matchesCustomFilters;
   });
 
   // Configurable Sort Engine
@@ -640,7 +656,7 @@ export default function RecruitmentAtsView({
                   color: widget.color || '#0d9488',
                   display: 'flex',
                   alignItems: 'center',
-                  justify: 'center',
+                  justifyContent: 'center',
                   fontSize: '18px',
                   flexShrink: 0
                 }}
@@ -736,6 +752,39 @@ export default function RecruitmentAtsView({
                   </select>
                 </div>
 
+                {customFilterableFields.map(field => {
+                  let opts = field.manualOptions || [];
+                  if (field.optionsSource === 'departments') opts = (systemDropdowns?.departments || []).map(getValString);
+                  if (field.optionsSource === 'designations') opts = (systemDropdowns?.designations || []).map(getValString);
+                  if (field.optionsSource === 'employment_types') opts = ['Full-time', 'Part-time', 'Contract', 'Internship'];
+
+                  return (
+                    <div key={field.id}>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#475569', marginBottom: '4px' }}>{field.label}</label>
+                      {opts.length > 0 ? (
+                        <select
+                          value={customFilterValues[field.id] || 'all'}
+                          onChange={(e) => setCustomFilterValues({ ...customFilterValues, [field.id]: e.target.value })}
+                          style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', outline: 'none', background: 'white' }}
+                        >
+                          <option value="all">All {field.label}s</option>
+                          {opts.map((opt, i) => (
+                            <option key={i} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          placeholder={`Filter by ${field.label}...`}
+                          value={customFilterValues[field.id] || ''}
+                          onChange={(e) => setCustomFilterValues({ ...customFilterValues, [field.id]: e.target.value })}
+                          style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', outline: 'none' }}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+
                 {isFilterActive && (
                   <Button variant="secondary" size="sm" icon={<FilterX size={12} />} onClick={handleResetFilters}>
                     Reset All Filters
@@ -827,6 +876,19 @@ export default function RecruitmentAtsView({
             </span>
           )}
 
+          {customFilterableFields.map(field => {
+            const val = customFilterValues[field.id];
+            if (!val || val === 'all') return null;
+            return (
+              <span key={field.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '12px', background: 'rgba(147, 51, 234, 0.1)', color: '#9333ea', fontWeight: '700', fontSize: '11px' }}>
+                {field.label}: {val}
+                <button type="button" onClick={() => setCustomFilterValues({ ...customFilterValues, [field.id]: 'all' })} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#9333ea', padding: 0 }}>
+                  <X size={12} />
+                </button>
+              </span>
+            );
+          })}
+
           {searchQuery.trim() && (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.1)', color: '#d97706', fontWeight: '700', fontSize: '11px' }}>
               Query: "{searchQuery.trim()}"
@@ -882,7 +944,7 @@ export default function RecruitmentAtsView({
                     background: '#f8fafc',
                     borderBottom: '1px solid #e2e8f0',
                     display: 'flex',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                     alignItems: 'center'
                   }}
                 >
@@ -1270,7 +1332,7 @@ export default function RecruitmentAtsView({
                     key={item.id || idx}
                     style={{
                       display: 'flex',
-                      justify: 'space-between',
+                      justifyContent: 'space-between',
                       alignItems: 'center',
                       padding: '12px 14px',
                       background: '#f8fafc',
@@ -1459,13 +1521,47 @@ export default function RecruitmentAtsView({
                 );
               }
 
+              if (field.type === 'textarea') {
+                return (
+                  <div key={field.id}>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                      {field.label} {field.required && <span style={{ color: '#ef4444' }}>*</span>}
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={customFieldsData[field.id] || ''}
+                      onChange={(e) => setCustomFieldsData({ ...customFieldsData, [field.id]: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: formErrors[field.id] ? '1.5px solid #ef4444' : '1px solid #cbd5e1', fontSize: '13px', outline: 'none', resize: 'vertical' }}
+                    />
+                    {formErrors[field.id] && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '600' }}>{formErrors[field.id]}</span>}
+                  </div>
+                );
+              }
+
+              if (field.type === 'checkbox') {
+                return (
+                  <div key={field.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
+                    <input
+                      type="checkbox"
+                      id={field.id}
+                      checked={!!customFieldsData[field.id]}
+                      onChange={(e) => setCustomFieldsData({ ...customFieldsData, [field.id]: e.target.checked })}
+                      style={{ accentColor: '#0d9488', width: '16px', height: '16px', cursor: 'pointer' }}
+                    />
+                    <label htmlFor={field.id} style={{ fontSize: '12px', fontWeight: '700', color: '#334155', cursor: 'pointer' }}>
+                      {field.label} {field.required && <span style={{ color: '#ef4444' }}>*</span>}
+                    </label>
+                  </div>
+                );
+              }
+
               return (
                 <div key={field.id}>
                   <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
                     {field.label} {field.required && <span style={{ color: '#ef4444' }}>*</span>}
                   </label>
                   <input
-                    type={field.type || 'text'}
+                    type={field.type === 'date' ? 'date' : (field.type || 'text')}
                     value={customFieldsData[field.id] || ''}
                     onChange={(e) => setCustomFieldsData({ ...customFieldsData, [field.id]: e.target.value })}
                     style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: formErrors[field.id] ? '1.5px solid #ef4444' : '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
@@ -1617,13 +1713,47 @@ export default function RecruitmentAtsView({
                 );
               }
 
+              if (field.type === 'textarea') {
+                return (
+                  <div key={field.id}>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                      {field.label} {field.required && <span style={{ color: '#ef4444' }}>*</span>}
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={customFieldsData[field.id] || ''}
+                      onChange={(e) => setCustomFieldsData({ ...customFieldsData, [field.id]: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: formErrors[field.id] ? '1.5px solid #ef4444' : '1px solid #cbd5e1', fontSize: '13px', outline: 'none', resize: 'vertical' }}
+                    />
+                    {formErrors[field.id] && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '600' }}>{formErrors[field.id]}</span>}
+                  </div>
+                );
+              }
+
+              if (field.type === 'checkbox') {
+                return (
+                  <div key={field.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
+                    <input
+                      type="checkbox"
+                      id={`edit_${field.id}`}
+                      checked={!!customFieldsData[field.id]}
+                      onChange={(e) => setCustomFieldsData({ ...customFieldsData, [field.id]: e.target.checked })}
+                      style={{ accentColor: '#0d9488', width: '16px', height: '16px', cursor: 'pointer' }}
+                    />
+                    <label htmlFor={`edit_${field.id}`} style={{ fontSize: '12px', fontWeight: '700', color: '#334155', cursor: 'pointer' }}>
+                      {field.label} {field.required && <span style={{ color: '#ef4444' }}>*</span>}
+                    </label>
+                  </div>
+                );
+              }
+
               return (
                 <div key={field.id}>
                   <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
                     {field.label} {field.required && <span style={{ color: '#ef4444' }}>*</span>}
                   </label>
                   <input
-                    type={field.type || 'text'}
+                    type={field.type === 'date' ? 'date' : (field.type || 'text')}
                     value={customFieldsData[field.id] || ''}
                     onChange={(e) => setCustomFieldsData({ ...customFieldsData, [field.id]: e.target.value })}
                     style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: formErrors[field.id] ? '1.5px solid #ef4444' : '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}

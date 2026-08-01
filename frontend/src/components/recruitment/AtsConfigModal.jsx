@@ -434,7 +434,7 @@ export default function AtsConfigModal({
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                     padding: '10px 14px',
                     borderBottom: '1px solid #f1f5f9',
                     background: widget.enabled ? '#ffffff' : '#f8fafc'
@@ -554,7 +554,7 @@ export default function AtsConfigModal({
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                     padding: '10px 14px',
                     borderBottom: '1px solid #f1f5f9',
                     background: col.visible ? '#ffffff' : '#f8fafc'
@@ -603,7 +603,7 @@ export default function AtsConfigModal({
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                     padding: '12px 16px',
                     borderBottom: '1px solid #f1f5f9'
                   }}
@@ -644,7 +644,7 @@ export default function AtsConfigModal({
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      justify: 'space-between',
+                      justifyContent: 'space-between',
                       padding: '12px 16px',
                       borderBottom: '1px solid #f1f5f9',
                       background: isEnabled ? '#ffffff' : '#f8fafc'

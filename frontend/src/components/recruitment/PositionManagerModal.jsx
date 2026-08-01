@@ -96,6 +96,13 @@ export default function PositionManagerModal({
   };
 
   const handleArchivePosition = (pos) => {
+    const candCount = getCandidateCount(pos.title, pos.designation);
+    if (candCount > 0) {
+      showToast(`Cannot archive position "${pos.title}" because ${candCount} candidate(s) are assigned to it.`, 'error');
+      alert(`Cannot archive position "${pos.title}" because ${candCount} candidate(s) are currently assigned to it. Please reassign or archive those candidates first.`);
+      return;
+    }
+
     if (!window.confirm(`Archive position "${pos.title}"?`)) return;
     const updated = positions.filter(p => p.id !== pos.id);
     onSavePositions(updated);
