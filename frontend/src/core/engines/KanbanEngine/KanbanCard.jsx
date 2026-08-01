@@ -7,6 +7,7 @@ import React from 'react';
 import { Eye, Edit2, Archive, FileText } from 'lucide-react';
 import Badge from '../../../components/ui/Badge';
 import { LabelEngine } from '../LabelEngine';
+import { formatCandidateId } from '../../../services/atsStorageService';
 
 const getValString = (val, fallback = '') => {
   if (val === null || val === undefined) return fallback;
@@ -36,7 +37,7 @@ export default function KanbanCard({
   const cardPhone = getValString(record.phone);
   const cardFile = getValString(record.resume || record.attachment);
   const currentStage = getValString(record.status || record.stage);
-  const cardId = record.id || 'ATS-001';
+  const displayId = formatCandidateId(record.id);
 
   const kanbanCardsConfig = moduleConfig.kanbanFields || { position: true, email: true, phone: true, resume: true };
 
@@ -58,7 +59,7 @@ export default function KanbanCard({
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
             <span style={{ fontSize: '10px', fontWeight: '800', padding: '1px 6px', borderRadius: '4px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', fontFamily: 'monospace' }}>
-              {cardId}
+              {displayId}
             </span>
           </div>
           <div

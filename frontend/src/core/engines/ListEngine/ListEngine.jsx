@@ -12,6 +12,7 @@ import Badge from '../../../components/ui/Badge';
 import EmptyState from '../../../components/ui/EmptyState';
 import BulkActionBar from './BulkActionBar';
 import Pagination from './Pagination';
+import { formatCandidateId } from '../../../services/atsStorageService';
 
 const getValString = (val, fallback = '') => {
   if (val === null || val === undefined) return fallback;
@@ -103,7 +104,7 @@ export default function ListEngine({
           <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
-                <th style={{ padding: '10px 14px', width: '40px', textAlign: 'center' }}>
+                <th style={{ padding: '12px 16px', width: '40px', textAlign: 'center' }}>
                   <input
                     type="checkbox"
                     checked={paginatedRecords.length > 0 && selectedIds.length === paginatedRecords.length}
@@ -112,12 +113,12 @@ export default function ListEngine({
                   />
                 </th>
                 {visibleCols.map((col, idx) => (
-                  <th key={col.id} style={{ padding: '10px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', position: idx === 0 ? 'sticky' : 'static', left: idx === 0 ? 0 : 'auto', background: '#f8fafc', zIndex: idx === 0 ? 2 : 1 }}>
+                  <th key={col.id} style={{ padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', position: idx === 0 ? 'sticky' : 'static', left: idx === 0 ? 0 : 'auto', background: '#f8fafc', zIndex: idx === 0 ? 2 : 1 }}>
                     {col.label}
                   </th>
                 ))}
                 {canManage && (
-                  <th style={{ padding: '10px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', textAlign: 'right' }}>
+                  <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', textAlign: 'right' }}>
                     Actions
                   </th>
                 )}
@@ -146,10 +147,11 @@ export default function ListEngine({
                   const isSelected = selectedIds.includes(record.id);
                   const recordName = getValString(record.name || record.title, LabelEngine.getEntityName(moduleConfig));
                   const recordStatus = getValString(record.status || record.stage);
+                  const displayId = formatCandidateId(record.id, idx);
 
                   return (
-                    <tr key={record.id || idx} style={{ borderBottom: '1px solid #f1f5f9', background: isSelected ? 'rgba(13,148,136,0.04)' : '#ffffff' }}>
-                      <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                    <tr key={record.id || idx} style={{ borderBottom: '1px solid #e2e8f0', background: isSelected ? 'rgba(13,148,136,0.04)' : '#ffffff' }}>
+                      <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -163,19 +165,19 @@ export default function ListEngine({
 
                         if (colIdx === 0 || col.id === 'candidate' || col.id === 'deal' || col.id === 'employee') {
                           return (
-                            <td key={col.id} style={{ padding: '10px 14px', position: 'sticky', left: 0, background: isSelected ? '#f0fdfa' : '#ffffff', zIndex: 1 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', maxWidth: '200px' }}>
-                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(135deg, #0d9488, #064e43)', color: '#ffffff', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', flexShrink: 0 }}>
+                            <td key={col.id} style={{ padding: '12px 16px', position: 'sticky', left: 0, background: isSelected ? '#f0fdfa' : '#ffffff', zIndex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', maxWidth: '220px' }}>
+                                <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'linear-gradient(135deg, #0d9488, #064e43)', color: '#ffffff', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', flexShrink: 0 }}>
                                   {(recordName[0] || 'R')}
                                 </div>
                                 <div style={{ overflow: 'hidden' }}>
                                   <div
                                     onClick={() => onViewRecord(record)}
-                                    style={{ fontWeight: '700', color: '#0f172a', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}
+                                    style={{ fontWeight: '800', color: '#0f172a', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}
                                   >
                                     {recordName}
                                   </div>
-                                  <div style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '600', color: '#64748b' }}>ID: {record.id}</div>
+                                  <div style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '700', color: '#0d9488' }}>ID: {displayId}</div>
                                 </div>
                               </div>
                             </td>
@@ -184,12 +186,12 @@ export default function ListEngine({
 
                         if (col.id === 'stage' || col.fieldKey === 'status') {
                           return (
-                            <td key={col.id} style={{ padding: '10px 14px' }}>
+                            <td key={col.id} style={{ padding: '12px 16px' }}>
                               {canManage && activePipelineStages.length > 0 ? (
                                 <select
                                   value={recordStatus}
                                   onChange={(e) => onMoveStage(record.id, e.target.value)}
-                                  style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
+                                  style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
                                 >
                                   {activePipelineStages.map(s => (
                                     <option key={s.id || s.name} value={getValString(s.name)}>
@@ -207,7 +209,7 @@ export default function ListEngine({
                         }
 
                         return (
-                          <td key={col.id} style={{ padding: '10px 14px', fontSize: '12px', color: '#475569' }}>
+                          <td key={col.id} style={{ padding: '12px 16px', fontSize: '12px', color: '#475569' }}>
                             <SchemaFieldRenderer
                               field={fieldDef || { id: col.fieldKey || col.id, label: col.label, type: 'text' }}
                               value={record[col.fieldKey] || record.customFields?.[col.fieldKey]}
@@ -219,7 +221,7 @@ export default function ListEngine({
                       })}
 
                       {canManage && (
-                        <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                           <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
                             <Button
                               variant="outline"

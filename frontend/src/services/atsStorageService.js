@@ -50,6 +50,20 @@ export const DEFAULT_RECRUITMENT_CANDIDATES = [
   }
 ];
 
+export function formatCandidateId(id, idx = 0) {
+  if (!id) return `ATS-${String(idx + 1).padStart(3, '0')}`;
+  const strId = String(id).trim();
+  if (strId.startsWith('ATS-')) return strId;
+
+  // Format legacy timestamp IDs (e.g. recruitment_ats_17856122583) into ATS-001, ATS-002
+  const digits = strId.replace(/[^0-9]/g, '');
+  if (digits) {
+    const num = parseInt(digits.slice(-3), 10) || (idx + 1);
+    return `ATS-${String(num).padStart(3, '0')}`;
+  }
+  return `ATS-${String(idx + 1).padStart(3, '0')}`;
+}
+
 export function getNextSequentialId(companyId, moduleId = 'recruitment_ats') {
   const tenantKey = companyId ? String(companyId).replace(/[^a-zA-Z0-9_-]/g, '_') : 'default';
   const prefixMap = {
@@ -115,7 +129,13 @@ export const atsStorageService = {
       const saved = localStorage.getItem(key);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Normalize legacy candidate IDs
+          return parsed.map((c, idx) => ({
+            ...c,
+            id: formatCandidateId(c.id, idx)
+          }));
+        }
       }
     } catch (e) {
       console.error('Error reading candidates:', e);
