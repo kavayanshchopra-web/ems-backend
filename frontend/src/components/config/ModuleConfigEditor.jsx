@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { Plus, Trash2, Eye, EyeOff, Sliders, LayoutGrid, List, Search, Filter, Layers, ArrowLeft, Hash } from 'lucide-react';
+import { formatCustomSequencePattern } from '../../services/atsStorageService';
 
 /**
  * Generic Capability-Driven Module Configuration Editor
@@ -531,41 +532,19 @@ export default function ModuleConfigEditor({
             </div>
           )}
 
-          {/* SECTION: ID FORMAT & PREFIX (ODOO ERP STYLE SEQUENCE RULES) */}
+          {/* SECTION: ID FORMAT & PREFIX (CLEAN DIRECT TEXT INPUTS) */}
           {activeNav === 'id_config' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ padding: '18px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                 <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '15px', marginBottom: '4px' }}>
-                  ⚙️ Odoo-Style Sequence & Record ID Rules
+                  ⚙️ Candidate & Record ID Format Configuration
                 </div>
                 <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '18px' }}>
-                  Configure automatic sequence numbering, custom ID prefixes, separators, sequence reset numbers, or manual ID entry mode.
+                  Type custom ID prefix, sequence pattern template string, and next sequence starting number directly without dropdowns.
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-                  {/* GENERATION MODE */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
-                      Sequence Generation Mode
-                    </label>
-                    <select
-                      value={configState.idConfig?.generationMode || 'auto'}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setConfigState(prev => ({
-                          ...prev,
-                          idConfig: { ...(prev.idConfig || {}), generationMode: val }
-                        }));
-                      }}
-                      style={{ width: '100%', padding: '8px 12px', fontSize: '13px', fontWeight: '800', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    >
-                      <option value="auto">Automatic (Sequential Counter)</option>
-                      <option value="custom_pattern">Custom Pattern (e.g. ATS/2026/001)</option>
-                      <option value="manual">Manual Entry (User Inputs ID)</option>
-                    </select>
-                  </div>
-
-                  {/* PREFIX CODE */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+                  {/* INPUT 1: PREFIX CODE */}
                   <div>
                     <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
                       ID Prefix Code (e.g. ATS, CAND, REQ, JOB)
@@ -585,34 +564,30 @@ export default function ModuleConfigEditor({
                     />
                   </div>
 
-                  {/* SEPARATOR */}
+                  {/* INPUT 2: SEQUENCE PATTERN TEMPLATE */}
                   <div>
                     <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
-                      Separator Character
+                      Sequence Pattern Format (e.g. ATS-2026-001, ATS/2026/001, CAND-001)
                     </label>
-                    <select
-                      value={configState.idConfig?.separator !== undefined ? configState.idConfig.separator : '-'}
+                    <input
+                      type="text"
+                      value={configState.idConfig?.pattern || `${configState.idConfig?.prefix || 'ATS'}-001`}
                       onChange={(e) => {
                         const val = e.target.value;
                         setConfigState(prev => ({
                           ...prev,
-                          idConfig: { ...(prev.idConfig || {}), separator: val }
+                          idConfig: { ...(prev.idConfig || {}), pattern: val }
                         }));
                       }}
+                      placeholder="e.g. ATS-2026-001 or ATS/2026/001"
                       style={{ width: '100%', padding: '8px 12px', fontSize: '13px', fontWeight: '800', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    >
-                      <option value="-">- (Dash: ATS-001)</option>
-                      <option value="/">/ (Slash: ATS/001)</option>
-                      <option value=".">. (Dot: ATS.001)</option>
-                      <option value="_">_ (Underscore: ATS_001)</option>
-                      <option value="">(None: ATS001)</option>
-                    </select>
+                    />
                   </div>
 
-                  {/* NEXT SEQUENCE NUMBER (STARTING COUNTER) */}
+                  {/* INPUT 3: NEXT SEQUENCE NUMBER */}
                   <div>
                     <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
-                      Next Sequence Number (Starting ID)
+                      Next Sequence Number (Starting Counter ID)
                     </label>
                     <input
                       type="number"
@@ -628,61 +603,16 @@ export default function ModuleConfigEditor({
                       style={{ width: '100%', padding: '8px 12px', fontSize: '13px', fontWeight: '800', borderRadius: '6px', border: '1px solid #cbd5e1' }}
                     />
                   </div>
-
-                  {/* NUMBER DIGITS PADDING */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
-                      Number Digits / Padding Length
-                    </label>
-                    <select
-                      value={configState.idConfig?.padding || 3}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value, 10);
-                        setConfigState(prev => ({
-                          ...prev,
-                          idConfig: { ...(prev.idConfig || {}), padding: val }
-                        }));
-                      }}
-                      style={{ width: '100%', padding: '8px 12px', fontSize: '13px', fontWeight: '800', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    >
-                      <option value={3}>3 Digits (e.g. 001, 002)</option>
-                      <option value={4}>4 Digits (e.g. 0001, 0002)</option>
-                      <option value={5}>5 Digits (e.g. 00001, 00002)</option>
-                    </select>
-                  </div>
-
-                  {/* INCLUDE YEAR CHECKBOX */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '24px' }}>
-                    <input
-                      type="checkbox"
-                      id="includeYear"
-                      checked={!!configState.idConfig?.includeYear}
-                      onChange={(e) => {
-                        const val = e.target.checked;
-                        setConfigState(prev => ({
-                          ...prev,
-                          idConfig: { ...(prev.idConfig || {}), includeYear: val }
-                        }));
-                      }}
-                      style={{ accentColor: '#0d9488', width: '16px', height: '16px', cursor: 'pointer' }}
-                    />
-                    <label htmlFor="includeYear" style={{ fontSize: '12px', fontWeight: '800', color: '#334155', cursor: 'pointer' }}>
-                      Include Year Token (e.g. {configState.idConfig?.prefix || 'ATS'}/{new Date().getFullYear()}/001)
-                    </label>
-                  </div>
                 </div>
 
                 {/* LIVE PREVIEW BADGES */}
                 <div style={{ marginTop: '20px', padding: '14px 18px', background: '#ffffff', borderRadius: '8px', border: '1px dashed #0d9488', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '800', color: '#0f172a' }}>Odoo Sequence Live Preview:</span>
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: '#0f172a' }}>Live Pattern Sample Preview:</span>
                   {[0, 1, 2].map(offset => {
-                    const prefix = (configState.idConfig?.prefix || 'ATS').toUpperCase();
-                    const sep = configState.idConfig?.separator !== undefined ? configState.idConfig.separator : '-';
-                    const pad = configState.idConfig?.padding || 3;
-                    const yr = configState.idConfig?.includeYear ? `${new Date().getFullYear()}${sep}` : '';
-                    const num = String((configState.idConfig?.nextSeq || 1) + offset).padStart(pad, '0');
-                    const sample = `${prefix}${sep}${yr}${num}`;
-
+                    const sample = formatCustomSequencePattern(
+                      configState.idConfig?.pattern || `${configState.idConfig?.prefix || 'ATS'}-001`,
+                      (configState.idConfig?.nextSeq || 1) + offset
+                    );
                     return (
                       <span key={offset} style={{ fontSize: '12px', fontWeight: '800', padding: '4px 12px', borderRadius: '6px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', fontFamily: 'monospace' }}>
                         {sample}

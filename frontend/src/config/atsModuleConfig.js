@@ -150,13 +150,9 @@ export const DEFAULT_VIEW_CONFIG = {
 };
 
 export const DEFAULT_ID_CONFIG = {
-  generationMode: 'auto', // 'auto' | 'manual' | 'custom_pattern'
   prefix: 'ATS',
-  separator: '-',
-  includeYear: false,
-  nextSeq: 1,
-  padding: 3,
-  allowManualOverride: true
+  pattern: 'ATS-001',
+  nextSeq: 1
 };
 
 function getStorageKey(companyId) {

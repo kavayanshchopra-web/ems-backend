@@ -50,68 +50,69 @@ export const DEFAULT_RECRUITMENT_CANDIDATES = [
   }
 ];
 
+export function formatCustomSequencePattern(pattern = 'ATS-001', seqNumber = 1) {
+  if (!pattern || !pattern.trim()) return `ATS-${String(seqNumber).padStart(3, '0')}`;
+  
+  const str = pattern.trim();
+  const match = str.match(/^(.*?)(\d+)$/);
+  if (match) {
+    const prefixPart = match[1];
+    const numPart = match[2];
+    const padding = numPart.length;
+    const baseVal = parseInt(numPart, 10);
+    const currentVal = baseVal + (seqNumber - 1);
+    const formattedNum = String(currentVal).padStart(padding, '0');
+    return `${prefixPart}${formattedNum}`;
+  }
+
+  return `${str}-${String(seqNumber).padStart(3, '0')}`;
+}
+
 export function formatCandidateId(id, idx = 0, moduleConfig = null) {
   const idCfg = moduleConfig?.idConfig || {
     prefix: 'ATS',
-    separator: '-',
-    includeYear: false,
-    padding: 3
+    pattern: 'ATS-001',
+    nextSeq: 1
   };
 
-  const prefix = (idCfg.prefix || 'ATS').toUpperCase();
-  const sep = idCfg.separator !== undefined ? idCfg.separator : '-';
-  const padding = idCfg.padding || 3;
+  const pattern = idCfg.pattern || `${idCfg.prefix || 'ATS'}-001`;
 
-  if (!id) return `${prefix}${sep}${String(idx + 1).padStart(padding, '0')}`;
+  if (!id) return formatCustomSequencePattern(pattern, idx + 1);
   const strId = String(id).trim();
 
   // Preserve existing formatted string IDs (e.g. ATS-001, CAND/2026/001)
-  if (strId.includes(prefix) || strId.startsWith('ATS') || strId.startsWith('CAND') || strId.includes('/') || strId.includes('.')) {
+  if (strId.startsWith('ATS') || strId.startsWith('CAND') || strId.includes('/') || strId.includes('.')) {
     return strId;
   }
 
-  // Normalize raw numeric/timestamp IDs
+  // Normalize raw numeric/timestamp IDs into custom pattern
   const digits = strId.replace(/[^0-9]/g, '');
   if (digits) {
-    const num = parseInt(digits.slice(-padding), 10) || (idx + 1);
-    return `${prefix}${sep}${String(num).padStart(padding, '0')}`;
+    const num = parseInt(digits.slice(-3), 10) || (idx + 1);
+    return formatCustomSequencePattern(pattern, num);
   }
-  return `${prefix}${sep}${String(idx + 1).padStart(padding, '0')}`;
+  return formatCustomSequencePattern(pattern, idx + 1);
 }
 
 export function getNextSequentialId(companyId, moduleId = 'recruitment_ats', moduleConfig = null) {
   const tenantKey = companyId ? String(companyId).replace(/[^a-zA-Z0-9_-]/g, '_') : 'default';
   
   const idCfg = moduleConfig?.idConfig || loadAtsModuleConfig(companyId)?.idConfig || {
-    generationMode: 'auto',
     prefix: 'ATS',
-    separator: '-',
-    includeYear: false,
-    nextSeq: 1,
-    padding: 3
+    pattern: 'ATS-001',
+    nextSeq: 1
   };
 
-  const prefix = (idCfg.prefix || 'ATS').toUpperCase();
-  const sep = idCfg.separator !== undefined ? idCfg.separator : '-';
-  const padding = idCfg.padding || 3;
-  const includeYear = !!idCfg.includeYear;
-  const yearStr = new Date().getFullYear();
-
+  const pattern = idCfg.pattern || `${idCfg.prefix || 'ATS'}-001`;
   const storageKey = `omnilflow_seq_${tenantKey}_${moduleId}`;
 
   try {
     const currentSeq = parseInt(localStorage.getItem(storageKey) || String(idCfg.nextSeq || 1), 10);
     const nextSeq = currentSeq + 1;
     localStorage.setItem(storageKey, String(nextSeq));
-    const numStr = String(currentSeq).padStart(padding, '0');
-
-    if (includeYear) {
-      return `${prefix}${sep}${yearStr}${sep}${numStr}`;
-    }
-    return `${prefix}${sep}${numStr}`;
+    return formatCustomSequencePattern(pattern, currentSeq);
   } catch (e) {
-    const numStr = String(idCfg.nextSeq || 1).padStart(padding, '0');
-    return includeYear ? `${prefix}${sep}${yearStr}${sep}${numStr}` : `${prefix}${sep}${numStr}`;
+    return formatCustomSequencePattern(pattern, idCfg.nextSeq || 1);
   }
 }
 
