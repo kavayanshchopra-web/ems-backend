@@ -50,38 +50,68 @@ export const DEFAULT_RECRUITMENT_CANDIDATES = [
   }
 ];
 
-export function formatCandidateId(id, idx = 0) {
-  if (!id) return `ATS-${String(idx + 1).padStart(3, '0')}`;
-  const strId = String(id).trim();
-  if (strId.startsWith('ATS-')) return strId;
+export function formatCandidateId(id, idx = 0, moduleConfig = null) {
+  const idCfg = moduleConfig?.idConfig || {
+    prefix: 'ATS',
+    separator: '-',
+    includeYear: false,
+    padding: 3
+  };
 
-  // Format legacy timestamp IDs (e.g. recruitment_ats_17856122583) into ATS-001, ATS-002
+  const prefix = (idCfg.prefix || 'ATS').toUpperCase();
+  const sep = idCfg.separator !== undefined ? idCfg.separator : '-';
+  const padding = idCfg.padding || 3;
+
+  if (!id) return `${prefix}${sep}${String(idx + 1).padStart(padding, '0')}`;
+  const strId = String(id).trim();
+
+  // Preserve existing formatted string IDs (e.g. ATS-001, CAND/2026/001)
+  if (strId.includes(prefix) || strId.startsWith('ATS') || strId.startsWith('CAND') || strId.includes('/') || strId.includes('.')) {
+    return strId;
+  }
+
+  // Normalize raw numeric/timestamp IDs
   const digits = strId.replace(/[^0-9]/g, '');
   if (digits) {
-    const num = parseInt(digits.slice(-3), 10) || (idx + 1);
-    return `ATS-${String(num).padStart(3, '0')}`;
+    const num = parseInt(digits.slice(-padding), 10) || (idx + 1);
+    return `${prefix}${sep}${String(num).padStart(padding, '0')}`;
   }
-  return `ATS-${String(idx + 1).padStart(3, '0')}`;
+  return `${prefix}${sep}${String(idx + 1).padStart(padding, '0')}`;
 }
 
-export function getNextSequentialId(companyId, moduleId = 'recruitment_ats') {
+export function getNextSequentialId(companyId, moduleId = 'recruitment_ats', moduleConfig = null) {
   const tenantKey = companyId ? String(companyId).replace(/[^a-zA-Z0-9_-]/g, '_') : 'default';
-  const prefixMap = {
-    recruitment_ats: 'ATS',
-    crm_deals: 'DEAL',
-    employees: 'EMP',
-    payroll: 'PAY'
+  
+  const idCfg = moduleConfig?.idConfig || loadAtsModuleConfig(companyId)?.idConfig || {
+    generationMode: 'auto',
+    prefix: 'ATS',
+    separator: '-',
+    includeYear: false,
+    nextSeq: 1,
+    padding: 3
   };
-  const prefix = prefixMap[moduleId] || 'ATS';
+
+  const prefix = (idCfg.prefix || 'ATS').toUpperCase();
+  const sep = idCfg.separator !== undefined ? idCfg.separator : '-';
+  const padding = idCfg.padding || 3;
+  const includeYear = !!idCfg.includeYear;
+  const yearStr = new Date().getFullYear();
+
   const storageKey = `omnilflow_seq_${tenantKey}_${moduleId}`;
 
   try {
-    const currentSeq = parseInt(localStorage.getItem(storageKey) || '1', 10);
+    const currentSeq = parseInt(localStorage.getItem(storageKey) || String(idCfg.nextSeq || 1), 10);
     const nextSeq = currentSeq + 1;
     localStorage.setItem(storageKey, String(nextSeq));
-    return `${prefix}-${String(currentSeq).padStart(3, '0')}`;
+    const numStr = String(currentSeq).padStart(padding, '0');
+
+    if (includeYear) {
+      return `${prefix}${sep}${yearStr}${sep}${numStr}`;
+    }
+    return `${prefix}${sep}${numStr}`;
   } catch (e) {
-    return `${prefix}-001`;
+    const numStr = String(idCfg.nextSeq || 1).padStart(padding, '0');
+    return includeYear ? `${prefix}${sep}${yearStr}${sep}${numStr}` : `${prefix}${sep}${numStr}`;
   }
 }
 
@@ -130,7 +160,6 @@ export const atsStorageService = {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Normalize legacy candidate IDs
           return parsed.map((c, idx) => ({
             ...c,
             id: formatCandidateId(c.id, idx)

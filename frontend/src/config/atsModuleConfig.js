@@ -150,8 +150,13 @@ export const DEFAULT_VIEW_CONFIG = {
 };
 
 export const DEFAULT_ID_CONFIG = {
+  generationMode: 'auto', // 'auto' | 'manual' | 'custom_pattern'
   prefix: 'ATS',
-  padding: 3
+  separator: '-',
+  includeYear: false,
+  nextSeq: 1,
+  padding: 3,
+  allowManualOverride: true
 };
 
 function getStorageKey(companyId) {
@@ -172,7 +177,7 @@ export function loadAtsModuleConfig(companyId) {
         columns: Array.isArray(parsed.columns) ? parsed.columns : DEFAULT_ATS_COLUMNS,
         kanbanFields: parsed.kanbanFields || DEFAULT_KANBAN_FIELDS,
         views: parsed.views || DEFAULT_VIEW_CONFIG,
-        idConfig: parsed.idConfig || DEFAULT_ID_CONFIG
+        idConfig: { ...DEFAULT_ID_CONFIG, ...(parsed.idConfig || {}) }
       };
     }
   } catch (e) {
