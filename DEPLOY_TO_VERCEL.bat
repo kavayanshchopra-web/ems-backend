@@ -23,23 +23,18 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo [2/3] Pushing latest updates to Git repository...
+echo [2/3] Staging and pushing frontend updates to Git...
 cd /d "%~dp0"
-git add -A
-git commit -m "UI UX fixes and vertical scrollbar update"
-git push
-if %errorlevel% neq 0 (
-  color 0C
-  echo.
-  echo ========================================================
-  echo ⚠️ Git push notice (deployment will continue directly to Vercel)...
-  echo ========================================================
-)
+git add frontend/
+git add DEPLOY_TO_VERCEL.bat
+git commit -m "Update Recruitment ATS UI UX and deployment configuration"
+git push origin main
+echo Git sync step complete.
 
 echo.
-echo [3/3] Deploying frontend directly to Vercel Live (Forced Fresh Build)...
+echo [3/3] Deploying frontend directly to Vercel Live...
 cd /d "%~dp0frontend"
-call npx vercel --prod --yes --force
+call npx vercel --prod --yes
 if %errorlevel% neq 0 (
   color 0C
   echo.
