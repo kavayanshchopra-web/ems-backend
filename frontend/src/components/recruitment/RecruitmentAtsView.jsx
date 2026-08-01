@@ -3,7 +3,7 @@
  * 100% Schema-Driven Reference Implementation using Global EMS Configuration Engine
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import AtsConfigModal from './AtsConfigModal';
@@ -36,6 +36,23 @@ export default function RecruitmentAtsView({
   const { config, refreshConfig } = useModuleRegistry(companyId, 'recruitment_ats');
   const [positions, setPositions] = useState(() => atsStorageService.getRecruitmentPositions(companyId));
 
+  // Persistent Candidate Roster State
+  const [candidatesState, setCandidatesState] = useState(() => {
+    if (Array.isArray(atsCandidates) && atsCandidates.length > 0) {
+      return atsCandidates;
+    }
+    return atsStorageService.getCandidates(companyId);
+  });
+
+  const handleUpdateCandidates = (newRecords) => {
+    const updated = typeof newRecords === 'function' ? newRecords(candidatesState) : newRecords;
+    setCandidatesState(updated);
+    if (typeof setAtsCandidates === 'function') {
+      setAtsCandidates(updated);
+    }
+    atsStorageService.saveCandidates(companyId, updated);
+  };
+
   // 2. Modal Popover States
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showPositionModal, setShowPositionModal] = useState(false);
@@ -55,8 +72,8 @@ export default function RecruitmentAtsView({
       {/* 100% CONFIGURATION-DRIVEN LAYOUT ENGINE PAGE SHELL */}
       <LayoutEngine
         moduleConfig={config}
-        records={atsCandidates}
-        setRecords={setAtsCandidates}
+        records={candidatesState}
+        setRecords={handleUpdateCandidates}
         authUser={authUser}
         systemDropdowns={systemDropdowns}
         activePipelineStages={activePipelineStages}
