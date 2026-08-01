@@ -89,7 +89,7 @@ export default function ListEngine({
 
       <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
         {/* TABLE HEADER STRIP */}
-        <div style={{ padding: '10px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ padding: '12px 16px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
           <span style={{ fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>
             {LabelEngine.getEntityNamePlural(moduleConfig)} Roster ({records.length})
             {isFilterActive && <span style={{ color: '#0d9488', marginLeft: '6px' }}>(Filtered from {totalCount})</span>}
@@ -101,9 +101,9 @@ export default function ListEngine({
 
         {/* RESPONSIVE TABLE CONTAINER */}
         <div style={{ overflowX: 'auto', width: '100%' }}>
-          <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+          <table className="std-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: '#f8fafc' }}>
+              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>
                 <th style={{ padding: '12px 16px', width: '40px', textAlign: 'center' }}>
                   <input
                     type="checkbox"
@@ -127,7 +127,7 @@ export default function ListEngine({
             <tbody>
               {paginatedRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={visibleCols.length + (canManage ? 2 : 1)} style={{ padding: '32px', textAlign: 'center' }}>
+                  <td colSpan={visibleCols.length + (canManage ? 2 : 1)} style={{ padding: '32px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
                     <EmptyState
                       icon="📋"
                       title={emptyText.title}
@@ -150,8 +150,8 @@ export default function ListEngine({
                   const displayId = formatCandidateId(record.id, idx, moduleConfig);
 
                   return (
-                    <tr key={record.id || idx} style={{ borderBottom: '1px solid #e2e8f0', background: isSelected ? 'rgba(13,148,136,0.04)' : '#ffffff' }}>
-                      <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                    <tr key={record.id || idx} style={{ background: isSelected ? 'rgba(13,148,136,0.04)' : '#ffffff' }}>
+                      <td style={{ padding: '12px 16px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -165,7 +165,7 @@ export default function ListEngine({
 
                         if (colIdx === 0 || col.id === 'candidate' || col.id === 'deal' || col.id === 'employee') {
                           return (
-                            <td key={col.id} style={{ padding: '12px 16px', position: 'sticky', left: 0, background: isSelected ? '#f0fdfa' : '#ffffff', zIndex: 1 }}>
+                            <td key={col.id} style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', position: 'sticky', left: 0, background: isSelected ? '#f0fdfa' : '#ffffff', zIndex: 1 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', maxWidth: '220px' }}>
                                 <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'linear-gradient(135deg, #0d9488, #064e43)', color: '#ffffff', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', flexShrink: 0 }}>
                                   {(recordName[0] || 'R')}
@@ -186,7 +186,7 @@ export default function ListEngine({
 
                         if (col.id === 'stage' || col.fieldKey === 'status') {
                           return (
-                            <td key={col.id} style={{ padding: '12px 16px' }}>
+                            <td key={col.id} style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>
                               {canManage && activePipelineStages.length > 0 ? (
                                 <select
                                   value={recordStatus}
@@ -209,7 +209,7 @@ export default function ListEngine({
                         }
 
                         return (
-                          <td key={col.id} style={{ padding: '12px 16px', fontSize: '12px', color: '#475569' }}>
+                          <td key={col.id} style={{ padding: '12px 16px', fontSize: '12px', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>
                             <SchemaFieldRenderer
                               field={fieldDef || { id: col.fieldKey || col.id, label: col.label, type: 'text' }}
                               value={record[col.fieldKey] || record.customFields?.[col.fieldKey]}
@@ -221,7 +221,7 @@ export default function ListEngine({
                       })}
 
                       {canManage && (
-                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                        <td style={{ padding: '12px 16px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>
                           <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
                             <Button
                               variant="outline"
