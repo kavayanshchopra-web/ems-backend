@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Archive, Trash2, CheckSquare, X } from 'lucide-react';
-import Button from '../../ui/Button';
+import Button from '../../../components/ui/Button';
 
 export default function BulkActionBar({
   selectedCount = 0,

@@ -6,7 +6,7 @@
 import React from 'react';
 import { X, FilterX } from 'lucide-react';
 import { FilterEngine } from '../FilterEngine';
-import Button from '../../ui/Button';
+import Button from '../../../components/ui/Button';
 
 export default function ActiveFilterChips({
   moduleConfig = {},

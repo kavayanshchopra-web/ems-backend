@@ -5,8 +5,8 @@
 
 import React, { useState } from 'react';
 import { Plus, Archive, Settings, Briefcase, Sliders, Filter, ArrowUpDown } from 'lucide-react';
-import Button from '../../ui/Button';
-import SearchInput from '../../ui/SearchInput';
+import Button from '../../../components/ui/Button';
+import SearchInput from '../../../components/ui/SearchInput';
 import ViewSwitcher from '../ViewEngine/ViewSwitcher';
 import FilterPanel from '../FilterEngine/FilterPanel';
 import { LabelEngine } from '../LabelEngine';

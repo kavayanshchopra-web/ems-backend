@@ -4,9 +4,9 @@
  */
 
 import React from 'react';
-import Modal from '../../ui/Modal';
-import Button from '../../ui/Button';
-import Badge from '../../ui/Badge';
+import Modal from '../../../components/ui/Modal';
+import Button from '../../../components/ui/Button';
+import Badge from '../../../components/ui/Badge';
 import SchemaFieldRenderer from '../FieldEngine/SchemaFieldRenderer';
 import { LabelEngine } from '../LabelEngine';
 

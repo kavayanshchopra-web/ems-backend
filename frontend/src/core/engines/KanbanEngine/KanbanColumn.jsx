@@ -5,7 +5,7 @@
 
 import React from 'react';
 import KanbanCard from './KanbanCard';
-import EmptyState from '../../ui/EmptyState';
+import EmptyState from '../../../components/ui/EmptyState';
 
 export default function KanbanColumn({
   stage = {},

@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Eye, Edit2, Archive, FileText } from 'lucide-react';
-import Badge from '../../ui/Badge';
+import Badge from '../../../components/ui/Badge';
 import { LabelEngine } from '../LabelEngine';
 
 const getValString = (val, fallback = '') => {

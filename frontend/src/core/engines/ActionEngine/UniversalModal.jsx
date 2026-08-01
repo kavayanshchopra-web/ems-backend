@@ -4,8 +4,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import Modal from '../../ui/Modal';
-import Button from '../../ui/Button';
+import Modal from '../../../components/ui/Modal';
+import Button from '../../../components/ui/Button';
 import SchemaFieldRenderer from '../FieldEngine/SchemaFieldRenderer';
 import { DefaultValueEngine } from '../DefaultValueEngine';
 import { ValidationEngine } from '../ValidationEngine';

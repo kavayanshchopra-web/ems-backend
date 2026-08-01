@@ -7,9 +7,9 @@ import React, { useState } from 'react';
 import { Eye, Edit2, Archive, FileText } from 'lucide-react';
 import SchemaFieldRenderer from '../FieldEngine/SchemaFieldRenderer';
 import { LabelEngine } from '../LabelEngine';
-import Button from '../../ui/Button';
-import Badge from '../../ui/Badge';
-import EmptyState from '../../ui/EmptyState';
+import Button from '../../../components/ui/Button';
+import Badge from '../../../components/ui/Badge';
+import EmptyState from '../../../components/ui/EmptyState';
 import BulkActionBar from './BulkActionBar';
 import Pagination from './Pagination';
 

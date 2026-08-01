@@ -7,7 +7,7 @@ import React from 'react';
 import { X, FilterX } from 'lucide-react';
 import { FilterEngine } from '../FilterEngine';
 import { PlaceholderEngine } from '../PlaceholderEngine';
-import Button from '../../ui/Button';
+import Button from '../../../components/ui/Button';
 
 const getValString = (val, fallback = '') => {
   if (val === null || val === undefined) return fallback;
