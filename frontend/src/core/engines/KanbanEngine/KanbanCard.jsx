@@ -1,6 +1,6 @@
 /**
  * UNIVERSAL KANBAN CARD COMPONENT
- * 100% Schema-Driven Card Renderer with Polished Typography & Candidate ID
+ * 100% Schema-Driven Card Renderer with Full Visible Details & Candidate ID
  */
 
 import React from 'react';
@@ -39,7 +39,12 @@ export default function KanbanCard({
   const currentStage = getValString(record.status || record.stage);
   const displayId = formatCandidateId(record.id, 0, moduleConfig);
 
-  const kanbanCardsConfig = moduleConfig.kanbanFields || { position: true, email: true, phone: true, resume: true };
+  const kanbanCardsConfig = {
+    position: moduleConfig.kanbanFields?.position !== false,
+    email: moduleConfig.kanbanFields?.email !== false,
+    phone: moduleConfig.kanbanFields?.phone !== false,
+    resume: moduleConfig.kanbanFields?.resume !== false
+  };
 
   return (
     <div
@@ -49,7 +54,7 @@ export default function KanbanCard({
         padding: '14px',
         borderRadius: '10px',
         border: '1px solid #e2e8f0',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.03)',
+        boxShadow: '0 2px 5px rgba(0,0,0,0.04)',
         transition: 'all 0.15s ease',
         overflow: 'hidden'
       }}
@@ -58,7 +63,7 @@ export default function KanbanCard({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-            <span style={{ fontSize: '10px', fontWeight: '800', padding: '1px 6px', borderRadius: '4px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', fontFamily: 'monospace' }}>
+            <span style={{ fontSize: '10px', fontWeight: '800', padding: '2px 7px', borderRadius: '4px', background: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', fontFamily: 'monospace' }}>
               {displayId}
             </span>
           </div>
@@ -80,15 +85,15 @@ export default function KanbanCard({
           onClick={() => onViewRecord(record)}
           style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '2px' }}
         >
-          <Eye size={14} />
+          <Eye size={15} />
         </button>
       </div>
 
-      {/* CONTACT INFO */}
-      {(kanbanCardsConfig.email || kanbanCardsConfig.phone) && (cardEmail || cardPhone) && (
-        <div style={{ marginTop: '8px', fontSize: '11px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          {kanbanCardsConfig.email && cardEmail && <div>📧 {cardEmail}</div>}
-          {kanbanCardsConfig.phone && cardPhone && cardPhone !== cardSubtitle && <div>📞 {cardPhone}</div>}
+      {/* CONTACT INFO (EMAIL & PHONE ALWAYS ON FRONT) */}
+      {(cardEmail || cardPhone) && (
+        <div style={{ marginTop: '8px', fontSize: '11px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+          {cardEmail && <div>📧 {cardEmail}</div>}
+          {cardPhone && cardPhone !== cardSubtitle && <div>📞 {cardPhone}</div>}
         </div>
       )}
 
@@ -104,11 +109,11 @@ export default function KanbanCard({
 
       {/* FOOTER ACTIONS & STAGE MOVER */}
       {canManage && (
-        <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+        <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           <select
             value={currentStage}
             onChange={(e) => onMoveStage(record.id, e.target.value)}
-            style={{ fontSize: '10px', fontWeight: '700', padding: '3px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
+            style={{ fontSize: '10px', fontWeight: '700', padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
           >
             {activePipelineStages.map(s => (
               <option key={s.id || s.name} value={getValString(s.name)}>
@@ -121,7 +126,7 @@ export default function KanbanCard({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onEditRecord(record); }}
-              style={{ padding: '3px 6px', fontSize: '10px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#334155', cursor: 'pointer' }}
+              style={{ padding: '4px 8px', fontSize: '10px', fontWeight: '700', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#334155', cursor: 'pointer' }}
             >
               Edit
             </button>
@@ -129,7 +134,7 @@ export default function KanbanCard({
               type="button"
               title="Archive Record"
               onClick={(e) => { e.stopPropagation(); onArchiveRecord(record); }}
-              style={{ padding: '3px 6px', fontSize: '10px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+              style={{ padding: '4px 8px', fontSize: '10px', fontWeight: '700', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}
             >
               <Archive size={10} /> Archive
             </button>
