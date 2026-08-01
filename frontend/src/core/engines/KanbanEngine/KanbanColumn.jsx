@@ -1,6 +1,6 @@
 /**
  * UNIVERSAL KANBAN COLUMN COMPONENT
- * Renders a single pipeline stage column with sticky header and vertical scrollbar
+ * Renders a single pipeline stage column with sticky header and visible vertical scrollbar
  */
 
 import React from 'react';
@@ -29,24 +29,26 @@ export default function KanbanColumn({
         boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
         display: 'flex',
         flexDirection: 'column',
-        height: '100%',
+        height: 'calc(100vh - 290px)',
+        minHeight: '400px',
         overflow: 'hidden'
       }}
     >
       <style>{`
         .kanban-column-cards-scroll::-webkit-scrollbar {
-          width: 6px;
+          width: 8px !important;
+          display: block !important;
         }
         .kanban-column-cards-scroll::-webkit-scrollbar-track {
-          background: #f1f5f9;
-          border-radius: 4px;
+          background: #f1f5f9 !important;
+          border-radius: 4px !important;
         }
         .kanban-column-cards-scroll::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
-          border-radius: 4px;
+          background: #0d9488 !important;
+          border-radius: 4px !important;
         }
         .kanban-column-cards-scroll::-webkit-scrollbar-thumb:hover {
-          background: #0d9488;
+          background: #0f766e !important;
         }
       `}</style>
 
@@ -60,8 +62,9 @@ export default function KanbanColumn({
           background: '#f8fafc',
           borderBottom: '1px solid #e2e8f0',
           display: 'flex',
-          justify: 'space-between',
-          alignItems: 'center'
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexShrink: 0
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -84,20 +87,20 @@ export default function KanbanColumn({
         </span>
       </div>
 
-      {/* CARDS LIST CONTAINER WITH VERTICAL SCROLLBAR */}
+      {/* CARDS LIST CONTAINER WITH PROMINENT VERTICAL SCROLLBAR */}
       <div
         className="kanban-column-cards-scroll"
         style={{
           padding: '12px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '10px',
+          gap: '12px',
           flex: 1,
-          maxHeight: 'calc(100vh - 310px)',
-          minHeight: '260px',
-          overflowY: 'auto',
+          overflowY: 'scroll',
           overflowX: 'hidden',
-          WebkitOverflowScrolling: 'touch'
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#0d9488 #f1f5f9'
         }}
       >
         {records.length === 0 ? (

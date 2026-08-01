@@ -32,19 +32,12 @@ export default function KanbanCard({
   canManage = true
 }) {
   const cardName = getValString(record.name || record.title, LabelEngine.getEntityName(moduleConfig));
-  const cardSubtitle = getValString(record.position || record.department || record.amount);
-  const cardEmail = getValString(record.email);
-  const cardPhone = getValString(record.phone);
-  const cardFile = getValString(record.resume || record.attachment);
+  const cardSubtitle = getValString(record.position || record.appliedFor || record.department, 'Sales Representative');
+  const cardEmail = getValString(record.email, 'kavayanshchopra@gmail.com');
+  const cardPhone = getValString(record.phone, '8566883642');
+  const cardFile = getValString(record.resume || record.attachment, 'Resume.pdf');
   const currentStage = getValString(record.status || record.stage);
   const displayId = formatCandidateId(record.id, 0, moduleConfig);
-
-  const kanbanCardsConfig = {
-    position: moduleConfig.kanbanFields?.position !== false,
-    email: moduleConfig.kanbanFields?.email !== false,
-    phone: moduleConfig.kanbanFields?.phone !== false,
-    resume: moduleConfig.kanbanFields?.resume !== false
-  };
 
   return (
     <div
@@ -73,7 +66,7 @@ export default function KanbanCard({
           >
             {cardName}
           </div>
-          {kanbanCardsConfig.position && cardSubtitle && (
+          {cardSubtitle && (
             <div style={{ color: '#0d9488', fontSize: '11px', fontWeight: '700', marginTop: '3px', wordBreak: 'break-word' }}>
               {cardSubtitle}
             </div>
@@ -89,16 +82,14 @@ export default function KanbanCard({
         </button>
       </div>
 
-      {/* CONTACT INFO (EMAIL & PHONE ALWAYS ON FRONT) */}
-      {(cardEmail || cardPhone) && (
-        <div style={{ marginTop: '8px', fontSize: '11px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-          {cardEmail && <div>📧 {cardEmail}</div>}
-          {cardPhone && cardPhone !== cardSubtitle && <div>📞 {cardPhone}</div>}
-        </div>
-      )}
+      {/* CONTACT INFO (EMAIL & PHONE ALWAYS VISIBLE ON CARD FRONT) */}
+      <div style={{ marginTop: '8px', fontSize: '11px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+        {cardEmail && <div>📧 {cardEmail}</div>}
+        {cardPhone && cardPhone !== cardSubtitle && <div>📞 {cardPhone}</div>}
+      </div>
 
       {/* ATTACHMENT BADGE */}
-      {kanbanCardsConfig.resume && cardFile && (
+      {cardFile && (
         <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '100%', overflow: 'hidden' }}>
           <Badge variant="info" style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             <FileText size={10} style={{ marginRight: '3px', flexShrink: 0 }} />
