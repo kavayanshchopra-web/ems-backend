@@ -35,7 +35,7 @@ export default function UniversalModal({
       setFormData(initial);
       setFormErrors({});
     }
-  }, [isOpen, initialRecord, mode]);
+  }, [isOpen, initialRecord, mode, moduleConfig]);
 
   const handleFieldChange = (fieldId, value) => {
     setFormData(prev => ({ ...prev, [fieldId]: value }));

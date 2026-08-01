@@ -52,8 +52,8 @@ export const DEFAULT_ATS_FIELDS = [
     showOnCreate: true,
     showOnEdit: true,
     searchable: true,
-    filterable: false,
-    systemField: false,
+    filterable: true,
+    systemField: true,
     sortOrder: 4
   },
   {
@@ -64,8 +64,8 @@ export const DEFAULT_ATS_FIELDS = [
     showOnCreate: true,
     showOnEdit: true,
     searchable: true,
-    filterable: false,
-    systemField: false,
+    filterable: true,
+    systemField: true,
     sortOrder: 5
   },
   {
@@ -75,9 +75,9 @@ export const DEFAULT_ATS_FIELDS = [
     required: false,
     showOnCreate: true,
     showOnEdit: true,
-    searchable: false,
+    searchable: true,
     filterable: false,
-    systemField: false,
+    systemField: true,
     sortOrder: 6
   }
 ];
@@ -86,55 +86,55 @@ export const DEFAULT_ATS_SUMMARY_WIDGETS = [
   {
     id: 'total_applicants',
     label: 'TOTAL APPLICANTS',
-    icon: '👥',
     metricType: 'TOTAL',
-    color: '#0d9488',
     bg: 'rgba(13, 148, 136, 0.1)',
+    color: '#0d9488',
+    icon: '👥',
     enabled: true,
     sortOrder: 1
   },
   {
     id: 'interviewing',
     label: 'INTERVIEWING',
-    icon: '🗣️',
     metricType: 'SEMANTIC',
     semanticGroup: 'INTERVIEW',
-    color: '#2563eb',
     bg: 'rgba(37, 99, 235, 0.1)',
+    color: '#2563eb',
+    icon: '🗣️',
     enabled: true,
     sortOrder: 2
   },
   {
-    id: 'offered',
+    id: 'offers_extended',
     label: 'OFFERS EXTENDED',
-    icon: '📋',
     metricType: 'SEMANTIC',
     semanticGroup: 'OFFER',
+    bg: 'rgba(217, 119, 6, 0.1)',
     color: '#d97706',
-    bg: 'rgba(245, 158, 11, 0.1)',
+    icon: '📋',
     enabled: true,
     sortOrder: 3
   },
   {
     id: 'hired',
     label: 'HIRED',
-    icon: '✅',
     metricType: 'SEMANTIC',
     semanticGroup: 'HIRED',
+    bg: 'rgba(5, 150, 105, 0.1)',
     color: '#059669',
-    bg: 'rgba(16, 185, 129, 0.1)',
+    icon: '✅',
     enabled: true,
     sortOrder: 4
   }
 ];
 
 export const DEFAULT_ATS_COLUMNS = [
-  { id: 'candidate', label: 'Candidate', fieldKey: 'name', visible: true, systemColumn: true, sortOrder: 1 },
-  { id: 'position', label: 'Position', fieldKey: 'position', visible: true, systemColumn: false, sortOrder: 2 },
-  { id: 'contact', label: 'Contact Details', fieldKey: 'contact', visible: true, systemColumn: false, sortOrder: 3 },
-  { id: 'stage', label: 'Stage / Status', fieldKey: 'status', visible: true, systemColumn: true, sortOrder: 4 },
-  { id: 'resume', label: 'Resume', fieldKey: 'resume', visible: true, systemColumn: false, sortOrder: 5 },
-  { id: 'createdAt', label: 'Created', fieldKey: 'createdAt', visible: true, systemColumn: false, sortOrder: 6 }
+  { id: 'name', label: 'Candidate Name', visible: true, fieldKey: 'name', sortOrder: 1 },
+  { id: 'position', label: 'Position', visible: true, fieldKey: 'position', sortOrder: 2 },
+  { id: 'email', label: 'Email', visible: true, fieldKey: 'email', sortOrder: 3 },
+  { id: 'phone', label: 'Phone', visible: true, fieldKey: 'phone', sortOrder: 4 },
+  { id: 'status', label: 'Pipeline Stage', visible: true, fieldKey: 'status', sortOrder: 5 },
+  { id: 'createdAt', label: 'Applied Date', visible: true, fieldKey: 'createdAt', sortOrder: 6 }
 ];
 
 export const DEFAULT_KANBAN_FIELDS = {
@@ -157,7 +157,7 @@ function getStorageKey(companyId) {
 export function loadAtsModuleConfig(companyId) {
   const key = getStorageKey(companyId);
   try {
-    const saved = localStorage.getItem(key);
+    const saved = localStorage.getItem(key) || localStorage.getItem('omnilflow_config_default_tenant_ats') || localStorage.getItem('omnilflow_config_default_ats') || localStorage.getItem('omnilflow_config_ats');
     if (saved) {
       const parsed = JSON.parse(saved);
       return {
@@ -191,7 +191,11 @@ export function saveAtsModuleConfig(companyId, config) {
       schemaVersion: SCHEMA_VERSION,
       updatedAt: new Date().toISOString()
     };
-    localStorage.setItem(key, JSON.stringify(payload));
+    const jsonStr = JSON.stringify(payload);
+    localStorage.setItem(key, jsonStr);
+    localStorage.setItem('omnilflow_config_default_tenant_ats', jsonStr);
+    localStorage.setItem('omnilflow_config_default_ats', jsonStr);
+    localStorage.setItem('omnilflow_config_ats', jsonStr);
   } catch (e) {
     console.error('Error saving tenant ATS module config:', e);
   }
