@@ -21,6 +21,8 @@ export default function ActionEngine({
   setShowDetailModal = () => {},
   showArchiveModal = false,
   setShowArchiveModal = () => {},
+  recordToArchive = null,
+  setRecordToArchive = () => {},
   selectedRecord = null,
   setSelectedRecord = () => {},
   canManage = true,
@@ -67,12 +69,13 @@ export default function ActionEngine({
 
   const handleTriggerArchivePrompt = (record) => {
     if (!record) return;
+    if (setRecordToArchive) setRecordToArchive(record);
     setInternalRecordToArchive(record);
     setShowArchiveModal(true);
   };
 
   const handleConfirmArchive = () => {
-    const record = internalRecordToArchive || selectedRecord;
+    const record = recordToArchive || internalRecordToArchive || selectedRecord;
     if (!record) return;
 
     const nameStr = record.name || record.title || 'Record';
@@ -91,6 +94,7 @@ export default function ActionEngine({
     showToast(`📦 Archived ${entityName.toLowerCase()} "${nameStr}". Accessible in Archived Records.`, 'info');
 
     setShowArchiveModal(false);
+    if (setRecordToArchive) setRecordToArchive(null);
     setInternalRecordToArchive(null);
     setShowDetailModal(false);
     setShowEditModal(false);
@@ -111,7 +115,7 @@ export default function ActionEngine({
     }
   };
 
-  const archiveRecordTarget = internalRecordToArchive || selectedRecord;
+  const archiveRecordTarget = recordToArchive || internalRecordToArchive || selectedRecord;
   const targetName = archiveRecordTarget ? (archiveRecordTarget.name || archiveRecordTarget.title || 'Record') : 'Record';
   const targetEntity = LabelEngine.getEntityName(moduleConfig);
 
@@ -166,11 +170,15 @@ export default function ActionEngine({
       {showArchiveModal && archiveRecordTarget && (
         <ConfirmationModal
           isOpen={showArchiveModal}
-          onClose={() => { setShowArchiveModal(false); setInternalRecordToArchive(null); }}
+          onClose={() => {
+            setShowArchiveModal(false);
+            if (setRecordToArchive) setRecordToArchive(null);
+            setInternalRecordToArchive(null);
+          }}
           onConfirm={handleConfirmArchive}
           title={`Archive ${targetEntity}`}
-          message={`Are you sure you want to archive ${targetEntity.toLowerCase()} "${targetName}"? The record will be safely moved to the Archived Records repository.`}
-          confirmText="Archive Record"
+          message={`Are you sure you want to move candidate "${targetName}" to the archive? This will remove the record from live views and safely place it in Archived Records.`}
+          confirmText="Archive"
           cancelText="Cancel"
         />
       )}

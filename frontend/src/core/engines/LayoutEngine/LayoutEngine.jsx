@@ -59,6 +59,7 @@ export default function LayoutEngine({
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showArchivedModal, setShowArchivedModal] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
+  const [recordToArchive, setRecordToArchive] = useState(null);
 
   const canManage = authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager' || authUser?.role === 'superadmin';
 
@@ -165,7 +166,7 @@ export default function LayoutEngine({
         canManage={canManage}
         onViewRecord={(rec) => { setSelectedRecord(rec); setShowDetailModal(true); }}
         onEditRecord={(rec) => { setSelectedRecord(rec); setShowEditModal(true); }}
-        onArchiveRecord={(rec) => { setSelectedRecord(rec); setShowArchiveModal(true); }}
+        onArchiveRecord={(rec) => { setRecordToArchive(rec); setSelectedRecord(rec); setShowArchiveModal(true); }}
         onMoveStage={(recId, newStage) => {
           const updated = records.map(r => r.id === recId ? { ...r, status: newStage, stage: newStage } : r);
           setRecords(updated);
@@ -189,6 +190,8 @@ export default function LayoutEngine({
         setShowDetailModal={setShowDetailModal}
         showArchiveModal={showArchiveModal}
         setShowArchiveModal={setShowArchiveModal}
+        recordToArchive={recordToArchive}
+        setRecordToArchive={setRecordToArchive}
         selectedRecord={selectedRecord}
         setSelectedRecord={setSelectedRecord}
         canManage={canManage}
