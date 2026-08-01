@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import UniversalModal from './UniversalModal';
 import UniversalDrawer from './UniversalDrawer';
 import ConfirmationModal from './ConfirmationModal';
+import ArchivedModal from './ArchivedModal';
 import { LabelEngine } from '../LabelEngine';
 
 export default function ActionEngine({
@@ -21,6 +22,8 @@ export default function ActionEngine({
   setShowDetailModal = () => {},
   showArchiveModal = false,
   setShowArchiveModal = () => {},
+  showArchivedModal = false,
+  setShowArchivedModal = () => {},
   recordToArchive = null,
   setRecordToArchive = () => {},
   selectedRecord = null,
@@ -29,6 +32,9 @@ export default function ActionEngine({
   systemDropdowns = null,
   activePipelineStages = [],
   allPositions = [],
+  archivedModuleItems = [],
+  handleRestoreBinItem = () => {},
+  handlePermanentDeleteBinItem = () => {},
   softDeleteRecord = () => {},
   showToast = () => {}
 }) {
@@ -59,7 +65,9 @@ export default function ActionEngine({
         id: `${moduleConfig.moduleId || 'rec'}_${Date.now()}`,
         ...formData,
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
+        archived: false,
+        lifecycleStatus: 'ACTIVE'
       };
       setRecords([newRec, ...records]);
       showToast(`Added ${entityName.toLowerCase()} "${newRec.name || newRec.title || newRec.id}"`, 'success');
@@ -81,18 +89,33 @@ export default function ActionEngine({
     const nameStr = record.name || record.title || 'Record';
     const entityName = LabelEngine.getEntityName(moduleConfig);
 
+    const archivedRecordObject = {
+      ...record,
+      archived: true,
+      lifecycleStatus: 'ARCHIVED',
+      archivedAt: new Date().toISOString()
+    };
+
     if (typeof softDeleteRecord === 'function') {
       softDeleteRecord({
         originalId: record.id,
         name: `${entityName}: "${nameStr}"`,
         category: `${entityName} Record`,
-        entityData: { record },
+        entityData: { record: archivedRecordObject, candidate: archivedRecordObject },
         moduleTab: moduleConfig.moduleId
       });
     }
 
     const updatedList = records.filter(r => r.id !== record.id);
     setRecords(updatedList);
+
+    // Broadcast config/data update event
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('omnilflow_config_updated', {
+        detail: { moduleId: moduleConfig.moduleId || 'recruitment_ats' }
+      }));
+    }
+
     showToast(`📦 Archived ${entityName.toLowerCase()} "${nameStr}". Accessible in Archived Records.`, 'info');
 
     setShowArchiveModal(false);
@@ -100,6 +123,33 @@ export default function ActionEngine({
     setInternalRecordToArchive(null);
     setShowDetailModal(false);
     setShowEditModal(false);
+  };
+
+  const handleRestoreArchivedRecord = (item) => {
+    const payloadRec = item.payload?.record || item.entityData?.record || item.payload?.candidate || item.payload || {};
+    const entityName = LabelEngine.getEntityName(moduleConfig);
+
+    const restoredRecord = {
+      ...payloadRec,
+      id: item.originalId || payloadRec.id || `${moduleConfig.moduleId}_${Date.now()}`,
+      archived: false,
+      lifecycleStatus: 'ACTIVE',
+      updatedAt: new Date().toISOString()
+    };
+
+    setRecords([restoredRecord, ...records.filter(r => r.id !== restoredRecord.id)]);
+
+    if (typeof handleRestoreBinItem === 'function') {
+      handleRestoreBinItem(item);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('omnilflow_config_updated', {
+        detail: { moduleId: moduleConfig.moduleId || 'recruitment_ats' }
+      }));
+    }
+
+    showToast(`🔄 Restored ${entityName.toLowerCase()} "${restoredRecord.name || restoredRecord.title || 'Record'}".`, 'success');
   };
 
   const handleMoveStage = (recordId, newStage) => {
@@ -179,9 +229,21 @@ export default function ActionEngine({
           }}
           onConfirm={handleConfirmArchive}
           title={`Archive ${targetEntity}`}
-          message={`Are you sure you want to move candidate "${targetName}" to the archive? This will remove the record from live views and safely place it in Archived Records.`}
+          message={`Are you sure you want to archive candidate "${targetName}"? Archived candidates can be restored later.`}
           confirmText="Archive"
           cancelText="Cancel"
+        />
+      )}
+
+      {/* ARCHIVED RECORDS MODAL */}
+      {showArchivedModal && (
+        <ArchivedModal
+          isOpen={showArchivedModal}
+          onClose={() => setShowArchivedModal(false)}
+          moduleConfig={moduleConfig}
+          archivedItems={archivedModuleItems}
+          onRestoreItem={handleRestoreArchivedRecord}
+          onPermanentDeleteItem={handlePermanentDeleteBinItem}
         />
       )}
     </>

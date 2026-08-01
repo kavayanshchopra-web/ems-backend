@@ -190,6 +190,8 @@ export default function LayoutEngine({
         setShowDetailModal={setShowDetailModal}
         showArchiveModal={showArchiveModal}
         setShowArchiveModal={setShowArchiveModal}
+        showArchivedModal={showArchivedModal}
+        setShowArchivedModal={setShowArchivedModal}
         recordToArchive={recordToArchive}
         setRecordToArchive={setRecordToArchive}
         selectedRecord={selectedRecord}
@@ -198,6 +200,9 @@ export default function LayoutEngine({
         systemDropdowns={systemDropdowns}
         activePipelineStages={activePipelineStages}
         allPositions={allPositions}
+        archivedModuleItems={archivedModuleItems}
+        handleRestoreBinItem={handleRestoreBinItem}
+        handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
         softDeleteRecord={softDeleteRecord}
         showToast={showToast}
       />
