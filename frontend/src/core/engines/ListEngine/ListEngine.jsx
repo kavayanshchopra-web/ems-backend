@@ -57,6 +57,23 @@ export default function ListEngine({
   const [selectedIds, setSelectedIds] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const scrollRef = useRef(null);
+
+  const handleWheelScroll = (e) => {
+    if (scrollRef.current && e.deltaY !== 0 && !e.shiftKey) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      if (scrollWidth > clientWidth) {
+        const isScrollingRight = e.deltaY > 0;
+        const canScrollRight = scrollLeft + clientWidth < scrollWidth - 2;
+        const canScrollLeft = scrollLeft > 2;
+
+        if ((isScrollingRight && canScrollRight) || (!isScrollingRight && canScrollLeft)) {
+          scrollRef.current.scrollLeft += e.deltaY;
+          e.preventDefault();
+        }
+      }
+    }
+  };
 
   const fieldsMap = new Map((moduleConfig.fields || []).map(f => [f.id, f]));
   
@@ -161,15 +178,17 @@ export default function ListEngine({
 
         {/* FORCED VISIBLE TEAL SCROLL CONTAINER WITH STICKY <thead> */}
         <div
+          ref={scrollRef}
+          onWheel={handleWheelScroll}
           className="list-table-scroll"
           style={{
-            overflowX: 'scroll',
-            overflowY: 'scroll',
-            maxHeight: 'calc(100vh - 330px)',
+            overflowX: 'auto',
+            overflowY: 'auto',
+            maxHeight: 'calc(100vh - 320px)',
             minHeight: '320px',
             width: '100%',
             position: 'relative',
-            scrollbarWidth: 'auto',
+            scrollbarWidth: 'thin',
             scrollbarColor: '#0d9488 #e2e8f0'
           }}
         >

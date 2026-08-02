@@ -11255,11 +11255,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             <EmployeesView
               authUser={authUser}
               employees={employees}
-              billingTenant={billingTenant}
-              isEmployeesLoading={isEmployeesLoading}
-              setNewEmployeeForm={setNewEmployeeForm}
-              setShowAddEmployeeModal={setShowAddEmployeeModal}
-              handleDeleteEmployee={handleDeleteEmployee}
+              setEmployees={setEmployees}
+              systemDropdowns={systemDropdowns}
+              onOpenModuleConfig={(modId) => {
+                setPreselectedConfigModuleId(modId || 'employees');
+                setActiveTab('module_configuration');
+              }}
+              onManageStages={() => {
+                setActiveTab('system_dropdowns');
+              }}
+              onOpenPositionModal={() => {
+                setActiveTab('recruitment_ats');
+              }}
+              recycleBinItems={recycleBinItems}
+              handleRestoreBinItem={handleRestoreBinItem}
+              handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+              softDeleteRecord={softDeleteRecord}
               showToast={showToast}
             />
           </Suspense>
@@ -11361,6 +11372,21 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             assets={assets}
             setAssets={setAssets}
             authUser={authUser}
+            systemDropdowns={systemDropdowns}
+            onOpenModuleConfig={(modId) => {
+              setPreselectedConfigModuleId(modId || 'asset_management');
+              setActiveTab('module_configuration');
+            }}
+            onManageStages={() => {
+              setActiveTab('system_dropdowns');
+            }}
+            onOpenPositionModal={() => {
+              setActiveTab('recruitment_ats');
+            }}
+            recycleBinItems={recycleBinItems}
+            handleRestoreBinItem={handleRestoreBinItem}
+            handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+            softDeleteRecord={softDeleteRecord}
             showToast={showToast}
           />
         )}
@@ -18593,15 +18619,45 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   );
 }
 
-function AssetManagementWrapper({ companyId, assets, setAssets, authUser, showToast }) {
+function AssetManagementWrapper({
+  companyId,
+  assets,
+  setAssets,
+  authUser,
+  systemDropdowns,
+  recycleBinItems,
+  handleRestoreBinItem,
+  handlePermanentDeleteBinItem,
+  softDeleteRecord,
+  showToast,
+  onOpenModuleConfig,
+  onManageStages,
+  onOpenPositionModal
+}) {
   const { config } = useModuleRegistry(companyId || 'default_tenant', 'asset_management');
+
+  const handleUpdateAssets = (newAssets) => {
+    setAssets(newAssets);
+    try {
+      localStorage.setItem('omnilflow_fallback_assets', JSON.stringify(newAssets));
+    } catch (e) {}
+  };
+
   return (
     <LayoutEngine
       moduleConfig={config}
       records={assets}
-      setRecords={setAssets}
+      setRecords={handleUpdateAssets}
       authUser={authUser}
+      systemDropdowns={systemDropdowns}
+      recycleBinItems={recycleBinItems}
+      handleRestoreBinItem={handleRestoreBinItem}
+      handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+      softDeleteRecord={softDeleteRecord}
       showToast={showToast}
+      onOpenModuleConfig={onOpenModuleConfig}
+      onManageStages={onManageStages}
+      onOpenPositionModal={onOpenPositionModal}
     />
   );
 }
