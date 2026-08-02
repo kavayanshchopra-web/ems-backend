@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef } from 'react';
-import { Eye, Edit2, Archive } from 'lucide-react';
+import { Eye, Edit2, Archive, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import SchemaFieldRenderer from '../FieldEngine/SchemaFieldRenderer';
 import { LabelEngine } from '../LabelEngine';
 import Button from '../../../components/ui/Button';
@@ -46,6 +46,9 @@ export default function ListEngine({
   totalCount = 0,
   isFilterActive = false,
   searchQuery = '',
+  sortKey = 'createdAt',
+  sortDir = 'desc',
+  onSortChange = () => {},
   canManage = true,
   softDeleteRecord = null,
   handleRestoreBinItem = null,
@@ -73,35 +76,12 @@ export default function ListEngine({
     }
   };
 
-  const fieldsMap = new Map((moduleConfig.fields || []).map(f => [f.id, f]));
-  
-  const activeFields = (moduleConfig.fields || []).filter(f => !f.archived && !f.deleted && f.showOnList !== false);
-  let colsList = [...(moduleConfig.columns || [])];
-  
-  // Synthesize missing columns for active custom fields
-  activeFields.forEach(f => {
-    if (!colsList.some(c => c.id === f.id || c.fieldKey === f.id || c.fieldKey === f.key)) {
-      colsList.push({
-        id: f.id,
-        fieldKey: f.key || f.id,
-        label: f.label,
-        visible: true,
-        width: '160px',
-        align: 'left',
-        sortable: true,
-        sortOrder: f.sortOrder || 99
-      });
-    }
-  });
-
-  const visibleCols = colsList
-    .filter(col => {
-      if (col.visible === false) return false;
-      const f = fieldsMap.get(col.fieldKey) || fieldsMap.get(col.id);
-      if (f && (f.showOnList === false || f.archived || f.deleted)) return false;
-      return true;
-    })
+  // Filter out columns hidden via metadata
+  const visibleCols = (moduleConfig.columns || [])
+    .filter(c => c.visible !== false)
     .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+  const fieldsMap = new Map((moduleConfig.fields || []).map(f => [f.id, f]));
 
   const totalPages = Math.ceil(records.length / pageSize) || 1;
   const validCurrentPage = Math.min(currentPage, totalPages);
@@ -147,6 +127,9 @@ export default function ListEngine({
         .list-table-scroll::-webkit-scrollbar-thumb:hover {
           background: #064e43 !important;
         }
+        .ems-row-hover:hover {
+          background: rgba(13, 148, 136, 0.04) !important;
+        }
       `}</style>
 
       {/* UNIVERSAL BULK ACTION ENGINE */}
@@ -169,30 +152,27 @@ export default function ListEngine({
         <div style={{ padding: '12px 16px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', flexShrink: 0 }}>
           <span style={{ fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>
             {LabelEngine.getEntityNamePlural(moduleConfig)} Roster ({records.length})
-            {isFilterActive && <span style={{ color: '#0d9488', marginLeft: '6px' }}>(Filtered from {totalCount})</span>}
           </span>
-          <span className="mobile-swipe-hint" style={{ fontSize: '11px', color: '#0d9488', fontWeight: '700' }}>
-            Swipe horizontally ↔
+          <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
+            Click column headers to sort • Click row to view profile
           </span>
         </div>
 
-        {/* FORCED VISIBLE TEAL SCROLL CONTAINER WITH STICKY <thead> */}
+        {/* SCROLLABLE TABLE AREA WITH STICKY HEADER */}
         <div
+          className="list-table-scroll"
           ref={scrollRef}
           onWheel={handleWheelScroll}
-          className="list-table-scroll"
           style={{
             overflowX: 'auto',
             overflowY: 'auto',
-            maxHeight: 'calc(100vh - 320px)',
-            minHeight: '320px',
-            width: '100%',
+            maxHeight: '620px',
             position: 'relative',
             scrollbarWidth: 'thin',
             scrollbarColor: '#0d9488 #e2e8f0'
           }}
         >
-          <table className="std-table" style={{ width: '100%', minWidth: '1300px', borderCollapse: 'collapse', borderSpacing: 0 }}>
+          <table className="std-table" style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse', borderSpacing: 0 }}>
             <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
               <tr style={{ background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>
                 <th style={{ padding: '12px 16px', width: '40px', textAlign: 'center', background: '#f8fafc' }}>
@@ -203,7 +183,7 @@ export default function ListEngine({
                     style={{ accentColor: '#0d9488', cursor: 'pointer' }}
                   />
                 </th>
-                {visibleCols.map((col, idx) => {
+                {visibleCols.map((col) => {
                   const widthStyle = col.width ? { width: col.width, minWidth: col.width }
                                   : col.id === 'candidate' || col.id === 'name' ? { minWidth: '220px' }
                                   : col.id === 'position' ? { minWidth: '160px' }
@@ -212,35 +192,54 @@ export default function ListEngine({
                                   : col.id === 'createdAt' || col.id === 'appliedDate' ? { width: '160px', minWidth: '160px' }
                                   : { minWidth: '140px' };
                   const alignStyle = col.align ? { textAlign: col.align } : {};
+                  const targetSortKey = col.fieldKey || col.id;
+                  const isSorted = sortKey === targetSortKey;
+
                   return (
-                    <th key={col.id} style={{ padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', background: '#f8fafc', ...widthStyle, ...alignStyle }}>
-                      {fieldsMap.get(col.fieldKey)?.label || fieldsMap.get(col.id)?.label || col.label}
+                    <th
+                      key={col.id}
+                      onClick={() => {
+                        if (isSorted) {
+                          onSortChange(targetSortKey, sortDir === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          onSortChange(targetSortKey, 'asc');
+                        }
+                      }}
+                      style={{
+                        padding: '12px 16px',
+                        fontSize: '11px',
+                        fontWeight: '800',
+                        color: isSorted ? '#0d9488' : '#475569',
+                        textTransform: 'uppercase',
+                        background: '#f8fafc',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        ...widthStyle,
+                        ...alignStyle
+                      }}
+                    >
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <span>{fieldsMap.get(col.fieldKey)?.label || fieldsMap.get(col.id)?.label || col.label}</span>
+                        {isSorted ? (
+                          sortDir === 'asc' ? <ArrowUp size={12} color="#0d9488" /> : <ArrowDown size={12} color="#0d9488" />
+                        ) : (
+                          <ArrowUpDown size={11} style={{ opacity: 0.3 }} />
+                        )}
+                      </div>
                     </th>
                   );
                 })}
-                {canManage && (
-                  <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', textAlign: 'right', width: '160px', background: '#f8fafc' }}>
-                    Actions
-                  </th>
-                )}
               </tr>
             </thead>
             <tbody>
               {paginatedRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={visibleCols.length + (canManage ? 2 : 1)} style={{ padding: '32px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
+                  <td colSpan={visibleCols.length + 1} style={{ padding: '32px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
                     <EmptyState
                       icon="📋"
                       title={emptyText.title}
                       description={emptyText.description}
                     />
-                    {isFilterActive && (
-                      <div style={{ marginTop: '12px' }}>
-                        <Button variant="secondary" size="sm" onClick={onResetFilters}>
-                          Clear filters
-                        </Button>
-                      </div>
-                    )}
                   </td>
                 </tr>
               ) : (
@@ -251,12 +250,24 @@ export default function ListEngine({
                   const displayId = formatCandidateId(record.id, idx, moduleConfig);
 
                   return (
-                    <tr key={record.id || idx} style={{ background: isSelected ? 'rgba(13,148,136,0.04)' : '#ffffff' }}>
-                      <td style={{ padding: '10px 14px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
+                    <tr
+                      key={record.id || idx}
+                      className="ems-row-hover"
+                      onClick={() => onViewRecord(record)}
+                      style={{
+                        background: isSelected ? 'rgba(13, 148, 136, 0.08)' : '#ffffff',
+                        cursor: 'pointer',
+                        transition: 'background 0.15s ease'
+                      }}
+                    >
+                      <td style={{ padding: '10px 14px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }} onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
                           checked={isSelected}
-                          onChange={() => handleSelectRow(record.id)}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleSelectRow(record.id);
+                          }}
                           style={{ accentColor: '#0d9488', cursor: 'pointer' }}
                         />
                       </td>
@@ -274,8 +285,7 @@ export default function ListEngine({
                                 <div style={{ overflow: 'hidden' }}>
                                   <div
                                     title={recordName}
-                                    onClick={() => onViewRecord(record)}
-                                    style={{ fontWeight: '800', color: '#0f172a', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', maxWidth: '180px' }}
+                                    style={{ fontWeight: '800', color: '#0f172a', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}
                                   >
                                     {recordName}
                                   </div>
@@ -286,7 +296,7 @@ export default function ListEngine({
                           );
                         }
 
-                        // Special Contact Details Column Renderer (Email & Phone with single-line ellipsis & tooltips)
+                        // Special Contact Details Column Renderer
                         if (col.id === 'contact' || col.id === 'contact_details' || col.fieldKey === 'contact' || col.fieldKey === 'phone') {
                           const emailStr = getValString(record.email);
                           const phoneStr = getValString(record.phone);
@@ -294,20 +304,10 @@ export default function ListEngine({
                             <td key={col.id} style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0', maxWidth: '240px' }}>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px', maxWidth: '220px', overflow: 'hidden' }}>
                                 {emailStr && (
-                                  <div
-                                    title={`Email: ${emailStr}`}
-                                    style={{ color: '#0f172a', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                                  >
-                                    📧 {emailStr}
-                                  </div>
+                                  <div title={`Email: ${emailStr}`} style={{ color: '#0f172a', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📧 {emailStr}</div>
                                 )}
                                 {phoneStr && (
-                                  <div
-                                    title={`Phone: ${phoneStr}`}
-                                    style={{ color: '#475569', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                                  >
-                                    📞 {phoneStr}
-                                  </div>
+                                  <div title={`Phone: ${phoneStr}`} style={{ color: '#475569', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📞 {phoneStr}</div>
                                 )}
                                 {!emailStr && !phoneStr && <span style={{ color: '#94a3b8' }}>—</span>}
                               </div>
@@ -315,7 +315,7 @@ export default function ListEngine({
                           );
                         }
 
-                        // Special Resume Column Renderer (Shows "No Resume" in muted gray when missing)
+                        // Special Resume Column Renderer
                         if (col.id === 'resume' || col.fieldKey === 'resume') {
                           const resumeStr = getValString(record.resume || record.attachment);
                           return (
@@ -329,7 +329,7 @@ export default function ListEngine({
                           );
                         }
 
-                        // Special Applied Date Column Renderer (Formats raw ISO string to '01 Aug 2026, 08:20 PM')
+                        // Special Applied Date Column Renderer
                         if (col.id === 'createdAt' || col.fieldKey === 'createdAt' || col.id === 'appliedDate') {
                           const dateVal = formatDate(record.createdAt || record.appliedDate);
                           return (
@@ -341,11 +341,14 @@ export default function ListEngine({
 
                         if (col.id === 'stage' || col.fieldKey === 'status') {
                           return (
-                            <td key={col.id} style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0' }}>
+                            <td key={col.id} style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0' }} onClick={(e) => e.stopPropagation()}>
                               {canManage && activePipelineStages.length > 0 ? (
                                 <select
                                   value={recordStatus}
-                                  onChange={(e) => onMoveStage(record.id, e.target.value)}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    onMoveStage(record.id, e.target.value);
+                                  }}
                                   style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
                                 >
                                   {activePipelineStages.map(s => (
@@ -383,37 +386,6 @@ export default function ListEngine({
                           </td>
                         );
                       })}
-
-                      {canManage && (
-                        <td style={{ padding: '10px 14px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', width: '160px' }}>
-                          <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                            <button
-                              type="button"
-                              title="View Profile"
-                              onClick={() => onViewRecord(record)}
-                              style={{ padding: '5px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: '700' }}
-                            >
-                              <Eye size={12} /> View
-                            </button>
-                            <button
-                              type="button"
-                              title="Edit Candidate"
-                              onClick={() => onEditRecord(record)}
-                              style={{ padding: '5px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: '700' }}
-                            >
-                              <Edit2 size={12} /> Edit
-                            </button>
-                            <button
-                              type="button"
-                              title="Archive Candidate"
-                              onClick={() => onArchiveRecord(record)}
-                              style={{ padding: '5px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: '700' }}
-                            >
-                              <Archive size={12} /> Archive
-                            </button>
-                          </div>
-                        </td>
-                      )}
                     </tr>
                   );
                 })
@@ -422,14 +394,17 @@ export default function ListEngine({
           </table>
         </div>
 
-        {/* STICKY BOTTOM ENTERPRISE PAGINATION TOOLBAR */}
+        {/* STICKY BOTTOM PAGINATION */}
         <div style={{ position: 'sticky', bottom: 0, zIndex: 10, background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
           <Pagination
-            currentPage={currentPage}
+            currentPage={validCurrentPage}
             pageSize={pageSize}
             totalRecords={records.length}
             onPageChange={setCurrentPage}
-            onPageSizeChange={setPageSize}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setCurrentPage(1);
+            }}
           />
         </div>
       </div>

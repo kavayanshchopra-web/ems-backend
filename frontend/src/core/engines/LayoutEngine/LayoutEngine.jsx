@@ -177,6 +177,9 @@ export default function LayoutEngine({
         totalCount={records.length}
         isFilterActive={isFilterActive}
         searchQuery={searchQuery}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSortChange={(key, dir) => { setSortKey(key); setSortDir(dir); }}
         canManage={canManage}
         softDeleteRecord={softDeleteRecord}
         handleRestoreBinItem={handleRestoreBinItem}

@@ -236,62 +236,6 @@ export default function LayoutToolbar({
             )}
           </div>
         </div>
-
-        {/* SORT POPOVER */}
-        <div style={{ position: 'relative' }}>
-          <Button
-            variant="secondary"
-            size="md"
-            icon={<ArrowUpDown size={14} />}
-            onClick={() => setShowSortPopover(prev => !prev)}
-          >
-            Sort ▾
-          </Button>
-
-          {showSortPopover && (
-            <div
-              style={{
-                position: 'absolute',
-                right: 0,
-                top: '105%',
-                zIndex: 100,
-                background: '#ffffff',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-                minWidth: '160px',
-                padding: '4px 0'
-              }}
-            >
-              {[
-                { label: 'Newest First', key: 'createdAt', dir: 'desc' },
-                { label: 'Oldest First', key: 'createdAt', dir: 'asc' },
-                { label: 'Name A–Z', key: 'name', dir: 'asc' },
-                { label: 'Name Z–A', key: 'name', dir: 'desc' },
-                { label: 'Stage', key: 'status', dir: 'asc' }
-              ].map((item, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => { onSortChange(item.key, item.dir); setShowSortPopover(false); }}
-                  style={{
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '8px 12px',
-                    fontSize: '12px',
-                    fontWeight: sortKey === item.key && sortDir === item.dir ? '800' : '600',
-                    color: sortKey === item.key && sortDir === item.dir ? '#0d9488' : '#0f172a',
-                    background: sortKey === item.key && sortDir === item.dir ? 'rgba(13,148,136,0.08)' : 'transparent',
-                    border: 'none',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );

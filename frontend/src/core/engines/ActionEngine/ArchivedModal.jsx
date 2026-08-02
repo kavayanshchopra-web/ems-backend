@@ -40,7 +40,8 @@ export default function ArchivedModal({
   onClose = () => {},
   moduleConfig = {},
   archivedItems = [],
-  onRestoreItem = () => {}
+  onRestoreItem = () => {},
+  onPermanentDeleteItem = () => {}
 }) {
   const entityName = LabelEngine.getEntityName(moduleConfig);
 
@@ -103,6 +104,19 @@ export default function ArchivedModal({
                     onClick={() => onRestoreItem(item)}
                   >
                     Restore
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<Trash2 size={13} />}
+                    onClick={() => {
+                      if (window.confirm(`Permanently delete "${itemTitle}"? This action cannot be undone.`)) {
+                        onPermanentDeleteItem(item.id || item.originalId);
+                      }
+                    }}
+                    style={{ background: '#fff1f2', color: '#e11d48', borderColor: '#fecdd3' }}
+                  >
+                    Permanent Delete
                   </Button>
                 </div>
               </div>

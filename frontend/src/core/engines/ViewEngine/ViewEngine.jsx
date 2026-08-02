@@ -15,6 +15,9 @@ export default function ViewEngine({
   totalCount = 0,
   isFilterActive = false,
   searchQuery = '',
+  sortKey = 'createdAt',
+  sortDir = 'desc',
+  onSortChange = () => {},
   canManage = true,
   softDeleteRecord = null,
   handleRestoreBinItem = null,
@@ -99,6 +102,9 @@ export default function ViewEngine({
       totalCount={totalCount}
       isFilterActive={isFilterActive}
       searchQuery={searchQuery}
+      sortKey={sortKey}
+      sortDir={sortDir}
+      onSortChange={onSortChange}
       canManage={canManage}
       softDeleteRecord={softDeleteRecord}
       handleRestoreBinItem={handleRestoreBinItem}
