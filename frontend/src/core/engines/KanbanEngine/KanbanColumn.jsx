@@ -1,11 +1,13 @@
 /**
  * UNIVERSAL KANBAN COLUMN COMPONENT
- * Renders a 320px pipeline stage column with sticky header, independent vertical scroll & centered empty state
+ * Renders a 320px pipeline stage column with sticky header, independent vertical scroll,
+ * per-column 25-card pagination with "Load More" & centered empty state
  */
 
 import React, { useState } from 'react';
 import KanbanCard from './KanbanCard';
 import EmptyState from '../../../components/ui/EmptyState';
+import { ChevronDown } from 'lucide-react';
 
 export default function KanbanColumn({
   stage = {},
@@ -19,7 +21,16 @@ export default function KanbanColumn({
   onMoveStage = () => {},
   canManage = true
 }) {
+  const [visibleCount, setVisibleCount] = useState(25);
   const [isDragOver, setIsDragOver] = useState(false);
+
+  const visibleRecords = records.slice(0, visibleCount);
+  const remainingCount = records.length - visibleCount;
+
+  const handleLoadMore = (e) => {
+    e.stopPropagation();
+    setVisibleCount(prev => prev + 25);
+  };
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -89,7 +100,7 @@ export default function KanbanColumn({
           background: isDragOver ? '#ccfbf1' : '#f8fafc',
           borderBottom: '1px solid #e2e8f0',
           display: 'flex',
-          justify: 'space-between',
+          justifyContent: 'space-between',
           alignItems: 'center',
           flexShrink: 0
         }}
@@ -140,19 +151,50 @@ export default function KanbanColumn({
             />
           </div>
         ) : (
-          records.map((record, idx) => (
-            <KanbanCard
-              key={record.id || idx}
-              record={record}
-              moduleConfig={moduleConfig}
-              activePipelineStages={activePipelineStages}
-              onViewRecord={onViewRecord}
-              onEditRecord={onEditRecord}
-              onArchiveRecord={onArchiveRecord}
-              onMoveStage={onMoveStage}
-              canManage={canManage}
-            />
-          ))
+          <>
+            {visibleRecords.map((record, idx) => (
+              <KanbanCard
+                key={record.id || idx}
+                record={record}
+                moduleConfig={moduleConfig}
+                activePipelineStages={activePipelineStages}
+                onViewRecord={onViewRecord}
+                onEditRecord={onEditRecord}
+                onArchiveRecord={onArchiveRecord}
+                onMoveStage={onMoveStage}
+                canManage={canManage}
+              />
+            ))}
+
+            {/* PER-COLUMN ENTERPRISE "LOAD MORE" BUTTON */}
+            {remainingCount > 0 && (
+              <button
+                type="button"
+                onClick={handleLoadMore}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  marginTop: '4px',
+                  borderRadius: '8px',
+                  border: '1px solid #0d9488',
+                  background: '#f0fdfa',
+                  color: '#0d9488',
+                  fontSize: '11px',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  transition: 'all 0.15s ease',
+                  boxShadow: '0 1px 2px rgba(13, 148, 136, 0.08)'
+                }}
+              >
+                <span>Load More (+{remainingCount} remaining)</span>
+                <ChevronDown size={14} />
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
