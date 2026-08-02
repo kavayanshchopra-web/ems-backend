@@ -56,17 +56,27 @@ export default function SchemaFieldRenderer({
   const lookupKey = field.optionsSource || field.key || field.id;
   let optionsList = [];
 
-  if (moduleConfig?.lookupData && Array.isArray(moduleConfig.lookupData[lookupKey]) && moduleConfig.lookupData[lookupKey].length > 0) {
-    optionsList = moduleConfig.lookupData[lookupKey].map(getValString);
-  } else if (Array.isArray(field.options) && field.options.length > 0) {
-    optionsList = field.options.map(getValString);
-  } else if (Array.isArray(field.manualOptions) && field.manualOptions.length > 0) {
-    optionsList = field.manualOptions.map(getValString);
+  if (moduleConfig?.lookupData) {
+    if (Array.isArray(moduleConfig.lookupData[lookupKey]) && moduleConfig.lookupData[lookupKey].length > 0) {
+      optionsList = moduleConfig.lookupData[lookupKey].map(getValString);
+    } else if (Array.isArray(moduleConfig.lookupData[lookupKey + 's']) && moduleConfig.lookupData[lookupKey + 's'].length > 0) {
+      optionsList = moduleConfig.lookupData[lookupKey + 's'].map(getValString);
+    } else if (typeof lookupKey === 'string' && lookupKey.endsWith('s') && Array.isArray(moduleConfig.lookupData[lookupKey.slice(0, -1)]) && moduleConfig.lookupData[lookupKey.slice(0, -1)].length > 0) {
+      optionsList = moduleConfig.lookupData[lookupKey.slice(0, -1)].map(getValString);
+    }
   }
 
   if (optionsList.length === 0) {
-    if (field.optionsSource === 'departments') optionsList = (systemDropdowns?.departments || []).map(getValString);
-    if (field.optionsSource === 'designations') optionsList = (systemDropdowns?.designations || []).map(getValString);
+    if (Array.isArray(field.options) && field.options.length > 0) {
+      optionsList = field.options.map(getValString);
+    } else if (Array.isArray(field.manualOptions) && field.manualOptions.length > 0) {
+      optionsList = field.manualOptions.map(getValString);
+    }
+  }
+
+  if (optionsList.length === 0) {
+    if (field.optionsSource === 'departments' || lookupKey === 'department' || lookupKey === 'departments') optionsList = (systemDropdowns?.departments || []).map(getValString);
+    if (field.optionsSource === 'designations' || lookupKey === 'designation' || lookupKey === 'designations') optionsList = (systemDropdowns?.designations || []).map(getValString);
     if (field.optionsSource === 'ats_stages') optionsList = activePipelineStages.map(s => getValString(s.name));
     if (field.optionsSource === 'employment_types') optionsList = ['Full-time', 'Part-time', 'Contract', 'Internship'];
     if (field.optionsSource === 'positions') optionsList = allPositions;

@@ -363,11 +363,18 @@ export default function ListEngine({
                           );
                         }
 
+                        const cellVal = (col.fieldKey && record[col.fieldKey] !== undefined && record[col.fieldKey] !== null)
+                          ? record[col.fieldKey]
+                          : (record[col.id] !== undefined && record[col.id] !== null
+                              ? record[col.id]
+                              : (record.customFields?.[col.fieldKey] !== undefined ? record.customFields[col.fieldKey] : record.customFields?.[col.id])
+                            );
+
                         return (
                           <td key={col.id} style={{ padding: '10px 14px', fontSize: '12px', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>
                             <SchemaFieldRenderer
                               field={fieldDef || { id: col.fieldKey || col.id, label: col.label, type: 'text' }}
-                              value={record[col.fieldKey] || record.customFields?.[col.fieldKey]}
+                              value={cellVal}
                               mode="view"
                               compact={true}
                               moduleConfig={moduleConfig}
