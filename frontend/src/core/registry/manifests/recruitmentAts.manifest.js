@@ -75,7 +75,15 @@ export const RECRUITMENT_ATS_MANIFEST = {
   
   defaultViews: {
     availableViews: ['kanban', 'list'],
-    defaultView: 'kanban'
+    defaultView: 'kanban',
+    list: true,
+    kanban: true,
+    calendar: false,
+    timeline: false,
+    gallery: false,
+    tree: false,
+    gantt: false,
+    map: false
   },
   
   defaultStages: [

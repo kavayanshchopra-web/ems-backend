@@ -7,16 +7,24 @@ import React from 'react';
 import { viewRegistry } from './ViewRegistry';
 
 export default function ViewSwitcher({
-  availableViews = ['kanban', 'list'],
-  activeView = 'kanban',
+  availableViews = ['list'],
+  activeView = 'list',
   onViewChange = () => {}
 }) {
-  if (!Array.isArray(availableViews) || availableViews.length <= 1) {
-    return null; // Hide switcher if only 1 view mode enabled
+  if (!Array.isArray(availableViews) || availableViews.length === 0) {
+    return null;
   }
 
-  const allRegistered = viewRegistry.getAllViews();
-  const enabledViewDefs = allRegistered.filter(v => availableViews.includes(v.key));
+  const allRegisteredMap = new Map(viewRegistry.getAllViews().map(v => [v.key, v]));
+
+  const enabledViewDefs = availableViews.map(key => {
+    return allRegisteredMap.get(key) || {
+      key,
+      label: key.charAt(0).toUpperCase() + key.slice(1),
+      icon: null,
+      order: 99
+    };
+  }).sort((a, b) => (a.order || 0) - (b.order || 0));
 
   return (
     <div

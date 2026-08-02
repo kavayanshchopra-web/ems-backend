@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
-import { Plus, Trash2, Eye, EyeOff, Sliders, LayoutGrid, List, Search, Filter, Layers, ArrowLeft, Hash, Edit3, Settings, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, Sliders, LayoutGrid, List, Search, Filter, Layers, ArrowLeft, Hash, Edit3, Settings, ChevronDown, ChevronUp, Calendar, Clock, Image, GitFork, BarChartHorizontal, MapPin } from 'lucide-react';
 import { formatCustomSequencePattern } from '../../services/atsStorageService';
 
 export const ALL_FIELD_TYPES = [
@@ -1573,7 +1573,31 @@ export default function ModuleConfigEditor({
           {activeNav === 'kanban' && capabilities.kanbanView && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ fontSize: '11px', color: '#64748b', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                Select which system and custom candidate metadata fields display on Kanban cards.
+                Configure Kanban column grouping field and card metadata visibility.
+              </div>
+
+              {/* KANBAN GROUPING FIELD SELECTOR */}
+              <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '11px', fontWeight: '800', color: '#0f172a' }}>KANBAN COLUMN GROUPING FIELD</label>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>Choose which field groups records into board columns (e.g. Status, Department, System Role):</div>
+                <select
+                  value={configState.kanbanConfig?.groupByField || 'status'}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setConfigState(prev => ({
+                      ...prev,
+                      kanbanConfig: {
+                        ...(prev.kanbanConfig || {}),
+                        groupByField: val
+                      }
+                    }));
+                  }}
+                  style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', background: 'white', maxWidth: '300px' }}
+                >
+                  {configState.fields.filter(f => !f.archived && (f.type === 'dropdown' || f.type === 'select' || f.type === 'radio' || f.type === 'status' || f.id === 'status' || f.id === 'stage' || f.id === 'department' || f.id === 'role')).map(f => (
+                    <option key={f.id} value={f.id || f.key}>{f.label} ({f.id})</option>
+                  ))}
+                </select>
               </div>
 
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
@@ -1617,11 +1641,23 @@ export default function ModuleConfigEditor({
 
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
                 {[
-                  { key: 'kanban', label: 'Kanban Board View', icon: <LayoutGrid size={16} /> },
-                  { key: 'list', label: 'Candidate Roster List View', icon: <List size={16} /> }
+                  { key: 'list', label: 'List View', desc: 'Standard data grid table view', icon: <List size={16} /> },
+                  { key: 'kanban', label: 'Kanban Board View', desc: 'Interactive drag-and-drop board view', icon: <LayoutGrid size={16} /> },
+                  { key: 'calendar', label: 'Calendar View', desc: 'Schedule and event calendar view', icon: <Calendar size={16} /> },
+                  { key: 'timeline', label: 'Timeline View', desc: 'Chronological event stream view', icon: <Clock size={16} /> },
+                  { key: 'gallery', label: 'Gallery View', desc: 'Visual card gallery layout view', icon: <Image size={16} /> },
+                  { key: 'tree', label: 'Tree / Org View', desc: 'Hierarchical structure & org chart view', icon: <GitFork size={16} /> },
+                  { key: 'gantt', label: 'Gantt View', desc: 'Project milestone & dependency timeline', icon: <BarChartHorizontal size={16} /> },
+                  { key: 'map', label: 'Map View', desc: 'Geographic location map view', icon: <MapPin size={16} /> }
                 ].map(view => {
-                  const isEnabled = (configState.views.availableViews || []).includes(view.key);
-                  const isDefault = configState.views.defaultView === view.key;
+                  let availableViewsArr = [];
+                  if (Array.isArray(configState.views?.availableViews)) {
+                    availableViewsArr = configState.views.availableViews;
+                  } else if (configState.views && typeof configState.views === 'object') {
+                    availableViewsArr = Object.keys(configState.views).filter(k => configState.views[k] === true);
+                  }
+                  const isEnabled = availableViewsArr.includes(view.key) || (configState.views?.[view.key] === true);
+                  const isDefault = (configState.views?.defaultView || configState.defaultView || availableViewsArr[0] || 'list') === view.key;
 
                   return (
                     <div
@@ -1641,20 +1677,57 @@ export default function ModuleConfigEditor({
                           <div style={{ fontWeight: '700', fontSize: '12px', color: isEnabled ? '#0f172a' : '#94a3b8' }}>
                             {view.label}
                           </div>
-                          {isDefault && <Badge variant="success">Default View</Badge>}
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>{view.desc}</div>
+                          {isDefault && <Badge variant="success" style={{ marginTop: '2px' }}>Default View</Badge>}
                         </div>
                       </div>
 
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         {isEnabled && !isDefault && (
-                          <Button variant="outline" size="sm" onClick={() => handleSetDefaultView(view.key)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setConfigState(prev => ({
+                                ...prev,
+                                views: {
+                                  ...(prev.views || {}),
+                                  defaultView: view.key
+                                }
+                              }));
+                              showToast(`Set default view to "${view.label}"`, 'info');
+                            }}
+                          >
                             Set Default
                           </Button>
                         )}
                         <Button
                           variant={isEnabled ? 'secondary' : 'outline'}
                           size="sm"
-                          onClick={() => handleToggleViewMode(view.key)}
+                          disabled={isDefault}
+                          onClick={() => {
+                            let nextViews = [...availableViewsArr];
+                            if (isEnabled) {
+                              nextViews = nextViews.filter(k => k !== view.key);
+                            } else {
+                              nextViews.push(view.key);
+                            }
+                            const viewMap = { ...(configState.views || {}) };
+                            nextViews.forEach(k => { viewMap[k] = true; });
+                            Object.keys(viewMap).forEach(k => {
+                              if (!nextViews.includes(k) && k !== 'defaultView' && k !== 'availableViews') {
+                                viewMap[k] = false;
+                              }
+                            });
+                            setConfigState(prev => ({
+                              ...prev,
+                              views: {
+                                ...viewMap,
+                                availableViews: nextViews,
+                                defaultView: nextViews.includes(prev.views?.defaultView) ? prev.views?.defaultView : (nextViews[0] || 'list')
+                              }
+                            }));
+                          }}
                         >
                           {isEnabled ? 'Enabled' : 'Disabled'}
                         </Button>

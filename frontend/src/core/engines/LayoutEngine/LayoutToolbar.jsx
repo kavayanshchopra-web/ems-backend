@@ -42,7 +42,16 @@ export default function LayoutToolbar({
   const [showFilterPopover, setShowFilterPopover] = useState(false);
   const [showSortPopover, setShowSortPopover] = useState(false);
 
-  const availableViews = moduleConfig.views?.availableViews || ['kanban', 'list'];
+  let availableViews = [];
+  if (Array.isArray(moduleConfig.views?.availableViews) && moduleConfig.views.availableViews.length > 0) {
+    availableViews = moduleConfig.views.availableViews;
+  } else if (Array.isArray(moduleConfig.availableViews) && moduleConfig.availableViews.length > 0) {
+    availableViews = moduleConfig.availableViews;
+  } else if (moduleConfig.views && typeof moduleConfig.views === 'object') {
+    availableViews = Object.keys(moduleConfig.views).filter(k => moduleConfig.views[k] === true);
+  }
+  if (availableViews.length === 0) availableViews = ['list'];
+
   const isFilterActive = FilterEngine.isFilterActive(filterValues) || Boolean(searchQuery.trim());
 
   return (

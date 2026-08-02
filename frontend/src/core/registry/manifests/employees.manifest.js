@@ -72,8 +72,16 @@ export const EMPLOYEES_MANIFEST = {
   ],
 
   defaultViews: {
-    availableViews: ['list', 'kanban'],
-    defaultView: 'list'
+    availableViews: ['list'],
+    defaultView: 'list',
+    list: true,
+    kanban: false,
+    calendar: false,
+    timeline: false,
+    gallery: false,
+    tree: false,
+    gantt: false,
+    map: false
   },
 
   defaultLookupData: {

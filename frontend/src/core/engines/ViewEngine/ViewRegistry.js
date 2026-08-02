@@ -3,7 +3,7 @@
  * Registry for Supported View Modes & Custom View Extensions
  */
 
-import { LayoutGrid, List, Calendar, Clock, Grid } from 'lucide-react';
+import { LayoutGrid, List, Calendar, Clock, Image, GitFork, BarChartHorizontal, MapPin } from 'lucide-react';
 
 class ViewRegistry {
   constructor() {
@@ -12,39 +12,60 @@ class ViewRegistry {
   }
 
   _initDefaultViews() {
-    this.registerView('kanban', {
-      key: 'kanban',
-      label: 'Kanban',
-      icon: LayoutGrid,
-      order: 1
-    });
-
     this.registerView('list', {
       key: 'list',
       label: 'List',
       icon: List,
-      order: 2
+      order: 1
     });
 
-    this.registerView('grid', {
-      key: 'grid',
-      label: 'Grid Cards',
-      icon: Grid,
-      order: 3
+    this.registerView('kanban', {
+      key: 'kanban',
+      label: 'Kanban',
+      icon: LayoutGrid,
+      order: 2
     });
 
     this.registerView('calendar', {
       key: 'calendar',
       label: 'Calendar',
       icon: Calendar,
-      order: 4
+      order: 3
     });
 
     this.registerView('timeline', {
       key: 'timeline',
       label: 'Timeline',
       icon: Clock,
+      order: 4
+    });
+
+    this.registerView('gallery', {
+      key: 'gallery',
+      label: 'Gallery',
+      icon: Image,
       order: 5
+    });
+
+    this.registerView('tree', {
+      key: 'tree',
+      label: 'Tree / Org',
+      icon: GitFork,
+      order: 6
+    });
+
+    this.registerView('gantt', {
+      key: 'gantt',
+      label: 'Gantt',
+      icon: BarChartHorizontal,
+      order: 7
+    });
+
+    this.registerView('map', {
+      key: 'map',
+      label: 'Map',
+      icon: MapPin,
+      order: 8
     });
   }
 
