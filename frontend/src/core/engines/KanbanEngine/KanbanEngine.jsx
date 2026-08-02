@@ -1,7 +1,6 @@
 /**
  * UNIVERSAL KANBAN ENGINE COMPONENT
- * Trello / Jira / ClickUp Style Pure CSS Layout
- * Fixed 350px Non-Shrinking Columns, Independent Vertical Column Scrolling & Native Horizontal Scroll
+ * Fixed 360px Non-Shrinking Stage Columns with Full Horizontal Scrollability across ALL Stages
  */
 
 import React from 'react';
@@ -56,7 +55,7 @@ export default function KanbanEngine({
   });
 
   return (
-    <div className="kanban-engine-outer-wrapper" style={{ width: '100%', overflow: 'hidden' }}>
+    <div className="kanban-engine-outer-wrapper" style={{ width: '100%', overflow: 'visible' }}>
       <style>{`
         .kanban-scroll-container::-webkit-scrollbar {
           height: 10px !important;
@@ -81,7 +80,8 @@ export default function KanbanEngine({
           overflowX: 'auto',
           overflowY: 'hidden',
           WebkitOverflowScrolling: 'touch',
-          paddingBottom: '14px'
+          paddingBottom: '16px',
+          boxSizing: 'border-box'
         }}
       >
         <div
@@ -91,6 +91,7 @@ export default function KanbanEngine({
             gap: '16px',
             alignItems: 'flex-start',
             width: 'max-content',
+            paddingRight: '32px',
             paddingBottom: '4px'
           }}
         >
@@ -98,9 +99,9 @@ export default function KanbanEngine({
             <div
               key={col.id}
               style={{
-                width: '350px',
-                minWidth: '350px',
-                maxWidth: '350px',
+                width: '360px',
+                minWidth: '360px',
+                maxWidth: '360px',
                 flexShrink: 0,
                 flexGrow: 0
               }}

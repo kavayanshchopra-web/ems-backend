@@ -1,6 +1,6 @@
 /**
- * ENTERPRISE CRM KANBAN CARD COMPONENT
- * HubSpot/Jira Style Drag-and-Drop Card with Rich Metadata & Hover Elevation
+ * COMPACT ENTERPRISE CRM KANBAN CARD COMPONENT
+ * Jira / Trello / ClickUp Quality High-Density Compact Card
  */
 
 import React, { useState } from 'react';
@@ -25,13 +25,13 @@ const getValString = (val, fallback = '') => {
 };
 
 const formatDate = (isoStr) => {
-  if (!isoStr) return '01 Aug 2026';
+  if (!isoStr) return '02 Aug 2026';
   try {
     const d = new Date(isoStr);
-    if (isNaN(d.getTime())) return '01 Aug 2026';
+    if (isNaN(d.getTime())) return '02 Aug 2026';
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   } catch (e) {
-    return '01 Aug 2026';
+    return '02 Aug 2026';
   }
 };
 
@@ -71,117 +71,124 @@ export default function KanbanCard({
       onMouseLeave={() => setIsHovered(false)}
       style={{
         background: '#ffffff',
-        padding: '16px',
-        borderRadius: '12px',
+        padding: '12px',
+        borderRadius: '10px',
         border: isHovered ? '1px solid #0d9488' : '1px solid #e2e8f0',
         boxShadow: isHovered
-          ? '0 10px 15px -3px rgba(13, 148, 136, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
-          : '0 1px 3px 0 rgba(0, 0, 0, 0.05)',
-        transform: isHovered ? 'translateY(-2px)' : 'none',
-        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+          ? '0 6px 12px -2px rgba(13, 148, 136, 0.12), 0 2px 4px -1px rgba(0, 0, 0, 0.04)'
+          : '0 1px 2px 0 rgba(0, 0, 0, 0.04)',
+        transform: isHovered ? 'translateY(-1.5px)' : 'none',
+        transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
         opacity: isDragging ? 0.4 : 1,
         cursor: canManage ? 'grab' : 'default',
         userSelect: 'none',
         display: 'flex',
         flexDirection: 'column',
-        gap: '10px'
+        gap: '6px',
+        width: '100%',
+        boxSizing: 'border-box'
       }}
     >
-      {/* 1. CARD TOP BAR: CANDIDATE ID + ACTIONS */}
+      {/* 1. TOP BAR: CANDIDATE ID + ACTION ICONS */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span
+          title={`Candidate ID: ${displayId}`}
           style={{
             fontSize: '10px',
             fontWeight: '800',
-            padding: '3px 8px',
-            borderRadius: '6px',
+            padding: '2px 6px',
+            borderRadius: '5px',
             background: 'rgba(13, 148, 136, 0.1)',
             color: '#0d9488',
             fontFamily: 'monospace',
-            letterSpacing: '0.04em'
+            letterSpacing: '0.03em'
           }}
         >
           {displayId}
         </span>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
           <button
             type="button"
             title={`View ${LabelEngine.getEntityName(moduleConfig)} Profile`}
             onClick={(e) => { e.stopPropagation(); onViewRecord(record); }}
-            style={{ padding: '4px', borderRadius: '6px', border: 'none', background: '#f1f5f9', color: '#0d9488', cursor: 'pointer' }}
+            style={{ width: '28px', height: '28px', borderRadius: '5px', border: 'none', background: '#f1f5f9', color: '#0d9488', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            <Eye size={14} />
+            <Eye size={13} />
           </button>
           <button
             type="button"
             title="Edit Candidate"
             onClick={(e) => { e.stopPropagation(); onEditRecord(record); }}
-            style={{ padding: '4px', borderRadius: '6px', border: 'none', background: '#f1f5f9', color: '#334155', cursor: 'pointer' }}
+            style={{ width: '28px', height: '28px', borderRadius: '5px', border: 'none', background: '#f1f5f9', color: '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            <Edit2 size={14} />
+            <Edit2 size={13} />
           </button>
           <button
             type="button"
             title="Archive Candidate"
             onClick={(e) => { e.stopPropagation(); onArchiveRecord(record); }}
-            style={{ padding: '4px', borderRadius: '6px', border: 'none', background: '#f1f5f9', color: '#64748b', cursor: 'pointer' }}
+            style={{ width: '28px', height: '28px', borderRadius: '5px', border: 'none', background: '#f1f5f9', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            <Archive size={14} />
+            <Archive size={13} />
           </button>
         </div>
       </div>
 
-      {/* 2. CANDIDATE NAME & POSITION HEADER */}
+      {/* 2. CANDIDATE NAME & POSITION */}
       <div>
         <div
+          title={cardName}
           onClick={() => onViewRecord(record)}
-          style={{ fontWeight: '800', color: '#0f172a', fontSize: '14px', lineHeight: 1.3, wordBreak: 'break-word', cursor: 'pointer' }}
+          style={{ fontWeight: '800', color: '#0f172a', fontSize: '13px', lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}
         >
           {cardName}
         </div>
         {cardSubtitle && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0d9488', fontSize: '12px', fontWeight: '700', marginTop: '4px' }}>
-            <Briefcase size={12} style={{ flexShrink: 0 }} />
-            <span>{cardSubtitle}</span>
+          <div
+            title={cardSubtitle}
+            style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0d9488', fontSize: '11px', fontWeight: '700', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+          >
+            <Briefcase size={11} style={{ flexShrink: 0 }} />
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cardSubtitle}</span>
           </div>
         )}
       </div>
 
-      {/* 3. CONTACT DETAILS STRIP (EMAIL & PHONE) */}
-      <div style={{ padding: '8px 10px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #f1f5f9', fontSize: '11px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
-          <Mail size={12} style={{ color: '#0d9488', flexShrink: 0 }} />
+      {/* 3. COMPACT CONTACT BOX (EMAIL + PHONE) */}
+      <div style={{ padding: '6px 8px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #f1f5f9', fontSize: '11px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+        <div title={cardEmail} style={{ display: 'flex', alignItems: 'center', gap: '5px', overflow: 'hidden' }}>
+          <Mail size={11} style={{ color: '#0d9488', flexShrink: 0 }} />
           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: '600' }}>{cardEmail}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Phone size={12} style={{ color: '#0d9488', flexShrink: 0 }} />
+        <div title={cardPhone} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <Phone size={11} style={{ color: '#0d9488', flexShrink: 0 }} />
           <span style={{ fontWeight: '600' }}>{cardPhone}</span>
         </div>
       </div>
 
-      {/* 4. ATTACHMENT & CREATED DATE STRIP */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '11px' }}>
+      {/* 4. RESUME & DATE ON SAME ROW */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', fontSize: '10px' }}>
         {cardFile && (
-          <Badge variant="info" style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px' }}>
-            <FileText size={10} />
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '110px' }}>{cardFile}</span>
+          <Badge variant="info" style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px', padding: '2px 6px', maxWidth: '140px' }}>
+            <FileText size={9} style={{ flexShrink: 0 }} />
+            <span title={cardFile} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cardFile}</span>
           </Badge>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#64748b', fontSize: '10px', fontWeight: '700', marginLeft: 'auto' }}>
-          <Calendar size={11} />
+        <div title={`Applied: ${createdDateStr}`} style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#64748b', fontWeight: '700', marginLeft: 'auto', flexShrink: 0 }}>
+          <Calendar size={10} />
           <span>{createdDateStr}</span>
         </div>
       </div>
 
-      {/* 5. FOOTER STAGE SELECTOR DROPDOWN */}
+      {/* 5. PIPELINE STAGE ON ONE LINE */}
       {canManage && (
-        <div style={{ paddingTop: '8px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Pipeline Stage:</span>
+        <div style={{ paddingTop: '6px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+          <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', flexShrink: 0 }}>Stage:</span>
           <select
             value={currentStage}
             onChange={(e) => onMoveStage(record.id, e.target.value)}
-            style={{ fontSize: '11px', fontWeight: '700', padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
+            style={{ fontSize: '10px', fontWeight: '700', padding: '3px 6px', borderRadius: '5px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer', maxWidth: '180px' }}
           >
             {activePipelineStages.map(s => (
               <option key={s.id || s.name} value={getValString(s.name)}>

@@ -1,6 +1,6 @@
 /**
  * UNIVERSAL KANBAN COLUMN COMPONENT
- * Renders a 340px pipeline stage column with sticky header and smooth vertical scrollbar
+ * Renders a 360px pipeline stage column with sticky header, independent vertical scroll & centered empty state
  */
 
 import React, { useState } from 'react';
@@ -114,14 +114,14 @@ export default function KanbanColumn({
         </span>
       </div>
 
-      {/* CARDS LIST CONTAINER WITH SMOOTH VERTICAL SCROLLBAR */}
+      {/* CARDS LIST CONTAINER WITH INDEPENDENT VERTICAL SCROLLBAR */}
       <div
         className="kanban-column-cards-scroll"
         style={{
-          padding: '14px',
+          padding: '12px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '12px',
+          gap: '10px',
           flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
@@ -131,7 +131,7 @@ export default function KanbanColumn({
         }}
       >
         {records.length === 0 ? (
-          <div style={{ padding: '32px 16px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+          <div style={{ padding: '32px 16px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
             <EmptyState
               icon="📥"
               title="No candidates"
