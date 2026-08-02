@@ -59,8 +59,33 @@ export default function ListEngine({
   const [pageSize, setPageSize] = useState(25);
 
   const fieldsMap = new Map((moduleConfig.fields || []).map(f => [f.id, f]));
-  const visibleCols = (moduleConfig.columns || [])
-    .filter(col => col.visible !== false)
+  
+  const activeFields = (moduleConfig.fields || []).filter(f => !f.archived && !f.deleted && f.showOnList !== false);
+  let colsList = [...(moduleConfig.columns || [])];
+  
+  // Synthesize missing columns for active custom fields
+  activeFields.forEach(f => {
+    if (!colsList.some(c => c.id === f.id || c.fieldKey === f.id || c.fieldKey === f.key)) {
+      colsList.push({
+        id: f.id,
+        fieldKey: f.key || f.id,
+        label: f.label,
+        visible: true,
+        width: '160px',
+        align: 'left',
+        sortable: true,
+        sortOrder: f.sortOrder || 99
+      });
+    }
+  });
+
+  const visibleCols = colsList
+    .filter(col => {
+      if (col.visible === false) return false;
+      const f = fieldsMap.get(col.fieldKey) || fieldsMap.get(col.id);
+      if (f && (f.showOnList === false || f.archived || f.deleted)) return false;
+      return true;
+    })
     .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
   const totalPages = Math.ceil(records.length / pageSize) || 1;
@@ -170,7 +195,7 @@ export default function ListEngine({
                   const alignStyle = col.align ? { textAlign: col.align } : {};
                   return (
                     <th key={col.id} style={{ padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', background: '#f8fafc', ...widthStyle, ...alignStyle }}>
-                      {col.label}
+                      {fieldsMap.get(col.fieldKey)?.label || fieldsMap.get(col.id)?.label || col.label}
                     </th>
                   );
                 })}

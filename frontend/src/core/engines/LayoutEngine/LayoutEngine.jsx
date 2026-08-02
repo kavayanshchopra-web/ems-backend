@@ -49,8 +49,8 @@ export default function LayoutEngine({
   // Search, Filter & Sort state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterValues, setFilterValues] = useState({});
-  const [sortKey, setSortKey] = useState('createdAt');
-  const [sortDir, setSortDir] = useState('desc');
+  const [sortKey, setSortKey] = useState(() => moduleConfig.defaultSort?.key || 'createdAt');
+  const [sortDir, setSortDir] = useState(() => moduleConfig.defaultSort?.dir || 'desc');
 
   // Modal / Drawer Action States
   const [showAddModal, setShowAddModal] = useState(false);

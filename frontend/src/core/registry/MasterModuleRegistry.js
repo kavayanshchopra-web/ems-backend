@@ -111,6 +111,7 @@ class MasterModuleRegistry {
       columns,
       views,
       kanbanFields,
+      idConfig: storedConfig.idConfig || { prefix: 'ATS', pattern: 'ATS-001', nextSeq: 1 },
       stages: manifest.defaultStages || []
     };
   }

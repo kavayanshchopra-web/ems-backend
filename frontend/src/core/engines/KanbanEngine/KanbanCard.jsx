@@ -56,8 +56,8 @@ export default function KanbanCard({
 
   const cardName = getValString(record.name || record.title, LabelEngine.getEntityName(moduleConfig));
   const cardSubtitle = getValString(record.position || record.appliedFor || record.department, 'Sales Representative');
-  const cardEmail = getValString(record.email, 'kavayanshchopra@gmail.com');
-  const cardPhone = getValString(record.phone, '8566883642');
+  const cardEmail = getValString(record.email, '');
+  const cardPhone = getValString(record.phone, '');
   const cardFile = getValString(record.resume || record.attachment, '');
   const createdDateStr = formatDate(record.createdAt || record.appliedDate);
   const currentStage = getValString(record.status || record.stage, 'Applied');

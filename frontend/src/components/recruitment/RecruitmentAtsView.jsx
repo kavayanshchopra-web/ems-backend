@@ -45,10 +45,6 @@ export default function RecruitmentAtsView({
       baseList = atsCandidates;
     }
     return baseList.map((c, idx) => ({
-      position: c.position || 'Sales Representative',
-      email: c.email || 'kavayanshchopra@gmail.com',
-      phone: c.phone || '8566883642',
-      resume: c.resume || 'Resume.pdf',
       ...c,
       id: formatCandidateId(c.id, idx, config)
     }));
