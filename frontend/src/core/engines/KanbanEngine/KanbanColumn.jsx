@@ -1,6 +1,7 @@
 /**
  * UNIVERSAL KANBAN COLUMN COMPONENT
- * Renders a 360px pipeline stage column with sticky header, independent vertical scroll & centered empty state
+ * Independent Vertical Card Scrolling with Event Propagation Guard
+ * Hovering Cards = Vertical Scroll (Up/Down) | Hovering Board Background = Horizontal Scroll (Left/Right)
  */
 
 import React, { useState } from 'react';
@@ -114,9 +115,10 @@ export default function KanbanColumn({
         </span>
       </div>
 
-      {/* CARDS LIST CONTAINER WITH INDEPENDENT VERTICAL SCROLLBAR */}
+      {/* CARDS LIST CONTAINER WITH INDEPENDENT VERTICAL SCROLLBAR & WHEEL PROPAGATION GUARD */}
       <div
         className="kanban-column-cards-scroll"
+        onWheel={(e) => e.stopPropagation()}
         style={{
           padding: '12px',
           display: 'flex',
