@@ -714,10 +714,27 @@ export default function ModuleConfigEditor({
                                     style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%' }}
                                   />
                                 </div>
-                                {(field.type === 'dropdown' || field.type === 'radio' || field.type === 'multiselect' || field.type === 'status' || field.type === 'tag') && (
+                                {/* TYPE-SPECIFIC DYNAMIC CONFIGURATION PANELS */}
+
+                                {/* A. DROPDOWN / SELECT / RADIO / CHECKBOX / STATUS / TAG */}
+                                {(field.type === 'dropdown' || field.type === 'radio' || field.type === 'multiselect' || field.type === 'status' || field.type === 'tag' || field.type === 'checkbox') && (
                                   <>
                                     <div style={{ gridColumn: 'span 2' }}>
-                                      <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>LOOKUP DATASET BINDING</label>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                                        <label style={{ fontSize: '10px', fontWeight: '800', color: '#475569' }}>LOOKUP DATASET BINDING</label>
+                                        {field.optionsSource && field.optionsSource !== 'manual' && (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setSelectedLookupDataset(field.optionsSource);
+                                              setActiveNav('lookup_data');
+                                            }}
+                                            style={{ fontSize: '10px', fontWeight: '800', color: '#0d9488', border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
+                                          >
+                                            [ Manage Dataset ]
+                                          </button>
+                                        )}
+                                      </div>
                                       <select
                                         value={field.optionsSource || field.key || field.id || 'manual'}
                                         onChange={(e) => {
@@ -738,17 +755,127 @@ export default function ModuleConfigEditor({
                                         ))}
                                       </select>
                                     </div>
-                                    <div style={{ gridColumn: 'span 2' }}>
-                                      <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>CUSTOM OPTIONS (IF MANUAL)</label>
+                                    {(!field.optionsSource || field.optionsSource === 'manual') && (
+                                      <div style={{ gridColumn: 'span 2' }}>
+                                        <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>CUSTOM OPTIONS (IF MANUAL)</label>
+                                        <input
+                                          type="text"
+                                          value={Array.isArray(field.options) ? field.options.join(', ') : (field.manualOptions || []).join(', ')}
+                                          onChange={(e) => {
+                                            const opts = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                                            handleFieldPropertyChange(field.id, 'options', opts);
+                                            handleFieldPropertyChange(field.id, 'manualOptions', opts);
+                                          }}
+                                          placeholder="e.g. Option 1, Option 2, Option 3"
+                                          style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%' }}
+                                        />
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+
+                                {/* B. NUMBER CONFIG */}
+                                {field.type === 'number' && (
+                                  <div>
+                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>ALLOW DECIMAL</label>
+                                    <select
+                                      value={field.allowDecimal ? 'yes' : 'no'}
+                                      onChange={(e) => handleFieldPropertyChange(field.id, 'allowDecimal', e.target.value === 'yes')}
+                                      style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%', background: 'white' }}
+                                    >
+                                      <option value="no">Integer Only</option>
+                                      <option value="yes">Allow Decimal</option>
+                                    </select>
+                                  </div>
+                                )}
+
+                                {/* C. CURRENCY CONFIG */}
+                                {field.type === 'currency' && (
+                                  <>
+                                    <div>
+                                      <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>CURRENCY CODE</label>
                                       <input
                                         type="text"
-                                        value={Array.isArray(field.options) ? field.options.join(', ') : (field.manualOptions || []).join(', ')}
-                                        onChange={(e) => {
-                                          const opts = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                                          handleFieldPropertyChange(field.id, 'options', opts);
-                                          handleFieldPropertyChange(field.id, 'manualOptions', opts);
-                                        }}
-                                        placeholder="e.g. Option 1, Option 2, Option 3"
+                                        value={field.currencyCode || '$'}
+                                        onChange={(e) => handleFieldPropertyChange(field.id, 'currencyCode', e.target.value)}
+                                        placeholder="e.g. $, ₹, €"
+                                        style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%' }}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>DECIMAL PLACES</label>
+                                      <input
+                                        type="number"
+                                        value={field.decimalPlaces !== undefined ? field.decimalPlaces : 2}
+                                        onChange={(e) => handleFieldPropertyChange(field.id, 'decimalPlaces', Number(e.target.value))}
+                                        style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%' }}
+                                      />
+                                    </div>
+                                  </>
+                                )}
+
+                                {/* D. PHONE CONFIG */}
+                                {field.type === 'phone' && (
+                                  <>
+                                    <div>
+                                      <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>COUNTRY CODE</label>
+                                      <input
+                                        type="text"
+                                        value={field.countryCode || '+1'}
+                                        onChange={(e) => handleFieldPropertyChange(field.id, 'countryCode', e.target.value)}
+                                        placeholder="e.g. +1 or +91"
+                                        style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%' }}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>FORMAT PATTERN</label>
+                                      <input
+                                        type="text"
+                                        value={field.phoneFormat || '(###) ###-####'}
+                                        onChange={(e) => handleFieldPropertyChange(field.id, 'phoneFormat', e.target.value)}
+                                        placeholder="e.g. (###) ###-####"
+                                        style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%' }}
+                                      />
+                                    </div>
+                                  </>
+                                )}
+
+                                {/* E. DATE CONFIG */}
+                                {field.type === 'date' && (
+                                  <div>
+                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>DATE FORMAT</label>
+                                    <select
+                                      value={field.dateFormat || 'YYYY-MM-DD'}
+                                      onChange={(e) => handleFieldPropertyChange(field.id, 'dateFormat', e.target.value)}
+                                      style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%', background: 'white' }}
+                                    >
+                                      <option value="YYYY-MM-DD">YYYY-MM-DD (ISO)</option>
+                                      <option value="DD/MM/YYYY">DD/MM/YYYY (UK/IN)</option>
+                                      <option value="MM/DD/YYYY">MM/DD/YYYY (US)</option>
+                                      <option value="DD MMM YYYY">DD MMM YYYY</option>
+                                    </select>
+                                  </div>
+                                )}
+
+                                {/* F. FILE CONFIG */}
+                                {field.type === 'file' && (
+                                  <>
+                                    <div>
+                                      <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>ALLOWED TYPES</label>
+                                      <input
+                                        type="text"
+                                        value={field.allowedTypes || '.pdf,.doc,.png'}
+                                        onChange={(e) => handleFieldPropertyChange(field.id, 'allowedTypes', e.target.value)}
+                                        placeholder="e.g. .pdf,.doc"
+                                        style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%' }}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>MAX SIZE (MB)</label>
+                                      <input
+                                        type="number"
+                                        value={field.maxSizeMb || 10}
+                                        onChange={(e) => handleFieldPropertyChange(field.id, 'maxSizeMb', Number(e.target.value))}
                                         style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%' }}
                                       />
                                     </div>
