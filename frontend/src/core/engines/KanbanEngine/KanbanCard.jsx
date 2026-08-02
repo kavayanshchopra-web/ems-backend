@@ -1,6 +1,6 @@
 /**
  * COMPACT ENTERPRISE CRM KANBAN CARD COMPONENT
- * Jira / Trello / ClickUp Quality High-Density Compact Card
+ * Renders Core Metadata + Dynamic Custom Fields (like "test") Added from Module Configuration
  */
 
 import React, { useState } from 'react';
@@ -56,6 +56,13 @@ export default function KanbanCard({
   const createdDateStr = formatDate(record.createdAt || record.appliedDate);
   const currentStage = getValString(record.status || record.stage, 'Applied');
   const displayId = formatCandidateId(record.id, 0, moduleConfig);
+
+  // Filter dynamic custom fields (e.g., custom_123456 / "test") added via Module Configuration
+  const customFields = (moduleConfig.fields || []).filter(f =>
+    !f.systemField &&
+    !['name', 'position', 'email', 'phone', 'resume', 'createdAt', 'status', 'stage'].includes(f.id) &&
+    f.showOnView !== false
+  );
 
   return (
     <div
@@ -167,7 +174,23 @@ export default function KanbanCard({
         </div>
       </div>
 
-      {/* 4. RESUME & DATE ON SAME ROW */}
+      {/* 4. DYNAMIC CUSTOM FIELDS RENDERER (Renders "test" or custom fields added via Module Configuration) */}
+      {customFields.length > 0 && (
+        <div style={{ padding: '4px 6px', background: '#f0fdfa', borderRadius: '5px', border: '1px solid #ccfbf1', fontSize: '10px', color: '#0f766e', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          {customFields.map(f => {
+            const fieldVal = getValString(record[f.id] || record[f.label] || record[f.id.replace(/^custom_/, '')]);
+            if (!fieldVal) return null;
+            return (
+              <div key={f.id} title={`${f.label}: ${fieldVal}`} style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden' }}>
+                <span style={{ fontWeight: '800', color: '#0d9488', flexShrink: 0 }}>{f.label}:</span>
+                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fieldVal}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 5. RESUME & DATE ON SAME ROW */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', fontSize: '10px' }}>
         {cardFile && (
           <Badge variant="info" style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px', padding: '2px 6px', maxWidth: '140px' }}>
@@ -181,7 +204,7 @@ export default function KanbanCard({
         </div>
       </div>
 
-      {/* 5. PIPELINE STAGE ON ONE LINE */}
+      {/* 6. PIPELINE STAGE ON ONE LINE */}
       {canManage && (
         <div style={{ paddingTop: '6px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
           <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', flexShrink: 0 }}>Stage:</span>
