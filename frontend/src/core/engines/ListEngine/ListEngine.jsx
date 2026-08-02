@@ -50,7 +50,9 @@ export default function ListEngine({
   onEditRecord = () => {},
   onArchiveRecord = () => {},
   onMoveStage = () => {},
-  onResetFilters = () => {}
+  onResetFilters = () => {},
+  systemDropdowns = null,
+  activePipelineStages = []
 }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
