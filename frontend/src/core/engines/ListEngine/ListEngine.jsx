@@ -88,8 +88,8 @@ export default function ListEngine({
     <div className="list-engine-container" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <style>{`
         .list-table-scroll::-webkit-scrollbar {
-          width: 6px !important;
-          height: 6px !important;
+          width: 8px !important;
+          height: 8px !important;
           display: block !important;
         }
         .list-table-scroll::-webkit-scrollbar-track {
@@ -99,6 +99,7 @@ export default function ListEngine({
         .list-table-scroll::-webkit-scrollbar-thumb {
           background: #0d9488 !important;
           border-radius: 4px !important;
+          border: 1px solid #064e43 !important;
         }
         .list-table-scroll::-webkit-scrollbar-thumb:hover {
           background: #064e43 !important;
@@ -141,10 +142,12 @@ export default function ListEngine({
             overflowY: 'auto',
             maxHeight: 'calc(100vh - 330px)',
             width: '100%',
-            position: 'relative'
+            position: 'relative',
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#0d9488 #f1f5f9'
           }}
         >
-          <table className="std-table" style={{ width: '100%', borderCollapse: 'collapse', borderSpacing: 0 }}>
+          <table className="std-table" style={{ width: '100%', minWidth: '1080px', borderCollapse: 'collapse', borderSpacing: 0 }}>
             <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
               <tr style={{ background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>
                 <th style={{ padding: '12px 16px', width: '40px', textAlign: 'center', background: '#f8fafc' }}>
