@@ -185,8 +185,9 @@ export default function ListEngine({
                                 </div>
                                 <div style={{ overflow: 'hidden' }}>
                                   <div
+                                    title={recordName}
                                     onClick={() => onViewRecord(record)}
-                                    style={{ fontWeight: '800', color: '#0f172a', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}
+                                    style={{ fontWeight: '800', color: '#0f172a', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', maxWidth: '180px' }}
                                   >
                                     {recordName}
                                   </div>
@@ -197,15 +198,29 @@ export default function ListEngine({
                           );
                         }
 
-                        // Special Contact Details Column Renderer (Email & Phone)
+                        // Special Contact Details Column Renderer (Email & Phone with single-line ellipsis & tooltips)
                         if (col.id === 'contact' || col.id === 'contact_details' || col.fieldKey === 'contact' || col.fieldKey === 'phone') {
                           const emailStr = getValString(record.email);
                           const phoneStr = getValString(record.phone);
                           return (
-                            <td key={col.id} style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0' }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px' }}>
-                                {emailStr && <div style={{ color: '#0f172a', fontWeight: '700' }}>📧 {emailStr}</div>}
-                                {phoneStr && <div style={{ color: '#475569', fontWeight: '600' }}>📞 {phoneStr}</div>}
+                            <td key={col.id} style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0', maxWidth: '240px' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px', maxWidth: '220px', overflow: 'hidden' }}>
+                                {emailStr && (
+                                  <div
+                                    title={`Email: ${emailStr}`}
+                                    style={{ color: '#0f172a', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                  >
+                                    📧 {emailStr}
+                                  </div>
+                                )}
+                                {phoneStr && (
+                                  <div
+                                    title={`Phone: ${phoneStr}`}
+                                    style={{ color: '#475569', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                  >
+                                    📞 {phoneStr}
+                                  </div>
+                                )}
                                 {!emailStr && !phoneStr && <span style={{ color: '#94a3b8' }}>—</span>}
                               </div>
                             </td>
