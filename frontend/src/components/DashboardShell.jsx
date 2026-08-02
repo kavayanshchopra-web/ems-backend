@@ -2621,7 +2621,63 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [adminPlansLoading, setAdminPlansLoading] = useState(false);
 
   // Employee Directory states with default rich team records
-  const [employees, setEmployees] = useState([]);
+  const [employees, setEmployees] = useState(() => {
+    const saved = localStorage.getItem('omnilflow_fallback_employees');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    const defaultRoster = [
+      {
+        id: 'emp_001',
+        first_name: 'Kavayansh',
+        last_name: 'Chopra',
+        email: 'kavayanshchopra@gmail.com',
+        phone: '8566883642',
+        role: 'employee',
+        department: 'Software Engineering',
+        salary: '85000',
+        status: 'active'
+      },
+      {
+        id: 'emp_002',
+        first_name: 'Rahul',
+        last_name: 'Sharma',
+        email: 'rahul.sharma@company.com',
+        phone: '+91 9876543210',
+        role: 'manager',
+        department: 'Sales',
+        salary: '65000',
+        status: 'active'
+      },
+      {
+        id: 'emp_003',
+        first_name: 'Priya',
+        last_name: 'Verma',
+        email: 'priya.v@company.com',
+        phone: '+91 9812345678',
+        role: 'agent',
+        department: 'Marketing',
+        salary: '45000',
+        status: 'active'
+      },
+      {
+        id: 'emp_004',
+        first_name: 'Amit',
+        last_name: 'Kumar',
+        email: 'amit.k@company.com',
+        phone: '+91 9988776655',
+        role: 'employee',
+        department: 'Operations',
+        salary: '35000',
+        status: 'suspended'
+      }
+    ];
+    try { localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(defaultRoster)); } catch (e) {}
+    return defaultRoster;
+  });
   const [isEmployeesLoading, setIsEmployeesLoading] = useState(false);
   const [employeesError, setEmployeesError] = useState(null);
   const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
@@ -3356,19 +3412,35 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setIsEmployeesLoading(true);
     setEmployeesError(null);
 
+    const saved = localStorage.getItem('omnilflow_fallback_employees');
+    let localList = [];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) localList = parsed;
+      } catch (e) {}
+    }
+
     try {
       const res = await fetch(`${API_URL}/employees`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
-          setEmployees(data);
-          localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(data));
+          setEmployees(prev => {
+            const map = new Map();
+            localList.forEach(e => map.set(String(e.id), e));
+            prev.forEach(e => map.set(String(e.id), e));
+            data.forEach(e => map.set(String(e.id), e));
+            const merged = Array.from(map.values());
+            localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(merged));
+            return merged;
+          });
           setIsEmployeesLoading(false);
           return;
         }
       }
     } catch (err) {
-      console.warn('Backend employee fetch failed, trying local fallback:', err.message);
+      console.warn('Backend employee fetch failed, keeping local state:', err.message);
     }
 
     try {
@@ -3379,8 +3451,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           fbList.push({ id: docDoc.id, ...docDoc.data() });
         });
         if (fbList.length > 0) {
-          setEmployees(fbList);
-          localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(fbList));
+          setEmployees(prev => {
+            const map = new Map();
+            localList.forEach(e => map.set(String(e.id), e));
+            prev.forEach(e => map.set(String(e.id), e));
+            fbList.forEach(e => map.set(String(e.id), e));
+            const merged = Array.from(map.values());
+            localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(merged));
+            return merged;
+          });
           setIsEmployeesLoading(false);
           return;
         }
@@ -3389,9 +3468,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.warn('Firebase firestore query failed, using rest fallback:', fbErr.message);
     }
 
-    const saved = localStorage.getItem('omnilflow_fallback_employees');
-    const list = saved ? JSON.parse(saved) : [];
-    setEmployees(list);
+    if (localList.length > 0) {
+      setEmployees(localList);
+    }
     setIsEmployeesLoading(false);
   };
 
