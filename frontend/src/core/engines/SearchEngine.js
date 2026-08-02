@@ -18,7 +18,7 @@ const getValString = (val, fallback = '') => {
 export class SearchEngine {
   static getSearchableFields(moduleConfig) {
     if (!moduleConfig || !Array.isArray(moduleConfig.fields)) return [];
-    return moduleConfig.fields.filter(f => f.searchable !== false);
+    return moduleConfig.fields.filter(f => f.searchable !== false && !f.archived && !f.deleted);
   }
 
   static search(records = [], searchQuery = '', moduleConfig = {}, options = {}) {

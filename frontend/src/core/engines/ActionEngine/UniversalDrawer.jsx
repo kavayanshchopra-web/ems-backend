@@ -40,7 +40,7 @@ export default function UniversalDrawer({
   const recordSubtitle = getValString(record.position || record.department || record.amount);
   const recordStatus = getValString(record.status || record.stage);
 
-  const viewFields = (moduleConfig.fields || []).filter(f => f.showOnView !== false);
+  const viewFields = (moduleConfig.fields || []).filter(f => !f.archived && !f.deleted && f.showOnView !== false);
 
   return (
     <Modal

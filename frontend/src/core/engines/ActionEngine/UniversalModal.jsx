@@ -23,7 +23,7 @@ export default function UniversalModal({
   allPositions = []
 }) {
   const isCreate = mode === 'create';
-  const targetFields = (moduleConfig.fields || []).filter(f => isCreate ? f.showOnCreate !== false : f.showOnEdit !== false);
+  const targetFields = (moduleConfig.fields || []).filter(f => !f.archived && !f.deleted && (isCreate ? f.showOnCreate !== false : f.showOnEdit !== false));
 
   const [formData, setFormData] = useState({});
   const [formErrors, setFormErrors] = useState({});

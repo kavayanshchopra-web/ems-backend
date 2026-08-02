@@ -174,6 +174,153 @@ export default function ModuleConfigEditor({
     }));
   };
 
+  // Field Category & Usage Helpers
+  const getFieldCategory = (field) => {
+    if (field.category) return field.category.toUpperCase();
+    if (['id', 'companyId', 'createdAt', 'updatedAt'].includes(field.id) || ['id', 'companyId', 'createdAt', 'updatedAt'].includes(field.key)) {
+      return 'SYSTEM';
+    }
+    if (field.systemField) return 'BUSINESS';
+    return 'CUSTOM';
+  };
+
+  const getFieldUsageCount = (fieldKeyOrId) => {
+    if (!atsCandidates || !Array.isArray(atsCandidates)) return 0;
+    return atsCandidates.filter(record => {
+      if (!record) return false;
+      const directVal = record[fieldKeyOrId];
+      if (directVal !== undefined && directVal !== null && String(directVal).trim() !== '') return true;
+      const customVal = record.customFields?.[fieldKeyOrId];
+      if (customVal !== undefined && customVal !== null && String(customVal).trim() !== '') return true;
+      return false;
+    }).length;
+  };
+
+  // Archive & Delete Policy Modal State
+  const [fieldToArchive, setFieldToArchive] = useState(null);
+  const [archiveUsageCount, setArchiveUsageCount] = useState(0);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [showArchivedFields, setShowArchivedFields] = useState(false);
+
+  // Change Impact Analysis State
+  const [pendingImpactChange, setPendingImpactChange] = useState(null);
+  const [showImpactModal, setShowImpactModal] = useState(false);
+
+  // Dataset Import/Export State
+  const [showImportDatasetModal, setShowImportDatasetModal] = useState(false);
+  const [importDatasetText, setImportDatasetText] = useState('');
+
+  const handleInitiateArchiveField = (field) => {
+    const cat = getFieldCategory(field);
+    if (cat === 'SYSTEM') {
+      showToast('System core fields cannot be archived or deleted', 'error');
+      return;
+    }
+    const usage = getFieldUsageCount(field.id);
+    setFieldToArchive(field);
+    setArchiveUsageCount(usage);
+    setShowArchiveModal(true);
+  };
+
+  const handleConfirmArchiveField = () => {
+    if (!fieldToArchive) return;
+    setConfigState(prev => ({
+      ...prev,
+      fields: prev.fields.map(f => f.id === fieldToArchive.id ? { ...f, archived: true } : f)
+    }));
+    showToast(`📦 Archived field "${fieldToArchive.label}". Historical records preserved.`, 'info');
+    setShowArchiveModal(false);
+    setFieldToArchive(null);
+  };
+
+  const handleRestoreField = (fieldId) => {
+    const field = configState.fields.find(f => f.id === fieldId);
+    setConfigState(prev => ({
+      ...prev,
+      fields: prev.fields.map(f => f.id === fieldId ? { ...f, archived: false } : f)
+    }));
+    showToast(`🔄 Restored field "${field?.label || fieldId}" back to active use.`, 'success');
+  };
+
+  const handleInitiateFieldTypeChange = (fieldId, newType) => {
+    const field = configState.fields.find(f => f.id === fieldId);
+    if (!field || field.type === newType) return;
+
+    const cat = getFieldCategory(field);
+    if (cat === 'SYSTEM') {
+      showToast('System field types cannot be modified', 'error');
+      return;
+    }
+
+    setPendingImpactChange({
+      fieldId,
+      fieldLabel: field.label,
+      oldType: field.type,
+      newType
+    });
+    setShowImpactModal(true);
+  };
+
+  const handleConfirmImpactChange = () => {
+    if (!pendingImpactChange) return;
+    const { fieldId, newType } = pendingImpactChange;
+    setConfigState(prev => ({
+      ...prev,
+      fields: prev.fields.map(f => f.id === fieldId ? { ...f, type: newType } : f)
+    }));
+    showToast(`Updated field type for "${pendingImpactChange.fieldLabel}" to ${newType}`, 'success');
+    setShowImpactModal(false);
+    setPendingImpactChange(null);
+  };
+
+  const handleExportLookupDataset = (dsKey) => {
+    const items = configState.lookupData[dsKey] || [];
+    const dataStr = JSON.stringify({ dataset: dsKey, items }, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lookup_dataset_${dsKey}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast(`Exported dataset "${dsKey}"`, 'info');
+  };
+
+  const handleImportLookupItems = () => {
+    if (!selectedLookupDataset || !importDatasetText.trim()) return;
+    let parsedOpts = [];
+    try {
+      if (importDatasetText.trim().startsWith('{') || importDatasetText.trim().startsWith('[')) {
+        const json = JSON.parse(importDatasetText);
+        parsedOpts = Array.isArray(json) ? json : (json.items || []);
+      } else {
+        parsedOpts = importDatasetText.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
+      }
+    } catch (e) {
+      parsedOpts = importDatasetText.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
+    }
+
+    if (parsedOpts.length === 0) {
+      showToast('No valid items found to import', 'error');
+      return;
+    }
+
+    const currentList = configState.lookupData[selectedLookupDataset] || [];
+    const merged = Array.from(new Set([...currentList, ...parsedOpts.map(String)]));
+
+    setConfigState(prev => ({
+      ...prev,
+      lookupData: {
+        ...prev.lookupData,
+        [selectedLookupDataset]: merged
+      }
+    }));
+
+    setImportDatasetText('');
+    setShowImportDatasetModal(false);
+    showToast(`Imported ${parsedOpts.length} items into "${selectedLookupDataset}"`, 'success');
+  };
+
   // Expanded Field Metadata Editing Drawer State
   const [editingFieldId, setEditingFieldId] = useState(null);
 
@@ -528,51 +675,80 @@ export default function ModuleConfigEditor({
           {/* SECTION: FORMS & FIELDS */}
           {activeNav === 'fields' && capabilities.forms && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ fontSize: '11px', color: '#64748b', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                Every row defines one field. Changing metadata here immediately updates Add, Edit, View, List, Search, Filters, and Kanban screens.
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>
+                  Every row defines one field. Fields are classified as <strong>SYSTEM</strong>, <strong>BUSINESS</strong>, or <strong>CUSTOM</strong>. Deleting a field archives it to preserve historical records.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowArchivedFields(!showArchivedFields)}
+                  style={{ fontSize: '11px', fontWeight: '700', color: showArchivedFields ? '#0d9488' : '#64748b', border: 'none', background: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                >
+                  {showArchivedFields ? 'Hide Archived Fields' : `Show Archived (${configState.fields.filter(f => f.archived).length})`}
+                </button>
               </div>
 
               {/* FIELDS SCHEMA TABLE */}
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', maxHeight: '380px', overflowY: 'auto' }}>
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', maxHeight: '420px', overflowY: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                   <thead style={{ background: '#f8fafc', position: 'sticky', top: 0, zIndex: 5 }}>
                     <tr>
-                      <th style={{ padding: '8px 6px', textAlign: 'center', width: '36px' }}>ORD</th>
+                      <th style={{ padding: '8px 6px', textAlign: 'center', width: '30px' }}>ORD</th>
+                      <th style={{ padding: '8px 6px', textAlign: 'center', width: '70px' }}>CAT</th>
                       <th style={{ padding: '8px 8px', textAlign: 'left' }}>LABEL</th>
-                      <th style={{ padding: '8px 8px', textAlign: 'left', width: '110px' }}>TYPE</th>
-                      <th style={{ padding: '8px 4px', textAlign: 'center', width: '36px' }} title="Add Form">ADD</th>
-                      <th style={{ padding: '8px 4px', textAlign: 'center', width: '36px' }} title="Edit Form">EDIT</th>
-                      <th style={{ padding: '8px 4px', textAlign: 'center', width: '36px' }} title="View Drawer">VIEW</th>
-                      <th style={{ padding: '8px 4px', textAlign: 'center', width: '36px' }} title="List Column">LIST</th>
-                      <th style={{ padding: '8px 4px', textAlign: 'center', width: '36px' }} title="Kanban Card">KANBAN</th>
-                      <th style={{ padding: '8px 4px', textAlign: 'center', width: '36px' }} title="Required">REQ</th>
-                      <th style={{ padding: '8px 8px', textAlign: 'right', width: '70px' }}>ACTION</th>
+                      <th style={{ padding: '8px 8px', textAlign: 'left', width: '100px' }}>TYPE</th>
+                      <th style={{ padding: '8px 4px', textAlign: 'center', width: '32px' }} title="Add Form">ADD</th>
+                      <th style={{ padding: '8px 4px', textAlign: 'center', width: '32px' }} title="Edit Form">EDIT</th>
+                      <th style={{ padding: '8px 4px', textAlign: 'center', width: '32px' }} title="View Drawer">VIEW</th>
+                      <th style={{ padding: '8px 4px', textAlign: 'center', width: '32px' }} title="List Column">LIST</th>
+                      <th style={{ padding: '8px 4px', textAlign: 'center', width: '32px' }} title="Kanban Card">KANBAN</th>
+                      <th style={{ padding: '8px 4px', textAlign: 'center', width: '32px' }} title="Required">REQ</th>
+                      <th style={{ padding: '8px 6px', textAlign: 'center', width: '70px' }}>USAGE</th>
+                      <th style={{ padding: '8px 8px', textAlign: 'right', width: '80px' }}>ACTION</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {configState.fields.map((field, idx) => (
+                    {configState.fields.filter(f => showArchivedFields ? true : !f.archived).map((field, idx) => {
+                      const cat = getFieldCategory(field);
+                      const usageCount = getFieldUsageCount(field.id);
+                      const isArchived = !!field.archived;
+
+                      return (
                       <React.Fragment key={field.id}>
-                        <tr style={{ borderBottom: '1px solid #f1f5f9', background: editingFieldId === field.id ? '#f0fdfa' : 'white' }}>
+                        <tr style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#fffbe6' : editingFieldId === field.id ? '#f0fdfa' : 'white', opacity: isArchived ? 0.75 : 1 }}>
                           <td style={{ padding: '6px 4px', textAlign: 'center' }}>
                             <div style={{ display: 'flex', gap: '1px', justifyContent: 'center' }}>
-                              <button type="button" disabled={idx === 0} onClick={() => handleMoveField(idx, 'up')} style={{ border: 'none', background: 'none', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.3 : 1 }}>▲</button>
-                              <button type="button" disabled={idx === configState.fields.length - 1} onClick={() => handleMoveField(idx, 'down')} style={{ border: 'none', background: 'none', cursor: idx === configState.fields.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === configState.fields.length - 1 ? 0.3 : 1 }}>▼</button>
+                              <button type="button" disabled={idx === 0 || isArchived} onClick={() => handleMoveField(idx, 'up')} style={{ border: 'none', background: 'none', cursor: idx === 0 || isArchived ? 'not-allowed' : 'pointer', opacity: idx === 0 || isArchived ? 0.3 : 1 }}>▲</button>
+                              <button type="button" disabled={idx === configState.fields.length - 1 || isArchived} onClick={() => handleMoveField(idx, 'down')} style={{ border: 'none', background: 'none', cursor: idx === configState.fields.length - 1 || isArchived ? 'not-allowed' : 'pointer', opacity: idx === configState.fields.length - 1 || isArchived ? 0.3 : 1 }}>▼</button>
                             </div>
+                          </td>
+                          <td style={{ padding: '6px 4px', textAlign: 'center' }}>
+                            <span style={{
+                              fontSize: '9px',
+                              fontWeight: '800',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              background: cat === 'SYSTEM' ? '#f1f5f9' : cat === 'BUSINESS' ? '#ccfbf1' : '#f3e8ff',
+                              color: cat === 'SYSTEM' ? '#475569' : cat === 'BUSINESS' ? '#0f766e' : '#6b21a8'
+                            }}>
+                              {cat}
+                            </span>
                           </td>
                           <td style={{ padding: '6px 8px' }}>
                             <input
                               type="text"
                               value={field.label}
+                              disabled={cat === 'SYSTEM' || isArchived}
                               onChange={(e) => handleFieldPropertyChange(field.id, 'label', e.target.value)}
-                              style={{ padding: '4px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: '600', width: '100%', outline: 'none' }}
+                              style={{ padding: '4px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: '600', width: '100%', outline: 'none', background: cat === 'SYSTEM' || isArchived ? '#f8fafc' : 'white' }}
                             />
                           </td>
                           <td style={{ padding: '6px 8px' }}>
                             <select
                               value={field.type}
-                              disabled={field.systemField}
-                              onChange={(e) => handleFieldPropertyChange(field.id, 'type', e.target.value)}
-                              style={{ padding: '4px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: '600', width: '100%', outline: 'none', background: 'white' }}
+                              disabled={cat === 'SYSTEM' || isArchived}
+                              onChange={(e) => handleInitiateFieldTypeChange(field.id, e.target.value)}
+                              style={{ padding: '4px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: '600', width: '100%', outline: 'none', background: cat === 'SYSTEM' || isArchived ? '#f8fafc' : 'white' }}
                             >
                               {ALL_FIELD_TYPES.map(t => (
                                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -580,27 +756,27 @@ export default function ModuleConfigEditor({
                             </select>
                           </td>
                           <td style={{ padding: '6px 4px', textAlign: 'center' }}>
-                            <button type="button" onClick={() => handleToggleFieldProp(field.id, 'showOnCreate')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: field.showOnCreate ? '#0d9488' : '#cbd5e1' }}>
+                            <button type="button" disabled={isArchived} onClick={() => handleToggleFieldProp(field.id, 'showOnCreate')} style={{ border: 'none', background: 'none', cursor: isArchived ? 'not-allowed' : 'pointer', color: field.showOnCreate ? '#0d9488' : '#cbd5e1' }}>
                               {field.showOnCreate ? <Eye size={14} /> : <EyeOff size={14} />}
                             </button>
                           </td>
                           <td style={{ padding: '6px 4px', textAlign: 'center' }}>
-                            <button type="button" onClick={() => handleToggleFieldProp(field.id, 'showOnEdit')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: field.showOnEdit ? '#0d9488' : '#cbd5e1' }}>
+                            <button type="button" disabled={isArchived} onClick={() => handleToggleFieldProp(field.id, 'showOnEdit')} style={{ border: 'none', background: 'none', cursor: isArchived ? 'not-allowed' : 'pointer', color: field.showOnEdit ? '#0d9488' : '#cbd5e1' }}>
                               {field.showOnEdit ? <Eye size={14} /> : <EyeOff size={14} />}
                             </button>
                           </td>
                           <td style={{ padding: '6px 4px', textAlign: 'center' }}>
-                            <button type="button" onClick={() => handleToggleFieldProp(field.id, 'showOnView')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: field.showOnView !== false ? '#0d9488' : '#cbd5e1' }}>
+                            <button type="button" disabled={isArchived} onClick={() => handleToggleFieldProp(field.id, 'showOnView')} style={{ border: 'none', background: 'none', cursor: isArchived ? 'not-allowed' : 'pointer', color: field.showOnView !== false ? '#0d9488' : '#cbd5e1' }}>
                               {field.showOnView !== false ? <Eye size={14} /> : <EyeOff size={14} />}
                             </button>
                           </td>
                           <td style={{ padding: '6px 4px', textAlign: 'center' }}>
-                            <button type="button" onClick={() => handleToggleFieldProp(field.id, 'showOnList')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: field.showOnList !== false ? '#0d9488' : '#cbd5e1' }}>
+                            <button type="button" disabled={isArchived} onClick={() => handleToggleFieldProp(field.id, 'showOnList')} style={{ border: 'none', background: 'none', cursor: isArchived ? 'not-allowed' : 'pointer', color: field.showOnList !== false ? '#0d9488' : '#cbd5e1' }}>
                               {field.showOnList !== false ? <Eye size={14} /> : <EyeOff size={14} />}
                             </button>
                           </td>
                           <td style={{ padding: '6px 4px', textAlign: 'center' }}>
-                            <button type="button" onClick={() => handleToggleFieldProp(field.id, 'showOnKanban')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: field.showOnKanban !== false ? '#0d9488' : '#cbd5e1' }}>
+                            <button type="button" disabled={isArchived} onClick={() => handleToggleFieldProp(field.id, 'showOnKanban')} style={{ border: 'none', background: 'none', cursor: isArchived ? 'not-allowed' : 'pointer', color: field.showOnKanban !== false ? '#0d9488' : '#cbd5e1' }}>
                               {field.showOnKanban !== false ? <Eye size={14} /> : <EyeOff size={14} />}
                             </button>
                           </td>
@@ -608,27 +784,49 @@ export default function ModuleConfigEditor({
                             <input
                               type="checkbox"
                               checked={!!field.required}
-                              disabled={field.systemField}
+                              disabled={cat === 'SYSTEM' || isArchived}
                               onChange={() => handleToggleFieldProp(field.id, 'required')}
-                              style={{ accentColor: '#0d9488', cursor: field.systemField ? 'not-allowed' : 'pointer' }}
+                              style={{ accentColor: '#0d9488', cursor: cat === 'SYSTEM' || isArchived ? 'not-allowed' : 'pointer' }}
                             />
+                          </td>
+                          <td style={{ padding: '6px 6px', textAlign: 'center' }}>
+                            <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '700' }}>
+                              {usageCount} Recs
+                            </span>
                           </td>
                           <td style={{ padding: '6px 8px', textAlign: 'right' }}>
                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                              <button
-                                type="button"
-                                title="Edit Field Metadata Settings"
-                                onClick={() => setEditingFieldId(editingFieldId === field.id ? null : field.id)}
-                                style={{ border: 'none', background: 'transparent', color: '#0d9488', cursor: 'pointer' }}
-                              >
-                                {editingFieldId === field.id ? <ChevronUp size={14} /> : <Settings size={14} />}
-                              </button>
-                              {!field.systemField ? (
-                                <button type="button" onClick={() => handleDeleteField(field.id)} style={{ border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer' }}>
-                                  <Trash2 size={14} />
-                                </button>
+                              {!isArchived ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    title="Edit Field Metadata Settings"
+                                    onClick={() => setEditingFieldId(editingFieldId === field.id ? null : field.id)}
+                                    style={{ border: 'none', background: 'transparent', color: '#0d9488', cursor: 'pointer' }}
+                                  >
+                                    {editingFieldId === field.id ? <ChevronUp size={14} /> : <Settings size={14} />}
+                                  </button>
+                                  {cat !== 'SYSTEM' ? (
+                                    <button
+                                      type="button"
+                                      title="Archive Field"
+                                      onClick={() => handleInitiateArchiveField(field)}
+                                      style={{ border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer' }}
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  ) : (
+                                    <span style={{ fontSize: '9px', color: '#94a3b8', fontWeight: '800' }}>CORE</span>
+                                  )}
+                                </>
                               ) : (
-                                <span style={{ fontSize: '9px', color: '#94a3b8', fontWeight: '800' }}>CORE</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRestoreField(field.id)}
+                                  style={{ border: 'none', background: '#0d9488', color: 'white', borderRadius: '4px', fontSize: '10px', fontWeight: '700', padding: '2px 6px', cursor: 'pointer' }}
+                                >
+                                  Restore
+                                </button>
                               )}
                             </div>
                           </td>
@@ -886,7 +1084,8 @@ export default function ModuleConfigEditor({
                           </tr>
                         )}
                       </React.Fragment>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1008,15 +1207,31 @@ export default function ModuleConfigEditor({
                       <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
                         Dataset: <span style={{ color: '#0d9488' }}>{selectedLookupDataset.replace(/_/g, ' ').toUpperCase()}</span>
                       </h4>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        icon={<Trash2 size={12} />}
-                        onClick={() => handleDeleteLookupDataset(selectedLookupDataset)}
-                        style={{ color: '#ef4444', borderColor: '#fca5a5' }}
-                      >
-                        Delete Dataset
-                      </Button>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleExportLookupDataset(selectedLookupDataset)}
+                        >
+                          Export
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setShowImportDatasetModal(true)}
+                        >
+                          Import
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          icon={<Trash2 size={12} />}
+                          onClick={() => handleDeleteLookupDataset(selectedLookupDataset)}
+                          style={{ color: '#ef4444', borderColor: '#fca5a5' }}
+                        >
+                          Delete Dataset
+                        </Button>
+                      </div>
                     </div>
 
                     {/* Options Badges */}
@@ -1453,6 +1668,102 @@ export default function ModuleConfigEditor({
 
         </div>
       </div>
+
+      {/* ARCHIVE FIELD POLICY MODAL */}
+      {showArchiveModal && fieldToArchive && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#ffffff', borderRadius: '12px', width: '440px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '20px' }}>{archiveUsageCount > 0 ? '⚠️' : '📦'}</span>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+                {archiveUsageCount > 0 ? `Field Currently In Use (${archiveUsageCount} Records)` : `Archive Field "${fieldToArchive.label}"`}
+              </h3>
+            </div>
+
+            <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: '1.5' }}>
+              {archiveUsageCount > 0
+                ? `This field is currently used by ${archiveUsageCount} record(s). Permanent deletion is disabled to prevent data loss. You can archive this field instead. Archiving removes it from active use while preserving all historical data.`
+                : `This field is currently unused. Would you like to archive it? Archiving removes it from active forms and views while keeping historical metadata intact.`
+              }
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
+              <Button variant="secondary" size="sm" onClick={() => setShowArchiveModal(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm" onClick={handleConfirmArchiveField} style={{ background: '#ef4444', borderColor: '#ef4444', color: 'white' }}>
+                Archive Field
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CHANGE IMPACT ANALYSIS MODAL */}
+      {showImpactModal && pendingImpactChange && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#ffffff', borderRadius: '12px', width: '480px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '20px' }}>⚠️</span>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+                Risk Analysis: Change Field Type
+              </h3>
+            </div>
+
+            <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: '1.5' }}>
+              Modifying <strong>"{pendingImpactChange.fieldLabel}"</strong> from <code>{pendingImpactChange.oldType}</code> to <code>{pendingImpactChange.newType}</code> may affect existing system components:
+            </p>
+
+            <div style={{ background: '#fffbe6', padding: '10px 12px', borderRadius: '8px', border: '1px solid #ffe58f', fontSize: '11px', color: '#78350f', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div>📄 <strong>Existing Records</strong>: Stored values will not be deleted, but formatting may alter.</div>
+              <div>📝 <strong>Forms & Inputs</strong>: Input controls will switch to {pendingImpactChange.newType} inputs.</div>
+              <div>🔍 <strong>Search & Filters</strong>: Filter indexes and quick search matches will re-sync.</div>
+              <div>📊 <strong>Reports & Automations</strong>: Downstream integrations using this key will adapt to the new type.</div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
+              <Button variant="secondary" size="sm" onClick={() => setShowImpactModal(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm" onClick={handleConfirmImpactChange} style={{ background: '#0d9488', color: 'white', border: 'none' }}>
+                Confirm & Apply Change
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* IMPORT DATASET ITEMS MODAL */}
+      {showImportDatasetModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#ffffff', borderRadius: '12px', width: '480px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+              Import Items into "{selectedLookupDataset}"
+            </h3>
+
+            <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
+              Paste comma-separated values, line-separated text, or a JSON array of items:
+            </p>
+
+            <textarea
+              rows={6}
+              value={importDatasetText}
+              onChange={(e) => setImportDatasetText(e.target.value)}
+              placeholder="e.g. Sales, Engineering, Marketing, Finance..."
+              style={{ padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', fontFamily: 'monospace', width: '100%', outline: 'none' }}
+            />
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <Button variant="secondary" size="sm" onClick={() => setShowImportDatasetModal(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm" onClick={handleImportLookupItems} style={{ background: '#0d9488', color: 'white', border: 'none' }}>
+                Import Items
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
