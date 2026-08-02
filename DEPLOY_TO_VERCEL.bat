@@ -8,8 +8,11 @@ echo.
 
 cd /d "%~dp0"
 
-echo [1/3] Building frontend locally to ensure 0 build errors...
+echo [1/3] Cleaning Vite cache and building frontend locally...
 cd /d "%~dp0frontend"
+if exist "dist" rmdir /s /q "dist"
+if exist "node_modules\.vite" rmdir /s /q "node_modules\.vite"
+
 call npm run build
 if %errorlevel% neq 0 (
   color 0C
@@ -27,14 +30,14 @@ echo [2/3] Staging and pushing frontend updates to Git...
 cd /d "%~dp0"
 git add frontend/
 git add DEPLOY_TO_VERCEL.bat
-git commit -m "Update Recruitment ATS UI UX and deployment configuration"
+git commit -m "Update Recruitment ATS Kanban unconditional card details and clear cache"
 git push origin main
 echo Git sync step complete.
 
 echo.
-echo [3/3] Deploying frontend directly to Vercel Live...
+echo [3/3] Deploying frontend directly to Vercel Live (Forced Fresh Build)...
 cd /d "%~dp0frontend"
-call npx vercel --prod --yes
+call npx vercel --prod --yes --force
 if %errorlevel% neq 0 (
   color 0C
   echo.

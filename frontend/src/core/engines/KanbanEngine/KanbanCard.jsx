@@ -1,6 +1,6 @@
 /**
  * UNIVERSAL KANBAN CARD COMPONENT
- * 100% Schema-Driven Card Renderer with Full Visible Details & Candidate ID
+ * 100% Schema-Driven Card Renderer with Full Unconditional Details & Candidate ID
  */
 
 import React from 'react';
@@ -39,7 +39,7 @@ export default function KanbanCard({
   const cardEmail = getValString(record.email, 'kavayanshchopra@gmail.com');
   const cardPhone = getValString(record.phone, '8566883642');
   const cardFile = getValString(record.resume || record.attachment, 'Resume.pdf');
-  const currentStage = getValString(record.status || record.stage);
+  const currentStage = getValString(record.status || record.stage, 'Applied');
   const displayId = formatCandidateId(record.id, 0, moduleConfig);
 
   return (
@@ -55,7 +55,7 @@ export default function KanbanCard({
         overflow: 'hidden'
       }}
     >
-      {/* HEADER: ID BADGE + TITLE + VIEW EYE BUTTON */}
+      {/* 1. HEADER: ID BADGE + TITLE + VIEW EYE BUTTON */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
@@ -69,11 +69,9 @@ export default function KanbanCard({
           >
             {cardName}
           </div>
-          {cardSubtitle && (
-            <div style={{ color: '#0d9488', fontSize: '11px', fontWeight: '700', marginTop: '3px', wordBreak: 'break-word' }}>
-              {cardSubtitle}
-            </div>
-          )}
+          <div style={{ color: '#0d9488', fontSize: '11px', fontWeight: '700', marginTop: '3px', wordBreak: 'break-word' }}>
+            {cardSubtitle}
+          </div>
         </div>
         <button
           type="button"
@@ -85,56 +83,52 @@ export default function KanbanCard({
         </button>
       </div>
 
-      {/* CONTACT INFO (EMAIL & PHONE ALWAYS VISIBLE ON CARD FRONT) */}
+      {/* 2. CONTACT INFO (EMAIL & PHONE UNCONDITIONALLY VISIBLE) */}
       <div style={{ marginTop: '8px', fontSize: '11px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-        {cardEmail && <div>📧 {cardEmail}</div>}
-        {cardPhone && cardPhone !== cardSubtitle && <div>📞 {cardPhone}</div>}
+        <div>📧 {cardEmail}</div>
+        <div>📞 {cardPhone}</div>
       </div>
 
-      {/* ATTACHMENT BADGE */}
-      {cardFile && (
-        <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '100%', overflow: 'hidden' }}>
-          <Badge variant="info" style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            <FileText size={10} style={{ marginRight: '3px', flexShrink: 0 }} />
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cardFile}</span>
-          </Badge>
-        </div>
-      )}
+      {/* 3. ATTACHMENT / RESUME BADGE */}
+      <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '100%', overflow: 'hidden' }}>
+        <Badge variant="info" style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <FileText size={10} style={{ marginRight: '3px', flexShrink: 0 }} />
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cardFile}</span>
+        </Badge>
+      </div>
 
-      {/* FOOTER ACTIONS & STAGE MOVER */}
-      {canManage && (
-        <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-          <select
-            value={currentStage}
-            onChange={(e) => onMoveStage(record.id, e.target.value)}
-            style={{ fontSize: '10px', fontWeight: '700', padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
+      {/* 4. FOOTER ACTIONS & STAGE MOVER DROPDOWN */}
+      <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+        <select
+          value={currentStage}
+          onChange={(e) => onMoveStage(record.id, e.target.value)}
+          style={{ fontSize: '10px', fontWeight: '700', padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
+        >
+          {activePipelineStages.map(s => (
+            <option key={s.id || s.name} value={getValString(s.name)}>
+              Stage: {getValString(s.name)}
+            </option>
+          ))}
+        </select>
+
+        <div style={{ display: 'flex', gap: '4px' }}>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onEditRecord(record); }}
+            style={{ padding: '4px 8px', fontSize: '10px', fontWeight: '700', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#334155', cursor: 'pointer' }}
           >
-            {activePipelineStages.map(s => (
-              <option key={s.id || s.name} value={getValString(s.name)}>
-                Stage: {getValString(s.name)}
-              </option>
-            ))}
-          </select>
-
-          <div style={{ display: 'flex', gap: '4px' }}>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onEditRecord(record); }}
-              style={{ padding: '4px 8px', fontSize: '10px', fontWeight: '700', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#334155', cursor: 'pointer' }}
-            >
-              Edit
-            </button>
-            <button
-              type="button"
-              title="Archive Record"
-              onClick={(e) => { e.stopPropagation(); onArchiveRecord(record); }}
-              style={{ padding: '4px 8px', fontSize: '10px', fontWeight: '700', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}
-            >
-              <Archive size={10} /> Archive
-            </button>
-          </div>
+            Edit
+          </button>
+          <button
+            type="button"
+            title="Archive Record"
+            onClick={(e) => { e.stopPropagation(); onArchiveRecord(record); }}
+            style={{ padding: '4px 8px', fontSize: '10px', fontWeight: '700', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}
+          >
+            <Archive size={10} /> Archive
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
