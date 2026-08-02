@@ -1,7 +1,7 @@
 /**
  * UNIVERSAL KANBAN ENGINE COMPONENT
  * Multi-Input Horizontal Board Scrolling (Mouse Wheel, Trackpad, Scrollbar, Background Drag)
- * Fixed 360px Non-Shrinking Stage Columns with Dynamic Custom Field Display
+ * Fixed 320px Non-Shrinking Stage Columns
  */
 
 import React, { useRef, useState } from 'react';
@@ -146,7 +146,7 @@ export default function KanbanEngine({
           style={{
             display: 'flex',
             flexDirection: 'row',
-            gap: '16px',
+            gap: '14px',
             alignItems: 'flex-start',
             width: 'max-content',
             paddingRight: '40px',
@@ -157,9 +157,9 @@ export default function KanbanEngine({
             <div
               key={col.id}
               style={{
-                width: '360px',
-                minWidth: '360px',
-                maxWidth: '360px',
+                width: '320px',
+                minWidth: '320px',
+                maxWidth: '320px',
                 flexShrink: 0,
                 flexGrow: 0
               }}

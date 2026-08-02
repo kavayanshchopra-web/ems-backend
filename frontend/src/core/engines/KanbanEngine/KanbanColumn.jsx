@@ -1,7 +1,6 @@
 /**
  * UNIVERSAL KANBAN COLUMN COMPONENT
- * Independent Vertical Card Scrolling with Event Propagation Guard
- * Hovering Cards = Vertical Scroll (Up/Down) | Hovering Board Background = Horizontal Scroll (Left/Right)
+ * Renders a 320px pipeline stage column with sticky header, independent vertical scroll & centered empty state
  */
 
 import React, { useState } from 'react';
@@ -51,7 +50,7 @@ export default function KanbanColumn({
         width: '100%',
         boxSizing: 'border-box',
         background: isDragOver ? '#f0fdfa' : '#ffffff',
-        borderRadius: '14px',
+        borderRadius: '12px',
         border: isDragOver ? '2px dashed #0d9488' : '1px solid #e2e8f0',
         boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
         display: 'flex',
@@ -86,7 +85,7 @@ export default function KanbanColumn({
           position: 'sticky',
           top: 0,
           zIndex: 10,
-          padding: '14px 16px',
+          padding: '12px 14px',
           background: isDragOver ? '#ccfbf1' : '#f8fafc',
           borderBottom: '1px solid #e2e8f0',
           display: 'flex',
@@ -105,7 +104,7 @@ export default function KanbanColumn({
           style={{
             fontSize: '11px',
             fontWeight: '800',
-            padding: '3px 10px',
+            padding: '2px 8px',
             borderRadius: '12px',
             background: 'rgba(13, 148, 136, 0.12)',
             color: stage.color || '#0d9488'
@@ -120,10 +119,10 @@ export default function KanbanColumn({
         className="kanban-column-cards-scroll"
         onWheel={(e) => e.stopPropagation()}
         style={{
-          padding: '12px',
+          padding: '10px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '10px',
+          gap: '8px',
           flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',

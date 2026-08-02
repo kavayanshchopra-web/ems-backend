@@ -189,7 +189,7 @@ export default function ListEngine({
                           const emailStr = getValString(record.email);
                           const phoneStr = getValString(record.phone);
                           return (
-                            <td key={col.id} style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>
+                            <td key={col.id} style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0' }}>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px' }}>
                                 {emailStr && <div style={{ color: '#0f172a', fontWeight: '700' }}>📧 {emailStr}</div>}
                                 {phoneStr && <div style={{ color: '#475569', fontWeight: '600' }}>📞 {phoneStr}</div>}
@@ -199,14 +199,28 @@ export default function ListEngine({
                           );
                         }
 
+                        // Special Resume Column Renderer (Shows "No Resume" in muted gray when missing)
+                        if (col.id === 'resume' || col.fieldKey === 'resume') {
+                          const resumeStr = getValString(record.resume || record.attachment);
+                          return (
+                            <td key={col.id} style={{ padding: '10px 14px', fontSize: '12px', borderBottom: '1px solid #e2e8f0' }}>
+                              {resumeStr ? (
+                                <Badge variant="info" style={{ fontSize: '10px' }}>📄 {resumeStr}</Badge>
+                              ) : (
+                                <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '600' }}>No Resume</span>
+                              )}
+                            </td>
+                          );
+                        }
+
                         if (col.id === 'stage' || col.fieldKey === 'status') {
                           return (
-                            <td key={col.id} style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>
+                            <td key={col.id} style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0' }}>
                               {canManage && activePipelineStages.length > 0 ? (
                                 <select
                                   value={recordStatus}
                                   onChange={(e) => onMoveStage(record.id, e.target.value)}
-                                  style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
+                                  style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
                                 >
                                   {activePipelineStages.map(s => (
                                     <option key={s.id || s.name} value={getValString(s.name)}>
@@ -224,7 +238,7 @@ export default function ListEngine({
                         }
 
                         return (
-                          <td key={col.id} style={{ padding: '12px 16px', fontSize: '12px', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>
+                          <td key={col.id} style={{ padding: '10px 14px', fontSize: '12px', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>
                             <SchemaFieldRenderer
                               field={fieldDef || { id: col.fieldKey || col.id, label: col.label, type: 'text' }}
                               value={record[col.fieldKey] || record.customFields?.[col.fieldKey]}

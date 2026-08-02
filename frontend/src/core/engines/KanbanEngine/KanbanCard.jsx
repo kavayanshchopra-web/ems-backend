@@ -1,6 +1,6 @@
 /**
  * COMPACT ENTERPRISE CRM KANBAN CARD COMPONENT
- * Renders Core Metadata + Dynamic Custom Fields (like "test") Added from Module Configuration
+ * 15% Height Reduction, Ellipsis Truncation, Uniform 28px Action Buttons, Formatted Date (01 Aug 2026, 08:20 PM)
  */
 
 import React, { useState } from 'react';
@@ -25,13 +25,15 @@ const getValString = (val, fallback = '') => {
 };
 
 const formatDate = (isoStr) => {
-  if (!isoStr) return '02 Aug 2026';
+  if (!isoStr) return '01 Aug 2026';
   try {
     const d = new Date(isoStr);
-    if (isNaN(d.getTime())) return '02 Aug 2026';
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    if (isNaN(d.getTime())) return '01 Aug 2026';
+    const dayStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return `${dayStr}, ${timeStr}`;
   } catch (e) {
-    return '02 Aug 2026';
+    return '01 Aug 2026';
   }
 };
 
@@ -57,7 +59,7 @@ export default function KanbanCard({
   const currentStage = getValString(record.status || record.stage, 'Applied');
   const displayId = formatCandidateId(record.id, 0, moduleConfig);
 
-  // Filter dynamic custom fields (e.g., custom_123456 / "test") added via Module Configuration
+  // Dynamic Custom Fields Added via Module Configuration (e.g., "test")
   const customFields = (moduleConfig.fields || []).filter(f =>
     !f.systemField &&
     !['name', 'position', 'email', 'phone', 'resume', 'createdAt', 'status', 'stage'].includes(f.id) &&
@@ -78,7 +80,7 @@ export default function KanbanCard({
       onMouseLeave={() => setIsHovered(false)}
       style={{
         background: '#ffffff',
-        padding: '12px',
+        padding: '10px 12px',
         borderRadius: '10px',
         border: isHovered ? '1px solid #0d9488' : '1px solid #e2e8f0',
         boxShadow: isHovered
@@ -91,12 +93,12 @@ export default function KanbanCard({
         userSelect: 'none',
         display: 'flex',
         flexDirection: 'column',
-        gap: '6px',
+        gap: '5px',
         width: '100%',
         boxSizing: 'border-box'
       }}
     >
-      {/* 1. TOP BAR: CANDIDATE ID + ACTION ICONS */}
+      {/* 1. TOP BAR: CANDIDATE ID + UNIFORM 28px ACTION BUTTONS */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span
           title={`Candidate ID: ${displayId}`}
@@ -114,12 +116,12 @@ export default function KanbanCard({
           {displayId}
         </span>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <button
             type="button"
             title={`View ${LabelEngine.getEntityName(moduleConfig)} Profile`}
             onClick={(e) => { e.stopPropagation(); onViewRecord(record); }}
-            style={{ width: '28px', height: '28px', borderRadius: '5px', border: 'none', background: '#f1f5f9', color: '#0d9488', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '5px', border: 'none', background: '#f1f5f9', color: '#0d9488', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
           >
             <Eye size={13} />
           </button>
@@ -127,7 +129,7 @@ export default function KanbanCard({
             type="button"
             title="Edit Candidate"
             onClick={(e) => { e.stopPropagation(); onEditRecord(record); }}
-            style={{ width: '28px', height: '28px', borderRadius: '5px', border: 'none', background: '#f1f5f9', color: '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '5px', border: 'none', background: '#f1f5f9', color: '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
           >
             <Edit2 size={13} />
           </button>
@@ -135,14 +137,14 @@ export default function KanbanCard({
             type="button"
             title="Archive Candidate"
             onClick={(e) => { e.stopPropagation(); onArchiveRecord(record); }}
-            style={{ width: '28px', height: '28px', borderRadius: '5px', border: 'none', background: '#f1f5f9', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '5px', border: 'none', background: '#f1f5f9', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
           >
             <Archive size={13} />
           </button>
         </div>
       </div>
 
-      {/* 2. CANDIDATE NAME & POSITION */}
+      {/* 2. CANDIDATE NAME & POSITION WITH ELLIPSIS & HOVER TOOLTIPS */}
       <div>
         <div
           title={cardName}
@@ -163,7 +165,7 @@ export default function KanbanCard({
       </div>
 
       {/* 3. COMPACT CONTACT BOX (EMAIL + PHONE) */}
-      <div style={{ padding: '6px 8px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #f1f5f9', fontSize: '11px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+      <div style={{ padding: '5px 7px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #f1f5f9', fontSize: '11px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '2px' }}>
         <div title={cardEmail} style={{ display: 'flex', alignItems: 'center', gap: '5px', overflow: 'hidden' }}>
           <Mail size={11} style={{ color: '#0d9488', flexShrink: 0 }} />
           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: '600' }}>{cardEmail}</span>
@@ -174,7 +176,7 @@ export default function KanbanCard({
         </div>
       </div>
 
-      {/* 4. DYNAMIC CUSTOM FIELDS RENDERER (Renders "test" or custom fields added via Module Configuration) */}
+      {/* 4. DYNAMIC CUSTOM FIELDS BADGE (e.g., "test") */}
       {customFields.length > 0 && (
         <div style={{ padding: '4px 6px', background: '#f0fdfa', borderRadius: '5px', border: '1px solid #ccfbf1', fontSize: '10px', color: '#0f766e', display: 'flex', flexDirection: 'column', gap: '2px' }}>
           {customFields.map(f => {
@@ -190,10 +192,10 @@ export default function KanbanCard({
         </div>
       )}
 
-      {/* 5. RESUME & DATE ON SAME ROW */}
+      {/* 5. RESUME & FORMATTED DATE ON SAME ROW */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', fontSize: '10px' }}>
         {cardFile && (
-          <Badge variant="info" style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px', padding: '2px 6px', maxWidth: '140px' }}>
+          <Badge variant="info" style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px', padding: '2px 6px', maxWidth: '120px' }}>
             <FileText size={9} style={{ flexShrink: 0 }} />
             <span title={cardFile} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cardFile}</span>
           </Badge>
@@ -204,14 +206,14 @@ export default function KanbanCard({
         </div>
       </div>
 
-      {/* 6. PIPELINE STAGE ON ONE LINE */}
+      {/* 6. PIPELINE STAGE DROPDOWN ON ONE LINE */}
       {canManage && (
-        <div style={{ paddingTop: '6px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+        <div style={{ paddingTop: '5px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
           <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', flexShrink: 0 }}>Stage:</span>
           <select
             value={currentStage}
             onChange={(e) => onMoveStage(record.id, e.target.value)}
-            style={{ fontSize: '10px', fontWeight: '700', padding: '3px 6px', borderRadius: '5px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer', maxWidth: '180px' }}
+            style={{ fontSize: '10px', fontWeight: '700', padding: '2px 6px', borderRadius: '5px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer', maxWidth: '160px' }}
           >
             {activePipelineStages.map(s => (
               <option key={s.id || s.name} value={getValString(s.name)}>
