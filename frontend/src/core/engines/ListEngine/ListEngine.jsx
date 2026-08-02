@@ -10,7 +10,7 @@ import { LabelEngine } from '../LabelEngine';
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import EmptyState from '../../../components/ui/EmptyState';
-import BulkActionBar from './BulkActionBar';
+import BulkActionEngine from '../BulkActionEngine/BulkActionEngine';
 import Pagination from './Pagination';
 import { formatCandidateId } from '../../../services/atsStorageService';
 
@@ -41,11 +41,16 @@ const formatDate = (isoStr) => {
 
 export default function ListEngine({
   records = [],
+  setRecords = () => {},
   moduleConfig = {},
   totalCount = 0,
   isFilterActive = false,
   searchQuery = '',
   canManage = true,
+  softDeleteRecord = null,
+  handleRestoreBinItem = null,
+  showToast = () => {},
+  isArchivedView = false,
   onViewRecord = () => {},
   onEditRecord = () => {},
   onArchiveRecord = () => {},
@@ -63,14 +68,7 @@ export default function ListEngine({
     if (scrollRef.current && e.deltaY !== 0 && !e.shiftKey) {
       const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
       if (scrollWidth > clientWidth) {
-        const isScrollingRight = e.deltaY > 0;
-        const canScrollRight = scrollLeft + clientWidth < scrollWidth - 2;
-        const canScrollLeft = scrollLeft > 2;
-
-        if ((isScrollingRight && canScrollRight) || (!isScrollingRight && canScrollLeft)) {
-          scrollRef.current.scrollLeft += e.deltaY;
-          e.preventDefault();
-        }
+        scrollRef.current.scrollLeft += e.deltaY;
       }
     }
   };
@@ -106,7 +104,9 @@ export default function ListEngine({
     .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
   const totalPages = Math.ceil(records.length / pageSize) || 1;
-  const paginatedRecords = records.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const startIdx = (validCurrentPage - 1) * pageSize;
+  const paginatedRecords = records.slice(startIdx, startIdx + pageSize);
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
@@ -116,22 +116,23 @@ export default function ListEngine({
     }
   };
 
-  const handleSelectRow = (id) => {
+  const handleToggleSelectRow = (recId) => {
     setSelectedIds(prev =>
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+      prev.includes(recId) ? prev.filter(id => id !== recId) : [...prev, recId]
     );
   };
+  const handleSelectRow = handleToggleSelectRow;
 
   const emptyText = isFilterActive
     ? { title: 'No matching records', description: 'Try clearing your active filters or adjusting your search query.' }
     : { title: `No ${LabelEngine.getEntityNamePlural(moduleConfig)} found`, description: `Click "+ Add ${LabelEngine.getEntityName(moduleConfig)}" to create your first record.` };
 
   return (
-    <div className="list-engine-container" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
       <style>{`
         .list-table-scroll::-webkit-scrollbar {
-          width: 10px !important;
           height: 10px !important;
+          width: 8px !important;
           display: block !important;
         }
         .list-table-scroll::-webkit-scrollbar-track {
@@ -148,20 +149,19 @@ export default function ListEngine({
         }
       `}</style>
 
-      {/* BULK ACTION BAR */}
-      <BulkActionBar
-        selectedCount={selectedIds.length}
-        onClearSelection={() => setSelectedIds([])}
-        onBulkArchive={() => {
-          if (confirm(`Archive ${selectedIds.length} selected records?`)) {
-            selectedIds.forEach(id => {
-              const rec = records.find(r => r.id === id);
-              if (rec) onArchiveRecord(rec);
-            });
-            setSelectedIds([]);
-          }
-        }}
+      {/* UNIVERSAL BULK ACTION ENGINE */}
+      <BulkActionEngine
+        selectedIds={selectedIds}
+        setSelectedIds={setSelectedIds}
+        visibleRecords={paginatedRecords}
+        records={records}
+        setRecords={setRecords}
+        moduleConfig={moduleConfig}
+        softDeleteRecord={softDeleteRecord}
+        handleRestoreBinItem={handleRestoreBinItem}
+        showToast={showToast}
         canManage={canManage}
+        isArchivedView={isArchivedView}
       />
 
       <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>

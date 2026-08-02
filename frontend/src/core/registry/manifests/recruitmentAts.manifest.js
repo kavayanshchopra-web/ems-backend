@@ -85,6 +85,14 @@ export const RECRUITMENT_ATS_MANIFEST = {
     gantt: false,
     map: false
   },
+
+  defaultBulkActions: {
+    selectAll: true,
+    archive: true,
+    restore: true,
+    duplicate: true,
+    delete: true
+  },
   
   defaultStages: [
     { id: 'applied', key: 'APPLIED', name: 'Applied', emoji: '📥', color: '#0d9488', semanticType: 'APPLIED', sortOrder: 1 },

@@ -158,12 +158,16 @@ export default function LayoutEngine({
       {/* D. CONTENT VIEW CONTAINER (KANBAN OR LIST) */}
       <ViewEngine
         records={sortedRecords}
+        setRecords={setRecords}
         moduleConfig={moduleConfig}
         viewMode={viewMode}
         totalCount={records.length}
         isFilterActive={isFilterActive}
         searchQuery={searchQuery}
         canManage={canManage}
+        softDeleteRecord={softDeleteRecord}
+        handleRestoreBinItem={handleRestoreBinItem}
+        showToast={showToast}
         onViewRecord={(rec) => { setSelectedRecord(rec); setShowDetailModal(true); }}
         onEditRecord={(rec) => { setSelectedRecord(rec); setShowEditModal(true); }}
         onArchiveRecord={(rec) => { setRecordToArchive(rec); setSelectedRecord(rec); setShowArchiveModal(true); }}

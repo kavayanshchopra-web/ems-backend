@@ -9,12 +9,17 @@ import ListEngine from '../ListEngine/ListEngine';
 
 export default function ViewEngine({
   records = [],
+  setRecords = () => {},
   moduleConfig = {},
   viewMode = 'list',
   totalCount = 0,
   isFilterActive = false,
   searchQuery = '',
   canManage = true,
+  softDeleteRecord = null,
+  handleRestoreBinItem = null,
+  showToast = () => {},
+  isArchivedView = false,
   onViewRecord = () => {},
   onEditRecord = () => {},
   onArchiveRecord = () => {},
@@ -89,11 +94,16 @@ export default function ViewEngine({
   return (
     <ListEngine
       records={records}
+      setRecords={setRecords}
       moduleConfig={moduleConfig}
       totalCount={totalCount}
       isFilterActive={isFilterActive}
       searchQuery={searchQuery}
       canManage={canManage}
+      softDeleteRecord={softDeleteRecord}
+      handleRestoreBinItem={handleRestoreBinItem}
+      showToast={showToast}
+      isArchivedView={isArchivedView}
       onViewRecord={onViewRecord}
       onEditRecord={onEditRecord}
       onArchiveRecord={onArchiveRecord}

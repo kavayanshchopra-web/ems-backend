@@ -84,6 +84,14 @@ export const EMPLOYEES_MANIFEST = {
     map: false
   },
 
+  defaultBulkActions: {
+    selectAll: true,
+    archive: true,
+    restore: true,
+    duplicate: true,
+    delete: true
+  },
+
   defaultLookupData: {
     departments: ['Engineering', 'Product', 'Design', 'Sales', 'Marketing', 'Customer Support', 'Finance', 'Human Resources', 'Operations'],
     designations: ['Senior Software Engineer', 'Product Manager', 'UX Designer', 'Sales Executive', 'HR Specialist', 'Financial Analyst', 'Operations Lead', 'Marketing Manager'],

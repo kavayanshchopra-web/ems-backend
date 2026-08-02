@@ -1736,6 +1736,50 @@ export default function ModuleConfigEditor({
                   );
                 })}
               </div>
+
+              {/* BULK ACTIONS CONTROL PANEL */}
+              <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ fontWeight: '800', fontSize: '12px', color: '#0f172a', textTransform: 'uppercase' }}>
+                  BULK ACTIONS PERMISSION CONTROL
+                </div>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>
+                  Enable or disable universal bulk operations for records selected in this module.
+                </div>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+                  {[
+                    { key: 'selectAll', label: 'Select All Visible', desc: 'Allow bulk select all visible records' },
+                    { key: 'archive', label: 'Archive Selected', desc: 'Allow bulk archiving selected records' },
+                    { key: 'restore', label: 'Restore Selected', desc: 'Allow bulk restoring archived records' },
+                    { key: 'duplicate', label: 'Duplicate Selected', desc: 'Allow bulk record duplication with new IDs' },
+                    { key: 'delete', label: 'Delete Selected (Governance Prompt)', desc: 'Allow bulk delete warning & archive redirection' }
+                  ].map(ba => {
+                    const isEnabled = configState.bulkActions ? configState.bulkActions[ba.key] !== false : true;
+                    return (
+                      <div key={ba.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid #f1f5f9', background: '#ffffff' }}>
+                        <div>
+                          <div style={{ fontWeight: '700', fontSize: '12px', color: '#0f172a' }}>{ba.label}</div>
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>{ba.desc}</div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={isEnabled}
+                          onChange={(e) => {
+                            const val = e.target.checked;
+                            setConfigState(prev => ({
+                              ...prev,
+                              bulkActions: {
+                                ...(prev.bulkActions || { selectAll: true, archive: true, restore: true, duplicate: true, delete: true }),
+                                [ba.key]: val
+                              }
+                            }));
+                          }}
+                          style={{ accentColor: '#0d9488', width: '16px', height: '16px', cursor: 'pointer' }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
 

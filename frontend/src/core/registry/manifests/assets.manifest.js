@@ -82,6 +82,14 @@ export const ASSETS_MANIFEST = {
     map: false
   },
 
+  defaultBulkActions: {
+    selectAll: true,
+    archive: true,
+    restore: true,
+    duplicate: true,
+    delete: true
+  },
+
   defaultLookupData: {
     category: ['Laptop', 'Mobile Phone', 'Monitor', 'Peripheral', 'Tablet', 'Networking', 'Furniture'],
     status: ['In Use', 'Available', 'Under Repair', 'Retired', 'Lost/Stolen'],
