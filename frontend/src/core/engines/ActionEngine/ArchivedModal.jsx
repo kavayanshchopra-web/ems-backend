@@ -22,13 +22,25 @@ const getValString = (val, fallback = '') => {
   return fallback;
 };
 
+const formatDate = (isoStr) => {
+  if (!isoStr) return '01 Aug 2026';
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return String(isoStr);
+    const dayStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return `${dayStr}, ${timeStr}`;
+  } catch (e) {
+    return String(isoStr);
+  }
+};
+
 export default function ArchivedModal({
   isOpen = false,
   onClose = () => {},
   moduleConfig = {},
   archivedItems = [],
-  onRestoreItem = () => {},
-  onPermanentDeleteItem = () => {}
+  onRestoreItem = () => {}
 }) {
   const entityName = LabelEngine.getEntityName(moduleConfig);
 
@@ -52,7 +64,9 @@ export default function ArchivedModal({
           archivedItems.map((item) => {
             const payloadRec = item.payload?.record || item.entityData?.record || item.payload?.candidate || item.payload || {};
             const itemTitle = getValString(item.name || payloadRec.name || payloadRec.title, entityName);
-            const itemSubtitle = getValString(payloadRec.position || payloadRec.department || item.type || '');
+            const itemId = getValString(item.originalId || item.id || payloadRec.id, '—');
+            const itemArchivedDate = formatDate(item.deletedAt || item.archivedAt || item.timestamp);
+            const itemArchivedBy = getValString(item.deletedBy || item.archivedBy || item.user, 'System Administrator');
 
             return (
               <div
@@ -68,39 +82,27 @@ export default function ArchivedModal({
                   gap: '12px'
                 }}
               >
-                <div>
-                  <div style={{ fontWeight: '700', fontSize: '13px', color: '#0f172a' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <div style={{ fontWeight: '800', fontSize: '13px', color: '#0f172a' }}>
                     {itemTitle}
                   </div>
-                  {itemSubtitle && (
-                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                      {itemSubtitle}
-                    </div>
-                  )}
-                  {item.deletedAt && (
-                    <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>
-                      Archived on: {item.deletedAt}
-                    </div>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '11px', color: '#64748b' }}>
+                    <span><strong style={{ color: '#0d9488' }}>ID:</strong> {itemId}</span>
+                    <span>•</span>
+                    <span><strong>Archived:</strong> {itemArchivedDate}</span>
+                    <span>•</span>
+                    <span><strong>By:</strong> {itemArchivedBy}</span>
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Button
-                    variant="outline"
+                    variant="primary"
                     size="sm"
-                    icon={<RotateCcw size={12} />}
+                    icon={<RotateCcw size={13} />}
                     onClick={() => onRestoreItem(item)}
                   >
                     Restore
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    icon={<Trash2 size={12} />}
-                    onClick={() => onPermanentDeleteItem(item.id)}
-                    style={{ color: '#dc2626', borderColor: '#fca5a5', background: '#fff5f5' }}
-                  >
-                    Purge
                   </Button>
                 </div>
               </div>

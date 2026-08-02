@@ -103,8 +103,20 @@ export default function LayoutEngine({
 
   // Filtered Archived Records from global Recycle Bin
   const archivedModuleItems = (recycleBinItems || []).filter(item => {
-    const cat = getValString(item.category || item.type || item.moduleTab).toLowerCase();
-    return cat.includes(moduleConfig.moduleId) || cat.includes(moduleConfig.entityName?.toLowerCase());
+    if (!item) return false;
+    const itemTab = getValString(item.moduleTab || item.category || item.type).toLowerCase();
+    const modId = getValString(moduleConfig.moduleId).toLowerCase();
+    const entityName = getValString(LabelEngine.getEntityName(moduleConfig)).toLowerCase();
+    const entityPlural = getValString(LabelEngine.getEntityNamePlural(moduleConfig)).toLowerCase();
+
+    return (
+      itemTab.includes(modId) ||
+      itemTab.includes(entityName) ||
+      itemTab.includes(entityPlural) ||
+      (modId === 'employees' && (itemTab.includes('employee') || itemTab.includes('staff'))) ||
+      (modId === 'assets' && (itemTab.includes('asset') || itemTab.includes('device'))) ||
+      (modId === 'recruitment_ats' && (itemTab.includes('ats') || itemTab.includes('candidate')))
+    );
   });
 
   return (

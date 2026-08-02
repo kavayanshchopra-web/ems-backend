@@ -109,31 +109,51 @@ export default function BulkActionEngine({
     }
   };
 
-  // 5. DUPLICATE SELECTED
+  // 5. DUPLICATE SELECTED WITH SMART VERSION NAMING (e.g. John Copy 1, John Copy 2)
   const handleBulkDuplicate = () => {
     const now = new Date().toISOString();
     const duplicates = [];
 
+    const getDuplicateName = (baseName, existingRecordsList) => {
+      if (!baseName) return 'Untitled Copy 1';
+      const cleanBase = String(baseName).replace(/\s*\(Copy\)\s*/gi, '').replace(/\s*Copy\s+\d+\s*/gi, '').trim();
+      const existingNames = new Set(existingRecordsList.map(r => (r.name || r.title || '').trim().toLowerCase()));
+
+      let count = 1;
+      let candidate = `${cleanBase} Copy ${count}`;
+      while (existingNames.has(candidate.toLowerCase())) {
+        count++;
+        candidate = `${cleanBase} Copy ${count}`;
+      }
+      return candidate;
+    };
+
+    let currentRecordsList = [...records];
+
     selectedIds.forEach((id, idx) => {
-      const orig = records.find(r => r.id === id);
+      const orig = currentRecordsList.find(r => r.id === id);
       if (orig) {
         const nextSeqId = getNextSequentialId('default_tenant', moduleConfig.moduleId || 'recruitment_ats', moduleConfig);
+        const dupName = orig.name ? getDuplicateName(orig.name, currentRecordsList) : undefined;
+        const dupTitle = orig.title ? getDuplicateName(orig.title, currentRecordsList) : undefined;
+
         const dupRec = {
           ...orig,
           id: `${nextSeqId}_dup_${Date.now()}_${idx}`,
-          name: orig.name ? `${orig.name} (Copy)` : orig.name,
-          title: orig.title ? `${orig.title} (Copy)` : orig.title,
+          ...(dupName ? { name: dupName } : {}),
+          ...(dupTitle ? { title: dupTitle } : {}),
           createdAt: now,
           updatedAt: now,
           archived: false,
           lifecycleStatus: 'ACTIVE'
         };
         duplicates.push(dupRec);
+        currentRecordsList.unshift(dupRec);
       }
     });
 
     setRecords([...duplicates, ...records]);
-    setSelectedIds([]);
+    setSelectedIds([]); // Auto-clear selection after duplicate
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('omnilflow_config_updated', {
@@ -149,24 +169,28 @@ export default function BulkActionEngine({
       <div
         className="universal-bulk-action-engine"
         style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 25,
           width: '100%',
-          padding: '10px 16px',
-          background: 'linear-gradient(135deg, #0f172a, #1e293b)',
+          padding: '6px 14px',
+          background: 'rgba(15, 23, 42, 0.95)',
+          backdropFilter: 'blur(8px)',
           color: '#ffffff',
-          borderRadius: '10px',
-          boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.25), 0 8px 10px -6px rgba(0,0,0,0.1)',
+          borderRadius: '8px',
+          border: '1px solid #334155',
+          boxShadow: '0 8px 20px -4px rgba(15, 23, 42, 0.3)',
           display: 'flex',
           justify: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
-          gap: '12px',
-          marginBottom: '14px',
-          boxSizing: 'border-box',
-          animation: 'fadeIn 0.2s ease-in-out'
+          gap: '10px',
+          marginBottom: '10px',
+          boxSizing: 'border-box'
         }}
       >
         {/* LEFT STRIP: SELECTION COUNTER BADGE & SELECT ALL / CLEAR */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div
             style={{
               display: 'inline-flex',
@@ -174,15 +198,15 @@ export default function BulkActionEngine({
               gap: '6px',
               background: '#0d9488',
               color: '#ffffff',
-              padding: '4px 10px',
-              borderRadius: '6px',
-              fontSize: '12px',
+              padding: '3px 8px',
+              borderRadius: '5px',
+              fontSize: '11px',
               fontWeight: '800',
               letterSpacing: '0.02em'
             }}
           >
-            <CheckSquare size={14} />
-            <span>{selectedCount} Selected</span>
+            <CheckSquare size={13} />
+            <span>☑ {selectedCount} Selected</span>
           </div>
 
           {bulkConfig.selectAll && visibleRecords.length > selectedCount && (
@@ -201,12 +225,12 @@ export default function BulkActionEngine({
             style={{ border: 'none', background: 'transparent', color: '#cbd5e1', fontSize: '11px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
           >
             <X size={12} />
-            <span>Deselect All</span>
+            <span>Clear Selection</span>
           </button>
         </div>
 
         {/* RIGHT STRIP: METADATA-CONTROLLED ACTION BUTTONS */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           {/* ARCHIVE BUTTON */}
           {!isArchivedView && bulkConfig.archive && canManage && (
             <Button
@@ -214,7 +238,7 @@ export default function BulkActionEngine({
               size="sm"
               icon={<Archive size={13} />}
               onClick={handleBulkArchive}
-              style={{ background: 'rgba(255, 255, 255, 0.1)', color: '#ffffff', borderColor: '#475569' }}
+              style={{ background: 'rgba(255, 255, 255, 0.08)', color: '#ffffff', borderColor: '#475569', fontSize: '11px', padding: '4px 10px' }}
             >
               Archive ({selectedCount})
             </Button>
@@ -227,6 +251,7 @@ export default function BulkActionEngine({
               size="sm"
               icon={<RotateCcw size={13} />}
               onClick={handleBulkRestore}
+              style={{ fontSize: '11px', padding: '4px 10px' }}
             >
               Restore ({selectedCount})
             </Button>
@@ -239,6 +264,7 @@ export default function BulkActionEngine({
               size="sm"
               icon={<Copy size={13} />}
               onClick={handleBulkDuplicate}
+              style={{ fontSize: '11px', padding: '4px 10px' }}
             >
               Duplicate ({selectedCount})
             </Button>
@@ -251,7 +277,7 @@ export default function BulkActionEngine({
               size="sm"
               icon={<Trash2 size={13} />}
               onClick={() => setShowDeleteGovernanceModal(true)}
-              style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#fca5a5', borderColor: '#ef4444' }}
+              style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#fca5a5', borderColor: '#ef4444', fontSize: '11px', padding: '4px 10px' }}
             >
               Delete ({selectedCount})
             </Button>
@@ -284,8 +310,7 @@ export default function BulkActionEngine({
                 <strong style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>
                   Permanent Deletion Is Disabled
                 </strong>
-                Permanent deletion is disabled to protect historical audit trail and compliance integrity.
-                Please archive the selected {selectedCount} {selectedCount === 1 ? entityName.toLowerCase() : entityNamePlural.toLowerCase()} instead.
+                Permanent deletion is disabled to protect historical data. Archive the selected records instead.
               </div>
             </div>
 
@@ -307,7 +332,7 @@ export default function BulkActionEngine({
                   handleBulkArchive();
                 }}
               >
-                Archive Selected ({selectedCount})
+                Archive Selected
               </Button>
             </div>
           </div>
