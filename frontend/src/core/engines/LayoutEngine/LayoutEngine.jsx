@@ -11,6 +11,7 @@ import ActiveFilterChips from '../FilterEngine/ActiveFilterChips';
 import ActionEngine from '../ActionEngine/ActionEngine';
 import { SearchEngine } from '../SearchEngine';
 import { FilterEngine } from '../FilterEngine';
+import { LabelEngine } from '../LabelEngine';
 
 const getValString = (val, fallback = '') => {
   if (val === null || val === undefined) return fallback;
