@@ -6,6 +6,7 @@
 
 import { loadAtsModuleConfig, saveAtsModuleConfig } from '../config/atsModuleConfig';
 import { GLOBAL_MODULE_REGISTRY } from '../config/globalModuleRegistry';
+import { masterModuleRegistry } from '../core/registry/MasterModuleRegistry';
 
 const MASTER_CONFIG_PREFIX = 'omnilflow_master_module_configs_';
 
@@ -27,6 +28,20 @@ export const moduleConfigService = {
       }
     } catch (e) {
       console.error(`Error reading module config for ${moduleId}:`, e);
+    }
+
+    const manifest = masterModuleRegistry.getSystemManifest(moduleId);
+    if (manifest) {
+      return {
+        moduleId: manifest.moduleId,
+        schemaVersion: '1.1',
+        fields: manifest.defaultFields || [],
+        summaryWidgets: manifest.defaultSummaryWidgets || [],
+        columns: manifest.defaultColumns || [],
+        views: manifest.defaultViews || { availableViews: ['list', 'kanban'], defaultView: 'list' },
+        stages: manifest.defaultStages || [],
+        idConfig: manifest.defaultIdConfig || { prefix: 'EMP', pattern: 'EMP-0001', nextSeq: 1 }
+      };
     }
 
     return {

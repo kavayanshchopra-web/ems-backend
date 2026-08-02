@@ -28,15 +28,15 @@ export const GLOBAL_MODULE_REGISTRY = {
     category: 'HR Management',
     description: 'Employee Directory & Lifecycle Profiles',
     icon: '👥',
-    configurable: false,
-    status: 'Coming Soon',
+    configurable: true,
+    status: 'Configured',
     primaryEntity: 'employee',
     capabilities: {
       forms: true,
       summary: true,
       searchFilters: true,
       listView: true,
-      kanbanView: false,
+      kanbanView: true,
       views: true
     }
   },
@@ -46,15 +46,15 @@ export const GLOBAL_MODULE_REGISTRY = {
     category: 'Operations & IT',
     description: 'Hardware, Laptops, & Office Asset Allocation',
     icon: '💻',
-    configurable: false,
-    status: 'Coming Soon',
+    configurable: true,
+    status: 'Configured',
     primaryEntity: 'asset',
     capabilities: {
       forms: true,
       summary: true,
       searchFilters: true,
       listView: true,
-      kanbanView: false,
+      kanbanView: true,
       views: true
     }
   },
