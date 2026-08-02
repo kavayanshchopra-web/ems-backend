@@ -1,9 +1,9 @@
 /**
  * UNIVERSAL KANBAN COLUMN COMPONENT
- * Renders a single pipeline stage column with sticky header and smooth vertical scrollbar
+ * Renders a 340px pipeline stage column with Drag-and-Drop support & Sticky Header
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import KanbanCard from './KanbanCard';
 import EmptyState from '../../../components/ui/EmptyState';
 
@@ -19,19 +19,46 @@ export default function KanbanColumn({
   onMoveStage = () => {},
   canManage = true
 }) {
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (!isDragOver) setIsDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const recId = e.dataTransfer.getData('text/plain');
+    if (recId) {
+      onMoveStage(recId, stage.name);
+    }
+  };
+
   return (
     <div
       className="kanban-stage-column"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       style={{
-        background: '#ffffff',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
+        width: '340px',
+        flexShrink: 0,
+        background: isDragOver ? '#f0fdfa' : '#ffffff',
+        borderRadius: '14px',
+        border: isDragOver ? '2px dashed #0d9488' : '1px solid #e2e8f0',
         boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
         display: 'flex',
         flexDirection: 'column',
-        height: 'calc(100vh - 290px)',
+        height: 'calc(100vh - 280px)',
         minHeight: '420px',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        transition: 'all 0.15s ease'
       }}
     >
       <style>{`
@@ -44,11 +71,11 @@ export default function KanbanColumn({
           border-radius: 4px !important;
         }
         .kanban-column-cards-scroll::-webkit-scrollbar-thumb {
-          background: #0d9488 !important;
+          background: #cbd5e1 !important;
           border-radius: 4px !important;
         }
         .kanban-column-cards-scroll::-webkit-scrollbar-thumb:hover {
-          background: #0f766e !important;
+          background: #0d9488 !important;
         }
       `}</style>
 
@@ -58,8 +85,8 @@ export default function KanbanColumn({
           position: 'sticky',
           top: 0,
           zIndex: 10,
-          padding: '12px 16px',
-          background: '#f8fafc',
+          padding: '14px 16px',
+          background: isDragOver ? '#ccfbf1' : '#f8fafc',
           borderBottom: '1px solid #e2e8f0',
           display: 'flex',
           justify: 'space-between',
@@ -68,7 +95,7 @@ export default function KanbanColumn({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '14px' }}>{stage.emoji || '📋'}</span>
+          <span style={{ fontSize: '15px' }}>{stage.emoji || '📋'}</span>
           <span style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a' }}>
             {stage.name}
           </span>
@@ -77,9 +104,9 @@ export default function KanbanColumn({
           style={{
             fontSize: '11px',
             fontWeight: '800',
-            padding: '2px 8px',
+            padding: '3px 10px',
             borderRadius: '12px',
-            background: 'rgba(13, 148, 136, 0.1)',
+            background: 'rgba(13, 148, 136, 0.12)',
             color: stage.color || '#0d9488'
           }}
         >
@@ -91,7 +118,7 @@ export default function KanbanColumn({
       <div
         className="kanban-column-cards-scroll"
         style={{
-          padding: '12px',
+          padding: '14px',
           display: 'flex',
           flexDirection: 'column',
           gap: '12px',
@@ -100,15 +127,15 @@ export default function KanbanColumn({
           overflowX: 'hidden',
           WebkitOverflowScrolling: 'touch',
           scrollbarWidth: 'thin',
-          scrollbarColor: '#0d9488 #f1f5f9'
+          scrollbarColor: '#cbd5e1 #f1f5f9'
         }}
       >
         {records.length === 0 ? (
-          <div style={{ padding: '24px 12px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+          <div style={{ padding: '32px 16px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
             <EmptyState
               icon="📥"
-              title=""
-              description={isFilterActive ? 'No records match filter.' : 'No candidates in this stage.'}
+              title="No candidates"
+              description={isFilterActive ? 'No records match active filters.' : `Drag candidates here to move to ${stage.name}.`}
             />
           </div>
         ) : (
