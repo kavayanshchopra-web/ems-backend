@@ -79,6 +79,7 @@ export default function UniversalModal({
             onChange={(val) => handleFieldChange(field.id, val)}
             error={formErrors[field.id]}
             mode={mode}
+            moduleConfig={moduleConfig}
             systemDropdowns={systemDropdowns}
             activePipelineStages={activePipelineStages}
             allPositions={allPositions}

@@ -370,6 +370,7 @@ export default function ListEngine({
                               value={record[col.fieldKey] || record.customFields?.[col.fieldKey]}
                               mode="view"
                               compact={true}
+                              moduleConfig={moduleConfig}
                               systemDropdowns={systemDropdowns}
                             />
                           </td>

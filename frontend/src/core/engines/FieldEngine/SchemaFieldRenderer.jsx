@@ -39,6 +39,7 @@ export default function SchemaFieldRenderer({
   error = null,
   mode = 'create', // 'create' | 'edit' | 'view'
   compact = false,
+  moduleConfig = null,
   systemDropdowns = null,
   activePipelineStages = [],
   allPositions = [],

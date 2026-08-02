@@ -78,6 +78,7 @@ export default function UniversalDrawer({
               field={field}
               value={record[field.id] !== undefined ? record[field.id] : record.customFields?.[field.id]}
               mode="view"
+              moduleConfig={moduleConfig}
               systemDropdowns={systemDropdowns}
             />
           ))}
