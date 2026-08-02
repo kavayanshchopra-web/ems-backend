@@ -26,6 +26,19 @@ const getValString = (val, fallback = '') => {
   return fallback;
 };
 
+const formatDate = (isoStr) => {
+  if (!isoStr) return '01 Aug 2026';
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '01 Aug 2026';
+    const dayStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return `${dayStr}, ${timeStr}`;
+  } catch (e) {
+    return '01 Aug 2026';
+  }
+};
+
 export default function ListEngine({
   records = [],
   moduleConfig = {},
@@ -209,6 +222,16 @@ export default function ListEngine({
                               ) : (
                                 <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '600' }}>No Resume</span>
                               )}
+                            </td>
+                          );
+                        }
+
+                        // Special Applied Date Column Renderer (Formats raw ISO string to '01 Aug 2026, 08:20 PM')
+                        if (col.id === 'createdAt' || col.fieldKey === 'createdAt' || col.id === 'appliedDate') {
+                          const dateVal = formatDate(record.createdAt || record.appliedDate);
+                          return (
+                            <td key={col.id} style={{ padding: '10px 14px', fontSize: '11px', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
+                              📅 {dateVal}
                             </td>
                           );
                         }

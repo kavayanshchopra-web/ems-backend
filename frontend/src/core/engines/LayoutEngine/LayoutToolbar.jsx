@@ -213,7 +213,7 @@ export default function LayoutToolbar({
             onChange={(e) => onSearchChange(e.target.value)}
             onClear={() => onSearchChange('')}
             placeholder={PlaceholderEngine.getSearchPlaceholder(moduleConfig)}
-            width="260px"
+            width="320px"
           />
 
           {/* FILTERS POPOVER */}

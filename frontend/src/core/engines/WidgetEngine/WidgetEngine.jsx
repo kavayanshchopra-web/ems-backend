@@ -1,6 +1,7 @@
 /**
  * UNIVERSAL WIDGET ENGINE STRIP COMPONENT
  * 100% Schema-Driven KPI Summary Strip for any EMS Module
+ * Responsive Flex Layout with Horizontal Scroll for Dynamic Custom Stage Cards
  */
 
 import React from 'react';
@@ -20,24 +21,37 @@ export default function WidgetEngine({
 
   return (
     <div
-      className="widget-engine-strip"
+      className="widget-engine-outer-wrapper"
       style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: '12px',
-        width: '100%'
+        width: '100%',
+        overflowX: 'auto',
+        overflowY: 'hidden',
+        paddingBottom: '4px',
+        WebkitOverflowScrolling: 'touch'
       }}
     >
-      {enabledWidgets.map(widget => {
-        const value = SummaryEngine.computeWidgetValue(widget, records, activePipelineStages);
-        return (
-          <KPIWidget
-            key={widget.id}
-            widget={widget}
-            value={value}
-          />
-        );
-      })}
+      <div
+        className="widget-engine-strip"
+        style={{
+          display: 'flex',
+          gap: '12px',
+          width: 'max-content',
+          minWidth: '100%',
+          boxSizing: 'border-box'
+        }}
+      >
+        {enabledWidgets.map(widget => {
+          const value = SummaryEngine.computeWidgetValue(widget, records, activePipelineStages);
+          return (
+            <div key={widget.id} style={{ minWidth: '200px', flex: '1 0 200px' }}>
+              <KPIWidget
+                widget={widget}
+                value={value}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

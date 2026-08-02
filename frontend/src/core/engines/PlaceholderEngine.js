@@ -50,6 +50,8 @@ export class PlaceholderEngine {
    * @returns {string}
    */
   static getSearchPlaceholder(moduleConfig) {
+    if (moduleConfig?.searchPlaceholder) return moduleConfig.searchPlaceholder;
+    if (moduleConfig?.moduleId === 'recruitment_ats') return 'Search Candidate, ATS ID, Email, Position...';
     const plural = LabelEngine.getEntityNamePlural(moduleConfig);
     return `Search ${plural.toLowerCase()}...`;
   }

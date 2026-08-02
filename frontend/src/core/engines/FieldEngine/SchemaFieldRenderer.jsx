@@ -18,6 +18,19 @@ const getValString = (val, fallback = '') => {
   return fallback;
 };
 
+const formatDate = (isoStr) => {
+  if (!isoStr) return '—';
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return String(isoStr);
+    const dayStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return `${dayStr}, ${timeStr}`;
+  } catch (e) {
+    return String(isoStr);
+  }
+};
+
 export default function SchemaFieldRenderer({
   field,
   value,
@@ -54,6 +67,8 @@ export default function SchemaFieldRenderer({
       displayVal = rawVal ? 'Yes' : 'No';
     } else if (field.type === 'currency' && valStr) {
       displayVal = `$${Number(valStr).toLocaleString()}`;
+    } else if ((field.type === 'date' || field.type === 'datetime' || field.id === 'createdAt' || field.id === 'appliedDate') && valStr) {
+      displayVal = formatDate(valStr);
     }
 
     if (compact) {
