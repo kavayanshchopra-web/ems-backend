@@ -163,7 +163,11 @@ function getStorageKey(companyId) {
 export function loadAtsModuleConfig(companyId) {
   const key = getStorageKey(companyId);
   try {
-    const saved = localStorage.getItem(key) || localStorage.getItem('omnilflow_config_default_tenant_ats') || localStorage.getItem('omnilflow_config_default_ats') || localStorage.getItem('omnilflow_config_ats');
+    const saved = localStorage.getItem('omnilflow_config_master_ats') ||
+                  localStorage.getItem(key) ||
+                  localStorage.getItem('omnilflow_config_default_tenant_ats') ||
+                  localStorage.getItem('omnilflow_config_default_ats') ||
+                  localStorage.getItem('omnilflow_config_ats');
     if (saved) {
       const parsed = JSON.parse(saved);
       return {
@@ -201,6 +205,7 @@ export function saveAtsModuleConfig(companyId, config) {
     };
     const jsonStr = JSON.stringify(payload);
     localStorage.setItem(key, jsonStr);
+    localStorage.setItem('omnilflow_config_master_ats', jsonStr);
     localStorage.setItem('omnilflow_config_default_tenant_ats', jsonStr);
     localStorage.setItem('omnilflow_config_default_ats', jsonStr);
     localStorage.setItem('omnilflow_config_ats', jsonStr);
