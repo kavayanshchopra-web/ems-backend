@@ -1,6 +1,6 @@
 /**
  * UNIVERSAL KANBAN COLUMN COMPONENT
- * Renders a 340px pipeline stage column with Drag-and-Drop support & Sticky Header
+ * Renders a 340px pipeline stage column with sticky header and smooth vertical scrollbar
  */
 
 import React, { useState } from 'react';
@@ -47,8 +47,8 @@ export default function KanbanColumn({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       style={{
-        width: '340px',
-        flexShrink: 0,
+        width: '100%',
+        boxSizing: 'border-box',
         background: isDragOver ? '#f0fdfa' : '#ffffff',
         borderRadius: '14px',
         border: isDragOver ? '2px dashed #0d9488' : '1px solid #e2e8f0',
