@@ -1,9 +1,9 @@
 /**
  * UNIVERSAL KANBAN ENGINE COMPONENT
- * 100% Schema-Driven Kanban Board with Mouse Wheel Horizontal Scroll & Drag-and-Drop
+ * Native CSS Overflow-X with Shift+Wheel & Background Click-and-Drag Scroll
  */
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import KanbanColumn from './KanbanColumn';
 
 const getValString = (val, fallback = '') => {
@@ -31,13 +31,49 @@ export default function KanbanEngine({
 }) {
   const scrollContainerRef = useRef(null);
 
-  // Mouse wheel horizontal scroll handler (Mouse Wheel, Shift+Wheel, Trackpad)
+  // Background Click-and-Drag Scroll State
+  const [isMouseDown, setIsMouseDown] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeftState, setScrollLeftState] = useState(0);
+
+  // Requirement 2 & 8: Shift + Mouse Wheel scrolling ONLY (Normal wheel scrolls page vertically natively!)
   const handleWheel = (e) => {
-    if (scrollContainerRef.current) {
-      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-        scrollContainerRef.current.scrollLeft += e.deltaY;
-      }
+    if (e.shiftKey && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollLeft += e.deltaY;
     }
+  };
+
+  // Requirement 5: Click-and-Drag on Kanban Background ONLY (Ignores cards, buttons, selects)
+  const handleMouseDown = (e) => {
+    if (
+      e.target.closest('.enterprise-kanban-card') ||
+      e.target.closest('button') ||
+      e.target.closest('select') ||
+      e.target.closest('input') ||
+      e.target.closest('a')
+    ) {
+      return;
+    }
+
+    setIsMouseDown(true);
+    setStartX(e.pageX - (scrollContainerRef.current?.offsetLeft || 0));
+    setScrollLeftState(scrollContainerRef.current?.scrollLeft || 0);
+  };
+
+  const handleMouseLeave = () => {
+    setIsMouseDown(false);
+  };
+
+  const handleMouseUp = () => {
+    setIsMouseDown(false);
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isMouseDown || !scrollContainerRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollContainerRef.current.offsetLeft;
+    const walk = (x - startX) * 1.5;
+    scrollContainerRef.current.scrollLeft = scrollLeftState - walk;
   };
 
   // Dynamically map records to columns
@@ -87,14 +123,19 @@ export default function KanbanEngine({
       <div
         ref={scrollContainerRef}
         onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseLeave={handleMouseLeave}
+        onMouseUp={handleMouseUp}
+        onMouseMove={handleMouseMove}
         className="kanban-scroll-container"
         style={{
           width: '100%',
           overflowX: 'auto',
           overflowY: 'hidden',
           WebkitOverflowScrolling: 'touch',
-          scrollBehavior: 'smooth',
-          paddingBottom: '14px'
+          paddingBottom: '14px',
+          cursor: isMouseDown ? 'grabbing' : 'default',
+          userSelect: isMouseDown ? 'none' : 'auto'
         }}
       >
         <div
