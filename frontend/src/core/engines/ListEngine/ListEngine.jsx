@@ -1,6 +1,6 @@
 /**
  * UNIVERSAL LIST ENGINE COMPONENT (SchemaDataTable)
- * 100% Schema-Driven Enterprise Data Table for Any EMS Module
+ * Enterprise CRM Scroll Architecture with Sticky <thead>, Sticky Bottom <Pagination>, & Thin Themed Scrollbars
  */
 
 import React, { useState } from 'react';
@@ -50,22 +50,20 @@ export default function ListEngine({
   onEditRecord = () => {},
   onArchiveRecord = () => {},
   onMoveStage = () => {},
-  onResetFilters = () => {},
-  systemDropdowns = null,
-  activePipelineStages = []
+  onResetFilters = () => {}
 }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-  const visibleCols = (moduleConfig.columns || []).filter(c => c.visible);
   const fieldsMap = new Map((moduleConfig.fields || []).map(f => [f.id, f]));
+  const visibleCols = (moduleConfig.columns || [])
+    .filter(col => col.visible !== false)
+    .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
-  // Pagination Slice
-  const startIdx = (currentPage - 1) * pageSize;
-  const paginatedRecords = records.slice(startIdx, startIdx + pageSize);
+  const totalPages = Math.ceil(records.length / pageSize) || 1;
+  const paginatedRecords = records.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Row Selection Handlers
   const handleSelectAll = (e) => {
     if (e.target.checked) {
       setSelectedIds(paginatedRecords.map(r => r.id));
@@ -76,20 +74,41 @@ export default function ListEngine({
 
   const handleSelectRow = (id) => {
     setSelectedIds(prev =>
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
   };
 
-  const emptyText = LabelEngine.getEmptyStateText(moduleConfig, isFilterActive, searchQuery);
+  const emptyText = isFilterActive
+    ? { title: 'No matching records', description: 'Try clearing your active filters or adjusting your search query.' }
+    : { title: `No ${LabelEngine.getEntityNamePlural(moduleConfig)} found`, description: `Click "+ Add ${LabelEngine.getEntityName(moduleConfig)}" to create your first record.` };
 
   return (
-    <div className="list-engine-shell" style={{ width: '100%' }}>
+    <div className="list-engine-container" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <style>{`
+        .list-table-scroll::-webkit-scrollbar {
+          width: 6px !important;
+          height: 6px !important;
+          display: block !important;
+        }
+        .list-table-scroll::-webkit-scrollbar-track {
+          background: #f1f5f9 !important;
+          border-radius: 4px !important;
+        }
+        .list-table-scroll::-webkit-scrollbar-thumb {
+          background: #0d9488 !important;
+          border-radius: 4px !important;
+        }
+        .list-table-scroll::-webkit-scrollbar-thumb:hover {
+          background: #064e43 !important;
+        }
+      `}</style>
+
       {/* BULK ACTION BAR */}
       <BulkActionBar
         selectedCount={selectedIds.length}
         onClearSelection={() => setSelectedIds([])}
         onBulkArchive={() => {
-          if (window.confirm(`Archive ${selectedIds.length} selected items?`)) {
+          if (confirm(`Archive ${selectedIds.length} selected records?`)) {
             selectedIds.forEach(id => {
               const rec = records.find(r => r.id === id);
               if (rec) onArchiveRecord(rec);
@@ -100,9 +119,9 @@ export default function ListEngine({
         canManage={canManage}
       />
 
-      <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+      <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {/* TABLE HEADER STRIP */}
-        <div style={{ padding: '12px 16px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ padding: '12px 16px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', flexShrink: 0 }}>
           <span style={{ fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>
             {LabelEngine.getEntityNamePlural(moduleConfig)} Roster ({records.length})
             {isFilterActive && <span style={{ color: '#0d9488', marginLeft: '6px' }}>(Filtered from {totalCount})</span>}
@@ -112,12 +131,21 @@ export default function ListEngine({
           </span>
         </div>
 
-        {/* RESPONSIVE TABLE CONTAINER WITH VERTICAL MAX HEIGHT */}
-        <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 290px)', width: '100%' }}>
-          <table className="std-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
+        {/* ENTERPRISE SCROLL CONTAINER WITH STICKY <thead> AND MAX HEIGHT */}
+        <div
+          className="list-table-scroll"
+          style={{
+            overflowX: 'auto',
+            overflowY: 'auto',
+            maxHeight: 'calc(100vh - 330px)',
+            width: '100%',
+            position: 'relative'
+          }}
+        >
+          <table className="std-table" style={{ width: '100%', borderCollapse: 'collapse', borderSpacing: 0 }}>
+            <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
               <tr style={{ background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>
-                <th style={{ padding: '12px 16px', width: '40px', textAlign: 'center' }}>
+                <th style={{ padding: '12px 16px', width: '40px', textAlign: 'center', background: '#f8fafc' }}>
                   <input
                     type="checkbox"
                     checked={paginatedRecords.length > 0 && selectedIds.length === paginatedRecords.length}
@@ -125,13 +153,21 @@ export default function ListEngine({
                     style={{ accentColor: '#0d9488', cursor: 'pointer' }}
                   />
                 </th>
-                {visibleCols.map((col, idx) => (
-                  <th key={col.id} style={{ padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', position: idx === 0 ? 'sticky' : 'static', left: idx === 0 ? 0 : 'auto', background: '#f8fafc', zIndex: idx === 0 ? 2 : 1 }}>
-                    {col.label}
-                  </th>
-                ))}
+                {visibleCols.map((col, idx) => {
+                  const widthStyle = col.id === 'candidate' || col.id === 'name' ? { minWidth: '220px' }
+                                  : col.id === 'position' ? { minWidth: '160px' }
+                                  : col.id === 'contact' || col.id === 'contact_details' ? { minWidth: '200px' }
+                                  : col.id === 'resume' ? { width: '120px', minWidth: '120px' }
+                                  : col.id === 'createdAt' || col.id === 'appliedDate' ? { width: '160px', minWidth: '160px' }
+                                  : {};
+                  return (
+                    <th key={col.id} style={{ padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', background: '#f8fafc', ...widthStyle }}>
+                      {col.label}
+                    </th>
+                  );
+                })}
                 {canManage && (
-                  <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', textAlign: 'right', width: '160px' }}>
+                  <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', textAlign: 'right', width: '160px', background: '#f8fafc' }}>
                     Actions
                   </th>
                 )}
@@ -164,7 +200,7 @@ export default function ListEngine({
 
                   return (
                     <tr key={record.id || idx} style={{ background: isSelected ? 'rgba(13,148,136,0.04)' : '#ffffff' }}>
-                      <td style={{ padding: '12px 16px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '10px 14px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -178,7 +214,7 @@ export default function ListEngine({
 
                         if (colIdx === 0 || col.id === 'candidate' || col.id === 'deal' || col.id === 'employee') {
                           return (
-                            <td key={col.id} style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', position: 'sticky', left: 0, background: isSelected ? '#f0fdfa' : '#ffffff', zIndex: 1 }}>
+                            <td key={col.id} style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', maxWidth: '220px' }}>
                                 <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'linear-gradient(135deg, #0d9488, #064e43)', color: '#ffffff', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', flexShrink: 0 }}>
                                   {(recordName[0] || 'R')}
@@ -289,7 +325,7 @@ export default function ListEngine({
                       })}
 
                       {canManage && (
-                        <td style={{ padding: '12px 16px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', width: '160px' }}>
+                        <td style={{ padding: '10px 14px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', width: '160px' }}>
                           <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
                             <button
                               type="button"
@@ -326,14 +362,16 @@ export default function ListEngine({
           </table>
         </div>
 
-        {/* PAGINATION TOOLBAR */}
-        <Pagination
-          currentPage={currentPage}
-          pageSize={pageSize}
-          totalRecords={records.length}
-          onPageChange={setCurrentPage}
-          onPageSizeChange={setPageSize}
-        />
+        {/* STICKY BOTTOM ENTERPRISE PAGINATION TOOLBAR */}
+        <div style={{ position: 'sticky', bottom: 0, zIndex: 10, background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+          <Pagination
+            currentPage={currentPage}
+            pageSize={pageSize}
+            totalRecords={records.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
       </div>
     </div>
   );
