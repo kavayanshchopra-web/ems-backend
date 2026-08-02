@@ -10,6 +10,8 @@ const TaskAnalyticsView = lazy(() => import('./dashboard/TaskAnalyticsView'));
 const EmployeesView = lazy(() => import('./employees/EmployeesView'));
 const RecruitmentAtsView = lazy(() => import('./recruitment/RecruitmentAtsView'));
 const ModuleConfigCenter = lazy(() => import('./config/ModuleConfigCenter'));
+import LayoutEngine from '../core/engines/LayoutEngine/LayoutEngine';
+import { useModuleRegistry } from '../core/registry/useModuleRegistry';
 import {
   auth,
   db,
@@ -1210,7 +1212,24 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   useEffect(() => {
     localStorage.setItem('omnilflow_ats_candidates', JSON.stringify(atsCandidates));
   }, [atsCandidates]);
-  const [assets, setAssets] = useState([]);
+
+  const [assets, setAssets] = useState(() => {
+    const saved = localStorage.getItem('omnilflow_fallback_assets');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    const defaultAssets = [
+      { id: 'AST-0001', tag: 'AST-LAP-001', name: 'MacBook Pro M2 16"', category: 'Laptop', assignedTo: 'Rahul Sharma', purchaseDate: '2025-01-15', purchaseValue: '180000', status: 'In Use' },
+      { id: 'AST-0002', tag: 'AST-MOB-002', name: 'iPhone 15 Pro 256GB', category: 'Mobile Phone', assignedTo: 'Kavayansh Chopra', purchaseDate: '2025-02-20', purchaseValue: '130000', status: 'In Use' },
+      { id: 'AST-0003', tag: 'AST-MON-003', name: 'Dell UltraSharp 27" 4K', category: 'Monitor', assignedTo: 'Priya Verma', purchaseDate: '2025-03-10', purchaseValue: '45000', status: 'In Use' },
+      { id: 'AST-0004', tag: 'AST-PER-004', name: 'Logitech MX Master 3S', category: 'Peripheral', assignedTo: 'Unassigned', purchaseDate: '2025-04-05', purchaseValue: '9900', status: 'Available' }
+    ];
+    try { localStorage.setItem('omnilflow_fallback_assets', JSON.stringify(defaultAssets)); } catch (e) {}
+    return defaultAssets;
+  });
 
   const [sessions, setSessions] = useState([]);
   const [contacts, setContacts] = useState([]);
@@ -2694,6 +2713,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     password: '',
     status: 'active'
   });
+
+
 
   // GPS & Attendance states
   const [attendanceLogs, setAttendanceLogs] = useState([]);
@@ -11335,48 +11356,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
         {/* 6. ASSET MANAGEMENT */}
         {activeTab === 'asset_management' && (
-          <div className="payroll-page glass-panel payroll-panel">
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">🖥️ {t('assetTitle')}</h1>
-                <p className="page-header-subtitle">{t('assetSubtitle')}</p>
-              </div>
-            </div>
-            <div style={{ padding: '0 var(--space-6) var(--space-6)' }}>
-              <div className="payroll-table-card">
-                <div className="payroll-table-toolbar">
-                  <span className="payroll-table-title">{t('assetTitle')}</span>
-                  <span className="payroll-table-hint">{assets.length} asset{assets.length !== 1 ? 's' : ''} registered</span>
-                </div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="std-table">
-                    <thead>
-                      <tr>
-                        <th>{t('assetTag')}</th>
-                        <th>{t('deviceDetails')}</th>
-                        <th>{t('assignedTo')}</th>
-                        <th>{t('status')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {assets.length === 0 ? (
-                        <tr><td colSpan={4} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No corporate assets currently registered.</td></tr>
-                      ) : (
-                        assets.map(asset => (
-                          <tr key={asset.id}>
-                            <td><strong style={{ color: 'var(--text-primary)' }}>{asset.tag}</strong></td>
-                            <td style={{ color: 'var(--text-body)' }}>{asset.details}</td>
-                            <td style={{ color: 'var(--text-body)' }}>{asset.assignedTo}</td>
-                            <td><span className="badge-success">{asset.status}</span></td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
+          <AssetManagementWrapper
+            companyId={authUser?.companyId || 'default_tenant'}
+            assets={assets}
+            setAssets={setAssets}
+            authUser={authUser}
+            showToast={showToast}
+          />
         )}
 
         {/* 7. OFFBOARDING EXIT VIEW */}
@@ -18607,5 +18593,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   );
 }
 
-/* DashboardShell Component - Verified & Balanced */
+function AssetManagementWrapper({ companyId, assets, setAssets, authUser, showToast }) {
+  const { config } = useModuleRegistry(companyId || 'default_tenant', 'asset_management');
+  return (
+    <LayoutEngine
+      moduleConfig={config}
+      records={assets}
+      setRecords={setAssets}
+      authUser={authUser}
+      showToast={showToast}
+    />
+  );
+}
 
