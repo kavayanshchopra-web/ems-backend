@@ -153,21 +153,6 @@ export default function LayoutToolbar({
                 >
                   <button
                     type="button"
-                    onClick={() => { setShowManageDropdown(false); onManageStages(); }}
-                    style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: '600', color: '#0f172a', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-                  >
-                    <Settings size={13} /> Manage Stages
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setShowManageDropdown(false); onOpenPositionModal(); }}
-                    style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: '600', color: '#0f172a', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-                  >
-                    <Briefcase size={13} /> Manage Requisitions
-                  </button>
-                  <div style={{ borderTop: '1px solid #e2e8f0', margin: '4px 0' }} />
-                  <button
-                    type="button"
                     onClick={() => { setShowManageDropdown(false); onOpenConfigModal(); }}
                     style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: '600', color: '#0d9488', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
                   >
