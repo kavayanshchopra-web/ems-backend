@@ -3412,6 +3412,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       status: newEmployeeForm.status
     };
 
+    // Immediate Local State Update for Instant Dashboard & Table Refresh
+    if (isEdit) {
+      setEmployees(prev => prev.map(emp => {
+        if (emp.id === newEmployeeForm.id) {
+          return { ...emp, ...payload };
+        }
+        return emp;
+      }));
+    } else {
+      const tempEmp = { id: 'emp_' + Date.now(), ...payload };
+      setEmployees(prev => [tempEmp, ...prev]);
+    }
+
     // 1. Save to Cloud Firestore
     try {
       if (db) {
@@ -3421,11 +3434,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         } else {
           await addDoc(collection(db, 'employees'), payload);
         }
-        showToast('🟢 Synced with Cloud Firestore collection!', 'success');
       }
     } catch (fbErr) {
       console.warn('Firestore write failed, using fallback:', fbErr.message);
-      alert('Firestore Cloud Sync Error: ' + fbErr.message + '\n\nPlease ensure your Firestore Security Rules are set to ALLOW reads/writes, or check your console for details.');
     }
 
     try {
@@ -3438,8 +3449,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       });
 
       if (res.ok) {
-        const data = await res.json();
-        alert(isEdit ? 'Employee updated successfully!' : 'Employee added successfully!');
+        showToast(isEdit ? 'Employee profile updated successfully!' : 'Employee added successfully!', 'success');
         setShowAddEmployeeModal(false);
         setNewEmployeeForm({
           id: '',
@@ -3499,7 +3509,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
     localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(list));
     addNotification('👤 New Employee Profile', `${newEmployeeForm.firstName} ${newEmployeeForm.lastName || ''} (${newEmployeeForm.department}) added.`, 'employees');
-    alert(isEdit ? 'Employee updated in Cloud Sync!' : 'Employee added to Cloud Sync!');
+    showToast(isEdit ? 'Employee profile updated successfully!' : 'Employee added successfully!', 'success');
     setShowAddEmployeeModal(false);
     setNewEmployeeForm({
       id: '',
@@ -3720,7 +3730,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     try {
       const res = await fetch(`${API_URL}/employees/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        alert('Employee deleted successfully!');
+        showToast('Employee deleted successfully!', 'success');
         fetchEmployees();
         return;
       }
@@ -3734,7 +3744,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       list = list.filter(emp => emp.id !== id);
       localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(list));
     }
-    alert('Employee removed from Cloud Sync!');
+    showToast('Employee deleted successfully!', 'success');
     fetchEmployees();
   };
 

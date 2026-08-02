@@ -77,6 +77,7 @@ export default function EmployeesView({
     const q = searchQuery.toLowerCase().trim();
     const firstName = getValString(emp.first_name).toLowerCase();
     const lastName = getValString(emp.last_name).toLowerCase();
+    const fullName = `${firstName} ${lastName}`.trim();
     const role = getValString(emp.role, 'employee').toLowerCase();
     const department = getValString(emp.department, 'Sales').toLowerCase();
     const email = getValString(emp.email).toLowerCase();
@@ -85,6 +86,7 @@ export default function EmployeesView({
     const matchesSearch = !q || (
       firstName.includes(q) ||
       lastName.includes(q) ||
+      fullName.includes(q) ||
       role.includes(q) ||
       department.includes(q) ||
       email.includes(q) ||
@@ -398,8 +400,28 @@ export default function EmployeesView({
                         {deptStr}
                       </td>
                       <td style={{ padding: '10px 14px', maxWidth: '180px', overflow: 'hidden' }}>
-                        <div style={{ fontSize: '12px', color: '#0f172a', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emailStr}</div>
-                        <div style={{ fontSize: '10px', color: '#64748b' }}>{phoneStr || '—'}</div>
+                        {emailStr ? (
+                          <a
+                            href={`mailto:${emailStr}`}
+                            title={`Send Email to ${emailStr}`}
+                            style={{ fontSize: '12px', color: '#0d9488', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', textDecoration: 'none' }}
+                          >
+                            📧 {emailStr}
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: '12px', color: '#94a3b8' }}>—</span>
+                        )}
+                        {phoneStr ? (
+                          <a
+                            href={`tel:${phoneStr}`}
+                            title={`Call ${phoneStr}`}
+                            style={{ fontSize: '10px', color: '#475569', fontWeight: '600', textDecoration: 'none', display: 'block', marginTop: '2px' }}
+                          >
+                            📞 {phoneStr}
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: '10px', color: '#94a3b8' }}>—</span>
+                        )}
                       </td>
                       <td style={{ padding: '10px 14px', fontWeight: '800', color: '#0d9488', fontSize: '12px', whiteSpace: 'nowrap' }}>
                         ₹{emp.salary ? parseFloat(emp.salary).toLocaleString('en-IN') : '0'} /mo
