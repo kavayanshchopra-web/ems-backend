@@ -1189,7 +1189,18 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [atsCandidates, setAtsCandidates] = useState(() => {
     const saved = localStorage.getItem('omnilflow_ats_candidates');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((c, idx) => ({
+            position: c.position || 'Sales Representative',
+            email: c.email || 'kavayanshchopra@gmail.com',
+            phone: c.phone || '8566883642',
+            resume: c.resume || 'Resume.pdf',
+            ...c
+          }));
+        }
+      } catch (e) { console.error(e); }
     }
     return [];
   });

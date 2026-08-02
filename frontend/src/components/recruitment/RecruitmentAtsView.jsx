@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import PositionManagerView from './PositionManagerView';
-import { atsStorageService } from '../../services/atsStorageService';
+import { atsStorageService, formatCandidateId } from '../../services/atsStorageService';
 
 const DEFAULT_PIPELINE_STAGES = [
   { id: 'applied', key: 'APPLIED', name: 'Applied', emoji: '📥', color: '#0d9488', semanticType: 'APPLIED', sortOrder: 1 },
@@ -40,10 +40,18 @@ export default function RecruitmentAtsView({
 
   // Persistent Candidate Roster State
   const [candidatesState, setCandidatesState] = useState(() => {
+    let baseList = atsStorageService.getCandidates(companyId);
     if (Array.isArray(atsCandidates) && atsCandidates.length > 0) {
-      return atsCandidates;
+      baseList = atsCandidates;
     }
-    return atsStorageService.getCandidates(companyId);
+    return baseList.map((c, idx) => ({
+      position: c.position || 'Sales Representative',
+      email: c.email || 'kavayanshchopra@gmail.com',
+      phone: c.phone || '8566883642',
+      resume: c.resume || 'Resume.pdf',
+      ...c,
+      id: formatCandidateId(c.id, idx, config)
+    }));
   });
 
   const handleUpdateCandidates = (newRecords) => {
