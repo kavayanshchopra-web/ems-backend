@@ -1,6 +1,7 @@
 /**
  * COMPACT ENTERPRISE CRM KANBAN CARD COMPONENT
- * 15% Height Reduction, Ellipsis Truncation, Uniform 28px Action Buttons, Formatted Date (01 Aug 2026, 08:20 PM)
+ * Single-Line Ellipsis (Name, Email, Phone, Position), Non-Wrapping ATS ID, 15% Compact Vertical Padding,
+ * Fixed-Width Status Dropdown (120px), Formatted Date & "No Resume" Fallback
  */
 
 import React, { useState } from 'react';
@@ -54,12 +55,12 @@ export default function KanbanCard({
   const cardSubtitle = getValString(record.position || record.appliedFor || record.department, 'Sales Representative');
   const cardEmail = getValString(record.email, 'kavayanshchopra@gmail.com');
   const cardPhone = getValString(record.phone, '8566883642');
-  const cardFile = getValString(record.resume || record.attachment, 'Resume.pdf');
+  const cardFile = getValString(record.resume || record.attachment, '');
   const createdDateStr = formatDate(record.createdAt || record.appliedDate);
   const currentStage = getValString(record.status || record.stage, 'Applied');
   const displayId = formatCandidateId(record.id, 0, moduleConfig);
 
-  // Dynamic Custom Fields Added via Module Configuration (e.g., "test")
+  // Dynamic Custom Fields Added via Module Configuration
   const customFields = (moduleConfig.fields || []).filter(f =>
     !f.systemField &&
     !['name', 'position', 'email', 'phone', 'resume', 'createdAt', 'status', 'stage'].includes(f.id) &&
@@ -80,7 +81,7 @@ export default function KanbanCard({
       onMouseLeave={() => setIsHovered(false)}
       style={{
         background: '#ffffff',
-        padding: '10px 12px',
+        padding: '8px 10px',
         borderRadius: '10px',
         border: isHovered ? '1px solid #0d9488' : '1px solid #e2e8f0',
         boxShadow: isHovered
@@ -93,12 +94,12 @@ export default function KanbanCard({
         userSelect: 'none',
         display: 'flex',
         flexDirection: 'column',
-        gap: '5px',
+        gap: '4px',
         width: '100%',
         boxSizing: 'border-box'
       }}
     >
-      {/* 1. TOP BAR: CANDIDATE ID + UNIFORM 28px ACTION BUTTONS */}
+      {/* 1. TOP BAR: FIXED-WIDTH ATS ID (NEVER WRAP) + UNIFORM 28px ACTION BUTTONS */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span
           title={`Candidate ID: ${displayId}`}
@@ -110,7 +111,10 @@ export default function KanbanCard({
             background: 'rgba(13, 148, 136, 0.1)',
             color: '#0d9488',
             fontFamily: 'monospace',
-            letterSpacing: '0.03em'
+            letterSpacing: '0.03em',
+            whiteSpace: 'nowrap',
+            display: 'inline-block',
+            flexShrink: 0
           }}
         >
           {displayId}
@@ -144,7 +148,7 @@ export default function KanbanCard({
         </div>
       </div>
 
-      {/* 2. CANDIDATE NAME & POSITION WITH ELLIPSIS & HOVER TOOLTIPS */}
+      {/* 2. CANDIDATE NAME & POSITION WITH SINGLE-LINE ELLIPSIS & TOOLTIPS */}
       <div>
         <div
           title={cardName}
@@ -156,7 +160,7 @@ export default function KanbanCard({
         {cardSubtitle && (
           <div
             title={cardSubtitle}
-            style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0d9488', fontSize: '11px', fontWeight: '700', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0d9488', fontSize: '11px', fontWeight: '700', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
           >
             <Briefcase size={11} style={{ flexShrink: 0 }} />
             <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cardSubtitle}</span>
@@ -164,19 +168,19 @@ export default function KanbanCard({
         )}
       </div>
 
-      {/* 3. COMPACT CONTACT BOX (EMAIL + PHONE) */}
-      <div style={{ padding: '5px 7px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #f1f5f9', fontSize: '11px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-        <div title={cardEmail} style={{ display: 'flex', alignItems: 'center', gap: '5px', overflow: 'hidden' }}>
+      {/* 3. COMPACT CONTACT BOX (EMAIL + PHONE SINGLE LINE ELLIPSIS) */}
+      <div style={{ padding: '4px 6px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #f1f5f9', fontSize: '11px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+        <div title={`Email: ${cardEmail}`} style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden' }}>
           <Mail size={11} style={{ color: '#0d9488', flexShrink: 0 }} />
           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: '600' }}>{cardEmail}</span>
         </div>
-        <div title={cardPhone} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+        <div title={`Phone: ${cardPhone}`} style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden' }}>
           <Phone size={11} style={{ color: '#0d9488', flexShrink: 0 }} />
-          <span style={{ fontWeight: '600' }}>{cardPhone}</span>
+          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: '600' }}>{cardPhone}</span>
         </div>
       </div>
 
-      {/* 4. DYNAMIC CUSTOM FIELDS BADGE (e.g., "test") */}
+      {/* 4. DYNAMIC CUSTOM FIELDS BADGE */}
       {customFields.length > 0 && (
         <div style={{ padding: '4px 6px', background: '#f0fdfa', borderRadius: '5px', border: '1px solid #ccfbf1', fontSize: '10px', color: '#0f766e', display: 'flex', flexDirection: 'column', gap: '2px' }}>
           {customFields.map(f => {
@@ -192,28 +196,43 @@ export default function KanbanCard({
         </div>
       )}
 
-      {/* 5. RESUME & FORMATTED DATE ON SAME ROW */}
+      {/* 5. RESUME ("No Resume" FALLBACK) & FORMATTED DATE */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', fontSize: '10px' }}>
-        {cardFile && (
+        {cardFile ? (
           <Badge variant="info" style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px', padding: '2px 6px', maxWidth: '120px' }}>
             <FileText size={9} style={{ flexShrink: 0 }} />
             <span title={cardFile} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cardFile}</span>
           </Badge>
+        ) : (
+          <span style={{ color: '#94a3b8', fontSize: '10px', fontWeight: '600' }}>No Resume</span>
         )}
+
         <div title={`Applied: ${createdDateStr}`} style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#64748b', fontWeight: '700', marginLeft: 'auto', flexShrink: 0 }}>
           <Calendar size={10} />
           <span>{createdDateStr}</span>
         </div>
       </div>
 
-      {/* 6. PIPELINE STAGE DROPDOWN ON ONE LINE */}
+      {/* 6. PIPELINE STAGE WITH FIXED-WIDTH DROPDOWN (120px) */}
       {canManage && (
-        <div style={{ paddingTop: '5px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+        <div style={{ paddingTop: '4px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
           <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', flexShrink: 0 }}>Stage:</span>
           <select
             value={currentStage}
             onChange={(e) => onMoveStage(record.id, e.target.value)}
-            style={{ fontSize: '10px', fontWeight: '700', padding: '2px 6px', borderRadius: '5px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer', maxWidth: '160px' }}
+            style={{
+              fontSize: '10px',
+              fontWeight: '700',
+              padding: '2px 6px',
+              borderRadius: '5px',
+              border: '1px solid #cbd5e1',
+              background: '#ffffff',
+              color: '#0d9488',
+              cursor: 'pointer',
+              width: '120px',
+              minWidth: '120px',
+              maxWidth: '120px'
+            }}
           >
             {activePipelineStages.map(s => (
               <option key={s.id || s.name} value={getValString(s.name)}>
