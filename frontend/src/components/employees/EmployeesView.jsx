@@ -75,6 +75,7 @@ export default function EmployeesView({
   // Filter & Sort Logic with Defensive String Extraction
   const filtered = employees.filter(emp => {
     const q = searchQuery.toLowerCase().trim();
+    const empId = String(emp.id || '').toLowerCase();
     const firstName = getValString(emp.first_name).toLowerCase();
     const lastName = getValString(emp.last_name).toLowerCase();
     const fullName = `${firstName} ${lastName}`.trim();
@@ -84,6 +85,7 @@ export default function EmployeesView({
     const phone = getValString(emp.phone).toLowerCase();
 
     const matchesSearch = !q || (
+      empId.includes(q) ||
       firstName.includes(q) ||
       lastName.includes(q) ||
       fullName.includes(q) ||
@@ -98,17 +100,18 @@ export default function EmployeesView({
   });
 
   const sorted = [...filtered].sort((a, b) => {
-    let valA = getValString(a[sortKey]);
-    let valB = getValString(b[sortKey]);
-
     if (sortKey === 'salary') {
-      valA = parseFloat(a.salary || 0) || 0;
-      valB = parseFloat(b.salary || 0) || 0;
+      const valA = parseFloat(a.salary || 0) || 0;
+      const valB = parseFloat(b.salary || 0) || 0;
       return sortDir === 'asc' ? valA - valB : valB - valA;
     }
-
-    valA = valA.toLowerCase();
-    valB = valB.toLowerCase();
+    if (sortKey === 'id') {
+      const valA = String(a.id || '');
+      const valB = String(b.id || '');
+      return sortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+    }
+    const valA = getValString(a[sortKey]).toLowerCase();
+    const valB = getValString(b[sortKey]).toLowerCase();
 
     if (valA < valB) return sortDir === 'asc' ? -1 : 1;
     if (valA > valB) return sortDir === 'asc' ? 1 : -1;
@@ -160,12 +163,13 @@ export default function EmployeesView({
     { label: 'Staff Employee', value: 'employee' }
   ];
 
-  const sortLabelMap = {
-    first_name: 'Name',
-    role: 'Role',
-    department: 'Department',
-    salary: 'Salary'
-  };
+  const sortSelectOptions = [
+    { label: 'Sort: Name', value: 'first_name' },
+    { label: 'Sort: Recently Added', value: 'id' },
+    { label: 'Sort: Salary', value: 'salary' },
+    { label: 'Sort: Status', value: 'status' },
+    { label: 'Sort: Department', value: 'department' }
+  ];
 
   const toolbarLeft = (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
@@ -176,7 +180,7 @@ export default function EmployeesView({
           setCurrentPage(1);
         }}
         onClear={() => setSearchQuery('')}
-        placeholder="Search employee, role, email or dept..."
+        placeholder="Search employee, ID, role, email or dept..."
         width="260px"
       />
       <Select
@@ -193,12 +197,18 @@ export default function EmployeesView({
 
   const toolbarRight = (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <Select
+        value={sortKey}
+        onChange={(e) => setSortKey(e.target.value)}
+        options={sortSelectOptions}
+        style={{ width: '170px' }}
+      />
       <Button
         variant="secondary"
         size="sm"
         onClick={() => setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'))}
       >
-        Sort: {sortLabelMap[sortKey] || 'Name'} {sortDir === 'asc' ? '↑' : '↓'}
+        {sortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
       </Button>
     </div>
   );
