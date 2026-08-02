@@ -160,14 +160,16 @@ export default function ListEngine({
                   />
                 </th>
                 {visibleCols.map((col, idx) => {
-                  const widthStyle = col.id === 'candidate' || col.id === 'name' ? { minWidth: '220px' }
+                  const widthStyle = col.width ? { width: col.width, minWidth: col.width }
+                                  : col.id === 'candidate' || col.id === 'name' ? { minWidth: '220px' }
                                   : col.id === 'position' ? { minWidth: '160px' }
                                   : col.id === 'contact' || col.id === 'contact_details' ? { minWidth: '200px' }
                                   : col.id === 'resume' ? { width: '120px', minWidth: '120px' }
                                   : col.id === 'createdAt' || col.id === 'appliedDate' ? { width: '160px', minWidth: '160px' }
-                                  : {};
+                                  : { minWidth: '140px' };
+                  const alignStyle = col.align ? { textAlign: col.align } : {};
                   return (
-                    <th key={col.id} style={{ padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', background: '#f8fafc', ...widthStyle }}>
+                    <th key={col.id} style={{ padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', background: '#f8fafc', ...widthStyle, ...alignStyle }}>
                       {col.label}
                     </th>
                   );

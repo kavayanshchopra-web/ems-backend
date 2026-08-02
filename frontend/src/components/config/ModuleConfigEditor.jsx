@@ -1,12 +1,38 @@
 import React, { useState } from 'react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
-import { Plus, Trash2, Eye, EyeOff, Sliders, LayoutGrid, List, Search, Filter, Layers, ArrowLeft, Hash } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, Sliders, LayoutGrid, List, Search, Filter, Layers, ArrowLeft, Hash, Edit3, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatCustomSequencePattern } from '../../services/atsStorageService';
+
+export const ALL_FIELD_TYPES = [
+  { value: 'text', label: 'Text' },
+  { value: 'textarea', label: 'Textarea' },
+  { value: 'number', label: 'Number' },
+  { value: 'currency', label: 'Currency' },
+  { value: 'phone', label: 'Phone' },
+  { value: 'email', label: 'Email' },
+  { value: 'date', label: 'Date' },
+  { value: 'time', label: 'Time' },
+  { value: 'datetime', label: 'DateTime' },
+  { value: 'dropdown', label: 'Dropdown' },
+  { value: 'multiselect', label: 'Multi Select' },
+  { value: 'checkbox', label: 'Checkbox' },
+  { value: 'radio', label: 'Radio' },
+  { value: 'toggle', label: 'Toggle' },
+  { value: 'file', label: 'File Upload' },
+  { value: 'image', label: 'Image' },
+  { value: 'url', label: 'URL' },
+  { value: 'color', label: 'Color' },
+  { value: 'rating', label: 'Rating' },
+  { value: 'richtext', label: 'Rich Text' },
+  { value: 'autoid', label: 'Auto ID' },
+  { value: 'status', label: 'Status' },
+  { value: 'tag', label: 'Tag' }
+];
 
 /**
  * Generic Capability-Driven Module Configuration Editor
- * Left-side vertical navigation sidebar prevents tab clipping on Desktop viewports.
+ * Single Source of Truth for ATS & All Enterprise Modules
  */
 export default function ModuleConfigEditor({
   companyId,
@@ -23,19 +49,32 @@ export default function ModuleConfigEditor({
 
   const [activeNav, setActiveNav] = useState('fields');
   const [configState, setConfigState] = useState({
-    fields: [...(initialConfig.fields || [])],
+    fields: (initialConfig.fields || []).map((f, idx) => ({
+      ...f,
+      key: f.key || f.id,
+      sortOrder: f.sortOrder || idx + 1,
+      showOnList: f.showOnList !== undefined ? f.showOnList : true,
+      showOnKanban: f.showOnKanban !== undefined ? f.showOnKanban : true
+    })),
     summaryWidgets: [...(initialConfig.summaryWidgets || [])],
     columns: [...(initialConfig.columns || [])],
     kanbanFields: { ...(initialConfig.kanbanFields || { position: true, email: true, phone: true, resume: true }) },
     views: { ...(initialConfig.views || { availableViews: ['kanban', 'list'], defaultView: 'kanban' }) },
-    idConfig: { ...(initialConfig.idConfig || { prefix: 'ATS', padding: 3 }) }
+    idConfig: { ...(initialConfig.idConfig || { prefix: 'ATS', pattern: 'ATS-001', nextSeq: 1 }) }
   });
+
+  // Expanded Field Metadata Editing Drawer State
+  const [editingFieldId, setEditingFieldId] = useState(null);
 
   // New Custom Field State
   const [newFieldLabel, setNewFieldLabel] = useState('');
+  const [newFieldKey, setNewFieldKey] = useState('');
   const [newFieldType, setNewFieldType] = useState('text');
   const [newFieldOptionsSource, setNewFieldOptionsSource] = useState('manual');
   const [newFieldManualOptions, setNewFieldManualOptions] = useState('');
+  const [newFieldDefaultValue, setNewFieldDefaultValue] = useState('');
+  const [newFieldPlaceholder, setNewFieldPlaceholder] = useState('');
+  const [newFieldHelpText, setNewFieldHelpText] = useState('');
 
   // New Widget State
   const [newWidgetLabel, setNewWidgetLabel] = useState('');
@@ -51,7 +90,8 @@ export default function ModuleConfigEditor({
     updated[targetIdx] = updated[idx];
     updated[idx] = temp;
 
-    setConfigState(prev => ({ ...prev, fields: updated }));
+    const reordered = updated.map((f, i) => ({ ...f, sortOrder: i + 1 }));
+    setConfigState(prev => ({ ...prev, fields: reordered }));
   };
 
   const handleToggleFieldProp = (fieldId, prop) => {
@@ -67,16 +107,21 @@ export default function ModuleConfigEditor({
     }));
   };
 
-  const handleFieldLabelChange = (fieldId, newLabel) => {
+  const handleFieldPropertyChange = (fieldId, prop, val) => {
     setConfigState(prev => ({
       ...prev,
-      fields: prev.fields.map(f => f.id === fieldId ? { ...f, label: newLabel } : f)
+      fields: prev.fields.map(f => f.id === fieldId ? { ...f, [prop]: val } : f)
     }));
   };
 
   const handleAddCustomField = () => {
-    if (!newFieldLabel.trim()) return;
+    if (!newFieldLabel.trim()) {
+      showToast('Field label is required', 'error');
+      return;
+    }
+
     const fieldId = 'custom_' + Date.now();
+    const key = newFieldKey.trim() || newFieldLabel.toLowerCase().replace(/[^a-z0-9_]/g, '_');
 
     let manualOpts = [];
     if (newFieldOptionsSource === 'manual' && newFieldManualOptions.trim()) {
@@ -85,23 +130,53 @@ export default function ModuleConfigEditor({
 
     const newField = {
       id: fieldId,
+      key: key,
       label: newFieldLabel.trim(),
       type: newFieldType,
       optionsSource: newFieldOptionsSource,
       manualOptions: manualOpts,
+      options: manualOpts,
+      defaultValue: newFieldDefaultValue.trim(),
+      placeholder: newFieldPlaceholder.trim() || `Enter ${newFieldLabel.trim()}...`,
+      helpText: newFieldHelpText.trim(),
       required: false,
       showOnCreate: true,
       showOnEdit: true,
       showOnView: true,
+      showOnList: true,
+      showOnKanban: true,
       searchable: true,
-      filterable: newFieldType === 'dropdown' || newFieldType === 'radio',
+      filterable: ['dropdown', 'radio', 'multiselect', 'status', 'tag', 'checkbox'].includes(newFieldType),
       systemField: false,
-      sortOrder: configState.fields.length + 1
+      sortOrder: configState.fields.length + 1,
+      archived: false,
+      deleted: false
     };
 
-    setConfigState(prev => ({ ...prev, fields: [...prev.fields, newField] }));
+    // Automatically sync columns list
+    const newColumn = {
+      id: fieldId,
+      fieldKey: key,
+      label: newField.label,
+      visible: true,
+      width: '160px',
+      align: 'left',
+      sortable: true,
+      sortOrder: configState.columns.length + 1
+    };
+
+    setConfigState(prev => ({
+      ...prev,
+      fields: [...prev.fields, newField],
+      columns: [...prev.columns, newColumn]
+    }));
+
     setNewFieldLabel('');
+    setNewFieldKey('');
     setNewFieldManualOptions('');
+    setNewFieldDefaultValue('');
+    setNewFieldPlaceholder('');
+    setNewFieldHelpText('');
     showToast(`Added custom field "${newField.label}"`, 'success');
   };
 
@@ -123,12 +198,13 @@ export default function ModuleConfigEditor({
 
     setConfigState(prev => ({
       ...prev,
-      fields: prev.fields.filter(f => f.id !== fieldId)
+      fields: prev.fields.filter(f => f.id !== fieldId),
+      columns: prev.columns.filter(c => c.id !== fieldId && c.fieldKey !== fieldId)
     }));
     showToast(`Removed field "${field.label}"`, 'info');
   };
 
-  // Widget Reordering Controls
+  // Widget Controls
   const handleMoveWidget = (idx, direction) => {
     const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (targetIdx < 0 || targetIdx >= configState.summaryWidgets.length) return;
@@ -138,7 +214,8 @@ export default function ModuleConfigEditor({
     updated[targetIdx] = updated[idx];
     updated[idx] = temp;
 
-    setConfigState(prev => ({ ...prev, summaryWidgets: updated }));
+    const reordered = updated.map((w, i) => ({ ...w, sortOrder: i + 1 }));
+    setConfigState(prev => ({ ...prev, summaryWidgets: reordered }));
   };
 
   const handleToggleWidget = (widgetId) => {
@@ -172,7 +249,7 @@ export default function ModuleConfigEditor({
     showToast(`Added summary widget "${label}"`, 'success');
   };
 
-  // Column Reordering Controls
+  // Column Controls
   const handleMoveColumn = (idx, direction) => {
     const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (targetIdx < 0 || targetIdx >= configState.columns.length) return;
@@ -182,7 +259,8 @@ export default function ModuleConfigEditor({
     updated[targetIdx] = updated[idx];
     updated[idx] = temp;
 
-    setConfigState(prev => ({ ...prev, columns: updated }));
+    const reordered = updated.map((c, i) => ({ ...c, sortOrder: i + 1 }));
+    setConfigState(prev => ({ ...prev, columns: reordered }));
   };
 
   const handleToggleColumn = (colId) => {
@@ -195,6 +273,13 @@ export default function ModuleConfigEditor({
         }
         return c;
       })
+    }));
+  };
+
+  const handleColumnChange = (colId, prop, val) => {
+    setConfigState(prev => ({
+      ...prev,
+      columns: prev.columns.map(c => c.id === colId ? { ...c, [prop]: val } : c)
     }));
   };
 
@@ -239,18 +324,25 @@ export default function ModuleConfigEditor({
 
   const handleSave = () => {
     onSaveConfig(configState);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('omnilflow_config_updated', {
+        detail: { moduleId: moduleDef?.id || 'recruitment_ats', companyId }
+      }));
+    }
     onClose();
   };
 
   const navItems = [
     capabilities.forms && { id: 'fields', label: 'Forms & Fields', icon: <Sliders size={16} /> },
     { id: 'id_config', label: 'ID Format & Prefix', icon: <Hash size={16} /> },
-    capabilities.summary && { id: 'summary', label: 'Summary', icon: <Layers size={16} /> },
+    capabilities.summary && { id: 'summary', label: 'Summary Cards', icon: <Layers size={16} /> },
     capabilities.searchFilters && { id: 'search_filters', label: 'Search & Filters', icon: <Filter size={16} /> },
     capabilities.listView && { id: 'columns', label: 'List View', icon: <List size={16} /> },
     capabilities.kanbanView && { id: 'kanban', label: 'Kanban View', icon: <LayoutGrid size={16} /> },
     capabilities.views && { id: 'views', label: 'Views', icon: <Eye size={16} /> }
   ].filter(Boolean);
+
+  const editingField = configState.fields.find(f => f.id === editingFieldId);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '20px', background: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
@@ -269,7 +361,7 @@ export default function ModuleConfigEditor({
               </h2>
             </div>
             <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>
-              {moduleDef?.description}
+              Single source of truth configuration engine for Recruitment ATS. All screens update live from metadata.
             </p>
           </div>
         </div>
@@ -284,7 +376,7 @@ export default function ModuleConfigEditor({
         </div>
       </div>
 
-      {/* Main Layout: Left-side Navigation Sidebar + Right-side Content */}
+      {/* Main Layout: Left Navigation Sidebar + Right Content */}
       <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '20px', minHeight: '440px' }}>
 
         {/* Left Navigation Sidebar */}
@@ -325,77 +417,212 @@ export default function ModuleConfigEditor({
           {activeNav === 'fields' && capabilities.forms && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ fontSize: '11px', color: '#64748b', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                One Field Schema drives Add, Edit, and View screens. Dynamic properties control field visibility without JSX changes.
+                Every row defines one field. Changing metadata here immediately updates Add, Edit, View, List, Search, Filters, and Kanban screens.
               </div>
 
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', maxHeight: '340px', overflowY: 'auto' }}>
+              {/* FIELDS SCHEMA TABLE */}
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', maxHeight: '380px', overflowY: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                   <thead style={{ background: '#f8fafc', position: 'sticky', top: 0, zIndex: 5 }}>
                     <tr>
-                      <th style={{ padding: '8px 6px', textAlign: 'center', width: '40px' }}>ORD</th>
+                      <th style={{ padding: '8px 6px', textAlign: 'center', width: '36px' }}>ORD</th>
                       <th style={{ padding: '8px 8px', textAlign: 'left' }}>LABEL</th>
-                      <th style={{ padding: '8px 8px', textAlign: 'center' }}>TYPE</th>
-                      <th style={{ padding: '8px 6px', textAlign: 'center' }}>ADD</th>
-                      <th style={{ padding: '8px 6px', textAlign: 'center' }}>EDIT</th>
-                      <th style={{ padding: '8px 6px', textAlign: 'center' }}>VIEW</th>
-                      <th style={{ padding: '8px 6px', textAlign: 'center' }}>REQ</th>
-                      <th style={{ padding: '8px 8px', textAlign: 'right' }}>ACTION</th>
+                      <th style={{ padding: '8px 8px', textAlign: 'left', width: '110px' }}>TYPE</th>
+                      <th style={{ padding: '8px 4px', textAlign: 'center', width: '36px' }} title="Add Form">ADD</th>
+                      <th style={{ padding: '8px 4px', textAlign: 'center', width: '36px' }} title="Edit Form">EDIT</th>
+                      <th style={{ padding: '8px 4px', textAlign: 'center', width: '36px' }} title="View Drawer">VIEW</th>
+                      <th style={{ padding: '8px 4px', textAlign: 'center', width: '36px' }} title="List Column">LIST</th>
+                      <th style={{ padding: '8px 4px', textAlign: 'center', width: '36px' }} title="Kanban Card">KANBAN</th>
+                      <th style={{ padding: '8px 4px', textAlign: 'center', width: '36px' }} title="Required">REQ</th>
+                      <th style={{ padding: '8px 8px', textAlign: 'right', width: '70px' }}>ACTION</th>
                     </tr>
                   </thead>
                   <tbody>
                     {configState.fields.map((field, idx) => (
-                      <tr key={field.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '8px 6px', textAlign: 'center' }}>
-                          <div style={{ display: 'flex', gap: '2px', justifyContent: 'center' }}>
-                            <button type="button" disabled={idx === 0} onClick={() => handleMoveField(idx, 'up')} style={{ border: 'none', background: 'none', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.3 : 1 }}>▲</button>
-                            <button type="button" disabled={idx === configState.fields.length - 1} onClick={() => handleMoveField(idx, 'down')} style={{ border: 'none', background: 'none', cursor: idx === configState.fields.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === configState.fields.length - 1 ? 0.3 : 1 }}>▼</button>
-                          </div>
-                        </td>
-                        <td style={{ padding: '8px 8px' }}>
-                          <input
-                            type="text"
-                            value={field.label}
-                            onChange={(e) => handleFieldLabelChange(field.id, e.target.value)}
-                            style={{ padding: '4px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: '600', width: '100%', outline: 'none' }}
-                          />
-                        </td>
-                        <td style={{ padding: '8px 8px', textAlign: 'center' }}>
-                          <Badge variant="neutral">{field.type}</Badge>
-                        </td>
-                        <td style={{ padding: '8px 6px', textAlign: 'center' }}>
-                          <button type="button" onClick={() => handleToggleFieldProp(field.id, 'showOnCreate')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: field.showOnCreate ? '#0d9488' : '#94a3b8' }}>
-                            {field.showOnCreate ? <Eye size={14} /> : <EyeOff size={14} />}
-                          </button>
-                        </td>
-                        <td style={{ padding: '8px 6px', textAlign: 'center' }}>
-                          <button type="button" onClick={() => handleToggleFieldProp(field.id, 'showOnEdit')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: field.showOnEdit ? '#0d9488' : '#94a3b8' }}>
-                            {field.showOnEdit ? <Eye size={14} /> : <EyeOff size={14} />}
-                          </button>
-                        </td>
-                        <td style={{ padding: '8px 6px', textAlign: 'center' }}>
-                          <button type="button" onClick={() => handleToggleFieldProp(field.id, 'showOnView')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: field.showOnView !== false ? '#0d9488' : '#94a3b8' }}>
-                            {field.showOnView !== false ? <Eye size={14} /> : <EyeOff size={14} />}
-                          </button>
-                        </td>
-                        <td style={{ padding: '8px 6px', textAlign: 'center' }}>
-                          <input
-                            type="checkbox"
-                            checked={!!field.required}
-                            disabled={field.systemField}
-                            onChange={() => handleToggleFieldProp(field.id, 'required')}
-                            style={{ accentColor: '#0d9488', cursor: field.systemField ? 'not-allowed' : 'pointer' }}
-                          />
-                        </td>
-                        <td style={{ padding: '8px 8px', textAlign: 'right' }}>
-                          {!field.systemField ? (
-                            <button type="button" onClick={() => handleDeleteField(field.id)} style={{ border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer' }}>
-                              <Trash2 size={14} />
+                      <React.Fragment key={field.id}>
+                        <tr style={{ borderBottom: '1px solid #f1f5f9', background: editingFieldId === field.id ? '#f0fdfa' : 'white' }}>
+                          <td style={{ padding: '6px 4px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: '1px', justifyContent: 'center' }}>
+                              <button type="button" disabled={idx === 0} onClick={() => handleMoveField(idx, 'up')} style={{ border: 'none', background: 'none', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.3 : 1 }}>▲</button>
+                              <button type="button" disabled={idx === configState.fields.length - 1} onClick={() => handleMoveField(idx, 'down')} style={{ border: 'none', background: 'none', cursor: idx === configState.fields.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === configState.fields.length - 1 ? 0.3 : 1 }}>▼</button>
+                            </div>
+                          </td>
+                          <td style={{ padding: '6px 8px' }}>
+                            <input
+                              type="text"
+                              value={field.label}
+                              onChange={(e) => handleFieldPropertyChange(field.id, 'label', e.target.value)}
+                              style={{ padding: '4px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: '600', width: '100%', outline: 'none' }}
+                            />
+                          </td>
+                          <td style={{ padding: '6px 8px' }}>
+                            <select
+                              value={field.type}
+                              disabled={field.systemField}
+                              onChange={(e) => handleFieldPropertyChange(field.id, 'type', e.target.value)}
+                              style={{ padding: '4px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', fontWeight: '600', width: '100%', outline: 'none', background: 'white' }}
+                            >
+                              {ALL_FIELD_TYPES.map(t => (
+                                <option key={t.value} value={t.value}>{t.label}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td style={{ padding: '6px 4px', textAlign: 'center' }}>
+                            <button type="button" onClick={() => handleToggleFieldProp(field.id, 'showOnCreate')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: field.showOnCreate ? '#0d9488' : '#cbd5e1' }}>
+                              {field.showOnCreate ? <Eye size={14} /> : <EyeOff size={14} />}
                             </button>
-                          ) : (
-                            <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700' }}>CORE</span>
-                          )}
-                        </td>
-                      </tr>
+                          </td>
+                          <td style={{ padding: '6px 4px', textAlign: 'center' }}>
+                            <button type="button" onClick={() => handleToggleFieldProp(field.id, 'showOnEdit')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: field.showOnEdit ? '#0d9488' : '#cbd5e1' }}>
+                              {field.showOnEdit ? <Eye size={14} /> : <EyeOff size={14} />}
+                            </button>
+                          </td>
+                          <td style={{ padding: '6px 4px', textAlign: 'center' }}>
+                            <button type="button" onClick={() => handleToggleFieldProp(field.id, 'showOnView')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: field.showOnView !== false ? '#0d9488' : '#cbd5e1' }}>
+                              {field.showOnView !== false ? <Eye size={14} /> : <EyeOff size={14} />}
+                            </button>
+                          </td>
+                          <td style={{ padding: '6px 4px', textAlign: 'center' }}>
+                            <button type="button" onClick={() => handleToggleFieldProp(field.id, 'showOnList')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: field.showOnList !== false ? '#0d9488' : '#cbd5e1' }}>
+                              {field.showOnList !== false ? <Eye size={14} /> : <EyeOff size={14} />}
+                            </button>
+                          </td>
+                          <td style={{ padding: '6px 4px', textAlign: 'center' }}>
+                            <button type="button" onClick={() => handleToggleFieldProp(field.id, 'showOnKanban')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: field.showOnKanban !== false ? '#0d9488' : '#cbd5e1' }}>
+                              {field.showOnKanban !== false ? <Eye size={14} /> : <EyeOff size={14} />}
+                            </button>
+                          </td>
+                          <td style={{ padding: '6px 4px', textAlign: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={!!field.required}
+                              disabled={field.systemField}
+                              onChange={() => handleToggleFieldProp(field.id, 'required')}
+                              style={{ accentColor: '#0d9488', cursor: field.systemField ? 'not-allowed' : 'pointer' }}
+                            />
+                          </td>
+                          <td style={{ padding: '6px 8px', textAlign: 'right' }}>
+                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                              <button
+                                type="button"
+                                title="Edit Field Metadata Settings"
+                                onClick={() => setEditingFieldId(editingFieldId === field.id ? null : field.id)}
+                                style={{ border: 'none', background: 'transparent', color: '#0d9488', cursor: 'pointer' }}
+                              >
+                                {editingFieldId === field.id ? <ChevronUp size={14} /> : <Settings size={14} />}
+                              </button>
+                              {!field.systemField ? (
+                                <button type="button" onClick={() => handleDeleteField(field.id)} style={{ border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer' }}>
+                                  <Trash2 size={14} />
+                                </button>
+                              ) : (
+                                <span style={{ fontSize: '9px', color: '#94a3b8', fontWeight: '800' }}>CORE</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* EXPANDABLE METADATA EDIT PANEL */}
+                        {editingFieldId === field.id && (
+                          <tr style={{ background: '#f0fdfa', borderBottom: '1px solid #ccfbf1' }}>
+                            <td colSpan={10} style={{ padding: '12px 16px' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                                <div>
+                                  <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>FIELD KEY / IDENTIFIER</label>
+                                  <input
+                                    type="text"
+                                    value={field.key || field.id}
+                                    onChange={(e) => handleFieldPropertyChange(field.id, 'key', e.target.value)}
+                                    style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%' }}
+                                  />
+                                </div>
+                                <div>
+                                  <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>DEFAULT VALUE</label>
+                                  <input
+                                    type="text"
+                                    value={field.defaultValue || ''}
+                                    onChange={(e) => handleFieldPropertyChange(field.id, 'defaultValue', e.target.value)}
+                                    placeholder="Default value"
+                                    style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%' }}
+                                  />
+                                </div>
+                                <div>
+                                  <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>PLACEHOLDER TEXT</label>
+                                  <input
+                                    type="text"
+                                    value={field.placeholder || ''}
+                                    onChange={(e) => handleFieldPropertyChange(field.id, 'placeholder', e.target.value)}
+                                    placeholder="Placeholder text"
+                                    style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%' }}
+                                  />
+                                </div>
+                                <div>
+                                  <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>HELP TEXT</label>
+                                  <input
+                                    type="text"
+                                    value={field.helpText || ''}
+                                    onChange={(e) => handleFieldPropertyChange(field.id, 'helpText', e.target.value)}
+                                    placeholder="Help text below input"
+                                    style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%' }}
+                                  />
+                                </div>
+                                <div>
+                                  <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>MIN LENGTH / VALUE</label>
+                                  <input
+                                    type="number"
+                                    value={field.minLength || field.min || ''}
+                                    onChange={(e) => {
+                                      const v = e.target.value ? Number(e.target.value) : undefined;
+                                      handleFieldPropertyChange(field.id, 'minLength', v);
+                                      handleFieldPropertyChange(field.id, 'min', v);
+                                    }}
+                                    style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%' }}
+                                  />
+                                </div>
+                                <div>
+                                  <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>MAX LENGTH / VALUE</label>
+                                  <input
+                                    type="number"
+                                    value={field.maxLength || field.max || ''}
+                                    onChange={(e) => {
+                                      const v = e.target.value ? Number(e.target.value) : undefined;
+                                      handleFieldPropertyChange(field.id, 'maxLength', v);
+                                      handleFieldPropertyChange(field.id, 'max', v);
+                                    }}
+                                    style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%' }}
+                                  />
+                                </div>
+                                <div>
+                                  <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>REGEX PATTERN</label>
+                                  <input
+                                    type="text"
+                                    value={field.pattern || field.regex || ''}
+                                    onChange={(e) => handleFieldPropertyChange(field.id, 'pattern', e.target.value)}
+                                    placeholder="e.g. ^[A-Z]{3}$"
+                                    style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%' }}
+                                  />
+                                </div>
+                                {(field.type === 'dropdown' || field.type === 'radio' || field.type === 'multiselect') && (
+                                  <div style={{ gridColumn: 'span 2' }}>
+                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>OPTIONS (COMMA-SEPARATED)</label>
+                                    <input
+                                      type="text"
+                                      value={Array.isArray(field.options) ? field.options.join(', ') : (field.manualOptions || []).join(', ')}
+                                      onChange={(e) => {
+                                        const opts = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                                        handleFieldPropertyChange(field.id, 'options', opts);
+                                        handleFieldPropertyChange(field.id, 'manualOptions', opts);
+                                      }}
+                                      placeholder="e.g. Full-Time, Part-Time, Contract"
+                                      style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%' }}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>
@@ -404,7 +631,7 @@ export default function ModuleConfigEditor({
               {/* Add Custom Field Form */}
               <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '700', color: '#334155' }}>Add Custom Field</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 140px auto', gap: '8px', alignItems: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 140px auto', gap: '8px', alignItems: 'center' }}>
                   <input
                     type="text"
                     placeholder="Field label (e.g. Expected CTC)"
@@ -417,21 +644,14 @@ export default function ModuleConfigEditor({
                     onChange={(e) => setNewFieldType(e.target.value)}
                     style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', outline: 'none', background: 'white' }}
                   >
-                    <option value="text">Text</option>
-                    <option value="number">Number</option>
-                    <option value="email">Email</option>
-                    <option value="phone">Phone</option>
-                    <option value="date">Date</option>
-                    <option value="dropdown">Dropdown</option>
-                    <option value="radio">Radio</option>
-                    <option value="checkbox">Checkbox</option>
-                    <option value="url">URL</option>
-                    <option value="textarea">Textarea</option>
+                    {ALL_FIELD_TYPES.map(t => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
                   </select>
                   <select
                     value={newFieldOptionsSource}
                     onChange={(e) => setNewFieldOptionsSource(e.target.value)}
-                    disabled={newFieldType !== 'dropdown' && newFieldType !== 'radio'}
+                    disabled={!['dropdown', 'radio', 'multiselect', 'status'].includes(newFieldType)}
                     style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', outline: 'none', background: 'white' }}
                   >
                     <option value="manual">Manual Options</option>
@@ -445,7 +665,7 @@ export default function ModuleConfigEditor({
                   </Button>
                 </div>
 
-                {newFieldOptionsSource === 'manual' && (newFieldType === 'dropdown' || newFieldType === 'radio') && (
+                {newFieldOptionsSource === 'manual' && ['dropdown', 'radio', 'multiselect'].includes(newFieldType) && (
                   <input
                     type="text"
                     placeholder="Enter manual options comma-separated (e.g. Full-time, Part-time, Contract)"
@@ -462,7 +682,7 @@ export default function ModuleConfigEditor({
           {activeNav === 'summary' && capabilities.summary && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ fontSize: '11px', color: '#64748b', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                Reorder, enable/disable, or add custom stage-count summary KPI cards.
+                Reorder, enable/disable, or add custom stage-count summary KPI cards. Recruitment dashboard updates automatically.
               </div>
 
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', maxHeight: '280px', overflowY: 'auto' }}>
@@ -532,7 +752,7 @@ export default function ModuleConfigEditor({
             </div>
           )}
 
-          {/* SECTION: ID FORMAT & PREFIX (CLEAN DIRECT TEXT INPUTS) */}
+          {/* SECTION: ID FORMAT & PREFIX */}
           {activeNav === 'id_config' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ padding: '18px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
@@ -540,14 +760,13 @@ export default function ModuleConfigEditor({
                   ⚙️ Candidate & Record ID Format Configuration
                 </div>
                 <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '18px' }}>
-                  Type custom ID prefix, sequence pattern template string, and next sequence starting number directly without dropdowns.
+                  Type custom ID prefix (e.g. ATS, EMP, LEAD, CAND), sequence pattern template string, and next sequence starting counter directly.
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-                  {/* INPUT 1: PREFIX CODE */}
                   <div>
                     <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
-                      ID Prefix Code (e.g. ATS, CAND, REQ, JOB)
+                      ID Prefix Code (e.g. ATS, EMP, LEAD, CAND)
                     </label>
                     <input
                       type="text"
@@ -564,10 +783,9 @@ export default function ModuleConfigEditor({
                     />
                   </div>
 
-                  {/* INPUT 2: SEQUENCE PATTERN TEMPLATE */}
                   <div>
                     <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
-                      Sequence Pattern Format (e.g. ATS-2026-001, ATS/2026/001, CAND-001)
+                      Sequence Pattern Format (e.g. ATS-2026-001, CAND-001)
                     </label>
                     <input
                       type="text"
@@ -579,12 +797,11 @@ export default function ModuleConfigEditor({
                           idConfig: { ...(prev.idConfig || {}), pattern: val }
                         }));
                       }}
-                      placeholder="e.g. ATS-2026-001 or ATS/2026/001"
+                      placeholder="e.g. ATS-2026-001 or CAND-001"
                       style={{ width: '100%', padding: '8px 12px', fontSize: '13px', fontWeight: '800', borderRadius: '6px', border: '1px solid #cbd5e1' }}
                     />
                   </div>
 
-                  {/* INPUT 3: NEXT SEQUENCE NUMBER */}
                   <div>
                     <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
                       Next Sequence Number (Starting Counter ID)
@@ -605,7 +822,6 @@ export default function ModuleConfigEditor({
                   </div>
                 </div>
 
-                {/* LIVE PREVIEW BADGES */}
                 <div style={{ marginTop: '20px', padding: '14px 18px', background: '#ffffff', borderRadius: '8px', border: '1px dashed #0d9488', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '12px', fontWeight: '800', color: '#0f172a' }}>Live Pattern Sample Preview:</span>
                   {[0, 1, 2].map(offset => {
@@ -628,7 +844,7 @@ export default function ModuleConfigEditor({
           {activeNav === 'search_filters' && capabilities.searchFilters && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ fontSize: '11px', color: '#64748b', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                Configure which fields are checked by Search and which fields appear in the Filters popover panel.
+                Configure which fields are checked by Search and which fields appear inside the Filters popover drawer.
               </div>
 
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
@@ -674,7 +890,7 @@ export default function ModuleConfigEditor({
           {activeNav === 'columns' && capabilities.listView && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ fontSize: '11px', color: '#64748b', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                Reorder and toggle column visibility for Candidate Roster List view.
+                Configure column visibility, column width, alignment (`left`/`center`/`right`), and display order for Candidate Roster List view.
               </div>
 
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
@@ -687,7 +903,8 @@ export default function ModuleConfigEditor({
                       justify: 'space-between',
                       padding: '10px 14px',
                       borderBottom: '1px solid #f1f5f9',
-                      background: col.visible ? '#ffffff' : '#f8fafc'
+                      background: col.visible ? '#ffffff' : '#f8fafc',
+                      gap: '12px'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -700,14 +917,32 @@ export default function ModuleConfigEditor({
                       </div>
                     </div>
 
-                    <Button
-                      variant={col.visible ? 'secondary' : 'outline'}
-                      size="sm"
-                      disabled={col.systemColumn}
-                      onClick={() => handleToggleColumn(col.id)}
-                    >
-                      {col.visible ? 'Visible' : 'Hidden'}
-                    </Button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <input
+                        type="text"
+                        placeholder="Width (e.g. 160px)"
+                        value={col.width || ''}
+                        onChange={(e) => handleColumnChange(col.id, 'width', e.target.value)}
+                        style={{ width: '90px', padding: '4px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px' }}
+                      />
+                      <select
+                        value={col.align || 'left'}
+                        onChange={(e) => handleColumnChange(col.id, 'align', e.target.value)}
+                        style={{ padding: '4px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', background: 'white' }}
+                      >
+                        <option value="left">Left</option>
+                        <option value="center">Center</option>
+                        <option value="right">Right</option>
+                      </select>
+                      <Button
+                        variant={col.visible ? 'secondary' : 'outline'}
+                        size="sm"
+                        disabled={col.systemColumn}
+                        onClick={() => handleToggleColumn(col.id)}
+                      >
+                        {col.visible ? 'Visible' : 'Hidden'}
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -718,7 +953,7 @@ export default function ModuleConfigEditor({
           {activeNav === 'kanban' && capabilities.kanbanView && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ fontSize: '11px', color: '#64748b', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                Select which candidate metadata fields display on Kanban cards.
+                Select which system and custom candidate metadata fields display on Kanban cards.
               </div>
 
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
@@ -757,7 +992,7 @@ export default function ModuleConfigEditor({
           {activeNav === 'views' && capabilities.views && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ fontSize: '11px', color: '#64748b', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                Configure supported views and default view mode on load.
+                Configure supported view modes and default view mode on load.
               </div>
 
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
@@ -816,3 +1051,4 @@ export default function ModuleConfigEditor({
     </div>
   );
 }
+

@@ -26,7 +26,7 @@ export class FilterEngine {
    */
   static getFilterableFields(moduleConfig) {
     if (!moduleConfig || !Array.isArray(moduleConfig.fields)) return [];
-    return moduleConfig.fields.filter(f => f.filterable !== false);
+    return moduleConfig.fields.filter(f => !f.archived && !f.deleted && (f.filterable === true || (f.filterable !== false && (f.systemField || ['dropdown', 'radio', 'multiselect', 'status', 'tag'].includes(f.type)))));
   }
 
   /**

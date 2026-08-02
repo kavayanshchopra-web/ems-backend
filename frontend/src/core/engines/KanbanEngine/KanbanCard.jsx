@@ -51,6 +51,9 @@ export default function KanbanCard({
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
+  const kanbanConfig = moduleConfig.kanbanFields || {};
+  const fieldsMap = new Map((moduleConfig.fields || []).map(f => [f.id, f]));
+
   const cardName = getValString(record.name || record.title, LabelEngine.getEntityName(moduleConfig));
   const cardSubtitle = getValString(record.position || record.appliedFor || record.department, 'Sales Representative');
   const cardEmail = getValString(record.email, 'kavayanshchopra@gmail.com');
@@ -60,11 +63,17 @@ export default function KanbanCard({
   const currentStage = getValString(record.status || record.stage, 'Applied');
   const displayId = formatCandidateId(record.id, 0, moduleConfig);
 
+  const showPosition = kanbanConfig.position !== false && fieldsMap.get('position')?.showOnKanban !== false;
+  const showEmail = kanbanConfig.email !== false && fieldsMap.get('email')?.showOnKanban !== false;
+  const showPhone = kanbanConfig.phone !== false && fieldsMap.get('phone')?.showOnKanban !== false;
+  const showResume = kanbanConfig.resume !== false && fieldsMap.get('resume')?.showOnKanban !== false;
+
   // Dynamic Custom Fields Added via Module Configuration
   const customFields = (moduleConfig.fields || []).filter(f =>
     !f.systemField &&
-    !['name', 'position', 'email', 'phone', 'resume', 'createdAt', 'status', 'stage'].includes(f.id) &&
-    f.showOnView !== false
+    !f.archived &&
+    !f.deleted &&
+    f.showOnKanban !== false
   );
 
   return (
@@ -157,7 +166,7 @@ export default function KanbanCard({
         >
           {cardName}
         </div>
-        {cardSubtitle && (
+        {showPosition && cardSubtitle && (
           <div
             title={cardSubtitle}
             style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0d9488', fontSize: '11px', fontWeight: '700', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
@@ -169,22 +178,28 @@ export default function KanbanCard({
       </div>
 
       {/* 3. COMPACT CONTACT BOX (EMAIL + PHONE SINGLE LINE ELLIPSIS) */}
-      <div style={{ padding: '4px 6px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #f1f5f9', fontSize: '11px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-        <div title={`Email: ${cardEmail}`} style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden' }}>
-          <Mail size={11} style={{ color: '#0d9488', flexShrink: 0 }} />
-          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: '600' }}>{cardEmail}</span>
+      {(showEmail || showPhone) && (
+        <div style={{ padding: '4px 6px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #f1f5f9', fontSize: '11px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          {showEmail && cardEmail && (
+            <div title={`Email: ${cardEmail}`} style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden' }}>
+              <Mail size={11} style={{ color: '#0d9488', flexShrink: 0 }} />
+              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: '600' }}>{cardEmail}</span>
+            </div>
+          )}
+          {showPhone && cardPhone && (
+            <div title={`Phone: ${cardPhone}`} style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden' }}>
+              <Phone size={11} style={{ color: '#0d9488', flexShrink: 0 }} />
+              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: '600' }}>{cardPhone}</span>
+            </div>
+          )}
         </div>
-        <div title={`Phone: ${cardPhone}`} style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden' }}>
-          <Phone size={11} style={{ color: '#0d9488', flexShrink: 0 }} />
-          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: '600' }}>{cardPhone}</span>
-        </div>
-      </div>
+      )}
 
       {/* 4. DYNAMIC CUSTOM FIELDS BADGE */}
       {customFields.length > 0 && (
         <div style={{ padding: '4px 6px', background: '#f0fdfa', borderRadius: '5px', border: '1px solid #ccfbf1', fontSize: '10px', color: '#0f766e', display: 'flex', flexDirection: 'column', gap: '2px' }}>
           {customFields.map(f => {
-            const fieldVal = getValString(record[f.id] || record[f.label] || record[f.id.replace(/^custom_/, '')]);
+            const fieldVal = getValString(record[f.id] || record[f.key] || record.customFields?.[f.id] || record.customFields?.[f.key] || record[f.label]);
             if (!fieldVal) return null;
             return (
               <div key={f.id} title={`${f.label}: ${fieldVal}`} style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden' }}>
@@ -198,14 +213,16 @@ export default function KanbanCard({
 
       {/* 5. RESUME ("No Resume" FALLBACK) & FORMATTED DATE */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', fontSize: '10px' }}>
-        {cardFile ? (
-          <Badge variant="info" style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px', padding: '2px 6px', maxWidth: '120px' }}>
-            <FileText size={9} style={{ flexShrink: 0 }} />
-            <span title={cardFile} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cardFile}</span>
-          </Badge>
-        ) : (
-          <span style={{ color: '#94a3b8', fontSize: '10px', fontWeight: '600' }}>No Resume</span>
-        )}
+        {showResume ? (
+          cardFile ? (
+            <Badge variant="info" style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px', padding: '2px 6px', maxWidth: '120px' }}>
+              <FileText size={9} style={{ flexShrink: 0 }} />
+              <span title={cardFile} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cardFile}</span>
+            </Badge>
+          ) : (
+            <span style={{ color: '#94a3b8', fontSize: '10px', fontWeight: '600' }}>No Resume</span>
+          )
+        ) : <div />}
 
         <div title={`Applied: ${createdDateStr}`} style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#64748b', fontWeight: '700', marginLeft: 'auto', flexShrink: 0 }}>
           <Calendar size={10} />
