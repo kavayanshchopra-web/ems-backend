@@ -13,7 +13,7 @@ export function useModuleRegistry(companyId, moduleId) {
 
   const refreshConfig = useCallback(() => {
     const latest = masterModuleRegistry.resolveTenantModuleConfig(companyId, moduleId);
-    setConfig(latest);
+    setConfig({ ...latest, _version: Date.now() });
   }, [companyId, moduleId]);
 
   useEffect(() => {
