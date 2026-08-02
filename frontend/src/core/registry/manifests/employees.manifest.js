@@ -76,6 +76,14 @@ export const EMPLOYEES_MANIFEST = {
     defaultView: 'list'
   },
 
+  defaultLookupData: {
+    departments: ['Engineering', 'Product', 'Design', 'Sales', 'Marketing', 'Customer Support', 'Finance', 'Human Resources', 'Operations'],
+    designations: ['Senior Software Engineer', 'Product Manager', 'UX Designer', 'Sales Executive', 'HR Specialist', 'Financial Analyst', 'Operations Lead', 'Marketing Manager'],
+    employment_types: ['Full-time', 'Part-time', 'Contract', 'Internship'],
+    status: ['active', 'on_leave', 'terminated', 'probation'],
+    role: ['employee', 'manager', 'admin', 'hr', 'finance']
+  },
+
   defaultStages: [
     { id: 'active', key: 'ACTIVE', name: 'Active', emoji: '✅', color: '#059669', semanticType: 'ACTIVE', sortOrder: 1 },
     { id: 'on_leave', key: 'ON_LEAVE', name: 'On Leave', emoji: '🏖️', color: '#d97706', semanticType: 'LEAVE', sortOrder: 2 },

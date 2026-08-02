@@ -74,6 +74,13 @@ export const ASSETS_MANIFEST = {
     defaultView: 'list'
   },
 
+  defaultLookupData: {
+    category: ['Laptop', 'Mobile Phone', 'Monitor', 'Peripheral', 'Tablet', 'Networking', 'Furniture'],
+    status: ['In Use', 'Available', 'Under Repair', 'Retired', 'Lost/Stolen'],
+    vendors: ['Apple Inc.', 'Dell Technologies', 'Logitech', 'Samsung', 'Lenovo', 'HP Inc.'],
+    locations: ['HQ - Mumbai', 'Branch - Bangalore', 'Branch - Delhi', 'Remote / Work From Home', 'Warehouse']
+  },
+
   defaultStages: [
     { id: 'in_use', key: 'IN_USE', name: 'In Use', emoji: '💻', color: '#10b981', semanticType: 'ACTIVE', sortOrder: 1 },
     { id: 'available', key: 'AVAILABLE', name: 'Available', emoji: '📦', color: '#0d9488', semanticType: 'NEW', sortOrder: 2 },

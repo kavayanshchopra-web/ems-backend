@@ -99,6 +99,11 @@ class MasterModuleRegistry {
       ? storedConfig.kanbanFields
       : { position: true, email: true, phone: true, resume: true };
 
+    const lookupData = {
+      ...(manifest.defaultLookupData || {}),
+      ...(storedConfig.lookupData || {})
+    };
+
     return {
       moduleId: manifest.moduleId,
       moduleTitle: manifest.name,
@@ -113,6 +118,7 @@ class MasterModuleRegistry {
       columns,
       views,
       kanbanFields,
+      lookupData,
       idConfig: storedConfig.idConfig || { prefix: 'ATS', pattern: 'ATS-001', nextSeq: 1 },
       stages: manifest.defaultStages || []
     };

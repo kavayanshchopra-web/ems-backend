@@ -64,12 +64,24 @@ export default function FilterPanel({
       </div>
 
       {filterableFields.map(field => {
-        let opts = field.manualOptions || [];
-        if (field.optionsSource === 'departments') opts = (systemDropdowns?.departments || []).map(getValString);
-        if (field.optionsSource === 'designations') opts = (systemDropdowns?.designations || []).map(getValString);
-        if (field.optionsSource === 'ats_stages') opts = activePipelineStages.map(s => getValString(s.name));
-        if (field.optionsSource === 'employment_types') opts = ['Full-time', 'Part-time', 'Contract', 'Internship'];
-        if (field.optionsSource === 'positions') opts = allPositions;
+        const lookupKey = field.optionsSource || field.key || field.id;
+        let opts = [];
+
+        if (moduleConfig?.lookupData && Array.isArray(moduleConfig.lookupData[lookupKey]) && moduleConfig.lookupData[lookupKey].length > 0) {
+          opts = moduleConfig.lookupData[lookupKey].map(getValString);
+        } else if (Array.isArray(field.options) && field.options.length > 0) {
+          opts = field.options.map(getValString);
+        } else if (Array.isArray(field.manualOptions) && field.manualOptions.length > 0) {
+          opts = field.manualOptions.map(getValString);
+        }
+
+        if (opts.length === 0) {
+          if (field.optionsSource === 'departments') opts = (systemDropdowns?.departments || []).map(getValString);
+          if (field.optionsSource === 'designations') opts = (systemDropdowns?.designations || []).map(getValString);
+          if (field.optionsSource === 'ats_stages') opts = activePipelineStages.map(s => getValString(s.name));
+          if (field.optionsSource === 'employment_types') opts = ['Full-time', 'Part-time', 'Contract', 'Internship'];
+          if (field.optionsSource === 'positions') opts = allPositions;
+        }
 
         const currentVal = filterValues[field.id] || 'all';
 

@@ -30,6 +30,44 @@ export const ALL_FIELD_TYPES = [
   { value: 'tag', label: 'Tag' }
 ];
 
+const getDefaultLookupData = (modId) => {
+  if (modId === 'employees') {
+    return {
+      departments: ['Engineering', 'Product', 'Design', 'Sales', 'Marketing', 'Customer Support', 'Finance', 'Human Resources', 'Operations'],
+      designations: ['Senior Software Engineer', 'Product Manager', 'UX Designer', 'Sales Executive', 'HR Specialist', 'Financial Analyst', 'Operations Lead', 'Marketing Manager'],
+      employment_types: ['Full-time', 'Part-time', 'Contract', 'Internship'],
+      status: ['active', 'on_leave', 'terminated', 'probation'],
+      role: ['employee', 'manager', 'admin', 'hr', 'finance']
+    };
+  }
+  if (modId === 'asset_management') {
+    return {
+      category: ['Laptop', 'Mobile Phone', 'Monitor', 'Peripheral', 'Tablet', 'Networking', 'Furniture'],
+      status: ['In Use', 'Available', 'Under Repair', 'Retired', 'Lost/Stolen'],
+      vendors: ['Apple Inc.', 'Dell Technologies', 'Logitech', 'Samsung', 'Lenovo', 'HP Inc.'],
+      locations: ['HQ - Mumbai', 'Branch - Bangalore', 'Branch - Delhi', 'Remote / Work From Home', 'Warehouse']
+    };
+  }
+  if (modId === 'recruitment_ats') {
+    return {
+      ats_stages: ['New Applied', 'Screening', 'Technical Interview', 'HR Interview', 'Offered', 'Hired', 'Rejected'],
+      candidate_status: ['Active', 'In Review', 'On Hold', 'Offered', 'Joined', 'Rejected'],
+      interview_types: ['Technical Round 1', 'System Design', 'HR Screening', 'Cultural Fit', 'Managerial'],
+      job_types: ['Full-time', 'Part-time', 'Contract', 'Remote'],
+      rejection_reasons: ['Salary Expectation Mismatch', 'Notice Period Too Long', 'Technical Skill Gap', 'Culture Fit', 'Offer Declined']
+    };
+  }
+  if (modId === 'crm' || modId === 'crm_sales') {
+    return {
+      pipeline_stages: ['Lead In', 'Contacted', 'Demo Scheduled', 'Proposal Sent', 'Negotiation', 'Won', 'Lost'],
+      lead_sources: ['Website', 'WhatsApp', 'Referral', 'LinkedIn', 'Cold Call', 'Campaign'],
+      lead_statuses: ['New', 'Qualified', 'Unqualified', 'In Progress'],
+      contact_tags: ['VIP', 'High Intent', 'Decision Maker', 'Enterprise', 'SMB']
+    };
+  }
+  return {};
+};
+
 /**
  * Generic Capability-Driven Module Configuration Editor
  * Single Source of Truth for ATS & All Enterprise Modules
@@ -46,6 +84,8 @@ export default function ModuleConfigEditor({
   showToast = () => {}
 }) {
   const capabilities = moduleDef?.capabilities || { forms: true, summary: true, searchFilters: true, listView: true, kanbanView: true, views: true };
+  const modId = moduleDef?.id || 'recruitment_ats';
+  const defaultLookups = getDefaultLookupData(modId);
 
   const [activeNav, setActiveNav] = useState('fields');
   const [configState, setConfigState] = useState({
@@ -60,8 +100,79 @@ export default function ModuleConfigEditor({
     columns: [...(initialConfig.columns || [])],
     kanbanFields: { ...(initialConfig.kanbanFields || { position: true, email: true, phone: true, resume: true }) },
     views: { ...(initialConfig.views || { availableViews: ['kanban', 'list'], defaultView: 'kanban' }) },
-    idConfig: { ...(initialConfig.idConfig || { prefix: 'ATS', pattern: 'ATS-001', nextSeq: 1 }) }
+    idConfig: { ...(initialConfig.idConfig || { prefix: 'ATS', pattern: 'ATS-001', nextSeq: 1 }) },
+    lookupData: { ...defaultLookups, ...(initialConfig.lookupData || {}) }
   });
+
+  const [selectedLookupDataset, setSelectedLookupDataset] = useState(() => {
+    const keys = Object.keys({ ...defaultLookups, ...(initialConfig.lookupData || {}) });
+    return keys.length > 0 ? keys[0] : '';
+  });
+  const [newDatasetKey, setNewDatasetKey] = useState('');
+  const [newLookupItem, setNewLookupItem] = useState('');
+
+  const handleAddLookupDataset = () => {
+    const key = newDatasetKey.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    if (!key) {
+      showToast('Dataset key is required', 'error');
+      return;
+    }
+    if (configState.lookupData[key]) {
+      showToast(`Dataset "${key}" already exists`, 'error');
+      return;
+    }
+    setConfigState(prev => ({
+      ...prev,
+      lookupData: {
+        ...prev.lookupData,
+        [key]: []
+      }
+    }));
+    setSelectedLookupDataset(key);
+    setNewDatasetKey('');
+    showToast(`Added lookup dataset "${key}"`, 'success');
+  };
+
+  const handleDeleteLookupDataset = (dsKey) => {
+    if (!confirm(`Are you sure you want to delete dataset "${dsKey}"?`)) return;
+    const updated = { ...configState.lookupData };
+    delete updated[dsKey];
+    setConfigState(prev => ({ ...prev, lookupData: updated }));
+    const remaining = Object.keys(updated);
+    setSelectedLookupDataset(remaining.length > 0 ? remaining[0] : '');
+    showToast(`Deleted lookup dataset "${dsKey}"`, 'info');
+  };
+
+  const handleAddLookupItem = (dsKey) => {
+    const val = newLookupItem.trim();
+    if (!val) return;
+    const currentList = configState.lookupData[dsKey] || [];
+    if (currentList.includes(val)) {
+      showToast(`Item "${val}" already exists in ${dsKey}`, 'error');
+      return;
+    }
+    setConfigState(prev => ({
+      ...prev,
+      lookupData: {
+        ...prev.lookupData,
+        [dsKey]: [...currentList, val]
+      }
+    }));
+    setNewLookupItem('');
+    showToast(`Added "${val}" to ${dsKey}`, 'success');
+  };
+
+  const handleDeleteLookupItem = (dsKey, itemIdx) => {
+    const currentList = configState.lookupData[dsKey] || [];
+    const updatedList = currentList.filter((_, idx) => idx !== itemIdx);
+    setConfigState(prev => ({
+      ...prev,
+      lookupData: {
+        ...prev.lookupData,
+        [dsKey]: updatedList
+      }
+    }));
+  };
 
   // Expanded Field Metadata Editing Drawer State
   const [editingFieldId, setEditingFieldId] = useState(null);
@@ -334,6 +445,7 @@ export default function ModuleConfigEditor({
 
   const navItems = [
     capabilities.forms && { id: 'fields', label: 'Forms & Fields', icon: <Sliders size={16} /> },
+    { id: 'lookup_data', label: 'Dropdowns / Lookup Data', icon: <Layers size={16} /> },
     { id: 'id_config', label: 'ID Format & Prefix', icon: <Hash size={16} /> },
     capabilities.summary && { id: 'summary', label: 'Summary Cards', icon: <Layers size={16} /> },
     capabilities.searchFilters && { id: 'search_filters', label: 'Search & Filters', icon: <Filter size={16} /> },
@@ -602,21 +714,45 @@ export default function ModuleConfigEditor({
                                     style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%' }}
                                   />
                                 </div>
-                                {(field.type === 'dropdown' || field.type === 'radio' || field.type === 'multiselect') && (
-                                  <div style={{ gridColumn: 'span 2' }}>
-                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>OPTIONS (COMMA-SEPARATED)</label>
-                                    <input
-                                      type="text"
-                                      value={Array.isArray(field.options) ? field.options.join(', ') : (field.manualOptions || []).join(', ')}
-                                      onChange={(e) => {
-                                        const opts = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                                        handleFieldPropertyChange(field.id, 'options', opts);
-                                        handleFieldPropertyChange(field.id, 'manualOptions', opts);
-                                      }}
-                                      placeholder="e.g. Full-Time, Part-Time, Contract"
-                                      style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%' }}
-                                    />
-                                  </div>
+                                {(field.type === 'dropdown' || field.type === 'radio' || field.type === 'multiselect' || field.type === 'status' || field.type === 'tag') && (
+                                  <>
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                      <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>LOOKUP DATASET BINDING</label>
+                                      <select
+                                        value={field.optionsSource || field.key || field.id || 'manual'}
+                                        onChange={(e) => {
+                                          const selectedDs = e.target.value;
+                                          handleFieldPropertyChange(field.id, 'optionsSource', selectedDs);
+                                          if (configState.lookupData[selectedDs]) {
+                                            handleFieldPropertyChange(field.id, 'options', configState.lookupData[selectedDs]);
+                                            handleFieldPropertyChange(field.id, 'manualOptions', configState.lookupData[selectedDs]);
+                                          }
+                                        }}
+                                        style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%', background: 'white' }}
+                                      >
+                                        <option value="manual">Manual Options (Custom List)</option>
+                                        {Object.keys(configState.lookupData || {}).map(dsKey => (
+                                          <option key={dsKey} value={dsKey}>
+                                            Dataset: {dsKey.replace(/_/g, ' ').toUpperCase()} ({(configState.lookupData[dsKey] || []).length} items)
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                      <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#475569', marginBottom: '2px' }}>CUSTOM OPTIONS (IF MANUAL)</label>
+                                      <input
+                                        type="text"
+                                        value={Array.isArray(field.options) ? field.options.join(', ') : (field.manualOptions || []).join(', ')}
+                                        onChange={(e) => {
+                                          const opts = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                                          handleFieldPropertyChange(field.id, 'options', opts);
+                                          handleFieldPropertyChange(field.id, 'manualOptions', opts);
+                                        }}
+                                        placeholder="e.g. Option 1, Option 2, Option 3"
+                                        style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', width: '100%' }}
+                                      />
+                                    </div>
+                                  </>
                                 )}
                               </div>
                             </td>
@@ -673,6 +809,148 @@ export default function ModuleConfigEditor({
                     onChange={(e) => setNewFieldManualOptions(e.target.value)}
                     style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', outline: 'none', width: '100%' }}
                   />
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* SECTION: DROPDOWNS / LOOKUP DATA */}
+          {activeNav === 'lookup_data' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ fontSize: '11px', color: '#64748b', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                Single source of truth for all module-specific lookup datasets (Departments, Designations, Categories, Statuses, Vendors, etc.). Changes update all Forms, Filters, Search, and Lists live.
+              </div>
+
+              {/* Dataset Management Panel */}
+              <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '16px' }}>
+                {/* Dataset Selector List */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderRight: '1px solid #e2e8f0', paddingRight: '12px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>LOOKUP DATASETS</div>
+                  {Object.keys(configState.lookupData || {}).map(dsKey => (
+                    <button
+                      key={dsKey}
+                      type="button"
+                      onClick={() => setSelectedLookupDataset(dsKey)}
+                      style={{
+                        textAlign: 'left',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: selectedLookupDataset === dsKey ? '800' : '600',
+                        border: 'none',
+                        background: selectedLookupDataset === dsKey ? 'rgba(13, 148, 136, 0.12)' : '#f8fafc',
+                        color: selectedLookupDataset === dsKey ? '#0d9488' : '#334155',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <span>{dsKey.replace(/_/g, ' ').toUpperCase()}</span>
+                      <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '10px', background: '#e2e8f0', color: '#475569' }}>
+                        {(configState.lookupData[dsKey] || []).length}
+                      </span>
+                    </button>
+                  ))}
+
+                  {/* Add Dataset Button */}
+                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '8px', marginTop: '6px' }}>
+                    <input
+                      type="text"
+                      placeholder="New dataset key (e.g. vendors)"
+                      value={newDatasetKey}
+                      onChange={(e) => setNewDatasetKey(e.target.value)}
+                      style={{ width: '100%', padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px', marginBottom: '6px' }}
+                    />
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Plus size={12} />}
+                      onClick={handleAddLookupDataset}
+                      style={{ width: '100%', justifyContent: 'center' }}
+                    >
+                      Add Dataset
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Dataset Values Editor */}
+                {selectedLookupDataset ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
+                      <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+                        Dataset: <span style={{ color: '#0d9488' }}>{selectedLookupDataset.replace(/_/g, ' ').toUpperCase()}</span>
+                      </h4>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        icon={<Trash2 size={12} />}
+                        onClick={() => handleDeleteLookupDataset(selectedLookupDataset)}
+                        style={{ color: '#ef4444', borderColor: '#fca5a5' }}
+                      >
+                        Delete Dataset
+                      </Button>
+                    </div>
+
+                    {/* Options Badges */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', minHeight: '100px' }}>
+                      {(configState.lookupData[selectedLookupDataset] || []).map((opt, optIdx) => (
+                        <div
+                          key={optIdx}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '4px 10px',
+                            borderRadius: '16px',
+                            background: '#ffffff',
+                            border: '1px solid #cbd5e1',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            color: '#0f172a',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                          }}
+                        >
+                          <span>{opt}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteLookupItem(selectedLookupDataset, optIdx)}
+                            style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#ef4444', padding: 0, display: 'flex', alignItems: 'center', fontWeight: 'bold' }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                      {(configState.lookupData[selectedLookupDataset] || []).length === 0 && (
+                        <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>No items in this dataset yet.</span>
+                      )}
+                    </div>
+
+                    {/* Add Item to Dataset */}
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        placeholder={`Add new item to ${selectedLookupDataset}...`}
+                        value={newLookupItem}
+                        onChange={(e) => setNewLookupItem(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddLookupItem(selectedLookupDataset); } }}
+                        style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', outline: 'none' }}
+                      />
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        icon={<Plus size={14} />}
+                        onClick={() => handleAddLookupItem(selectedLookupDataset)}
+                        style={{ background: '#0d9488', color: 'white', border: 'none' }}
+                      >
+                        Add Item
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>
+                    Select a lookup dataset on the left or create a new dataset.
+                  </div>
                 )}
               </div>
             </div>
