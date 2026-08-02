@@ -115,12 +115,13 @@ export default function LayoutToolbar({
           />
 
           <Button
-            variant="secondary"
+            variant={viewMode === 'archived' ? 'primary' : 'secondary'}
             size="md"
             icon={<Archive size={14} />}
             onClick={onOpenArchived}
+            style={viewMode === 'archived' ? { background: '#f59e0b', color: '#ffffff', border: 'none' } : {}}
           >
-            Archived ({archivedCount})
+            {viewMode === 'archived' ? 'Active Roster' : `Archived (${archivedCount})`}
           </Button>
 
           {canManage && (

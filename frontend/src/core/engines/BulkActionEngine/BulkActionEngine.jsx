@@ -102,14 +102,41 @@ export default function BulkActionEngine({
   const handleBulkRestore = () => {
     if (typeof handleRestoreBinItem === 'function') {
       selectedIds.forEach(id => {
-        handleRestoreBinItem(id);
+        const rec = records.find(r => r.id === id || r.recycleBinId === id);
+        const restoreId = rec?.recycleBinId || rec?.id || id;
+        handleRestoreBinItem(restoreId);
       });
       setSelectedIds([]);
       showToast(`🔄 Restored ${selectedCount} ${selectedCount === 1 ? entityName.toLowerCase() : entityNamePlural.toLowerCase()}`, 'success');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('omnilflow_config_updated', {
+          detail: { moduleId: moduleConfig.moduleId }
+        }));
+      }
     }
   };
 
-  // 5. DUPLICATE SELECTED WITH SMART VERSION NAMING (e.g. John Copy 1, John Copy 2)
+  // 5. PERMANENT DELETE SELECTED (For Archived View ONLY)
+  const handleBulkPermanentDelete = () => {
+    if (!window.confirm(`Permanently delete ${selectedCount} archived records? This action cannot be undone.`)) return;
+
+    if (typeof softDeleteRecord === 'function') {
+      selectedIds.forEach(id => {
+        const rec = records.find(r => r.id === id || r.recycleBinId === id);
+        const purgeId = rec?.recycleBinId || rec?.id || id;
+        softDeleteRecord(purgeId);
+      });
+      setSelectedIds([]);
+      showToast(`🔥 Permanently deleted ${selectedCount} records`, 'info');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('omnilflow_config_updated', {
+          detail: { moduleId: moduleConfig.moduleId }
+        }));
+      }
+    }
+  };
+
+  // 6. DUPLICATE SELECTED WITH SMART VERSION NAMING (e.g. John Copy 1, John Copy 2)
   const handleBulkDuplicate = () => {
     const now = new Date().toISOString();
     const duplicates = [];
@@ -196,7 +223,7 @@ export default function BulkActionEngine({
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              background: '#0d9488',
+              background: isArchivedView ? '#f59e0b' : '#0d9488',
               color: '#ffffff',
               padding: '3px 8px',
               borderRadius: '5px',
@@ -231,7 +258,7 @@ export default function BulkActionEngine({
 
         {/* RIGHT STRIP: METADATA-CONTROLLED ACTION BUTTONS */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-          {/* ARCHIVE BUTTON */}
+          {/* ARCHIVE BUTTON (ACTIVE VIEW ONLY) */}
           {!isArchivedView && bulkConfig.archive && canManage && (
             <Button
               variant="outline"
@@ -244,10 +271,10 @@ export default function BulkActionEngine({
             </Button>
           )}
 
-          {/* RESTORE BUTTON (FOR ARCHIVED VIEW ONLY) */}
-          {isArchivedView && bulkConfig.restore && canManage && (
+          {/* RESTORE BUTTON (ARCHIVED VIEW ONLY) */}
+          {isArchivedView && canManage && (
             <Button
-              variant="secondary"
+              variant="primary"
               size="sm"
               icon={<RotateCcw size={13} />}
               onClick={handleBulkRestore}
@@ -257,7 +284,20 @@ export default function BulkActionEngine({
             </Button>
           )}
 
-          {/* DUPLICATE BUTTON */}
+          {/* PERMANENT DELETE BUTTON (ARCHIVED VIEW ONLY) */}
+          {isArchivedView && canManage && (
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Trash2 size={13} />}
+              onClick={handleBulkPermanentDelete}
+              style={{ background: '#fff1f2', color: '#fca5a5', borderColor: '#ef4444', fontSize: '11px', padding: '4px 10px' }}
+            >
+              Permanent Delete ({selectedCount})
+            </Button>
+          )}
+
+          {/* DUPLICATE BUTTON (ACTIVE VIEW ONLY) */}
           {!isArchivedView && bulkConfig.duplicate && canManage && (
             <Button
               variant="secondary"
@@ -270,8 +310,8 @@ export default function BulkActionEngine({
             </Button>
           )}
 
-          {/* DELETE BUTTON (TRIGGERS GOVERNANCE MODAL) */}
-          {bulkConfig.delete && canManage && (
+          {/* DELETE BUTTON (ACTIVE VIEW GOVERNANCE) */}
+          {!isArchivedView && bulkConfig.delete && canManage && (
             <Button
               variant="outline"
               size="sm"

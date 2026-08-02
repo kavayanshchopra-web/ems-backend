@@ -42,9 +42,9 @@ export default function ViewEngine({
   }
   if (enabledViewsList.length === 0) enabledViewsList = ['list'];
 
-  // Default fallback if requested viewMode is disabled
+  // Default fallback if requested viewMode is disabled (allow 'archived' view mode)
   let activeView = viewMode;
-  if (!enabledViewsList.includes(activeView)) {
+  if (activeView !== 'archived' && !enabledViewsList.includes(activeView)) {
     activeView = moduleConfig?.views?.defaultView || moduleConfig?.defaultView || enabledViewsList[0] || 'list';
   }
 

@@ -64,8 +64,45 @@ export default function LayoutEngine({
 
   const canManage = authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager' || authUser?.role === 'superadmin';
 
+  // Filtered Archived Records from global Recycle Bin
+  const archivedModuleItems = (recycleBinItems || []).filter(item => {
+    if (!item) return false;
+    const itemTab = getValString(item.moduleTab || item.category || item.type).toLowerCase();
+    const modId = getValString(moduleConfig.moduleId).toLowerCase();
+    const entityName = getValString(LabelEngine.getEntityName(moduleConfig)).toLowerCase();
+    const entityPlural = getValString(LabelEngine.getEntityNamePlural(moduleConfig)).toLowerCase();
+
+    return (
+      itemTab.includes(modId) ||
+      itemTab.includes(entityName) ||
+      itemTab.includes(entityPlural) ||
+      (modId === 'employees' && (itemTab.includes('employee') || itemTab.includes('staff'))) ||
+      (modId === 'assets' && (itemTab.includes('asset') || itemTab.includes('device'))) ||
+      (modId === 'recruitment_ats' && (itemTab.includes('ats') || itemTab.includes('candidate')))
+    );
+  });
+
+  const unwrapArchivedRecord = (item) => {
+    const payloadRec = item.payload?.record || item.entityData?.record || item.payload?.candidate || item.payload || {};
+    return {
+      ...payloadRec,
+      ...item,
+      id: item.originalId || item.id || payloadRec.id,
+      recycleBinId: item.id,
+      name: item.name || payloadRec.name || payloadRec.title,
+      title: item.title || payloadRec.title || item.name || payloadRec.name,
+      createdAt: item.deletedAt || item.archivedAt || item.timestamp || payloadRec.createdAt,
+      archivedBy: item.deletedBy || item.archivedBy || item.user || 'System Administrator'
+    };
+  };
+
+  const isArchivedView = viewMode === 'archived';
+  const activeModuleRecords = isArchivedView
+    ? archivedModuleItems.map(unwrapArchivedRecord)
+    : records;
+
   // 1. FILTERING ENGINE PIPELINE
-  const searchMatchedRecords = SearchEngine.search(records, searchQuery, moduleConfig);
+  const searchMatchedRecords = SearchEngine.search(activeModuleRecords, searchQuery, moduleConfig);
   const filteredRecords = FilterEngine.filterRecords(searchMatchedRecords, filterValues, moduleConfig);
 
   // 2. SORTING ENGINE PIPELINE
@@ -102,24 +139,6 @@ export default function LayoutEngine({
     setFilterValues({});
   };
 
-  // Filtered Archived Records from global Recycle Bin
-  const archivedModuleItems = (recycleBinItems || []).filter(item => {
-    if (!item) return false;
-    const itemTab = getValString(item.moduleTab || item.category || item.type).toLowerCase();
-    const modId = getValString(moduleConfig.moduleId).toLowerCase();
-    const entityName = getValString(LabelEngine.getEntityName(moduleConfig)).toLowerCase();
-    const entityPlural = getValString(LabelEngine.getEntityNamePlural(moduleConfig)).toLowerCase();
-
-    return (
-      itemTab.includes(modId) ||
-      itemTab.includes(entityName) ||
-      itemTab.includes(entityPlural) ||
-      (modId === 'employees' && (itemTab.includes('employee') || itemTab.includes('staff'))) ||
-      (modId === 'assets' && (itemTab.includes('asset') || itemTab.includes('device'))) ||
-      (modId === 'recruitment_ats' && (itemTab.includes('ats') || itemTab.includes('candidate')))
-    );
-  });
-
   return (
     <div className="layout-engine-shell" style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
       {/* A. TOOLBAR & HEADER */}
@@ -138,7 +157,7 @@ export default function LayoutEngine({
         sortDir={sortDir}
         onSortChange={(key, dir) => { setSortKey(key); setSortDir(dir); }}
         archivedCount={archivedModuleItems.length}
-        onOpenArchived={() => setShowArchivedModal(true)}
+        onOpenArchived={() => setViewMode(prev => prev === 'archived' ? (moduleConfig?.views?.defaultView || 'list') : 'archived')}
         onOpenAddModal={() => setShowAddModal(true)}
         onOpenConfigModal={() => onOpenModuleConfig && onOpenModuleConfig(moduleConfig.moduleId)}
         onOpenPositionModal={onOpenPositionModal}
@@ -150,40 +169,43 @@ export default function LayoutEngine({
       />
 
       {/* B. KPI SUMMARY STRIP WIDGETS */}
-      <WidgetEngine
-        moduleConfig={moduleConfig}
-        records={records}
-        activePipelineStages={activePipelineStages}
-      />
+      {!isArchivedView && (
+        <WidgetEngine
+          moduleConfig={moduleConfig}
+          records={records}
+          activePipelineStages={activePipelineStages}
+        />
+      )}
 
       {/* C. ACTIVE FILTER CHIPS BAR */}
       <ActiveFilterChips
         moduleConfig={moduleConfig}
         filterValues={filterValues}
         searchQuery={searchQuery}
-        totalCount={records.length}
+        totalCount={activeModuleRecords.length}
         filteredCount={sortedRecords.length}
         onRemoveFilter={handleRemoveFilter}
         onClearSearch={() => setSearchQuery('')}
         onResetAll={handleResetFilters}
       />
 
-      {/* D. CONTENT VIEW CONTAINER (KANBAN OR LIST) */}
+      {/* D. CONTENT VIEW CONTAINER (KANBAN, LIST, OR ARCHIVED) */}
       <ViewEngine
         records={sortedRecords}
         setRecords={setRecords}
         moduleConfig={moduleConfig}
         viewMode={viewMode}
-        totalCount={records.length}
+        totalCount={activeModuleRecords.length}
         isFilterActive={isFilterActive}
         searchQuery={searchQuery}
         sortKey={sortKey}
         sortDir={sortDir}
         onSortChange={(key, dir) => { setSortKey(key); setSortDir(dir); }}
         canManage={canManage}
-        softDeleteRecord={softDeleteRecord}
-        handleRestoreBinItem={handleRestoreBinItem}
+        softDeleteRecord={isArchivedView ? handlePermanentDeleteBinItem : softDeleteRecord}
+        handleRestoreBinItem={handleRestoreArchivedRecord}
         showToast={showToast}
+        isArchivedView={isArchivedView}
         onViewRecord={(rec) => { setSelectedRecord(rec); setShowDetailModal(true); }}
         onEditRecord={(rec) => { setSelectedRecord(rec); setShowEditModal(true); }}
         onArchiveRecord={(rec) => { setRecordToArchive(rec); setSelectedRecord(rec); setShowArchiveModal(true); }}

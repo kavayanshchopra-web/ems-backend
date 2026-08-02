@@ -236,18 +236,6 @@ export default function ActionEngine({
           cancelText="Cancel"
         />
       )}
-
-      {/* ARCHIVED RECORDS MODAL */}
-      {showArchivedModal && (
-        <ArchivedModal
-          isOpen={showArchivedModal}
-          onClose={() => setShowArchivedModal(false)}
-          moduleConfig={moduleConfig}
-          archivedItems={archivedModuleItems}
-          onRestoreItem={handleRestoreArchivedRecord}
-          onPermanentDeleteItem={handlePermanentDeleteBinItem}
-        />
-      )}
     </>
   );
 }
