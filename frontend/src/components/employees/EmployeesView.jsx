@@ -4,15 +4,13 @@ import SearchInput from '../ui/SearchInput';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
-import Pagination from '../ui/Pagination';
 import EmptyState from '../ui/EmptyState';
 import Skeleton from '../ui/Skeleton';
 import StatCard from '../ui/StatCard';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Eye, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
 /**
  * Defensive string extractor helper
- * Safely handles strings, numbers, nulls, and legacy objects like { name, archived }
  */
 const getValString = (val, fallback = '') => {
   if (val === null || val === undefined) return fallback;
@@ -27,10 +25,51 @@ const getValString = (val, fallback = '') => {
 };
 
 /**
- * Phase 2B — All Employees Listing View (Final Locked Version)
- * Preserves exact Emerald Teal palette (#0d9488 -> #064e43) and 100% business logic.
- * Single-line desktop toolbar + locked primary Emerald Teal CTA treatment.
+ * Format Employee ID (EMP-0001, EMP-0002...)
  */
+const formatEmployeeId = (id, index = 0) => {
+  if (!id) return `EMP-${String(index + 1).padStart(4, '0')}`;
+  const strId = String(id).trim();
+  if (strId.toUpperCase().startsWith('EMP-')) return strId.toUpperCase();
+  const numMatch = strId.match(/\d+/g);
+  if (numMatch) {
+    const num = parseInt(numMatch[numMatch.length - 1], 10);
+    if (!isNaN(num)) return `EMP-${String(num).padStart(4, '0')}`;
+  }
+  return `EMP-${String(index + 1).padStart(4, '0')}`;
+};
+
+/**
+ * Format Salary Display (₹25,000 / month, Not Assigned)
+ */
+const formatSalaryDisplay = (val) => {
+  if (val === null || val === undefined || val === '') return '—';
+  const num = parseFloat(val);
+  if (isNaN(num) || num <= 0) return 'Not Assigned';
+  return `₹${num.toLocaleString('en-IN')} / month`;
+};
+
+/**
+ * Get Status Badge Color & Configuration
+ */
+const getStatusBadgeConfig = (status) => {
+  const st = String(status || 'active').toLowerCase().trim();
+  switch (st) {
+    case 'active':
+      return { label: 'Active', bg: '#ecfdf5', color: '#059669', border: '#a7f3d0' };
+    case 'inactive':
+      return { label: 'Inactive', bg: '#f1f5f9', color: '#64748b', border: '#cbd5e1' };
+    case 'suspended':
+      return { label: 'Suspended', bg: '#fef2f2', color: '#dc2626', border: '#fecaca' };
+    case 'on leave':
+    case 'on_leave':
+    case 'leave':
+      return { label: 'On Leave', bg: '#fffbeb', color: '#d97706', border: '#fde68a' };
+    default:
+      return { label: status || 'Active', bg: '#ecfdf5', color: '#059669', border: '#a7f3d0' };
+  }
+};
+
 export default function EmployeesView({
   authUser,
   employees = [],
@@ -47,6 +86,14 @@ export default function EmployeesView({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('all');
+
+  // Modals for View & Delete Confirmation
+  const [viewingEmployee, setViewingEmployee] = useState(null);
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState({
+    isOpen: false,
+    employeeId: null,
+    employeeName: ''
+  });
 
   const canManage = authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'superadmin';
   const canView = canManage || authUser?.role === 'manager';
@@ -72,10 +119,11 @@ export default function EmployeesView({
     }
   };
 
-  // Filter & Sort Logic with Defensive String Extraction
-  const filtered = employees.filter(emp => {
+  // Filter & Sort Logic
+  const filtered = employees.filter((emp, idx) => {
     const q = searchQuery.toLowerCase().trim();
-    const empId = String(emp.id || '').toLowerCase();
+    const rawId = String(emp.id || '').toLowerCase();
+    const formattedId = formatEmployeeId(emp.id, idx).toLowerCase();
     const firstName = getValString(emp.first_name).toLowerCase();
     const lastName = getValString(emp.last_name).toLowerCase();
     const fullName = `${firstName} ${lastName}`.trim();
@@ -85,7 +133,8 @@ export default function EmployeesView({
     const phone = getValString(emp.phone).toLowerCase();
 
     const matchesSearch = !q || (
-      empId.includes(q) ||
+      rawId.includes(q) ||
+      formattedId.includes(q) ||
       firstName.includes(q) ||
       lastName.includes(q) ||
       fullName.includes(q) ||
@@ -119,15 +168,18 @@ export default function EmployeesView({
   });
 
   const totalPages = Math.ceil(sorted.length / pageSize) || 1;
-  const paginated = sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = sorted.length > 0 ? (safeCurrentPage - 1) * pageSize : 0;
+  const endIndex = Math.min(safeCurrentPage * pageSize, sorted.length);
+  const paginated = sorted.slice(startIndex, endIndex);
 
   // Summary Metrics Calculation
   const totalCount = employees.length;
-  const activeCount = employees.filter(e => {
+  const activeCount = employees.filter(e => getValString(e.status, 'active').toLowerCase() === 'active').length;
+  const suspendedCount = employees.filter(e => {
     const st = getValString(e.status, 'active').toLowerCase();
-    return st === 'active';
+    return st === 'suspended' || st === 'inactive';
   }).length;
-  const suspendedCount = totalCount - activeCount;
 
   const headerActions = canManage ? (
     <Button
@@ -261,17 +313,70 @@ export default function EmployeesView({
       toolbarRight={toolbarRight}
       pagination={
         sorted.length > 0 ? (
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            pageSize={pageSize}
-            totalItems={sorted.length}
-            onPageChange={(page) => setCurrentPage(page)}
-            onPageSizeChange={(size) => {
-              setPageSize(size);
-              setCurrentPage(1);
-            }}
-          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', padding: '14px 18px', background: '#ffffff', borderTop: '1px solid #e2e8f0', borderRadius: '0 0 12px 12px' }}>
+            {/* Status Counter */}
+            <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '600' }}>
+              Showing <strong style={{ color: '#0f172a' }}>{startIndex + 1}–{endIndex}</strong> of <strong style={{ color: '#0f172a' }}>{sorted.length}</strong> Employees
+            </div>
+
+            {/* Pagination Controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>Per Page:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: '700', color: '#0f172a', background: '#f8fafc', cursor: 'pointer' }}
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <button
+                  disabled={safeCurrentPage <= 1}
+                  onClick={() => setCurrentPage(1)}
+                  title="First Page"
+                  style={{ padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: safeCurrentPage <= 1 ? '#f1f5f9' : '#ffffff', color: safeCurrentPage <= 1 ? '#94a3b8' : '#0f172a', cursor: safeCurrentPage <= 1 ? 'not-allowed' : 'pointer' }}
+                >
+                  <ChevronsLeft size={14} />
+                </button>
+                <button
+                  disabled={safeCurrentPage <= 1}
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  title="Previous Page"
+                  style={{ padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: safeCurrentPage <= 1 ? '#f1f5f9' : '#ffffff', color: safeCurrentPage <= 1 ? '#94a3b8' : '#0f172a', cursor: safeCurrentPage <= 1 ? 'not-allowed' : 'pointer' }}
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                <span style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '800', color: '#0d9488', background: 'rgba(13, 148, 136, 0.1)', borderRadius: '6px' }}>
+                  {safeCurrentPage} / {totalPages}
+                </span>
+                <button
+                  disabled={safeCurrentPage >= totalPages}
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  title="Next Page"
+                  style={{ padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: safeCurrentPage >= totalPages ? '#f1f5f9' : '#ffffff', color: safeCurrentPage >= totalPages ? '#94a3b8' : '#0f172a', cursor: safeCurrentPage >= totalPages ? 'not-allowed' : 'pointer' }}
+                >
+                  <ChevronRight size={14} />
+                </button>
+                <button
+                  disabled={safeCurrentPage >= totalPages}
+                  onClick={() => setCurrentPage(totalPages)}
+                  title="Last Page"
+                  style={{ padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: safeCurrentPage >= totalPages ? '#f1f5f9' : '#ffffff', color: safeCurrentPage >= totalPages ? '#94a3b8' : '#0f172a', cursor: safeCurrentPage >= totalPages ? 'not-allowed' : 'pointer' }}
+                >
+                  <ChevronsRight size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
         ) : null
       }
     >
@@ -369,22 +474,21 @@ export default function EmployeesView({
                   </td>
                 </tr>
               ) : (
-                paginated.map((emp) => {
+                paginated.map((emp, idx) => {
+                  const empFormattedId = formatEmployeeId(emp.id, startIndex + idx);
                   const firstName = getValString(emp.first_name, 'Staff');
                   const lastName = getValString(emp.last_name);
                   const roleStr = getValString(emp.role, 'employee');
                   const deptStr = getValString(emp.department, 'Sales');
                   const emailStr = getValString(emp.email);
                   const phoneStr = getValString(emp.phone);
-                  const statusStr = getValString(emp.status, 'active');
+                  const statusConfig = getStatusBadgeConfig(emp.status);
 
                   const roleLower = roleStr.toLowerCase();
                   let badgeVariant = 'neutral';
                   if (roleLower === 'admin' || roleLower === 'owner' || roleLower === 'superadmin') badgeVariant = 'danger';
                   else if (roleLower === 'manager') badgeVariant = 'warning';
                   else if (roleLower === 'agent') badgeVariant = 'info';
-
-                  const isStatusActive = statusStr.toLowerCase() === 'active';
 
                   return (
                     <tr key={emp.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -394,10 +498,12 @@ export default function EmployeesView({
                             {(firstName[0] || 'E')}{(lastName[0] || '')}
                           </div>
                           <div style={{ overflow: 'hidden' }}>
-                            <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={`${firstName} ${lastName}`}>
                               {firstName} {lastName}
                             </div>
-                            <div style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '600', color: '#64748b', opacity: 0.9 }}>ID: {emp.id}</div>
+                            <div style={{ fontSize: '10px', fontFamily: 'monospace', fontWeight: '700', color: '#0d9488', opacity: 0.95 }} title={`Employee ID: ${empFormattedId}`}>
+                              {empFormattedId}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -406,7 +512,7 @@ export default function EmployeesView({
                           {roleStr}
                         </Badge>
                       </td>
-                      <td style={{ padding: '10px 14px', color: '#334155', fontSize: '12px', fontWeight: '600', maxWidth: '140px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <td style={{ padding: '10px 14px', color: '#334155', fontSize: '12px', fontWeight: '600', maxWidth: '140px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={deptStr}>
                         {deptStr}
                       </td>
                       <td style={{ padding: '10px 14px', maxWidth: '180px', overflow: 'hidden' }}>
@@ -425,7 +531,7 @@ export default function EmployeesView({
                           <a
                             href={`tel:${phoneStr}`}
                             title={`Call ${phoneStr}`}
-                            style={{ fontSize: '10px', color: '#475569', fontWeight: '600', textDecoration: 'none', display: 'block', marginTop: '2px' }}
+                            style={{ fontSize: '10px', color: '#475569', fontWeight: '600', textDecoration: 'none', display: 'block', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                           >
                             📞 {phoneStr}
                           </a>
@@ -434,20 +540,32 @@ export default function EmployeesView({
                         )}
                       </td>
                       <td style={{ padding: '10px 14px', fontWeight: '800', color: '#0d9488', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                        ₹{emp.salary ? parseFloat(emp.salary).toLocaleString('en-IN') : '0'} /mo
+                        {formatSalaryDisplay(emp.salary)}
                       </td>
                       <td style={{ padding: '10px 14px' }}>
-                        <Badge variant={isStatusActive ? 'success' : 'neutral'}>
-                          {isStatusActive ? 'Active' : 'Suspended'}
-                        </Badge>
+                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '700', background: statusConfig.bg, color: statusConfig.color, border: `1px solid ${statusConfig.border}` }}>
+                          {statusConfig.label}
+                        </span>
                       </td>
                       {canManage && (
                         <td style={{ padding: '10px 14px', textAlign: 'right' }}>
                           <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                            {/* READ-ONLY VIEW ACTION */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              icon={<Eye size={12} />}
+                              title="View Profile"
+                              onClick={() => setViewingEmployee({ ...emp, formattedId: empFormattedId })}
+                            >
+                              View
+                            </Button>
+                            {/* EDIT ACTION */}
                             <Button
                               variant="outline"
                               size="sm"
                               icon={<Edit2 size={12} />}
+                              title="Edit Profile"
                               onClick={() => {
                                 setNewEmployeeForm({
                                   id: emp.id,
@@ -460,18 +578,24 @@ export default function EmployeesView({
                                   salary: emp.salary || '',
                                   createLoginAccount: !!emp.user_id,
                                   password: '',
-                                  status: statusStr
+                                  status: emp.status || 'active'
                                 });
                                 setShowAddEmployeeModal(true);
                               }}
                             >
                               Edit
                             </Button>
+                            {/* DELETE ACTION WITH CONFIRMATION */}
                             <Button
                               variant="danger"
                               size="sm"
                               icon={<Trash2 size={12} />}
-                              onClick={() => handleDeleteEmployee(emp.id)}
+                              title="Delete Profile"
+                              onClick={() => setDeleteConfirmModal({
+                                isOpen: true,
+                                employeeId: emp.id,
+                                employeeName: `${firstName} ${lastName}`
+                              })}
                             >
                               Delete
                             </Button>
@@ -486,6 +610,139 @@ export default function EmployeesView({
           </table>
         </div>
       </div>
+
+      {/* READ-ONLY VIEW EMPLOYEE PROFILE MODAL */}
+      {viewingEmployee && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px' }}>
+          <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', width: '100%', maxWidth: '480px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+            {/* Modal Header */}
+            <div style={{ padding: '16px 20px', background: 'linear-gradient(135deg, #0d9488, #064e43)', color: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>👤</span>
+                <h3 style={{ fontSize: '15px', fontWeight: '800', margin: 0 }}>Employee Profile</h3>
+              </div>
+              <button
+                onClick={() => setViewingEmployee(null)}
+                style={{ background: 'transparent', border: 'none', color: '#ffffff', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Profile Body */}
+            <div style={{ padding: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '18px', paddingBottom: '16px', borderBottom: '1px solid #f1f5f9' }}>
+                <div style={{ width: '54px', height: '54px', borderRadius: '50%', background: 'linear-gradient(135deg, #0d9488, #064e43)', color: '#ffffff', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                  {(getValString(viewingEmployee.first_name)[0] || 'E')}{(getValString(viewingEmployee.last_name)[0] || '')}
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                    {getValString(viewingEmployee.first_name)} {getValString(viewingEmployee.last_name)}
+                  </h4>
+                  <div style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '700', color: '#0d9488', marginTop: '2px' }}>
+                    ID: {viewingEmployee.formattedId || viewingEmployee.id}
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                    <Badge variant="info">{getValString(viewingEmployee.role, 'employee')}</Badge>
+                    <Badge variant="neutral">{getValString(viewingEmployee.department, 'Sales')}</Badge>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                  <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Work Email</div>
+                  {viewingEmployee.email ? (
+                    <a href={`mailto:${viewingEmployee.email}`} style={{ fontSize: '12px', color: '#0d9488', fontWeight: '600', textDecoration: 'none', display: 'block', marginTop: '2px', wordBreak: 'break-all' }}>
+                      {viewingEmployee.email}
+                    </a>
+                  ) : (
+                    <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>—</div>
+                  )}
+                </div>
+
+                <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                  <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Phone Number</div>
+                  {viewingEmployee.phone ? (
+                    <a href={`tel:${viewingEmployee.phone}`} style={{ fontSize: '12px', color: '#0d9488', fontWeight: '600', textDecoration: 'none', display: 'block', marginTop: '2px' }}>
+                      {viewingEmployee.phone}
+                    </a>
+                  ) : (
+                    <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>—</div>
+                  )}
+                </div>
+
+                <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                  <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Base Salary</div>
+                  <div style={{ fontSize: '12px', color: '#0f172a', fontWeight: '800', marginTop: '2px' }}>
+                    {formatSalaryDisplay(viewingEmployee.salary)}
+                  </div>
+                </div>
+
+                <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                  <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Account Status</div>
+                  <div style={{ marginTop: '2px' }}>
+                    {(() => {
+                      const cfg = getStatusBadgeConfig(viewingEmployee.status);
+                      return (
+                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '700', background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
+                          {cfg.label}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ padding: '12px 20px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end' }}>
+              <Button variant="secondary" size="md" onClick={() => setViewingEmployee(null)}>
+                Close Profile
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {deleteConfirmModal.isOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px' }}>
+          <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', width: '100%', maxWidth: '400px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', background: '#fef2f2', borderBottom: '1px solid #fecaca', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '20px' }}>⚠️</span>
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#991b1b', margin: 0 }}>Delete Employee?</h3>
+                <p style={{ fontSize: '12px', color: '#b91c1c', margin: 0 }}>This action cannot be undone.</p>
+              </div>
+            </div>
+            <div style={{ padding: '20px', fontSize: '13px', color: '#334155', lineHeight: 1.5 }}>
+              Are you sure you want to permanently delete employee profile <strong style={{ color: '#0f172a' }}>"{deleteConfirmModal.employeeName}"</strong>?
+            </div>
+            <div style={{ padding: '12px 20px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => setDeleteConfirmModal({ isOpen: false, employeeId: null, employeeName: '' })}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="md"
+                icon={<Trash2 size={14} />}
+                onClick={() => {
+                  const empId = deleteConfirmModal.employeeId;
+                  setDeleteConfirmModal({ isOpen: false, employeeId: null, employeeName: '' });
+                  handleDeleteEmployee(empId);
+                }}
+              >
+                Delete Profile
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </ListPattern>
   );
 }

@@ -15635,7 +15635,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '13px', background: 'white' }}
                   >
                     <option value="active">Active</option>
-                    <option value="suspended">Suspended / Inactive</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="suspended">Suspended</option>
+                    <option value="on_leave">On Leave</option>
                   </select>
                 </div>
               </div>
