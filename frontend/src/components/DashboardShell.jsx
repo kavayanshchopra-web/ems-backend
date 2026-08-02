@@ -3356,7 +3356,21 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setIsEmployeesLoading(true);
     setEmployeesError(null);
 
-    // 1. Try Firestore Sync First
+    try {
+      const res = await fetch(`${API_URL}/employees`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setEmployees(data);
+          localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(data));
+          setIsEmployeesLoading(false);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Backend employee fetch failed, trying local fallback:', err.message);
+    }
+
     try {
       if (db) {
         const qSnap = await getDocs(collection(db, 'employees'));
@@ -3375,21 +3389,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.warn('Firebase firestore query failed, using rest fallback:', fbErr.message);
     }
 
-    try {
-      const res = await fetch(`${API_URL}/employees`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setEmployees(data);
-          localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(data));
-          setIsEmployeesLoading(false);
-          return;
-        }
-      }
-    } catch (err) {
-      console.warn('Backend employee fetch failed, trying local fallback:', err.message);
-    }
-
     const saved = localStorage.getItem('omnilflow_fallback_employees');
     const list = saved ? JSON.parse(saved) : [];
     setEmployees(list);
@@ -3401,7 +3400,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setIsEmployeesLoading(true);
     const isEdit = !!newEmployeeForm.id;
 
-    const payload = {
+    const newEmpObj = {
+      id: isEdit ? newEmployeeForm.id : Date.now(),
       first_name: newEmployeeForm.firstName,
       last_name: newEmployeeForm.lastName,
       email: newEmployeeForm.email,
@@ -3409,105 +3409,48 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       role: newEmployeeForm.role,
       department: newEmployeeForm.department,
       salary: newEmployeeForm.salary,
-      status: newEmployeeForm.status
+      status: newEmployeeForm.status || 'active'
     };
 
-    // Immediate Local State Update for Instant Dashboard & Table Refresh
-    if (isEdit) {
-      setEmployees(prev => prev.map(emp => {
-        if (emp.id === newEmployeeForm.id) {
-          return { ...emp, ...payload };
-        }
-        return emp;
-      }));
-    } else {
-      const tempEmp = { id: 'emp_' + Date.now(), ...payload };
-      setEmployees(prev => [tempEmp, ...prev]);
-    }
-
-    // 1. Save to Cloud Firestore
-    try {
-      if (db) {
-        if (isEdit) {
-          const docId = newEmployeeForm.id.toString();
-          await setDoc(doc(db, 'employees', docId), payload);
-        } else {
-          await addDoc(collection(db, 'employees'), payload);
-        }
+    // 1. Instant Local State & Fallback LocalStorage Sync
+    setEmployees(prev => {
+      let updated;
+      if (isEdit) {
+        updated = prev.map(emp => emp.id === newEmployeeForm.id ? { ...emp, ...newEmpObj } : emp);
+      } else {
+        updated = [newEmpObj, ...prev.filter(e => e.id !== newEmpObj.id)];
       }
-    } catch (fbErr) {
-      console.warn('Firestore write failed, using fallback:', fbErr.message);
-    }
+      localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(updated));
+      return updated;
+    });
 
+    // 2. Save to Backend REST API
     try {
       const url = isEdit ? `${API_URL}/employees/${newEmployeeForm.id}` : `${API_URL}/employees`;
       const method = isEdit ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
+      await fetch(url, {
         method,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newEmployeeForm)
       });
-
-      if (res.ok) {
-        showToast(isEdit ? 'Employee profile updated successfully!' : 'Employee added successfully!', 'success');
-        setShowAddEmployeeModal(false);
-        setNewEmployeeForm({
-          id: '',
-          firstName: '',
-          lastName: '',
-          email: '',
-          phone: '',
-          role: 'employee',
-          department: 'Sales',
-          salary: '',
-          createLoginAccount: false,
-          password: '',
-          status: 'active'
-        });
-        fetchEmployees();
-        setIsEmployeesLoading(false);
-        return;
-      }
     } catch (err) {
-      console.warn('Backend employee save failed, using local backup store:', err.message);
+      console.warn('Backend employee save failed, preserved in local store:', err.message);
     }
 
-    const saved = localStorage.getItem('omnilflow_fallback_employees');
-    let list = saved ? JSON.parse(saved) : [];
-
-    if (isEdit) {
-      list = list.map(emp => {
-        if (emp.id === newEmployeeForm.id) {
-          return {
-            ...emp,
-            first_name: newEmployeeForm.firstName,
-            last_name: newEmployeeForm.lastName,
-            email: newEmployeeForm.email,
-            phone: newEmployeeForm.phone,
-            role: newEmployeeForm.role,
-            department: newEmployeeForm.department,
-            salary: newEmployeeForm.salary,
-            status: newEmployeeForm.status
-          };
+    // 3. Save to Cloud Firestore if available
+    try {
+      if (db) {
+        if (isEdit) {
+          await setDoc(doc(db, 'employees', newEmployeeForm.id.toString()), newEmpObj);
+        } else {
+          await addDoc(collection(db, 'employees'), newEmpObj);
         }
-        return emp;
-      });
-    } else {
-      const newEmp = {
-        id: Date.now(),
-        first_name: newEmployeeForm.firstName,
-        last_name: newEmployeeForm.lastName,
-        email: newEmployeeForm.email,
-        phone: newEmployeeForm.phone,
-        role: newEmployeeForm.role,
-        department: newEmployeeForm.department,
-        salary: newEmployeeForm.salary,
-        status: newEmployeeForm.status
-      };
-      list.push(newEmp);
+      }
+    } catch (fbErr) {
+      console.warn('Firestore write failed:', fbErr.message);
     }
 
-    localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(list));
     addNotification('👤 New Employee Profile', `${newEmployeeForm.firstName} ${newEmployeeForm.lastName || ''} (${newEmployeeForm.department}) added.`, 'employees');
     showToast(isEdit ? 'Employee profile updated successfully!' : 'Employee added successfully!', 'success');
     setShowAddEmployeeModal(false);
@@ -3524,7 +3467,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       password: '',
       status: 'active'
     });
-    fetchEmployees();
     setIsEmployeesLoading(false);
   };
 
