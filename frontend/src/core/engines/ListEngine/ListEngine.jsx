@@ -3,7 +3,7 @@
  * Enterprise CRM Scroll Architecture with Sticky <thead>, Sticky Bottom <Pagination>, & Thin Themed Scrollbars
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Eye, Edit2, Archive } from 'lucide-react';
 import SchemaFieldRenderer from '../FieldEngine/SchemaFieldRenderer';
 import { LabelEngine } from '../LabelEngine';
