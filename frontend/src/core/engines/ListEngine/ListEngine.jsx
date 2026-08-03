@@ -78,10 +78,60 @@ export default function ListEngine({
   systemDropdowns = null,
   activePipelineStages = []
 }) {
+  const [colWidths, setColWidths] = useState({});
   const [selectedIds, setSelectedIds] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const scrollRef = useRef(null);
+
+  // Filter out columns hidden via metadata
+  const visibleCols = (moduleConfig.columns || [])
+    .filter(c => c.visible !== false)
+    .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+  const fieldsMap = new Map((moduleConfig.fields || []).map(f => [f.id, f]));
+
+  // Dynamic Column Width Resolution Helper
+  const getColWidth = (col) => {
+    if (!col) return 140;
+    if (colWidths[col.id]) return colWidths[col.id];
+    if (col.width) {
+      const num = parseInt(col.width, 10);
+      if (!isNaN(num)) return num;
+    }
+    if (col.id === 'candidate' || col.id === 'name' || col.id === 'employee') return 240;
+    if (col.id === 'contact' || col.id === 'contact_details' || col.id === 'email') return 200;
+    if (col.id === 'position' || col.id === 'department' || col.id === 'role') return 140;
+    if (col.id === 'salary') return 130;
+    if (col.id === 'status') return 130;
+    return 140;
+  };
+
+  // Interactive Mouse Drag-to-Resize Handler
+  const handleResizeMouseDown = (e, colId) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const startX = e.clientX;
+    const targetCol = visibleCols.find(c => c.id === colId);
+    const startWidth = getColWidth(targetCol);
+
+    const handleMouseMove = (moveEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      const newWidth = Math.max(70, startWidth + deltaX);
+      setColWidths(prev => ({
+        ...prev,
+        [colId]: newWidth
+      }));
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
 
   // Header-only wheel handler: Scroll left/right when mouse is on table header
   const handleHeaderWheelScroll = (e) => {
@@ -93,13 +143,6 @@ export default function ListEngine({
       }
     }
   };
-
-  // Filter out columns hidden via metadata
-  const visibleCols = (moduleConfig.columns || [])
-    .filter(c => c.visible !== false)
-    .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-
-  const fieldsMap = new Map((moduleConfig.fields || []).map(f => [f.id, f]));
 
   const totalPages = Math.ceil(records.length / pageSize) || 1;
   const validCurrentPage = Math.min(currentPage, totalPages);
@@ -369,8 +412,26 @@ export default function ListEngine({
         .ems-row-hover:hover {
           background: rgba(13, 148, 136, 0.05) !important;
         }
+        .th-sort-hover {
+          position: relative;
+        }
         .th-sort-hover:hover {
           background: #f1f5f9 !important;
+        }
+        .col-resizer-handle {
+          position: absolute;
+          right: 0;
+          top: 0;
+          bottom: 0;
+          width: 7px;
+          cursor: col-resize;
+          user-select: none;
+          z-index: 30;
+          transition: background 0.15s ease;
+        }
+        .col-resizer-handle:hover,
+        .col-resizer-handle:active {
+          background: #0d9488 !important;
         }
       `}</style>
 
@@ -427,13 +488,8 @@ export default function ListEngine({
                   />
                 </th>
                 {visibleCols.map((col) => {
-                  const widthStyle = col.width ? { width: col.width, minWidth: col.width }
-                                  : col.id === 'candidate' || col.id === 'name' ? { minWidth: '240px' }
-                                  : col.id === 'position' ? { minWidth: '160px' }
-                                  : col.id === 'contact' || col.id === 'contact_details' ? { minWidth: '200px' }
-                                  : col.id === 'resume' ? { width: '120px', minWidth: '120px' }
-                                  : col.id === 'createdAt' || col.id === 'appliedDate' ? { width: '160px', minWidth: '160px' }
-                                  : { minWidth: '140px' };
+                  const resolvedWidth = getColWidth(col);
+                  const widthStyle = { width: `${resolvedWidth}px`, minWidth: `${resolvedWidth}px`, maxWidth: `${resolvedWidth}px` };
                   const alignStyle = col.align ? { textAlign: col.align } : {};
                   const targetSortKey = col.fieldKey || col.id;
                   const isSorted = sortKey === targetSortKey;
@@ -450,7 +506,7 @@ export default function ListEngine({
                         }
                       }}
                       style={{
-                        padding: '12px 18px',
+                        padding: '12px 14px',
                         fontSize: '11px',
                         fontWeight: '800',
                         color: isSorted ? '#0d9488' : '#475569',
@@ -462,18 +518,32 @@ export default function ListEngine({
                         top: 0,
                         zIndex: 20,
                         transition: 'background 0.15s ease',
+                        boxSizing: 'border-box',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                         ...widthStyle,
                         ...alignStyle
                       }}
                     >
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <span>{fieldsMap.get(col.fieldKey)?.label || fieldsMap.get(col.id)?.label || col.label}</span>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', width: '100%', overflow: 'hidden' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {fieldsMap.get(col.fieldKey)?.label || fieldsMap.get(col.id)?.label || col.label}
+                        </span>
                         {isSorted ? (
-                          sortDir === 'asc' ? <ArrowUp size={13} color="#0d9488" /> : <ArrowDown size={13} color="#0d9488" />
+                          sortDir === 'asc' ? <ArrowUp size={13} color="#0d9488" style={{ flexShrink: 0 }} /> : <ArrowDown size={13} color="#0d9488" style={{ flexShrink: 0 }} />
                         ) : (
-                          <ArrowUpDown size={12} style={{ opacity: 0.3 }} />
+                          <ArrowUpDown size={12} style={{ opacity: 0.3, flexShrink: 0 }} />
                         )}
                       </div>
+
+                      {/* INTERACTIVE COLUMN DRAG RESIZER HANDLE */}
+                      <div
+                        className="col-resizer-handle"
+                        onMouseDown={(e) => handleResizeMouseDown(e, col.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        title="Drag left/right to resize column"
+                      />
                     </th>
                   );
                 })}
