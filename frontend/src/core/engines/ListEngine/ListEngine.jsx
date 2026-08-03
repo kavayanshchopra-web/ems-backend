@@ -105,9 +105,10 @@ export default function ListEngine({
 
   const renderRow = (record, idx) => {
     const isSelected = selectedIds.includes(record.id);
-    const recordName = getValString(record.name || record.title, LabelEngine.getEntityName(moduleConfig));
+    const recordName = getValString(record.name || record.fullName || record.employeeName || record.candidateName || record.title, LabelEngine.getEntityName(moduleConfig));
     const recordStatus = getValString(record.status || record.stage);
     const displayId = formatCandidateId(record.id, idx, moduleConfig);
+    const recordSub = getValString(record.department || record.designation || record.position || record.appliedFor, '');
 
     return (
       <tr
@@ -117,10 +118,11 @@ export default function ListEngine({
         style={{
           background: isSelected ? 'rgba(13, 148, 136, 0.08)' : '#ffffff',
           cursor: 'pointer',
-          transition: 'background 0.15s ease'
+          transition: 'background 0.15s ease-in-out'
         }}
       >
-        <td style={{ padding: '10px 14px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }} onClick={(e) => e.stopPropagation()}>
+        {/* CHECKBOX CELL WITH ENHANCED SPACING */}
+        <td style={{ padding: '12px 18px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }} onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
             checked={isSelected}
@@ -128,80 +130,109 @@ export default function ListEngine({
               e.stopPropagation();
               handleSelectRow(record.id);
             }}
-            style={{ accentColor: isArchivedView ? '#f59e0b' : '#0d9488', cursor: 'pointer' }}
+            style={{ accentColor: isArchivedView ? '#f59e0b' : '#0d9488', cursor: 'pointer', width: '16px', height: '16px' }}
           />
         </td>
 
         {visibleCols.map((col, colIdx) => {
           const fieldDef = fieldsMap.get(col.fieldKey) || fieldsMap.get(col.id);
 
-          if (colIdx === 0 || col.id === 'candidate' || col.id === 'deal' || col.id === 'employee') {
+          {/* PRIMARY IDENTITY COLUMN (AVATAR + NAME + ID + SUBTITLE) */}
+          if (colIdx === 0 || col.id === 'candidate' || col.id === 'deal' || col.id === 'employee' || col.id === 'name') {
             return (
-              <td key={col.id} style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', maxWidth: '220px' }}>
-                  <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: isArchivedView ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #0d9488, #064e43)', color: '#ffffff', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', flexShrink: 0 }}>
-                    {(recordName[0] || 'R')}
+              <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', maxWidth: '260px' }}>
+                  <div
+                    style={{
+                      width: '38px',
+                      height: '38px',
+                      borderRadius: '50%',
+                      background: isArchivedView
+                        ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
+                        : 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)',
+                      color: '#ffffff',
+                      fontWeight: '800',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justify: 'center',
+                      fontSize: '13px',
+                      flexShrink: 0,
+                      boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+                    }}
+                  >
+                    {(recordName[0] || 'R').toUpperCase()}
                   </div>
                   <div style={{ overflow: 'hidden' }}>
                     <div
                       title={recordName}
-                      style={{ fontWeight: '800', color: '#0f172a', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}
+                      style={{ fontWeight: '800', color: '#0f172a', fontSize: '13.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}
                     >
                       {recordName}
                     </div>
-                    <div style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '700', color: isArchivedView ? '#b45309' : '#0d9488' }}>ID: {displayId}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '1px' }}>
+                      <span style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '700', color: isArchivedView ? '#b45309' : '#0d9488' }}>
+                        ID: {displayId}
+                      </span>
+                      {recordSub && (
+                        <span style={{ fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '110px' }}>
+                          • {recordSub}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </td>
             );
           }
 
-          // Special Contact Details Column Renderer
+          {/* CONTACT DETAILS COLUMN */}
           if (col.id === 'contact' || col.id === 'contact_details' || col.fieldKey === 'contact' || col.fieldKey === 'phone') {
             const emailStr = getValString(record.email);
             const phoneStr = getValString(record.phone);
             return (
-              <td key={col.id} style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0', maxWidth: '240px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px', maxWidth: '220px', overflow: 'hidden' }}>
+              <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0', maxWidth: '240px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11.5px', maxWidth: '220px', overflow: 'hidden' }}>
                   {emailStr && (
                     <div title={`Email: ${emailStr}`} style={{ color: '#0f172a', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📧 {emailStr}</div>
                   )}
                   {phoneStr && (
                     <div title={`Phone: ${phoneStr}`} style={{ color: '#475569', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📞 {phoneStr}</div>
                   )}
-                  {!emailStr && !phoneStr && <span style={{ color: '#94a3b8' }}>—</span>}
+                  {!emailStr && !phoneStr && <span style={{ color: '#94a3b8', fontWeight: '600' }}>—</span>}
                 </div>
               </td>
             );
           }
 
-          // Special Resume Column Renderer
+          {/* RESUME / ATTACHMENT COLUMN */}
           if (col.id === 'resume' || col.fieldKey === 'resume') {
             const resumeStr = getValString(record.resume || record.attachment);
             return (
-              <td key={col.id} style={{ padding: '10px 14px', fontSize: '12px', borderBottom: '1px solid #e2e8f0' }}>
+              <td key={col.id} style={{ padding: '12px 18px', fontSize: '12px', borderBottom: '1px solid #e2e8f0' }}>
                 {resumeStr ? (
-                  <Badge variant="info" style={{ fontSize: '10px' }}>📄 {resumeStr}</Badge>
+                  <Badge variant="info" style={{ fontSize: '10.5px', padding: '3px 8px' }}>📄 {resumeStr}</Badge>
                 ) : (
-                  <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '600' }}>No Resume</span>
+                  <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '600' }}>—</span>
                 )}
               </td>
             );
           }
 
-          // Special Applied Date Column Renderer
+          {/* CREATED AT / APPLIED DATE COLUMN */}
           if (col.id === 'createdAt' || col.fieldKey === 'createdAt' || col.id === 'appliedDate') {
             const dateVal = formatDate(record.createdAt || record.appliedDate);
             return (
-              <td key={col.id} style={{ padding: '10px 14px', fontSize: '11px', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
+              <td key={col.id} style={{ padding: '12px 18px', fontSize: '11.5px', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
                 📅 {dateVal}
               </td>
             );
           }
 
+          {/* STATUS / STAGE COLUMN WITH STANDARDIZED BADGES */}
           if (col.id === 'stage' || col.fieldKey === 'status') {
+            const normalizedBadgeVariant = isArchivedView ? 'warning' : LabelEngine.getBadgeVariant(recordStatus);
             return (
-              <td key={col.id} style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0' }} onClick={(e) => e.stopPropagation()}>
+              <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0' }} onClick={(e) => e.stopPropagation()}>
                 {!isArchivedView && canManage && activePipelineStages.length > 0 ? (
                   <select
                     value={recordStatus}
@@ -209,7 +240,7 @@ export default function ListEngine({
                       e.stopPropagation();
                       onMoveStage(record.id, e.target.value);
                     }}
-                    style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
+                    style={{ padding: '5px 10px', fontSize: '11.5px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
                   >
                     {activePipelineStages.map(s => (
                       <option key={s.id || s.name} value={getValString(s.name)}>
@@ -218,37 +249,45 @@ export default function ListEngine({
                     ))}
                   </select>
                 ) : (
-                  <Badge variant={isArchivedView ? 'warning' : LabelEngine.getBadgeVariant(recordStatus)}>
-                    {isArchivedView ? 'ARCHIVED' : (recordStatus || 'Active')}
+                  <Badge variant={normalizedBadgeVariant} style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '12px', fontWeight: '700' }}>
+                    {isArchivedView ? 'ARCHIVED' : (recordStatus ? recordStatus.toUpperCase() : 'ACTIVE')}
                   </Badge>
                 )}
               </td>
             );
           }
 
-          const cellVal = (col.fieldKey && record[col.fieldKey] !== undefined && record[col.fieldKey] !== null)
+          {/* GENERIC COLUMN WITH STRICT "—" EMPTY FALLBACK */}
+          const rawCellVal = (col.fieldKey && record[col.fieldKey] !== undefined && record[col.fieldKey] !== null)
             ? record[col.fieldKey]
             : (record[col.id] !== undefined && record[col.id] !== null
                 ? record[col.id]
                 : (record.customFields?.[col.fieldKey] !== undefined ? record.customFields[col.fieldKey] : record.customFields?.[col.id])
               );
 
+          const cellValStr = getValString(rawCellVal).trim();
+          const isEmpty = !cellValStr || cellValStr === 'undefined' || cellValStr === 'null';
+
           return (
-            <td key={col.id} style={{ padding: '10px 14px', fontSize: '12px', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>
-              <SchemaFieldRenderer
-                field={fieldDef || { id: col.fieldKey || col.id, label: col.label, type: 'text' }}
-                value={cellVal}
-                mode="view"
-                compact={true}
-                moduleConfig={moduleConfig}
-                systemDropdowns={systemDropdowns}
-              />
+            <td key={col.id} style={{ padding: '12px 18px', fontSize: '12px', color: '#334155', borderBottom: '1px solid #e2e8f0' }}>
+              {isEmpty ? (
+                <span style={{ color: '#94a3b8', fontWeight: '600' }}>—</span>
+              ) : (
+                <SchemaFieldRenderer
+                  field={fieldDef || { id: col.fieldKey || col.id, label: col.label, type: 'text' }}
+                  value={rawCellVal}
+                  mode="view"
+                  compact={true}
+                  moduleConfig={moduleConfig}
+                  systemDropdowns={systemDropdowns}
+                />
+              )}
             </td>
           );
         })}
 
         {isArchivedView && canManage && (
-          <td style={{ padding: '10px 14px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', width: '220px' }} onClick={(e) => e.stopPropagation()}>
+          <td style={{ padding: '12px 18px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', width: '220px' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
               <button
                 type="button"
@@ -306,7 +345,10 @@ export default function ListEngine({
           background: #064e43 !important;
         }
         .ems-row-hover:hover {
-          background: rgba(13, 148, 136, 0.04) !important;
+          background: rgba(13, 148, 136, 0.05) !important;
+        }
+        .th-sort-hover:hover {
+          background: #f1f5f9 !important;
         }
       `}</style>
 
@@ -326,14 +368,16 @@ export default function ListEngine({
       />
 
       <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        {/* TABLE HEADER STRIP */}
-        <div style={{ padding: '12px 16px', background: isArchivedView ? '#fffbeb' : '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', flexShrink: 0 }}>
-          <span style={{ fontSize: '11px', fontWeight: '800', color: isArchivedView ? '#b45309' : '#475569', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {isArchivedView ? '📦 ARCHIVE VIEW:' : ''} {LabelEngine.getEntityNamePlural(moduleConfig)} Roster ({records.length})
+        {/* TABLE HEADER STRIP (CLEAN ENTERPRISE NOISE-FREE HEADER) */}
+        <div style={{ padding: '12px 18px', background: isArchivedView ? '#fffbeb' : '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', flexShrink: 0 }}>
+          <span style={{ fontSize: '11px', fontWeight: '800', color: isArchivedView ? '#b45309' : '#0f172a', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {isArchivedView ? '📦 ARCHIVE VIEW:' : ''} {LabelEngine.getEntityNamePlural(moduleConfig).toUpperCase()} ROSTER ({records.length})
           </span>
-          <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
-            {isArchivedView ? 'Archived records management center • Permanent delete permitted only here' : 'Click column headers to sort • Click row to view profile'}
-          </span>
+          {isArchivedView && (
+            <span style={{ fontSize: '11px', color: '#b45309', fontWeight: '600' }}>
+              Archived records management center • Permanent delete permitted only here
+            </span>
+          )}
         </div>
 
         {/* SCROLLABLE TABLE AREA WITH STICKY HEADER */}
@@ -351,19 +395,19 @@ export default function ListEngine({
           }}
         >
           <table className="std-table" style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse', borderSpacing: 0 }}>
-            <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>
-                <th style={{ padding: '12px 16px', width: '40px', textAlign: 'center', background: '#f8fafc' }}>
+            <thead style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f8fafc', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
+                <th style={{ padding: '12px 18px', width: '40px', textAlign: 'center', background: '#f8fafc', position: 'sticky', top: 0, zIndex: 20 }}>
                   <input
                     type="checkbox"
                     checked={paginatedRecords.length > 0 && selectedIds.length === paginatedRecords.length}
                     onChange={handleSelectAll}
-                    style={{ accentColor: isArchivedView ? '#f59e0b' : '#0d9488', cursor: 'pointer' }}
+                    style={{ accentColor: isArchivedView ? '#f59e0b' : '#0d9488', cursor: 'pointer', width: '16px', height: '16px' }}
                   />
                 </th>
                 {visibleCols.map((col) => {
                   const widthStyle = col.width ? { width: col.width, minWidth: col.width }
-                                  : col.id === 'candidate' || col.id === 'name' ? { minWidth: '220px' }
+                                  : col.id === 'candidate' || col.id === 'name' ? { minWidth: '240px' }
                                   : col.id === 'position' ? { minWidth: '160px' }
                                   : col.id === 'contact' || col.id === 'contact_details' ? { minWidth: '200px' }
                                   : col.id === 'resume' ? { width: '120px', minWidth: '120px' }
@@ -376,6 +420,7 @@ export default function ListEngine({
                   return (
                     <th
                       key={col.id}
+                      className="th-sort-hover"
                       onClick={() => {
                         if (isSorted) {
                           onSortChange(targetSortKey, sortDir === 'asc' ? 'desc' : 'asc');
@@ -384,14 +429,18 @@ export default function ListEngine({
                         }
                       }}
                       style={{
-                        padding: '12px 16px',
+                        padding: '12px 18px',
                         fontSize: '11px',
                         fontWeight: '800',
                         color: isSorted ? '#0d9488' : '#475569',
                         textTransform: 'uppercase',
-                        background: '#f8fafc',
+                        background: isSorted ? 'rgba(13,148,136,0.06)' : '#f8fafc',
                         cursor: 'pointer',
                         userSelect: 'none',
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 20,
+                        transition: 'background 0.15s ease',
                         ...widthStyle,
                         ...alignStyle
                       }}
@@ -399,16 +448,16 @@ export default function ListEngine({
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                         <span>{fieldsMap.get(col.fieldKey)?.label || fieldsMap.get(col.id)?.label || col.label}</span>
                         {isSorted ? (
-                          sortDir === 'asc' ? <ArrowUp size={12} color="#0d9488" /> : <ArrowDown size={12} color="#0d9488" />
+                          sortDir === 'asc' ? <ArrowUp size={13} color="#0d9488" /> : <ArrowDown size={13} color="#0d9488" />
                         ) : (
-                          <ArrowUpDown size={11} style={{ opacity: 0.3 }} />
+                          <ArrowUpDown size={12} style={{ opacity: 0.3 }} />
                         )}
                       </div>
                     </th>
                   );
                 })}
                 {isArchivedView && canManage && (
-                  <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#b45309', textTransform: 'uppercase', textAlign: 'right', width: '220px', background: '#fffbeb' }}>
+                  <th style={{ padding: '12px 18px', fontSize: '11px', fontWeight: '800', color: '#b45309', textTransform: 'uppercase', textAlign: 'right', width: '220px', background: '#fffbeb', position: 'sticky', top: 0, zIndex: 20 }}>
                     Archived Actions
                   </th>
                 )}

@@ -54,7 +54,7 @@ export default function KanbanCard({
   const kanbanConfig = moduleConfig.kanbanFields || {};
   const fieldsMap = new Map((moduleConfig.fields || []).map(f => [f.id, f]));
 
-  const cardName = getValString(record.name || record.title, LabelEngine.getEntityName(moduleConfig));
+  const cardName = getValString(record.name || record.fullName || record.employeeName || record.candidateName || record.title, LabelEngine.getEntityName(moduleConfig));
   const cardSubtitle = getValString(record.position || record.appliedFor || record.department, 'Sales Representative');
   const cardEmail = getValString(record.email, '');
   const cardPhone = getValString(record.phone, '');

@@ -45,33 +45,45 @@ export default function ActionEngine({
     const now = new Date().toISOString();
     const entityName = LabelEngine.getEntityName(moduleConfig);
 
-    if (selectedRecord && selectedRecord.id) {
+    const normalizedData = {
+      ...formData,
+      name: formData.name || formData.fullName || formData.employeeName || formData.candidateName || formData.title || ''
+    };
+
+    if (showEditModal && selectedRecord && selectedRecord.id) {
       // EDIT WORKFLOW
       const updatedList = records.map(r => {
         if (r.id === selectedRecord.id) {
           return {
             ...r,
-            ...formData,
+            ...normalizedData,
             updatedAt: now
           };
         }
         return r;
       });
       setRecords(updatedList);
-      showToast(`Updated ${entityName.toLowerCase()} "${formData.name || formData.title || selectedRecord.id}"`, 'success');
+      showToast(`Updated ${entityName.toLowerCase()} "${normalizedData.name || selectedRecord.id}"`, 'success');
       setShowEditModal(false);
     } else {
-      // CREATE WORKFLOW WITH SEQUENTIAL IDs (e.g. ATS-001, ATS-002)
+      // CREATE WORKFLOW WITH SEQUENTIAL IDs (e.g. EMP-001, ATS-001)
       const nextSeqId = getNextSequentialId('default_tenant', moduleConfig.moduleId || 'recruitment_ats', moduleConfig);
       const newRec = {
         id: nextSeqId,
-        ...formData,
+        ...normalizedData,
         createdAt: now,
         updatedAt: now,
         archived: false,
         lifecycleStatus: 'ACTIVE'
       };
       setRecords([newRec, ...records]);
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('omnilflow_config_updated', {
+          detail: { moduleId: moduleConfig.moduleId }
+        }));
+      }
+
       showToast(`Added ${entityName.toLowerCase()} "${newRec.name || newRec.title || newRec.id}"`, 'success');
       setShowAddModal(false);
     }

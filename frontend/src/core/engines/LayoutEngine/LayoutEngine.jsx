@@ -158,7 +158,7 @@ export default function LayoutEngine({
         onSortChange={(key, dir) => { setSortKey(key); setSortDir(dir); }}
         archivedCount={archivedModuleItems.length}
         onOpenArchived={() => setViewMode(prev => prev === 'archived' ? (moduleConfig?.views?.defaultView || 'list') : 'archived')}
-        onOpenAddModal={() => setShowAddModal(true)}
+        onOpenAddModal={() => { setSelectedRecord(null); setShowAddModal(true); }}
         onOpenConfigModal={() => onOpenModuleConfig && onOpenModuleConfig(moduleConfig.moduleId)}
         onOpenPositionModal={onOpenPositionModal}
         onManageStages={onManageStages}
