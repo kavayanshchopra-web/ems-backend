@@ -139,6 +139,29 @@ export default function ListEngine({
     window.addEventListener('mouseup', handleMouseUp);
   };
 
+  // Mouse Drag-to-Scroll handlers for smooth left/right table panning without visible scrollbar
+  const [isDragScrolling, setIsDragScrolling] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [dragScrollLeft, setDragScrollLeft] = useState(0);
+
+  const handleMouseDown = (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.closest('input')) return;
+    setIsDragScrolling(true);
+    setDragStartX(e.pageX - scrollRef.current.offsetLeft);
+    setDragScrollLeft(scrollRef.current.scrollLeft);
+  };
+
+  const handleMouseLeaveOrUp = () => {
+    setIsDragScrolling(false);
+  };
+
+  const handleMouseMoveDrag = (e) => {
+    if (!isDragScrolling || !scrollRef.current) return;
+    const x = e.pageX - scrollRef.current.offsetLeft;
+    const walk = (x - dragStartX) * 1.5;
+    scrollRef.current.scrollLeft = dragScrollLeft - walk;
+  };
+
   const handleSmartWheel = (e) => {
     if (scrollRef.current && (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY))) {
       scrollRef.current.scrollLeft += (e.deltaY || e.deltaX);
@@ -510,10 +533,16 @@ export default function ListEngine({
           className="list-table-scroll"
           ref={scrollRef}
           onWheel={handleSmartWheel}
+          onMouseDown={handleMouseDown}
+          onMouseLeave={handleMouseLeaveOrUp}
+          onMouseUp={handleMouseLeaveOrUp}
+          onMouseMove={handleMouseMoveDrag}
           style={{
             overflowX: 'auto',
             overflowY: 'visible',
-            position: 'relative'
+            position: 'relative',
+            cursor: isDragScrolling ? 'grabbing' : 'grab',
+            userSelect: isDragScrolling ? 'none' : 'auto'
           }}
         >
           <table className="std-table" style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse', borderSpacing: 0 }}>
