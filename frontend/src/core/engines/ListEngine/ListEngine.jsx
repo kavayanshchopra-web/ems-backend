@@ -13,7 +13,6 @@ import EmptyState from '../../../components/ui/EmptyState';
 import BulkActionEngine from '../BulkActionEngine/BulkActionEngine';
 import Pagination from './Pagination';
 import { formatCandidateId } from '../../../services/atsStorageService';
-import { GroupEngine, GroupEngineContainer } from '../GroupEngine';
 
 const getValString = (val, fallback = '') => {
   if (val === null || val === undefined) return fallback;
@@ -47,7 +46,6 @@ export default function ListEngine({
   totalCount = 0,
   isFilterActive = false,
   searchQuery = '',
-  groupByFieldId = '',
   sortKey = 'createdAt',
   sortDir = 'desc',
   onSortChange = () => {},
@@ -427,22 +425,6 @@ export default function ListEngine({
                     />
                   </td>
                 </tr>
-              ) : groupByFieldId ? (
-                <GroupEngineContainer
-                  groupedData={GroupEngine.groupRecords(paginatedRecords, groupByFieldId, moduleConfig)}
-                  groupByFieldId={groupByFieldId}
-                  moduleConfig={moduleConfig}
-                  renderGroupRows={(groupRecords) => groupRecords.map((record, idx) => renderRow(record, idx))}
-                  selectedIds={selectedIds}
-                  onSelectGroup={(grpRecordIds, shouldSelect) => {
-                    setSelectedIds(prev =>
-                      shouldSelect
-                        ? Array.from(new Set([...prev, ...grpRecordIds]))
-                        : prev.filter(id => !grpRecordIds.includes(id))
-                    );
-                  }}
-                  colSpanCount={visibleCols.length + (isArchivedView && canManage ? 2 : 1)}
-                />
               ) : (
                 paginatedRecords.map((record, idx) => renderRow(record, idx))
               )}

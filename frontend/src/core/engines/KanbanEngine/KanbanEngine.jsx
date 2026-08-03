@@ -22,7 +22,6 @@ const getValString = (val, fallback = '') => {
 export default function KanbanEngine({
   records = [],
   moduleConfig = {},
-  groupByFieldId: propGroupByFieldId = '',
   activePipelineStages = [],
   systemDropdowns = null,
   isFilterActive = false,
@@ -82,7 +81,7 @@ export default function KanbanEngine({
   };
 
   // Metadata-driven Grouping Field Resolution
-  const groupByFieldId = propGroupByFieldId || moduleConfig.kanbanConfig?.groupByField || moduleConfig.kanbanGroupBy || 'status';
+  const groupByFieldId = moduleConfig.kanbanConfig?.groupByField || moduleConfig.kanbanGroupBy || 'status';
   const groupFieldDef = (moduleConfig.fields || []).find(f => f.id === groupByFieldId || f.key === groupByFieldId);
 
   // Column Headers List Resolution

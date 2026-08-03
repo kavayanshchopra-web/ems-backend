@@ -4,12 +4,11 @@
  */
 
 import React, { useState } from 'react';
-import { Plus, Archive, Settings, Briefcase, Sliders, Filter, ArrowUpDown } from 'lucide-react';
+import { Plus, Archive, Settings, Sliders, Filter } from 'lucide-react';
 import Button from '../../../components/ui/Button';
 import SearchInput from '../../../components/ui/SearchInput';
 import ViewSwitcher from '../ViewEngine/ViewSwitcher';
 import FilterPanel from '../FilterEngine/FilterPanel';
-import SearchWorkspace from '../SearchWorkspace/SearchWorkspace';
 import { LabelEngine } from '../LabelEngine';
 import { PlaceholderEngine } from '../PlaceholderEngine';
 import { FilterEngine } from '../FilterEngine';
@@ -25,8 +24,6 @@ export default function LayoutToolbar({
   filterValues = {},
   onFilterChange = () => {},
   onResetFilters = () => {},
-  groupByFieldId = '',
-  onGroupByChange = () => {},
   sortKey = 'createdAt',
   sortDir = 'desc',
   onSortChange = () => {},
@@ -42,6 +39,7 @@ export default function LayoutToolbar({
   allPositions = []
 }) {
   const [showManageDropdown, setShowManageDropdown] = useState(false);
+  const [showFilterPopover, setShowFilterPopover] = useState(false);
 
   let availableViews = [];
   if (Array.isArray(moduleConfig.views?.availableViews) && moduleConfig.views.availableViews.length > 0) {
@@ -52,6 +50,8 @@ export default function LayoutToolbar({
     availableViews = Object.keys(moduleConfig.views).filter(k => moduleConfig.views[k] === true);
   }
   if (availableViews.length === 0) availableViews = ['list'];
+
+  const isFilterActive = FilterEngine.isFilterActive(filterValues) || Boolean(searchQuery.trim());
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
@@ -186,26 +186,57 @@ export default function LayoutToolbar({
         </div>
       </div>
 
-      {/* 2. UNIVERSAL METADATA-DRIVEN SEARCH WORKSPACE */}
-      <SearchWorkspace
-        moduleConfig={moduleConfig}
-        records={records}
-        searchQuery={searchQuery}
-        onSearchChange={onSearchChange}
-        filterValues={filterValues}
-        onFilterChange={onFilterChange}
-        onResetFilters={onResetFilters}
-        groupByFieldId={groupByFieldId}
-        onGroupByChange={onGroupByChange}
-        sortKey={sortKey}
-        sortDir={sortDir}
-        onSortChange={onSortChange}
-        viewMode={viewMode}
-        onViewChange={onViewChange}
-        systemDropdowns={systemDropdowns}
-        activePipelineStages={activePipelineStages}
-        allPositions={allPositions}
-      />
+      {/* 2. SEARCH / FILTER TOOLBAR */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justify: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          background: '#ffffff',
+          padding: '12px 16px',
+          borderRadius: '10px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', flex: 1 }}>
+          <SearchInput
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            onClear={() => onSearchChange('')}
+            placeholder={PlaceholderEngine.getSearchPlaceholder(moduleConfig)}
+            width="320px"
+          />
+
+          {/* FILTERS POPOVER */}
+          <div style={{ position: 'relative' }}>
+            <Button
+              variant={isFilterActive ? 'primary' : 'secondary'}
+              size="md"
+              icon={<Filter size={14} />}
+              onClick={() => setShowFilterPopover(prev => !prev)}
+              style={isFilterActive ? { background: '#0d9488', color: 'white', border: 'none' } : {}}
+            >
+              Filters {isFilterActive ? '•' : ''}
+            </Button>
+
+            {showFilterPopover && (
+              <FilterPanel
+                moduleConfig={moduleConfig}
+                filterValues={filterValues}
+                onFilterChange={onFilterChange}
+                onResetFilters={onResetFilters}
+                onClose={() => setShowFilterPopover(false)}
+                systemDropdowns={systemDropdowns}
+                activePipelineStages={activePipelineStages}
+                allPositions={allPositions}
+              />
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
