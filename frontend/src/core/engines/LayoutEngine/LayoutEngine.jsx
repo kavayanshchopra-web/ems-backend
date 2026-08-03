@@ -47,9 +47,10 @@ export default function LayoutEngine({
   const defaultView = moduleConfig.views?.defaultView || 'kanban';
   const [viewMode, setViewMode] = useState(availableViews.includes(defaultView) ? defaultView : availableViews[0] || 'kanban');
 
-  // Search, Filter & Sort state
+  // Search, Filter, GroupBy & Sort state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterValues, setFilterValues] = useState({});
+  const [groupByFieldId, setGroupByFieldId] = useState('');
   const [sortKey, setSortKey] = useState(() => moduleConfig.defaultSort?.key || 'createdAt');
   const [sortDir, setSortDir] = useState(() => moduleConfig.defaultSort?.dir || 'desc');
 
@@ -153,6 +154,8 @@ export default function LayoutEngine({
         filterValues={filterValues}
         onFilterChange={handleFilterChange}
         onResetFilters={handleResetFilters}
+        groupByFieldId={groupByFieldId}
+        onGroupByChange={setGroupByFieldId}
         sortKey={sortKey}
         sortDir={sortDir}
         onSortChange={(key, dir) => { setSortKey(key); setSortDir(dir); }}
@@ -198,6 +201,8 @@ export default function LayoutEngine({
         totalCount={activeModuleRecords.length}
         isFilterActive={isFilterActive}
         searchQuery={searchQuery}
+        groupByFieldId={groupByFieldId}
+        onGroupByChange={setGroupByFieldId}
         sortKey={sortKey}
         sortDir={sortDir}
         onSortChange={(key, dir) => { setSortKey(key); setSortDir(dir); }}

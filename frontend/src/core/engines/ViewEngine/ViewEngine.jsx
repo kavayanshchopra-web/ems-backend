@@ -15,6 +15,8 @@ export default function ViewEngine({
   totalCount = 0,
   isFilterActive = false,
   searchQuery = '',
+  groupByFieldId = '',
+  onGroupByChange = () => {},
   sortKey = 'createdAt',
   sortDir = 'desc',
   onSortChange = () => {},
@@ -54,6 +56,7 @@ export default function ViewEngine({
       <KanbanEngine
         records={records}
         moduleConfig={moduleConfig}
+        groupByFieldId={groupByFieldId}
         activePipelineStages={activePipelineStages}
         systemDropdowns={systemDropdowns}
         isFilterActive={isFilterActive}
