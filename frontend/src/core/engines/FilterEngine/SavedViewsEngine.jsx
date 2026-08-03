@@ -149,16 +149,16 @@ export default function SavedViewsEngine({
   const isCurrentFilterDirty = Object.keys(filterValues).length > 0 || Boolean(searchQuery.trim());
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', width: '100%', marginBottom: '8px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
       {/* QUICK PRESET TABS STRIP */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflowX: 'auto', paddingBottom: '2px', flex: 1 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflowX: 'auto', flex: 1 }}>
         <button
           type="button"
           onClick={() => handleSelectPreset({ id: 'all' })}
           style={{
-            padding: '5px 12px',
-            borderRadius: '16px',
-            fontSize: '11.5px',
+            padding: '4px 10px',
+            borderRadius: '14px',
+            fontSize: '11px',
             fontWeight: activePresetId === 'all' ? '800' : '600',
             border: activePresetId === 'all' ? '1px solid #0d9488' : '1px solid #cbd5e1',
             background: activePresetId === 'all' ? '#0d9488' : '#ffffff',
@@ -167,7 +167,7 @@ export default function SavedViewsEngine({
             whiteSpace: 'nowrap',
             display: 'flex',
             alignItems: 'center',
-            gap: '5px'
+            gap: '4px'
           }}
         >
           <span>All {entityNamePlural}</span>

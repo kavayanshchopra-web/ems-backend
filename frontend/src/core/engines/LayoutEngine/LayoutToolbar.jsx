@@ -9,6 +9,7 @@ import Button from '../../../components/ui/Button';
 import SearchInput from '../../../components/ui/SearchInput';
 import ViewSwitcher from '../ViewEngine/ViewSwitcher';
 import FilterPanel from '../FilterEngine/FilterPanel';
+import SavedViewsEngine from '../FilterEngine/SavedViewsEngine';
 import { LabelEngine } from '../LabelEngine';
 import { PlaceholderEngine } from '../PlaceholderEngine';
 import { FilterEngine } from '../FilterEngine';
@@ -38,7 +39,8 @@ export default function LayoutToolbar({
   canManage = true,
   systemDropdowns = null,
   activePipelineStages = [],
-  allPositions = []
+  allPositions = [],
+  showToast = () => {}
 }) {
   const [showManageDropdown, setShowManageDropdown] = useState(false);
   const [showFilterPopover, setShowFilterPopover] = useState(false);
@@ -252,6 +254,24 @@ export default function LayoutToolbar({
                 allPositions={allPositions}
               />
             )}
+          </div>
+
+          {/* UNIVERSAL SAVED VIEWS & PRESET TABS */}
+          <div style={{ marginLeft: '4px', flex: 1, minWidth: '200px' }}>
+            <SavedViewsEngine
+              moduleConfig={moduleConfig}
+              filterValues={filterValues}
+              searchQuery={searchQuery}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              viewMode={viewMode}
+              onApplyPreset={(presetState) => {
+                if (presetState.filterValues !== undefined) onFilterChange(presetState.filterValues);
+                if (presetState.searchQuery !== undefined) onSearchChange(presetState.searchQuery);
+                if (presetState.sortKey !== undefined && onSortChange) onSortChange(presetState.sortKey, presetState.sortDir || 'desc');
+              }}
+              showToast={showToast}
+            />
           </div>
         </div>
       </div>

@@ -173,6 +173,7 @@ export default function LayoutEngine({
         systemDropdowns={systemDropdowns}
         activePipelineStages={activePipelineStages}
         allPositions={allPositions}
+        showToast={showToast}
       />
 
       {/* B. KPI SUMMARY STRIP WIDGETS */}
@@ -184,26 +185,7 @@ export default function LayoutEngine({
         />
       )}
 
-      {/* C. UNIVERSAL SAVED VIEWS & PRESETS ENGINE */}
-      {!isArchivedView && (
-        <SavedViewsEngine
-          moduleConfig={moduleConfig}
-          filterValues={filterValues}
-          searchQuery={searchQuery}
-          sortKey={sortKey}
-          sortDir={sortDir}
-          viewMode={viewMode}
-          onApplyPreset={(presetState) => {
-            if (presetState.filterValues !== undefined) setFilterValues(presetState.filterValues);
-            if (presetState.searchQuery !== undefined) setSearchQuery(presetState.searchQuery);
-            if (presetState.sortKey !== undefined) setSortKey(presetState.sortKey);
-            if (presetState.sortDir !== undefined) setSortDir(presetState.sortDir);
-          }}
-          showToast={showToast}
-        />
-      )}
-
-      {/* D. ACTIVE FILTER CHIPS BAR */}
+      {/* C. ACTIVE FILTER CHIPS BAR */}
       <ActiveFilterChips
         moduleConfig={moduleConfig}
         filterValues={filterValues}
