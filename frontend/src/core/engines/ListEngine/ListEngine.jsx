@@ -139,17 +139,6 @@ export default function ListEngine({
     window.addEventListener('mouseup', handleMouseUp);
   };
 
-  // Header-only wheel handler: Scroll left/right when mouse is on table header
-  const handleHeaderWheelScroll = (e) => {
-    if (scrollRef.current && e.deltaY !== 0 && !e.shiftKey) {
-      const { scrollWidth, clientWidth } = scrollRef.current;
-      if (scrollWidth > clientWidth) {
-        e.preventDefault();
-        scrollRef.current.scrollLeft += e.deltaY;
-      }
-    }
-  };
-
   const totalPages = Math.ceil(records.length / pageSize) || 1;
   const validCurrentPage = Math.min(currentPage, totalPages);
   const startIdx = (validCurrentPage - 1) * pageSize;
@@ -522,7 +511,6 @@ export default function ListEngine({
         >
           <table className="std-table" style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse', borderSpacing: 0 }}>
             <thead
-              onWheel={handleHeaderWheelScroll}
               style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f8fafc', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
             >
               <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
