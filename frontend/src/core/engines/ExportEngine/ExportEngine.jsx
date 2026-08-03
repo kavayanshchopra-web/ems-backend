@@ -28,8 +28,14 @@ export default function ExportModal({
 
   const [exportScope, setExportScope] = useState(selectedIds.length > 0 ? 'selected' : 'all'); // 'all' | 'selected'
   const [exportFormat, setExportFormat] = useState('excel'); // 'excel' | 'csv' | 'pdf'
+  const [fieldSearchQuery, setFieldSearchQuery] = useState('');
   const [selectedFieldIds, setSelectedFieldIds] = useState(
     visibleFieldIds.length > 0 ? visibleFieldIds : defaultFieldIds
+  );
+
+  const filteredFields = fields.filter(f =>
+    String(f.label || '').toLowerCase().includes(fieldSearchQuery.toLowerCase().trim()) ||
+    String(f.id || '').toLowerCase().includes(fieldSearchQuery.toLowerCase().trim())
   );
 
   const targetRecords = exportScope === 'selected' && selectedIds.length > 0
@@ -314,7 +320,7 @@ export default function ExportModal({
             </div>
           </div>
 
-          {/* 3. FIELD SELECTION CHECKBOXES */}
+          {/* 3. FIELD SELECTION CHECKBOXES WITH DEDICATED FIELD SEARCH BAR */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <label style={{ fontSize: '12px', fontWeight: '800', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -347,12 +353,34 @@ export default function ExportModal({
               </div>
             </div>
 
+            {/* DEDICATED FIELD LABEL SEARCH BAR */}
+            <div style={{ marginBottom: '8px' }}>
+              <input
+                type="text"
+                placeholder="🔍 Search field labels (e.g. salary, email, role)..."
+                value={fieldSearchQuery}
+                onChange={(e) => setFieldSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '7px 12px',
+                  fontSize: '12px',
+                  borderRadius: '7px',
+                  border: '1px solid #cbd5e1',
+                  background: '#ffffff',
+                  color: '#0f172a',
+                  boxSizing: 'border-box',
+                  outline: 'none'
+                }}
+              />
+            </div>
+
+            {/* SCROLLABLE FIELD CHECKBOXES GRID */}
             <div
               style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr',
                 gap: '8px',
-                maxHeight: '180px',
+                maxHeight: '170px',
                 overflowY: 'auto',
                 padding: '10px',
                 background: '#f8fafc',
@@ -360,33 +388,39 @@ export default function ExportModal({
                 border: '1px solid #e2e8f0'
               }}
             >
-              {fields.map(field => {
-                const isChecked = selectedFieldIds.includes(field.id);
-                return (
-                  <label
-                    key={field.id}
-                    onClick={() => handleToggleField(field.id)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      fontSize: '12px',
-                      fontWeight: isChecked ? '700' : '500',
-                      color: isChecked ? '#0f172a' : '#64748b',
-                      cursor: 'pointer',
-                      userSelect: 'none'
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => {}}
-                      style={{ accentColor: '#0d9488', cursor: 'pointer' }}
-                    />
-                    <span>{field.label}</span>
-                  </label>
-                );
-              })}
+              {filteredFields.length === 0 ? (
+                <div style={{ gridColumn: 'span 2', textAlign: 'center', padding: '12px', color: '#64748b', fontSize: '12px' }}>
+                  No fields match "{fieldSearchQuery}"
+                </div>
+              ) : (
+                filteredFields.map(field => {
+                  const isChecked = selectedFieldIds.includes(field.id);
+                  return (
+                    <label
+                      key={field.id}
+                      onClick={() => handleToggleField(field.id)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontSize: '12px',
+                        fontWeight: isChecked ? '700' : '500',
+                        color: isChecked ? '#0f172a' : '#64748b',
+                        cursor: 'pointer',
+                        userSelect: 'none'
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {}}
+                        style={{ accentColor: '#0d9488', cursor: 'pointer' }}
+                      />
+                      <span>{field.label}</span>
+                    </label>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
