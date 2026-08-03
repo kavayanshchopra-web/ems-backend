@@ -162,9 +162,11 @@ export default function ListEngine({
     scrollRef.current.scrollLeft = dragScrollLeft - walk;
   };
 
-  const handleSmartWheel = (e) => {
-    if (scrollRef.current && (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY))) {
-      scrollRef.current.scrollLeft += (e.deltaY || e.deltaX);
+  // HEADER MOUSE WHEEL HANDLER: Scrolling mouse wheel on the Table Header (thead) scrolls table LEFT & RIGHT
+  const handleHeaderWheelScroll = (e) => {
+    if (scrollRef.current && e.deltaY !== 0) {
+      e.preventDefault();
+      scrollRef.current.scrollLeft += (e.deltaY * 1.5);
     }
   };
 
@@ -532,7 +534,6 @@ export default function ListEngine({
         <div
           className="list-table-scroll"
           ref={scrollRef}
-          onWheel={handleSmartWheel}
           onMouseDown={handleMouseDown}
           onMouseLeave={handleMouseLeaveOrUp}
           onMouseUp={handleMouseLeaveOrUp}
@@ -547,7 +548,8 @@ export default function ListEngine({
         >
           <table className="std-table" style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse', borderSpacing: 0 }}>
             <thead
-              style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f8fafc', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
+              onWheel={handleHeaderWheelScroll}
+              style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f8fafc', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', cursor: 'ew-resize' }}
             >
               <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
                 <th style={{ padding: '12px 18px', width: '40px', textAlign: 'center', background: '#f8fafc', position: 'sticky', top: 0, zIndex: 20 }}>
