@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef } from 'react';
-import { Eye, Edit2, Archive, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Trash2 } from 'lucide-react';
+import { Eye, Edit2, Archive, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Trash2, Columns } from 'lucide-react';
 import SchemaFieldRenderer from '../FieldEngine/SchemaFieldRenderer';
 import { LabelEngine } from '../LabelEngine';
 import Button from '../../../components/ui/Button';
@@ -12,6 +12,7 @@ import Badge from '../../../components/ui/Badge';
 import EmptyState from '../../../components/ui/EmptyState';
 import BulkActionEngine from '../BulkActionEngine/BulkActionEngine';
 import Pagination from './Pagination';
+import ColumnManagerPopover from './ColumnManagerPopover';
 import { formatCandidateId } from '../../../services/atsStorageService';
 
 const getValString = (val, fallback = '') => {
@@ -83,11 +84,15 @@ export default function ListEngine({
   const [selectedIds, setSelectedIds] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [hiddenColIds, setHiddenColIds] = useState([]);
+  const [showColumnPopover, setShowColumnPopover] = useState(false);
   const scrollRef = useRef(null);
 
-  // Filter out columns hidden via metadata
-  const visibleCols = (moduleConfig.columns || [])
-    .filter(c => c.visible !== false)
+  const allCols = moduleConfig.columns || [];
+
+  // Filter out columns hidden via metadata or user popover toggle
+  const visibleCols = allCols
+    .filter(c => c.visible !== false && !hiddenColIds.includes(c.id))
     .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
   const fieldsMap = new Map((moduleConfig.fields || []).map(f => [f.id, f]));
@@ -454,15 +459,58 @@ export default function ListEngine({
 
       <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {/* TABLE HEADER STRIP (CLEAN ENTERPRISE NOISE-FREE HEADER) */}
-        <div style={{ padding: '12px 18px', background: isArchivedView ? '#fffbeb' : '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', flexShrink: 0 }}>
+        <div style={{ padding: '10px 18px', background: isArchivedView ? '#fffbeb' : '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', flexShrink: 0 }}>
           <span style={{ fontSize: '11px', fontWeight: '800', color: isArchivedView ? '#b45309' : '#0f172a', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {isArchivedView ? '📦 ARCHIVE VIEW:' : 'EMPLOYEES'} ({records.length})
+            {isArchivedView ? '📦 ARCHIVE VIEW:' : (LabelEngine.getEntityNamePlural(moduleConfig) || 'RECORDS').toUpperCase()} ({records.length})
           </span>
-          {isArchivedView && (
-            <span style={{ fontSize: '11px', color: '#b45309', fontWeight: '600' }}>
-              Archived records management center • Permanent delete permitted only here
-            </span>
-          )}
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {isArchivedView && (
+              <span style={{ fontSize: '11px', color: '#b45309', fontWeight: '600' }}>
+                Archived records management center • Permanent delete permitted only here
+              </span>
+            )}
+
+            {!isArchivedView && (
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowColumnPopover(prev => !prev)}
+                  style={{
+                    padding: '5px 10px',
+                    fontSize: '11.5px',
+                    fontWeight: '700',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    background: '#ffffff',
+                    color: '#0d9488',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}
+                >
+                  <Columns size={13} />
+                  <span>Columns ({visibleCols.length}/{allCols.length})</span>
+                </button>
+
+                {showColumnPopover && (
+                  <ColumnManagerPopover
+                    allColumns={allCols}
+                    hiddenColIds={hiddenColIds}
+                    onToggleColumn={(colId) => {
+                      setHiddenColIds(prev =>
+                        prev.includes(colId) ? prev.filter(id => id !== colId) : [...prev, colId]
+                      );
+                    }}
+                    onShowAll={() => setHiddenColIds([])}
+                    onResetDefault={() => setHiddenColIds([])}
+                    onClose={() => setShowColumnPopover(false)}
+                  />
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* SCROLLABLE TABLE AREA WITH STICKY HEADER */}
