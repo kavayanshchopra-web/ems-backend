@@ -129,6 +129,7 @@ export default function LayoutEngine({
     return 0;
   });
 
+  const [hiddenColIds, setHiddenColIds] = useState([]);
   const isFilterActive = FilterEngine.isFilterActive(filterValues) || Boolean(searchQuery.trim());
 
   const handleFilterChange = (fieldId, val) => {
@@ -174,6 +175,8 @@ export default function LayoutEngine({
         activePipelineStages={activePipelineStages}
         allPositions={allPositions}
         showToast={showToast}
+        hiddenColIds={hiddenColIds}
+        setHiddenColIds={setHiddenColIds}
       />
 
       {/* B. KPI SUMMARY STRIP WIDGETS */}
@@ -226,6 +229,8 @@ export default function LayoutEngine({
         systemDropdowns={systemDropdowns}
         activePipelineStages={activePipelineStages}
         onOpenExportModal={() => setShowExportModal(true)}
+        hiddenColIds={hiddenColIds}
+        setHiddenColIds={setHiddenColIds}
       />
 
       {/* E. ACTION ENGINE MODALS & DRAWERS */}

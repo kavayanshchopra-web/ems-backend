@@ -4,12 +4,13 @@
  */
 
 import React, { useState } from 'react';
-import { Plus, Archive, Settings, Sliders, Filter, Download, Upload, X } from 'lucide-react';
+import { Plus, Archive, Settings, Sliders, Filter, Download, Upload, X, Columns } from 'lucide-react';
 import Button from '../../../components/ui/Button';
 import SearchInput from '../../../components/ui/SearchInput';
 import ViewSwitcher from '../ViewEngine/ViewSwitcher';
 import FilterPanel from '../FilterEngine/FilterPanel';
 import SavedViewsEngine from '../FilterEngine/SavedViewsEngine';
+import ColumnManagerPopover from '../ListEngine/ColumnManagerPopover';
 import { LabelEngine } from '../LabelEngine';
 import { PlaceholderEngine } from '../PlaceholderEngine';
 import { FilterEngine } from '../FilterEngine';
@@ -41,11 +42,17 @@ export default function LayoutToolbar({
   activePipelineStages = [],
   allPositions = [],
   onOpenSavePresetModal = () => {},
-  showToast = () => {}
+  showToast = () => {},
+  hiddenColIds = [],
+  setHiddenColIds = () => {}
 }) {
   const [showManageDropdown, setShowManageDropdown] = useState(false);
   const [showFilterPopover, setShowFilterPopover] = useState(false);
   const [showSavePresetModal, setShowSavePresetModal] = useState(false);
+  const [showColumnPopover, setShowColumnPopover] = useState(false);
+
+  const allCols = moduleConfig.columns || [];
+  const visibleCols = allCols.filter(c => c.visible !== false && !(hiddenColIds || []).includes(c.id));
 
   let availableViews = [];
   if (Array.isArray(moduleConfig.views?.availableViews) && moduleConfig.views.availableViews.length > 0) {
@@ -285,6 +292,47 @@ export default function LayoutToolbar({
               onCloseExternalSaveModal={() => setShowSavePresetModal(false)}
               showToast={showToast}
             />
+          </div>
+
+          {/* COLUMNS SELECTION BUTTON (RIGHT SIDE OF SEARCH BAR ROW) */}
+          <div style={{ position: 'relative', marginLeft: 'auto' }}>
+            <button
+              type="button"
+              onClick={() => setShowColumnPopover(prev => !prev)}
+              style={{
+                padding: '6px 12px',
+                fontSize: '12px',
+                fontWeight: '700',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                background: '#ffffff',
+                color: '#0d9488',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <Columns size={14} />
+              <span>Columns ({visibleCols.length}/{allCols.length})</span>
+            </button>
+
+            {showColumnPopover && (
+              <ColumnManagerPopover
+                allColumns={allCols}
+                hiddenColIds={hiddenColIds}
+                onToggleColumn={(colId) => {
+                  setHiddenColIds(prev =>
+                    prev.includes(colId) ? prev.filter(id => id !== colId) : [...prev, colId]
+                  );
+                }}
+                onShowAll={() => setHiddenColIds([])}
+                onResetDefault={() => setHiddenColIds([])}
+                onClose={() => setShowColumnPopover(false)}
+              />
+            )}
           </div>
         </div>
       </div>

@@ -119,6 +119,8 @@ export default function ViewEngine({
       systemDropdowns={systemDropdowns}
       activePipelineStages={activePipelineStages}
       onOpenExportModal={onOpenExportModal}
+      hiddenColIds={hiddenColIds}
+      setHiddenColIds={setHiddenColIds}
     />
   );
 }
