@@ -176,7 +176,14 @@ export default function LayoutEngine({
         showToast={showToast}
       />
 
-      {/* B. KPI SUMMARY STRIP WIDGETS (REMOVED FOR MAXIMUM TABLE CONTENT VIEW) */}
+      {/* B. KPI SUMMARY STRIP WIDGETS */}
+      {!isArchivedView && (
+        <WidgetEngine
+          moduleConfig={moduleConfig}
+          records={records}
+          activePipelineStages={activePipelineStages}
+        />
+      )}
 
       {/* C. ACTIVE FILTER CHIPS BAR */}
       <ActiveFilterChips
