@@ -13,6 +13,7 @@ import EmptyState from '../../../components/ui/EmptyState';
 import BulkActionEngine from '../BulkActionEngine/BulkActionEngine';
 import Pagination from './Pagination';
 import { formatCandidateId } from '../../../services/atsStorageService';
+import { GroupEngine, GroupEngineContainer } from '../GroupEngine';
 
 const getValString = (val, fallback = '') => {
   if (val === null || val === undefined) return fallback;
@@ -46,6 +47,7 @@ export default function ListEngine({
   totalCount = 0,
   isFilterActive = false,
   searchQuery = '',
+  groupByFieldId = '',
   sortKey = 'createdAt',
   sortDir = 'desc',
   onSortChange = () => {},
@@ -103,11 +105,187 @@ export default function ListEngine({
   };
   const handleSelectRow = handleToggleSelectRow;
 
-  const emptyText = isArchivedView
-    ? { title: `No Archived ${LabelEngine.getEntityNamePlural(moduleConfig)}`, description: `There are currently no soft-archived ${LabelEngine.getEntityName(moduleConfig).toLowerCase()} records.` }
-    : (isFilterActive
-        ? { title: 'No matching records', description: 'Try clearing your active filters or adjusting your search query.' }
-        : { title: `No ${LabelEngine.getEntityNamePlural(moduleConfig)} found`, description: `Click "+ Add ${LabelEngine.getEntityName(moduleConfig)}" to create your first record.` });
+  const renderRow = (record, idx) => {
+    const isSelected = selectedIds.includes(record.id);
+    const recordName = getValString(record.name || record.title, LabelEngine.getEntityName(moduleConfig));
+    const recordStatus = getValString(record.status || record.stage);
+    const displayId = formatCandidateId(record.id, idx, moduleConfig);
+
+    return (
+      <tr
+        key={record.id || idx}
+        className="ems-row-hover"
+        onClick={() => onViewRecord(record)}
+        style={{
+          background: isSelected ? 'rgba(13, 148, 136, 0.08)' : '#ffffff',
+          cursor: 'pointer',
+          transition: 'background 0.15s ease'
+        }}
+      >
+        <td style={{ padding: '10px 14px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }} onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={(e) => {
+              e.stopPropagation();
+              handleSelectRow(record.id);
+            }}
+            style={{ accentColor: isArchivedView ? '#f59e0b' : '#0d9488', cursor: 'pointer' }}
+          />
+        </td>
+
+        {visibleCols.map((col, colIdx) => {
+          const fieldDef = fieldsMap.get(col.fieldKey) || fieldsMap.get(col.id);
+
+          if (colIdx === 0 || col.id === 'candidate' || col.id === 'deal' || col.id === 'employee') {
+            return (
+              <td key={col.id} style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', maxWidth: '220px' }}>
+                  <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: isArchivedView ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #0d9488, #064e43)', color: '#ffffff', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', flexShrink: 0 }}>
+                    {(recordName[0] || 'R')}
+                  </div>
+                  <div style={{ overflow: 'hidden' }}>
+                    <div
+                      title={recordName}
+                      style={{ fontWeight: '800', color: '#0f172a', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}
+                    >
+                      {recordName}
+                    </div>
+                    <div style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '700', color: isArchivedView ? '#b45309' : '#0d9488' }}>ID: {displayId}</div>
+                  </div>
+                </div>
+              </td>
+            );
+          }
+
+          // Special Contact Details Column Renderer
+          if (col.id === 'contact' || col.id === 'contact_details' || col.fieldKey === 'contact' || col.fieldKey === 'phone') {
+            const emailStr = getValString(record.email);
+            const phoneStr = getValString(record.phone);
+            return (
+              <td key={col.id} style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0', maxWidth: '240px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px', maxWidth: '220px', overflow: 'hidden' }}>
+                  {emailStr && (
+                    <div title={`Email: ${emailStr}`} style={{ color: '#0f172a', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📧 {emailStr}</div>
+                  )}
+                  {phoneStr && (
+                    <div title={`Phone: ${phoneStr}`} style={{ color: '#475569', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📞 {phoneStr}</div>
+                  )}
+                  {!emailStr && !phoneStr && <span style={{ color: '#94a3b8' }}>—</span>}
+                </div>
+              </td>
+            );
+          }
+
+          // Special Resume Column Renderer
+          if (col.id === 'resume' || col.fieldKey === 'resume') {
+            const resumeStr = getValString(record.resume || record.attachment);
+            return (
+              <td key={col.id} style={{ padding: '10px 14px', fontSize: '12px', borderBottom: '1px solid #e2e8f0' }}>
+                {resumeStr ? (
+                  <Badge variant="info" style={{ fontSize: '10px' }}>📄 {resumeStr}</Badge>
+                ) : (
+                  <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '600' }}>No Resume</span>
+                )}
+              </td>
+            );
+          }
+
+          // Special Applied Date Column Renderer
+          if (col.id === 'createdAt' || col.fieldKey === 'createdAt' || col.id === 'appliedDate') {
+            const dateVal = formatDate(record.createdAt || record.appliedDate);
+            return (
+              <td key={col.id} style={{ padding: '10px 14px', fontSize: '11px', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
+                📅 {dateVal}
+              </td>
+            );
+          }
+
+          if (col.id === 'stage' || col.fieldKey === 'status') {
+            return (
+              <td key={col.id} style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0' }} onClick={(e) => e.stopPropagation()}>
+                {!isArchivedView && canManage && activePipelineStages.length > 0 ? (
+                  <select
+                    value={recordStatus}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      onMoveStage(record.id, e.target.value);
+                    }}
+                    style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
+                  >
+                    {activePipelineStages.map(s => (
+                      <option key={s.id || s.name} value={getValString(s.name)}>
+                        {getValString(s.name)}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <Badge variant={isArchivedView ? 'warning' : LabelEngine.getBadgeVariant(recordStatus)}>
+                    {isArchivedView ? 'ARCHIVED' : (recordStatus || 'Active')}
+                  </Badge>
+                )}
+              </td>
+            );
+          }
+
+          const cellVal = (col.fieldKey && record[col.fieldKey] !== undefined && record[col.fieldKey] !== null)
+            ? record[col.fieldKey]
+            : (record[col.id] !== undefined && record[col.id] !== null
+                ? record[col.id]
+                : (record.customFields?.[col.fieldKey] !== undefined ? record.customFields[col.fieldKey] : record.customFields?.[col.id])
+              );
+
+          return (
+            <td key={col.id} style={{ padding: '10px 14px', fontSize: '12px', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>
+              <SchemaFieldRenderer
+                field={fieldDef || { id: col.fieldKey || col.id, label: col.label, type: 'text' }}
+                value={cellVal}
+                mode="view"
+                compact={true}
+                moduleConfig={moduleConfig}
+                systemDropdowns={systemDropdowns}
+              />
+            </td>
+          );
+        })}
+
+        {isArchivedView && canManage && (
+          <td style={{ padding: '10px 14px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', width: '220px' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+              <button
+                type="button"
+                title="Restore Record"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (typeof handleRestoreBinItem === 'function') {
+                    handleRestoreBinItem(record.recycleBinId || record.id);
+                  }
+                }}
+                style={{ padding: '5px 10px', fontSize: '11px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#0d9488', color: '#ffffff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '700' }}
+              >
+                <RotateCcw size={12} /> Restore
+              </button>
+              <button
+                type="button"
+                title="Permanent Delete"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.confirm(`Permanently delete "${recordName}"? This action cannot be undone.`)) {
+                    if (typeof softDeleteRecord === 'function') {
+                      softDeleteRecord(record.recycleBinId || record.id);
+                    }
+                  }
+                }}
+                style={{ padding: '5px 10px', fontSize: '11px', borderRadius: '6px', border: '1px solid #fecdd3', background: '#fff1f2', color: '#e11d48', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '700' }}
+              >
+                <Trash2 size={12} /> Permanent Delete
+              </button>
+            </div>
+          </td>
+        )}
+      </tr>
+    );
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
@@ -249,188 +427,24 @@ export default function ListEngine({
                     />
                   </td>
                 </tr>
+              ) : groupByFieldId ? (
+                <GroupEngineContainer
+                  groupedData={GroupEngine.groupRecords(paginatedRecords, groupByFieldId, moduleConfig)}
+                  groupByFieldId={groupByFieldId}
+                  moduleConfig={moduleConfig}
+                  renderGroupRows={(groupRecords) => groupRecords.map((record, idx) => renderRow(record, idx))}
+                  selectedIds={selectedIds}
+                  onSelectGroup={(grpRecordIds, shouldSelect) => {
+                    setSelectedIds(prev =>
+                      shouldSelect
+                        ? Array.from(new Set([...prev, ...grpRecordIds]))
+                        : prev.filter(id => !grpRecordIds.includes(id))
+                    );
+                  }}
+                  colSpanCount={visibleCols.length + (isArchivedView && canManage ? 2 : 1)}
+                />
               ) : (
-                paginatedRecords.map((record, idx) => {
-                  const isSelected = selectedIds.includes(record.id);
-                  const recordName = getValString(record.name || record.title, LabelEngine.getEntityName(moduleConfig));
-                  const recordStatus = getValString(record.status || record.stage);
-                  const displayId = formatCandidateId(record.id, idx, moduleConfig);
-
-                  return (
-                    <tr
-                      key={record.id || idx}
-                      className="ems-row-hover"
-                      onClick={() => onViewRecord(record)}
-                      style={{
-                        background: isSelected ? 'rgba(13, 148, 136, 0.08)' : '#ffffff',
-                        cursor: 'pointer',
-                        transition: 'background 0.15s ease'
-                      }}
-                    >
-                      <td style={{ padding: '10px 14px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }} onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            handleSelectRow(record.id);
-                          }}
-                          style={{ accentColor: isArchivedView ? '#f59e0b' : '#0d9488', cursor: 'pointer' }}
-                        />
-                      </td>
-
-                      {visibleCols.map((col, colIdx) => {
-                        const fieldDef = fieldsMap.get(col.fieldKey) || fieldsMap.get(col.id);
-
-                        if (colIdx === 0 || col.id === 'candidate' || col.id === 'deal' || col.id === 'employee') {
-                          return (
-                            <td key={col.id} style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', maxWidth: '220px' }}>
-                                <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: isArchivedView ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #0d9488, #064e43)', color: '#ffffff', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', flexShrink: 0 }}>
-                                  {(recordName[0] || 'R')}
-                                </div>
-                                <div style={{ overflow: 'hidden' }}>
-                                  <div
-                                    title={recordName}
-                                    style={{ fontWeight: '800', color: '#0f172a', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}
-                                  >
-                                    {recordName}
-                                  </div>
-                                  <div style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '700', color: isArchivedView ? '#b45309' : '#0d9488' }}>ID: {displayId}</div>
-                                </div>
-                              </div>
-                            </td>
-                          );
-                        }
-
-                        // Special Contact Details Column Renderer
-                        if (col.id === 'contact' || col.id === 'contact_details' || col.fieldKey === 'contact' || col.fieldKey === 'phone') {
-                          const emailStr = getValString(record.email);
-                          const phoneStr = getValString(record.phone);
-                          return (
-                            <td key={col.id} style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0', maxWidth: '240px' }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px', maxWidth: '220px', overflow: 'hidden' }}>
-                                {emailStr && (
-                                  <div title={`Email: ${emailStr}`} style={{ color: '#0f172a', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📧 {emailStr}</div>
-                                )}
-                                {phoneStr && (
-                                  <div title={`Phone: ${phoneStr}`} style={{ color: '#475569', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📞 {phoneStr}</div>
-                                )}
-                                {!emailStr && !phoneStr && <span style={{ color: '#94a3b8' }}>—</span>}
-                              </div>
-                            </td>
-                          );
-                        }
-
-                        // Special Resume Column Renderer
-                        if (col.id === 'resume' || col.fieldKey === 'resume') {
-                          const resumeStr = getValString(record.resume || record.attachment);
-                          return (
-                            <td key={col.id} style={{ padding: '10px 14px', fontSize: '12px', borderBottom: '1px solid #e2e8f0' }}>
-                              {resumeStr ? (
-                                <Badge variant="info" style={{ fontSize: '10px' }}>📄 {resumeStr}</Badge>
-                              ) : (
-                                <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '600' }}>No Resume</span>
-                              )}
-                            </td>
-                          );
-                        }
-
-                        // Special Applied Date Column Renderer
-                        if (col.id === 'createdAt' || col.fieldKey === 'createdAt' || col.id === 'appliedDate') {
-                          const dateVal = formatDate(record.createdAt || record.appliedDate);
-                          return (
-                            <td key={col.id} style={{ padding: '10px 14px', fontSize: '11px', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
-                              📅 {dateVal}
-                            </td>
-                          );
-                        }
-
-                        if (col.id === 'stage' || col.fieldKey === 'status') {
-                          return (
-                            <td key={col.id} style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0' }} onClick={(e) => e.stopPropagation()}>
-                              {!isArchivedView && canManage && activePipelineStages.length > 0 ? (
-                                <select
-                                  value={recordStatus}
-                                  onChange={(e) => {
-                                    e.stopPropagation();
-                                    onMoveStage(record.id, e.target.value);
-                                  }}
-                                  style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
-                                >
-                                  {activePipelineStages.map(s => (
-                                    <option key={s.id || s.name} value={getValString(s.name)}>
-                                      {getValString(s.name)}
-                                    </option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <Badge variant={isArchivedView ? 'warning' : LabelEngine.getBadgeVariant(recordStatus)}>
-                                  {isArchivedView ? 'ARCHIVED' : (recordStatus || 'Active')}
-                                </Badge>
-                              )}
-                            </td>
-                          );
-                        }
-
-                        const cellVal = (col.fieldKey && record[col.fieldKey] !== undefined && record[col.fieldKey] !== null)
-                          ? record[col.fieldKey]
-                          : (record[col.id] !== undefined && record[col.id] !== null
-                              ? record[col.id]
-                              : (record.customFields?.[col.fieldKey] !== undefined ? record.customFields[col.fieldKey] : record.customFields?.[col.id])
-                            );
-
-                        return (
-                          <td key={col.id} style={{ padding: '10px 14px', fontSize: '12px', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>
-                            <SchemaFieldRenderer
-                              field={fieldDef || { id: col.fieldKey || col.id, label: col.label, type: 'text' }}
-                              value={cellVal}
-                              mode="view"
-                              compact={true}
-                              moduleConfig={moduleConfig}
-                              systemDropdowns={systemDropdowns}
-                            />
-                          </td>
-                        );
-                      })}
-
-                      {isArchivedView && canManage && (
-                        <td style={{ padding: '10px 14px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', width: '220px' }} onClick={(e) => e.stopPropagation()}>
-                          <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                            <button
-                              type="button"
-                              title="Restore Record"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (typeof handleRestoreBinItem === 'function') {
-                                  handleRestoreBinItem(record.recycleBinId || record.id);
-                                }
-                              }}
-                              style={{ padding: '5px 10px', fontSize: '11px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#0d9488', color: '#ffffff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '700' }}
-                            >
-                              <RotateCcw size={12} /> Restore
-                            </button>
-                            <button
-                              type="button"
-                              title="Permanent Delete"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (window.confirm(`Permanently delete "${recordName}"? This action cannot be undone.`)) {
-                                  if (typeof softDeleteRecord === 'function') {
-                                    softDeleteRecord(record.recycleBinId || record.id);
-                                  }
-                                }
-                              }}
-                              style={{ padding: '5px 10px', fontSize: '11px', borderRadius: '6px', border: '1px solid #fecdd3', background: '#fff1f2', color: '#e11d48', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '700' }}
-                            >
-                              <Trash2 size={12} /> Permanent Delete
-                            </button>
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })
+                paginatedRecords.map((record, idx) => renderRow(record, idx))
               )}
             </tbody>
           </table>
