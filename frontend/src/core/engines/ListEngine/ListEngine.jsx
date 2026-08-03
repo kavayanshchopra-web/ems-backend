@@ -93,9 +93,9 @@ export default function ListEngine({
     }
   };
 
-  // Filter out columns hidden via metadata
+  // Filter out columns hidden via metadata & filter out temporary test demo columns
   const visibleCols = (moduleConfig.columns || [])
-    .filter(c => c.visible !== false)
+    .filter(c => c.visible !== false && !String(c.id || '').toLowerCase().startsWith('test') && !String(c.fieldKey || '').toLowerCase().startsWith('test'))
     .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
   const fieldsMap = new Map((moduleConfig.fields || []).map(f => [f.id, f]));
@@ -138,9 +138,13 @@ export default function ListEngine({
       recordName = LabelEngine.getEntityName(moduleConfig);
     }
 
-    const recordStatus = getValString(record.status || record.stage);
+    const rawStatus = getValString(record.status || record.stage, 'Active');
+    const formattedStatus = rawStatus.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     const displayId = formatCandidateId(record.id, idx, moduleConfig);
-    const recordSub = getValString(record.department || record.designation || record.position || record.appliedFor, '');
+
+    // Extract designation or job title ONLY (excluding department to prevent duplication)
+    const rawDesignation = getValString(record.designation || record.jobTitle || record.position || record.appliedFor, '');
+    const validDesignation = (rawDesignation && rawDesignation !== '0' && rawDesignation !== 'e' && rawDesignation !== 'undefined') ? rawDesignation : '';
     const avatarGradient = getAvatarGradient(recordName, isArchivedView);
 
     return (
@@ -170,7 +174,7 @@ export default function ListEngine({
         {visibleCols.map((col, colIdx) => {
           const fieldDef = fieldsMap.get(col.fieldKey) || fieldsMap.get(col.id);
 
-          {/* PRIMARY IDENTITY COLUMN (AVATAR + NAME + ID + SUBTITLE) */}
+          {/* PRIMARY IDENTITY COLUMN (AVATAR + NAME + ID + DESIGNATION) */}
           if (colIdx === 0 || col.id === 'candidate' || col.id === 'deal' || col.id === 'employee' || col.id === 'name') {
             return (
               <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0' }}>
@@ -204,9 +208,9 @@ export default function ListEngine({
                       <span style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '700', color: isArchivedView ? '#b45309' : '#0d9488' }}>
                         ID: {displayId}
                       </span>
-                      {recordSub && (
-                        <span style={{ fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '110px' }}>
-                          • {recordSub}
+                      {validDesignation && (
+                        <span style={{ fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>
+                          • {validDesignation}
                         </span>
                       )}
                     </div>
@@ -259,14 +263,14 @@ export default function ListEngine({
             );
           }
 
-          {/* STATUS / STAGE COLUMN WITH STANDARDIZED BADGES */}
+          {/* STATUS / STAGE COLUMN WITH STANDARDIZED TITLE-CASE BADGES */}
           if (col.id === 'stage' || col.fieldKey === 'status') {
-            const normalizedBadgeVariant = isArchivedView ? 'warning' : LabelEngine.getBadgeVariant(recordStatus);
+            const normalizedBadgeVariant = isArchivedView ? 'warning' : LabelEngine.getBadgeVariant(rawStatus);
             return (
               <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0' }} onClick={(e) => e.stopPropagation()}>
                 {!isArchivedView && canManage && activePipelineStages.length > 0 ? (
                   <select
-                    value={recordStatus}
+                    value={rawStatus}
                     onChange={(e) => {
                       e.stopPropagation();
                       onMoveStage(record.id, e.target.value);
@@ -275,13 +279,13 @@ export default function ListEngine({
                   >
                     {activePipelineStages.map(s => (
                       <option key={s.id || s.name} value={getValString(s.name)}>
-                        {getValString(s.name)}
+                        {getValString(s.name).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                       </option>
                     ))}
                   </select>
                 ) : (
                   <Badge variant={normalizedBadgeVariant} style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '12px', fontWeight: '700' }}>
-                    {isArchivedView ? 'ARCHIVED' : (recordStatus ? recordStatus.toUpperCase() : 'ACTIVE')}
+                    {isArchivedView ? 'Archived' : formattedStatus}
                   </Badge>
                 )}
               </td>
@@ -401,8 +405,8 @@ export default function ListEngine({
       <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {/* TABLE HEADER STRIP (CLEAN ENTERPRISE NOISE-FREE HEADER) */}
         <div style={{ padding: '12px 18px', background: isArchivedView ? '#fffbeb' : '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', flexShrink: 0 }}>
-          <span style={{ fontSize: '11px', fontWeight: '800', color: isArchivedView ? '#b45309' : '#0f172a', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {isArchivedView ? '📦 ARCHIVE VIEW:' : ''} {LabelEngine.getEntityNamePlural(moduleConfig).toUpperCase()} ROSTER ({records.length})
+          <span style={{ fontSize: '12px', fontWeight: '800', color: isArchivedView ? '#b45309' : '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {isArchivedView ? '📦 Archived Records:' : ''} {LabelEngine.getEntityNamePlural(moduleConfig)} ({records.length})
           </span>
           {isArchivedView && (
             <span style={{ fontSize: '11px', color: '#b45309', fontWeight: '600' }}>
@@ -424,7 +428,7 @@ export default function ListEngine({
             scrollbarColor: '#0d9488 #e2e8f0'
           }}
         >
-          <table className="std-table" style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse', borderSpacing: 0 }}>
+          <table className="std-table" style={{ width: '100%', borderCollapse: 'collapse', borderSpacing: 0 }}>
             <thead
               onWheel={handleHeaderWheelScroll}
               style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f8fafc', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
@@ -525,6 +529,7 @@ export default function ListEngine({
               setPageSize(newSize);
               setCurrentPage(1);
             }}
+            entityNamePlural={LabelEngine.getEntityNamePlural(moduleConfig)}
           />
         </div>
       </div>
