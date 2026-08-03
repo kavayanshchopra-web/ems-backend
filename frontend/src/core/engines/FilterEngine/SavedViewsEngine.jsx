@@ -16,7 +16,9 @@ export default function SavedViewsEngine({
   sortDir = 'desc',
   viewMode = 'list',
   onApplyPreset = () => {},
-  showToast = () => {}
+  showToast = () => {},
+  externalShowSaveModal = false,
+  onCloseExternalSaveModal = () => {}
 }) {
   const moduleId = moduleConfig.moduleId || 'employees';
   const personalStorageKey = `ems_saved_views_personal_${moduleId}`;
@@ -29,6 +31,12 @@ export default function SavedViewsEngine({
   const [newPresetName, setNewPresetName] = useState('');
   const [presetScope, setPresetScope] = useState('personal'); // 'personal' | 'shared'
   const [isDefault, setIsDefault] = useState(false);
+
+  useEffect(() => {
+    if (externalShowSaveModal) {
+      setShowSaveModal(true);
+    }
+  }, [externalShowSaveModal]);
 
   // Load Personal & Shared Presets on mount
   useEffect(() => {
@@ -128,6 +136,7 @@ export default function SavedViewsEngine({
     setPresetScope('personal');
     setIsDefault(false);
     setShowSaveModal(false);
+    onCloseExternalSaveModal();
     showToast(
       newPreset.scope === 'shared'
         ? `🌐 Saved Shared Team View "${newPreset.name}" for entire team!`
@@ -263,7 +272,7 @@ export default function SavedViewsEngine({
             justifyContent: 'center',
             padding: '16px'
           }}
-          onClick={() => setShowSaveModal(false)}
+          onClick={() => { setShowSaveModal(false); onCloseExternalSaveModal(); }}
         >
           <div
             style={{
@@ -283,7 +292,7 @@ export default function SavedViewsEngine({
               <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Bookmark size={16} color="#0d9488" /> Save View Preset
               </h3>
-              <button type="button" onClick={() => setShowSaveModal(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b' }}>
+              <button type="button" onClick={() => { setShowSaveModal(false); onCloseExternalSaveModal(); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b' }}>
                 <X size={16} />
               </button>
             </div>

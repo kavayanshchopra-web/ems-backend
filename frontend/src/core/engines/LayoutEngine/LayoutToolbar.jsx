@@ -40,10 +40,12 @@ export default function LayoutToolbar({
   systemDropdowns = null,
   activePipelineStages = [],
   allPositions = [],
+  onOpenSavePresetModal = () => {},
   showToast = () => {}
 }) {
   const [showManageDropdown, setShowManageDropdown] = useState(false);
   const [showFilterPopover, setShowFilterPopover] = useState(false);
+  const [showSavePresetModal, setShowSavePresetModal] = useState(false);
 
   let availableViews = [];
   if (Array.isArray(moduleConfig.views?.availableViews) && moduleConfig.views.availableViews.length > 0) {
@@ -249,6 +251,7 @@ export default function LayoutToolbar({
                 onFilterChange={onFilterChange}
                 onResetFilters={onResetFilters}
                 onClose={() => setShowFilterPopover(false)}
+                onOpenSavePresetModal={() => setShowSavePresetModal(true)}
                 systemDropdowns={systemDropdowns}
                 activePipelineStages={activePipelineStages}
                 allPositions={allPositions}
@@ -270,6 +273,8 @@ export default function LayoutToolbar({
                 if (presetState.searchQuery !== undefined) onSearchChange(presetState.searchQuery);
                 if (presetState.sortKey !== undefined && onSortChange) onSortChange(presetState.sortKey, presetState.sortDir || 'desc');
               }}
+              externalShowSaveModal={showSavePresetModal}
+              onCloseExternalSaveModal={() => setShowSavePresetModal(false)}
               showToast={showToast}
             />
           </div>
