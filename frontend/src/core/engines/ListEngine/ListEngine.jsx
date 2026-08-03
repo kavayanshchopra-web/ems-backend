@@ -88,6 +88,7 @@ export default function ListEngine({
     if (scrollRef.current && e.deltaY !== 0 && !e.shiftKey) {
       const { scrollWidth, clientWidth } = scrollRef.current;
       if (scrollWidth > clientWidth) {
+        e.preventDefault();
         scrollRef.current.scrollLeft += e.deltaY;
       }
     }
@@ -186,9 +187,13 @@ export default function ListEngine({
                       display: 'flex',
                       alignItems: 'center',
                       justify: 'center',
-                      fontSize: '13px',
+                      fontSize: '13.5px',
+                      lineHeight: '1',
+                      padding: 0,
+                      margin: 0,
                       flexShrink: 0,
-                      boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+                      boxShadow: '0 2px 5px rgba(0,0,0,0.12)',
+                      userSelect: 'none'
                     }}
                   >
                     {(recordName[0] || 'R').toUpperCase()}
@@ -352,21 +357,20 @@ export default function ListEngine({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
       <style>{`
         .list-table-scroll::-webkit-scrollbar {
-          height: 10px !important;
-          width: 8px !important;
+          height: 6px !important;
+          width: 6px !important;
           display: block !important;
         }
         .list-table-scroll::-webkit-scrollbar-track {
-          background: #e2e8f0 !important;
-          border-radius: 5px !important;
+          background: #f1f5f9 !important;
+          border-radius: 3px !important;
         }
         .list-table-scroll::-webkit-scrollbar-thumb {
-          background: #0d9488 !important;
-          border-radius: 5px !important;
-          border: 2px solid #ffffff !important;
+          background: #cbd5e1 !important;
+          border-radius: 3px !important;
         }
         .list-table-scroll::-webkit-scrollbar-thumb:hover {
-          background: #064e43 !important;
+          background: #0d9488 !important;
         }
         .ems-row-hover:hover {
           background: rgba(13, 148, 136, 0.05) !important;
