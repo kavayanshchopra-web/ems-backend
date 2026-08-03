@@ -31,6 +31,7 @@ export default function ImportModal({
   const [fieldMapping, setFieldMapping] = useState({}); // { [fileHeader]: targetFieldId }
   const [duplicateStrategy, setDuplicateStrategy] = useState('skip'); // 'skip' | 'overwrite' | 'import_all'
   const [importSummary, setImportSummary] = useState(null);
+  const [skippedRowsList, setSkippedRowsList] = useState([]); // [{ row, reason }]
 
   // Reset Wizard State on Close
   const handleResetAndClose = () => {
@@ -142,6 +143,7 @@ export default function ImportModal({
     const existingNames = new Set(existingRecords.map(r => String(r.name || r.fullName || '').toLowerCase().trim()));
 
     const newRecordsToAppend = [];
+    const skippedLog = [];
 
     parsedRows.forEach((row, idx) => {
       const recordPayload = {};
@@ -163,10 +165,19 @@ export default function ImportModal({
       const recordEmail = String(recordPayload.email || '').toLowerCase().trim();
 
       // Check Duplicates
-      const isDuplicate = (recordEmail && existingEmails.has(recordEmail)) || (recordName && existingNames.has(recordName.toLowerCase().trim()));
+      const isEmailDuplicate = recordEmail && existingEmails.has(recordEmail);
+      const isNameDuplicate = recordName && existingNames.has(recordName.toLowerCase().trim());
+      const isDuplicate = isEmailDuplicate || isNameDuplicate;
 
       if (isDuplicate && duplicateStrategy === 'skip') {
         skippedCount++;
+        skippedLog.push({
+          rowNumber: idx + 2,
+          recordName,
+          recordEmail,
+          reason: isEmailDuplicate ? `Duplicate Email (${recordEmail})` : `Duplicate Name (${recordName})`,
+          rowData: row
+        });
         return;
       }
 
@@ -206,6 +217,7 @@ export default function ImportModal({
 
     const finalRecords = [...newRecordsToAppend, ...existingRecords];
     setRecords(finalRecords);
+    setSkippedRowsList(skippedLog);
 
     // Save Summary & Advance to Final Step
     setImportSummary({
@@ -217,6 +229,27 @@ export default function ImportModal({
 
     setStep(4);
     showToast(`🎉 Import Complete: ${importedCount} added, ${updatedCount} updated, ${skippedCount} skipped`, 'success');
+  };
+
+  // Helper to download skipped rows CSV report
+  const handleDownloadSkippedReport = () => {
+    if (skippedRowsList.length === 0) return;
+
+    const headers = '"Row Number","Record Name","Email","Skip Reason"';
+    const rows = skippedRowsList.map(item =>
+      `"${item.rowNumber}","${String(item.recordName).replace(/"/g, '""')}","${String(item.recordEmail).replace(/"/g, '""')}","${String(item.reason).replace(/"/g, '""')}"`
+    );
+
+    const csvContent = '\uFEFF' + [headers, ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `skipped_${entityNamePlural.toLowerCase().replace(/\s+/g, '_')}_log_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast(`📄 Downloaded skipped rows report (${skippedRowsList.length} rows)`, 'info');
   };
 
   return (
@@ -232,7 +265,7 @@ export default function ImportModal({
         zIndex: 9999,
         display: 'flex',
         alignItems: 'center',
-        justify: 'center',
+        justifyContent: 'center',
         padding: '16px'
       }}
       onClick={handleResetAndClose}
@@ -462,6 +495,30 @@ export default function ImportModal({
                   <div style={{ fontSize: '11px', color: '#d97706', fontWeight: '700' }}>Skipped</div>
                 </div>
               </div>
+
+              {importSummary.skipped > 0 && (
+                <div style={{ marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={handleDownloadSkippedReport}
+                    style={{
+                      padding: '8px 14px',
+                      background: '#fffbe3',
+                      color: '#b45309',
+                      border: '1px solid #fde68a',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <Download size={14} /> Download Skipped Rows Report (.csv)
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
