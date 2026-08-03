@@ -11,7 +11,8 @@ export default function Pagination({
   pageSize = 25,
   totalRecords = 0,
   onPageChange = () => {},
-  onPageSizeChange = () => {}
+  onPageSizeChange = () => {},
+  entityNamePlural = 'Employees'
 }) {
   const totalPages = Math.ceil(totalRecords / pageSize) || 1;
   const startIdx = totalRecords === 0 ? 0 : (currentPage - 1) * pageSize + 1;
@@ -58,7 +59,7 @@ export default function Pagination({
       {/* 1. COUNTER TEXT */}
       <div style={{ fontWeight: '600' }}>
         Showing <span style={{ fontWeight: '800', color: '#0f172a' }}>{startIdx}–{endIdx}</span> of{' '}
-        <span style={{ fontWeight: '800', color: '#0f172a' }}>{totalRecords}</span> Candidates
+        <span style={{ fontWeight: '800', color: '#0f172a' }}>{totalRecords}</span> {entityNamePlural}
       </div>
 
       {/* 2. RIGHT CONTROLS: PER PAGE SELECTOR + NUMBERED PAGE PILLS */}

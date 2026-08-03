@@ -149,7 +149,7 @@ export default function ListEngine({
         className="ems-row-hover"
         onClick={() => onViewRecord(record)}
         style={{
-          background: isSelected ? 'rgba(13, 148, 136, 0.08)' : '#ffffff',
+          background: isSelected ? 'rgba(13, 148, 136, 0.12)' : '#ffffff',
           cursor: 'pointer',
           transition: 'background 0.15s ease-in-out'
         }}
@@ -170,7 +170,7 @@ export default function ListEngine({
         {visibleCols.map((col, colIdx) => {
           const fieldDef = fieldsMap.get(col.fieldKey) || fieldsMap.get(col.id);
 
-          {/* PRIMARY IDENTITY COLUMN (AVATAR + NAME + ID + SUBTITLE) */}
+          {/* PRIMARY IDENTITY COLUMN (AVATAR + NAME + ID ONLY) */}
           if (colIdx === 0 || col.id === 'candidate' || col.id === 'deal' || col.id === 'employee' || col.id === 'name') {
             return (
               <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0' }}>
@@ -180,7 +180,7 @@ export default function ListEngine({
                       width: '38px',
                       height: '38px',
                       borderRadius: '50%',
-                      background: avatarGradient,
+                      background: isArchivedView ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)',
                       color: '#ffffff',
                       fontWeight: '800',
                       display: 'flex',
@@ -200,15 +200,8 @@ export default function ListEngine({
                     >
                       {recordName}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '1px' }}>
-                      <span style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '700', color: isArchivedView ? '#b45309' : '#0d9488' }}>
-                        ID: {displayId}
-                      </span>
-                      {recordSub && (
-                        <span style={{ fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '110px' }}>
-                          • {recordSub}
-                        </span>
-                      )}
+                    <div style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '700', color: isArchivedView ? '#b45309' : '#0d9488', marginTop: '1px' }}>
+                      ID: {displayId}
                     </div>
                   </div>
                 </div>
@@ -402,7 +395,7 @@ export default function ListEngine({
         {/* TABLE HEADER STRIP (CLEAN ENTERPRISE NOISE-FREE HEADER) */}
         <div style={{ padding: '12px 18px', background: isArchivedView ? '#fffbeb' : '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', flexShrink: 0 }}>
           <span style={{ fontSize: '11px', fontWeight: '800', color: isArchivedView ? '#b45309' : '#0f172a', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {isArchivedView ? '📦 ARCHIVE VIEW:' : ''} {LabelEngine.getEntityNamePlural(moduleConfig).toUpperCase()} ROSTER ({records.length})
+            {isArchivedView ? '📦 ARCHIVE VIEW:' : 'EMPLOYEES'} ({records.length})
           </span>
           {isArchivedView && (
             <span style={{ fontSize: '11px', color: '#b45309', fontWeight: '600' }}>
@@ -525,6 +518,7 @@ export default function ListEngine({
               setPageSize(newSize);
               setCurrentPage(1);
             }}
+            entityNamePlural={LabelEngine.getEntityNamePlural(moduleConfig)}
           />
         </div>
       </div>
