@@ -139,6 +139,12 @@ export default function ListEngine({
     window.addEventListener('mouseup', handleMouseUp);
   };
 
+  const handleSmartWheel = (e) => {
+    if (scrollRef.current && (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY))) {
+      scrollRef.current.scrollLeft += (e.deltaY || e.deltaX);
+    }
+  };
+
   const totalPages = Math.ceil(records.length / pageSize) || 1;
   const validCurrentPage = Math.min(currentPage, totalPages);
   const startIdx = (validCurrentPage - 1) * pageSize;
@@ -503,6 +509,7 @@ export default function ListEngine({
         <div
           className="list-table-scroll"
           ref={scrollRef}
+          onWheel={handleSmartWheel}
           style={{
             overflowX: 'auto',
             overflowY: 'visible',
