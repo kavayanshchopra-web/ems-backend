@@ -358,20 +358,13 @@ export default function ListEngine({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
       <style>{`
         .list-table-scroll::-webkit-scrollbar {
-          height: 6px !important;
-          width: 6px !important;
-          display: block !important;
+          display: none !important;
+          width: 0 !important;
+          height: 0 !important;
         }
-        .list-table-scroll::-webkit-scrollbar-track {
-          background: #f1f5f9 !important;
-          border-radius: 3px !important;
-        }
-        .list-table-scroll::-webkit-scrollbar-thumb {
-          background: #cbd5e1 !important;
-          border-radius: 3px !important;
-        }
-        .list-table-scroll::-webkit-scrollbar-thumb:hover {
-          background: #0d9488 !important;
+        .list-table-scroll {
+          -ms-overflow-style: none !important;
+          scrollbar-width: none !important;
         }
         .ems-row-hover:hover {
           background: rgba(13, 148, 136, 0.05) !important;
@@ -415,11 +408,8 @@ export default function ListEngine({
           ref={scrollRef}
           style={{
             overflowX: 'auto',
-            overflowY: 'auto',
-            maxHeight: '620px',
-            position: 'relative',
-            scrollbarWidth: 'thin',
-            scrollbarColor: '#0d9488 #e2e8f0'
+            overflowY: 'visible',
+            position: 'relative'
           }}
         >
           <table className="std-table" style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse', borderSpacing: 0 }}>
