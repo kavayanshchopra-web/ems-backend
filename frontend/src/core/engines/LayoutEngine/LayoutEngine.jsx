@@ -11,6 +11,7 @@ import ActiveFilterChips from '../FilterEngine/ActiveFilterChips';
 import ActionEngine from '../ActionEngine/ActionEngine';
 import ExportModal from '../ExportEngine/ExportEngine';
 import ImportModal from '../ImportEngine/ImportEngine';
+import SavedViewsEngine from '../FilterEngine/SavedViewsEngine';
 import { SearchEngine } from '../SearchEngine';
 import { FilterEngine } from '../FilterEngine';
 import { LabelEngine } from '../LabelEngine';
@@ -183,7 +184,26 @@ export default function LayoutEngine({
         />
       )}
 
-      {/* C. ACTIVE FILTER CHIPS BAR */}
+      {/* C. UNIVERSAL SAVED VIEWS & PRESETS ENGINE */}
+      {!isArchivedView && (
+        <SavedViewsEngine
+          moduleConfig={moduleConfig}
+          filterValues={filterValues}
+          searchQuery={searchQuery}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          viewMode={viewMode}
+          onApplyPreset={(presetState) => {
+            if (presetState.filterValues !== undefined) setFilterValues(presetState.filterValues);
+            if (presetState.searchQuery !== undefined) setSearchQuery(presetState.searchQuery);
+            if (presetState.sortKey !== undefined) setSortKey(presetState.sortKey);
+            if (presetState.sortDir !== undefined) setSortDir(presetState.sortDir);
+          }}
+          showToast={showToast}
+        />
+      )}
+
+      {/* D. ACTIVE FILTER CHIPS BAR */}
       <ActiveFilterChips
         moduleConfig={moduleConfig}
         filterValues={filterValues}
