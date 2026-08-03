@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Plus, Archive, Settings, Sliders, Filter, Download } from 'lucide-react';
+import { Plus, Archive, Settings, Sliders, Filter, Download, Upload } from 'lucide-react';
 import Button from '../../../components/ui/Button';
 import SearchInput from '../../../components/ui/SearchInput';
 import ViewSwitcher from '../ViewEngine/ViewSwitcher';
@@ -34,6 +34,7 @@ export default function LayoutToolbar({
   onOpenPositionModal = () => {},
   onManageStages = () => {},
   onOpenExportModal = () => {},
+  onOpenImportModal = () => {},
   canManage = true,
   systemDropdowns = null,
   activePipelineStages = [],
@@ -161,6 +162,14 @@ export default function LayoutToolbar({
                     padding: '4px 0'
                   }}
                 >
+                  <button
+                    type="button"
+                    onClick={() => { setShowManageDropdown(false); onOpenImportModal(); }}
+                    style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: '600', color: '#0f172a', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #f1f5f9' }}
+                  >
+                    <Upload size={13} color="#0d9488" /> Import Data Wizard
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => { setShowManageDropdown(false); onOpenExportModal(); }}

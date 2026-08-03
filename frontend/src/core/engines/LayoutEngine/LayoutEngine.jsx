@@ -10,6 +10,7 @@ import ViewEngine from '../ViewEngine/ViewEngine';
 import ActiveFilterChips from '../FilterEngine/ActiveFilterChips';
 import ActionEngine from '../ActionEngine/ActionEngine';
 import ExportModal from '../ExportEngine/ExportEngine';
+import ImportModal from '../ImportEngine/ImportEngine';
 import { SearchEngine } from '../SearchEngine';
 import { FilterEngine } from '../FilterEngine';
 import { LabelEngine } from '../LabelEngine';
@@ -61,6 +62,7 @@ export default function LayoutEngine({
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showArchivedModal, setShowArchivedModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [recordToArchive, setRecordToArchive] = useState(null);
 
@@ -165,6 +167,7 @@ export default function LayoutEngine({
         onOpenPositionModal={onOpenPositionModal}
         onManageStages={onManageStages}
         onOpenExportModal={() => setShowExportModal(true)}
+        onOpenImportModal={() => setShowImportModal(true)}
         canManage={canManage}
         systemDropdowns={systemDropdowns}
         activePipelineStages={activePipelineStages}
@@ -258,6 +261,16 @@ export default function LayoutEngine({
         isOpen={showExportModal}
         onClose={() => setShowExportModal(false)}
         records={sortedRecords}
+        moduleConfig={moduleConfig}
+        showToast={showToast}
+      />
+
+      {/* G. UNIVERSAL CUSTOM IMPORT WIZARD MODAL */}
+      <ImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        records={records}
+        setRecords={setRecords}
         moduleConfig={moduleConfig}
         showToast={showToast}
       />
