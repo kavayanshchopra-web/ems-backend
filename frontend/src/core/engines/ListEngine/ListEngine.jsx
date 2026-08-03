@@ -162,13 +162,26 @@ export default function ListEngine({
     scrollRef.current.scrollLeft = dragScrollLeft - walk;
   };
 
-  // HEADER MOUSE WHEEL HANDLER: Scrolling mouse wheel on the Table Header (thead) scrolls table LEFT & RIGHT
-  const handleHeaderWheelScroll = (e) => {
-    if (scrollRef.current && e.deltaY !== 0) {
-      e.preventDefault();
-      scrollRef.current.scrollLeft += (e.deltaY * 1.5);
-    }
-  };
+  const theadRef = useRef(null);
+
+  // HEADER MOUSE WHEEL HANDLER: Non-passive native listener so e.preventDefault() & e.stopPropagation() 100% block vertical list scrolling when mouse is on Table Header
+  useEffect(() => {
+    const headerEl = theadRef.current;
+    if (!headerEl) return;
+
+    const handleNativeHeaderWheel = (e) => {
+      if (scrollRef.current && e.deltaY !== 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        scrollRef.current.scrollLeft += (e.deltaY * 1.5);
+      }
+    };
+
+    headerEl.addEventListener('wheel', handleNativeHeaderWheel, { passive: false });
+    return () => {
+      headerEl.removeEventListener('wheel', handleNativeHeaderWheel);
+    };
+  }, []);
 
   const totalPages = Math.ceil(records.length / pageSize) || 1;
   const validCurrentPage = Math.min(currentPage, totalPages);
@@ -549,7 +562,7 @@ export default function ListEngine({
         >
           <table className="std-table" style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse', borderSpacing: 0 }}>
             <thead
-              onWheel={handleHeaderWheelScroll}
+              ref={theadRef}
               style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f8fafc', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', cursor: 'ew-resize' }}
             >
               <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
