@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Archive, Copy, Trash2, RotateCcw, CheckSquare, X, ShieldAlert } from 'lucide-react';
+import { Archive, Copy, Trash2, RotateCcw, CheckSquare, X, ShieldAlert, Download } from 'lucide-react';
 import Button from '../../../components/ui/Button';
 import Modal from '../../../components/ui/Modal';
 import { LabelEngine } from '../LabelEngine';
@@ -21,7 +21,8 @@ export default function BulkActionEngine({
   handleRestoreBinItem = null,
   showToast = () => {},
   canManage = true,
-  isArchivedView = false
+  isArchivedView = false,
+  onOpenExportModal = () => {}
 }) {
   const [showDeleteGovernanceModal, setShowDeleteGovernanceModal] = useState(false);
 
@@ -258,6 +259,17 @@ export default function BulkActionEngine({
 
         {/* RIGHT STRIP: METADATA-CONTROLLED ACTION BUTTONS */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          {/* EXPORT SELECTED BUTTON */}
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<Download size={13} />}
+            onClick={onOpenExportModal}
+            style={{ background: 'rgba(255, 255, 255, 0.15)', color: '#ffffff', borderColor: '#0f766e', fontSize: '11px', padding: '4px 10px', fontWeight: '700' }}
+          >
+            Export Selected ({selectedCount})
+          </Button>
+
           {/* ARCHIVE BUTTON (ACTIVE VIEW ONLY) */}
           {!isArchivedView && bulkConfig.archive && canManage && (
             <Button

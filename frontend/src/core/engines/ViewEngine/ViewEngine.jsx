@@ -29,7 +29,8 @@ export default function ViewEngine({
   onMoveStage = () => {},
   onResetFilters = () => {},
   systemDropdowns = null,
-  activePipelineStages = []
+  activePipelineStages = [],
+  onOpenExportModal = () => {}
 }) {
   // Resolve enabled views from moduleConfig (supports availableViews array and views object map)
   let enabledViewsList = [];
@@ -117,6 +118,7 @@ export default function ViewEngine({
       onResetFilters={onResetFilters}
       systemDropdowns={systemDropdowns}
       activePipelineStages={activePipelineStages}
+      onOpenExportModal={onOpenExportModal}
     />
   );
 }

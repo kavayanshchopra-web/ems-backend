@@ -76,7 +76,8 @@ export default function ListEngine({
   onMoveStage = () => {},
   onResetFilters = () => {},
   systemDropdowns = null,
-  activePipelineStages = []
+  activePipelineStages = [],
+  onOpenExportModal = () => {}
 }) {
   const [colWidths, setColWidths] = useState({});
   const [selectedIds, setSelectedIds] = useState([]);
@@ -448,6 +449,7 @@ export default function ListEngine({
         showToast={showToast}
         canManage={canManage}
         isArchivedView={isArchivedView}
+        onOpenExportModal={onOpenExportModal}
       />
 
       <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>

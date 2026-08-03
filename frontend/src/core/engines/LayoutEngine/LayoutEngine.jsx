@@ -9,6 +9,7 @@ import WidgetEngine from '../WidgetEngine/WidgetEngine';
 import ViewEngine from '../ViewEngine/ViewEngine';
 import ActiveFilterChips from '../FilterEngine/ActiveFilterChips';
 import ActionEngine from '../ActionEngine/ActionEngine';
+import ExportModal from '../ExportEngine/ExportEngine';
 import { SearchEngine } from '../SearchEngine';
 import { FilterEngine } from '../FilterEngine';
 import { LabelEngine } from '../LabelEngine';
@@ -59,6 +60,7 @@ export default function LayoutEngine({
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showArchivedModal, setShowArchivedModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [recordToArchive, setRecordToArchive] = useState(null);
 
@@ -162,6 +164,7 @@ export default function LayoutEngine({
         onOpenConfigModal={() => onOpenModuleConfig && onOpenModuleConfig(moduleConfig.moduleId)}
         onOpenPositionModal={onOpenPositionModal}
         onManageStages={onManageStages}
+        onOpenExportModal={() => setShowExportModal(true)}
         canManage={canManage}
         systemDropdowns={systemDropdowns}
         activePipelineStages={activePipelineStages}
@@ -217,6 +220,7 @@ export default function LayoutEngine({
         onResetFilters={handleResetFilters}
         systemDropdowns={systemDropdowns}
         activePipelineStages={activePipelineStages}
+        onOpenExportModal={() => setShowExportModal(true)}
       />
 
       {/* E. ACTION ENGINE MODALS & DRAWERS */}
@@ -246,6 +250,15 @@ export default function LayoutEngine({
         handleRestoreBinItem={handleRestoreBinItem}
         handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
         softDeleteRecord={softDeleteRecord}
+        showToast={showToast}
+      />
+
+      {/* F. UNIVERSAL CUSTOM EXPORT WIZARD MODAL */}
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        records={sortedRecords}
+        moduleConfig={moduleConfig}
         showToast={showToast}
       />
     </div>
