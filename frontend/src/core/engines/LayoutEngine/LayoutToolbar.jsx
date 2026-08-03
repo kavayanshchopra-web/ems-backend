@@ -73,7 +73,7 @@ export default function LayoutToolbar({
           flexWrap: 'wrap',
           gap: '12px',
           background: '#ffffff',
-          padding: '14px 18px',
+          padding: '8px 14px',
           borderRadius: '12px',
           border: '1px solid #e2e8f0',
           boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
@@ -225,7 +225,7 @@ export default function LayoutToolbar({
           flexWrap: 'wrap',
           gap: '12px',
           background: '#ffffff',
-          padding: '12px 16px',
+          padding: '8px 12px',
           borderRadius: '10px',
           border: '1px solid #e2e8f0',
           boxShadow: '0 1px 2px rgba(0,0,0,0.02)'

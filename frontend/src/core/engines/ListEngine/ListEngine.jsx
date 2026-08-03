@@ -554,7 +554,7 @@ export default function ListEngine({
           style={{
             overflowX: 'auto',
             overflowY: 'auto',
-            maxHeight: 'calc(100vh - 280px)',
+            maxHeight: 'calc(100vh - 210px)',
             position: 'relative',
             cursor: isDragScrolling ? 'grabbing' : 'grab',
             userSelect: isDragScrolling ? 'none' : 'auto'
