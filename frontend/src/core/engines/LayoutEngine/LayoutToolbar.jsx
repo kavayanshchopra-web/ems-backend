@@ -69,7 +69,7 @@ export default function LayoutToolbar({
           zIndex: 50,
           display: 'flex',
           alignItems: 'center',
-          justify: 'space-between',
+          justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: '12px',
           background: '#ffffff',
@@ -79,7 +79,7 @@ export default function LayoutToolbar({
           boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
         }}
       >
-        {/* Module Title & Badge */}
+        {/* Module Title & Subtitle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div
             style={{
@@ -97,14 +97,9 @@ export default function LayoutToolbar({
             {moduleConfig.icon || '🧑‍💼'}
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h1 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#0f172a' }}>
-                {LabelEngine.getModuleTitle(moduleConfig)}
-              </h1>
-              <span style={{ fontSize: '11px', fontWeight: '800', padding: '2px 9px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
-                {LabelEngine.getEntityCountBadge(moduleConfig, records.length)}
-              </span>
-            </div>
+            <h1 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#0f172a' }}>
+              {LabelEngine.getModuleTitle(moduleConfig)}
+            </h1>
             <p style={{ margin: '1px 0 0 0', fontSize: '12px', color: '#64748b' }}>
               {LabelEngine.getModuleSubtitle(moduleConfig)}
             </p>
@@ -112,22 +107,12 @@ export default function LayoutToolbar({
         </div>
 
         {/* Header Action Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginLeft: 'auto' }}>
           <ViewSwitcher
             availableViews={availableViews}
             activeView={viewMode}
             onViewChange={onViewChange}
           />
-
-          <Button
-            variant={viewMode === 'archived' ? 'primary' : 'secondary'}
-            size="md"
-            icon={<Archive size={14} />}
-            onClick={onOpenArchived}
-            style={viewMode === 'archived' ? { background: '#f59e0b', color: '#ffffff', border: 'none' } : {}}
-          >
-            {viewMode === 'archived' ? 'Active Roster' : `Archived (${archivedCount})`}
-          </Button>
 
           {canManage && (
             <div style={{ position: 'relative' }}>
@@ -162,10 +147,18 @@ export default function LayoutToolbar({
                     borderRadius: '8px',
                     border: '1px solid #cbd5e1',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-                    minWidth: '180px',
+                    minWidth: '200px',
                     padding: '4px 0'
                   }}
                 >
+                  <button
+                    type="button"
+                    onClick={() => { setShowManageDropdown(false); onOpenArchived(); }}
+                    style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: '600', color: viewMode === 'archived' ? '#d97706' : '#0f172a', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #f1f5f9' }}
+                  >
+                    <Archive size={13} color="#f59e0b" /> {viewMode === 'archived' ? 'Active Roster' : `Archived (${archivedCount})`}
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => { setShowManageDropdown(false); onOpenImportModal(); }}

@@ -230,31 +230,6 @@ export default function SavedViewsEngine({
         })}
       </div>
 
-      {/* SAVE CURRENT VIEW BUTTON */}
-      {isCurrentFilterDirty && (
-        <button
-          type="button"
-          onClick={() => setShowSaveModal(true)}
-          style={{
-            padding: '5px 12px',
-            borderRadius: '16px',
-            fontSize: '11.5px',
-            fontWeight: '800',
-            border: '1px solid #0d9488',
-            background: 'linear-gradient(135deg, #064e43 0%, #0d9488 100%)',
-            color: '#ffffff',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px',
-            boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)'
-          }}
-        >
-          <Bookmark size={13} />
-          <span>Save View Preset</span>
-        </button>
-      )}
-
       {/* SAVE PRESET MODAL */}
       {showSaveModal && (
         <div
