@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Plus, Archive, Settings, Sliders, Filter, Download, Upload } from 'lucide-react';
+import { Plus, Archive, Settings, Sliders, Filter, Download, Upload, X } from 'lucide-react';
 import Button from '../../../components/ui/Button';
 import SearchInput from '../../../components/ui/SearchInput';
 import ViewSwitcher from '../ViewEngine/ViewSwitcher';
@@ -137,52 +137,67 @@ export default function LayoutToolbar({
               </button>
 
               {showManageDropdown && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    right: 0,
-                    top: '105%',
-                    zIndex: 100,
-                    background: '#ffffff',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-                    minWidth: '200px',
-                    padding: '4px 0'
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => { setShowManageDropdown(false); onOpenArchived(); }}
-                    style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: '600', color: viewMode === 'archived' ? '#d97706' : '#0f172a', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #f1f5f9' }}
+                <>
+                  <div
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99 }}
+                    onClick={() => setShowManageDropdown(false)}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      right: 0,
+                      top: '105%',
+                      zIndex: 100,
+                      background: '#ffffff',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      boxShadow: '0 8px 20px rgba(0,0,0,0.14)',
+                      minWidth: '210px',
+                      overflow: 'hidden'
+                    }}
                   >
-                    <Archive size={13} color="#f59e0b" /> {viewMode === 'archived' ? 'Active Roster' : `Archived (${archivedCount})`}
-                  </button>
+                    <div style={{ padding: '8px 12px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>Manage Tools</span>
+                      <button type="button" onClick={() => setShowManageDropdown(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b', padding: '1px', display: 'flex' }}>
+                        <X size={13} />
+                      </button>
+                    </div>
 
-                  <button
-                    type="button"
-                    onClick={() => { setShowManageDropdown(false); onOpenImportModal(); }}
-                    style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: '600', color: '#0f172a', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #f1f5f9' }}
-                  >
-                    <Upload size={13} color="#0d9488" /> Import Data Wizard
-                  </button>
+                    <div style={{ padding: '4px 0' }}>
+                      <button
+                        type="button"
+                        onClick={() => { setShowManageDropdown(false); onOpenArchived(); }}
+                        style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: '600', color: viewMode === 'archived' ? '#d97706' : '#0f172a', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #f1f5f9' }}
+                      >
+                        <Archive size={13} color="#f59e0b" /> {viewMode === 'archived' ? 'Active Roster' : `Archived (${archivedCount})`}
+                      </button>
 
-                  <button
-                    type="button"
-                    onClick={() => { setShowManageDropdown(false); onOpenExportModal(); }}
-                    style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: '600', color: '#0f172a', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #f1f5f9' }}
-                  >
-                    <Download size={13} color="#0d9488" /> Export Data Wizard
-                  </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowManageDropdown(false); onOpenImportModal(); }}
+                        style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: '600', color: '#0f172a', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #f1f5f9' }}
+                      >
+                        <Upload size={13} color="#0d9488" /> Import Data Wizard
+                      </button>
 
-                  <button
-                    type="button"
-                    onClick={() => { setShowManageDropdown(false); onOpenConfigModal(); }}
-                    style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: '600', color: '#0d9488', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-                  >
-                    <Sliders size={13} /> Configure Module
-                  </button>
-                </div>
+                      <button
+                        type="button"
+                        onClick={() => { setShowManageDropdown(false); onOpenExportModal(); }}
+                        style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: '600', color: '#0f172a', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #f1f5f9' }}
+                      >
+                        <Download size={13} color="#0d9488" /> Export Data Wizard
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => { setShowManageDropdown(false); onOpenConfigModal(); }}
+                        style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: '600', color: '#0d9488', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                      >
+                        <Sliders size={13} /> Configure Module
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           )}

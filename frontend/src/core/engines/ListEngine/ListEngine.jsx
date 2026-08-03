@@ -459,10 +459,7 @@ export default function ListEngine({
 
       <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {/* TABLE HEADER STRIP (CLEAN ENTERPRISE NOISE-FREE HEADER) */}
-        <div style={{ padding: '10px 18px', background: isArchivedView ? '#fffbeb' : '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', flexShrink: 0 }}>
-          <span style={{ fontSize: '11px', fontWeight: '800', color: isArchivedView ? '#b45309' : '#0f172a', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {isArchivedView ? '📦 ARCHIVE VIEW:' : (LabelEngine.getEntityNamePlural(moduleConfig) || 'RECORDS').toUpperCase()} ({records.length})
-          </span>
+        <div style={{ padding: '10px 18px', background: isArchivedView ? '#fffbeb' : '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: '8px', flexShrink: 0 }}>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             {isArchivedView && (
