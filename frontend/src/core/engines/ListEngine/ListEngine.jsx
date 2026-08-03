@@ -540,7 +540,8 @@ export default function ListEngine({
           onMouseMove={handleMouseMoveDrag}
           style={{
             overflowX: 'auto',
-            overflowY: 'visible',
+            overflowY: 'auto',
+            maxHeight: 'calc(100vh - 280px)',
             position: 'relative',
             cursor: isDragScrolling ? 'grabbing' : 'grab',
             userSelect: isDragScrolling ? 'none' : 'auto'
