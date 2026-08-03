@@ -55,6 +55,7 @@ export default function LayoutEngine({
   const [filterValues, setFilterValues] = useState({});
   const [sortKey, setSortKey] = useState(() => moduleConfig.defaultSort?.key || 'createdAt');
   const [sortDir, setSortDir] = useState(() => moduleConfig.defaultSort?.dir || 'desc');
+  const [hiddenColIds, setHiddenColIds] = useState([]);
 
   // Modal / Drawer Action States
   const [showAddModal, setShowAddModal] = useState(false);
@@ -129,7 +130,6 @@ export default function LayoutEngine({
     return 0;
   });
 
-  const [hiddenColIds, setHiddenColIds] = useState([]);
   const isFilterActive = FilterEngine.isFilterActive(filterValues) || Boolean(searchQuery.trim());
 
   const handleFilterChange = (fieldId, val) => {
