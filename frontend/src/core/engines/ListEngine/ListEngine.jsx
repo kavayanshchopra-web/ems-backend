@@ -39,6 +39,22 @@ const formatDate = (isoStr) => {
   }
 };
 
+const getAvatarGradient = (nameStr = 'R', isArchived = false) => {
+  if (isArchived) return 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+  const char = (nameStr[0] || 'R').toUpperCase();
+  const charCode = char.charCodeAt(0);
+  const gradients = [
+    'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', // Teal
+    'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)', // Indigo
+    'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', // Blue
+    'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)', // Purple
+    'linear-gradient(135deg, #ec4899 0%, #be185d 100%)', // Pink
+    'linear-gradient(135deg, #f59e0b 0%, #b45309 100%)', // Amber
+    'linear-gradient(135deg, #10b981 0%, #047857 100%)'  // Emerald
+  ];
+  return gradients[charCode % gradients.length];
+};
+
 export default function ListEngine({
   records = [],
   setRecords = () => {},
@@ -67,9 +83,10 @@ export default function ListEngine({
   const [pageSize, setPageSize] = useState(25);
   const scrollRef = useRef(null);
 
-  const handleWheelScroll = (e) => {
+  // Header-only wheel handler: Scroll left/right when mouse is on table header
+  const handleHeaderWheelScroll = (e) => {
     if (scrollRef.current && e.deltaY !== 0 && !e.shiftKey) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      const { scrollWidth, clientWidth } = scrollRef.current;
       if (scrollWidth > clientWidth) {
         scrollRef.current.scrollLeft += e.deltaY;
       }
@@ -105,10 +122,26 @@ export default function ListEngine({
 
   const renderRow = (record, idx) => {
     const isSelected = selectedIds.includes(record.id);
-    const recordName = getValString(record.name || record.fullName || record.employeeName || record.candidateName || record.title, LabelEngine.getEntityName(moduleConfig));
+    let recordName = getValString(
+      record.name || record.fullName || record.employeeName || record.candidateName || record.title,
+      ''
+    );
+    if (!recordName || recordName === 'Employee Directory' || recordName === 'Candidate') {
+      if (record.email) {
+        const parts = getValString(record.email).split('@');
+        if (parts[0]) {
+          recordName = parts[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        }
+      }
+    }
+    if (!recordName) {
+      recordName = LabelEngine.getEntityName(moduleConfig);
+    }
+
     const recordStatus = getValString(record.status || record.stage);
     const displayId = formatCandidateId(record.id, idx, moduleConfig);
     const recordSub = getValString(record.department || record.designation || record.position || record.appliedFor, '');
+    const avatarGradient = getAvatarGradient(recordName, isArchivedView);
 
     return (
       <tr
@@ -147,9 +180,7 @@ export default function ListEngine({
                       width: '38px',
                       height: '38px',
                       borderRadius: '50%',
-                      background: isArchivedView
-                        ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
-                        : 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)',
+                      background: avatarGradient,
                       color: '#ffffff',
                       fontWeight: '800',
                       display: 'flex',
@@ -384,7 +415,6 @@ export default function ListEngine({
         <div
           className="list-table-scroll"
           ref={scrollRef}
-          onWheel={handleWheelScroll}
           style={{
             overflowX: 'auto',
             overflowY: 'auto',
@@ -395,7 +425,10 @@ export default function ListEngine({
           }}
         >
           <table className="std-table" style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse', borderSpacing: 0 }}>
-            <thead style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f8fafc', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <thead
+              onWheel={handleHeaderWheelScroll}
+              style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f8fafc', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
+            >
               <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
                 <th style={{ padding: '12px 18px', width: '40px', textAlign: 'center', background: '#f8fafc', position: 'sticky', top: 0, zIndex: 20 }}>
                   <input
