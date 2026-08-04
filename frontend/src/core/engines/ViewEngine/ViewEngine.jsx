@@ -123,6 +123,10 @@ export default function ViewEngine({
       onOpenExportModal={onOpenExportModal}
       hiddenColIds={hiddenColIds}
       setHiddenColIds={setHiddenColIds}
+      currentPage={currentPage}
+      pageSize={pageSize}
+      onPageChange={onPageChange}
+      onPageSizeChange={onPageSizeChange}
     />
   );
 }

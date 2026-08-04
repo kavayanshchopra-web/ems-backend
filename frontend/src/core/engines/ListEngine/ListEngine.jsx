@@ -80,14 +80,22 @@ export default function ListEngine({
   activePipelineStages = [],
   onOpenExportModal = () => {},
   hiddenColIds: propHiddenColIds = [],
-  setHiddenColIds: propSetHiddenColIds = null
+  setHiddenColIds: propSetHiddenColIds = null,
+  currentPage: propCurrentPage = 1,
+  pageSize: propPageSize = 25,
+  onPageChange: propOnPageChange = null,
+  onPageSizeChange: propOnPageSizeChange = null
 }) {
   const [colWidths, setColWidths] = useState({});
   const [selectedIds, setSelectedIds] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [localCurrentPage, setLocalCurrentPage] = useState(1);
+  const [localPageSize, setLocalPageSize] = useState(25);
   const [localHiddenColIds, setLocalHiddenColIds] = useState([]);
 
+  const currentPage = propOnPageChange ? propCurrentPage : localCurrentPage;
+  const setCurrentPage = propOnPageChange || setLocalCurrentPage;
+  const pageSize = propOnPageSizeChange ? propPageSize : localPageSize;
+  const setPageSize = propOnPageSizeChange || setLocalPageSize;
   const hiddenColIds = propSetHiddenColIds ? propHiddenColIds : localHiddenColIds;
   const setHiddenColIds = propSetHiddenColIds || setLocalHiddenColIds;
   const [showColumnPopover, setShowColumnPopover] = useState(false);
@@ -516,7 +524,7 @@ export default function ListEngine({
           style={{
             overflowX: 'auto',
             overflowY: 'auto',
-            maxHeight: 'calc(100vh - 190px)',
+            maxHeight: 'calc(100vh - 160px)',
             position: 'relative',
             cursor: isDragScrolling ? 'grabbing' : 'grab',
             userSelect: isDragScrolling ? 'none' : 'auto'
@@ -619,21 +627,6 @@ export default function ListEngine({
               )}
             </tbody>
           </table>
-        </div>
-
-        {/* STICKY BOTTOM PAGINATION */}
-        <div style={{ position: 'sticky', bottom: 0, zIndex: 10, background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
-          <Pagination
-            currentPage={validCurrentPage}
-            pageSize={pageSize}
-            totalRecords={records.length}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={(newSize) => {
-              setPageSize(newSize);
-              setCurrentPage(1);
-            }}
-            entityNamePlural={LabelEngine.getEntityNamePlural(moduleConfig)}
-          />
         </div>
       </div>
     </div>

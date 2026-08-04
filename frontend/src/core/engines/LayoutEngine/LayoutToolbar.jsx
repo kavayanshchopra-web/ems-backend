@@ -11,6 +11,7 @@ import ViewSwitcher from '../ViewEngine/ViewSwitcher';
 import FilterPanel from '../FilterEngine/FilterPanel';
 import SavedViewsEngine from '../FilterEngine/SavedViewsEngine';
 import ColumnManagerPopover from '../ListEngine/ColumnManagerPopover';
+import Pagination from '../ListEngine/Pagination';
 import { LabelEngine } from '../LabelEngine';
 import { PlaceholderEngine } from '../PlaceholderEngine';
 import { FilterEngine } from '../FilterEngine';
@@ -44,7 +45,11 @@ export default function LayoutToolbar({
   onOpenSavePresetModal = () => {},
   showToast = () => {},
   hiddenColIds = [],
-  setHiddenColIds = () => {}
+  setHiddenColIds = () => {},
+  currentPage = 1,
+  pageSize = 25,
+  onPageChange = () => {},
+  onPageSizeChange = () => {}
 }) {
   const [showManageDropdown, setShowManageDropdown] = useState(false);
   const [showFilterPopover, setShowFilterPopover] = useState(false);
@@ -294,8 +299,8 @@ export default function LayoutToolbar({
             />
           </div>
 
-          {/* COLUMNS SELECTION BUTTON (RIGHT SIDE OF SEARCH BAR ROW) */}
-          <div style={{ position: 'relative', marginLeft: 'auto' }}>
+          {/* COLUMNS SELECTION & PAGINATION CONTROLS (RIGHT SIDE OF SEARCH BAR ROW) */}
+          <div style={{ position: 'relative', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button
               type="button"
               onClick={() => setShowColumnPopover(prev => !prev)}
@@ -333,6 +338,16 @@ export default function LayoutToolbar({
                 onClose={() => setShowColumnPopover(false)}
               />
             )}
+
+            {/* COMPACT PAGINATION (NO TEXT) */}
+            <Pagination
+              compact={true}
+              currentPage={currentPage}
+              pageSize={pageSize}
+              totalRecords={totalCount}
+              onPageChange={onPageChange}
+              onPageSizeChange={onPageSizeChange}
+            />
           </div>
         </div>
       </div>

@@ -56,6 +56,8 @@ export default function LayoutEngine({
   const [sortKey, setSortKey] = useState(() => moduleConfig.defaultSort?.key || 'createdAt');
   const [sortDir, setSortDir] = useState(() => moduleConfig.defaultSort?.dir || 'desc');
   const [hiddenColIds, setHiddenColIds] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   // Modal / Drawer Action States
   const [showAddModal, setShowAddModal] = useState(false);
@@ -177,6 +179,10 @@ export default function LayoutEngine({
         showToast={showToast}
         hiddenColIds={hiddenColIds}
         setHiddenColIds={setHiddenColIds}
+        currentPage={currentPage}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
       />
 
       {/* B. KPI SUMMARY STRIP WIDGETS (REMOVED FROM DIRECTORY — KEPT ON DASHBOARD) */}
@@ -224,6 +230,10 @@ export default function LayoutEngine({
         onOpenExportModal={() => setShowExportModal(true)}
         hiddenColIds={hiddenColIds}
         setHiddenColIds={setHiddenColIds}
+        currentPage={currentPage}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
       />
 
       {/* E. ACTION ENGINE MODALS & DRAWERS */}
