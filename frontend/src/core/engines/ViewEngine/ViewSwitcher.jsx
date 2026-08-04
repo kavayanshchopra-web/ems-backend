@@ -47,10 +47,11 @@ export default function ViewSwitcher({
             type="button"
             onClick={() => onViewChange(v.key)}
             style={{
-              padding: '6px 12px',
-              fontSize: '12px',
+              padding: '3px 8px',
+              height: '26px',
+              fontSize: '11px',
               fontWeight: '700',
-              borderRadius: '6px',
+              borderRadius: '5px',
               border: 'none',
               background: isActive ? '#ffffff' : 'transparent',
               color: isActive ? '#0d9488' : '#64748b',
@@ -61,7 +62,7 @@ export default function ViewSwitcher({
               gap: '4px'
             }}
           >
-            {IconComponent && <IconComponent size={14} />}
+            {IconComponent && <IconComponent size={12} />}
             {v.label}
           </button>
         );

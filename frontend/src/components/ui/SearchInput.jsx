@@ -24,15 +24,15 @@ export default function SearchInput({
         disabled={disabled}
         style={{
           width: '100%',
-          height: '38px',
-          paddingLeft: '14px',
-          paddingRight: rightElement ? (value ? '64px' : '42px') : (value ? '32px' : '14px'),
-          fontSize: '12px',
+          height: '30px',
+          paddingLeft: '10px',
+          paddingRight: rightElement ? (value ? '56px' : '34px') : (value ? '26px' : '10px'),
+          fontSize: '11.5px',
           fontFamily: 'Inter, system-ui, sans-serif',
           color: '#0f172a',
           background: '#ffffff',
           border: '1px solid #cbd5e1',
-          borderRadius: '8px',
+          borderRadius: '6px',
           outline: 'none',
           transition: 'all 0.15s ease'
         }}

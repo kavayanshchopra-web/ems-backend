@@ -230,38 +230,38 @@ export default function LayoutToolbar({
           alignItems: 'center',
           justify: 'space-between',
           flexWrap: 'wrap',
-          gap: '12px',
+          gap: '8px',
           background: '#ffffff',
-          padding: '8px 12px',
-          borderRadius: '10px',
+          padding: '4px 10px',
+          borderRadius: '8px',
           border: '1px solid #e2e8f0',
           boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
         }}
       >
         {/* A. LEFT CORNER: COLS BUTTON & PAGINATION CONTROLS */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <div style={{ position: 'relative' }}>
             <button
               type="button"
               onClick={() => setShowColumnPopover(prev => !prev)}
               style={{
-                height: '28px',
-                padding: '3px 8px',
+                height: '26px',
+                padding: '2px 7px',
                 fontSize: '11px',
                 fontWeight: '700',
-                borderRadius: '6px',
+                borderRadius: '5px',
                 border: '1px solid #cbd5e1',
                 background: '#ffffff',
                 color: '#0d9488',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '5px',
+                gap: '4px',
                 boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
                 whiteSpace: 'nowrap'
               }}
             >
-              <Columns size={13} />
+              <Columns size={12} />
               <span>Cols</span>
             </button>
 
@@ -293,23 +293,23 @@ export default function LayoutToolbar({
         </div>
 
         {/* B. CENTER: SEARCH INPUT WITH INTEGRATED MINI GREEN FILTER ARROW BOX + PRESET TABS */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'center', flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', flex: 1 }}>
           <div style={{ position: 'relative' }}>
             <SearchInput
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               onClear={() => onSearchChange('')}
               placeholder={PlaceholderEngine.getSearchPlaceholder(moduleConfig)}
-              width="320px"
+              width="300px"
               rightElement={
                 <button
                   type="button"
                   title="Open Filters"
                   onClick={() => setShowFilterPopover(prev => !prev)}
                   style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: '6px',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '5px',
                     background: isFilterActive ? '#065f46' : '#0d9488',
                     border: 'none',
                     color: '#ffffff',
@@ -321,7 +321,7 @@ export default function LayoutToolbar({
                     transition: 'all 0.15s ease'
                   }}
                 >
-                  <ChevronDown size={15} />
+                  <ChevronDown size={13} />
                 </button>
               }
             />
