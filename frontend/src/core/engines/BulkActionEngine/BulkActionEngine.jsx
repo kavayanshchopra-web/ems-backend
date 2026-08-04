@@ -138,20 +138,21 @@ export default function BulkActionEngine({
   };
 
   // 6. DUPLICATE SELECTED WITH SMART VERSION NAMING (e.g. John Copy 1, John Copy 2)
+  // 6. DUPLICATE SELECTED WITH SMART VERSION NAMING (e.g. John (Copy 1), John (Copy 2)) & NEW SEQUENTIAL IDs
   const handleBulkDuplicate = () => {
     const now = new Date().toISOString();
     const duplicates = [];
 
     const getDuplicateName = (baseName, existingRecordsList) => {
-      if (!baseName) return 'Untitled Copy 1';
-      const cleanBase = String(baseName).replace(/\s*\(Copy\)\s*/gi, '').replace(/\s*Copy\s+\d+\s*/gi, '').trim();
+      if (!baseName) return 'Untitled (Copy 1)';
+      const cleanBase = String(baseName).replace(/\s*\(Copy\s*\d*\)\s*/gi, '').replace(/\s*Copy\s*\d*\s*/gi, '').trim();
       const existingNames = new Set(existingRecordsList.map(r => (r.name || r.title || '').trim().toLowerCase()));
 
       let count = 1;
-      let candidate = `${cleanBase} Copy ${count}`;
+      let candidate = `${cleanBase} (Copy ${count})`;
       while (existingNames.has(candidate.toLowerCase())) {
         count++;
-        candidate = `${cleanBase} Copy ${count}`;
+        candidate = `${cleanBase} (Copy ${count})`;
       }
       return candidate;
     };
@@ -161,15 +162,18 @@ export default function BulkActionEngine({
     selectedIds.forEach((id, idx) => {
       const orig = currentRecordsList.find(r => r.id === id);
       if (orig) {
-        const nextSeqId = getNextSequentialId('default_tenant', moduleConfig.moduleId || 'recruitment_ats', moduleConfig);
+        const nextSeqId = getNextSequentialId('default_tenant', moduleConfig.moduleId || 'employees', moduleConfig);
         const dupName = orig.name ? getDuplicateName(orig.name, currentRecordsList) : undefined;
         const dupTitle = orig.title ? getDuplicateName(orig.title, currentRecordsList) : undefined;
 
         const dupRec = {
           ...orig,
-          id: `${nextSeqId}_dup_${Date.now()}_${idx}`,
+          id: nextSeqId || `${orig.id}_copy_${Date.now()}_${idx}`,
           ...(dupName ? { name: dupName } : {}),
           ...(dupTitle ? { title: dupTitle } : {}),
+          isDuplicate: true,
+          isCopy: true,
+          originalId: orig.id,
           createdAt: now,
           updatedAt: now,
           archived: false,

@@ -301,11 +301,18 @@ export default function ListEngine({
                     {(recordName[0] || 'R').toUpperCase()}
                   </div>
                   <div style={{ overflow: 'hidden' }}>
-                    <div
-                      title={recordName}
-                      style={{ fontWeight: '800', color: '#0f172a', fontSize: '13.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}
-                    >
-                      {recordName}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                      <div
+                        title={recordName}
+                        style={{ fontWeight: '800', color: '#0f172a', fontSize: '13.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '170px' }}
+                      >
+                        {recordName}
+                      </div>
+                      {(record.isDuplicate || record.isCopy || String(record.id).includes('_copy_') || recordName.includes('(Copy')) && (
+                        <span style={{ fontSize: '9.5px', padding: '1px 6px', borderRadius: '4px', background: '#dbeafe', color: '#1d4ed8', fontWeight: '800', border: '1px solid #bfdbfe', textTransform: 'uppercase', letterSpacing: '0.3px', flexShrink: 0 }}>
+                          📋 COPY
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '700', color: isArchivedView ? '#b45309' : '#0d9488', marginTop: '1px' }}>
                       ID: {displayId}
