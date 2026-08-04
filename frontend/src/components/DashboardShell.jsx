@@ -515,6 +515,116 @@ function AccordionCategory({ id, label, isExpanded, onToggle, children }) {
   );
 }
 
+export const ALL_WORLD_CURRENCIES = [
+  { code: 'USD', name: 'US Dollar ($)', flag: '🇺🇸' },
+  { code: 'INR', name: 'Indian Rupee (₹)', flag: '🇮🇳' },
+  { code: 'EUR', name: 'Euro (€)', flag: '🇪🇺' },
+  { code: 'AED', name: 'UAE Dirham (د.إ)', flag: '🇦🇪' },
+  { code: 'GBP', name: 'British Pound (£)', flag: '🇬🇧' },
+  { code: 'SAR', name: 'Saudi Riyal (﷼)', flag: '🇸🇦' },
+  { code: 'CAD', name: 'Canadian Dollar ($)', flag: '🇨🇦' },
+  { code: 'AUD', name: 'Australian Dollar ($)', flag: '🇦🇺' },
+  { code: 'KWD', name: 'Kuwaiti Dinar (KD)', flag: '🇰🇼' },
+  { code: 'QAR', name: 'Qatari Riyal (QR)', flag: '🇶🇦' },
+  { code: 'BHD', name: 'Bahraini Dinar (BD)', flag: '🇧🇭' },
+  { code: 'OMR', name: 'Omani Rial (RO)', flag: '🇴🇲' },
+  { code: 'SGD', name: 'Singapore Dollar ($)', flag: '🇸🇬' },
+  { code: 'JPY', name: 'Japanese Yen (¥)', flag: '🇯🇵' },
+  { code: 'CHF', name: 'Swiss Franc (CHF)', flag: '🇨🇭' },
+  { code: 'CNY', name: 'Chinese Yuan (¥)', flag: '🇨🇳' },
+  { code: 'HKD', name: 'Hong Kong Dollar ($)', flag: '🇭🇰' },
+  { code: 'NZD', name: 'New Zealand Dollar ($)', flag: '🇳🇿' },
+  { code: 'SEK', name: 'Swedish Krona (kr)', flag: '🇸🇪' },
+  { code: 'NOK', name: 'Norwegian Krone (kr)', flag: '🇳🇴' },
+  { code: 'DKK', name: 'Danish Krone (kr)', flag: '🇩🇰' },
+  { code: 'PLN', name: 'Polish Zloty (zł)', flag: '🇵🇱' },
+  { code: 'TRY', name: 'Turkish Lira (₺)', flag: '🇹🇷' },
+  { code: 'THB', name: 'Thai Baht (฿)', flag: '🇹🇭' },
+  { code: 'MYR', name: 'Malaysian Ringgit (RM)', flag: '🇲🇾' },
+  { code: 'IDR', name: 'Indonesian Rupiah (Rp)', flag: '🇮🇩' },
+  { code: 'PHP', name: 'Philippine Peso (₱)', flag: '🇵🇭' },
+  { code: 'VND', name: 'Vietnamese Dong (₫)', flag: '🇻🇳' },
+  { code: 'KRW', name: 'South Korean Won (₩)', flag: '🇰🇷' },
+  { code: 'BRL', name: 'Brazilian Real (R$)', flag: '🇧🇷' },
+  { code: 'MXN', name: 'Mexican Peso ($)', flag: '🇲🇽' },
+  { code: 'ZAR', name: 'South African Rand (R)', flag: '🇿🇦' },
+  { code: 'EGP', name: 'Egyptian Pound (E£)', flag: '🇪🇬' },
+  { code: 'NGN', name: 'Nigerian Naira (₦)', flag: '🇳🇬' },
+  { code: 'KES', name: 'Kenyan Shilling (KSh)', flag: '🇰🇪' },
+  { code: 'PKR', name: 'Pakistani Rupee (Rs)', flag: '🇵🇰' },
+  { code: 'BDT', name: 'Bangladeshi Taka (৳)', flag: '🇧🇩' },
+  { code: 'LKR', name: 'Sri Lankan Rupee (Rs)', flag: '🇱🇰' },
+  { code: 'NPR', name: 'Nepalese Rupee (Rs)', flag: '🇳🇵' },
+  { code: 'RUB', name: 'Russian Ruble (₽)', flag: '🇷🇺' },
+  { code: 'ILS', name: 'Israeli New Shekel (₪)', flag: '🇮🇱' },
+  { code: 'COP', name: 'Colombian Peso ($)', flag: '🇨🇴' },
+  { code: 'CLP', name: 'Chilean Peso ($)', flag: '🇨🇱' },
+  { code: 'PEN', name: 'Peruvian Sol (S/)', flag: '🇵🇪' },
+  { code: 'ARS', name: 'Argentine Peso ($)', flag: '🇦🇷' },
+  { code: 'CZK', name: 'Czech Koruna (Kč)', flag: '🇨🇿' },
+  { code: 'HUF', name: 'Hungarian Forint (Ft)', flag: '🇭🇺' },
+  { code: 'RON', name: 'Romanian Leu (lei)', flag: '🇷🇴' },
+  { code: 'BGN', name: 'Bulgarian Lev (лв)', flag: '🇧🇬' },
+  { code: 'HRK', name: 'Croatian Kuna (kn)', flag: '🇭🇷' },
+  { code: 'ISK', name: 'Icelandic Krona (kr)', flag: '🇮🇸' },
+  { code: 'JOD', name: 'Jordanian Dinar (JD)', flag: '🇯🇴' },
+  { code: 'LBP', name: 'Lebanese Pound (L£)', flag: '🇱🇧' },
+  { code: 'IQD', name: 'Iraqi Dinar (IQD)', flag: '🇮🇶' },
+  { code: 'DZD', name: 'Algerian Dinar (DA)', flag: '🇩🇿' },
+  { code: 'MAD', name: 'Moroccan Dirham (MAD)', flag: '🇲🇦' },
+  { code: 'TND', name: 'Tunisian Dinar (DT)', flag: '🇹🇳' },
+  { code: 'GHS', name: 'Ghanaian Cedi (GH₵)', flag: '🇬🇭' },
+  { code: 'ETB', name: 'Ethiopian Birr (Br)', flag: '🇪🇹' },
+  { code: 'TZS', name: 'Tanzanian Shilling (TSh)', flag: '🇹🇿' },
+  { code: 'UGX', name: 'Ugandan Shilling (USh)', flag: '🇺🇬' },
+  { code: 'MUR', name: 'Mauritian Rupee (Rs)', flag: '🇲🇺' }
+];
+
+export const ALL_WORLD_LANGUAGES = [
+  { code: 'en', name: 'English (Global)', nativeName: 'English', flag: '🇬🇧' },
+  { code: 'hi', name: 'Hindi', nativeName: 'हिंदी', flag: '🇮🇳' },
+  { code: 'ar', name: 'Arabic (RTL)', nativeName: 'العربية', flag: '🇦🇪' },
+  { code: 'es', name: 'Spanish', nativeName: 'Español', flag: '🇪🇸' },
+  { code: 'fr', name: 'French', nativeName: 'Français', flag: '🇫🇷' },
+  { code: 'de', name: 'German', nativeName: 'Deutsch', flag: '🇩🇪' },
+  { code: 'zh', name: 'Chinese (Simplified)', nativeName: '中文(简体)', flag: '🇨🇳' },
+  { code: 'zh-TW', name: 'Chinese (Traditional)', nativeName: '中文(繁體)', flag: '🇹🇼' },
+  { code: 'ja', name: 'Japanese', nativeName: '日本語', flag: '🇯🇵' },
+  { code: 'ko', name: 'Korean', nativeName: '한국어', flag: '🇰🇷' },
+  { code: 'ru', name: 'Russian', nativeName: 'Русский', flag: '🇷🇺' },
+  { code: 'pt', name: 'Portuguese', nativeName: 'Português', flag: '🇵🇹' },
+  { code: 'it', name: 'Italian', nativeName: 'Italiano', flag: '🇮🇹' },
+  { code: 'nl', name: 'Dutch', nativeName: 'Nederlands', flag: '🇳🇱' },
+  { code: 'tr', name: 'Turkish', nativeName: 'Türkçe', flag: '🇹🇷' },
+  { code: 'pl', name: 'Polish', nativeName: 'Polski', flag: '🇵🇱' },
+  { code: 'sv', name: 'Swedish', nativeName: 'Svenska', flag: '🇸🇪' },
+  { code: 'no', name: 'Norwegian', nativeName: 'Norsk', flag: '🇳🇴' },
+  { code: 'da', name: 'Danish', nativeName: 'Dansk', flag: '🇩🇰' },
+  { code: 'fi', name: 'Finnish', nativeName: 'Suomi', flag: '🇫🇮' },
+  { code: 'el', name: 'Greek', nativeName: 'Ελληνικά', flag: '🇬🇷' },
+  { code: 'he', name: 'Hebrew (RTL)', nativeName: 'עברית', flag: '🇮🇱' },
+  { code: 'th', name: 'Thai', nativeName: 'ไทย', flag: '🇹🇭' },
+  { code: 'vi', name: 'Vietnamese', nativeName: 'Tiếng Việt', flag: '🇻🇳' },
+  { code: 'id', name: 'Indonesian', nativeName: 'Bahasa Indonesia', flag: '🇮🇩' },
+  { code: 'ms', name: 'Malay', nativeName: 'Bahasa Melayu', flag: '🇲🇾' },
+  { code: 'uk', name: 'Ukrainian', nativeName: 'Українська', flag: '🇺🇦' },
+  { code: 'cs', name: 'Czech', nativeName: 'Čeština', flag: '🇨🇿' },
+  { code: 'hu', name: 'Hungarian', nativeName: 'Magyar', flag: '🇭🇺' },
+  { code: 'ro', name: 'Romanian', nativeName: 'Română', flag: '🇷🇴' },
+  { code: 'pa', name: 'Punjabi', nativeName: 'ਪੰਜਾਬੀ', flag: '🇮🇳' },
+  { code: 'bn', name: 'Bengali', nativeName: 'বাংলা', flag: '🇮🇳' },
+  { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்', flag: '🇮🇳' },
+  { code: 'te', name: 'Telugu', nativeName: 'తెలుగు', flag: '🇮🇳' },
+  { code: 'mr', name: 'Marathi', nativeName: 'मराठी', flag: '🇮🇳' },
+  { code: 'gu', name: 'Gujarati', nativeName: 'ગુજરાતી', flag: '🇮🇳' },
+  { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ', flag: '🇮🇳' },
+  { code: 'ml', name: 'Malayalam', nativeName: 'മലയാളം', flag: '🇮🇳' },
+  { code: 'ur', name: 'Urdu (RTL)', nativeName: 'اردو', flag: '🇵🇰' },
+  { code: 'fa', name: 'Persian (RTL)', nativeName: 'فارسی', flag: '🇮🇷' },
+  { code: 'sw', name: 'Swahili', nativeName: 'Kiswahili', flag: '🇰🇪' },
+  { code: 'af', name: 'Afrikaans', nativeName: 'Afrikaans', flag: '🇿🇦' }
+];
+
 export default function DashboardShell({ authUser, setAuthUser }) {
   // Install fetch interceptor lazily (not at module scope) to avoid Rolldown TDZ in production bundle
   installFetchInterceptor();
@@ -536,6 +646,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [forgotPasswordForm, setForgotPasswordForm] = useState({ email: '', newPassword: '' });
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
   const [forgotPasswordError, setForgotPasswordError] = useState(null);
+  const [activeLanguage, setActiveLanguage] = useState(() => localStorage.getItem('appLanguage') || 'en');
+  const [activeCurrency, setActiveCurrency] = useState(() => localStorage.getItem('appCurrency') || 'USD');
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', currentTheme);
@@ -6030,6 +6142,61 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     >
                       <Lock size={16} style={{ color: '#0d9488' }} />
                       <span>Change Password</span>
+                    </div>
+
+                    {/* Localization & Preferences Section */}
+                    <div style={{ borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', padding: '10px 16px', margin: '4px 0', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        PREFERENCES & REGION
+                      </div>
+
+                      {/* 1. Language Selector */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Globe size={13} color="#0d9488" /> Language ({ALL_WORLD_LANGUAGES.length} Languages)
+                        </label>
+                        <select
+                          value={activeLanguage || 'en'}
+                          onChange={(e) => {
+                            const newLang = e.target.value;
+                            setActiveLanguage(newLang);
+                            localStorage.setItem('appLanguage', newLang);
+                            const lObj = ALL_WORLD_LANGUAGES.find(l => l.code === newLang);
+                            showToast(`🌐 Language set to ${lObj ? lObj.flag + ' ' + lObj.name : newLang.toUpperCase()}`, 'success');
+                          }}
+                          style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', background: 'white', fontWeight: '600', color: '#0f172a', width: '100%' }}
+                        >
+                          {ALL_WORLD_LANGUAGES.map(l => (
+                            <option key={l.code} value={l.code}>
+                              {l.flag} {l.name} ({l.nativeName})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* 2. Currency Selector */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <CreditCard size={13} color="#0d9488" /> Display Currency ({ALL_WORLD_CURRENCIES.length} Currencies)
+                        </label>
+                        <select
+                          value={activeCurrency || 'USD'}
+                          onChange={(e) => {
+                            const newCurr = e.target.value;
+                            setActiveCurrency(newCurr);
+                            localStorage.setItem('appCurrency', newCurr);
+                            const cObj = ALL_WORLD_CURRENCIES.find(c => c.code === newCurr);
+                            showToast(`💲 Currency set to ${cObj ? cObj.flag + ' ' + cObj.name : newCurr}`, 'success');
+                          }}
+                          style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', background: 'white', fontWeight: '600', color: '#0f172a', width: '100%' }}
+                        >
+                          {ALL_WORLD_CURRENCIES.map(c => (
+                            <option key={c.code} value={c.code}>
+                              {c.flag} {c.code} - {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
 
                     <div style={{ borderTop: '1px solid #f1f5f9', margin: '4px 0' }}></div>
