@@ -32,7 +32,11 @@ export default function ViewEngine({
   activePipelineStages = [],
   onOpenExportModal = () => {},
   hiddenColIds = [],
-  setHiddenColIds = () => {}
+  setHiddenColIds = () => {},
+  currentPage = 1,
+  pageSize = 25,
+  onPageChange = () => {},
+  onPageSizeChange = () => {}
 }) {
   // Resolve enabled views from moduleConfig (supports availableViews array and views object map)
   let enabledViewsList = [];
