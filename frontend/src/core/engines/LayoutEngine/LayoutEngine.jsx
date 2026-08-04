@@ -179,14 +179,7 @@ export default function LayoutEngine({
         setHiddenColIds={setHiddenColIds}
       />
 
-      {/* B. KPI SUMMARY STRIP WIDGETS */}
-      {!isArchivedView && (
-        <WidgetEngine
-          moduleConfig={moduleConfig}
-          records={records}
-          activePipelineStages={activePipelineStages}
-        />
-      )}
+      {/* B. KPI SUMMARY STRIP WIDGETS (REMOVED FROM DIRECTORY — KEPT ON DASHBOARD) */}
 
       {/* C. ACTIVE FILTER CHIPS BAR */}
       <ActiveFilterChips
