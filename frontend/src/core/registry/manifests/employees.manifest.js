@@ -64,12 +64,14 @@ export const EMPLOYEES_MANIFEST = {
   ],
 
   defaultColumns: [
-    { id: 'employee', label: 'Employee Name', visible: true, fieldKey: 'name', width: '220px', align: 'left', sortOrder: 1 },
+    { id: 'name', label: 'Full Name', visible: true, fieldKey: 'name', width: '220px', align: 'left', sortOrder: 1 },
     { id: 'role', label: 'System Role', visible: true, fieldKey: 'role', width: '140px', align: 'left', sortOrder: 2 },
     { id: 'department', label: 'Department', visible: true, fieldKey: 'department', width: '140px', align: 'left', sortOrder: 3 },
-    { id: 'contact', label: 'Work Contact', visible: true, fieldKey: 'email', width: '200px', align: 'left', sortOrder: 4 },
-    { id: 'salary', label: 'Base Salary', visible: true, fieldKey: 'salary', width: '140px', align: 'left', sortOrder: 5 },
-    { id: 'status', label: 'Status', visible: true, fieldKey: 'status', width: '130px', align: 'left', sortOrder: 6 }
+    { id: 'designation', label: 'Designation', visible: true, fieldKey: 'designation', width: '140px', align: 'left', sortOrder: 4 },
+    { id: 'email', label: 'Work Email', visible: true, fieldKey: 'email', width: '200px', align: 'left', sortOrder: 5 },
+    { id: 'phone', label: 'Phone Number', visible: true, fieldKey: 'phone', width: '140px', align: 'left', sortOrder: 6 },
+    { id: 'salary', label: 'Base Salary', visible: false, fieldKey: 'salary', width: '140px', align: 'left', sortOrder: 7 },
+    { id: 'status', label: 'Employment Status', visible: true, fieldKey: 'status', width: '130px', align: 'left', sortOrder: 8 }
   ],
 
   defaultViews: {

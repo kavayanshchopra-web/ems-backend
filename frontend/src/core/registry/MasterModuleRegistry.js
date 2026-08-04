@@ -87,9 +87,25 @@ class MasterModuleRegistry {
       ? storedConfig.summaryWidgets
       : manifest.defaultSummaryWidgets;
 
-    const columns = storedConfig.columns && storedConfig.columns.length > 0
+    // Auto-sync columns to guarantee 1:1 match with fields
+    const rawCols = storedConfig.columns && storedConfig.columns.length > 0
       ? storedConfig.columns
       : manifest.defaultColumns;
+
+    const columns = (fields || []).filter(f => !f.archived && !f.deleted).map((f, idx) => {
+      const key = f.key || f.id;
+      const matchedCol = rawCols.find(c => c.id === f.id || c.fieldKey === key || c.id === key);
+      return {
+        id: f.id || key,
+        fieldKey: key,
+        label: f.label, // 100% sync exact field label from Forms & Fields
+        visible: matchedCol ? matchedCol.visible : (f.showOnList !== false),
+        width: matchedCol?.width || (key === 'name' ? '220px' : key === 'email' ? '200px' : '140px'),
+        align: matchedCol?.align || 'left',
+        sortable: true,
+        sortOrder: f.sortOrder || idx + 1
+      };
+    });
 
     const views = storedConfig.views
       ? storedConfig.views

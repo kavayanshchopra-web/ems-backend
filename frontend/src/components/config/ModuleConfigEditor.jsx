@@ -68,6 +68,28 @@ const getDefaultLookupData = (modId) => {
   return {};
 };
 
+const syncColumnsWithFields = (fields = [], existingCols = []) => {
+  const colMap = new Map((existingCols || []).map(c => [c.id || c.fieldKey, c]));
+  const activeFields = (fields || []).filter(f => !f.archived && !f.deleted);
+
+  return activeFields.map((f, idx) => {
+    const key = f.key || f.id;
+    const existingCol = colMap.get(f.id) || colMap.get(key);
+
+    return {
+      id: f.id || key,
+      fieldKey: key,
+      label: f.label, // Always 100% sync exact field label from Forms & Fields!
+      visible: f.showOnList !== false, // Always 100% sync LIST eye toggle!
+      width: existingCol?.width || (key === 'name' ? '220px' : key === 'email' ? '200px' : '140px'),
+      align: existingCol?.align || 'left',
+      sortable: true,
+      sortOrder: f.sortOrder || idx + 1,
+      systemColumn: f.systemField || false
+    };
+  });
+};
+
 /**
  * Generic Capability-Driven Module Configuration Editor
  * Single Source of Truth for ATS & All Enterprise Modules
@@ -88,20 +110,24 @@ export default function ModuleConfigEditor({
   const defaultLookups = getDefaultLookupData(modId);
 
   const [activeNav, setActiveNav] = useState('fields');
-  const [configState, setConfigState] = useState({
-    fields: (initialConfig.fields || []).map((f, idx) => ({
+  const [configState, setConfigState] = useState(() => {
+    const initialFields = (initialConfig.fields || []).map((f, idx) => ({
       ...f,
       key: f.key || f.id,
       sortOrder: f.sortOrder || idx + 1,
       showOnList: f.showOnList !== undefined ? f.showOnList : true,
       showOnKanban: f.showOnKanban !== undefined ? f.showOnKanban : true
-    })),
-    summaryWidgets: [...(initialConfig.summaryWidgets || [])],
-    columns: [...(initialConfig.columns || [])],
-    kanbanFields: { ...(initialConfig.kanbanFields || { position: true, email: true, phone: true, resume: true }) },
-    views: { ...(initialConfig.views || { availableViews: ['kanban', 'list'], defaultView: 'kanban' }) },
-    idConfig: { ...(initialConfig.idConfig || { prefix: 'ATS', pattern: 'ATS-001', nextSeq: 1 }) },
-    lookupData: { ...defaultLookups, ...(initialConfig.lookupData || {}) }
+    }));
+
+    return {
+      fields: initialFields,
+      summaryWidgets: [...(initialConfig.summaryWidgets || [])],
+      columns: syncColumnsWithFields(initialFields, initialConfig.columns),
+      kanbanFields: { ...(initialConfig.kanbanFields || { position: true, email: true, phone: true, resume: true }) },
+      views: { ...(initialConfig.views || { availableViews: ['kanban', 'list'], defaultView: 'kanban' }) },
+      idConfig: { ...(initialConfig.idConfig || { prefix: 'ATS', pattern: 'ATS-001', nextSeq: 1 }) },
+      lookupData: { ...defaultLookups, ...(initialConfig.lookupData || {}) }
+    };
   });
 
   const [selectedLookupDataset, setSelectedLookupDataset] = useState(() => {
@@ -224,10 +250,14 @@ export default function ModuleConfigEditor({
 
   const handleConfirmArchiveField = () => {
     if (!fieldToArchive) return;
-    setConfigState(prev => ({
-      ...prev,
-      fields: prev.fields.map(f => f.id === fieldToArchive.id ? { ...f, archived: true } : f)
-    }));
+    setConfigState(prev => {
+      const updatedFields = prev.fields.map(f => f.id === fieldToArchive.id ? { ...f, archived: true } : f);
+      return {
+        ...prev,
+        fields: updatedFields,
+        columns: syncColumnsWithFields(updatedFields, prev.columns)
+      };
+    });
     showToast(`📦 Archived field "${fieldToArchive.label}". Historical records preserved.`, 'info');
     setShowArchiveModal(false);
     setFieldToArchive(null);
@@ -235,10 +265,14 @@ export default function ModuleConfigEditor({
 
   const handleRestoreField = (fieldId) => {
     const field = configState.fields.find(f => f.id === fieldId);
-    setConfigState(prev => ({
-      ...prev,
-      fields: prev.fields.map(f => f.id === fieldId ? { ...f, archived: false } : f)
-    }));
+    setConfigState(prev => {
+      const updatedFields = prev.fields.map(f => f.id === fieldId ? { ...f, archived: false } : f);
+      return {
+        ...prev,
+        fields: updatedFields,
+        columns: syncColumnsWithFields(updatedFields, prev.columns)
+      };
+    });
     showToast(`🔄 Restored field "${field?.label || fieldId}" back to active use.`, 'success');
   };
 
@@ -349,27 +383,39 @@ export default function ModuleConfigEditor({
     updated[idx] = temp;
 
     const reordered = updated.map((f, i) => ({ ...f, sortOrder: i + 1 }));
-    setConfigState(prev => ({ ...prev, fields: reordered }));
+    setConfigState(prev => ({
+      ...prev,
+      fields: reordered,
+      columns: syncColumnsWithFields(reordered, prev.columns)
+    }));
   };
 
   const handleToggleFieldProp = (fieldId, prop) => {
-    setConfigState(prev => ({
-      ...prev,
-      fields: prev.fields.map(f => {
+    setConfigState(prev => {
+      const updatedFields = prev.fields.map(f => {
         if (f.id === fieldId) {
           if (f.systemField && prop === 'required') return f;
           return { ...f, [prop]: !f[prop] };
         }
         return f;
-      })
-    }));
+      });
+      return {
+        ...prev,
+        fields: updatedFields,
+        columns: syncColumnsWithFields(updatedFields, prev.columns)
+      };
+    });
   };
 
   const handleFieldPropertyChange = (fieldId, prop, val) => {
-    setConfigState(prev => ({
-      ...prev,
-      fields: prev.fields.map(f => f.id === fieldId ? { ...f, [prop]: val } : f)
-    }));
+    setConfigState(prev => {
+      const updatedFields = prev.fields.map(f => f.id === fieldId ? { ...f, [prop]: val } : f);
+      return {
+        ...prev,
+        fields: updatedFields,
+        columns: syncColumnsWithFields(updatedFields, prev.columns)
+      };
+    });
   };
 
   const handleAddCustomField = () => {
@@ -620,7 +666,7 @@ export default function ModuleConfigEditor({
               </h2>
             </div>
             <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>
-              Single source of truth configuration engine for Recruitment ATS. All screens update live from metadata.
+              Single source of truth configuration engine for {moduleDef?.label || 'this module'}. All screens update live from metadata.
             </p>
           </div>
         </div>
