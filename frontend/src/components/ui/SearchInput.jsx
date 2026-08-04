@@ -11,6 +11,7 @@ export default function SearchInput({
   style = {},
   width = '240px',
   disabled = false,
+  rightElement = null,
   ...props
 }) {
   return (
@@ -25,7 +26,7 @@ export default function SearchInput({
           width: '100%',
           height: '38px',
           paddingLeft: '14px',
-          paddingRight: value ? '32px' : '14px',
+          paddingRight: rightElement ? (value ? '64px' : '42px') : (value ? '32px' : '14px'),
           fontSize: '12px',
           fontFamily: 'Inter, system-ui, sans-serif',
           color: '#0f172a',
@@ -43,7 +44,7 @@ export default function SearchInput({
           onClick={onClear}
           style={{
             position: 'absolute',
-            right: '8px',
+            right: rightElement ? '40px' : '8px',
             background: 'none',
             border: 'none',
             color: '#94a3b8',
@@ -58,6 +59,12 @@ export default function SearchInput({
         >
           ✕
         </button>
+      )}
+
+      {rightElement && (
+        <div style={{ position: 'absolute', right: '5px', display: 'flex', alignItems: 'center' }}>
+          {rightElement}
+        </div>
       )}
     </div>
   );

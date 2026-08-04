@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Plus, Archive, Settings, Sliders, Filter, Download, Upload, X, Columns } from 'lucide-react';
+import { Plus, Archive, Settings, Sliders, Filter, Download, Upload, X, Columns, ChevronDown } from 'lucide-react';
 import Button from '../../../components/ui/Button';
 import SearchInput from '../../../components/ui/SearchInput';
 import ViewSwitcher from '../ViewEngine/ViewSwitcher';
@@ -292,28 +292,41 @@ export default function LayoutToolbar({
           />
         </div>
 
-        {/* B. CENTER: SEARCH INPUT + FILTERS + PRESET TABS */}
+        {/* B. CENTER: SEARCH INPUT WITH INTEGRATED MINI GREEN FILTER ARROW BOX + PRESET TABS */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'center', flex: 1 }}>
-          <SearchInput
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            onClear={() => onSearchChange('')}
-            placeholder={PlaceholderEngine.getSearchPlaceholder(moduleConfig)}
-            width="280px"
-          />
-
-          {/* FILTERS POPOVER */}
           <div style={{ position: 'relative' }}>
-            <Button
-              variant={isFilterActive ? 'primary' : 'secondary'}
-              size="md"
-              icon={<Filter size={14} />}
-              onClick={() => setShowFilterPopover(prev => !prev)}
-              style={isFilterActive ? { background: '#0d9488', color: 'white', border: 'none' } : {}}
-            >
-              Filters {isFilterActive ? '•' : ''}
-            </Button>
+            <SearchInput
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              onClear={() => onSearchChange('')}
+              placeholder={PlaceholderEngine.getSearchPlaceholder(moduleConfig)}
+              width="280px"
+              rightElement={
+                <button
+                  type="button"
+                  title="Open Filters"
+                  onClick={() => setShowFilterPopover(prev => !prev)}
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '6px',
+                    background: isFilterActive ? '#065f46' : '#0d9488',
+                    border: 'none',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 1px 3px rgba(13, 148, 136, 0.3)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <ChevronDown size={15} />
+                </button>
+              }
+            />
 
+            {/* FILTER PANEL POPOVER ANCHORED BELOW SEARCH INPUT */}
             {showFilterPopover && (
               <FilterPanel
                 moduleConfig={moduleConfig}
