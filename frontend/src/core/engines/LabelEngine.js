@@ -137,10 +137,59 @@ export class LabelEngine {
   }
 
   /**
-   * Get badge color variant for stage status
-   * @param {string} stageStatus 
-   * @returns {'success' | 'warning' | 'info' | 'neutral' | 'danger'}
+   * Format currency with dynamic active currency symbol and exchange conversion!
+   * @param {number|string} amount 
+   * @param {string} targetCurrency 
+   * @param {string} sourceCurrency 
+   * @returns {string}
    */
+  static formatCurrencyVal(amount, targetCurrency = null, sourceCurrency = 'USD') {
+    if (amount === null || amount === undefined || amount === '') return '—';
+    const num = Number(amount);
+    if (isNaN(num)) return String(amount);
+
+    let activeCurr = targetCurrency;
+    if (!activeCurr && typeof window !== 'undefined') {
+      activeCurr = localStorage.getItem('appCurrency') || 'USD';
+    }
+    if (!activeCurr) activeCurr = 'USD';
+
+    // Standard Exchange Rate Matrix against USD
+    const rates = {
+      USD: 1,
+      INR: 83.5,
+      EUR: 0.92,
+      AED: 3.67,
+      GBP: 0.78,
+      SAR: 3.75,
+      CAD: 1.37,
+      AUD: 1.52,
+      KWD: 0.31,
+      QAR: 3.64,
+      SGD: 1.35,
+      JPY: 155.2,
+      CHF: 0.89,
+      CNY: 7.25,
+      BRL: 5.45,
+      ZAR: 18.2,
+      RUB: 88.0
+    };
+
+    const sourceRate = rates[sourceCurrency] || 1;
+    const targetRate = rates[activeCurr] || 1;
+    const convertedNum = (num / sourceRate) * targetRate;
+
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: activeCurr,
+        maximumFractionDigits: activeCurr === 'JPY' ? 0 : 2
+      }).format(convertedNum);
+    } catch (e) {
+      return `${activeCurr} ${convertedNum.toFixed(2)}`;
+    }
+  }
+
   /**
    * Get dynamic color style for any dropdown value (role, status, department, designation, custom dropdown)
    * @param {string} val 

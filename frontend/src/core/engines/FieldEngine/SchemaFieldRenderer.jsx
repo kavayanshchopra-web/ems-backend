@@ -47,6 +47,14 @@ export default function SchemaFieldRenderer({
   readOnly = false,
   theme = {}
 }) {
+  const [currVersion, setCurrVersion] = React.useState(0);
+
+  React.useEffect(() => {
+    const handleCurrChange = () => setCurrVersion(v => v + 1);
+    window.addEventListener('app_currency_changed', handleCurrChange);
+    return () => window.removeEventListener('app_currency_changed', handleCurrChange);
+  }, []);
+
   if (!field || field.hidden || field.archived || field.deleted) return null;
 
   const isViewMode = mode === 'view' || readOnly || field.readOnly;
@@ -91,8 +99,8 @@ export default function SchemaFieldRenderer({
 
     if (field.type === 'checkbox' || field.type === 'boolean' || field.type === 'toggle') {
       displayVal = Boolean(rawVal) ? 'Yes' : 'No';
-    } else if (field.type === 'currency') {
-      displayVal = valStr ? `$${Number(valStr).toLocaleString()}` : '—';
+    } else if (field.type === 'currency' || field.id === 'baseSalary' || field.key === 'baseSalary' || field.id === 'salary' || field.key === 'salary') {
+      displayVal = valStr ? LabelEngine.formatCurrencyVal(valStr, moduleConfig?.activeCurrency || field.currencyCode) : '—';
     } else if (field.type === 'rating') {
       const ratingNum = parseInt(valStr, 10) || 0;
       displayVal = '★'.repeat(ratingNum) + '☆'.repeat(Math.max(0, 5 - ratingNum));

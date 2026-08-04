@@ -6185,6 +6185,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             const newCurr = e.target.value;
                             setActiveCurrency(newCurr);
                             localStorage.setItem('appCurrency', newCurr);
+                            window.dispatchEvent(new Event('app_currency_changed'));
                             const cObj = ALL_WORLD_CURRENCIES.find(c => c.code === newCurr);
                             showToast(`💲 Currency set to ${cObj ? cObj.flag + ' ' + cObj.name : newCurr}`, 'success');
                           }}
