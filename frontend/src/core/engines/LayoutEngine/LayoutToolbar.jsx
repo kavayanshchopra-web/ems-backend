@@ -120,11 +120,6 @@ export default function LayoutToolbar({
 
         {/* Header Action Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginLeft: 'auto' }}>
-          <ViewSwitcher
-            availableViews={availableViews}
-            activeView={viewMode}
-            onViewChange={onViewChange}
-          />
 
           {canManage && (
             <div style={{ position: 'relative' }}>
@@ -243,64 +238,9 @@ export default function LayoutToolbar({
           boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', flex: 1 }}>
-          <SearchInput
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            onClear={() => onSearchChange('')}
-            placeholder={PlaceholderEngine.getSearchPlaceholder(moduleConfig)}
-            width="320px"
-          />
-
-          {/* FILTERS POPOVER */}
+        {/* A. LEFT CORNER: COLS BUTTON & PAGINATION CONTROLS */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ position: 'relative' }}>
-            <Button
-              variant={isFilterActive ? 'primary' : 'secondary'}
-              size="md"
-              icon={<Filter size={14} />}
-              onClick={() => setShowFilterPopover(prev => !prev)}
-              style={isFilterActive ? { background: '#0d9488', color: 'white', border: 'none' } : {}}
-            >
-              Filters {isFilterActive ? '•' : ''}
-            </Button>
-
-            {showFilterPopover && (
-              <FilterPanel
-                moduleConfig={moduleConfig}
-                filterValues={filterValues}
-                onFilterChange={onFilterChange}
-                onResetFilters={onResetFilters}
-                onClose={() => setShowFilterPopover(false)}
-                onOpenSavePresetModal={() => setShowSavePresetModal(true)}
-                systemDropdowns={systemDropdowns}
-                activePipelineStages={activePipelineStages}
-                allPositions={allPositions}
-              />
-            )}
-          </div>
-
-          {/* UNIVERSAL SAVED VIEWS & PRESET TABS */}
-          <div style={{ marginLeft: '4px', flex: 1, minWidth: '200px' }}>
-            <SavedViewsEngine
-              moduleConfig={moduleConfig}
-              filterValues={filterValues}
-              searchQuery={searchQuery}
-              sortKey={sortKey}
-              sortDir={sortDir}
-              viewMode={viewMode}
-              onApplyPreset={(presetState) => {
-                if (presetState.filterValues !== undefined) onFilterChange(presetState.filterValues);
-                if (presetState.searchQuery !== undefined) onSearchChange(presetState.searchQuery);
-                if (presetState.sortKey !== undefined && onSortChange) onSortChange(presetState.sortKey, presetState.sortDir || 'desc');
-              }}
-              externalShowSaveModal={showSavePresetModal}
-              onCloseExternalSaveModal={() => setShowSavePresetModal(false)}
-              showToast={showToast}
-            />
-          </div>
-
-          {/* COLUMNS SELECTION & PAGINATION CONTROLS (RIGHT SIDE OF SEARCH BAR ROW) */}
-          <div style={{ position: 'relative', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               type="button"
               onClick={() => setShowColumnPopover(prev => !prev)}
@@ -339,17 +279,84 @@ export default function LayoutToolbar({
                 onClose={() => setShowColumnPopover(false)}
               />
             )}
+          </div>
 
-            {/* COMPACT PAGINATION (NO TEXT) */}
-            <Pagination
-              compact={true}
-              currentPage={currentPage}
-              pageSize={pageSize}
-              totalRecords={totalCount}
-              onPageChange={onPageChange}
-              onPageSizeChange={onPageSizeChange}
+          {/* COMPACT PAGINATION (NO TEXT) */}
+          <Pagination
+            compact={true}
+            currentPage={currentPage}
+            pageSize={pageSize}
+            totalRecords={totalCount}
+            onPageChange={onPageChange}
+            onPageSizeChange={onPageSizeChange}
+          />
+        </div>
+
+        {/* B. CENTER: SEARCH INPUT + FILTERS + PRESET TABS */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'center', flex: 1 }}>
+          <SearchInput
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            onClear={() => onSearchChange('')}
+            placeholder={PlaceholderEngine.getSearchPlaceholder(moduleConfig)}
+            width="280px"
+          />
+
+          {/* FILTERS POPOVER */}
+          <div style={{ position: 'relative' }}>
+            <Button
+              variant={isFilterActive ? 'primary' : 'secondary'}
+              size="md"
+              icon={<Filter size={14} />}
+              onClick={() => setShowFilterPopover(prev => !prev)}
+              style={isFilterActive ? { background: '#0d9488', color: 'white', border: 'none' } : {}}
+            >
+              Filters {isFilterActive ? '•' : ''}
+            </Button>
+
+            {showFilterPopover && (
+              <FilterPanel
+                moduleConfig={moduleConfig}
+                filterValues={filterValues}
+                onFilterChange={onFilterChange}
+                onResetFilters={onResetFilters}
+                onClose={() => setShowFilterPopover(false)}
+                onOpenSavePresetModal={() => setShowSavePresetModal(true)}
+                systemDropdowns={systemDropdowns}
+                activePipelineStages={activePipelineStages}
+                allPositions={allPositions}
+              />
+            )}
+          </div>
+
+          {/* UNIVERSAL SAVED VIEWS & PRESET TABS */}
+          <div style={{ marginLeft: '4px' }}>
+            <SavedViewsEngine
+              moduleConfig={moduleConfig}
+              filterValues={filterValues}
+              searchQuery={searchQuery}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              viewMode={viewMode}
+              onApplyPreset={(presetState) => {
+                if (presetState.filterValues !== undefined) onFilterChange(presetState.filterValues);
+                if (presetState.searchQuery !== undefined) onSearchChange(presetState.searchQuery);
+                if (presetState.sortKey !== undefined && onSortChange) onSortChange(presetState.sortKey, presetState.sortDir || 'desc');
+              }}
+              externalShowSaveModal={showSavePresetModal}
+              onCloseExternalSaveModal={() => setShowSavePresetModal(false)}
+              showToast={showToast}
             />
           </div>
+        </div>
+
+        {/* C. RIGHT CORNER: LIST / KANBAN VIEW SWITCHER */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <ViewSwitcher
+            availableViews={availableViews}
+            activeView={viewMode}
+            onViewChange={onViewChange}
+          />
         </div>
       </div>
     </div>
