@@ -27,7 +27,7 @@ export default function ColumnManagerPopover({
       style={{
         position: 'absolute',
         top: '110%',
-        right: 0,
+        left: 0,
         zIndex: 100,
         background: '#ffffff',
         borderRadius: '12px',
