@@ -410,6 +410,11 @@ const formatJidName = (jid) => {
   return `+${number}`;
 };
 
+const isPhone = (str) => {
+  if (!str) return false;
+  return /^\+?[0-9\s\-()]{7,20}$/.test(String(str).trim());
+};
+
 const playNotificationSound = () => {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -444,8 +449,6 @@ const playNotificationSound = () => {
     console.error('Audio play failed:', e);
   }
 };
-
-const isPhone = (str) => /^\d+$/.test(str || '');
 
 const renderStatusTicks = (status) => {
   // Statuses from WhatsApp / Baileys:
@@ -533,6 +536,42 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       window.location.reload();
     }
   };
+
+  // CRM / WhatsApp Inbox State Hub
+  const [contacts, setContacts] = useState([]);
+  const [activeContact, setActiveContact] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [messagesOffset, setMessagesOffset] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState('');
+  const [chatTypeFilter, setChatTypeFilter] = useState('all'); // 'all', 'direct', 'group', 'unread', 'archived'
+  const [crmStageFilter, setCrmStageFilter] = useState('all');
+
+  const filteredContacts = (contacts || []).filter(c => {
+    if (!c) return false;
+    if (chatSearchQuery.trim()) {
+      const q = chatSearchQuery.toLowerCase();
+      const nameMatch = (c.name || '').toLowerCase().includes(q) || (c.custom_name || '').toLowerCase().includes(q) || (c.id || '').toLowerCase().includes(q);
+      const phoneMatch = (c.phone || '').toLowerCase().includes(q);
+      if (!nameMatch && !phoneMatch) return false;
+    }
+    if (chatTypeFilter === 'direct' && (c.id || '').endsWith('@g.us')) return false;
+    if (chatTypeFilter === 'group' && !(c.id || '').endsWith('@g.us')) return false;
+    if (chatTypeFilter === 'unread' && (!c.unread_count || c.unread_count <= 0)) return false;
+    if (chatTypeFilter === 'archived' && !c.is_archived) return false;
+    if (chatTypeFilter !== 'archived' && c.is_archived) return false;
+
+    if (crmStageFilter !== 'all' && (c.pipeline_stage || 'new') !== crmStageFilter) return false;
+
+    return true;
+  });
+
+  const sortedFilteredContacts = [...filteredContacts].sort((a, b) => {
+    const timeA = a.last_message_timestamp ? new Date(a.last_message_timestamp).getTime() : (a.last_message_time ? a.last_message_time * 1000 : 0);
+    const timeB = b.last_message_timestamp ? new Date(b.last_message_timestamp).getTime() : (b.last_message_time ? b.last_message_time * 1000 : 0);
+    return timeB - timeA;
+  });
 
   const [activeTab, setActiveTab] = useState('inbox'); // 'inbox', 'kanban', 'channels'
   const [isMobilePreview, setIsMobilePreview] = useState(false);
@@ -1247,12 +1286,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   });
 
   const [sessions, setSessions] = useState([]);
-  const [contacts, setContacts] = useState([]);
-  const [activeContact, setActiveContact] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [messagesOffset, setMessagesOffset] = useState(0);
-  const [hasMoreMessages, setHasMoreMessages] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // New Chat states
   const [showNewChatModal, setShowNewChatModal] = useState(false);
@@ -2583,8 +2616,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [crmLabels, setCrmLabels] = useState([]);
   const [newLabelText, setNewLabelText] = useState('');
   const [serverOnline, setServerOnline] = useState(() => typeof navigator !== 'undefined' ? (navigator.onLine !== false) : true);
-  const [chatTypeFilter, setChatTypeFilter] = useState('all'); // 'all', 'dm', 'group'
-  const [crmStageFilter, setCrmStageFilter] = useState('all'); // 'all', 'new', 'contacted', 'interested', 'proposal', 'won'
 
   // Auth states passed as props
   const [email, setEmail] = useState('');
