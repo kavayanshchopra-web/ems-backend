@@ -83,36 +83,36 @@ export default function LayoutToolbar({
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '12px',
+          gap: '10px',
           background: '#ffffff',
-          padding: '8px 14px',
-          borderRadius: '12px',
+          padding: '5px 12px',
+          borderRadius: '10px',
           border: '1px solid #e2e8f0',
-          boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
+          boxShadow: '0 2px 5px rgba(0,0,0,0.03)'
         }}
       >
         {/* Module Title & Subtitle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div
             style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '10px',
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
               background: 'linear-gradient(135deg, rgba(13,148,136,0.15) 0%, rgba(15,118,110,0.25) 100%)',
               display: 'flex',
               alignItems: 'center',
-              justify: 'center',
-              fontSize: '18px',
+              justifyContent: 'center',
+              fontSize: '15px',
               flexShrink: 0
             }}
           >
             {moduleConfig.icon || '🧑‍💼'}
           </div>
           <div>
-            <h1 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#0f172a' }}>
+            <h1 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
               {LabelEngine.getModuleTitle(moduleConfig)}
             </h1>
-            <p style={{ margin: '1px 0 0 0', fontSize: '12px', color: '#64748b' }}>
+            <p style={{ margin: '0px 0 0 0', fontSize: '11px', color: '#64748b' }}>
               {LabelEngine.getModuleSubtitle(moduleConfig)}
             </p>
           </div>
@@ -129,18 +129,18 @@ export default function LayoutToolbar({
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
-                  padding: '7px 12px',
-                  fontSize: '12px',
+                  gap: '5px',
+                  padding: '5px 10px',
+                  fontSize: '11.5px',
                   fontWeight: '700',
-                  borderRadius: '8px',
+                  borderRadius: '7px',
                   border: '1px solid #cbd5e1',
                   background: '#ffffff',
                   color: '#334155',
                   cursor: 'pointer'
                 }}
               >
-                <Settings size={14} /> Manage ▾
+                <Settings size={13} /> Manage ▾
               </button>
 
               {showManageDropdown && (

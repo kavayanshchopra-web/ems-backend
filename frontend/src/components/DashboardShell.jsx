@@ -4339,10 +4339,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     try {
       const res = await fetch(`${API_URL}/holidays`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newHolidayForm)
       });
       if (res.ok) {
-        alert('Holiday added successfully!');
+        showToast('Holiday added successfully!', 'success');
         setShowAddHolidayModal(false);
         setNewHolidayForm({ name: '', date: '' });
         fetchHolidays();
@@ -4356,7 +4357,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     let list = saved ? JSON.parse(saved) : [];
     list.push({ id: Date.now(), ...payload });
     localStorage.setItem('omnilflow_fallback_holidays', JSON.stringify(list));
-    alert('Holiday saved in local sync!');
+    showToast('Holiday saved in local sync!', 'info');
     setShowAddHolidayModal(false);
     setNewHolidayForm({ name: '', date: '' });
     fetchHolidays();
@@ -4393,353 +4394,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.error(err);
     }
-
-    const saved = localStorage.getItem('omnilflow_fallback_holidays');
-    if (saved) {
-      let list = JSON.parse(saved);
-      list = list.filter(h => h.id !== id);
-      localStorage.setItem('omnilflow_fallback_holidays', JSON.stringify(list));
-    }
     fetchHolidays();
   };
-
-  const fetchLeaves = async () => {
-    try {
-      if (db) {
-        const qSnap = await getDocs(collection(db, 'leaves'));
-        const fbList = [];
-        qSnap.forEach(docDoc => {
-          fbList.push({ id: docDoc.id, ...docDoc.data() });
-        });
-        if (fbList.length > 0) {
-          setLeaves(fbList);
-          localStorage.setItem('omnilflow_fallback_leaves', JSON.stringify(fbList));
-          return;
-        }
-      }
-    } catch (fbErr) {
-      console.warn('Firebase query leaves failed:', fbErr.message);
-    }
-
-    try {
-      const res = await fetch(`${API_URL}/leaves`);
-      if (res.ok) {
-        const data = await res.json();
-        setLeaves(data);
-        localStorage.setItem('omnilflow_fallback_leaves', JSON.stringify(data));
-      }
-    } catch (err) {
-      console.error(err);
-    }
-
-    const saved = localStorage.getItem('omnilflow_fallback_leaves');
-    if (saved) setLeaves(JSON.parse(saved));
-  };
-
-  const handleSaveLeave = async (e) => {
-    e.preventDefault();
-    const payload = {
-      startDate: newLeaveForm.startDate,
-      endDate: newLeaveForm.endDate,
-      type: newLeaveForm.type,
-      reason: newLeaveForm.reason,
-      status: 'pending',
-      requestedBy: authUser?.email || 'Employee'
-    };
-
-    try {
-      if (db) {
-        await addDoc(collection(db, 'leaves'), payload);
-        showToast('🟢 Sync: Leave submitted to Cloud Firestore!', 'success');
-      }
-    } catch (fbErr) {
-      console.warn('Firebase save leave failed:', fbErr.message);
-    }
-
-    try {
-      const res = await fetch(`${API_URL}/leaves`, {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) {
-        alert('Leave requested successfully!');
-        setShowAddLeaveModal(false);
-        setNewLeaveForm({ startDate: '', endDate: '', type: 'Sick', reason: '' });
-        fetchLeaves();
-        return;
-      }
-    } catch (err) {
-      console.error(err);
-    }
-
-    const saved = localStorage.getItem('omnilflow_fallback_leaves');
-    let list = saved ? JSON.parse(saved) : [];
-    list.push({ id: Date.now(), ...payload });
-    localStorage.setItem('omnilflow_fallback_leaves', JSON.stringify(list));
-    alert('Leave request saved in local sync!');
-    setShowAddLeaveModal(false);
-    setNewLeaveForm({ startDate: '', endDate: '', type: 'Sick', reason: '' });
-    fetchLeaves();
-  };
-
-  const handleApproveLeave = async (id, status) => {
-    try {
-      if (db) {
-        await setDoc(doc(db, 'leaves', id.toString()), { status }, { merge: true });
-        showToast(`🟢 Leave request status updated to: ${status}`, 'success');
-      }
-    } catch (fbErr) { }
-
-    try {
-      const res = await fetch(`${API_URL}/leaves/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status })
-      });
-      if (res.ok) {
-        fetchLeaves();
-        return;
-      }
-    } catch (err) {
-      console.error(err);
-    }
-
-    const saved = localStorage.getItem('omnilflow_fallback_leaves');
-    if (saved) {
-      let list = JSON.parse(saved);
-      list = list.map(l => l.id === id ? { ...l, status } : l);
-      localStorage.setItem('omnilflow_fallback_leaves', JSON.stringify(list));
-    }
-    fetchLeaves();
-  };
-
-  useEffect(() => {
-    if (activeTab === 'gps_attendance' && authUser) {
-      fetchAttendanceTodayStatus();
-      if (authUser.role === 'owner' || authUser.role === 'admin' || authUser.role === 'manager') {
-        fetchAttendanceLogs();
-        fetchLiveLocations();
-        fetchEmployees();
-      }
-    }
-    if (activeTab === 'tasks' && authUser) {
-      fetchTasks();
-      fetchEmployees();
-    }
-    if (activeTab === 'notice_board' && authUser) {
-      fetchNotices();
-    }
-    if (activeTab === 'holidays' && authUser) {
-      fetchHolidays();
-    }
-    if (activeTab === 'leaves' && authUser) {
-      fetchLeaves();
-      fetchEmployees();
-    }
-    if (activeTab === 'payroll' && authUser) {
-      fetchAttendanceLogs();
-      fetchEmployees();
-    }
-    if (activeTab === 'admin_dashboard' && authUser) {
-      fetchEmployees();
-      fetchAttendanceLogs();
-      fetchTasks();
-    }
-    if (activeTab === 'recycle_bin' && authUser) {
-      fetchRecycleBin();
-    }
-  }, [activeTab, authUser]);
-
-  // Background GPS tracking breadcrumb pinger (every 3 minutes)
-  useEffect(() => {
-    let intervalId = null;
-    if (authUser && todayStatus && todayStatus.status === 'checked_in') {
-      const sendGpsPing = () => {
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            async (pos) => {
-              try {
-                await fetch(`${API_URL}/gps/track`, {
-                  method: 'POST',
-                  body: JSON.stringify({
-                    lat: pos.coords.latitude,
-                    lng: pos.coords.longitude,
-                    accuracy: pos.coords.accuracy
-                  })
-                });
-              } catch (err) {
-                console.warn('GPS background ping failed', err);
-              }
-            },
-            null,
-            { enableHighAccuracy: true }
-          );
-        }
-      };
-
-      sendGpsPing();
-      intervalId = setInterval(sendGpsPing, 180000);
-    }
-
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [authUser, todayStatus]);
-
-  const socketRef = useRef(null);
-  const messagesEndRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
-
-  // Fetch initial data
-  useEffect(() => {
-    const handleAuthFailed = () => {
-      setAuthUser(null);
-      setActiveTab('login');
-    };
-    const handleSubscriptionExpired = () => {
-      alert('Your subscription is inactive. Please renew your subscription to proceed.');
-      setActiveTab('billing');
-    };
-
-    window.addEventListener('auth_failed', handleAuthFailed);
-    window.addEventListener('subscription_expired', handleSubscriptionExpired);
-
-    return () => {
-      window.removeEventListener('auth_failed', handleAuthFailed);
-      window.removeEventListener('subscription_expired', handleSubscriptionExpired);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (authUser) {
-      fetchSessions();
-      fetchContacts();
-      fetchChatbotRules();
-      fetchTenantSettings();
-
-      // Connect WebSockets
-      const currentToken = localStorage.getItem('omnilflow_token');
-      if (currentToken !== 'superadmin_master_token_override') {
-        const socket = io(SOCKET_URL, {
-          query: { token: currentToken }
-        });
-        socketRef.current = socket;
-
-        socket.on('connect', () => {
-        console.log('Connected to WebSocket server');
-        setServerOnline(true);
-        fetchSessions();
-        fetchContacts();
-      });
-
-      socket.on('disconnect', () => {
-        console.log('Disconnected from WebSocket server');
-        setServerOnline(false);
-      });
-
-
-      socket.on('session_update', (data) => {
-        console.log('Session updated:', data);
-        setSessions(prev => prev.map(s => {
-          if (s.id === data.id) {
-            return {
-              ...s,
-              status: data.status,
-              qr_code: data.qr || s.qr_code,
-              phone_number: data.phoneNumber || s.phone_number,
-              profile_pic_url: data.profilePicUrl || s.profile_pic_url
-            };
-          }
-          return s;
-        }));
-      });
-
-      socket.on('new_message', (msg) => {
-        console.log('New message received:', msg);
-
-        const targetContactId = msg.contact_id || msg.contactId;
-        let isCurrentChat = false;
-
-        // If the message belongs to currently active chat, append it
-        setActiveContact(currentActive => {
-          if (currentActive && currentActive.id === targetContactId) {
-            isCurrentChat = true;
-            setMessages(prev => {
-              // Avoid duplicate appends
-              if (prev.some(m => m.id === msg.id)) return prev;
-              return [...prev, msg];
-            });
-          }
-          return currentActive;
-        });
-
-        if (isCurrentChat) {
-          // If it's the current active chat, mark it read immediately on the backend
-          fetch(`${API_URL}/contacts/${targetContactId}/read`, { method: 'PUT' })
-            .catch(err => console.error('Failed to mark incoming message as read:', err));
-        } else {
-          // Play notification sound alert for incoming message from other chats
-          if (!msg.system_sync && (msg.from_me === 0 || msg.from_me === false)) {
-            playNotificationSound();
-          }
-        }
-
-        // Refresh contacts list to update previews and order
-        fetchContacts();
-      });
-
-      socket.on('media_downloaded', (data) => {
-        console.log('Background media downloaded:', data);
-        setMessages(prev => prev.map(m => m.id === data.id ? { ...m, media_url: data.mediaUrl, mediaUrl: data.mediaUrl } : m));
-      });
-
-      socket.on('message_status_update', (data) => {
-        setMessages(prev => prev.map(m => m.id === data.id ? { ...m, status: data.status } : m));
-      });
-
-      socket.on('broadcast_progress', (data) => {
-        setBroadcastProgress(data);
-      });
-
-      socket.on('scheduled_message_update', (data) => {
-        setActiveContact(current => {
-          if (current && current.id === data.contactId) {
-            fetchScheduledMessages(data.contactId);
-          }
-          return current;
-        });
-      });
-
-      socket.on('message_star_update', (data) => {
-        setMessages(prev => prev.map(m => m.id === data.id ? { ...m, is_starred: data.isStarred } : m));
-        setActiveContact(current => {
-          if (current) {
-            fetchStarredMessages(current.id);
-          }
-          return current;
-        });
-      });
-
-      socket.on('contact_update', (updatedContact) => {
-        setContacts(prev => prev.map(c => c.id === updatedContact.id ? { ...c, ...updatedContact, labels: typeof updatedContact.labels === 'string' ? JSON.parse(updatedContact.labels) : updatedContact.labels } : c));
-        setActiveContact(current => {
-          if (current && current.id === updatedContact.id) {
-            const parsedLabels = typeof updatedContact.labels === 'string' ? JSON.parse(updatedContact.labels) : updatedContact.labels;
-            return { ...current, ...updatedContact, labels: parsedLabels };
-          }
-          return current;
-        });
-      });
-
-      } // Close if (currentToken !== 'superadmin_master_token_override')
-
-      return () => {
-        if (socketRef.current) {
-          socketRef.current.disconnect();
-        }
-      };
-    }
-  }, [authUser]);
 
   // Scroll to bottom of chat
   useEffect(() => {
@@ -4760,7 +4416,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setChatHistorySearchQuery('');
       setShowChatHistorySearch(false);
 
-      // Mark messages as read and clear unread count locally
       if (activeContact.unread_count > 0) {
         setContacts(prev => prev.map(c => c.id === activeContact.id ? { ...c, unread_count: 0 } : c));
         setActiveContact(prev => prev && prev.id === activeContact.id ? { ...prev, unread_count: 0 } : prev);
@@ -4768,7 +4423,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           .catch(err => console.error('Failed to mark messages as read on click:', err));
       }
 
-      // Fetch profile picture if not cached
       if (!activeContact.profile_pic_url || activeContact.profile_pic_url === 'none') {
         fetch(`${API_URL}/contacts/${activeContact.id}/profile-pic`)
           .then(res => res.json())
@@ -4777,7 +4431,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               setActiveContact(prev => prev && prev.id === activeContact.id ? { ...prev, profile_pic_url: data.profile_pic_url } : prev);
               setContacts(prev => prev.map(c => c.id === activeContact.id ? { ...c, profile_pic_url: data.profile_pic_url } : c));
             } else {
-              // Cache 'none' locally in react state so we don't spam fetch it
               setActiveContact(prev => prev && prev.id === activeContact.id ? { ...prev, profile_pic_url: 'none' } : prev);
               setContacts(prev => prev.map(c => c.id === activeContact.id ? { ...c, profile_pic_url: 'none' } : c));
             }
@@ -4785,8 +4438,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           .catch(err => console.error('Failed to fetch profile picture:', err));
       }
 
-      // Auto-select a session to send reply from
-      // Try to find the session this contact last messaged, or fallback to first connected session
       const connected = sessions.find(s => s.status === 'connected');
       if (connected) {
         setSelectedSessionId(connected.id);
@@ -4800,7 +4451,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   useEffect(() => {
     if (contacts.length === 0) return;
 
-    // Only check the top 15 most recent contacts to avoid rate-limiting
     const pending = contacts.slice(0, 15).filter(c => !c.profile_pic_url);
     if (pending.length === 0) return;
 
@@ -4823,25 +4473,20 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               return current;
             });
           } else {
-            // Set 'none' in local memory state only, preventing DB locks
             setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, profile_pic_url: 'none' } : c));
           }
         } catch (e) {
           console.error('Lazy load profile pic error:', e);
         }
 
-        // Wait 800ms before next request to avoid WhatsApp server rate-limits
         await new Promise(resolve => setTimeout(resolve, 800));
       }
     };
 
-    const timer = setTimeout(() => {
-      loadPics();
-    }, 2000);
+    loadPics();
 
     return () => {
       active = false;
-      clearTimeout(timer);
     };
   }, [contacts.length]);
 
@@ -4905,7 +4550,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       return;
     }
 
-    // Choose connected session
     const activeSession = newChatSessionId || (sessions.find(s => s.status === 'connected')?.id);
     if (!activeSession) {
       setNewChatError('Please select or connect a WhatsApp channel first.');
@@ -4932,13 +4576,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         throw new Error(data.error || 'Failed to start new chat');
       }
 
-      // Reload contacts list
       await fetchContacts();
 
-      // Auto-select this contact as active
       setActiveContact(data);
 
-      // Reset form and close modal
       setNewChatPhone('');
       setNewChatName('');
       setNewChatInitialMsg('');
@@ -4952,571 +4593,20 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   };
 
-  const fetchChatbotRules = async () => {
-    try {
-      const res = await fetch(`${API_URL}/chatbot`);
-      if (res.status === 401) {
-        localStorage.removeItem('omnilflow_token');
-        localStorage.removeItem('omnilflow_user');
-        setAuthUser(null);
-        return;
-      }
-      if (!res.ok) return;
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setChatbotRules(data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch chatbot rules:', err);
-    }
-  };
-
-  const handleAddChatbotRule = async (e) => {
-    e.preventDefault();
-    if (!chatbotRuleKeyword.trim() || !chatbotRuleReply.trim()) {
-      setChatbotRuleError('Keyword and reply text are required.');
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API_URL}/chatbot`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          keyword: chatbotRuleKeyword.toLowerCase().trim(),
-          matchType: chatbotRuleMatchType,
-          replyText: chatbotRuleReply.trim()
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to add rule');
-      }
-
-      setChatbotRules(prev => {
-        const filtered = prev.filter(r => r.keyword !== data.keyword);
-        return [...filtered, data];
-      });
-
-      setChatbotRuleKeyword('');
-      setChatbotRuleReply('');
-      setChatbotRuleError('');
-      setShowAddRuleModal(false);
-    } catch (err) {
-      setChatbotRuleError(err.message || 'Failed to save rule.');
-    }
-  };
-
-  const handleDeleteRule = async (id) => {
-    if (!confirm('Are you sure you want to delete this auto-reply rule?')) return;
-
-    const ruleObj = chatbotRules.find(r => r.id === id);
-    try {
-      if (db && ruleObj) {
-        const binPayload = {
-          name: ruleObj.trigger_keyword || ruleObj.keyword || `Rule #${id}`,
-          type: 'Chatbot Rule',
-          deletedAt: new Date().toLocaleString(),
-          links: 'WhatsApp Event Triggers',
-          originalId: id,
-          payload: ruleObj
-        };
-        await setDoc(doc(db, 'recycle_bin', 'rule_' + id), binPayload);
-        showToast('🗑️ Auto-reply rule moved to Recycle Bin!', 'success');
-      }
-    } catch (fbErr) {
-      console.warn(fbErr.message);
-    }
-
-    try {
-      await fetch(`${API_URL}/chatbot/${id}`, { method: 'DELETE' });
-      setChatbotRules(prev => prev.filter(r => r.id !== id));
-    } catch (err) {
-      console.error('Failed to delete rule:', err);
-    }
-  };
-
-  const handleToggleRule = async (id, isActive) => {
-    try {
-      await fetch(`${API_URL}/chatbot/${id}/toggle`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive })
-      });
-      setChatbotRules(prev => prev.map(r => r.id === id ? { ...r, is_active: isActive ? 1 : 0 } : r));
-    } catch (err) {
-      console.error('Failed to toggle rule:', err);
-    }
-  };
-
-  const handleSendBroadcast = async (e) => {
-    e.preventDefault();
-    if (!broadcastMessage.trim()) return;
-
-    const activeSession = broadcastSessionId || (sessions.find(s => s.status === 'connected')?.id);
-    if (!activeSession) {
-      alert('Please select or connect a WhatsApp channel first.');
-      return;
-    }
-
-    try {
-      setBroadcastProgress({ current: 0, total: 1, status: 'sending' });
-
-      const res = await fetch(`${API_URL}/broadcast`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          stage: broadcastStage,
-          message: broadcastMessage.trim(),
-          sessionId: activeSession
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to initiate broadcast');
-      }
-
-      setBroadcastProgress({ current: 0, total: data.total, status: 'sending' });
-    } catch (err) {
-      console.error(err);
-      alert(err.message || 'Error starting broadcast campaign.');
-      setBroadcastProgress(null);
-    }
-  };
-
-  // Create new session
-  const handleCreateSession = async (e) => {
-    e.preventDefault();
-    if (!newSessionName.trim()) return;
-
-    try {
-      const res = await fetch(`${API_URL}/sessions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneName: newSessionName })
-      });
-      const newSession = await res.json();
-      setSessions(prev => [newSession, ...prev]);
-      setNewSessionName('');
-      setShowAddSessionModal(false);
-    } catch (err) {
-      console.error('Error creating session:', err);
-    }
-  };
-
-  // Re-start session
-  const handleStartSession = async (id) => {
-    try {
-      await fetch(`${API_URL}/sessions/start/${id}`, { method: 'POST' });
-      fetchSessions();
-    } catch (err) {
-      console.error('Error starting session:', err);
-    }
-  };
-
-  // Stop session
-  const handleStopSession = async (id) => {
-    try {
-      await fetch(`${API_URL}/sessions/stop/${id}`, { method: 'POST' });
-      fetchSessions();
-    } catch (err) {
-      console.error('Error stopping session:', err);
-    }
-  };
-
-  // Delete session
-  const handleDeleteSession = async (id) => {
-    if (!confirm('Are you sure you want to delete this session? This will log out the WhatsApp account.')) return;
-    try {
-      await fetch(`${API_URL}/sessions/${id}`, { method: 'DELETE' });
-      setSessions(prev => prev.filter(s => s.id !== id));
-    } catch (err) {
-      console.error('Error deleting session:', err);
-    }
-  };
-
-  // Send WhatsApp message
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!inputText.trim() || !activeContact || !selectedSessionId) return;
-
-    const textToSend = inputText;
-    setInputText('');
-
-    try {
-      await fetch(`${API_URL}/messages/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: selectedSessionId,
-          recipientJid: activeContact.id,
-          text: textToSend
-        })
-      });
-    } catch (err) {
-      console.error('Error sending message:', err);
-      alert('Failed to send message: ' + err.message);
-    }
-  };
-
-  // Handle media file upload and send
-  const handleFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file || !activeContact || !selectedSessionId) return;
-
-    if (file.size > 20 * 1024 * 1024) {
-      alert("File size is too large! Please choose a file smaller than 20MB.");
-      return;
-    }
-
-    setIsUploadingMedia(true);
-
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64Data = reader.result;
-
-      let mediaType = 'document';
-      if (file.type.startsWith('image/')) mediaType = 'image';
-      else if (file.type.startsWith('video/')) mediaType = 'video';
-      else if (file.type.startsWith('audio/')) mediaType = 'audio';
-
-      try {
-        const res = await fetch(`${API_URL}/messages/send-media`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionId: selectedSessionId,
-            recipientJid: activeContact.id,
-            mediaType: mediaType,
-            fileName: file.name,
-            fileMimeType: file.type,
-            fileData: base64Data
-          })
-        });
-
-        if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.error || 'Failed to send media file');
-        }
-      } catch (err) {
-        console.error('File send failed:', err);
-        alert(`Error sending file: ${err.message}`);
-      } finally {
-        setIsUploadingMedia(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-      }
-    };
-
-    reader.onerror = (err) => {
-      console.error('Base64 conversion failed:', err);
-      alert("Failed to read file.");
-      setIsUploadingMedia(false);
-    };
-
-    reader.readAsDataURL(file);
-  };
-
-  // Save CRM changes
-  const handleSaveCRM = async () => {
-    if (!activeContact) return;
-
-    let finalLabels = crmLabels;
-    if (newLabelText.trim() && !crmLabels.includes(newLabelText.trim())) {
-      finalLabels = [...crmLabels, newLabelText.trim()];
-      setCrmLabels(finalLabels);
-      setNewLabelText('');
-    }
-
-    try {
-      const res = await fetch(`${API_URL}/contacts/${activeContact.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customName: crmCustomName,
-          email: crmEmail,
-          notes: crmNotes,
-          pipelineStage: crmStage,
-          labels: finalLabels
-        })
-      });
-      const data = await res.json();
-
-      // Update contacts locally
-      setContacts(prev => prev.map(c => c.id === data.id ? { ...c, ...data, labels: typeof data.labels === 'string' ? JSON.parse(data.labels) : data.labels } : c));
-      alert('CRM details updated successfully!');
-    } catch (err) {
-      console.error('Error saving CRM data:', err);
-    }
-  };
-
-  // Add Label
-  const handleAddLabel = (e) => {
-    e.preventDefault();
-    if (!newLabelText.trim() || crmLabels.includes(newLabelText.trim())) return;
-    setCrmLabels([...crmLabels, newLabelText.trim()]);
-    setNewLabelText('');
-  };
-
-  // Remove Label
-  const handleRemoveLabel = (labelToRemove) => {
-    setCrmLabels(crmLabels.filter(l => l !== labelToRemove));
-  };
-
-  // Add Quick Reply template
-  const handleExportCSV = () => {
-    if (contacts.length === 0) {
-      alert('No leads available to export!');
-      return;
-    }
-
-    // Construct CSV Header
-    let csvContent = 'data:text/csv;charset=utf-8,\uFEFF'; // Include BOM for excel parsing
-    csvContent += 'WhatsApp JID,Verified PushName,CRM Custom Name,Email Address,Pipeline Stage,Labels,Created Date,Notes\n';
-
-    // Append rows
-    contacts.forEach(contact => {
-      const jid = contact.id;
-      const name = (contact.name || '').replace(/"/g, '""');
-      const customName = (contact.custom_name || '').replace(/"/g, '""');
-      const email = (contact.email || '').replace(/"/g, '""');
-      const stage = contact.pipeline_stage || 'new';
-      const labels = (contact.labels || []).join('; ').replace(/"/g, '""');
-      const date = contact.created_at || '';
-      const notes = (contact.notes || '').replace(/\n/g, ' ').replace(/"/g, '""');
-
-      csvContent += `"${jid}","${name}","${customName}","${email}","${stage}","${labels}","${date}","${notes}"\n`;
-    });
-
-    // Download Link
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `whatsapp_crm_leads_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleAddQuickReply = (e) => {
-    e.preventDefault();
-    if (!newReplyTitle.trim() || !newReplyText.trim()) return;
-    const newReply = {
-      id: 'qr_' + Date.now(),
-      title: newReplyTitle.trim(),
-      text: newReplyText.trim()
-    };
-    setQuickReplies([...quickReplies, newReply]);
-    setNewReplyTitle('');
-    setNewReplyText('');
-  };
-
-  // Delete Quick Reply template
-  const handleDeleteQuickReply = (id) => {
-    setQuickReplies(quickReplies.filter(r => r.id !== id));
-  };
-
-  // Update pipeline stage of a contact directly (e.g. from Kanban)
-  const handleUpdateContactStage = async (contactId, newStage) => {
-    const contact = contacts.find(c => c.id === contactId);
-    if (!contact) return;
-
-    try {
-      const res = await fetch(`${API_URL}/contacts/${contactId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customName: contact.custom_name,
-          email: contact.email,
-          notes: contact.notes,
-          pipelineStage: newStage,
-          labels: contact.labels
-        })
-      });
-      const data = await res.json();
-      setContacts(prev => prev.map(c => c.id === data.id ? { ...c, ...data, labels: typeof data.labels === 'string' ? JSON.parse(data.labels) : data.labels } : c));
-    } catch (err) {
-      console.error('Failed to update stage:', err);
-    }
-  };
-
-  const handleToggleArchive = async (contactId) => {
-    const contact = contacts.find(c => c.id === contactId);
-    if (!contact) return;
-    const isCurrentlyArchived = contact.is_archived === 1;
-
-    try {
-      const res = await fetch(`${API_URL}/contacts/${contactId}/archive`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isArchived: !isCurrentlyArchived })
-      });
-      if (!res.ok) throw new Error('Failed to toggle archive');
-      const data = await res.json();
-
-      // Update local contacts list
-      setContacts(prev => prev.map(c => c.id === data.id ? { ...c, is_archived: data.is_archived } : c));
-
-      // Update activeContact if it matches
-      setActiveContact(prev => prev && prev.id === data.id ? { ...prev, is_archived: data.is_archived } : prev);
-
-      // If we archived it, clear activeContact to close chat panel
-      if (!isCurrentlyArchived) {
-        setActiveContact(null);
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Error updating archive status.');
-    }
-  };
-
-  const fetchStarredMessages = async (contactId) => {
-    try {
-      const res = await fetch(`${API_URL}/contacts/${contactId}/starred`);
-      const data = await res.json();
-      setStarredMessages(data);
-    } catch (err) {
-      console.error('Failed to fetch starred messages:', err);
-    }
-  };
-
-  const fetchScheduledMessages = async (contactId) => {
-    try {
-      const res = await fetch(`${API_URL}/contacts/${contactId}/scheduled`);
-      const data = await res.json();
-      setScheduledMessages(data);
-    } catch (err) {
-      console.error('Failed to fetch scheduled messages:', err);
-    }
-  };
-
-  const handleToggleStar = async (msgId, isStarred) => {
-    try {
-      const res = await fetch(`${API_URL}/messages/${msgId}/star`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isStarred })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error('Failed to update star');
-
-      setMessages(prev => prev.map(m => m.id === data.id ? { ...m, is_starred: data.is_starred } : m));
-      if (activeContact) {
-        fetchStarredMessages(activeContact.id);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleScheduleMessage = async (e) => {
-    e.preventDefault();
-    if (!scheduleMessageText.trim() || !scheduleDateTime || !activeContact) return;
-
-    const sendUnix = Math.floor(new Date(scheduleDateTime).getTime() / 1000);
-    const nowUnix = Math.floor(Date.now() / 1000);
-    if (sendUnix <= nowUnix) {
-      alert('Please select a future date and time to schedule.');
-      return;
-    }
-
-    const activeSession = selectedSessionId || (sessions.find(s => s.status === 'connected')?.id);
-    if (!activeSession) {
-      alert('Please select a connected WhatsApp account first.');
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API_URL}/contacts/${activeContact.id}/scheduled`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: activeSession,
-          messageText: scheduleMessageText.trim(),
-          sendAt: sendUnix
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to schedule');
-
-      setScheduledMessages(prev => [...prev, data]);
-      setScheduleMessageText('');
-      setScheduleDateTime('');
-      setShowScheduleModal(false);
-    } catch (err) {
-      alert(err.message || 'Failed to schedule message.');
-    }
-  };
-
-  const handleCancelScheduled = async (id) => {
-    if (!confirm('Are you sure you want to cancel this scheduled message?')) return;
-    try {
-      const res = await fetch(`${API_URL}/scheduled/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to cancel');
-      setScheduledMessages(prev => prev.filter(m => m.id !== id));
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  // Filter contacts by search query, chat type, and CRM stage
-  const filteredContacts = contacts.filter(c => {
-    if (!c) return false;
-    // 1. Search Query Filter
-    const query = searchQuery.toLowerCase();
-    const name = (c.name || '').toLowerCase();
-    const customName = (c.custom_name || '').toLowerCase();
-    const id = c.id ? c.id.toLowerCase() : '';
-    const matchesSearch = name.includes(query) || customName.includes(query) || id.includes(query);
-    if (!matchesSearch) return false;
-
-    // 2. Archive & Unread & Group/DM Filters
-    const isGroup = c.id.endsWith('@g.us');
-
-    if (chatTypeFilter === 'archived') {
-      if (c.is_archived !== 1) return false;
-    } else {
-      // Exclude archived chats from regular lists
-      if (c.is_archived === 1) return false;
-
-      if (chatTypeFilter === 'dm' && isGroup) return false;
-      if (chatTypeFilter === 'group' && !isGroup) return false;
-      if (chatTypeFilter === 'unread' && !(c.unread_count > 0)) return false;
-    }
-
-    // 3. CRM Stage Filter
-    if (crmStageFilter !== 'all' && c.pipeline_stage !== crmStageFilter) return false;
-
-    return true;
-  });
-
-  const sortedFilteredContacts = [...filteredContacts].sort((a, b) => {
-    const timeA = a.last_message_time || 0;
-    const timeB = b.last_message_time || 0;
-    return timeB - timeA;
-  });
-
-  // Kanban groups stages are now state-driven
-
-
-
-
-
   return (
-    <div className="app-layout">
-      <div
-        className={`sidebar-overlay ${mobileSidebarOpen ? 'active' : ''}`}
-        onClick={() => setMobileSidebarOpen(false)}
-      />
+    <div className="dashboard-shell-container">
+      {/* 🟢 Modern EMS Dark Teal Sidebar */}
       <aside className={`sidebar ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
-        {/* EMS-style Sidebar Branding - Removed OmniFlow EMS text as requested */}
-        <div className="sidebar-logo" style={{ padding: '20px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-start' }}>
-          <span style={{ fontSize: '18px', fontWeight: '900', color: '#14d2cb', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
-            {/* OmniFlow EMS */}
-          </span>
+        <div className="sidebar-brand">
+          <div className="brand-logo" style={{ background: '#14d2cb', color: '#092925' }}>⚡</div>
+          <div className="brand-info">
+            <span className="brand-name">OmniFlow <span style={{ fontSize: '10px', background: 'rgba(20,210,203,0.2)', color: '#14d2cb', padding: '1px 5px', borderRadius: '4px', textTransform: 'uppercase' }}>PRO</span></span>
+            <span className="brand-subtitle">EMS & CRM Suite</span>
+          </div>
         </div>
+
         <nav className="sidebar-nav" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
 
-          {/* CATEGORY: SYSTEM (Superadmin / Owner / Admin - Placed at Top) */}
           {(authUser?.role === 'superadmin' || authUser?.role === 'owner' || authUser?.role === 'admin') && (
             <AccordionCategory id="system" label="SYSTEM" isExpanded={!!expandedCategories.system} onToggle={toggleCategory}>
               {authUser?.role === 'superadmin' && (
@@ -5525,7 +4615,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   <span style={{ fontSize: '13px' }}>Super Admin Panel</span>
                 </div>
               )}
-              {/* Global Audit Logs tab */}
               {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager' || authUser?.role === 'superadmin') && (
                 <div className={`nav-item ${activeTab === 'audit_logs' ? 'active' : ''}`} onClick={() => setActiveTab('audit_logs')}>
                   <FileText size={15} />
@@ -5535,7 +4624,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </AccordionCategory>
           )}
 
-          {/* CATEGORY: DASHBOARDS */}
           <AccordionCategory id="dashboards" label="DASHBOARDS" isExpanded={!!expandedCategories.dashboards} onToggle={toggleCategory}>
             <div className={`nav-item ${activeTab === 'admin_dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('admin_dashboard')}>
               <BarChart3 size={15} />
@@ -5548,136 +4636,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             <div className={`nav-item ${activeTab === 'gps_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('gps_attendance')}>
               <Globe size={15} />
               <span style={{ fontSize: '13px' }}>Live Tracking</span>
-            </div>
-          </AccordionCategory>
-
-          {/* CATEGORY: HR MANAGEMENT */}
-          <AccordionCategory id="hr_management" label="HR MANAGEMENT" isExpanded={!!expandedCategories.hr_management} onToggle={toggleCategory}>
-            {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager' || authUser?.role === 'superadmin') && (
-              <div className={`nav-item ${activeTab === 'employees' ? 'active' : ''}`} onClick={() => setActiveTab('employees')}>
-                <Users size={15} />
-                <span style={{ fontSize: '13px' }}>All Employees</span>
-              </div>
-            )}
-            <div className={`nav-item ${activeTab === 'recruitment_ats' ? 'active' : ''}`} onClick={() => setActiveTab('recruitment_ats')}>
-              <Briefcase size={15} />
-              <span style={{ fontSize: '13px' }}>Recruitment ATS</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'performance_kpis' ? 'active' : ''}`} onClick={() => setActiveTab('performance_kpis')}>
-              <Award size={15} />
-              <span style={{ fontSize: '13px' }}>Performance KPIs</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'asset_management' ? 'active' : ''}`} onClick={() => setActiveTab('asset_management')}>
-              <FileText size={15} />
-              <span style={{ fontSize: '13px' }}>Asset Management</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'verify_documents' ? 'active' : ''}`} onClick={() => setActiveTab('verify_documents')}>
-              <FileText size={15} />
-              <span style={{ fontSize: '13px' }}>Verify Documents</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'offboarding' ? 'active' : ''}`} onClick={() => setActiveTab('offboarding')}>
-              <Trash2 size={15} />
-              <span style={{ fontSize: '13px' }}>Offboarding Exit</span>
-            </div>
-          </AccordionCategory>
-
-          {/* CATEGORY: PAYROLL & FINANCE */}
-          <AccordionCategory id="payroll_finance" label="PAYROLL & FINANCE" isExpanded={!!expandedCategories.payroll_finance} onToggle={toggleCategory}>
-            <div className={`nav-item ${activeTab === 'payroll' ? 'active' : ''}`} onClick={() => setActiveTab('payroll')}>
-              <CreditCard size={15} />
-              <span style={{ fontSize: '13px' }}>Payroll Salary</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'taxes_compliance' ? 'active' : ''}`} onClick={() => setActiveTab('taxes_compliance')}>
-              <FileText size={15} />
-              <span style={{ fontSize: '13px' }}>Taxes Compliance</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'incentives_bonus' ? 'active' : ''}`} onClick={() => setActiveTab('incentives_bonus')}>
-              <Award size={15} />
-              <span style={{ fontSize: '13px' }}>Incentives Bonus</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'ff_settlements' ? 'active' : ''}`} onClick={() => setActiveTab('ff_settlements')}>
-              <Check size={15} />
-              <span style={{ fontSize: '13px' }}>F&F Settlements</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'advances_loans' ? 'active' : ''}`} onClick={() => setActiveTab('advances_loans')}>
-              <CreditCard size={15} />
-              <span style={{ fontSize: '13px' }}>Advances Loans</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'expenses' ? 'active' : ''}`} onClick={() => setActiveTab('expenses')}>
-              <CreditCard size={15} />
-              <span style={{ fontSize: '13px' }}>Expenses Claim</span>
-            </div>
-          </AccordionCategory>
-
-          {/* CATEGORY: CRM & SALES */}
-          <AccordionCategory id="crm_sales" label="CRM & SALES" isExpanded={!!expandedCategories.crm_sales} onToggle={toggleCategory}>
-            <div className={`nav-item ${activeTab === 'channels' ? 'active' : ''}`} onClick={() => setActiveTab('channels')}>
-              <Smartphone size={15} />
-              <span style={{ fontSize: '13px' }}>WA Channels</span>
-              {sessions.filter(s => s.status === 'connected').length > 0 && (
-                <span className="badge" style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.12)', color: 'white', fontSize: '9px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px' }}>
-                  {sessions.filter(s => s.status === 'connected').length} Active
-                </span>
-              )}
-            </div>
-            <div className={`nav-item ${activeTab === 'inbox' ? 'active' : ''}`} onClick={() => setActiveTab('inbox')}>
-              <MessageSquare size={15} />
-              <span style={{ fontSize: '13px' }}>Inbox Chats</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'kanban' ? 'active' : ''}`} onClick={() => setActiveTab('kanban')}>
-              <Layers size={15} />
-              <span style={{ fontSize: '13px' }}>CRM Pipeline</span>
-            </div>
-            <div
-              onClick={() => setActiveTab('telecalling')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 12px',
-                cursor: 'pointer',
-                borderRadius: '8px',
-                background: activeTab === 'telecalling' ? 'rgba(20,210,203,0.15)' : 'transparent',
-                color: activeTab === 'telecalling' ? '#14d2cb' : 'rgba(255,255,255,0.7)',
-                fontSize: '13px',
-                fontWeight: '500',
-                transition: 'background 0.2s'
-              }}
-            >
-              <span style={{ fontSize: '14px' }}>📞</span>
-              <span>Call Recordings & SIM Sync</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'chatbot' ? 'active' : ''}`} onClick={() => setActiveTab('chatbot')}>
-              <Bot size={15} />
-              <span style={{ fontSize: '13px' }}>Chatbot Rules</span>
-            </div>
-          </AccordionCategory>
-
-          {/* CATEGORY: OPERATIONS */}
-          <AccordionCategory id="operations" label="OPERATIONS" isExpanded={!!expandedCategories.operations} onToggle={toggleCategory}>
-            <div className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`} onClick={() => setActiveTab('tasks')}>
-              <ClipboardList size={15} />
-              <span style={{ fontSize: '13px' }}>Tasks Board</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'office_kiosk' ? 'active' : ''}`} onClick={() => setActiveTab('office_kiosk')}>
-              <Clock size={15} />
-              <span style={{ fontSize: '13px' }}>Office Kiosk</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'work_hours' ? 'active' : ''}`} onClick={() => setActiveTab('work_hours')}>
-              <Clock size={15} />
-              <span style={{ fontSize: '13px' }}>Work Hours Log</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'notice_board' ? 'active' : ''}`} onClick={() => setActiveTab('notice_board')}>
-              <Bell size={15} />
-              <span style={{ fontSize: '13px' }}>Notice Board</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'holidays' ? 'active' : ''}`} onClick={() => setActiveTab('holidays')}>
-              <Calendar size={15} />
-              <span style={{ fontSize: '13px' }}>Holidays List</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'rewards_recognition' ? 'active' : ''}`} onClick={() => setActiveTab('rewards_recognition')}>
-              <Award size={15} />
-              <span style={{ fontSize: '13px' }}>Rewards Badges</span>
             </div>
           </AccordionCategory>
 
@@ -5719,17 +4677,21 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               <Trash2 size={15} />
               <span style={{ fontSize: '13px' }}>🗑️ Bin</span>
             </div>
-            <div className={`nav-item ${activeTab === 'system_dropdowns' ? 'active' : ''}`} onClick={() => setActiveTab('system_dropdowns')}>
-              <Tag size={15} />
-              <span style={{ fontSize: '13px' }}>System Dropdowns</span>
+            <div className={`nav-item ${activeTab === 'work_hours' ? 'active' : ''}`} onClick={() => setActiveTab('work_hours')}>
+              <Clock size={15} />
+              <span style={{ fontSize: '13px' }}>Work Hours Log</span>
             </div>
-            <div className={`nav-item ${activeTab === 'module_configuration' ? 'active' : ''}`} onClick={() => { setPreselectedConfigModuleId(null); setActiveTab('module_configuration'); }}>
-              <Sliders size={15} />
-              <span style={{ fontSize: '13px' }}>Module Configuration</span>
+            <div className={`nav-item ${activeTab === 'notice_board' ? 'active' : ''}`} onClick={() => setActiveTab('notice_board')}>
+              <Bell size={15} />
+              <span style={{ fontSize: '13px' }}>Notice Board</span>
             </div>
-            <div className={`nav-item ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>
-              <Megaphone size={15} style={{ transform: 'rotate(-20deg)' }} />
-              <span style={{ fontSize: '13px' }}>Subscription Billing</span>
+            <div className={`nav-item ${activeTab === 'holidays' ? 'active' : ''}`} onClick={() => setActiveTab('holidays')}>
+              <Calendar size={15} />
+              <span style={{ fontSize: '13px' }}>Holidays List</span>
+            </div>
+            <div className={`nav-item ${activeTab === 'rewards_recognition' ? 'active' : ''}`} onClick={() => setActiveTab('rewards_recognition')}>
+              <Award size={15} />
+              <span style={{ fontSize: '13px' }}>Rewards Badges</span>
             </div>
           </AccordionCategory>
         </nav>
@@ -5755,42 +4717,54 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             }}>
               <User size={14} style={{ color: 'white' }} />
             </div>
-            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              <div style={{ fontSize: '11px', fontWeight: 'bold', color: 'white' }}>{authUser?.email}</div>
-              <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>{authUser?.role}</div>
+            <div style={{ flexGrow: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {authUser?.displayName || authUser?.username || 'Employee Portal'}
+              </div>
+              <div style={{ fontSize: '10px', color: '#14d2cb', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textTransform: 'capitalize' }}>
+                {authUser?.role || 'Staff'}
+              </div>
             </div>
           </div>
+
           <button
-            onClick={() => {
-              localStorage.removeItem('omnilflow_token');
-              localStorage.removeItem('omnilflow_user');
-              setAuthUser(null);
-              setActiveTab('login');
-            }}
+            onClick={handleLogout}
             style={{
-              background: 'transparent',
-              border: '1px solid rgba(255,255,255,0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              padding: '6px 10px',
+              background: 'rgba(239,68,68,0.12)',
+              color: '#ef4444',
+              border: '1px solid rgba(239,68,68,0.25)',
               borderRadius: '6px',
-              color: 'rgba(255,255,255,0.7)',
               fontSize: '11px',
-              padding: '6px',
+              fontWeight: 600,
               cursor: 'pointer',
               width: '100%',
-              textAlign: 'center',
-              transition: 'all 0.2s'
+              transition: 'all 0.2s ease'
             }}
-            onMouseOver={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)'; }}
-            onMouseOut={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; }}
           >
-            Sign Out
+            <LogOut size={12} />
+            <span>Sign Out</span>
           </button>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="main-content">
-        {/* EMS-style white top header with search */}
-        <header className="top-header" style={{ background: 'var(--sidebar-bg, #064e43)', color: '#ffffff', borderBottom: '1px solid rgba(255, 255, 255, 0.12)', padding: '4px 14px', height: '36px', minHeight: '36px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
+      {/* 🔵 Main Content Area */}
+      <main className="main-content" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+        {/* Top Dark Teal Header */}
+        <header className="top-header" style={{
+          display: 'flex',
+          alignItems: 'center',
+          justify: 'space-between',
+          padding: '5px 14px',
+          background: 'linear-gradient(135deg, #061e1b 0%, #0d3832 50%, #124a43 100%)',
+          borderBottom: '1px solid rgba(20, 210, 203, 0.2)',
+          height: '42px',
+          flexShrink: 0
+        }}>
           <button
             className="mobile-menu-btn"
             onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
@@ -5945,9 +4919,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               <div
                 onClick={() => setShowProfileDropdown(prev => !prev)}
                 style={{
-                  width: '26px',
-                  height: '26px',
-                  borderRadius: '6px',
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '7px',
                   background: 'linear-gradient(135deg, #0d9488 0%, #0f2b26 100%)',
                   display: 'flex',
                   alignItems: 'center',
@@ -5958,7 +4932,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 }}
                 title="Account Profile & Settings"
               >
-                <User size={14} style={{ color: 'white' }} />
+                <User size={15} style={{ color: 'white' }} />
               </div>
 
               {/* Profile Dropdown Popover */}
