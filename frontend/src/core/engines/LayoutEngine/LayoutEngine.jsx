@@ -148,7 +148,7 @@ export default function LayoutEngine({
   };
 
   return (
-    <div className="layout-engine-shell" style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
+    <div className="layout-engine-shell" style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', padding: '16px 20px', boxSizing: 'border-box' }}>
       {/* A. TOOLBAR & HEADER */}
       <LayoutToolbar
         moduleConfig={moduleConfig}

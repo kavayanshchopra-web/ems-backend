@@ -31,7 +31,9 @@ export class LabelEngine {
    */
   static getEntityName(moduleConfig) {
     if (!moduleConfig) return 'Record';
-    if (moduleConfig.entityName) return moduleConfig.entityName;
+    if (moduleConfig.entityName) {
+      return moduleConfig.entityName.replace(/ Directory$/i, '').trim();
+    }
     const title = this.getModuleTitle(moduleConfig);
     return title.replace(/ Directory$/i, '').replace(/s$/i, '').replace(/ATS$/i, 'Candidate').trim();
   }

@@ -108,7 +108,7 @@ class MasterModuleRegistry {
       moduleId: manifest.moduleId,
       moduleTitle: manifest.name,
       moduleSubtitle: manifest.description,
-      entityName: manifest.name.replace(/s$/, ''),
+      entityName: manifest.entityName || (manifest.name || '').replace(/ Directory$/i, '').replace(/s$/i, '').trim(),
       entityNamePlural: manifest.name,
       icon: manifest.icon,
       accentColor: manifest.accentColor,
