@@ -519,6 +519,21 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   // Install fetch interceptor lazily (not at module scope) to avoid Rolldown TDZ in production bundle
   installFetchInterceptor();
 
+  const handleLogout = async () => {
+    try {
+      if (auth) await signOut(auth);
+    } catch (e) {
+      console.error('Logout error:', e);
+    }
+    localStorage.removeItem('omnilflow_token');
+    localStorage.removeItem('omnilflow_user');
+    if (setAuthUser) {
+      setAuthUser(null);
+    } else {
+      window.location.reload();
+    }
+  };
+
   const [activeTab, setActiveTab] = useState('inbox'); // 'inbox', 'kanban', 'channels'
   const [isMobilePreview, setIsMobilePreview] = useState(false);
   const [simViewMode, setSimViewMode] = useState('app'); // 'app' or 'permissions'
