@@ -199,4 +199,19 @@ export class LabelEngine {
       border: `hsla(${hue}, 65%, 75%, 1)`
     };
   }
+
+  /**
+   * Get badge color variant for stage status
+   * @param {string} stageStatus 
+   * @returns {'success' | 'warning' | 'info' | 'neutral' | 'danger'}
+   */
+  static getBadgeVariant(stageStatus) {
+    if (!stageStatus) return 'neutral';
+    const lower = String(stageStatus).toLowerCase();
+    if (lower.includes('hire') || lower.includes('won') || lower.includes('approve') || lower.includes('disbursed') || lower.includes('active')) return 'success';
+    if (lower.includes('offer') || lower.includes('proposal') || lower.includes('negotiat') || lower.includes('leave')) return 'warning';
+    if (lower.includes('interview') || lower.includes('lead') || lower.includes('qualif')) return 'info';
+    if (lower.includes('lost') || lower.includes('reject') || lower.includes('terminate')) return 'danger';
+    return 'neutral';
+  }
 }
