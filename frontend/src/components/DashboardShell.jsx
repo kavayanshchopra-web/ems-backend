@@ -537,7 +537,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   };
 
-  // CRM / WhatsApp Inbox State Hub
+  // CRM / WhatsApp Inbox State Hub & Refs
+  const messagesEndRef = useRef(null);
+  const socketRef = useRef(null);
   const [contacts, setContacts] = useState([]);
   const [activeContact, setActiveContact] = useState(null);
   const [messages, setMessages] = useState([]);
