@@ -82,8 +82,67 @@ export default function ExportModal({
     const timestamp = new Date().toISOString().slice(0, 10);
     const filename = `${entityNamePlural.toLowerCase().replace(/\s+/g, '_')}_export_${timestamp}`;
 
-    if (exportFormat === 'csv' || exportFormat === 'excel') {
-      // Build CSV Data
+    if (exportFormat === 'excel') {
+      // Build True MS Excel Spreadsheet (HTML-XML Format with teal headers & gridlines)
+      const excelHTML = `\uFEFF<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+  <!--[if gte mso 9]>
+  <xml>
+    <x:ExcelWorkbook>
+      <x:ExcelWorksheets>
+        <x:ExcelWorksheet>
+          <x:Name>${entityNamePlural}</x:Name>
+          <x:WorksheetOptions>
+            <x:DisplayGridlines/>
+          </x:WorksheetOptions>
+        </x:ExcelWorksheet>
+      </x:ExcelWorksheets>
+    </x:ExcelWorkbook>
+  </xml>
+  <![endif]-->
+  <style>
+    table { border-collapse: collapse; width: 100%; font-family: Calibri, Arial, sans-serif; }
+    th { background-color: #0d9488; color: #ffffff; font-weight: bold; text-align: left; border: 1px solid #0f766e; font-size: 11pt; padding: 8px 12px; }
+    td { border: 0.5pt solid #cbd5e1; font-size: 10pt; padding: 6px 10px; color: #1e293b; }
+    tr:nth-child(even) td { background-color: #f8fafc; }
+  </style>
+</head>
+<body>
+  <table>
+    <thead>
+      <tr>
+        ${exportFields.map(f => `<th>${f.label}</th>`).join('')}
+      </tr>
+    </thead>
+    <tbody>
+      ${targetRecords.map(rec => `
+        <tr>
+          ${exportFields.map(f => {
+            let rawVal = rec[f.key || f.id];
+            if (rawVal === undefined && rec.customFields) rawVal = rec.customFields[f.key || f.id];
+            const strVal = rawVal === null || rawVal === undefined ? '' : String(rawVal);
+            return `<td>${strVal.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`;
+          }).join('')}
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+</body>
+</html>`;
+
+      const blob = new Blob([excelHTML], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${filename}.xls`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast(`📊 Exported ${targetRecords.length} ${entityNamePlural.toLowerCase()} to Excel (.xls) successfully!`, 'success');
+      onClose();
+    } else if (exportFormat === 'csv') {
+      // Build Standard CSV Data
       const headers = exportFields.map(f => sanitizeCell(f.label)).join(',');
       const rows = targetRecords.map(rec => {
         return exportFields.map(f => {
@@ -100,11 +159,11 @@ export default function ExportModal({
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      link.setAttribute('download', `${filename}.${exportFormat === 'excel' ? 'csv' : 'csv'}`);
+      link.setAttribute('download', `${filename}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      showToast(`📥 Exported ${targetRecords.length} ${entityNamePlural.toLowerCase()} successfully`, 'success');
+      showToast(`📥 Exported ${targetRecords.length} ${entityNamePlural.toLowerCase()} to CSV (.csv) successfully!`, 'success');
       onClose();
     } else if (exportFormat === 'pdf') {
       // Trigger Printable HTML Document Window
