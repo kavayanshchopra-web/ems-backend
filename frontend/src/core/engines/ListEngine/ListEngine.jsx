@@ -426,7 +426,7 @@ export default function ListEngine({
                 onClick={(e) => {
                   e.stopPropagation();
                   if (typeof handleRestoreBinItem === 'function') {
-                    handleRestoreBinItem(record.recycleBinId || record.id);
+                    handleRestoreBinItem(record);
                   }
                 }}
                 style={{ padding: '5px 10px', fontSize: '11px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#0d9488', color: '#ffffff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '700' }}

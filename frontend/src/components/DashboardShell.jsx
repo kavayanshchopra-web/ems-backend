@@ -3650,14 +3650,34 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   };
 
-  const handleRestoreBinItem = async (item) => {
+  const handleRestoreBinItem = async (itemOrId) => {
+    let item = (itemOrId && typeof itemOrId === 'object')
+      ? itemOrId
+      : (recycleBinItems || []).find(x => String(x.id) === String(itemOrId) || String(x.recycleBinId) === String(itemOrId) || String(x.originalId) === String(itemOrId));
+
+    if (!item) {
+      try {
+        const saved = localStorage.getItem('omnilflow_fallback_recycle_bin');
+        if (saved) {
+          const list = JSON.parse(saved);
+          item = list.find(x => String(x.id) === String(itemOrId) || String(x.recycleBinId) === String(itemOrId) || String(x.originalId) === String(itemOrId));
+        }
+      } catch (e) {}
+    }
+
+    if (!item) {
+      console.warn('handleRestoreBinItem: Record not found for itemOrId:', itemOrId);
+      return;
+    }
+
     const payload = item.payload || item.entityData || {};
-    const type = item.type || item.category || '';
+    const type = String(item.type || item.category || item.moduleTab || '');
+    const restoredRecord = payload.record || payload.employee || payload.candidate || payload.asset || payload;
 
     try {
       if (db) {
         let colName = null;
-        if (type.includes('Employee')) colName = 'employees';
+        if (type.includes('Employee') || (item.moduleTab || '').includes('employee')) colName = 'employees';
         else if (type.includes('Task')) colName = 'tasks';
         else if (type.includes('Notice')) colName = 'notices';
         else if (type.includes('Holiday')) colName = 'holidays';
@@ -3668,7 +3688,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         else if (type.includes('Lead') || type.includes('CRM')) colName = 'crm_leads';
 
         if (colName && item.originalId) {
-          await setDoc(doc(db, colName, item.originalId.toString()), payload);
+          await setDoc(doc(db, colName, item.originalId.toString()), restoredRecord);
         }
         await deleteDoc(doc(db, 'recycle_bin', item.id.toString()));
       }
@@ -3676,48 +3696,43 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.warn('Firebase restore failed:', fbErr.message);
     }
 
-    if (type.includes('Employee')) fetchEmployees();
-    else if (type.includes('Task')) fetchTasks();
-    else if (type.includes('Notice')) fetchNotices();
-    else if (type.includes('Holiday')) fetchHolidays();
-    else if (type.includes('Dropdown Category') || payload.category === 'customCategory') {
-      if (payload.customCat) {
-        setSystemDropdowns(prev => ({
-          ...prev,
-          customCategories: [...(prev.customCategories || []), payload.customCat]
-        }));
-      }
-    } else if (type.includes('Dropdown Option') || payload.category === 'customOption') {
-      if (payload.opt !== undefined && payload.catIdx !== undefined) {
-        setSystemDropdowns(prev => {
-          const cats = [...(prev.customCategories || [])];
-          if (cats[payload.catIdx]) {
-            cats[payload.catIdx].options = [...(cats[payload.catIdx].options || []), payload.opt];
-          }
-          return { ...prev, customCategories: cats };
-        });
-      }
-    } else if (type.includes('Company') && payload.company) {
-      setCompanies(prev => [...prev, payload.company]);
-    } else if (type.includes('SaaS Plan') && payload.plan) {
-      setSaasPlans(prev => [...prev, payload.plan]);
-    } else if (type.includes('System User') && payload.user) {
-      setSystemUsers(prev => [...prev, payload.user]);
-    } else if (type.includes('ATS Candidate') && payload.candidate) {
-      setAtsCandidates(prev => [...prev, payload.candidate]);
-    } else if (type.includes('Asset') && payload.asset) {
-      setAssets(prev => [...prev, payload.asset]);
-    } else if (type.includes('Expense') && payload.expense) {
-      setExpenses(prev => [...prev, payload.expense]);
+    const isEmployee = type.toLowerCase().includes('employee') || (item.moduleTab || '').toLowerCase().includes('employee') || (item.name || '').toLowerCase().includes('employee');
+
+    if (isEmployee || (item.moduleTab || '').toLowerCase().includes('employees')) {
+      setEmployees(prev => {
+        const cleanRec = { ...restoredRecord, id: item.originalId || restoredRecord.id || item.id };
+        const filtered = prev.filter(e => String(e.id) !== String(cleanRec.id));
+        const updated = [cleanRec, ...filtered];
+        try {
+          localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+      fetchEmployees();
+    } else if (type.toLowerCase().includes('task')) {
+      setTasks(prev => [restoredRecord, ...prev]);
+      fetchTasks();
+    } else if (type.toLowerCase().includes('ats candidate') || (item.moduleTab || '').toLowerCase().includes('ats')) {
+      setAtsCandidates(prev => {
+        const cleanRec = { ...restoredRecord, id: item.originalId || restoredRecord.id || item.id };
+        return [cleanRec, ...prev.filter(c => String(c.id) !== String(cleanRec.id))];
+      });
+    } else if (type.toLowerCase().includes('asset') || (item.moduleTab || '').toLowerCase().includes('asset')) {
+      setAssets(prev => {
+        const cleanRec = { ...restoredRecord, id: item.originalId || restoredRecord.id || item.id };
+        return [cleanRec, ...prev.filter(a => String(a.id) !== String(cleanRec.id))];
+      });
     }
 
-    setRecycleBinItems(prev => prev.filter(x => x.id !== item.id));
-    const saved = localStorage.getItem('omnilflow_fallback_recycle_bin');
-    if (saved) {
-      const list = JSON.parse(saved).filter(x => x.id !== item.id);
-      localStorage.setItem('omnilflow_fallback_recycle_bin', JSON.stringify(list));
-    }
-    showToast(`🔄 Restored "${item.name}" to active workspace!`, 'success');
+    setRecycleBinItems(prev => prev.filter(x => String(x.id) !== String(item.id)));
+    try {
+      const saved = localStorage.getItem('omnilflow_fallback_recycle_bin');
+      if (saved) {
+        const list = JSON.parse(saved).filter(x => String(x.id) !== String(item.id));
+        localStorage.setItem('omnilflow_fallback_recycle_bin', JSON.stringify(list));
+      }
+    } catch (e) {}
+    showToast(`🔄 Restored "${item.name || item.title || 'Record'}" to active workspace!`, 'success');
   };
 
   const handleEmptyBinVault = () => {
