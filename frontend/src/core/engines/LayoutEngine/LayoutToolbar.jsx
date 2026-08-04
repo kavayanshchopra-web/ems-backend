@@ -300,7 +300,7 @@ export default function LayoutToolbar({
               onChange={(e) => onSearchChange(e.target.value)}
               onClear={() => onSearchChange('')}
               placeholder={PlaceholderEngine.getSearchPlaceholder(moduleConfig)}
-              width="280px"
+              width="320px"
               rightElement={
                 <button
                   type="button"
@@ -340,26 +340,6 @@ export default function LayoutToolbar({
                 allPositions={allPositions}
               />
             )}
-          </div>
-
-          {/* UNIVERSAL SAVED VIEWS & PRESET TABS */}
-          <div style={{ marginLeft: '4px' }}>
-            <SavedViewsEngine
-              moduleConfig={moduleConfig}
-              filterValues={filterValues}
-              searchQuery={searchQuery}
-              sortKey={sortKey}
-              sortDir={sortDir}
-              viewMode={viewMode}
-              onApplyPreset={(presetState) => {
-                if (presetState.filterValues !== undefined) onFilterChange(presetState.filterValues);
-                if (presetState.searchQuery !== undefined) onSearchChange(presetState.searchQuery);
-                if (presetState.sortKey !== undefined && onSortChange) onSortChange(presetState.sortKey, presetState.sortDir || 'desc');
-              }}
-              externalShowSaveModal={showSavePresetModal}
-              onCloseExternalSaveModal={() => setShowSavePresetModal(false)}
-              showToast={showToast}
-            />
           </div>
         </div>
 
