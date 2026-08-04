@@ -10,6 +10,7 @@ export const EMPLOYEES_MANIFEST = {
   version: '1.0.0',
   minPlatformVersion: '1.0.0',
   name: 'Employee Directory',
+  entityName: 'Employee',
   description: 'Manage staff records, departments, designations, system roles, and base salaries.',
   category: MODULE_CATEGORIES.HR_RECRUITMENT,
   icon: '👥',

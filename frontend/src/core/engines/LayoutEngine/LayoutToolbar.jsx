@@ -101,7 +101,7 @@ export default function LayoutToolbar({
               background: 'linear-gradient(135deg, rgba(13,148,136,0.15) 0%, rgba(15,118,110,0.25) 100%)',
               display: 'flex',
               alignItems: 'center',
-              justify: 'center',
+              justifyContent: 'center',
               fontSize: '18px',
               flexShrink: 0
             }}

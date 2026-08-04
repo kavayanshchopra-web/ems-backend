@@ -33,7 +33,7 @@ export class LabelEngine {
     if (!moduleConfig) return 'Record';
     if (moduleConfig.entityName) return moduleConfig.entityName;
     const title = this.getModuleTitle(moduleConfig);
-    return title.replace(/s$/i, '').replace(/ATS$/i, 'Candidate').trim();
+    return title.replace(/ Directory$/i, '').replace(/s$/i, '').replace(/ATS$/i, 'Candidate').trim();
   }
 
   /**
