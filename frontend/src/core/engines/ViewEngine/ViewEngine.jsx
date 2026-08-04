@@ -30,7 +30,9 @@ export default function ViewEngine({
   onResetFilters = () => {},
   systemDropdowns = null,
   activePipelineStages = [],
-  onOpenExportModal = () => {}
+  onOpenExportModal = () => {},
+  hiddenColIds = [],
+  setHiddenColIds = () => {}
 }) {
   // Resolve enabled views from moduleConfig (supports availableViews array and views object map)
   let enabledViewsList = [];
