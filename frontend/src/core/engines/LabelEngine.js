@@ -141,13 +141,62 @@ export class LabelEngine {
    * @param {string} stageStatus 
    * @returns {'success' | 'warning' | 'info' | 'neutral' | 'danger'}
    */
-  static getBadgeVariant(stageStatus) {
-    if (!stageStatus) return 'neutral';
-    const lower = String(stageStatus).toLowerCase();
-    if (lower.includes('hire') || lower.includes('won') || lower.includes('approve') || lower.includes('disbursed') || lower.includes('active')) return 'success';
-    if (lower.includes('offer') || lower.includes('proposal') || lower.includes('negotiat') || lower.includes('leave')) return 'warning';
-    if (lower.includes('interview') || lower.includes('lead') || lower.includes('qualif')) return 'info';
-    if (lower.includes('lost') || lower.includes('reject') || lower.includes('terminate')) return 'danger';
-    return 'neutral';
+  /**
+   * Get dynamic color style for any dropdown value (role, status, department, designation, custom dropdown)
+   * @param {string} val 
+   * @param {Object} moduleConfig 
+   * @returns {{ bg: string, color: string, border: string }}
+   */
+  static getOptionStyle(val, moduleConfig = null) {
+    if (!val) return { bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' };
+    const str = String(val).trim();
+    const lower = str.toLowerCase();
+
+    // Custom tenant option colors
+    if (moduleConfig?.lookupColors?.[str]) {
+      const hex = moduleConfig.lookupColors[str];
+      return { bg: `${hex}1f`, color: hex, border: `${hex}4d` };
+    }
+
+    // Color maps for common enterprise roles, departments, statuses
+    if (lower.includes('admin') || lower.includes('owner') || lower.includes('super')) {
+      return { bg: 'rgba(139, 92, 246, 0.12)', color: '#7c3aed', border: 'rgba(139, 92, 246, 0.3)' };
+    }
+    if (lower.includes('manager') || lower.includes('lead') || lower.includes('head')) {
+      return { bg: 'rgba(59, 130, 246, 0.12)', color: '#2563eb', border: 'rgba(59, 130, 246, 0.3)' };
+    }
+    if (lower.includes('sales') || lower.includes('agent') || lower.includes('executive')) {
+      return { bg: 'rgba(14, 165, 233, 0.12)', color: '#0284c7', border: 'rgba(14, 165, 233, 0.3)' };
+    }
+    if (lower.includes('engineer') || lower.includes('developer') || lower.includes('tech') || lower.includes('software')) {
+      return { bg: 'rgba(99, 102, 241, 0.12)', color: '#4f46e5', border: 'rgba(99, 102, 241, 0.3)' };
+    }
+    if (lower.includes('hr') || lower.includes('recruiter') || lower.includes('people')) {
+      return { bg: 'rgba(236, 72, 153, 0.12)', color: '#db2777', border: 'rgba(236, 72, 153, 0.3)' };
+    }
+    if (lower.includes('marketing')) {
+      return { bg: 'rgba(244, 63, 94, 0.12)', color: '#e11d48', border: 'rgba(244, 63, 94, 0.3)' };
+    }
+    if (lower.includes('active') || lower.includes('hired') || lower.includes('won') || lower.includes('approve') || lower.includes('full-time')) {
+      return { bg: 'rgba(16, 185, 129, 0.12)', color: '#059669', border: 'rgba(16, 185, 129, 0.3)' };
+    }
+    if (lower.includes('leave') || lower.includes('probation') || lower.includes('pending') || lower.includes('hold') || lower.includes('part-time')) {
+      return { bg: 'rgba(245, 158, 11, 0.12)', color: '#d97706', border: 'rgba(245, 158, 11, 0.3)' };
+    }
+    if (lower.includes('terminate') || lower.includes('lost') || lower.includes('reject') || lower.includes('suspend')) {
+      return { bg: 'rgba(239, 68, 68, 0.12)', color: '#dc2626', border: 'rgba(239, 68, 68, 0.3)' };
+    }
+
+    // Dynamic hash color generator for custom options
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash) % 360;
+    return {
+      bg: `hsla(${hue}, 75%, 94%, 1)`,
+      color: `hsla(${hue}, 85%, 28%, 1)`,
+      border: `hsla(${hue}, 65%, 75%, 1)`
+    };
   }
 }

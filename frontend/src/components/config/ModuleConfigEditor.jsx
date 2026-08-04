@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { LabelEngine } from '../../core/engines/LabelEngine';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { Plus, Trash2, Eye, EyeOff, Sliders, LayoutGrid, List, Search, Filter, Layers, ArrowLeft, Hash, Edit3, Settings, ChevronDown, ChevronUp, Calendar, Clock, Image, GitFork, BarChartHorizontal, MapPin } from 'lucide-react';
@@ -126,9 +127,20 @@ export default function ModuleConfigEditor({
       kanbanFields: { ...(initialConfig.kanbanFields || { position: true, email: true, phone: true, resume: true }) },
       views: { ...(initialConfig.views || { availableViews: ['kanban', 'list'], defaultView: 'kanban' }) },
       idConfig: { ...(initialConfig.idConfig || { prefix: 'ATS', pattern: 'ATS-001', nextSeq: 1 }) },
-      lookupData: { ...defaultLookups, ...(initialConfig.lookupData || {}) }
+      lookupData: { ...defaultLookups, ...(initialConfig.lookupData || {}) },
+      lookupColors: { ...(initialConfig.lookupColors || {}) }
     };
   });
+
+  const handleUpdateOptionColor = (optName, hexColor) => {
+    setConfigState(prev => ({
+      ...prev,
+      lookupColors: {
+        ...(prev.lookupColors || {}),
+        [optName]: hexColor
+      }
+    }));
+  };
 
   const [selectedLookupDataset, setSelectedLookupDataset] = useState(() => {
     const keys = Object.keys({ ...defaultLookups, ...(initialConfig.lookupData || {}) });
@@ -1282,33 +1294,45 @@ export default function ModuleConfigEditor({
 
                     {/* Options Badges */}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', minHeight: '100px' }}>
-                      {(configState.lookupData[selectedLookupDataset] || []).map((opt, optIdx) => (
-                        <div
-                          key={optIdx}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '4px 10px',
-                            borderRadius: '16px',
-                            background: '#ffffff',
-                            border: '1px solid #cbd5e1',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            color: '#0f172a',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
-                          }}
-                        >
-                          <span>{opt}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteLookupItem(selectedLookupDataset, optIdx)}
-                            style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#ef4444', padding: 0, display: 'flex', alignItems: 'center', fontWeight: 'bold' }}
+                      {(configState.lookupData[selectedLookupDataset] || []).map((opt, optIdx) => {
+                        const optStyle = LabelEngine.getOptionStyle(opt, configState);
+                        const currentColor = configState.lookupColors?.[opt] || optStyle.color;
+
+                        return (
+                          <div
+                            key={optIdx}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '4px 10px',
+                              borderRadius: '16px',
+                              background: optStyle.bg,
+                              border: `1px solid ${optStyle.border}`,
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              color: optStyle.color,
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                            }}
                           >
-                            ×
-                          </button>
-                        </div>
-                      ))}
+                            <input
+                              type="color"
+                              value={currentColor.startsWith('#') ? currentColor : '#0d9488'}
+                              onChange={(e) => handleUpdateOptionColor(opt, e.target.value)}
+                              title="Click to customize option badge color"
+                              style={{ width: '16px', height: '16px', borderRadius: '50%', border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
+                            />
+                            <span>{opt}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteLookupItem(selectedLookupDataset, optIdx)}
+                              style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#ef4444', padding: 0, display: 'flex', alignItems: 'center', fontWeight: 'bold' }}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        );
+                      })}
                       {(configState.lookupData[selectedLookupDataset] || []).length === 0 && (
                         <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>No items in this dataset yet.</span>
                       )}

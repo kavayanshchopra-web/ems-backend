@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { Star, Link as LinkIcon, FileText, CheckCircle2 } from 'lucide-react';
+import { LabelEngine } from '../LabelEngine';
 
 const getValString = (val, fallback = '') => {
   if (val === null || val === undefined) return fallback;
@@ -114,15 +115,39 @@ export default function SchemaFieldRenderer({
       displayVal = (
         <img src={valStr} alt={field.label} style={{ maxWidth: '100px', maxHeight: '100px', borderRadius: '6px', border: '1px solid #e2e8f0', objectFit: 'cover' }} />
       );
+    } else if (field.type === 'dropdown' || field.type === 'status' || field.type === 'radio' || field.id === 'role' || field.id === 'department' || field.id === 'designation' || field.id === 'status' || field.key === 'role' || field.key === 'department' || field.key === 'designation' || field.key === 'status') {
+      if (valStr) {
+        const optionStyle = LabelEngine.getOptionStyle(valStr, moduleConfig);
+        displayVal = (
+          <span style={{
+            background: optionStyle.bg,
+            color: optionStyle.color,
+            border: `1px solid ${optionStyle.border}`,
+            padding: '3px 10px',
+            borderRadius: '12px',
+            fontSize: '11px',
+            fontWeight: '700',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            letterSpacing: '0.2px'
+          }}>
+            {valStr}
+          </span>
+        );
+      }
     } else if (field.type === 'multiselect' || field.type === 'tag') {
       const tags = Array.isArray(rawVal) ? rawVal : valStr.split(',').map(s => s.trim()).filter(Boolean);
       displayVal = tags.length > 0 ? (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-          {tags.map((t, idx) => (
-            <span key={idx} style={{ background: '#f1f5f9', color: '#334155', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '700' }}>
-              {t}
-            </span>
-          ))}
+          {tags.map((t, idx) => {
+            const tagStyle = LabelEngine.getOptionStyle(t, moduleConfig);
+            return (
+              <span key={idx} style={{ background: tagStyle.bg, color: tagStyle.color, border: `1px solid ${tagStyle.border}`, padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '700' }}>
+                {t}
+              </span>
+            );
+          })}
         </div>
       ) : '—';
     }
