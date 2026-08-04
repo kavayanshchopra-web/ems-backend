@@ -84,7 +84,8 @@ export default function ListEngine({
   currentPage: propCurrentPage = 1,
   pageSize: propPageSize = 25,
   onPageChange: propOnPageChange = null,
-  onPageSizeChange: propOnPageSizeChange = null
+  onPageSizeChange: propOnPageSizeChange = null,
+  emptyText: propEmptyText = null
 }) {
   const [colWidths, setColWidths] = useState({});
   const [selectedIds, setSelectedIds] = useState([]);
@@ -98,6 +99,11 @@ export default function ListEngine({
   const setPageSize = propOnPageSizeChange || setLocalPageSize;
   const hiddenColIds = propSetHiddenColIds ? propHiddenColIds : localHiddenColIds;
   const setHiddenColIds = propSetHiddenColIds || setLocalHiddenColIds;
+
+  const emptyStateTextObj = propEmptyText || LabelEngine.getEmptyStateText(moduleConfig, isFilterActive, searchQuery) || {};
+  const emptyTitle = emptyStateTextObj.title || 'No records found';
+  const emptyDesc = emptyStateTextObj.description || 'No data matches your current criteria.';
+
   const [showColumnPopover, setShowColumnPopover] = useState(false);
   const scrollRef = useRef(null);
 
@@ -617,8 +623,8 @@ export default function ListEngine({
                   <td colSpan={visibleCols.length + (isArchivedView && canManage ? 2 : 1)} style={{ padding: '32px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
                     <EmptyState
                       icon="📦"
-                      title={emptyText.title}
-                      description={emptyText.description}
+                      title={emptyTitle}
+                      description={emptyDesc}
                     />
                   </td>
                 </tr>
