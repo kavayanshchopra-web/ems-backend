@@ -5790,19 +5790,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       {/* Main Content Area */}
       <main className="main-content">
         {/* EMS-style white top header with search */}
-        <header className="top-header" style={{ background: 'var(--sidebar-bg, #064e43)', color: '#ffffff', borderBottom: '1px solid rgba(255, 255, 255, 0.12)', padding: '4px 14px', height: '36px', minHeight: '36px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
+        <header className="top-header" style={{ background: 'var(--sidebar-bg, #064e43)', color: '#ffffff', borderBottom: '1px solid rgba(255, 255, 255, 0.12)', padding: '8px 18px', height: '52px', minHeight: '52px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
           <button
             className="mobile-menu-btn"
             onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
             title="Toggle Menu"
             style={{ color: '#14d2cb' }}
           >
-            <Menu size={16} />
+            <Menu size={18} />
           </button>
           
           {/* Desktop Page Title (Aligned equal from left with content cards) */}
           <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '0px', marginRight: '20px', flexShrink: 0 }}>
-            <span style={{ fontSize: '13px', fontWeight: '800', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+            <span style={{ fontSize: '14px', fontWeight: '800', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '1px' }}>
                {activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' ')}
             </span>
           </div>
@@ -5815,19 +5815,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 const connected = sessions.find(s => s.status === 'connected');
                 if (connected) setBroadcastSessionId(connected.id);
                 setShowBroadcastModal(true);
-              }} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 8px', fontSize: '11px', background: 'rgba(255,255,255,0.18)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.25)' }}>
-                <Megaphone size={13} /> <span className="broadcast-btn-text">Broadcast</span>
+              }} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 10px', fontSize: '12px', background: 'rgba(255,255,255,0.18)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.25)', borderRadius: '6px' }}>
+                <Megaphone size={14} /> <span className="broadcast-btn-text">Broadcast</span>
               </button>
             )}
             {activeTab === 'channels' && (
-              <button className="btn btn-primary" onClick={() => setShowAddSessionModal(true)} style={{ padding: '3px 8px', fontSize: '11px' }}>
-                <Plus size={13} /> Add Channel
+              <button className="btn btn-primary" onClick={() => setShowAddSessionModal(true)} style={{ padding: '5px 10px', fontSize: '12px', borderRadius: '6px' }}>
+                <Plus size={14} /> Add Channel
               </button>
             )}
 
             {/* Server status dot */}
-            <span className="server-status-container" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'rgba(255,255,255,0.85)' }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: serverOnline ? '#10b981' : '#ef4444', display: 'inline-block' }}></span>
+            <span className="server-status-container" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'rgba(255,255,255,0.85)', padding: '0 4px' }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: serverOnline ? '#10b981' : '#ef4444', display: 'inline-block' }}></span>
               <span className="server-status-text">{serverOnline ? 'Live' : 'Offline'}</span>
             </span>
 
@@ -5836,9 +5836,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               <div
                 onClick={() => setShowNotificationsDropdown(prev => !prev)}
                 style={{
-                  width: '26px',
-                  height: '26px',
-                  borderRadius: '6px',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
                   border: '1px solid rgba(255, 255, 255, 0.25)',
                   background: showNotificationsDropdown ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.14)',
                   display: 'flex',
@@ -5850,7 +5850,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   transition: 'all 0.2s ease'
                 }}
               >
-                <Bell size={14} />
+                <Bell size={16} />
                 {notifications.filter(n => !n.read).length > 0 && (
                   <span style={{
                     position: 'absolute',
@@ -5945,9 +5945,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               <div
                 onClick={() => setShowProfileDropdown(prev => !prev)}
                 style={{
-                  width: '26px',
-                  height: '26px',
-                  borderRadius: '6px',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
                   background: 'linear-gradient(135deg, #0d9488 0%, #0f2b26 100%)',
                   display: 'flex',
                   alignItems: 'center',
@@ -5958,7 +5958,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 }}
                 title="Account Profile & Settings"
               >
-                <User size={14} style={{ color: 'white' }} />
+                <User size={16} style={{ color: 'white' }} />
               </div>
 
               {/* Profile Dropdown Popover */}
