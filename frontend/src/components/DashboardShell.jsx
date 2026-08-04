@@ -2430,16 +2430,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   };
 
-  const t = (key) => (translations[language] && translations[language][key]) || (translations['en'] && translations['en'][key]) || key;
+  const t = (key) => (translations[activeLanguage] && translations[activeLanguage][key]) || (translations['en'] && translations['en'][key]) || key;
 
-  // Document RTL layout handling for Arabic
+  // Document RTL layout handling for Arabic / Hebrew / Persian / Urdu
   useEffect(() => {
-    if (language === 'ar') {
+    if (['ar', 'he', 'ur', 'fa'].includes(activeLanguage)) {
       document.documentElement.setAttribute('dir', 'rtl');
     } else {
       document.documentElement.setAttribute('dir', 'ltr');
     }
-  }, [language]);
+  }, [activeLanguage]);
 
   // Granular Role-Based Access Control (RBAC) Permissions Matrix
   const [rolePermissions, setRolePermissions] = useState({
@@ -5645,54 +5645,54 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
           {/* CATEGORY: SYSTEM (Superadmin / Owner / Admin - Placed at Top) */}
           {(authUser?.role === 'superadmin' || authUser?.role === 'owner' || authUser?.role === 'admin') && (
-            <AccordionCategory id="system" label="SYSTEM" isExpanded={!!expandedCategories.system} onToggle={toggleCategory}>
+            <AccordionCategory id="system" label={t('systemCat') || "SYSTEM"} isExpanded={!!expandedCategories.system} onToggle={toggleCategory}>
               {authUser?.role === 'superadmin' && (
                 <div className={`nav-item ${activeTab === 'superadmin_plans' ? 'active' : ''}`} onClick={() => setActiveTab('superadmin_plans')}>
                   <Shield size={15} />
-                  <span style={{ fontSize: '13px' }}>Super Admin Panel</span>
+                  <span style={{ fontSize: '13px' }}>{t('superAdminPanel')}</span>
                 </div>
               )}
               {/* Global Audit Logs tab */}
               {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager' || authUser?.role === 'superadmin') && (
                 <div className={`nav-item ${activeTab === 'audit_logs' ? 'active' : ''}`} onClick={() => setActiveTab('audit_logs')}>
                   <FileText size={15} />
-                  <span style={{ fontSize: '13px' }}>Audit Logs</span>
+                  <span style={{ fontSize: '13px' }}>{t('auditLogs')}</span>
                 </div>
               )}
             </AccordionCategory>
           )}
 
           {/* CATEGORY: DASHBOARDS */}
-          <AccordionCategory id="dashboards" label="DASHBOARDS" isExpanded={!!expandedCategories.dashboards} onToggle={toggleCategory}>
+          <AccordionCategory id="dashboards" label={t('dashboardsCat') || "DASHBOARDS"} isExpanded={!!expandedCategories.dashboards} onToggle={toggleCategory}>
             <div className={`nav-item ${activeTab === 'admin_dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('admin_dashboard')}>
               <BarChart3 size={15} />
-              <span style={{ fontSize: '13px' }}>Company Overview</span>
+              <span style={{ fontSize: '13px' }}>{t('companyOverview')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'manager_dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('manager_dashboard')}>
               <BarChart3 size={15} />
-              <span style={{ fontSize: '13px' }}>Task Analytics</span>
+              <span style={{ fontSize: '13px' }}>{t('taskAnalytics')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'gps_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('gps_attendance')}>
               <Globe size={15} />
-              <span style={{ fontSize: '13px' }}>Live Tracking</span>
+              <span style={{ fontSize: '13px' }}>{t('liveTracking')}</span>
             </div>
           </AccordionCategory>
 
           {/* CATEGORY: HR MANAGEMENT */}
-          <AccordionCategory id="hr_management" label="HR MANAGEMENT" isExpanded={!!expandedCategories.hr_management} onToggle={toggleCategory}>
+          <AccordionCategory id="hr_management" label={t('hrCat') || "HR MANAGEMENT"} isExpanded={!!expandedCategories.hr_management} onToggle={toggleCategory}>
             {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager' || authUser?.role === 'superadmin') && (
               <div className={`nav-item ${activeTab === 'employees' ? 'active' : ''}`} onClick={() => setActiveTab('employees')}>
                 <Users size={15} />
-                <span style={{ fontSize: '13px' }}>All Employees</span>
+                <span style={{ fontSize: '13px' }}>{t('allEmployees')}</span>
               </div>
             )}
             <div className={`nav-item ${activeTab === 'recruitment_ats' ? 'active' : ''}`} onClick={() => setActiveTab('recruitment_ats')}>
               <Briefcase size={15} />
-              <span style={{ fontSize: '13px' }}>Recruitment ATS</span>
+              <span style={{ fontSize: '13px' }}>{t('recruitmentAts')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'performance_kpis' ? 'active' : ''}`} onClick={() => setActiveTab('performance_kpis')}>
               <Award size={15} />
-              <span style={{ fontSize: '13px' }}>Performance KPIs</span>
+              <span style={{ fontSize: '13px' }}>{t('performanceKpis')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'asset_management' ? 'active' : ''}`} onClick={() => setActiveTab('asset_management')}>
               <FileText size={15} />
@@ -6161,6 +6161,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                             const newLang = e.target.value;
                             setActiveLanguage(newLang);
                             localStorage.setItem('appLanguage', newLang);
+                            window.dispatchEvent(new Event('app_language_changed'));
                             const lObj = ALL_WORLD_LANGUAGES.find(l => l.code === newLang);
                             showToast(`🌐 Language set to ${lObj ? lObj.flag + ' ' + lObj.name : newLang.toUpperCase()}`, 'success');
                           }}

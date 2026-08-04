@@ -87,6 +87,14 @@ export default function ListEngine({
   onPageSizeChange: propOnPageSizeChange = null,
   emptyText: propEmptyText = null
 }) {
+  const [langVersion, setLangVersion] = useState(0);
+
+  React.useEffect(() => {
+    const handleLangChange = () => setLangVersion(v => v + 1);
+    window.addEventListener('app_language_changed', handleLangChange);
+    return () => window.removeEventListener('app_language_changed', handleLangChange);
+  }, []);
+
   const [colWidths, setColWidths] = useState({});
   const [selectedIds, setSelectedIds] = useState([]);
   const [localCurrentPage, setLocalCurrentPage] = useState(1);

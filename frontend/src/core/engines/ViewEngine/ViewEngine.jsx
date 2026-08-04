@@ -65,6 +65,14 @@ export default function ViewEngine({
   onPageChange = () => {},
   onPageSizeChange = () => {}
 }) {
+  const [langVersion, setLangVersion] = React.useState(0);
+
+  React.useEffect(() => {
+    const handleLangChange = () => setLangVersion(v => v + 1);
+    window.addEventListener('app_language_changed', handleLangChange);
+    return () => window.removeEventListener('app_language_changed', handleLangChange);
+  }, []);
+
   // Resolve enabled views from moduleConfig
   let enabledViewsList = [];
   if (Array.isArray(moduleConfig?.views?.availableViews) && moduleConfig.views.availableViews.length > 0) {
