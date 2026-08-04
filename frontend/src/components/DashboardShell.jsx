@@ -537,6 +537,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   };
 
+  // Global Toast Notification state
+  const [toast, setToast] = useState({ message: '', type: 'success', visible: false });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type, visible: true });
+    setTimeout(() => {
+      setToast(prev => ({ ...prev, visible: false }));
+    }, 3000);
+  };
+
   // CRM / WhatsApp Inbox State Hub & Refs
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
@@ -1585,16 +1595,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   });
 
   const [employeeExpenses, setEmployeeExpenses] = useState({});
-
-  // Global Toast Notification state
-  const [toast, setToast] = useState({ message: '', type: 'success', visible: false });
-
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type, visible: true });
-    setTimeout(() => {
-      setToast(prev => ({ ...prev, visible: false }));
-    }, 3000);
-  };
 
   // Multi-language Translation Support
   const [language, setLanguage] = useState('en'); // 'en', 'hi', 'hinglish'
