@@ -42,8 +42,8 @@ export default function Pagination({
 
   if (compact) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', userSelect: 'none' }}>
-        {/* PER PAGE SELECTOR WITHOUT TEXT LABEL */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', userSelect: 'none' }}>
+        {/* PER PAGE SELECTOR WITHOUT TEXT LABEL (MICRO 28px HEIGHT) */}
         <select
           value={pageSize}
           onChange={(e) => {
@@ -51,10 +51,11 @@ export default function Pagination({
             onPageChange(1);
           }}
           style={{
-            padding: '4px 8px',
+            height: '28px',
+            padding: '2px 6px',
             borderRadius: '6px',
             border: '1px solid #cbd5e1',
-            fontSize: '11.5px',
+            fontSize: '11px',
             fontWeight: '700',
             outline: 'none',
             background: '#ffffff',
@@ -68,26 +69,31 @@ export default function Pagination({
           <option value={100}>100</option>
         </select>
 
-        {/* ENTERPRISE NUMBERED PAGE PILLS << < 1 2 3 ... > >> */}
+        {/* ENTERPRISE NUMBERED PAGE PILLS (26px x 26px MINI SQUARE PILLS) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-          <button
-            type="button"
-            title="First Page"
-            disabled={currentPage <= 1}
-            onClick={() => onPageChange(1)}
-            style={{
-              padding: '3px 5px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              background: '#ffffff',
-              color: currentPage <= 1 ? '#cbd5e1' : '#334155',
-              cursor: currentPage <= 1 ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center'
-            }}
-          >
-            <ChevronsLeft size={13} />
-          </button>
+          {totalPages > 1 && (
+            <button
+              type="button"
+              title="First Page"
+              disabled={currentPage <= 1}
+              onClick={() => onPageChange(1)}
+              style={{
+                width: '26px',
+                height: '26px',
+                padding: 0,
+                borderRadius: '6px',
+                border: '1px solid #cbd5e1',
+                background: '#ffffff',
+                color: currentPage <= 1 ? '#cbd5e1' : '#334155',
+                cursor: currentPage <= 1 ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <ChevronsLeft size={12} />
+            </button>
+          )}
 
           <button
             type="button"
@@ -95,17 +101,20 @@ export default function Pagination({
             disabled={currentPage <= 1}
             onClick={() => onPageChange(currentPage - 1)}
             style={{
-              padding: '3px 5px',
+              width: '26px',
+              height: '26px',
+              padding: 0,
               borderRadius: '6px',
               border: '1px solid #cbd5e1',
               background: '#ffffff',
               color: currentPage <= 1 ? '#cbd5e1' : '#334155',
               cursor: currentPage <= 1 ? 'not-allowed' : 'pointer',
               display: 'flex',
-              alignItems: 'center'
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
           >
-            <ChevronLeft size={13} />
+            <ChevronLeft size={12} />
           </button>
 
           {pages.map(num => (
@@ -114,14 +123,19 @@ export default function Pagination({
               type="button"
               onClick={() => onPageChange(num)}
               style={{
-                padding: '3px 8px',
+                minWidth: '26px',
+                height: '26px',
+                padding: '0 4px',
                 borderRadius: '6px',
                 border: num === currentPage ? '1px solid #0d9488' : '1px solid #cbd5e1',
                 background: num === currentPage ? '#0d9488' : '#ffffff',
                 color: num === currentPage ? '#ffffff' : '#334155',
-                fontSize: '11.5px',
+                fontSize: '11px',
                 fontWeight: '700',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
             >
               {num}
@@ -134,37 +148,45 @@ export default function Pagination({
             disabled={currentPage >= totalPages}
             onClick={() => onPageChange(currentPage + 1)}
             style={{
-              padding: '3px 5px',
+              width: '26px',
+              height: '26px',
+              padding: 0,
               borderRadius: '6px',
               border: '1px solid #cbd5e1',
               background: '#ffffff',
               color: currentPage >= totalPages ? '#cbd5e1' : '#334155',
               cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
               display: 'flex',
-              alignItems: 'center'
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
           >
-            <ChevronRight size={13} />
+            <ChevronRight size={12} />
           </button>
 
-          <button
-            type="button"
-            title="Last Page"
-            disabled={currentPage >= totalPages}
-            onClick={() => onPageChange(totalPages)}
-            style={{
-              padding: '3px 5px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              background: '#ffffff',
-              color: currentPage >= totalPages ? '#cbd5e1' : '#334155',
-              cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center'
-            }}
-          >
-            <ChevronsRight size={13} />
-          </button>
+          {totalPages > 1 && (
+            <button
+              type="button"
+              title="Last Page"
+              disabled={currentPage >= totalPages}
+              onClick={() => onPageChange(totalPages)}
+              style={{
+                width: '26px',
+                height: '26px',
+                padding: 0,
+                borderRadius: '6px',
+                border: '1px solid #cbd5e1',
+                background: '#ffffff',
+                color: currentPage >= totalPages ? '#cbd5e1' : '#334155',
+                cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <ChevronsRight size={12} />
+            </button>
+          )}
         </div>
       </div>
     );

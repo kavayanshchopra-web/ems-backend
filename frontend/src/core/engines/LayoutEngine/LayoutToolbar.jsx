@@ -300,28 +300,29 @@ export default function LayoutToolbar({
           </div>
 
           {/* COLUMNS SELECTION & PAGINATION CONTROLS (RIGHT SIDE OF SEARCH BAR ROW) */}
-          <div style={{ position: 'relative', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ position: 'relative', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               type="button"
               onClick={() => setShowColumnPopover(prev => !prev)}
               style={{
-                padding: '6px 12px',
-                fontSize: '12px',
+                height: '28px',
+                padding: '3px 8px',
+                fontSize: '11px',
                 fontWeight: '700',
-                borderRadius: '8px',
+                borderRadius: '6px',
                 border: '1px solid #cbd5e1',
                 background: '#ffffff',
                 color: '#0d9488',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
+                gap: '5px',
                 boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
                 whiteSpace: 'nowrap'
               }}
             >
-              <Columns size={14} />
-              <span>Columns ({visibleCols.length}/{allCols.length})</span>
+              <Columns size={13} />
+              <span>Cols</span>
             </button>
 
             {showColumnPopover && (
