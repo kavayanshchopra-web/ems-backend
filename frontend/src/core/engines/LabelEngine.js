@@ -188,14 +188,47 @@ export class LabelEngine {
     };
   }
 
+  static CURRENCY_SYMBOLS = {
+    USD: '$', INR: '₹', EUR: '€', GBP: '£', AED: 'د.إ', SAR: '﷼',
+    CAD: '$', AUD: '$', KWD: 'KD', QAR: 'QR', BHD: 'BD', OMR: 'RO',
+    SGD: '$', JPY: '¥', CHF: 'CHF', CNY: '¥', HKD: '$', NZD: '$',
+    SEK: 'kr', NOK: 'kr', DKK: 'kr', PLN: 'zł', TRY: '₺', THB: '฿',
+    MYR: 'RM', IDR: 'Rp', PHP: '₱', VND: '₫', KRW: '₩', BRL: 'R$',
+    MXN: '$', ZAR: 'R', EGP: 'E£', NGN: '₦', KES: 'KSh', PKR: 'Rs',
+    BDT: '৳', LKR: 'Rs', NPR: 'Rs', RUB: '₽', ILS: '₪', COP: '$',
+    CLP: '$', PEN: 'S/', ARS: '$', CZK: 'Kč', HUF: 'Ft', RON: 'lei',
+    BGN: 'лв', HRK: 'kn', ISK: 'kr', JOD: 'JD', LBP: 'L£', IQD: 'IQD',
+    DZD: 'DA', MAD: 'MAD', TND: 'DT', GHS: 'GH₵', ETB: 'Br', TZS: 'TSh',
+    UGX: 'USh', MUR: 'Rs'
+  };
+
   /**
-   * Format currency with dynamic active currency symbol and exchange conversion!
-   * @param {number|string} amount 
-   * @param {string} targetCurrency 
-   * @param {string} sourceCurrency 
+   * Get currency symbol for a currency code (e.g., INR -> ₹, USD -> $, EUR -> €)
+   * @param {string} code 
    * @returns {string}
    */
-  static formatCurrencyVal(amount, targetCurrency = null, sourceCurrency = 'USD') {
+  static getCurrencySymbol(code = 'USD') {
+    if (!code) return '$';
+    const upperCode = String(code).toUpperCase().trim();
+    if (this.CURRENCY_SYMBOLS[upperCode]) return this.CURRENCY_SYMBOLS[upperCode];
+    try {
+      const parts = new Intl.NumberFormat('en-US', { style: 'currency', currency: upperCode }).formatToParts(0);
+      const symbolPart = parts.find(p => p.type === 'currency');
+      return symbolPart ? symbolPart.value : upperCode;
+    } catch (e) {
+      return upperCode;
+    }
+  }
+
+  /**
+   * Format currency with dynamic active currency symbol.
+   * Amounts entered in the app are formatted directly in the selected active currency.
+   * @param {number|string} amount 
+   * @param {string} targetCurrency 
+   * @param {string} sourceCurrency Optional source currency if explicit conversion is needed
+   * @returns {string}
+   */
+  static formatCurrencyVal(amount, targetCurrency = null, sourceCurrency = null) {
     if (amount === null || amount === undefined || amount === '') return '—';
     const num = Number(amount);
     if (isNaN(num)) return String(amount);
@@ -206,30 +239,17 @@ export class LabelEngine {
     }
     if (!activeCurr) activeCurr = 'USD';
 
-    // Standard Exchange Rate Matrix against USD
-    const rates = {
-      USD: 1,
-      INR: 83.5,
-      EUR: 0.92,
-      AED: 3.67,
-      GBP: 0.78,
-      SAR: 3.75,
-      CAD: 1.37,
-      AUD: 1.52,
-      KWD: 0.31,
-      QAR: 3.64,
-      SGD: 1.35,
-      JPY: 155.2,
-      CHF: 0.89,
-      CNY: 7.25,
-      BRL: 5.45,
-      ZAR: 18.2,
-      RUB: 88.0
-    };
-
-    const sourceRate = rates[sourceCurrency] || 1;
-    const targetRate = rates[activeCurr] || 1;
-    const convertedNum = (num / sourceRate) * targetRate;
+    let convertedNum = num;
+    if (sourceCurrency && sourceCurrency !== activeCurr) {
+      const rates = {
+        USD: 1, INR: 83.5, EUR: 0.92, AED: 3.67, GBP: 0.78, SAR: 3.75,
+        CAD: 1.37, AUD: 1.52, KWD: 0.31, QAR: 3.64, SGD: 1.35, JPY: 155.2,
+        CHF: 0.89, CNY: 7.25, BRL: 5.45, ZAR: 18.2, RUB: 88.0
+      };
+      const sourceRate = rates[sourceCurrency] || 1;
+      const targetRate = rates[activeCurr] || 1;
+      convertedNum = (num / sourceRate) * targetRate;
+    }
 
     try {
       return new Intl.NumberFormat('en-US', {
@@ -238,7 +258,8 @@ export class LabelEngine {
         maximumFractionDigits: activeCurr === 'JPY' ? 0 : 2
       }).format(convertedNum);
     } catch (e) {
-      return `${activeCurr} ${convertedNum.toFixed(2)}`;
+      const sym = this.getCurrencySymbol(activeCurr);
+      return `${sym} ${convertedNum.toFixed(2)}`;
     }
   }
 

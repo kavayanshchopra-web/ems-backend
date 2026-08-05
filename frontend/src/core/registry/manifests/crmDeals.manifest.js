@@ -48,7 +48,7 @@ export const CRM_DEALS_MANIFEST = {
   
   defaultFields: [
     { id: 'name', label: 'Deal Title', type: 'text', systemField: true, required: true, searchable: true, filterable: false, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, placeholder: 'e.g. Acme Corp Enterprise License' },
-    { id: 'amount', label: 'Deal Amount ($)', type: 'currency', systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, placeholder: 'e.g. 50000' },
+    { id: 'amount', label: 'Deal Amount', type: 'currency', systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, placeholder: 'e.g. 50000' },
     { id: 'contact', label: 'Contact Person', type: 'text', systemField: true, required: false, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, placeholder: 'e.g. John Doe' },
     { id: 'email', label: 'Contact Email', type: 'email', systemField: true, required: false, searchable: true, filterable: true, sortable: false, showOnCreate: true, showOnEdit: true, showOnView: true, placeholder: 'e.g. john@acme.com' },
     { id: 'status', label: 'Deal Stage', type: 'dropdown', optionsSource: 'crm_stages', systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true }

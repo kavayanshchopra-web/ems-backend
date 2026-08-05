@@ -11623,10 +11623,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 </div>
               </div>
               <div className="payroll-stat-card">
-                <div className="payroll-stat-icon green">₹</div>
+                <div className="payroll-stat-icon green">{LabelEngine.getCurrencySymbol(activeCurrency)}</div>
                 <div>
                   <div className="payroll-stat-label">Total Payroll</div>
-                  <div className="payroll-stat-value">₹{employees.reduce((s, e) => s + (parseFloat(e.salary) || 0), 0).toLocaleString('en-IN')}</div>
+                  <div className="payroll-stat-value">{LabelEngine.formatCurrencyVal(employees.reduce((s, e) => s + (parseFloat(e.salary) || 0), 0), activeCurrency)}</div>
                 </div>
               </div>
               <div className="payroll-stat-card">
@@ -11702,7 +11702,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                 </div>
                               </td>
                               <td>
-                                <div className="emp-name-main">₹{parseFloat(emp.salary || 0).toLocaleString('en-IN')}</div>
+                                <div className="emp-name-main">{LabelEngine.formatCurrencyVal(emp.salary || 0, activeCurrency)}</div>
                                 <div className="emp-name-sub">per month</div>
                               </td>
                               <td>
@@ -11712,7 +11712,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                                 </div>
                               </td>
                               <td>
-                                <div className="salary-amount">₹{net.toLocaleString('en-IN')}</div>
+                                <div className="salary-amount">{LabelEngine.formatCurrencyVal(net, activeCurrency)}</div>
                                 <div className="salary-base">after attendance deduction</div>
                               </td>
                               <td><span className="badge-warning">Pending</span></td>

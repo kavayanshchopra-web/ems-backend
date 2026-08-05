@@ -397,21 +397,27 @@ export default function SchemaFieldRenderer({
           )}
         </div>
       ) : /* CURRENCY INPUT */
-      field.type === 'currency' ? (
-        <div style={{ position: 'relative', width: '100%' }}>
-          <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontWeight: '800', color: '#64748b', fontSize: '13px' }}>
-            $
-          </span>
-          <input
-            type="number"
-            step="0.01"
-            value={valStr}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder={field.placeholder || '0.00'}
-            style={{ ...baseInputStyle, paddingLeft: '24px' }}
-          />
-        </div>
-      ) : /* TAG / CHIPS */
+      field.type === 'currency' ? (() => {
+        const activeCurr = moduleConfig?.activeCurrency || (typeof window !== 'undefined' ? localStorage.getItem('appCurrency') : null) || field.currencyCode || 'USD';
+        const symbol = LabelEngine.getCurrencySymbol ? LabelEngine.getCurrencySymbol(activeCurr) : '$';
+        const paddingLeftPx = Math.max(26, symbol.length * 11 + 14);
+
+        return (
+          <div style={{ position: 'relative', width: '100%' }}>
+            <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontWeight: '800', color: '#64748b', fontSize: '13px', pointerEvents: 'none' }}>
+              {symbol}
+            </span>
+            <input
+              type="number"
+              step="0.01"
+              value={valStr}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder={field.placeholder || '0.00'}
+              style={{ ...baseInputStyle, paddingLeft: `${paddingLeftPx}px` }}
+            />
+          </div>
+        );
+      })() : /* TAG / CHIPS */
       field.type === 'tag' ? (
         <input
           type="text"

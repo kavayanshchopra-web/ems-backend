@@ -47,10 +47,10 @@ export const PAYROLL_MANIFEST = {
   
   defaultFields: [
     { id: 'employeeName', label: 'Employee Name', type: 'text', systemField: true, required: true, searchable: true, filterable: false, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true },
-    { id: 'basicSalary', label: 'Basic Monthly Salary (₹)', type: 'currency', systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true },
-    { id: 'allowances', label: 'HRA & Allowances (₹)', type: 'currency', systemField: true, required: false, searchable: false, filterable: false, sortable: false, showOnCreate: true, showOnEdit: true, showOnView: true },
-    { id: 'deductions', label: 'PF & Tax Deductions (₹)', type: 'currency', systemField: true, required: false, searchable: false, filterable: false, sortable: false, showOnCreate: true, showOnEdit: true, showOnView: true },
-    { id: 'netSalary', label: 'Net Payable Salary (₹)', type: 'currency', systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: false, showOnEdit: false, showOnView: true },
+    { id: 'basicSalary', label: 'Basic Monthly Salary', type: 'currency', systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true },
+    { id: 'allowances', label: 'HRA & Allowances', type: 'currency', systemField: true, required: false, searchable: false, filterable: false, sortable: false, showOnCreate: true, showOnEdit: true, showOnView: true },
+    { id: 'deductions', label: 'PF & Tax Deductions', type: 'currency', systemField: true, required: false, searchable: false, filterable: false, sortable: false, showOnCreate: true, showOnEdit: true, showOnView: true },
+    { id: 'netSalary', label: 'Net Payable Salary', type: 'currency', systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: false, showOnEdit: false, showOnView: true },
     { id: 'status', label: 'Payroll Run Status', type: 'dropdown', optionsSource: 'payroll_statuses', systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true }
   ],
   
