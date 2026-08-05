@@ -6190,38 +6190,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     {/* Localization & Preferences Section */}
                     <div style={{ borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', padding: '10px 16px', margin: '4px 0', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        {t('preferencesRegion')}
+                        PREFERENCES & REGION
                       </div>
 
-                      {/* 1. Language Selector */}
+                      {/* Currency Selector */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <label style={{ fontSize: '11px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Globe size={13} color="#0d9488" /> {t('languageLabel')} ({ALL_WORLD_LANGUAGES.length} Languages)
-                        </label>
-                        <select
-                          value={activeLanguage || 'en'}
-                          onChange={(e) => {
-                            const newLang = e.target.value;
-                            setActiveLanguage(newLang);
-                            localStorage.setItem('appLanguage', newLang);
-                            window.dispatchEvent(new Event('app_language_changed'));
-                            const lObj = ALL_WORLD_LANGUAGES.find(l => l.code === newLang);
-                            showToast(`🌐 Language set to ${lObj ? lObj.flag + ' ' + lObj.name : newLang.toUpperCase()}`, 'success');
-                          }}
-                          style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', background: 'white', fontWeight: '600', color: '#0f172a', width: '100%' }}
-                        >
-                          {ALL_WORLD_LANGUAGES.map(l => (
-                            <option key={l.code} value={l.code}>
-                              {l.flag} {l.name} ({l.nativeName})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* 2. Currency Selector */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <CreditCard size={13} color="#0d9488" /> {t('displayCurrencyLabel')} ({ALL_WORLD_CURRENCIES.length} Currencies)
+                          <CreditCard size={13} color="#0d9488" /> Display Currency ({ALL_WORLD_CURRENCIES.length} Currencies)
                         </label>
                         <select
                           value={activeCurrency || 'USD'}
