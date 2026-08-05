@@ -75,6 +75,7 @@ export default function LayoutToolbar({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
       {/* 1. TOP HEADER & MAIN ACTION STRIP */}
       <div
+        className="module-header-strip"
         style={{
           position: 'sticky',
           top: 0,
@@ -119,7 +120,7 @@ export default function LayoutToolbar({
         </div>
 
         {/* Header Action Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginLeft: 'auto' }}>
+        <div className="module-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginLeft: 'auto' }}>
 
           {canManage && (
             <div style={{ position: 'relative' }}>
@@ -225,6 +226,7 @@ export default function LayoutToolbar({
 
       {/* 2. SEARCH / FILTER TOOLBAR */}
       <div
+        className="module-search-filter-strip"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -239,7 +241,7 @@ export default function LayoutToolbar({
         }}
       >
         {/* A. LEFT CORNER: COLS BUTTON & PAGINATION CONTROLS */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div className="toolbar-cols-page-group" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <div style={{ position: 'relative' }}>
             <button
               type="button"
@@ -293,7 +295,7 @@ export default function LayoutToolbar({
         </div>
 
         {/* B. CENTER: SEARCH INPUT WITH INTEGRATED MINI GREEN FILTER ARROW BOX + PRESET TABS */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', flex: 1 }}>
+        <div className="toolbar-search-input-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', flex: 1 }}>
           <div style={{ position: 'relative' }}>
             <SearchInput
               value={searchQuery}

@@ -2920,3 +2920,61 @@ h1, h2, h3, h4, h5, h6 {
     min-height: auto !important;
   }
 }
+
+/* ==========================================================================
+   UNIVERSAL MOBILE RESPONSIVE ENGINE RULES (<= 768px & <= 480px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .layout-engine-shell {
+    padding: 8px 10px !important;
+    gap: 10px !important;
+  }
+
+  .module-header-strip {
+    padding: 10px 12px !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+
+  .module-header-actions {
+    margin-left: 0 !important;
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+
+  .module-search-filter-strip {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 8px 10px !important;
+    gap: 8px !important;
+  }
+
+  .toolbar-cols-page-group {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+
+  .toolbar-search-input-group {
+    width: 100% !important;
+    flex: none !important;
+    justify-content: stretch !important;
+  }
+
+  .toolbar-search-input-group > div {
+    width: 100% !important;
+  }
+
+  .std-table {
+    min-width: 750px !important;
+  }
+
+  .list-table-scroll {
+    max-height: calc(100vh - 200px) !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .kanban-board-container {
+    padding: 10px !important;
+  }
+}
