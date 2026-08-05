@@ -1261,11 +1261,11 @@ export default function ModuleConfigEditor({
                 {/* Dataset Values Editor */}
                 {selectedLookupDataset ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
+                    <div className="dataset-editor-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
                       <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
                         Dataset: <span style={{ color: '#0d9488' }}>{selectedLookupDataset.replace(/_/g, ' ').toUpperCase()}</span>
                       </h4>
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <div className="dataset-editor-actions" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                         <Button
                           variant="secondary"
                           size="sm"
@@ -1339,7 +1339,7 @@ export default function ModuleConfigEditor({
                     </div>
 
                     {/* Add Item to Dataset */}
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div className="dataset-add-item-row" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                       <input
                         type="text"
                         placeholder={`Add new item to ${selectedLookupDataset}...`}

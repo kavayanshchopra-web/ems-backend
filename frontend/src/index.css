@@ -3101,6 +3101,35 @@ h1, h2, h3, h4, h5, h6 {
     justify-content: center !important;
   }
 
+  .dataset-editor-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
+  .dataset-editor-actions {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  .dataset-editor-actions > button {
+    flex: 1 1 auto !important;
+    justify-content: center !important;
+  }
+
+  .dataset-add-item-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+
+  .dataset-add-item-row > button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
   /* Strict Mobile 1D Vertical Scroll Lock & Clean Scrollbar Hiding */
   html, body, #root, .main-content, .layout-engine-shell {
     overflow-x: hidden !important;
