@@ -111,7 +111,7 @@ export class LabelEngine {
       return moduleConfig.entityName.replace(/ Directory$/i, '').trim();
     }
     const title = this.getModuleTitle(moduleConfig);
-    return title.replace(/ Directory$/i, '').replace(/s$/i, '').replace(/ATS$/i, 'Candidate').trim();
+    return title.replace(/ Directory$/i, '').replace(/ Management$/i, '').replace(/ Pipeline$/i, '').replace(/s$/i, '').replace(/ATS$/i, 'Candidate').trim();
   }
 
   /**

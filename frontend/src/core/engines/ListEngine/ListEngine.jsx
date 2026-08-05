@@ -282,6 +282,18 @@ export default function ListEngine({
         {visibleCols.map((col, colIdx) => {
           const fieldDef = fieldsMap.get(col.fieldKey) || fieldsMap.get(col.id);
 
+          {/* ASSET TAG ID COLUMN SPECIFIC OVERRIDE */}
+          if (col.id === 'tag' || col.fieldKey === 'tag') {
+            const tagVal = getValString(record.tag || record.id || displayId);
+            return (
+              <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '11.5px', fontFamily: 'monospace', fontWeight: '800', padding: '4px 10px', borderRadius: '6px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)', display: 'inline-block' }}>
+                  🏷️ {tagVal}
+                </span>
+              </td>
+            );
+          }
+
           {/* PRIMARY IDENTITY COLUMN (AVATAR + NAME + ID ONLY) */}
           if (colIdx === 0 || col.id === 'candidate' || col.id === 'deal' || col.id === 'employee' || col.id === 'name') {
             return (
