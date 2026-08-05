@@ -71,7 +71,7 @@ export default function UniversalDrawer({
         </div>
 
         {/* DYNAMIC SCHEMA FIELD GRID */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div className="universal-drawer-field-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           {viewFields.map(field => (
             <SchemaFieldRenderer
               key={field.id}

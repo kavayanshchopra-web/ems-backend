@@ -3130,6 +3130,22 @@ h1, h2, h3, h4, h5, h6 {
     justify-content: center !important;
   }
 
+  /* Universal Modals & Detail Drawers Mobile Responsiveness */
+  .app-modal-overlay {
+    padding: 10px !important;
+  }
+
+  .app-modal-box {
+    max-width: 100% !important;
+    max-height: 94vh !important;
+    border-radius: 14px !important;
+  }
+
+  .universal-drawer-field-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
   /* Strict Mobile 1D Vertical Scroll Lock & Clean Scrollbar Hiding */
   html, body, #root, .main-content, .layout-engine-shell {
     overflow-x: hidden !important;

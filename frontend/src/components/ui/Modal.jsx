@@ -48,6 +48,7 @@ export default function Modal({
       className={`app-modal-overlay ${className}`}
     >
       <div
+        className="app-modal-box"
         style={{
           width: '100%',
           maxWidth: getMaxWidth(),
