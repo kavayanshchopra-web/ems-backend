@@ -73,60 +73,11 @@ export class LabelEngine {
   };
 
   static translateFieldLabel(label) {
-    if (!label) return label;
-    const lang = typeof window !== 'undefined' ? (localStorage.getItem('appLanguage') || 'en') : 'en';
-    if (this.FIELD_TRANSLATIONS[lang] && this.FIELD_TRANSLATIONS[lang][label]) {
-      return this.FIELD_TRANSLATIONS[lang][label];
-    }
     return label;
   }
 
   static MODULE_TITLE_TRANSLATIONS = {
-    hi: {
-      'Employee Directory': 'कर्मचारी निर्देशिका',
-      'Manage staff records, departments, designations, system roles, and base salaries.': 'कर्मचारी रिकॉर्ड, विभाग, पदनाम, सिस्टम भूमिकाएं और मूल वेतन प्रबंधित करें।',
-      'Recruitment ATS': 'भर्ती एवं एटीएस',
-      'Manage candidates, interview stages, evaluation notes, and hiring offers.': 'उम्मीदवारों, साक्षात्कार चरणों, मूल्यांकन नोट्स और नियुक्ति प्रस्तावों को प्रबंधित करें।',
-      'Tasks Board': 'कार्य बोर्ड',
-      'Company Overview': 'कंपनी अवलोकन',
-      'WhatsApp Channels': 'व्हाट्सएप चैनल्स',
-      'All Employees': 'सभी कर्मचारी',
-      'Employee': 'कर्मचारी',
-      'Employees': 'कर्मचारीगण'
-    },
-    hinglish: {
-      'Employee Directory': 'Employee Directory',
-      'Manage staff records, departments, designations, system roles, and base salaries.': 'Staff records, departments, designations aur base salary manage karein.',
-      'Recruitment ATS': 'Recruitment & ATS'
-    },
-    es: {
-      'Employee Directory': 'Directorio de Empleados',
-      'Manage staff records, departments, designations, system roles, and base salaries.': 'Gestione registros de personal, departamentos, cargos y salarios base.',
-      'Recruitment ATS': 'Reclutamiento y ATS'
-    },
-    fr: {
-      'Employee Directory': 'Annuaire des Employés',
-      'Manage staff records, departments, designations, system roles, and base salaries.': 'Gérer les dossiers du personnel, les services, les postes et les salaires de base.',
-      'Recruitment ATS': 'Recrutement et ATS'
-    },
-    de: {
-      'Employee Directory': 'Mitarbeiterverzeichnis',
-      'Manage staff records, departments, designations, system roles, and base salaries.': 'Verwalten Sie Personalakten, Abteilungen, Positionen und Grundgehälter.',
-      'Recruitment ATS': 'Personalbeschaffung & ATS'
-    },
-    ar: {
-      'Employee Directory': 'دليل الموظفين',
-      'Manage staff records, departments, designations, system roles, and base salaries.': 'إدارة سجلات الموظفين والأقسام والمسميات الوظيفية والأجور الأساسية.',
-      'Recruitment ATS': 'التوظيف ونظام ATS'
-    },
-    zh: {
-      'Employee Directory': '员工名录',
-      'Manage staff records, departments, designations, system roles, and base salaries.': '管理员工记录、部门、职位、系统角色和基本薪资。'
-    },
-    ja: {
-      'Employee Directory': '従業員名簿',
-      'Manage staff records, departments, designations, system roles, and base salaries.': '従業員データ、部署、役職、システム権限、基本給を管理します。'
-    }
+    en: {}
   };
 
   /**
@@ -136,9 +87,7 @@ export class LabelEngine {
    */
   static getModuleTitle(moduleConfig) {
     if (!moduleConfig) return 'Module Roster';
-    const raw = moduleConfig.moduleTitle || moduleConfig.name || 'EMS Roster';
-    const lang = typeof window !== 'undefined' ? (localStorage.getItem('appLanguage') || 'en') : 'en';
-    return (this.MODULE_TITLE_TRANSLATIONS[lang] && this.MODULE_TITLE_TRANSLATIONS[lang][raw]) || raw;
+    return moduleConfig.moduleTitle || moduleConfig.name || 'EMS Roster';
   }
 
   /**
@@ -148,9 +97,7 @@ export class LabelEngine {
    */
   static getModuleSubtitle(moduleConfig) {
     if (!moduleConfig) return 'Manage module records and pipeline stages.';
-    const raw = moduleConfig.moduleSubtitle || moduleConfig.description || 'Record management & workflow roster.';
-    const lang = typeof window !== 'undefined' ? (localStorage.getItem('appLanguage') || 'en') : 'en';
-    return (this.MODULE_TITLE_TRANSLATIONS[lang] && this.MODULE_TITLE_TRANSLATIONS[lang][raw]) || raw;
+    return moduleConfig.moduleSubtitle || moduleConfig.description || 'Record management & workflow roster.';
   }
 
   /**

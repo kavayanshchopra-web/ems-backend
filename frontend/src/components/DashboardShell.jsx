@@ -645,9 +645,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   const [forgotPasswordForm, setForgotPasswordForm] = useState({ email: '', newPassword: '' });
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
-  const [forgotPasswordError, setForgotPasswordError] = useState(null);
-  const [activeLanguage, setActiveLanguage] = useState(() => localStorage.getItem('appLanguage') || 'en');
+  const [activeLanguage, setActiveLanguage] = useState('en');
   const [activeCurrency, setActiveCurrency] = useState(() => localStorage.getItem('appCurrency') || 'USD');
+
+  useEffect(() => {
+    localStorage.setItem('appLanguage', 'en');
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', currentTheme);
@@ -2470,7 +2473,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   };
 
-  const t = (key) => (translations[activeLanguage] && translations[activeLanguage][key]) || (translations['en'] && translations['en'][key]) || key;
+  const t = (key) => (translations['en'] && translations['en'][key]) || key;
 
   // Document RTL layout handling for Arabic / Hebrew / Persian / Urdu
   useEffect(() => {
