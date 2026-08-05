@@ -48,11 +48,17 @@ export default function SchemaFieldRenderer({
   theme = {}
 }) {
   const [currVersion, setCurrVersion] = React.useState(0);
+  const [langVersion, setLangVersion] = React.useState(0);
 
   React.useEffect(() => {
     const handleCurrChange = () => setCurrVersion(v => v + 1);
+    const handleLangChange = () => setLangVersion(v => v + 1);
     window.addEventListener('app_currency_changed', handleCurrChange);
-    return () => window.removeEventListener('app_currency_changed', handleCurrChange);
+    window.addEventListener('app_language_changed', handleLangChange);
+    return () => {
+      window.removeEventListener('app_currency_changed', handleCurrChange);
+      window.removeEventListener('app_language_changed', handleLangChange);
+    };
   }, []);
 
   if (!field || field.hidden || field.archived || field.deleted) return null;
@@ -60,6 +66,7 @@ export default function SchemaFieldRenderer({
   const isViewMode = mode === 'view' || readOnly || field.readOnly;
   const rawVal = value !== undefined && value !== null ? value : (field.defaultValue !== undefined ? field.defaultValue : '');
   const valStr = getValString(rawVal);
+  const fieldLabelText = LabelEngine.translateFieldLabel ? LabelEngine.translateFieldLabel(field.label) : field.label;
 
   // Resolution of Option List for Dropdowns & Selects (Prioritizes moduleConfig.lookupData)
   const lookupKey = field.optionsSource || field.key || field.id;
@@ -180,7 +187,7 @@ export default function SchemaFieldRenderer({
         }}
       >
         <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>
-          {field.label}
+          {fieldLabelText}
         </span>
         <span style={{ fontWeight: '700', color: '#0f172a', wordBreak: 'break-word' }}>
           {displayVal}
@@ -218,7 +225,7 @@ export default function SchemaFieldRenderer({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%' }}>
       <label style={labelStyle}>
-        {field.label}
+        {fieldLabelText}
         {field.required && <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>}
       </label>
 

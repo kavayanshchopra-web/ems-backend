@@ -4,6 +4,83 @@
  */
 
 export class LabelEngine {
+  static FIELD_TRANSLATIONS = {
+    hi: {
+      'Full Name': 'पूरा नाम',
+      'System Role': 'सिस्टम भूमिका',
+      'Designation': 'पदनाम',
+      'Work Email': 'कार्य ईमेल',
+      'Phone Number': 'फोन नंबर',
+      'Base Salary': 'मूल वेतन',
+      'Employment Status': 'रोजगार की स्थिति',
+      'Department': 'विभाग',
+      'Actions': 'कार्रवाई',
+      'Status': 'स्थिति',
+      'Role': 'भूमिका',
+      'Email': 'ईमेल',
+      'Phone': 'फोन'
+    },
+    hinglish: {
+      'Full Name': 'Full Name',
+      'System Role': 'System Role',
+      'Designation': 'Designation',
+      'Work Email': 'Work Email',
+      'Phone Number': 'Phone Number',
+      'Base Salary': 'Base Salary',
+      'Employment Status': 'Employment Status',
+      'Department': 'Department'
+    },
+    es: {
+      'Full Name': 'Nombre Completo',
+      'System Role': 'Rol del Sistema',
+      'Designation': 'Cargo',
+      'Work Email': 'Correo Electrónico',
+      'Phone Number': 'Teléfono',
+      'Base Salary': 'Salario Base',
+      'Employment Status': 'Estado Empleado',
+      'Department': 'Departamento'
+    },
+    fr: {
+      'Full Name': 'Nom Complet',
+      'System Role': 'Rôle Système',
+      'Designation': 'Poste',
+      'Work Email': 'E-mail Pro',
+      'Phone Number': 'Téléphone',
+      'Base Salary': 'Salaire de Base',
+      'Employment Status': 'Statut',
+      'Department': 'Département'
+    },
+    de: {
+      'Full Name': 'Vollständiger Name',
+      'System Role': 'Systemrolle',
+      'Designation': 'Bezeichnung',
+      'Work Email': 'Dienst-E-Mail',
+      'Phone Number': 'Telefonnummer',
+      'Base Salary': 'Grundgehalt',
+      'Employment Status': 'Status',
+      'Department': 'Abteilung'
+    },
+    ar: {
+      'Full Name': 'الاسم الكامل',
+      'System Role': 'دور النظام',
+      'Designation': 'المسمى الوظيفي',
+      'Work Email': 'البريد الإلكتروني',
+      'Phone Number': 'رقم الهاتف',
+      'Base Salary': 'الراتب الأساسي',
+      'Employment Status': 'حالة التوظيف',
+      'Department': 'القسم'
+    }
+  };
+
+  static translateFieldLabel(label) {
+    if (!label) return label;
+    const lang = typeof window !== 'undefined' ? (localStorage.getItem('appLanguage') || 'en') : 'en';
+    if (this.FIELD_TRANSLATIONS[lang] && this.FIELD_TRANSLATIONS[lang][label]) {
+      return this.FIELD_TRANSLATIONS[lang][label];
+    }
+    return label;
+  }
+
   static MODULE_TITLE_TRANSLATIONS = {
     hi: {
       'Employee Directory': 'कर्मचारी निर्देशिका',

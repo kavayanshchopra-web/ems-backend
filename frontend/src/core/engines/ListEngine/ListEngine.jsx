@@ -606,7 +606,7 @@ export default function ListEngine({
                     >
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', width: '100%', overflow: 'hidden' }}>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {fieldsMap.get(col.fieldKey)?.label || fieldsMap.get(col.id)?.label || col.label}
+                          {LabelEngine.translateFieldLabel ? LabelEngine.translateFieldLabel(fieldsMap.get(col.fieldKey)?.label || fieldsMap.get(col.id)?.label || col.label) : (fieldsMap.get(col.fieldKey)?.label || fieldsMap.get(col.id)?.label || col.label)}
                         </span>
                         {isSorted ? (
                           sortDir === 'asc' ? <ArrowUp size={13} color="#0d9488" style={{ flexShrink: 0 }} /> : <ArrowDown size={13} color="#0d9488" style={{ flexShrink: 0 }} />

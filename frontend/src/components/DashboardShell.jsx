@@ -1663,13 +1663,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
   const translations = {
     en: {
-      dashboardsCat: 'Dashboards',
+      systemCat: 'SYSTEM',
+      dashboardsCat: 'DASHBOARDS',
+      hrCat: 'HR MANAGEMENT',
+      payrollCat: 'PAYROLL & FINANCE',
+      crmCat: 'CRM & SALES',
+      opsCat: 'OPERATIONS',
+      myPortalCat: 'MY PORTAL',
+      helpSupportCat: 'HELP & SUPPORT',
+      settingsCat: 'SETTINGS',
+
+      superAdminPanel: 'Super Admin Panel',
       companyOverview: 'Company Overview',
       taskAnalytics: 'Task Analytics',
       liveTracking: 'Live Tracking Map',
       auditLogs: 'System Audit Logs',
 
-      hrCat: 'HR Management',
       allEmployees: 'All Employees',
       employeeDirectory: 'Employee Directory',
       recruitmentAts: 'Recruitment & ATS',
@@ -1678,7 +1687,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       verifyDocuments: 'Verify Documents',
       offboardingExit: 'Offboarding Exit',
 
-      payrollCat: 'Payroll & Finance',
       payrollSalary: 'Payroll & Salary',
       taxesCompliance: 'Taxes & Compliance',
       incentivesBonus: 'Incentives & Bonus',
@@ -1686,13 +1694,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       advancesLoans: 'Advances & Loans',
       expensesClaim: 'Expenses Claim',
 
-      crmCat: 'CRM & Sales',
       waChannels: 'WA Channels',
       inboxChats: 'Unified Inbox Chats',
       crmPipeline: 'CRM Pipeline Board',
+      callRecordings: 'Call Recordings & SIM Sync',
       chatbotRules: 'Chatbot Rules',
 
-      opsCat: 'Operations',
       tasksBoard: 'Tasks Board',
       officeKiosk: 'Office Kiosk Mode',
       workHoursLog: 'Work Hours Log',
@@ -1700,10 +1707,23 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       holidaysList: 'Holidays List',
       rewardsBadges: 'Rewards Badges',
 
-      myPortalCat: 'My Portal',
       shiftAttendance: 'Shift Attendance',
       leavesRequests: 'Leaves Requests',
       workRoster: 'Work Shift Roster',
+      appGuide: 'App Guide & Tour',
+
+      generalSettings: 'General Settings',
+      rolesPermissions: 'Roles & Permissions',
+      recycleBin: 'Trash Bin',
+      systemDropdowns: 'System Dropdowns',
+      moduleConfig: 'Module Configuration',
+      subscriptionBilling: 'Subscription Billing',
+
+      changePassword: 'Change Password',
+      preferencesRegion: 'PREFERENCES & REGION',
+      languageLabel: 'Language',
+      displayCurrencyLabel: 'Display Currency',
+      signOutAccount: 'Sign Out Account',
 
       companyDashboardTitle: 'Company Dashboard (Super Admin View)',
       overviewSubtitle: 'Overview of your field team\'s activity today.',
@@ -1737,13 +1757,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       action: 'Action'
     },
     hi: {
+      systemCat: 'सिस्टम प्रशासन',
       dashboardsCat: 'डैशबोर्ड',
+      hrCat: 'एचआर प्रबंधन',
+      payrollCat: 'पेरोल एवं वित्त',
+      crmCat: 'सीआरएम एवं बिक्री',
+      opsCat: 'संचालन',
+      myPortalCat: 'मेरा पोर्टल',
+      helpSupportCat: 'सहायता एवं समर्थन',
+      settingsCat: 'सेटिंग्स',
+
+      superAdminPanel: 'सुपर एडमिन पैनल',
       companyOverview: 'कंपनी अवलोकन',
       taskAnalytics: 'कार्य विश्लेषण',
       liveTracking: 'लाइव ट्रैकिंग मानचित्र',
       auditLogs: 'सिस्टम ऑडिट लॉग',
 
-      hrCat: 'एचआर प्रबंधन',
       allEmployees: 'सभी कर्मचारी',
       employeeDirectory: 'कर्मचारी निर्देशिका',
       recruitmentAts: 'भर्ती एवं एटीएस',
@@ -1752,7 +1781,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       verifyDocuments: 'दस्तावेज़ सत्यापन',
       offboardingExit: 'ऑफ़बोर्डिंग एग्जिट',
 
-      payrollCat: 'पेरोल एवं वित्त',
       payrollSalary: 'पेरोल और वेतन',
       taxesCompliance: 'कर एवं अनुपालन',
       incentivesBonus: 'प्रोत्साहन एवं बोनस',
@@ -1760,24 +1788,36 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       advancesLoans: 'अग्रिम एवं ऋण',
       expensesClaim: 'व्यय दावा',
 
-      crmCat: 'सीआरएम एवं बिक्री',
       waChannels: 'व्हाट्सएप चैनल्स',
       inboxChats: 'एकीकृत इनबॉक्स चैट',
       crmPipeline: 'सीआरएम पाइपलाइन बोर्ड',
+      callRecordings: 'कॉल रिकॉर्डिंग एवं सिम सिंक',
       chatbotRules: 'चैटबॉट नियम',
 
-      opsCat: 'संचालन',
       tasksBoard: 'कार्य बोर्ड',
       officeKiosk: 'कार्यालय कियोस्क',
       workHoursLog: 'कार्य घंटे लॉग',
       noticeBoard: 'सूचना बोर्ड',
       holidaysList: 'छुट्टियों की सूची',
-      rewardsBadges: 'पुरस्कार बैज',
+      rewardsBadges: 'पुरस्कार एवं बैज',
 
-      myPortalCat: 'मेरा पोर्टल',
       shiftAttendance: 'शिफ्ट उपस्थिति',
       leavesRequests: 'छुट्टी के आवेदन',
       workRoster: 'कार्य शिफ्ट रोस्टर',
+      appGuide: 'ऐप गाइड एवं टूर',
+
+      generalSettings: 'सामान्य सेटिंग्स',
+      rolesPermissions: 'भूमिकाएं एवं अनुमतियां',
+      recycleBin: 'कचरा पेटी (Bin)',
+      systemDropdowns: 'सिस्टम ड्रॉपडाउन',
+      moduleConfig: 'मॉड्यूल कॉन्फ़िगरेशन',
+      subscriptionBilling: 'सदस्यता बिलिंग',
+
+      changePassword: 'पासवर्ड बदलें',
+      preferencesRegion: 'प्राथमिकताएं और क्षेत्र',
+      languageLabel: 'भाषा',
+      displayCurrencyLabel: 'प्रदर्शित मुद्रा',
+      signOutAccount: 'साइन आउट करें',
 
       companyDashboardTitle: 'कंपनी डैशबोर्ड (सुपर एडमिन व्यू)',
       overviewSubtitle: 'आज आपकी फ़ील्ड टीम की गतिविधि का अवलोकन।',
@@ -5696,51 +5736,51 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </div>
             <div className={`nav-item ${activeTab === 'asset_management' ? 'active' : ''}`} onClick={() => setActiveTab('asset_management')}>
               <FileText size={15} />
-              <span style={{ fontSize: '13px' }}>Asset Management</span>
+              <span style={{ fontSize: '13px' }}>{t('assetManagement')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'verify_documents' ? 'active' : ''}`} onClick={() => setActiveTab('verify_documents')}>
               <FileText size={15} />
-              <span style={{ fontSize: '13px' }}>Verify Documents</span>
+              <span style={{ fontSize: '13px' }}>{t('verifyDocuments')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'offboarding' ? 'active' : ''}`} onClick={() => setActiveTab('offboarding')}>
               <Trash2 size={15} />
-              <span style={{ fontSize: '13px' }}>Offboarding Exit</span>
+              <span style={{ fontSize: '13px' }}>{t('offboardingExit')}</span>
             </div>
           </AccordionCategory>
 
           {/* CATEGORY: PAYROLL & FINANCE */}
-          <AccordionCategory id="payroll_finance" label="PAYROLL & FINANCE" isExpanded={!!expandedCategories.payroll_finance} onToggle={toggleCategory}>
+          <AccordionCategory id="payroll_finance" label={t('payrollCat') || "PAYROLL & FINANCE"} isExpanded={!!expandedCategories.payroll_finance} onToggle={toggleCategory}>
             <div className={`nav-item ${activeTab === 'payroll' ? 'active' : ''}`} onClick={() => setActiveTab('payroll')}>
               <CreditCard size={15} />
-              <span style={{ fontSize: '13px' }}>Payroll Salary</span>
+              <span style={{ fontSize: '13px' }}>{t('payrollSalary')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'taxes_compliance' ? 'active' : ''}`} onClick={() => setActiveTab('taxes_compliance')}>
               <FileText size={15} />
-              <span style={{ fontSize: '13px' }}>Taxes Compliance</span>
+              <span style={{ fontSize: '13px' }}>{t('taxesCompliance')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'incentives_bonus' ? 'active' : ''}`} onClick={() => setActiveTab('incentives_bonus')}>
               <Award size={15} />
-              <span style={{ fontSize: '13px' }}>Incentives Bonus</span>
+              <span style={{ fontSize: '13px' }}>{t('incentivesBonus')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'ff_settlements' ? 'active' : ''}`} onClick={() => setActiveTab('ff_settlements')}>
               <Check size={15} />
-              <span style={{ fontSize: '13px' }}>F&F Settlements</span>
+              <span style={{ fontSize: '13px' }}>{t('ffSettlements')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'advances_loans' ? 'active' : ''}`} onClick={() => setActiveTab('advances_loans')}>
               <CreditCard size={15} />
-              <span style={{ fontSize: '13px' }}>Advances Loans</span>
+              <span style={{ fontSize: '13px' }}>{t('advancesLoans')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'expenses' ? 'active' : ''}`} onClick={() => setActiveTab('expenses')}>
               <CreditCard size={15} />
-              <span style={{ fontSize: '13px' }}>Expenses Claim</span>
+              <span style={{ fontSize: '13px' }}>{t('expensesClaim')}</span>
             </div>
           </AccordionCategory>
 
           {/* CATEGORY: CRM & SALES */}
-          <AccordionCategory id="crm_sales" label="CRM & SALES" isExpanded={!!expandedCategories.crm_sales} onToggle={toggleCategory}>
+          <AccordionCategory id="crm_sales" label={t('crmCat') || "CRM & SALES"} isExpanded={!!expandedCategories.crm_sales} onToggle={toggleCategory}>
             <div className={`nav-item ${activeTab === 'channels' ? 'active' : ''}`} onClick={() => setActiveTab('channels')}>
               <Smartphone size={15} />
-              <span style={{ fontSize: '13px' }}>WA Channels</span>
+              <span style={{ fontSize: '13px' }}>{t('waChannels')}</span>
               {sessions.filter(s => s.status === 'connected').length > 0 && (
                 <span className="badge" style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.12)', color: 'white', fontSize: '9px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px' }}>
                   {sessions.filter(s => s.status === 'connected').length} Active
@@ -5749,11 +5789,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </div>
             <div className={`nav-item ${activeTab === 'inbox' ? 'active' : ''}`} onClick={() => setActiveTab('inbox')}>
               <MessageSquare size={15} />
-              <span style={{ fontSize: '13px' }}>Inbox Chats</span>
+              <span style={{ fontSize: '13px' }}>{t('inboxChats')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'kanban' ? 'active' : ''}`} onClick={() => setActiveTab('kanban')}>
               <Layers size={15} />
-              <span style={{ fontSize: '13px' }}>CRM Pipeline</span>
+              <span style={{ fontSize: '13px' }}>{t('crmPipeline')}</span>
             </div>
             <div
               onClick={() => setActiveTab('telecalling')}
@@ -5772,91 +5812,91 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               }}
             >
               <span style={{ fontSize: '14px' }}>📞</span>
-              <span>Call Recordings & SIM Sync</span>
+              <span>{t('callRecordings')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'chatbot' ? 'active' : ''}`} onClick={() => setActiveTab('chatbot')}>
               <Bot size={15} />
-              <span style={{ fontSize: '13px' }}>Chatbot Rules</span>
+              <span style={{ fontSize: '13px' }}>{t('chatbotRules')}</span>
             </div>
           </AccordionCategory>
 
           {/* CATEGORY: OPERATIONS */}
-          <AccordionCategory id="operations" label="OPERATIONS" isExpanded={!!expandedCategories.operations} onToggle={toggleCategory}>
+          <AccordionCategory id="operations" label={t('opsCat') || "OPERATIONS"} isExpanded={!!expandedCategories.operations} onToggle={toggleCategory}>
             <div className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`} onClick={() => setActiveTab('tasks')}>
               <ClipboardList size={15} />
-              <span style={{ fontSize: '13px' }}>Tasks Board</span>
+              <span style={{ fontSize: '13px' }}>{t('tasksBoard')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'office_kiosk' ? 'active' : ''}`} onClick={() => setActiveTab('office_kiosk')}>
               <Clock size={15} />
-              <span style={{ fontSize: '13px' }}>Office Kiosk</span>
+              <span style={{ fontSize: '13px' }}>{t('officeKiosk')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'work_hours' ? 'active' : ''}`} onClick={() => setActiveTab('work_hours')}>
               <Clock size={15} />
-              <span style={{ fontSize: '13px' }}>Work Hours Log</span>
+              <span style={{ fontSize: '13px' }}>{t('workHoursLog')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'notice_board' ? 'active' : ''}`} onClick={() => setActiveTab('notice_board')}>
               <Bell size={15} />
-              <span style={{ fontSize: '13px' }}>Notice Board</span>
+              <span style={{ fontSize: '13px' }}>{t('noticeBoard')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'holidays' ? 'active' : ''}`} onClick={() => setActiveTab('holidays')}>
               <Calendar size={15} />
-              <span style={{ fontSize: '13px' }}>Holidays List</span>
+              <span style={{ fontSize: '13px' }}>{t('holidaysList')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'rewards_recognition' ? 'active' : ''}`} onClick={() => setActiveTab('rewards_recognition')}>
               <Award size={15} />
-              <span style={{ fontSize: '13px' }}>Rewards Badges</span>
+              <span style={{ fontSize: '13px' }}>{t('rewardsBadges')}</span>
             </div>
           </AccordionCategory>
 
           {/* CATEGORY: MY PORTAL */}
-          <AccordionCategory id="my_portal" label="My Portal" isExpanded={!!expandedCategories.my_portal} onToggle={toggleCategory}>
+          <AccordionCategory id="my_portal" label={t('myPortalCat') || "MY PORTAL"} isExpanded={!!expandedCategories.my_portal} onToggle={toggleCategory}>
             <div className={`nav-item ${activeTab === 'my_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('my_attendance')}>
               <Clock size={15} />
-              <span style={{ fontSize: '13px' }}>Shift Attendance</span>
+              <span style={{ fontSize: '13px' }}>{t('shiftAttendance')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'leaves' ? 'active' : ''}`} onClick={() => setActiveTab('leaves')}>
               <Calendar size={15} />
-              <span style={{ fontSize: '13px' }}>Leaves Requests</span>
+              <span style={{ fontSize: '13px' }}>{t('leavesRequests')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'shifts' ? 'active' : ''}`} onClick={() => setActiveTab('shifts')}>
               <Calendar size={15} />
-              <span style={{ fontSize: '13px' }}>Work Shift Roster</span>
+              <span style={{ fontSize: '13px' }}>{t('workRoster')}</span>
             </div>
           </AccordionCategory>
 
           {/* CATEGORY: HELP & SUPPORT */}
-          <AccordionCategory id="help_support" label="Help & Support" isExpanded={!!expandedCategories.help_support} onToggle={toggleCategory}>
+          <AccordionCategory id="help_support" label={t('helpSupportCat') || "HELP & SUPPORT"} isExpanded={!!expandedCategories.help_support} onToggle={toggleCategory}>
             <div className={`nav-item ${activeTab === 'app_guide' ? 'active' : ''}`} onClick={() => setActiveTab('app_guide')}>
               <Globe size={15} />
-              <span style={{ fontSize: '13px' }}>App Guide & Tour</span>
+              <span style={{ fontSize: '13px' }}>{t('appGuide')}</span>
             </div>
           </AccordionCategory>
 
           {/* CATEGORY: SETTINGS */}
-          <AccordionCategory id="saas_portal" label="SETTINGS" isExpanded={!!expandedCategories.saas_portal} onToggle={toggleCategory}>
+          <AccordionCategory id="saas_portal" label={t('settingsCat') || "SETTINGS"} isExpanded={!!expandedCategories.saas_portal} onToggle={toggleCategory}>
             <div className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
               <UserCheck size={15} />
-              <span style={{ fontSize: '13px' }}>General Settings</span>
+              <span style={{ fontSize: '13px' }}>{t('generalSettings')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'roles_permissions' ? 'active' : ''}`} onClick={() => setActiveTab('roles_permissions')}>
               <UserCheck size={15} />
-              <span style={{ fontSize: '13px' }}>Roles & Permissions</span>
+              <span style={{ fontSize: '13px' }}>{t('rolesPermissions')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'recycle_bin' ? 'active' : ''}`} onClick={() => setActiveTab('recycle_bin')}>
               <Trash2 size={15} />
-              <span style={{ fontSize: '13px' }}>🗑️ Bin</span>
+              <span style={{ fontSize: '13px' }}>{t('recycleBin')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'system_dropdowns' ? 'active' : ''}`} onClick={() => setActiveTab('system_dropdowns')}>
               <Tag size={15} />
-              <span style={{ fontSize: '13px' }}>System Dropdowns</span>
+              <span style={{ fontSize: '13px' }}>{t('systemDropdowns')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'module_configuration' ? 'active' : ''}`} onClick={() => { setPreselectedConfigModuleId(null); setActiveTab('module_configuration'); }}>
               <Sliders size={15} />
-              <span style={{ fontSize: '13px' }}>Module Configuration</span>
+              <span style={{ fontSize: '13px' }}>{t('moduleConfig')}</span>
             </div>
             <div className={`nav-item ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>
               <Megaphone size={15} style={{ transform: 'rotate(-20deg)' }} />
-              <span style={{ fontSize: '13px' }}>Subscription Billing</span>
+              <span style={{ fontSize: '13px' }}>{t('subscriptionBilling')}</span>
             </div>
           </AccordionCategory>
         </nav>
@@ -6128,7 +6168,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       className="profile-dropdown-item"
                     >
                       <UserCheck size={16} style={{ color: '#0d9488' }} />
-                      <span>General Settings</span>
+                      <span>{t('generalSettings')}</span>
                     </div>
 
                     <div
@@ -6141,19 +6181,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       className="profile-dropdown-item"
                     >
                       <Lock size={16} style={{ color: '#0d9488' }} />
-                      <span>Change Password</span>
+                      <span>{t('changePassword')}</span>
                     </div>
 
                     {/* Localization & Preferences Section */}
                     <div style={{ borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', padding: '10px 16px', margin: '4px 0', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        PREFERENCES & REGION
+                        {t('preferencesRegion')}
                       </div>
 
                       {/* 1. Language Selector */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <label style={{ fontSize: '11px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Globe size={13} color="#0d9488" /> Language ({ALL_WORLD_LANGUAGES.length} Languages)
+                          <Globe size={13} color="#0d9488" /> {t('languageLabel')} ({ALL_WORLD_LANGUAGES.length} Languages)
                         </label>
                         <select
                           value={activeLanguage || 'en'}
@@ -6178,7 +6218,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       {/* 2. Currency Selector */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <label style={{ fontSize: '11px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <CreditCard size={13} color="#0d9488" /> Display Currency ({ALL_WORLD_CURRENCIES.length} Currencies)
+                          <CreditCard size={13} color="#0d9488" /> {t('displayCurrencyLabel')} ({ALL_WORLD_CURRENCIES.length} Currencies)
                         </label>
                         <select
                           value={activeCurrency || 'USD'}
@@ -6212,7 +6252,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       className="profile-dropdown-item"
                     >
                       <LogOut size={16} style={{ color: '#ef4444' }} />
-                      <span>Sign Out Account</span>
+                      <span>{t('signOutAccount')}</span>
                     </div>
                   </div>
                 </div>
