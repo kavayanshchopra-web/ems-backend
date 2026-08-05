@@ -138,6 +138,40 @@ export function formatCandidateId(id, idx = 0, moduleConfig = null) {
   return formatCustomSequencePattern(pattern, idx + 1);
 }
 
+export function getCategoryPrefix(categoryName) {
+  if (!categoryName) return 'LAP';
+  const catLower = String(categoryName).toLowerCase();
+  if (catLower.includes('laptop')) return 'LAP';
+  if (catLower.includes('mobile') || catLower.includes('phone')) return 'MOB';
+  if (catLower.includes('monitor') || catLower.includes('screen')) return 'MON';
+  if (catLower.includes('peripheral') || catLower.includes('mouse') || catLower.includes('keyboard')) return 'PER';
+  if (catLower.includes('office') || catLower.includes('equipment')) return 'OFF';
+  if (catLower.includes('vehicle') || catLower.includes('car')) return 'VEH';
+  return String(categoryName).slice(0, 3).toUpperCase();
+}
+
+export function getNextCategoryAssetTag(categoryName, existingRecords = []) {
+  const catPrefix = getCategoryPrefix(categoryName);
+  const targetPrefix = `AST-${catPrefix}-`;
+  
+  let maxSeq = 0;
+  if (Array.isArray(existingRecords)) {
+    existingRecords.forEach(rec => {
+      const tagStr = String(rec.tag || rec.id || '');
+      if (tagStr.startsWith(targetPrefix)) {
+        const parts = tagStr.split('-');
+        const seqNum = parseInt(parts[parts.length - 1], 10);
+        if (!isNaN(seqNum) && seqNum > maxSeq) {
+          maxSeq = seqNum;
+        }
+      }
+    });
+  }
+
+  const nextSeq = maxSeq + 1;
+  return `AST-${catPrefix}-${String(nextSeq).padStart(3, '0')}`;
+}
+
 export function getNextSequentialId(companyId, moduleId = 'recruitment_ats', moduleConfig = null) {
   const tenantKey = companyId ? String(companyId).replace(/[^a-zA-Z0-9_-]/g, '_') : 'default';
   

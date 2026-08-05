@@ -10,6 +10,7 @@ import SchemaFieldRenderer from '../FieldEngine/SchemaFieldRenderer';
 import { DefaultValueEngine } from '../DefaultValueEngine';
 import { ValidationEngine } from '../ValidationEngine';
 import { LabelEngine } from '../LabelEngine';
+import { getNextCategoryAssetTag } from '../../../services/atsStorageService';
 
 export default function UniversalModal({
   isOpen = false,
@@ -28,17 +29,40 @@ export default function UniversalModal({
   const [formData, setFormData] = useState({});
   const [formErrors, setFormErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
+  const [isTagManuallyEdited, setIsTagManuallyEdited] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       const initial = DefaultValueEngine.initializeFormState(targetFields, initialRecord || {});
+      
+      // Auto-prefill Category-Aware Asset Tag ID for Asset Management
+      if (isCreate && (moduleConfig.moduleId === 'asset_management' || targetFields.some(f => f.id === 'tag'))) {
+        const defaultCat = initial.category || 'Laptop';
+        initial.tag = getNextCategoryAssetTag(defaultCat, allPositions || []);
+      }
+
       setFormData(initial);
       setFormErrors({});
+      setIsTagManuallyEdited(false);
     }
   }, [isOpen, initialRecord, mode, moduleConfig]);
 
   const handleFieldChange = (fieldId, value) => {
-    setFormData(prev => ({ ...prev, [fieldId]: value }));
+    setFormData(prev => {
+      const updated = { ...prev, [fieldId]: value };
+
+      if (fieldId === 'tag') {
+        setIsTagManuallyEdited(true);
+      }
+
+      // Dynamic Auto-Update Tag ID on Category Change if user hasn't manually edited Tag ID
+      if (fieldId === 'category' && isCreate && !isTagManuallyEdited && (moduleConfig.moduleId === 'asset_management' || targetFields.some(f => f.id === 'tag'))) {
+        updated.tag = getNextCategoryAssetTag(value, allPositions || []);
+      }
+
+      return updated;
+    });
+
     if (formErrors[fieldId]) {
       setFormErrors(prev => ({ ...prev, [fieldId]: null }));
     }
