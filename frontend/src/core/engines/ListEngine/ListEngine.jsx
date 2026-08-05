@@ -251,7 +251,7 @@ export default function ListEngine({
     }
 
     const recordStatus = getValString(record.status || record.stage);
-    const displayId = formatCandidateId(record.id, idx, moduleConfig);
+    const displayId = record.tag || formatCandidateId(record.id, idx, moduleConfig);
     const recordSub = getValString(record.department || record.designation || record.position || record.appliedFor, '');
     const avatarGradient = getAvatarGradient(recordName, isArchivedView);
 

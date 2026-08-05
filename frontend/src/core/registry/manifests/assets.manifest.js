@@ -62,11 +62,13 @@ export const ASSETS_MANIFEST = {
   ],
 
   defaultColumns: [
-    { id: 'tag', label: 'Asset Tag', visible: true, fieldKey: 'tag', width: '160px', align: 'left', sortOrder: 1 },
-    { id: 'name', label: 'Device Details', visible: true, fieldKey: 'name', width: '220px', align: 'left', sortOrder: 2 },
-    { id: 'category', label: 'Category', visible: true, fieldKey: 'category', width: '140px', align: 'left', sortOrder: 3 },
-    { id: 'assignedTo', label: 'Assigned To', visible: true, fieldKey: 'assignedTo', width: '180px', align: 'left', sortOrder: 4 },
-    { id: 'status', label: 'Status', visible: true, fieldKey: 'status', width: '140px', align: 'left', sortOrder: 5 }
+    { id: 'name', label: 'Device / Asset Name', visible: true, fieldKey: 'name', width: '220px', align: 'left', sortOrder: 1 },
+    { id: 'tag', label: 'Asset Tag ID', visible: true, fieldKey: 'tag', width: '160px', align: 'left', sortOrder: 2 },
+    { id: 'category', label: 'Asset Category', visible: true, fieldKey: 'category', width: '140px', align: 'left', sortOrder: 3 },
+    { id: 'assignedTo', label: 'Assigned Staff', visible: true, fieldKey: 'assignedTo', width: '180px', align: 'left', sortOrder: 4 },
+    { id: 'purchaseDate', label: 'Purchase Date', visible: true, fieldKey: 'purchaseDate', width: '160px', align: 'left', sortOrder: 5 },
+    { id: 'purchaseValue', label: 'Purchase Cost', visible: true, fieldKey: 'purchaseValue', width: '140px', align: 'left', sortOrder: 6 },
+    { id: 'status', label: 'Device Status', visible: true, fieldKey: 'status', width: '140px', align: 'left', sortOrder: 7 }
   ],
 
   defaultViews: {
