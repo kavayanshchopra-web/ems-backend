@@ -1218,6 +1218,7 @@ h1, h2, h3, h4, h5, h6 {
   width: 100vw;
   height: 100vh;
   background: rgba(0, 0, 0, 0.6);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -1516,6 +1517,7 @@ h1, h2, h3, h4, h5, h6 {
   inset: 0;
   background: rgba(0,0,0,0.55);
   z-index: 998;
+  -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
 }
 
@@ -2273,6 +2275,7 @@ h1, h2, h3, h4, h5, h6 {
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.88);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   z-index: 99999;
   display: flex;
@@ -2384,6 +2387,7 @@ h1, h2, h3, h4, h5, h6 {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.5);
+    -webkit-backdrop-filter: blur(3px);
     backdrop-filter: blur(3px);
     z-index: 9998;
   }
@@ -2878,6 +2882,7 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
+  -webkit-user-select: none;
   user-select: none;
 }
 
@@ -2921,55 +2926,44 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Mobile Swipe Hint Banner Styles */
-.mobile-swipe-hint-banner {
-  display: none;
-  background: #f0fdf4;
-  padding: 6px 12px;
-  border-bottom: 1px solid #ccfbf1;
-}
-
-@media (max-width: 768px) {
-  .mobile-swipe-hint-banner {
-    display: block !important;
-  }
-}
-
 /* ==========================================================================
    UNIVERSAL MOBILE RESPONSIVE ENGINE RULES (<= 768px & <= 480px)
    ========================================================================== */
 @media (max-width: 768px) {
   .layout-engine-shell {
-    padding: 8px 10px !important;
-    gap: 10px !important;
+    padding: 8px !important;
+    gap: 8px !important;
+  }
+
+  .module-subtitle {
+    display: none !important;
   }
 
   .module-header-strip {
-    padding: 10px 12px !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 10px !important;
-  }
-
-  .module-header-actions {
-    margin-left: 0 !important;
-    width: 100% !important;
-    display: flex !important;
+    padding: 8px 12px !important;
+    flex-direction: row !important;
+    align-items: center !important;
     justify-content: space-between !important;
     gap: 8px !important;
   }
 
+  .module-header-actions {
+    margin-left: auto !important;
+    width: auto !important;
+    display: flex !important;
+    gap: 6px !important;
+  }
+
   .module-header-actions > button,
   .module-header-actions > div {
-    flex: 1 !important;
-    justify-content: center !important;
+    flex: none !important;
   }
 
   .module-search-filter-strip {
     flex-direction: column !important;
     align-items: stretch !important;
-    padding: 8px 10px !important;
-    gap: 8px !important;
+    padding: 6px 10px !important;
+    gap: 6px !important;
   }
 
   .toolbar-cols-page-group {
@@ -2980,7 +2974,6 @@ h1, h2, h3, h4, h5, h6 {
   .toolbar-search-input-group {
     width: 100% !important;
     flex: none !important;
-    justify-content: stretch !important;
   }
 
   .toolbar-search-input-group > div {
@@ -2988,20 +2981,21 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   .std-table {
-    min-width: 750px !important;
+    min-width: 680px !important;
   }
 
   .std-table th,
   .std-table td {
-    padding: 10px 10px !important;
+    padding: 8px 10px !important;
+    font-size: 11px !important;
   }
 
   .list-table-scroll {
-    max-height: calc(100vh - 200px) !important;
+    max-height: calc(100vh - 180px) !important;
     -webkit-overflow-scrolling: touch !important;
   }
 
   .kanban-board-container {
-    padding: 10px !important;
+    padding: 8px !important;
   }
 }

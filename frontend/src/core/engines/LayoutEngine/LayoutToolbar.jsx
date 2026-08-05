@@ -113,7 +113,7 @@ export default function LayoutToolbar({
             <h1 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#0f172a' }}>
               {LabelEngine.getModuleTitle(moduleConfig)}
             </h1>
-            <p style={{ margin: '1px 0 0 0', fontSize: '12px', color: '#64748b' }}>
+            <p className="module-subtitle" style={{ margin: '1px 0 0 0', fontSize: '12px', color: '#64748b' }}>
               {LabelEngine.getModuleSubtitle(moduleConfig)}
             </p>
           </div>
