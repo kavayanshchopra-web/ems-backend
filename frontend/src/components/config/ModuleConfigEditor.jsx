@@ -1151,7 +1151,7 @@ export default function ModuleConfigEditor({
               {/* Add Custom Field Form */}
               <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '700', color: '#334155' }}>Add Custom Field</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 140px auto', gap: '8px', alignItems: 'center' }}>
+                <div className="add-custom-field-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 140px 140px auto', gap: '8px', alignItems: 'center' }}>
                   <input
                     type="text"
                     placeholder="Field label (e.g. Expected CTC)"
@@ -1206,7 +1206,7 @@ export default function ModuleConfigEditor({
               </div>
 
               {/* Dataset Management Panel */}
-              <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '16px' }}>
+              <div className="lookup-data-grid-layout" style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '16px' }}>
                 {/* Dataset Selector List */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderRight: '1px solid #e2e8f0', paddingRight: '12px' }}>
                   <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>LOOKUP DATASETS</div>

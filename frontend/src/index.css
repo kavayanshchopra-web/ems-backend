@@ -3033,6 +3033,40 @@ h1, h2, h3, h4, h5, h6 {
     overflow-x: auto !important;
   }
 
+  /* Lookup Data Tab & Internal Cards Mobile Layout */
+  .lookup-data-grid-layout {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  .lookup-data-grid-layout > div:first-child {
+    border-right: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    padding-right: 0 !important;
+    padding-bottom: 10px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  .lookup-data-grid-layout > div:first-child > button {
+    flex: 1 1 calc(50% - 6px) !important;
+  }
+
+  .add-custom-field-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+
+  .add-custom-field-grid > button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
   /* Strict Mobile 1D Vertical Scroll Lock & Clean Scrollbar Hiding */
   html, body, #root, .main-content, .layout-engine-shell {
     overflow-x: hidden !important;
