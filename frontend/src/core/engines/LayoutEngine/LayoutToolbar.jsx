@@ -346,7 +346,7 @@ export default function LayoutToolbar({
         </div>
 
         {/* C. RIGHT CORNER: LIST / KANBAN VIEW SWITCHER */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="toolbar-views-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <ViewSwitcher
             availableViews={availableViews}
             activeView={viewMode}

@@ -174,7 +174,6 @@ body {
     min-height: 100vh;
     overflow-x: hidden;
     overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
   }
 
   #root {
@@ -1537,7 +1536,6 @@ h1, h2, h3, h4, h5, h6 {
   white-space: nowrap !important;
   display: flex !important;
   flex-wrap: nowrap !important;
-  scrollbar-width: none !important;
 }
 .superadmin-subtabs-row::-webkit-scrollbar {
   display: none !important;
@@ -1742,7 +1740,7 @@ h1, h2, h3, h4, h5, h6 {
   .system-dropdowns-right-panel {
     padding: 10px !important;
     margin: 0 !important;
-    min-height: auto !important;
+    min-height: 0 !important;
     max-height: none !important;
     border-radius: 10px !important;
     width: 100% !important;
@@ -1815,7 +1813,6 @@ h1, h2, h3, h4, h5, h6 {
   .main-content > div:not(.inbox-view):not(.top-header) {
     flex: 1;
     overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch;
     padding: 6px 4px !important;
   }
 
@@ -1868,8 +1865,6 @@ h1, h2, h3, h4, h5, h6 {
     padding: 4px !important;
     border-radius: 10px !important;
     margin-bottom: 10px !important;
-    -webkit-overflow-scrolling: touch !important;
-    scrollbar-width: none !important;
   }
   .superadmin-subtabs-row::-webkit-scrollbar {
     display: none !important;
@@ -1919,7 +1914,6 @@ h1, h2, h3, h4, h5, h6 {
   .app-table-wrapper {
     width: 100% !important;
     overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
     border-radius: 8px !important;
   }
   .app-table th, .app-table td {
@@ -1984,7 +1978,7 @@ h1, h2, h3, h4, h5, h6 {
   /* Page headers responsive */
   .page-header {
     padding: var(--space-4) var(--space-4);
-    min-height: auto;
+    min-height: 0;
     flex-direction: column !important;
     align-items: stretch !important;
     gap: 12px;
@@ -2012,7 +2006,7 @@ h1, h2, h3, h4, h5, h6 {
     flex-direction: column !important;
     align-items: stretch !important;
     gap: 8px;
-    min-height: auto;
+    min-height: 0;
   }
 
   .filter-search {
@@ -2026,7 +2020,6 @@ h1, h2, h3, h4, h5, h6 {
   div[style*="overflow"],
   div[style*="overflow-x"] {
     overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
   }
 
   .std-table,
@@ -2155,7 +2148,6 @@ h1, h2, h3, h4, h5, h6 {
 /* Telecalling outer page — allow full scroll */
 .telecalling-page-mobile {
   overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch;
 }
 
 /* Page header: stack left content and buttons vertically */
@@ -2242,7 +2234,6 @@ h1, h2, h3, h4, h5, h6 {
 .telecalling-page-mobile div[style*="overflow"],
 .telecalling-page-mobile div[style*="overflow-x"] {
   overflow-x: auto !important;
-  -webkit-overflow-scrolling: touch !important;
 }
 
 .telecalling-page-mobile table,
@@ -2357,7 +2348,6 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   flex-direction: column;
   position: relative;
-  -webkit-overflow-scrolling: touch;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -2525,8 +2515,6 @@ h1, h2, h3, h4, h5, h6 {
     gap: 10px !important;
     padding-bottom: 8px !important;
     margin-bottom: 16px !important;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
   }
   .superadmin-metrics-row::-webkit-scrollbar {
     display: none;
@@ -2540,8 +2528,6 @@ h1, h2, h3, h4, h5, h6 {
     width: 100% !important;
     max-width: 100% !important;
     overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
   }
   .superadmin-subtabs-row::-webkit-scrollbar {
     display: none;
@@ -2702,7 +2688,6 @@ h1, h2, h3, h4, h5, h6 {
   max-width: 100% !important;
   overflow-x: auto !important;
   flex-wrap: nowrap !important;
-  -webkit-overflow-scrolling: touch;
 }
 
 .superadmin-tab-btn {
@@ -2768,7 +2753,6 @@ h1, h2, h3, h4, h5, h6 {
 .app-table-wrapper {
   width: 100%;
   overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 .app-table {
@@ -2922,7 +2906,7 @@ h1, h2, h3, h4, h5, h6 {
 
 @media (max-width: 768px) {
   .ats-stage-card {
-    min-height: auto !important;
+    min-height: 0 !important;
   }
 }
 
@@ -2951,33 +2935,41 @@ h1, h2, h3, h4, h5, h6 {
     margin-left: auto !important;
     width: auto !important;
     display: flex !important;
+    align-items: center !important;
     gap: 6px !important;
-  }
-
-  .module-header-actions > button,
-  .module-header-actions > div {
-    flex: none !important;
   }
 
   .module-search-filter-strip {
+    display: flex !important;
     flex-direction: column !important;
     align-items: stretch !important;
-    padding: 6px 10px !important;
-    gap: 6px !important;
-  }
-
-  .toolbar-cols-page-group {
-    width: 100% !important;
-    justify-content: space-between !important;
+    padding: 8px 10px !important;
+    gap: 8px !important;
   }
 
   .toolbar-search-input-group {
+    order: 1 !important;
     width: 100% !important;
     flex: none !important;
   }
 
   .toolbar-search-input-group > div {
     width: 100% !important;
+  }
+
+  .toolbar-cols-page-group {
+    order: 2 !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  .toolbar-views-group {
+    order: 2 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
   }
 
   .std-table {
@@ -2992,7 +2984,6 @@ h1, h2, h3, h4, h5, h6 {
 
   .list-table-scroll {
     max-height: calc(100vh - 180px) !important;
-    -webkit-overflow-scrolling: touch !important;
   }
 
   .kanban-board-container {

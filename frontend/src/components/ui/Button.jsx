@@ -131,9 +131,9 @@ export default function Button({
       {loading && (
         <span style={{ display: 'inline-block', width: '14px', height: '14px', border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
       )}
-      {!loading && icon && iconPosition === 'left' && <span className="btn-icon">{icon}</span>}
+      {!loading && icon && iconPosition === 'left' && <span className="btn-inline-icon" style={{ display: 'inline-flex', alignItems: 'center' }}>{icon}</span>}
       {children && <span>{children}</span>}
-      {!loading && icon && iconPosition === 'right' && <span className="btn-icon">{icon}</span>}
+      {!loading && icon && iconPosition === 'right' && <span className="btn-inline-icon" style={{ display: 'inline-flex', alignItems: 'center' }}>{icon}</span>}
     </button>
   );
 }
