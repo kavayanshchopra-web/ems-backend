@@ -172,6 +172,7 @@ export default function ListEngine({
   const [dragScrollLeft, setDragScrollLeft] = useState(0);
 
   const handleMouseDown = (e) => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) return;
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.closest('input')) return;
     setIsDragScrolling(true);
     setDragStartX(e.pageX - scrollRef.current.offsetLeft);
@@ -183,6 +184,7 @@ export default function ListEngine({
   };
 
   const handleMouseMoveDrag = (e) => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) return;
     if (!isDragScrolling || !scrollRef.current) return;
     const x = e.pageX - scrollRef.current.offsetLeft;
     const walk = (x - dragStartX) * 1.5;
