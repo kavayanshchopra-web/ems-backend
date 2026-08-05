@@ -2999,6 +2999,40 @@ h1, h2, h3, h4, h5, h6 {
     max-width: calc(100vw - 32px) !important;
   }
 
+  /* Module Configuration Mobile Responsive Layout */
+  .module-config-grid-layout {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  .module-config-nav-sidebar {
+    display: flex !important;
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    border-right: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    padding-right: 0 !important;
+    padding-bottom: 8px !important;
+    gap: 6px !important;
+  }
+
+  .module-config-nav-sidebar > div:first-child {
+    display: none !important;
+  }
+
+  .module-config-nav-sidebar > button {
+    flex: 0 0 auto !important;
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+  }
+
+  .module-config-content-area {
+    width: 100% !important;
+    overflow-x: auto !important;
+  }
+
   /* Strict Mobile 1D Vertical Scroll Lock & Clean Scrollbar Hiding */
   html, body, #root, .main-content, .layout-engine-shell {
     overflow-x: hidden !important;

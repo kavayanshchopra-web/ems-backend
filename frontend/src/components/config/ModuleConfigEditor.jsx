@@ -694,10 +694,10 @@ export default function ModuleConfigEditor({
       </div>
 
       {/* Main Layout: Left Navigation Sidebar + Right Content */}
-      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '20px', minHeight: '440px' }}>
+      <div className="module-config-grid-layout" style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '20px', minHeight: '440px' }}>
 
         {/* Left Navigation Sidebar */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderRight: '1px solid #e2e8f0', paddingRight: '16px' }}>
+        <div className="module-config-nav-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderRight: '1px solid #e2e8f0', paddingRight: '16px' }}>
           <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
             CONFIGURATION TABS
           </div>
@@ -728,7 +728,7 @@ export default function ModuleConfigEditor({
         </div>
 
         {/* Right Content Area */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="module-config-content-area" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
           {/* SECTION: FORMS & FIELDS */}
           {activeNav === 'fields' && capabilities.forms && (
