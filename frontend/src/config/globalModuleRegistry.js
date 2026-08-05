@@ -64,9 +64,27 @@ export const GLOBAL_MODULE_REGISTRY = {
     category: 'Sales & Marketing',
     description: 'Leads, Deals, & Customer Pipeline',
     icon: '📈',
-    configurable: false,
-    status: 'Coming Soon',
+    configurable: true,
+    status: 'Configured',
     primaryEntity: 'deal',
+    capabilities: {
+      forms: true,
+      summary: true,
+      searchFilters: true,
+      listView: true,
+      kanbanView: true,
+      views: true
+    }
+  },
+  payroll: {
+    id: 'payroll',
+    label: 'Payroll & Finance',
+    category: 'Payroll & Finance',
+    description: 'Employee Salaries, Claims, & Payslip Generation',
+    icon: '💵',
+    configurable: true,
+    status: 'Configured',
+    primaryEntity: 'payroll',
     capabilities: {
       forms: true,
       summary: true,
