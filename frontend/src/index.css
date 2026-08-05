@@ -2941,8 +2941,10 @@ h1, h2, h3, h4, h5, h6 {
 
   .module-search-filter-strip {
     display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
     padding: 8px 10px !important;
     gap: 8px !important;
   }
@@ -2959,14 +2961,15 @@ h1, h2, h3, h4, h5, h6 {
 
   .toolbar-cols-page-group {
     order: 2 !important;
-    width: 100% !important;
+    width: auto !important;
     display: flex !important;
     align-items: center !important;
-    justify-content: space-between !important;
+    gap: 6px !important;
   }
 
   .toolbar-views-group {
     order: 2 !important;
+    margin-left: auto !important;
     display: flex !important;
     align-items: center !important;
     justify-content: flex-end !important;
