@@ -17910,10 +17910,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                               <Briefcase size={15} />
                               <span style={{ fontSize: '13px' }}>Recruitment ATS</span>
                             </div>
-                            <div className={`nav-item ${activeTab === 'performance_kpis' ? 'active' : ''}`} onClick={() => { setActiveTab('performance_kpis'); setMobileSidebarOpen(false); }}>
-                              <Award size={15} />
-                              <span style={{ fontSize: '13px' }}>Performance KPIs</span>
-                            </div>
                             <div className={`nav-item ${activeTab === 'asset_management' ? 'active' : ''}`} onClick={() => { setActiveTab('asset_management'); setMobileSidebarOpen(false); }}>
                               <FileText size={15} />
                               <span style={{ fontSize: '13px' }}>Asset Management</span>
