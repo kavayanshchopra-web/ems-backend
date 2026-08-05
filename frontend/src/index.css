@@ -3033,6 +3033,40 @@ h1, h2, h3, h4, h5, h6 {
     overflow-x: auto !important;
   }
 
+  /* Module Configuration Header & Info Strip Mobile Responsiveness */
+  .module-config-editor-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .module-config-editor-header-title-group {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
+  .module-config-editor-subtitle {
+    display: none !important;
+  }
+
+  .module-config-editor-actions {
+    width: 100% !important;
+    display: flex !important;
+    gap: 8px !important;
+  }
+
+  .module-config-editor-actions > button {
+    flex: 1 !important;
+    justify-content: center !important;
+  }
+
+  .module-config-info-strip {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
   /* Lookup Data Tab & Internal Cards Mobile Layout */
   .lookup-data-grid-layout {
     display: flex !important;

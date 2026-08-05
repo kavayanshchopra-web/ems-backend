@@ -665,8 +665,8 @@ export default function ModuleConfigEditor({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '20px', background: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
 
       {/* Editor Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid #e2e8f0', paddingBottom: '14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div className="module-config-editor-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid #e2e8f0', paddingBottom: '14px' }}>
+        <div className="module-config-editor-header-title-group" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <Button variant="secondary" size="sm" icon={<ArrowLeft size={14} />} onClick={onClose}>
             Back to Registry
           </Button>
@@ -677,13 +677,13 @@ export default function ModuleConfigEditor({
                 Module Configuration — {moduleDef?.label || 'Module'}
               </h2>
             </div>
-            <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>
+            <p className="module-config-editor-subtitle" style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>
               Single source of truth configuration engine for {moduleDef?.label || 'this module'}. All screens update live from metadata.
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="module-config-editor-actions" style={{ display: 'flex', gap: '8px' }}>
           <Button variant="secondary" size="md" onClick={onClose}>
             Cancel
           </Button>
@@ -733,7 +733,7 @@ export default function ModuleConfigEditor({
           {/* SECTION: FORMS & FIELDS */}
           {activeNav === 'fields' && capabilities.forms && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <div className="module-config-info-strip" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                 <div style={{ fontSize: '11px', color: '#64748b' }}>
                   Every row defines one field. Fields are classified as <strong>SYSTEM</strong>, <strong>BUSINESS</strong>, or <strong>CUSTOM</strong>. Deleting a field archives it to preserve historical records.
                 </div>
