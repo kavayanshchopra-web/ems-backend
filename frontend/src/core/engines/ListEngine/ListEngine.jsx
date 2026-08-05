@@ -525,6 +525,13 @@ export default function ListEngine({
       />
 
       <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        {/* MOBILE HORIZONTAL SWIPE HINT BANNER */}
+        <div className="mobile-swipe-hint-banner">
+          <span style={{ fontSize: '10.5px', color: '#0d9488', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+            👈 Swipe table left & right to view all columns 👉
+          </span>
+        </div>
+
         {/* TABLE HEADER STRIP (CLEAN ENTERPRISE NOISE-FREE HEADER) */}
         {isArchivedView && (
           <div style={{ padding: '10px 18px', background: '#fffbeb', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
