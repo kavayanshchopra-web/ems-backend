@@ -151,6 +151,7 @@ export default function LayoutToolbar({
                     onClick={() => setShowManageDropdown(false)}
                   />
                   <div
+                    className="manage-dropdown-popover"
                     style={{
                       position: 'absolute',
                       right: 0,
