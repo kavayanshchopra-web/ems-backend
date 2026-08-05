@@ -10,6 +10,8 @@ export const ASSETS_MANIFEST = {
   version: '1.0.0',
   minPlatformVersion: '1.0.0',
   name: 'Asset Management',
+  entityName: 'Asset',
+  entityNamePlural: 'Assets',
   description: 'Track corporate devices, hardware tags, employee assignments, and maintenance status.',
   category: MODULE_CATEGORIES.OPERATIONS,
   icon: '🖥️',
@@ -46,8 +48,8 @@ export const ASSETS_MANIFEST = {
   ],
 
   defaultFields: [
-    { id: 'tag', key: 'tag', label: 'Asset Tag ID', type: 'text', systemField: true, required: true, searchable: true, filterable: false, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, showOnKanban: true, placeholder: 'e.g. AST-LAP-001', sortOrder: 1 },
-    { id: 'name', key: 'name', label: 'Device / Asset Name', type: 'text', systemField: true, required: true, searchable: true, filterable: false, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, showOnKanban: true, placeholder: 'e.g. MacBook Pro M2 16"', sortOrder: 2 },
+    { id: 'name', key: 'name', label: 'Device / Asset Name', type: 'text', systemField: true, required: true, searchable: true, filterable: false, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, showOnKanban: true, placeholder: 'e.g. MacBook Pro M2 16"', sortOrder: 1 },
+    { id: 'tag', key: 'tag', label: 'Asset Tag ID', type: 'text', systemField: true, required: true, searchable: true, filterable: false, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, showOnKanban: true, placeholder: 'e.g. AST-LAP-001', sortOrder: 2 },
     { id: 'category', key: 'category', label: 'Asset Category', type: 'dropdown', options: ['Laptop', 'Mobile Phone', 'Monitor', 'Peripheral', 'Office Equipment'], systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, showOnKanban: true, sortOrder: 3 },
     { id: 'assignedTo', key: 'assignedTo', label: 'Assigned Staff', type: 'text', systemField: true, required: false, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, showOnKanban: true, placeholder: 'e.g. Rahul Verma', sortOrder: 4 },
     { id: 'purchaseDate', key: 'purchaseDate', label: 'Purchase Date', type: 'date', systemField: true, required: false, searchable: false, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, showOnKanban: false, sortOrder: 5 },
