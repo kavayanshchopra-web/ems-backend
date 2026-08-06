@@ -18873,6 +18873,20 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
   const [matrixState, setMatrixState] = useState(() => PermissionEngine.getPermissionMatrix(tenantId));
   const [activeRoleId, setActiveRoleId] = useState('manager');
   const discoveredModules = PermissionEngine.getDiscoveredModules();
+  const tableScrollRef = useRef(null);
+
+  const handleScrollTable = (direction) => {
+    if (tableScrollRef.current) {
+      const scrollAmount = direction === 'left' ? -350 : 350;
+      tableScrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  const handleHeaderWheel = (e) => {
+    if (tableScrollRef.current && e.deltaY !== 0) {
+      tableScrollRef.current.scrollLeft += e.deltaY;
+    }
+  };
 
   const allRoles = [...DEFAULT_ROLES, ...(matrixState.customRoles || [])];
 
@@ -19168,26 +19182,48 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
           boxShadow: '0 4px 20px -2px rgba(0,0,0,0.05)'
         }}
       >
-        {/* Sub Header */}
-        <div style={{ flexShrink: 0, padding: '14px 20px', background: '#ffffff', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+        {/* Sub Header With Horizontal Scroll Controls */}
+        <div style={{ flexShrink: 0, padding: '12px 20px', background: '#ffffff', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             Access Privileges for Role: <span style={{ color: '#0d9488', textTransform: 'uppercase', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 10px', borderRadius: '6px' }}>{currentRoleObj?.label || activeRoleId}</span>
           </h3>
-          {activeRoleId === 'super_admin' ? (
-            <span style={{ fontSize: '11px', fontWeight: '800', color: '#16a34a', background: 'rgba(22, 163, 74, 0.12)', padding: '5px 12px', borderRadius: '8px', border: '1px solid rgba(22, 163, 74, 0.25)' }}>
-              🔒 Super Admin Has Immutable 100% Full Access
-            </span>
-          ) : (
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', background: '#f8fafc', padding: '4px 10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-              💡 Tip: Click column headers to Select/Unselect All for that action
-            </span>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {activeRoleId === 'super_admin' ? (
+              <span style={{ fontSize: '11px', fontWeight: '800', color: '#16a34a', background: 'rgba(22, 163, 74, 0.12)', padding: '5px 12px', borderRadius: '8px', border: '1px solid rgba(22, 163, 74, 0.25)' }}>
+                🔒 Super Admin Has Immutable 100% Full Access
+              </span>
+            ) : (
+              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', background: '#f8fafc', padding: '4px 10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                💡 Click column headers to Select/Unselect All
+              </span>
+            )}
+            {/* Smooth Table Scroll Controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#f1f5f9', padding: '3px 6px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+              <span style={{ fontSize: '11px', fontWeight: '800', color: '#475569', marginRight: '4px' }}>Scroll:</span>
+              <button
+                type="button"
+                onClick={() => handleScrollTable('left')}
+                title="Scroll Table Left"
+                style={{ padding: '3px 8px', borderRadius: '5px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}
+              >
+                ◀
+              </button>
+              <button
+                type="button"
+                onClick={() => handleScrollTable('right')}
+                title="Scroll Table Right"
+                style={{ padding: '3px 8px', borderRadius: '5px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}
+              >
+                ▶
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Unified Table Scroll Container */}
-        <div style={{ flexGrow: 1, overflow: 'auto', position: 'relative' }}>
-          <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: '1350px' }}>
-            <thead>
+        <div ref={tableScrollRef} style={{ flexGrow: 1, overflow: 'auto', position: 'relative' }}>
+          <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: '1250px' }}>
+            <thead onWheel={handleHeaderWheel}>
               <tr style={{ background: '#f8fafc' }}>
                 <th
                   style={{
@@ -19201,7 +19237,7 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                     fontSize: '12px',
                     fontWeight: '800',
                     color: '#334155',
-                    minWidth: '220px',
+                    minWidth: '200px',
                     borderRight: '1px solid #e2e8f0',
                     borderBottom: '2px solid #cbd5e1',
                     boxShadow: '2px 0 5px rgba(0,0,0,0.03)'
@@ -19216,16 +19252,16 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                     zIndex: 30,
                     background: '#f8fafc',
                     textAlign: 'left',
-                    padding: '12px 12px',
+                    padding: '12px 10px',
                     fontSize: '12px',
                     fontWeight: '800',
                     color: '#334155',
-                    minWidth: '160px',
+                    minWidth: '145px',
                     borderRight: '1px solid #e2e8f0',
                     borderBottom: '2px solid #cbd5e1'
                   }}
                 >
-                  Record Access Scope
+                  Record Scope
                 </th>
                 {STANDARD_ACTIONS.map(act => {
                   const allModsChecked = discoveredModules.every(mod => Boolean(matrixState.permissions[activeRoleId]?.[mod.id]?.actions?.[act.id]));
@@ -19240,14 +19276,15 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                         zIndex: 30,
                         background: '#f8fafc',
                         textAlign: 'center',
-                        padding: '10px 6px',
+                        padding: '10px 4px',
                         fontSize: '11px',
                         fontWeight: '800',
                         color: '#334155',
                         cursor: activeRoleId === 'super_admin' ? 'default' : 'pointer',
                         userSelect: 'none',
                         borderRight: '1px solid #f1f5f9',
-                        borderBottom: '2px solid #cbd5e1'
+                        borderBottom: '2px solid #cbd5e1',
+                        minWidth: '72px'
                       }}
                     >
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
@@ -19275,7 +19312,8 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                     fontSize: '11px',
                     fontWeight: '800',
                     color: '#334155',
-                    borderBottom: '2px solid #cbd5e1'
+                    borderBottom: '2px solid #cbd5e1',
+                    minWidth: '75px'
                   }}
                 >
                   Toggle Row
@@ -19346,7 +19384,7 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                               background: isSuperAdmin ? '#f1f5f9' : '#f8fafc',
                               cursor: isSuperAdmin ? 'not-allowed' : 'pointer',
                               outline: 'none',
-                              maxWidth: '155px',
+                              maxWidth: '140px',
                               width: '100%'
                             }}
                           >
