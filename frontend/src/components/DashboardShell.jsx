@@ -13,6 +13,7 @@ const ModuleConfigCenter = lazy(() => import('./config/ModuleConfigCenter'));
 import LayoutEngine from '../core/engines/LayoutEngine/LayoutEngine';
 import { useModuleRegistry } from '../core/registry/useModuleRegistry';
 import { PermissionEngine, STANDARD_ACTIONS, ACCESS_SCOPES, DEFAULT_ROLES } from '../core/engines/PermissionEngine/permissionEngine';
+import TrashVaultEngine from '../core/engines/TrashVaultEngine';
 import {
   auth,
   db,
@@ -710,57 +711,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [binCurrentPage, setBinCurrentPage] = useState(1);
   const [binPageSize, setBinPageSize] = useState(10);
 
-  const [recycleBinItems, setRecycleBinItems] = useState([
-    {
-      id: 'bin_101',
-      originalId: 'emp_99',
-      name: 'Rohan Sharma (Junior Sales Executive)',
-      category: 'Employee',
-      deletedAt: '2026-07-28 14:30:00',
-      deletedTimestamp: Date.now() - 3600000,
-      deletedBy: 'Admin User',
-      deletedByEmail: 'admin@company.com',
-      deletedById: 'usr_admin',
-      deletedByRole: 'admin',
-      tenantId: 'acme_corp',
-      tenantName: 'Acme Corp',
-      links: 'Attendance Logs (142), Payslips (6), Chat Records (89)',
-      entityData: { id: 'emp_99', name: 'Rohan Sharma', role: 'Sales Executive' }
-    },
-    {
-      id: 'bin_102',
-      originalId: 'lead_404',
-      name: 'Vikram Mehta - Real Estate Inquiry',
-      category: 'CRM Lead',
-      deletedAt: '2026-07-28 11:15:00',
-      deletedTimestamp: Date.now() - 14400000,
-      deletedBy: 'Telecaller Agent',
-      deletedByEmail: 'telecaller@company.com',
-      deletedById: 'usr_telecaller',
-      deletedByRole: 'employee',
-      tenantId: 'acme_corp',
-      tenantName: 'Acme Corp',
-      links: 'WhatsApp History (12 Msgs), Call Recordings (2)',
-      entityData: { id: 'lead_404', name: 'Vikram Mehta', phone: '+919876543210' }
-    },
-    {
-      id: 'bin_103',
-      originalId: 'task_88',
-      name: 'Q2 Tax Compliance Audit',
-      category: 'Task',
-      deletedAt: '2026-07-27 16:45:00',
-      deletedTimestamp: Date.now() - 86400000,
-      deletedBy: 'Super Admin System',
-      deletedByEmail: 'superadmin@saas.com',
-      deletedById: 'usr_superadmin',
-      deletedByRole: 'superadmin',
-      tenantId: 'platform_superadmin',
-      tenantName: 'SaaS Platform Admin',
-      isSuperAdminOnly: true,
-      links: 'Task Attachments (3), Sub-task Checklist (5)',
-      entityData: { id: 'task_88', title: 'Q2 Tax Compliance Audit' }
-    }
-  ]);
+  const [recycleBinItems, setRecycleBinItems] = useState(() => TrashVaultEngine.getVaultItems('all'));
 
   // Universal Soft-Delete Handler handled by async softDeleteRecord below
 
@@ -14719,44 +14670,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 {selectedDropdownCategory === 'custom_engine' && (
                   <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div style={{ flex: 1, minWidth: '180px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Custom Feature Dropdown Engine</h3>
-                          </div>
-                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
-                            <select
-                              value={selectedDropdownCategory}
-                              onChange={e => setSelectedDropdownCategory(e.target.value)}
-                              style={{
-                                width: '100%',
-                                padding: '8px 10px',
-                                borderRadius: '8px',
-                                border: '1.5px solid #0d9488',
-                                background: '#f0fdf4',
-                                color: '#0f172a',
-                                fontWeight: '800',
-                                fontSize: '13px',
-                                outline: 'none',
-                                cursor: 'pointer',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                              }}
-                            >
-                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
-                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
-                              <option value="employment_types">Employment Types (5)</option>
-                              <option value="genders">Genders (4)</option>
-                              <option value="marital_statuses">Marital Statuses (4)</option>
-                              <option value="blood_groups">Blood Groups (8)</option>
-                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
-                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
-                              <option value="crm_tags">CRM Contact Tags (6)</option>
-                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
-                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
-                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
-                            </select>
-                          </div>
-                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Create custom dropdown lists for any custom feature or module</p>
+                      <div style={{ flex: 1, minWidth: '180px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Custom Feature Dropdown Engine</h3>
                         </div>
+                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Create custom dropdown lists for any custom feature or module</p>
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
@@ -14873,6 +14792,63 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {/* 26. RECYCLE BIN VAULT & SOFT DELETE RECOVERY */}
         {activeTab === 'recycle_bin' && (() => {
           const isSuperAdmin = authUser?.role === 'superadmin';
+          const [binColumnWidths, setBinColumnWidths] = useState({
+            name: 240,
+            category: 130,
+            deletedBy: 160,
+            deletedAt: 150,
+            preservedLinks: 220
+          });
+          const binResizingRef = useRef(null);
+          const binTheadRef = useRef(null);
+
+          // Non-passive wheel listener on <thead> to prevent vertical page scroll while mouse wheeling left/right
+          useEffect(() => {
+            const theadEl = binTheadRef.current;
+            if (!theadEl) return;
+            const handleWheel = (e) => {
+              if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+                e.preventDefault();
+                const scrollContainer = theadEl.closest('div');
+                if (scrollContainer) {
+                  scrollContainer.scrollLeft += e.deltaY;
+                }
+              }
+            };
+            theadEl.addEventListener('wheel', handleWheel, { passive: false });
+            return () => theadEl.removeEventListener('wheel', handleWheel);
+          }, []);
+
+          const handleBinResizeStart = (e, colKey) => {
+            e.preventDefault();
+            e.stopPropagation();
+            binResizingRef.current = {
+              colKey,
+              startX: e.clientX,
+              startWidth: binColumnWidths[colKey] || 120
+            };
+
+            const handleMouseMove = (moveEvent) => {
+              if (!binResizingRef.current) return;
+              const { colKey, startX, startWidth } = binResizingRef.current;
+              const deltaX = moveEvent.clientX - startX;
+              const newWidth = Math.max(60, startWidth + deltaX);
+              setBinColumnWidths(prev => ({
+                ...prev,
+                [colKey]: newWidth
+              }));
+            };
+
+            const handleMouseUp = () => {
+              binResizingRef.current = null;
+              window.removeEventListener('mousemove', handleMouseMove);
+              window.removeEventListener('mouseup', handleMouseUp);
+            };
+
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+          };
+
           const filteredBinItems = recycleBinItems.filter(item => {
             const matchesCategory = binCategoryFilter === 'all' || (item.category || '').toLowerCase() === binCategoryFilter.toLowerCase();
             const matchesTenant = selectedBinTenant === 'all' || item.tenantId === selectedBinTenant;
@@ -14915,6 +14891,26 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           const binEndIndex = Math.min(binStartIndex + binPageSize, totalBinItems);
           const paginatedBinItems = sortedBinItems.slice(binStartIndex, binEndIndex);
 
+          const handleRestoreBinItem = (item) => {
+            TrashVaultEngine.restoreItem('all', item.id);
+            setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
+            showToast(`🔄 Restored "${item.name}" back to active status!`, 'success');
+          };
+
+          const handlePermanentDeleteBinItem = (itemId, itemName) => {
+            openConfirm({
+              title: 'Permanently Purge Record?',
+              message: `Are you sure you want to permanently delete "${itemName}"? This item cannot be recovered once purged.`,
+              confirmText: 'Yes, Purge Permanently',
+              danger: true,
+              onConfirm: () => {
+                TrashVaultEngine.purgeItem('all', itemId);
+                setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
+                showToast(`❌ Permanently purged "${itemName}" from vault.`, 'info');
+              }
+            });
+          };
+
           const handleEmptyBinVault = () => {
             openConfirm({
               title: 'Empty Recycle Bin Vault?',
@@ -14922,7 +14918,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               confirmText: 'Yes, Purge All Items',
               danger: true,
               onConfirm: () => {
-                setRecycleBinItems([]);
+                TrashVaultEngine.emptyVault(selectedBinTenant);
+                setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
                 showToast(`🔥 Vault Emptied! All items permanently purged.`, 'info');
               }
             });
@@ -15072,36 +15069,137 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 
                 {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
                 <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', borderBottom: '1px solid #e2e8f0', maxHeight: '440px', background: 'white' }}>
-                  <table className="std-table" style={{ width: '100%', minWidth: '700px', borderCollapse: 'separate', borderSpacing: 0 }}>
-                    <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                  <table className="std-table" style={{ width: '100%', minWidth: '750px', borderCollapse: 'separate', borderSpacing: 0 }}>
+                    <thead ref={binTheadRef} style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                       <tr style={{ userSelect: 'none' }}>
+                        {/* ARCHIVED ITEM Column with Drag Handle */}
                         <th 
                           onClick={() => handleBinSort('name')}
-                          style={{ cursor: 'pointer', background: '#f8fafc', padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                          style={{
+                            position: 'relative',
+                            width: `${binColumnWidths.name}px`,
+                            maxWidth: `${binColumnWidths.name}px`,
+                            cursor: 'pointer',
+                            background: '#f8fafc',
+                            padding: '12px 16px',
+                            fontSize: '11px',
+                            fontWeight: '800',
+                            color: '#475569',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
+                          }}
                         >
                           ARCHIVED ITEM <span style={{ color: binSortConfig.key === 'name' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{binSortConfig.key === 'name' ? (binSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                          <div
+                            onMouseDown={(e) => handleBinResizeStart(e, 'name')}
+                            onClick={(e) => e.stopPropagation()}
+                            title="Drag left/right to resize column"
+                            style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', cursor: 'col-resize', background: 'transparent', zIndex: 5 }}
+                          />
                         </th>
+
+                        {/* CATEGORY Column with Drag Handle */}
                         <th 
                           onClick={() => handleBinSort('category')}
-                          style={{ cursor: 'pointer', background: '#f8fafc', padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                          style={{
+                            position: 'relative',
+                            width: `${binColumnWidths.category}px`,
+                            maxWidth: `${binColumnWidths.category}px`,
+                            cursor: 'pointer',
+                            background: '#f8fafc',
+                            padding: '12px 16px',
+                            fontSize: '11px',
+                            fontWeight: '800',
+                            color: '#475569',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
+                          }}
                         >
                           CATEGORY <span style={{ color: binSortConfig.key === 'category' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{binSortConfig.key === 'category' ? (binSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                          <div
+                            onMouseDown={(e) => handleBinResizeStart(e, 'category')}
+                            onClick={(e) => e.stopPropagation()}
+                            title="Drag left/right to resize column"
+                            style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', cursor: 'col-resize', background: 'transparent', zIndex: 5 }}
+                          />
                         </th>
+
+                        {/* DELETED BY Column with Drag Handle */}
                         <th 
                           onClick={() => handleBinSort('deletedBy')}
-                          style={{ cursor: 'pointer', background: '#f8fafc', padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                          style={{
+                            position: 'relative',
+                            width: `${binColumnWidths.deletedBy}px`,
+                            maxWidth: `${binColumnWidths.deletedBy}px`,
+                            cursor: 'pointer',
+                            background: '#f8fafc',
+                            padding: '12px 16px',
+                            fontSize: '11px',
+                            fontWeight: '800',
+                            color: '#475569',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
+                          }}
                         >
                           DELETED BY <span style={{ color: binSortConfig.key === 'deletedBy' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{binSortConfig.key === 'deletedBy' ? (binSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                          <div
+                            onMouseDown={(e) => handleBinResizeStart(e, 'deletedBy')}
+                            onClick={(e) => e.stopPropagation()}
+                            title="Drag left/right to resize column"
+                            style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', cursor: 'col-resize', background: 'transparent', zIndex: 5 }}
+                          />
                         </th>
+
+                        {/* SOFT-DELETED DATE Column with Drag Handle */}
                         <th 
                           onClick={() => handleBinSort('deletedAt')}
-                          style={{ cursor: 'pointer', background: '#f8fafc', padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                          style={{
+                            position: 'relative',
+                            width: `${binColumnWidths.deletedAt}px`,
+                            maxWidth: `${binColumnWidths.deletedAt}px`,
+                            cursor: 'pointer',
+                            background: '#f8fafc',
+                            padding: '12px 16px',
+                            fontSize: '11px',
+                            fontWeight: '800',
+                            color: '#475569',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
+                          }}
                         >
                           SOFT-DELETED DATE <span style={{ color: binSortConfig.key === 'deletedAt' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{binSortConfig.key === 'deletedAt' ? (binSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                          <div
+                            onMouseDown={(e) => handleBinResizeStart(e, 'deletedAt')}
+                            onClick={(e) => e.stopPropagation()}
+                            title="Drag left/right to resize column"
+                            style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', cursor: 'col-resize', background: 'transparent', zIndex: 5 }}
+                          />
                         </th>
-                        <th style={{ background: '#f8fafc', padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+
+                        {/* PRESERVED DEPENDENT LINKS Column */}
+                        <th
+                          style={{
+                            position: 'relative',
+                            width: `${binColumnWidths.preservedLinks}px`,
+                            maxWidth: `${binColumnWidths.preservedLinks}px`,
+                            background: '#f8fafc',
+                            padding: '12px 16px',
+                            fontSize: '11px',
+                            fontWeight: '800',
+                            color: '#475569',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
+                          }}
+                        >
                           PRESERVED DEPENDENT LINKS
+                          <div
+                            onMouseDown={(e) => handleBinResizeStart(e, 'preservedLinks')}
+                            onClick={(e) => e.stopPropagation()}
+                            title="Drag left/right to resize column"
+                            style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', cursor: 'col-resize', background: 'transparent', zIndex: 5 }}
+                          />
                         </th>
+
                         <th style={{ textAlign: 'right', background: '#f8fafc', padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                           ACTIONS
                         </th>
@@ -15118,25 +15216,25 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       ) : (
                         paginatedBinItems.map(item => (
                           <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                            <td style={{ padding: '12px 16px', fontWeight: '700', color: '#0f2b26' }}>
+                            <td style={{ padding: '12px 16px', fontWeight: '700', color: '#0f2b26', width: `${binColumnWidths.name}px`, maxWidth: `${binColumnWidths.name}px`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               <div>{item.name}</div>
                               {isSuperAdmin && item.tenantName && (
                                 <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>Company: {item.tenantName}</span>
                               )}
                             </td>
-                            <td style={{ padding: '12px 16px' }}>
+                            <td style={{ padding: '12px 16px', width: `${binColumnWidths.category}px` }}>
                               <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
                                 {item.category || 'General'}
                               </span>
                             </td>
-                            <td style={{ padding: '12px 16px', color: '#334155', fontSize: '12px', fontWeight: '600' }}>
+                            <td style={{ padding: '12px 16px', color: '#334155', fontSize: '12px', fontWeight: '600', width: `${binColumnWidths.deletedBy}px`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               <div>{item.deletedBy || 'System User'}</div>
                               <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>{item.deletedByEmail}</div>
                             </td>
-                            <td style={{ padding: '12px 16px', color: '#475569', fontSize: '12px', fontWeight: '600' }}>{item.deletedAt}</td>
-                            <td style={{ padding: '12px 16px' }}>
+                            <td style={{ padding: '12px 16px', color: '#475569', fontSize: '12px', fontWeight: '600', width: `${binColumnWidths.deletedAt}px` }}>{item.deletedAt}</td>
+                            <td style={{ padding: '12px 16px', width: `${binColumnWidths.preservedLinks}px` }}>
                               <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.1)', color: '#059669', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
-                                🛡️ Intact: {item.links || 'Full History Intact'}
+                                🛡️ Intact: {item.preservedLinks || item.links || 'Full History Intact'}
                               </span>
                             </td>
                             <td style={{ padding: '12px 16px' }}>
@@ -15231,7 +15329,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     </div>
                   </div>
                 </div>
-
               </div>
             </div>
           );
