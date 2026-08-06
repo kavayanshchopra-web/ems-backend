@@ -111,5 +111,23 @@ export const GLOBAL_MODULE_REGISTRY = {
       kanbanView: true,
       views: true
     }
+  },
+  offboarding: {
+    id: 'offboarding',
+    label: 'Offboarding Exit',
+    category: 'HR Management',
+    description: 'Track resignation clearances, IT asset handovers, NOC checklists, F&F settlements, and exit interviews',
+    icon: '🚪',
+    configurable: true,
+    status: 'Configured',
+    primaryEntity: 'offboarding_case',
+    capabilities: {
+      forms: true,
+      summary: true,
+      searchFilters: true,
+      listView: true,
+      kanbanView: true,
+      views: true
+    }
   }
 };

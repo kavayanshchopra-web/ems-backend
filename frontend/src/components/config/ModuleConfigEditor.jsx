@@ -1634,14 +1634,20 @@ export default function ModuleConfigEditor({
                           { name: 'Incentive Bonus', icon: '🎁', prefix: 'BON' },
                           { name: 'Expense Claim', icon: '🧾', prefix: 'REIM' },
                           { name: 'Tax Compliance', icon: '⚖️', prefix: 'TAX' }
+                        ],
+                        offboarding: [
+                          { name: 'Resignation Submitted', icon: '🚪', prefix: 'RES' },
+                          { name: 'NOC Clearance', icon: '📋', prefix: 'NOC' },
+                          { name: 'Exit Interview', icon: '💬', prefix: 'INT' },
+                          { name: 'F&F Processed', icon: '💰', prefix: 'FNF' }
                         ]
                       };
 
-                      const currentPresets = categoryPresetsMap[modId] || categoryPresetsMap.verify_documents;
+                      const currentPresets = categoryPresetsMap[modId] || categoryPresetsMap.offboarding;
 
                       return currentPresets.map(cat => {
                         const customCatPrefix = configState.idConfig?.categoryPrefixes?.[cat.name] || cat.prefix;
-                        const prefixCode = configState.idConfig?.prefix || (modId === 'verify_documents' ? 'KYC' : modId === 'asset_management' ? 'AST' : 'REC');
+                        const prefixCode = configState.idConfig?.prefix || (modId === 'offboarding' ? 'EXIT' : modId === 'verify_documents' ? 'KYC' : modId === 'asset_management' ? 'AST' : 'REC');
                         const pat = configState.idConfig?.pattern || `${prefixCode}-{CAT}-0001`;
                         
                         const sample1 = pat.includes('{CAT}') 
@@ -1722,10 +1728,16 @@ export default function ModuleConfigEditor({
                             { cat: 'Incentive Bonus', icon: '🎁', defaultCode: 'BON' },
                             { cat: 'Expense Claim', icon: '🧾', defaultCode: 'REIM' },
                             { cat: 'Tax Compliance', icon: '⚖️', defaultCode: 'TAX' }
+                          ],
+                          offboarding: [
+                            { cat: 'Resignation Submitted', icon: '🚪', defaultCode: 'RES' },
+                            { cat: 'NOC Clearance', icon: '📋', defaultCode: 'NOC' },
+                            { cat: 'Exit Interview', icon: '💬', defaultCode: 'INT' },
+                            { cat: 'F&F Processed', icon: '💰', defaultCode: 'FNF' }
                           ]
                         };
 
-                        const currentEditableList = editablePresetsMap[modId] || editablePresetsMap.verify_documents;
+                        const currentEditableList = editablePresetsMap[modId] || editablePresetsMap.offboarding;
 
                         return currentEditableList.map(item => {
                           const currentCustomPrefix = configState.idConfig?.categoryPrefixes?.[item.cat] || item.defaultCode;

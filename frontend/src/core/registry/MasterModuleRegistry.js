@@ -9,6 +9,7 @@ import { EMPLOYEES_MANIFEST } from './manifests/employees.manifest';
 import { PAYROLL_MANIFEST } from './manifests/payroll.manifest';
 import { ASSETS_MANIFEST } from './manifests/assets.manifest';
 import { VERIFY_DOCUMENTS_MANIFEST } from './manifests/verifyDocuments.manifest';
+import { OFFBOARDING_MANIFEST } from './manifests/offboarding.manifest';
 import { moduleConfigService } from '../../services/moduleConfigService';
 
 class MasterModuleRegistry {
@@ -30,6 +31,7 @@ class MasterModuleRegistry {
     this.registerModule(PAYROLL_MANIFEST);
     this.registerModule(ASSETS_MANIFEST);
     this.registerModule(VERIFY_DOCUMENTS_MANIFEST);
+    this.registerModule(OFFBOARDING_MANIFEST);
 
     this._initialized = true;
   }

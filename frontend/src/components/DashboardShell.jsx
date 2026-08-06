@@ -1362,6 +1362,20 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     ];
   });
 
+  const [offboardingCases, setOffboardingCases] = useState(() => {
+    const saved = localStorage.getItem('omnilflow_fallback_offboarding_cases');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return [
+      { id: 'EXIT-0001', tag: 'EXIT-0001', employee: 'Aarav Sharma', resignationDate: '2026-07-15', lastWorkingDay: '2026-08-15', noticePeriod: '30 Days', assetClearance: '✓ Cleared', financeClearance: '✓ Cleared', stage: 'NOC Clearance', reason: 'Career Advancement & Higher Studies' },
+      { id: 'EXIT-0002', tag: 'EXIT-0002', employee: 'Neha Verma', resignationDate: '2026-08-01', lastWorkingDay: '2026-08-31', noticePeriod: '30 Days', assetClearance: '⏳ Pending Return', financeClearance: '✓ Cleared', stage: 'Resignation Submitted', reason: 'Personal & Relocation' }
+    ];
+  });
+
   const [sessions, setSessions] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [activeContact, setActiveContact] = useState(null);
@@ -11605,21 +11619,28 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
         {/* 7. OFFBOARDING EXIT VIEW */}
         {activeTab === 'offboarding' && (
-          <div className="payroll-page glass-panel payroll-panel">
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">🚪 Offboarding Exit Clearance</h1>
-                <p className="page-header-subtitle">Clearance tracking for staff exits and resignations.</p>
-              </div>
-            </div>
-            <div style={{ padding: 'var(--space-6)' }}>
-              <div className="empty-state-card">
-                <div className="empty-state-icon">🚪</div>
-                <div className="empty-state-title">No Active Offboarding Cases</div>
-                <div className="empty-state-desc">No employees are currently in resignation or exit clearance stages.</div>
-              </div>
-            </div>
-          </div>
+          <OffboardingWrapper
+            companyId={authUser?.companyId || 'default_tenant'}
+            offboardingCases={offboardingCases}
+            setOffboardingCases={setOffboardingCases}
+            authUser={authUser}
+            systemDropdowns={systemDropdowns}
+            onOpenModuleConfig={(modId) => {
+              setPreselectedConfigModuleId(modId || 'offboarding');
+              setActiveTab('module_configuration');
+            }}
+            onManageStages={() => {
+              setActiveTab('system_dropdowns');
+            }}
+            onOpenPositionModal={() => {
+              setActiveTab('recruitment_ats');
+            }}
+            recycleBinItems={recycleBinItems}
+            handleRestoreBinItem={handleRestoreBinItem}
+            handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+            softDeleteRecord={softDeleteRecord}
+            showToast={showToast}
+          />
         )}
 
         {/* 8. PAYROLL & SALARY PROCESSOR */}
@@ -18870,6 +18891,49 @@ function VerifyDocumentsWrapper({
       moduleConfig={config}
       records={kycDocuments}
       setRecords={handleUpdateKycDocuments}
+      authUser={authUser}
+      systemDropdowns={systemDropdowns}
+      recycleBinItems={recycleBinItems}
+      handleRestoreBinItem={handleRestoreBinItem}
+      handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+      softDeleteRecord={softDeleteRecord}
+      showToast={showToast}
+      onOpenModuleConfig={onOpenModuleConfig}
+      onManageStages={onManageStages}
+      onOpenPositionModal={onOpenPositionModal}
+    />
+  );
+}
+
+function OffboardingWrapper({
+  companyId,
+  offboardingCases,
+  setOffboardingCases,
+  authUser,
+  systemDropdowns,
+  recycleBinItems,
+  handleRestoreBinItem,
+  handlePermanentDeleteBinItem,
+  softDeleteRecord,
+  showToast,
+  onOpenModuleConfig,
+  onManageStages,
+  onOpenPositionModal
+}) {
+  const { config } = useModuleRegistry(companyId || 'default_tenant', 'offboarding');
+
+  const handleUpdateOffboardingCases = (newCases) => {
+    setOffboardingCases(newCases);
+    try {
+      localStorage.setItem('omnilflow_fallback_offboarding_cases', JSON.stringify(newCases));
+    } catch (e) {}
+  };
+
+  return (
+    <LayoutEngine
+      moduleConfig={config}
+      records={offboardingCases}
+      setRecords={handleUpdateOffboardingCases}
       authUser={authUser}
       systemDropdowns={systemDropdowns}
       recycleBinItems={recycleBinItems}
