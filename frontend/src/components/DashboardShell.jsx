@@ -18872,6 +18872,8 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
   const tenantId = authUser?.companyId || 'default_tenant';
   const [matrixState, setMatrixState] = useState(() => PermissionEngine.getPermissionMatrix(tenantId));
   const [activeRoleId, setActiveRoleId] = useState('manager');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewDensity, setViewDensity] = useState('comfortable'); // 'comfortable' | 'compact'
   const discoveredModules = PermissionEngine.getDiscoveredModules();
   const tableScrollRef = useRef(null);
 
@@ -18905,16 +18907,26 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
 
   const allRoles = [...DEFAULT_ROLES, ...(matrixState.customRoles || [])];
 
+  // Filter modules by Search Query
+  const filteredModules = useMemo(() => {
+    if (!searchQuery.trim()) return discoveredModules;
+    const q = searchQuery.toLowerCase().trim();
+    return discoveredModules.filter(mod =>
+      mod.label.toLowerCase().includes(q) ||
+      (mod.category && mod.category.toLowerCase().includes(q))
+    );
+  }, [discoveredModules, searchQuery]);
+
   // Group modules by Category
   const groupedModules = useMemo(() => {
     const groups = {};
-    discoveredModules.forEach(mod => {
+    filteredModules.forEach(mod => {
       const cat = (mod.category || 'GENERAL').toUpperCase();
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(mod);
     });
     return groups;
-  }, [discoveredModules]);
+  }, [filteredModules]);
 
   const handleActionToggle = (modId, actionId) => {
     if (activeRoleId === 'super_admin') return;
@@ -19086,6 +19098,7 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
   };
 
   const currentRoleObj = allRoles.find(r => r.id === activeRoleId);
+  const isCompact = viewDensity === 'compact';
 
   return (
     <div
@@ -19197,27 +19210,100 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
           boxShadow: '0 4px 20px -2px rgba(0,0,0,0.05)'
         }}
       >
-        {/* Sub Header */}
-        <div style={{ flexShrink: 0, padding: '12px 20px', background: '#ffffff', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            Access Privileges for Role: <span style={{ color: '#0d9488', textTransform: 'uppercase', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 10px', borderRadius: '6px' }}>{currentRoleObj?.label || activeRoleId}</span>
-          </h3>
+        {/* Sub Header With Search & Density Controls */}
+        <div style={{ flexShrink: 0, padding: '10px 20px', background: '#ffffff', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h3 style={{ fontSize: '14.5px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              Privileges for: <span style={{ color: '#0d9488', textTransform: 'uppercase', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 8px', borderRadius: '6px' }}>{currentRoleObj?.label || activeRoleId}</span>
+            </h3>
+            {/* Real-time Module Search Input */}
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <span style={{ position: 'absolute', left: '10px', fontSize: '12px', color: '#94a3b8' }}>🔍</span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search modules..."
+                style={{
+                  padding: '5px 26px 5px 28px',
+                  fontSize: '12px',
+                  borderRadius: '8px',
+                  border: '1.5px solid #cbd5e1',
+                  outline: 'none',
+                  width: '170px',
+                  background: '#f8fafc',
+                  fontWeight: '600',
+                  color: '#1e293b'
+                }}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: '#94a3b8' }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {activeRoleId === 'super_admin' ? (
-              <span style={{ fontSize: '11px', fontWeight: '800', color: '#16a34a', background: 'rgba(22, 163, 74, 0.12)', padding: '5px 12px', borderRadius: '8px', border: '1px solid rgba(22, 163, 74, 0.25)' }}>
-                🔒 Super Admin Has Immutable 100% Full Access
+              <span style={{ fontSize: '11px', fontWeight: '800', color: '#16a34a', background: 'rgba(22, 163, 74, 0.12)', padding: '4px 10px', borderRadius: '7px', border: '1px solid rgba(22, 163, 74, 0.25)' }}>
+                🔒 Super Admin Immutable Access
               </span>
             ) : (
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', background: '#f8fafc', padding: '4px 10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                💡 Click column headers to Select/Unselect All
+              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', background: '#f8fafc', padding: '4px 8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                💡 Header Click = Select All
               </span>
             )}
+
+            {/* Density View Switcher */}
+            <div style={{ display: 'flex', alignItems: 'center', background: '#f1f5f9', padding: '2px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+              <button
+                type="button"
+                onClick={() => setViewDensity('comfortable')}
+                title="Standard Spacing View"
+                style={{
+                  padding: '3px 8px',
+                  fontSize: '11px',
+                  fontWeight: '800',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: !isCompact ? '#ffffff' : 'transparent',
+                  color: !isCompact ? '#0d9488' : '#64748b',
+                  cursor: 'pointer',
+                  boxShadow: !isCompact ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                }}
+              >
+                🖥️ Standard
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewDensity('compact')}
+                title="Compact Grid - Fits all columns on screen"
+                style={{
+                  padding: '3px 8px',
+                  fontSize: '11px',
+                  fontWeight: '800',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: isCompact ? '#ffffff' : 'transparent',
+                  color: isCompact ? '#0d9488' : '#64748b',
+                  cursor: 'pointer',
+                  boxShadow: isCompact ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                }}
+              >
+                📱 Compact
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Unified Table Scroll Container */}
         <div ref={tableScrollRef} style={{ flexGrow: 1, overflow: 'auto', position: 'relative' }}>
-          <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: '1250px' }}>
+          <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: isCompact ? '1080px' : '1250px' }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
                 <th
@@ -19228,11 +19314,11 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                     zIndex: 35,
                     background: '#f8fafc',
                     textAlign: 'left',
-                    padding: '12px 16px',
+                    padding: isCompact ? '9px 12px' : '12px 16px',
                     fontSize: '12px',
                     fontWeight: '800',
                     color: '#334155',
-                    minWidth: '200px',
+                    minWidth: isCompact ? '165px' : '200px',
                     borderRight: '1px solid #e2e8f0',
                     borderBottom: '2px solid #cbd5e1',
                     boxShadow: '2px 0 5px rgba(0,0,0,0.03)'
@@ -19247,11 +19333,11 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                     zIndex: 30,
                     background: '#f8fafc',
                     textAlign: 'left',
-                    padding: '12px 10px',
+                    padding: isCompact ? '9px 8px' : '12px 10px',
                     fontSize: '12px',
                     fontWeight: '800',
                     color: '#334155',
-                    minWidth: '145px',
+                    minWidth: isCompact ? '125px' : '145px',
                     borderRight: '1px solid #e2e8f0',
                     borderBottom: '2px solid #cbd5e1'
                   }}
@@ -19271,25 +19357,25 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                         zIndex: 30,
                         background: '#f8fafc',
                         textAlign: 'center',
-                        padding: '10px 4px',
-                        fontSize: '11px',
+                        padding: isCompact ? '7px 2px' : '10px 4px',
+                        fontSize: isCompact ? '10.5px' : '11px',
                         fontWeight: '800',
                         color: '#334155',
                         cursor: activeRoleId === 'super_admin' ? 'default' : 'pointer',
                         userSelect: 'none',
                         borderRight: '1px solid #f1f5f9',
                         borderBottom: '2px solid #cbd5e1',
-                        minWidth: '72px'
+                        minWidth: isCompact ? '60px' : '72px'
                       }}
                     >
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                         <span>{act.icon} {act.label}</span>
                         {activeRoleId !== 'super_admin' && (
                           <input
                             type="checkbox"
                             checked={allModsChecked}
                             readOnly
-                            style={{ width: '13px', height: '13px', cursor: 'pointer', accentColor: '#0d9488' }}
+                            style={{ width: '12px', height: '12px', cursor: 'pointer', accentColor: '#0d9488' }}
                           />
                         )}
                       </div>
@@ -19303,12 +19389,12 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                     zIndex: 30,
                     background: '#f8fafc',
                     textAlign: 'center',
-                    padding: '12px 8px',
+                    padding: isCompact ? '9px 4px' : '12px 8px',
                     fontSize: '11px',
                     fontWeight: '800',
                     color: '#334155',
                     borderBottom: '2px solid #cbd5e1',
-                    minWidth: '75px'
+                    minWidth: isCompact ? '60px' : '75px'
                   }}
                 >
                   Toggle Row
@@ -19323,7 +19409,7 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                     <td
                       colSpan={STANDARD_ACTIONS.length + 3}
                       style={{
-                        padding: '9px 16px',
+                        padding: isCompact ? '7px 12px' : '9px 16px',
                         background: 'linear-gradient(90deg, rgba(13, 148, 136, 0.12) 0%, rgba(241, 245, 249, 0.8) 100%)',
                         borderTop: '1px solid #cbd5e1',
                         borderBottom: '1px solid #cbd5e1'
@@ -19361,34 +19447,34 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                             left: 0,
                             zIndex: 15,
                             background: '#ffffff',
-                            padding: '11px 16px',
-                            fontSize: '12.5px',
+                            padding: isCompact ? '8px 12px' : '11px 16px',
+                            fontSize: isCompact ? '11.5px' : '12.5px',
                             fontWeight: '800',
                             color: '#0f172a',
                             borderRight: '1px solid #e2e8f0',
                             boxShadow: '2px 0 5px rgba(0,0,0,0.03)'
                           }}
                         >
-                          <span style={{ marginRight: '8px' }}>{mod.icon}</span> {mod.label}
+                          <span style={{ marginRight: '6px' }}>{mod.icon}</span> {mod.label}
                         </td>
 
                         {/* Scope Selector */}
-                        <td style={{ padding: '8px 10px', borderRight: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: isCompact ? '5px 6px' : '8px 10px', borderRight: '1px solid #e2e8f0' }}>
                           <select
                             value={modPerms.scope || 'all'}
                             disabled={isSuperAdmin}
                             onChange={(e) => handleScopeChange(mod.id, e.target.value)}
                             style={{
-                              padding: '5px 8px',
+                              padding: isCompact ? '3px 5px' : '5px 8px',
                               borderRadius: '7px',
                               border: '1.5px solid #cbd5e1',
-                              fontSize: '11px',
+                              fontSize: isCompact ? '10px' : '11px',
                               fontWeight: '700',
                               color: '#334155',
                               background: isSuperAdmin ? '#f1f5f9' : '#f8fafc',
                               cursor: isSuperAdmin ? 'not-allowed' : 'pointer',
                               outline: 'none',
-                              maxWidth: '140px',
+                              maxWidth: isCompact ? '125px' : '140px',
                               width: '100%'
                             }}
                           >
@@ -19402,28 +19488,28 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                         {STANDARD_ACTIONS.map(act => {
                           const isChecked = isSuperAdmin || Boolean(modPerms.actions?.[act.id]);
                           return (
-                            <td key={act.id} style={{ textAlign: 'center', padding: '8px 4px', borderRight: '1px solid #f1f5f9' }}>
+                            <td key={act.id} style={{ textAlign: 'center', padding: isCompact ? '5px 2px' : '8px 4px', borderRight: '1px solid #f1f5f9' }}>
                               <input
                                 type="checkbox"
                                 checked={isChecked}
                                 disabled={isSuperAdmin}
                                 onChange={() => handleActionToggle(mod.id, act.id)}
-                                style={{ width: '16px', height: '16px', cursor: isSuperAdmin ? 'not-allowed' : 'pointer', accentColor: '#0d9488' }}
+                                style={{ width: isCompact ? '14px' : '16px', height: isCompact ? '14px' : '16px', cursor: isSuperAdmin ? 'not-allowed' : 'pointer', accentColor: '#0d9488' }}
                               />
                             </td>
                           );
                         })}
 
                         {/* Toggle All Row Button */}
-                        <td style={{ textAlign: 'center', padding: '8px 6px' }}>
+                        <td style={{ textAlign: 'center', padding: isCompact ? '5px 4px' : '8px 6px' }}>
                           <button
                             type="button"
                             disabled={isSuperAdmin}
                             onClick={() => handleToggleAllRow(mod.id)}
                             style={{
-                              padding: '4px 10px',
+                              padding: isCompact ? '2px 6px' : '4px 10px',
                               borderRadius: '5px',
-                              fontSize: '11px',
+                              fontSize: isCompact ? '10px' : '11px',
                               fontWeight: '800',
                               border: '1px solid #cbd5e1',
                               background: '#f8fafc',
