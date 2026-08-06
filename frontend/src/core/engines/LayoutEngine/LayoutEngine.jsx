@@ -15,6 +15,7 @@ import SavedViewsEngine from '../FilterEngine/SavedViewsEngine';
 import { SearchEngine } from '../SearchEngine';
 import { FilterEngine } from '../FilterEngine';
 import { LabelEngine } from '../LabelEngine';
+import { PermissionEngine } from '../PermissionEngine/permissionEngine';
 
 const getValString = (val, fallback = '') => {
   if (val === null || val === undefined) return fallback;
@@ -70,7 +71,28 @@ export default function LayoutEngine({
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [recordToArchive, setRecordToArchive] = useState(null);
 
-  const canManage = authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager' || authUser?.role === 'superadmin';
+  const currentModuleId = moduleConfig.moduleId || 'default_module';
+  const canView = PermissionEngine.can(authUser, currentModuleId, 'view');
+  const canCreate = PermissionEngine.can(authUser, currentModuleId, 'create');
+  const canEdit = PermissionEngine.can(authUser, currentModuleId, 'edit');
+  const canDelete = PermissionEngine.can(authUser, currentModuleId, 'delete');
+  const canExport = PermissionEngine.can(authUser, currentModuleId, 'export');
+  const canImport = PermissionEngine.can(authUser, currentModuleId, 'import');
+  const canConfigure = PermissionEngine.can(authUser, currentModuleId, 'configure');
+
+  const canManage = canEdit || canDelete;
+
+  if (!canView) {
+    return (
+      <div className="glass-panel" style={{ padding: '48px', margin: '24px', textAlign: 'center', background: '#ffffff', borderRadius: '16px', border: '1px solid #fee2e2' }}>
+        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div>
+        <h2 style={{ fontSize: '20px', fontWeight: '900', color: '#991b1b', margin: 0 }}>Access Restricted</h2>
+        <p style={{ fontSize: '13px', color: '#7f1d1d', marginTop: '6px', maxWidth: '480px', margin: '6px auto 0' }}>
+          Your user role does not have permission to access the <strong>{LabelEngine.getEntityNamePlural(moduleConfig) || 'requested'}</strong> module. Please contact your system administrator to grant view access.
+        </p>
+      </div>
+    );
+  }
 
   // Filtered Archived Records from global Recycle Bin
   const archivedModuleItems = (recycleBinItems || []).filter(item => {

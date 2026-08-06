@@ -169,5 +169,7 @@ class MasterModuleRegistry {
   }
 }
 
-// Export singleton instance
+// Export singleton instance & Class
+export { MasterModuleRegistry };
 export const masterModuleRegistry = new MasterModuleRegistry();
+export default masterModuleRegistry;

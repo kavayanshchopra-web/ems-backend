@@ -12,6 +12,7 @@ const RecruitmentAtsView = lazy(() => import('./recruitment/RecruitmentAtsView')
 const ModuleConfigCenter = lazy(() => import('./config/ModuleConfigCenter'));
 import LayoutEngine from '../core/engines/LayoutEngine/LayoutEngine';
 import { useModuleRegistry } from '../core/registry/useModuleRegistry';
+import { PermissionEngine, STANDARD_ACTIONS, ACCESS_SCOPES, DEFAULT_ROLES } from '../core/engines/PermissionEngine/permissionEngine';
 import {
   auth,
   db,
@@ -12445,204 +12446,302 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         )}
 
         {/* 24. ROLES & PERMISSIONS SCALABLE RBAC MANAGER */}
-        {activeTab === 'roles_permissions' && (
-          <div className="payroll-page glass-panel payroll-panel">
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">🛡️ Roles &amp; Access Control Matrix (RBAC)</h1>
-                <p className="page-header-subtitle">Configure granular access controls for each company role.</p>
-              </div>
-              <div className="page-header-right" style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                <button
-                  className="btn btn-secondary"
-                  type="button"
-                  onClick={() => {
-                    openInputModal({
-                      title: 'Add Custom Role',
-                      subtitle: 'Enter new custom role title',
-                      placeholder: 'e.g. Finance Auditor',
-                      onSave: (roleTitle) => {
-                        const roleKey = 'role_' + Date.now();
-                        const newRoleObj = { key: roleKey, label: roleTitle.trim() };
-                        setCustomRoles(prev => [...prev, newRoleObj]);
-                        setRbacMatrix(prev => ({
-                          ...prev,
-                          [roleKey]: {
-                            dashboards: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
-                            employees: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
-                            departments: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
-                            attendance: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
-                            payroll: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
-                            leaves: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
-                            crm_leads: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
-                            whatsapp: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
-                            calls: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
-                            expenses: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
-                            assets: { create: false, read: true, edit: false, delete: false, export: false, approve: false },
-                            settings: { create: false, read: true, edit: false, delete: false, export: false, approve: false }
-                          }
-                        }));
-                        setSelectedRbacRole(roleKey);
-                        showToast(`Created Custom Role "${roleTitle.trim()}"`, 'success');
-                      }
-                    });
-                  }}
-                >
-                  + Add Custom Role
-                </button>
-                <button
-                  className="btn btn-primary"
-                  type="button"
-                  onClick={() => {
-                    localStorage.setItem('omnilflow_rbac_matrix', JSON.stringify(rbacMatrix));
-                    localStorage.setItem('omnilflow_custom_roles', JSON.stringify(customRoles));
-                    showToast('Role permissions matrix saved successfully!', 'success');
-                  }}
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(13, 148, 136, 0.25)' }}
-                >
-                  💾 Save Permission Matrix
-                </button>
-              </div>
-            </div>
+        {/* ROLES & PERMISSIONS CONTROL MATRIX */}
+        {activeTab === 'roles_permissions' && (() => {
+          const tenantId = authUser?.companyId || 'default_tenant';
+          const [matrixState, setMatrixState] = useState(() => PermissionEngine.getPermissionMatrix(tenantId));
+          const [activeRoleId, setActiveRoleId] = useState('manager');
+          const discoveredModules = PermissionEngine.getDiscoveredModules();
 
-            <div style={{ padding: '0 var(--space-6) var(--space-6)', overflowY: 'auto', flexGrow: 1 }}>
-              {/* Role Selection Switcher Bar */}
-              <div style={{ display: 'flex', gap: '8px', marginBottom: 'var(--space-5)', borderBottom: '1px solid var(--border-default)', paddingBottom: '12px', overflowX: 'auto' }}>
-                {[
-                  { key: 'manager', label: '👔 Manager / Dept Lead' },
-                  { key: 'admin', label: '⚙️ System Administrator' },
-                  { key: 'sales', label: '💼 Sales & Support Agent' },
-                  { key: 'employee', label: '👤 Standard Employee' },
-                  ...customRoles.map(cr => ({ key: cr.key, label: `🛡️ ${cr.label}` }))
-                ].map(r => (
+          const allRoles = [...DEFAULT_ROLES, ...(matrixState.customRoles || [])];
+
+          const handleActionToggle = (modId, actionId) => {
+            if (activeRoleId === 'super_admin') return; // Super admin permissions are immutable
+            setMatrixState(prev => {
+              const currentRoleData = prev.permissions[activeRoleId] || {};
+              const currentModData = currentRoleData[modId] || { scope: 'all', actions: {} };
+              const updatedActions = {
+                ...currentModData.actions,
+                [actionId]: !currentModData.actions?.[actionId]
+              };
+              const updated = {
+                ...prev,
+                permissions: {
+                  ...prev.permissions,
+                  [activeRoleId]: {
+                    ...currentRoleData,
+                    [modId]: {
+                      ...currentModData,
+                      actions: updatedActions
+                    }
+                  }
+                }
+              };
+              PermissionEngine.savePermissionMatrix(tenantId, updated);
+              return updated;
+            });
+          };
+
+          const handleScopeChange = (modId, newScope) => {
+            if (activeRoleId === 'super_admin') return;
+            setMatrixState(prev => {
+              const currentRoleData = prev.permissions[activeRoleId] || {};
+              const currentModData = currentRoleData[modId] || { scope: 'all', actions: {} };
+              const updated = {
+                ...prev,
+                permissions: {
+                  ...prev.permissions,
+                  [activeRoleId]: {
+                    ...currentRoleData,
+                    [modId]: {
+                      ...currentModData,
+                      scope: newScope
+                    }
+                  }
+                }
+              };
+              PermissionEngine.savePermissionMatrix(tenantId, updated);
+              return updated;
+            });
+          };
+
+          const handleToggleAllRow = (modId) => {
+            if (activeRoleId === 'super_admin') return;
+            setMatrixState(prev => {
+              const currentRoleData = prev.permissions[activeRoleId] || {};
+              const currentModData = currentRoleData[modId] || { scope: 'all', actions: {} };
+              const allChecked = STANDARD_ACTIONS.every(act => Boolean(currentModData.actions?.[act.id]));
+              const targetVal = !allChecked;
+
+              const newActions = {};
+              STANDARD_ACTIONS.forEach(act => { newActions[act.id] = targetVal; });
+
+              const updated = {
+                ...prev,
+                permissions: {
+                  ...prev.permissions,
+                  [activeRoleId]: {
+                    ...currentRoleData,
+                    [modId]: {
+                      ...currentModData,
+                      actions: newActions
+                    }
+                  }
+                }
+              };
+              PermissionEngine.savePermissionMatrix(tenantId, updated);
+              return updated;
+            });
+          };
+
+          const handleAddCustomRole = () => {
+            openInputModal({
+              title: '🛡️ Add Custom Role',
+              subtitle: 'Enter new custom role title (e.g. HR Specialist, Finance Auditor)',
+              placeholder: 'e.g. Finance Auditor',
+              onSave: (roleTitle) => {
+                if (!roleTitle || !roleTitle.trim()) return;
+                const cleanTitle = roleTitle.trim();
+                const newRoleId = 'custom_role_' + Date.now();
+                const newRoleObj = { id: newRoleId, label: `🛡️ ${cleanTitle}`, isCustom: true };
+
+                setMatrixState(prev => {
+                  const updatedCustomRoles = [...(prev.customRoles || []), newRoleObj];
+                  const updatedPermissions = { ...prev.permissions };
+                  updatedPermissions[newRoleId] = {};
+
+                  discoveredModules.forEach(mod => {
+                    const defaultActions = {};
+                    STANDARD_ACTIONS.forEach(act => { defaultActions[act.id] = act.id === 'view'; });
+                    updatedPermissions[newRoleId][mod.id] = {
+                      scope: 'team',
+                      actions: defaultActions
+                    };
+                  });
+
+                  const updated = {
+                    ...prev,
+                    customRoles: updatedCustomRoles,
+                    permissions: updatedPermissions
+                  };
+                  PermissionEngine.savePermissionMatrix(tenantId, updated);
+                  return updated;
+                });
+                setActiveRoleId(newRoleId);
+                showToast(`Created Custom Role "${cleanTitle}"`, 'success');
+              }
+            });
+          };
+
+          return (
+            <div className="payroll-page glass-panel payroll-panel" style={{ padding: '24px', margin: '16px', flexGrow: 1, overflowY: 'auto' }}>
+              <div className="page-header" style={{ marginBottom: '20px' }}>
+                <div className="page-header-left">
+                  <h1 className="page-header-title" style={{ fontSize: '22px', fontWeight: '900', color: '#0f2b26', margin: 0 }}>
+                    🛡️ Roles &amp; Dynamic Permission Matrix (Engine Powered)
+                  </h1>
+                  <p className="page-header-subtitle" style={{ fontSize: '13px', color: '#64748b', margin: 0, marginTop: '4px' }}>
+                    Auto-discovered modules from MasterModuleRegistry with 11 granular action controls and record visibility scopes.
+                  </p>
+                </div>
+                <div className="page-header-right" style={{ display: 'flex', gap: '10px' }}>
                   <button
-                    key={r.key}
+                    className="btn btn-secondary"
                     type="button"
-                    onClick={() => setSelectedRbacRole(r.key)}
-                    style={{
-                      padding: '8px 16px',
-                      borderRadius: 'var(--radius-md)',
-                      fontSize: 'var(--text-sm)',
-                      fontWeight: 'var(--fw-bold)',
-                      border: '1px solid',
-                      borderColor: selectedRbacRole === r.key ? 'var(--color-primary)' : 'var(--border-default)',
-                      background: selectedRbacRole === r.key ? 'var(--color-primary-light)' : 'var(--bg-card)',
-                      color: selectedRbacRole === r.key ? 'var(--color-primary)' : 'var(--text-secondary)',
-                      cursor: 'pointer',
-                      transition: 'var(--transition-fast)'
-                    }}
+                    onClick={handleAddCustomRole}
+                    style={{ padding: '9px 16px', fontSize: '13px', fontWeight: '800', borderRadius: '8px' }}
                   >
-                    {r.label}
+                    + Add Custom Role
                   </button>
-                ))}
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    onClick={() => {
+                      PermissionEngine.savePermissionMatrix(tenantId, matrixState);
+                      showToast('Permission matrix saved successfully!', 'success');
+                    }}
+                    style={{ padding: '9px 20px', fontSize: '13px', fontWeight: '800', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488, #059669)', border: 'none', boxShadow: '0 4px 12px rgba(13, 148, 136, 0.25)' }}
+                  >
+                    💾 Save Permission Matrix
+                  </button>
+                </div>
               </div>
 
-              {/* Permissions Matrix for Selected Role */}
-              <div className="payroll-table-card" style={{ padding: 'var(--space-6)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
-                  <h3 className="payroll-table-title" style={{ margin: 0 }}>
-                    Access Privileges for: <span style={{ color: 'var(--color-primary)' }}>{selectedRbacRole.toUpperCase()}</span>
+              {/* Role Selection Switcher Bar */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', overflowX: 'auto' }}>
+                {allRoles.map(r => {
+                  const isActive = activeRoleId === r.id;
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => setActiveRoleId(r.id)}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: '800',
+                        border: '1px solid',
+                        borderColor: isActive ? '#0d9488' : '#cbd5e1',
+                        background: isActive ? 'rgba(13, 148, 136, 0.12)' : '#ffffff',
+                        color: isActive ? '#0d9488' : '#475569',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {r.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Permissions Matrix Table */}
+              <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', padding: '18px', overflowX: 'auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0f2b26', margin: 0 }}>
+                    Access Privileges for Role: <span style={{ color: '#0d9488', textTransform: 'uppercase' }}>{allRoles.find(r => r.id === activeRoleId)?.label || activeRoleId}</span>
                   </h3>
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Check or uncheck to modify privileges</span>
+                  {activeRoleId === 'super_admin' && (
+                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#16a34a', background: 'rgba(22, 163, 74, 0.12)', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(22, 163, 74, 0.25)' }}>
+                      🔒 Super Admin Has Immutable 100% Full Access
+                    </span>
+                  )}
                 </div>
 
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="std-table">
-                    <thead>
-                      <tr style={{ textAlign: 'center' }}>
-                        <th style={{ textAlign: 'left', minWidth: '220px' }}>Module Category</th>
-                        <th style={{ textAlign: 'center' }}>+ Create</th>
-                        <th style={{ textAlign: 'center' }}>👁️ Read</th>
-                        <th style={{ textAlign: 'center' }}>✏️ Edit</th>
-                        <th style={{ textAlign: 'center' }}>🗑️ Delete</th>
-                        <th style={{ textAlign: 'center' }}>📤 Export</th>
-                        <th style={{ textAlign: 'center' }}>🟢 Approve</th>
-                        <th style={{ textAlign: 'center' }}>Toggle All</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        { key: 'dashboards', label: '📊 Dashboards & Analytics' },
-                        { key: 'employees', label: '👥 HR Management & Employees' },
-                        { key: 'payroll', label: '💰 Payroll & Financial Ledger' },
-                        { key: 'crm', label: '💬 CRM & WhatsApp Sales' },
-                        { key: 'operations', label: '🛠️ Operations & Tasks' },
-                        { key: 'settings', label: '⚙️ Workspace Settings & Vault' }
-                      ].map(mod => {
-                        const currentRolePerms = (rbacMatrix[selectedRbacRole] && rbacMatrix[selectedRbacRole][mod.key]) || { create: false, read: false, edit: false, delete: false, export: false, approve: false };
-                        const allChecked = Object.values(currentRolePerms).every(Boolean);
+                <table className="std-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0' }}>
+                      <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '12px', fontWeight: '800', color: '#334155', minWidth: '180px' }}>Module Name</th>
+                      <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '12px', fontWeight: '800', color: '#334155', minWidth: '160px' }}>Record Access Scope</th>
+                      {STANDARD_ACTIONS.map(act => (
+                        <th key={act.id} style={{ textAlign: 'center', padding: '10px 6px', fontSize: '11px', fontWeight: '800', color: '#334155' }}>
+                          {act.icon} {act.label}
+                        </th>
+                      ))}
+                      <th style={{ textAlign: 'center', padding: '10px 8px', fontSize: '11px', fontWeight: '800', color: '#334155' }}>Toggle Row</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {discoveredModules.map(mod => {
+                      const modPerms = matrixState.permissions[activeRoleId]?.[mod.id] || { scope: 'all', actions: {} };
+                      const isSuperAdmin = activeRoleId === 'super_admin';
+                      const allChecked = isSuperAdmin || STANDARD_ACTIONS.every(act => Boolean(modPerms.actions?.[act.id]));
 
-                        const handleToggle = (actionKey) => {
-                          setRbacMatrix(prev => {
-                            const roleData = prev[selectedRbacRole] || {};
-                            const modData = roleData[mod.key] || {};
-                            return {
-                              ...prev,
-                              [selectedRbacRole]: {
-                                ...roleData,
-                                [mod.key]: {
-                                  ...modData,
-                                  [actionKey]: !modData[actionKey]
-                                }
-                              }
-                            };
-                          });
-                        };
+                      return (
+                        <tr key={mod.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '12px', fontSize: '13px', fontWeight: '800', color: '#0f172a' }}>
+                            <span style={{ marginRight: '6px' }}>{mod.icon}</span> {mod.label}
+                          </td>
 
-                        const handleToggleRow = () => {
-                          const targetVal = !allChecked;
-                          setRbacMatrix(prev => {
-                            const roleData = prev[selectedRbacRole] || {};
-                            return {
-                              ...prev,
-                              [selectedRbacRole]: {
-                                ...roleData,
-                                [mod.key]: {
-                                  create: targetVal,
-                                  read: targetVal,
-                                  edit: targetVal,
-                                  delete: targetVal,
-                                  export: targetVal,
-                                  approve: targetVal
-                                }
-                              }
-                            };
-                          });
-                        };
+                          {/* Scope Selector */}
+                          <td style={{ padding: '10px 12px' }}>
+                            <select
+                              value={modPerms.scope || 'all'}
+                              disabled={isSuperAdmin}
+                              onChange={(e) => handleScopeChange(mod.id, e.target.value)}
+                              style={{
+                                padding: '5px 8px',
+                                borderRadius: '6px',
+                                border: '1px solid #cbd5e1',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                color: '#334155',
+                                background: isSuperAdmin ? '#f1f5f9' : '#ffffff',
+                                cursor: isSuperAdmin ? 'not-allowed' : 'pointer'
+                              }}
+                            >
+                              {ACCESS_SCOPES.map(sc => (
+                                <option key={sc.id} value={sc.id}>{sc.label}</option>
+                              ))}
+                            </select>
+                          </td>
 
-                        return (
-                          <tr key={mod.key} style={{ textAlign: 'center' }}>
-                            <td style={{ padding: '14px 12px', textAlign: 'left', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)' }}>{mod.label}</td>
-                            {['create', 'read', 'edit', 'delete', 'export', 'approve'].map(act => (
-                              <td key={act} style={{ padding: '14px 12px' }}>
+                          {/* 11 Action Checkboxes */}
+                          {STANDARD_ACTIONS.map(act => {
+                            const isChecked = isSuperAdmin || Boolean(modPerms.actions?.[act.id]);
+                            return (
+                              <td key={act.id} style={{ textAlign: 'center', padding: '10px 4px' }}>
                                 <input
                                   type="checkbox"
-                                  checked={!!currentRolePerms[act]}
-                                  onChange={() => handleToggle(act)}
-                                  style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--color-primary)' }}
+                                  checked={isChecked}
+                                  disabled={isSuperAdmin}
+                                  onChange={() => handleActionToggle(mod.id, act.id)}
+                                  style={{ width: '16px', height: '16px', cursor: isSuperAdmin ? 'not-allowed' : 'pointer', accentColor: '#0d9488' }}
                                 />
                               </td>
-                            ))}
-                            <td style={{ padding: '14px 12px' }}>
-                              <button
-                                type="button"
-                                onClick={handleToggleRow}
-                                className="btn-payslip"
-                                style={{ padding: '4px 10px', height: 'auto', fontSize: 'var(--text-xs)' }}
-                              >
-                                {allChecked ? 'Uncheck All' : 'Select All'}
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                            );
+                          })}
+
+                          {/* Toggle All Button */}
+                          <td style={{ textAlign: 'center', padding: '10px 8px' }}>
+                            <button
+                              type="button"
+                              disabled={isSuperAdmin}
+                              onClick={() => handleToggleAllRow(mod.id)}
+                              style={{
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                border: '1px solid #cbd5e1',
+                                background: '#f8fafc',
+                                color: '#475569',
+                                cursor: isSuperAdmin ? 'not-allowed' : 'pointer'
+                              }}
+                            >
+                              {allChecked ? 'Uncheck' : 'All'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* 24.5 MODULE CONFIGURATION CENTER */}
         {activeTab === 'module_configuration' && (
