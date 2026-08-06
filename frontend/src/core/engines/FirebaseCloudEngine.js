@@ -154,6 +154,30 @@ class FirebaseCloudEngine {
       return () => {};
     }
   }
+
+  /**
+   * Clear all local seed caches to guarantee a clean slate for live testing
+   */
+  static clearAllLocalSeedCaches() {
+    try {
+      const keysToRemove = [
+        'omnilflow_fallback_employees',
+        'omnilflow_fallback_tasks',
+        'omnilflow_fallback_notices',
+        'omnilflow_fallback_holidays',
+        'omnilflow_fallback_leaves',
+        'omnilflow_fallback_recycle_bin',
+        'omnilflow_fallback_assets',
+        'omnilflow_fallback_kyc_documents',
+        'omnilflow_fallback_offboarding_cases',
+        'whatsapp_crm_trash_vault_all',
+        'whatsapp_crm_shift_rosters',
+        'whatsapp_crm_shift_overrides'
+      ];
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+      console.log('🧹 Cleared all local fallback dummy seed caches!');
+    } catch (e) {}
+  }
 }
 
 export default FirebaseCloudEngine;

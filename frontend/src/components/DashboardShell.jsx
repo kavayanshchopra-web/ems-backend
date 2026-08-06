@@ -2828,10 +2828,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   // Employee Directory states with default rich team records
   const [employees, setEmployees] = useState(() => {
     const saved = localStorage.getItem('omnilflow_fallback_employees');
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) {
+          // Clean out legacy dummy seed records (emp_002, emp_003, emp_004)
+          const cleaned = parsed.filter(e => e.id !== 'emp_002' && e.id !== 'emp_003' && e.id !== 'emp_004' && e.id !== 'EMP-0002' && e.id !== 'EMP-0003' && e.id !== 'EMP-0004');
+          localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(cleaned));
+          return cleaned;
+        }
       } catch (e) {}
     }
     const defaultRoster = [
@@ -2845,39 +2850,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         department: 'Software Engineering',
         salary: '85000',
         status: 'active'
-      },
-      {
-        id: 'emp_002',
-        first_name: 'Rahul',
-        last_name: 'Sharma',
-        email: 'rahul.sharma@company.com',
-        phone: '+91 9876543210',
-        role: 'manager',
-        department: 'Sales',
-        salary: '65000',
-        status: 'active'
-      },
-      {
-        id: 'emp_003',
-        first_name: 'Priya',
-        last_name: 'Verma',
-        email: 'priya.v@company.com',
-        phone: '+91 9812345678',
-        role: 'agent',
-        department: 'Marketing',
-        salary: '45000',
-        status: 'active'
-      },
-      {
-        id: 'emp_004',
-        first_name: 'Amit',
-        last_name: 'Kumar',
-        email: 'amit.k@company.com',
-        phone: '+91 9988776655',
-        role: 'employee',
-        department: 'Operations',
-        salary: '35000',
-        status: 'suspended'
       }
     ];
     try { localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(defaultRoster)); } catch (e) {}
@@ -3653,69 +3625,79 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   }, [showSessionWarning, sessionTimeLeft]);
 
   // Employee Directory actions
+  const isDummyRecord = (r) => {
+    if (!r) return false;
+    const str = (JSON.stringify(r) || '').toLowerCase();
+    return (
+      str.includes('rahul.sharma@company.com') ||
+      str.includes('priya.v@company.com') ||
+      str.includes('amit.k@company.com') ||
+      str.includes('emp_002') ||
+      str.includes('emp_003') ||
+      str.includes('emp_004') ||
+      str.includes('emp-0002') ||
+      str.includes('emp-0003') ||
+      str.includes('emp-0004') ||
+      str.includes('emp-0126') ||
+      str.includes('emp-0246') ||
+      str.includes('emp-0361') ||
+      str.includes('emp-0848') ||
+      str.includes('emp-0172')
+    );
+  };
+
   const fetchEmployees = async () => {
     setIsEmployeesLoading(true);
     setEmployeesError(null);
 
     const saved = localStorage.getItem('omnilflow_fallback_employees');
     let localList = [];
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) localList = parsed;
+        if (Array.isArray(parsed)) {
+          localList = parsed.filter(e => !isDummyRecord(e));
+          localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(localList));
+        }
       } catch (e) {}
     }
 
-    try {
-      const res = await fetch(`${API_URL}/employees`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          setEmployees(prev => {
-            const map = new Map();
-            localList.forEach(e => map.set(String(e.id), e));
-            prev.forEach(e => map.set(String(e.id), e));
-            data.forEach(e => map.set(String(e.id), e));
-            const merged = Array.from(map.values());
-            localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(merged));
-            return merged;
-          });
-          setIsEmployeesLoading(false);
-          return;
-        }
-      }
-    } catch (err) {
-      console.warn('Backend employee fetch failed, keeping local state:', err.message);
-    }
-
+    // 1. Primary: Firebase Firestore Cloud Connection
     try {
       if (db) {
         const qSnap = await getDocs(collection(db, 'employees'));
         const fbList = [];
-        qSnap.forEach(docDoc => {
-          fbList.push({ id: docDoc.id, ...docDoc.data() });
-        });
-        if (fbList.length > 0) {
-          setEmployees(prev => {
-            const map = new Map();
-            localList.forEach(e => map.set(String(e.id), e));
-            prev.forEach(e => map.set(String(e.id), e));
-            fbList.forEach(e => map.set(String(e.id), e));
-            const merged = Array.from(map.values());
-            localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(merged));
-            return merged;
-          });
-          setIsEmployeesLoading(false);
-          return;
+        for (const docDoc of qSnap.docs) {
+          const rec = { id: docDoc.id, ...docDoc.data() };
+          if (isDummyRecord(rec)) {
+            // Auto-purge dummy seed doc directly from Firestore
+            try { await deleteDoc(doc(db, 'employees', docDoc.id)); } catch (e) {}
+          } else {
+            fbList.push(rec);
+          }
         }
+
+        // Clean out legacy items in recycle_bin as well
+        try {
+          const binSnap = await getDocs(collection(db, 'recycle_bin'));
+          for (const binDoc of binSnap.docs) {
+            if (isDummyRecord(binDoc.data())) {
+              try { await deleteDoc(doc(db, 'recycle_bin', binDoc.id)); } catch (e) {}
+            }
+          }
+        } catch (e) {}
+
+        setEmployees(fbList);
+        localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(fbList));
+        setIsEmployeesLoading(false);
+        return;
       }
     } catch (fbErr) {
-      console.warn('Firebase firestore query failed, using rest fallback:', fbErr.message);
+      console.warn('Firebase firestore query error:', fbErr.message);
     }
 
-    if (localList.length > 0) {
-      setEmployees(localList);
-    }
+    // 2. Local State Fallback (Pure Client-Side)
+    setEmployees(localList);
     setIsEmployeesLoading(false);
   };
 
@@ -3822,15 +3804,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   };
 
-  const softDeleteRecord = async ({ originalId, name, category, entityData, moduleTab, links, preservedLinks }) => {
+  const softDeleteRecord = async ({ originalId, id, name, category, entityData, moduleTab, links, preservedLinks }) => {
+    const targetId = originalId || id || (entityData && entityData.id);
     const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
     const currentTenantName = authUser?.companyName || (currentTenantId === 'platform_superadmin' ? 'SaaS Platform Admin' : 'Acme Corp');
 
     const itemPayload = {
-      originalId: originalId || `item_${Date.now()}`,
-      name: name || 'Untitled Record',
+      originalId: targetId || `item_${Date.now()}`,
+      name: name || (entityData && (entityData.name || entityData.title)) || 'Untitled Record',
       category: category || 'General Item',
-      moduleTab: moduleTab || 'System Workspace',
+      moduleTab: moduleTab || 'employees',
       deletedBy: authUser?.name || authUser?.email?.split('@')[0] || 'System User',
       deletedByEmail: authUser?.email || 'user@company.com',
       tenantId: currentTenantId,
@@ -3839,43 +3822,57 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       payload: entityData || {}
     };
 
+    // 1. Move to Trash Vault
     const newItem = TrashVaultEngine.moveToTrash(currentTenantId, itemPayload);
     setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
 
+    // 2. Save to recycle_bin and DELETE from active Firestore collection
     try {
-      if (db && newItem) {
-        await setDoc(doc(db, 'recycle_bin', newItem.id), newItem);
+      if (db) {
+        if (newItem) {
+          await setDoc(doc(db, 'recycle_bin', newItem.id), newItem);
+        }
+        if (targetId) {
+          const modCol = (moduleTab || 'employees').toLowerCase();
+          await deleteDoc(doc(db, modCol, targetId.toString()));
+          await deleteDoc(doc(db, 'employees', targetId.toString()));
+        }
       }
     } catch (e) {
       console.warn('Firebase recycle bin sync error:', e);
     }
 
-    showToast(`🗑️ Moved "${name}" to Recycle Bin!`, 'info');
+    // 3. Update React local state and localStorage immediately
+    if (targetId) {
+      setEmployees(prev => {
+        const updated = prev.filter(emp => String(emp.id) !== String(targetId));
+        try { localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(updated)); } catch (err) {}
+        return updated;
+      });
+    }
+
+    showToast(`🗑️ Moved "${itemPayload.name}" to Recycle Bin!`, 'info');
     return newItem;
   };
 
-  const handlePermanentDeleteBinItem = async (itemId, itemName) => {
-    const targetItem = (recycleBinItems || []).find(x => String(x.id) === String(itemId));
-    const titleToDisplay = itemName || targetItem?.name || 'this item';
+  const handlePermanentDeleteBinItem = async (itemIdOrObj, itemName) => {
+    const itemId = (typeof itemIdOrObj === 'object' && itemIdOrObj !== null)
+      ? (itemIdOrObj.id || itemIdOrObj.originalId || itemIdOrObj.recycleBinId)
+      : itemIdOrObj;
 
-    openConfirm({
-      title: 'Permanently Purge Record?',
-      message: `Are you sure you want to permanently delete "${titleToDisplay}"? This item cannot be recovered once purged.`,
-      confirmText: 'Yes, Purge Permanently',
-      danger: true,
-      onConfirm: async () => {
-        try {
-          if (db) {
-            await deleteDoc(doc(db, 'recycle_bin', itemId.toString()));
-          }
-        } catch (fbErr) {
-          console.warn(fbErr.message);
-        }
-        TrashVaultEngine.purgeItem('all', itemId);
-        setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
-        showToast(`❌ Permanently purged "${titleToDisplay}" from vault.`, 'info');
+    const targetItem = (recycleBinItems || []).find(x => String(x.id) === String(itemId) || String(x.recycleBinId) === String(itemId) || String(x.originalId) === String(itemId));
+    const titleToDisplay = itemName || targetItem?.name || 'this record';
+
+    try {
+      if (db && itemId) {
+        await deleteDoc(doc(db, 'recycle_bin', itemId.toString()));
       }
-    });
+    } catch (fbErr) {
+      console.warn('Firebase purge item error:', fbErr.message);
+    }
+    TrashVaultEngine.purgeItem('all', itemId);
+    setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
+    showToast(`❌ Permanently purged record from vault.`, 'info');
   };
 
   const handleRestoreBinItem = async (itemOrId) => {
@@ -4011,25 +4008,20 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.warn('Firestore soft delete failed:', fbErr.message);
     }
 
+    // Update React local state immediately
+    setEmployees(prev => {
+      const updated = prev.filter(emp => String(emp.id) !== String(id));
+      try { localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(updated)); } catch (e) {}
+      return updated;
+    });
+
     try {
-      const res = await fetch(`${API_URL}/employees/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        showToast('Employee deleted successfully!', 'success');
-        fetchEmployees();
-        return;
-      }
+      await fetch(`${API_URL}/employees/${id}`, { method: 'DELETE' });
     } catch (err) {
-      console.warn('Backend employee delete failed, deleting from local fallback store:', err.message);
+      console.warn('Backend employee delete call complete/bypassed:', err.message);
     }
 
-    const saved = localStorage.getItem('omnilflow_fallback_employees');
-    if (saved) {
-      let list = JSON.parse(saved);
-      list = list.filter(emp => emp.id !== id);
-      localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(list));
-    }
-    showToast('Employee deleted successfully!', 'success');
-    fetchEmployees();
+    showToast('Employee moved to Recycle Bin & deleted successfully!', 'success');
   };
 
 
@@ -4290,8 +4282,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     );
   };
 
-  // Cloned EMS portal actions
-  // Cloned EMS portal actions
   const fetchTasks = async () => {
     try {
       if (db) {
@@ -4300,29 +4290,18 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         qSnap.forEach(docDoc => {
           fbList.push({ id: docDoc.id, ...docDoc.data() });
         });
-        if (fbList.length > 0) {
-          setTasks(fbList);
-          localStorage.setItem('omnilflow_fallback_tasks', JSON.stringify(fbList));
-          return;
-        }
+        setTasks(fbList);
+        localStorage.setItem('omnilflow_fallback_tasks', JSON.stringify(fbList));
+        return;
       }
     } catch (fbErr) {
       console.warn('Firebase query tasks failed:', fbErr.message);
     }
 
-    try {
-      const res = await fetch(`${API_URL}/tasks`);
-      if (res.ok) {
-        const data = await res.json();
-        setTasks(data);
-        localStorage.setItem('omnilflow_fallback_tasks', JSON.stringify(data));
-      }
-    } catch (err) {
-      console.error(err);
-    }
-
     const saved = localStorage.getItem('omnilflow_fallback_tasks');
-    if (saved) setTasks(JSON.parse(saved));
+    if (saved !== null) {
+      try { setTasks(JSON.parse(saved)); } catch (e) {}
+    }
   };
 
   const handleSaveTask = async (e) => {
@@ -4350,37 +4329,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.warn('Firebase save task failed:', fbErr.message);
     }
 
-    try {
-      const url = isEdit ? `${API_URL}/tasks/${newTaskForm.id}` : `${API_URL}/tasks`;
-      const method = isEdit ? 'PUT' : 'POST';
-      const res = await fetch(url, {
-        method,
-        body: JSON.stringify(newTaskForm)
-      });
-      if (res.ok) {
-        alert('Task saved successfully!');
-        setShowAddTaskModal(false);
-        setNewTaskForm({ id: '', title: '', description: '', assignedTo: '', priority: 'Medium', status: 'To Do', dueDate: '' });
-        fetchTasks();
-        return;
-      }
-    } catch (err) {
-      console.error(err);
-    }
+    setTasks(prev => {
+      const updated = isEdit ? prev.map(t => t.id === newTaskForm.id ? { ...t, ...payload } : t) : [{ id: `task_${Date.now()}`, ...payload }, ...prev];
+      localStorage.setItem('omnilflow_fallback_tasks', JSON.stringify(updated));
+      return updated;
+    });
 
-    // Local fallback save
-    const saved = localStorage.getItem('omnilflow_fallback_tasks');
-    let list = saved ? JSON.parse(saved) : [];
-    if (isEdit) {
-      list = list.map(t => t.id === newTaskForm.id ? { ...t, ...payload } : t);
-    } else {
-      list.push({ id: Date.now(), ...payload });
-    }
-    localStorage.setItem('omnilflow_fallback_tasks', JSON.stringify(list));
-    alert('Task updated in local sync!');
     setShowAddTaskModal(false);
-    setNewTaskForm({ id: '', title: '', description: '', assignedTo: '', priority: 'Medium', status: 'To Do', dueDate: '' });
-    fetchTasks();
+    setNewTaskForm({ id: '', title: '', description: '', assignedTo: '', priority: 'Medium', status: 'Pending', dueDate: '' });
   };
 
   const handleDeleteTask = async (taskId) => {

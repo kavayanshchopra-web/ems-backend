@@ -9,6 +9,7 @@ import Button from '../../../components/ui/Button';
 import Modal from '../../../components/ui/Modal';
 import { LabelEngine } from '../LabelEngine';
 import { getNextSequentialId } from '../../../services/atsStorageService';
+import FirebaseCloudEngine from '../FirebaseCloudEngine';
 
 export default function BulkActionEngine({
   selectedIds = [],
@@ -83,6 +84,7 @@ export default function BulkActionEngine({
             moduleTab: moduleConfig.moduleId
           });
         }
+        FirebaseCloudEngine.deleteRecord(moduleConfig.moduleId || 'employees', r.id);
       }
     });
 
@@ -121,19 +123,26 @@ export default function BulkActionEngine({
   const handleBulkPermanentDelete = () => {
     if (!window.confirm(`Permanently delete ${selectedCount} archived records? This action cannot be undone.`)) return;
 
-    if (typeof softDeleteRecord === 'function') {
-      selectedIds.forEach(id => {
-        const rec = records.find(r => r.id === id || r.recycleBinId === id);
-        const purgeId = rec?.recycleBinId || rec?.id || id;
+    const idsSet = new Set(selectedIds);
+    selectedIds.forEach(id => {
+      const rec = records.find(r => r.id === id || r.recycleBinId === id);
+      const purgeId = rec?.recycleBinId || rec?.id || id;
+      if (typeof softDeleteRecord === 'function') {
         softDeleteRecord(purgeId);
-      });
-      setSelectedIds([]);
-      showToast(`🔥 Permanently deleted ${selectedCount} records`, 'info');
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('omnilflow_config_updated', {
-          detail: { moduleId: moduleConfig.moduleId }
-        }));
       }
+      FirebaseCloudEngine.deleteRecord('recycle_bin', purgeId);
+      FirebaseCloudEngine.deleteRecord(moduleConfig.moduleId || 'employees', purgeId);
+    });
+
+    const remaining = records.filter(r => !idsSet.has(r.id) && !idsSet.has(r.recycleBinId));
+    setRecords(remaining);
+    setSelectedIds([]);
+
+    showToast(`🔥 Permanently deleted ${selectedCount} records`, 'info');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('omnilflow_config_updated', {
+        detail: { moduleId: moduleConfig.moduleId }
+      }));
     }
   };
 

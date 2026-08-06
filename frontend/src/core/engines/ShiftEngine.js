@@ -72,68 +72,7 @@ const DEFAULT_SHIFT_PROFILES = [
   }
 ];
 
-const DEFAULT_SEED_ROSTER = [
-  {
-    empId: 101,
-    empName: 'Kavayansh Chopra',
-    role: 'Super Admin',
-    department: 'Management',
-    schedule: {
-      mon: 'shift_general',
-      tue: 'shift_general',
-      wed: 'shift_general',
-      thu: 'shift_general',
-      fri: 'shift_general',
-      sat: 'shift_off',
-      sun: 'shift_off'
-    }
-  },
-  {
-    empId: 102,
-    empName: 'Rahul Sharma',
-    role: 'Senior Developer',
-    department: 'IT & Engineering',
-    schedule: {
-      mon: 'shift_general',
-      tue: 'shift_general',
-      wed: 'shift_general',
-      thu: 'shift_general',
-      fri: 'shift_general',
-      sat: 'shift_off',
-      sun: 'shift_off'
-    }
-  },
-  {
-    empId: 103,
-    empName: 'Priya Verma',
-    role: 'Sales Representative',
-    department: 'Sales & Marketing',
-    schedule: {
-      mon: 'shift_evening',
-      tue: 'shift_evening',
-      wed: 'shift_evening',
-      thu: 'shift_evening',
-      fri: 'shift_evening',
-      sat: 'shift_off',
-      sun: 'shift_off'
-    }
-  },
-  {
-    empId: 104,
-    empName: 'Amit Kumar',
-    role: 'Support Specialist',
-    department: 'Customer Support',
-    schedule: {
-      mon: 'shift_night',
-      tue: 'shift_night',
-      wed: 'shift_night',
-      thu: 'shift_night',
-      fri: 'shift_night',
-      sat: 'shift_off',
-      sun: 'shift_off'
-    }
-  }
-];
+const DEFAULT_SEED_ROSTER = [];
 
 class ShiftEngine {
   /**
