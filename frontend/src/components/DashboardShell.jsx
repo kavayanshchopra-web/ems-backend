@@ -19160,7 +19160,6 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
   };
 
   const currentRoleObj = allRoles.find(r => r.id === activeRoleId);
-  const isCompact = viewDensity === 'compact';
 
   return (
     <div
