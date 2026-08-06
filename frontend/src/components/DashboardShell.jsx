@@ -1,6 +1,6 @@
 // OmniFlow EMS v2.5 — Telecalling + Mobile UI — Build 20260729
 // CACHE BUSTER: 2026-07-29 03:20 PM - Verified 100% syntactically balanced JSX!
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import io from 'socket.io-client';
 
 const GpsMap = lazy(() => import('./GpsMap'));
