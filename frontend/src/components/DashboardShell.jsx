@@ -19059,22 +19059,33 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
   const currentRoleObj = allRoles.find(r => r.id === activeRoleId);
 
   return (
-    <div className="payroll-page glass-panel payroll-panel" style={{ padding: '28px', margin: '16px', flexGrow: 1, overflowY: 'auto', borderRadius: '16px', background: 'rgba(255, 255, 255, 0.9)', border: '1px solid rgba(226, 232, 240, 0.9)' }}>
-      <div className="page-header" style={{ marginBottom: '20px' }}>
-        <div className="page-header-left">
-          <h1 className="page-header-title" style={{ fontSize: '22px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span>🛡️</span> Roles &amp; Dynamic Permission Matrix
+    <div
+      style={{
+        height: 'calc(100vh - 100px)',
+        display: 'flex',
+        flexDirection: 'column',
+        padding: '20px 24px',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+        background: '#f8fafc'
+      }}
+    >
+      {/* Page Header */}
+      <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <h1 style={{ fontSize: '22px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            🛡️ Roles &amp; Dynamic Permission Matrix
           </h1>
-          <p className="page-header-subtitle" style={{ fontSize: '13px', color: '#64748b', margin: 0, marginTop: '4px', fontWeight: '500' }}>
+          <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0 0', fontWeight: '500' }}>
             Auto-discovered modules from MasterModuleRegistry with 11 granular action controls and record visibility scopes.
           </p>
         </div>
-        <div className="page-header-right" style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px' }}>
           <button
             className="btn btn-secondary"
             type="button"
             onClick={handleAddCustomRole}
-            style={{ padding: '10px 18px', fontSize: '13px', fontWeight: '800', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '9px 16px', fontSize: '13px', fontWeight: '800', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             ➕ Add Custom Role
           </button>
@@ -19085,27 +19096,25 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
               PermissionEngine.savePermissionMatrix(tenantId, matrixState);
               showToast('Permission matrix saved successfully!', 'success');
             }}
-            style={{ padding: '10px 22px', fontSize: '13px', fontWeight: '800', borderRadius: '10px', background: 'linear-gradient(135deg, #0d9488 0%, #059669 100%)', border: 'none', boxShadow: '0 4px 14px rgba(13, 148, 136, 0.35)', color: '#ffffff' }}
+            style={{ padding: '9px 20px', fontSize: '13px', fontWeight: '800', borderRadius: '10px', background: 'linear-gradient(135deg, #0d9488 0%, #059669 100%)', border: 'none', boxShadow: '0 4px 14px rgba(13, 148, 136, 0.35)', color: '#ffffff' }}
           >
             💾 Save Permission Matrix
           </button>
         </div>
       </div>
 
-      {/* Role Selection Switcher Bar (Modern Segmented Control) */}
+      {/* Role Selection Switcher Bar (Flexible Wrap Pills) */}
       <div
         style={{
+          flexShrink: 0,
           display: 'flex',
-          gap: '6px',
-          marginBottom: '20px',
+          gap: '8px',
+          marginBottom: '16px',
           padding: '6px',
-          borderRadius: '14px',
-          background: '#f1f5f9',
-          border: '1px solid #e2e8f0',
-          overflowX: 'auto',
+          borderRadius: '12px',
+          background: '#e2e8f0',
           alignItems: 'center',
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none'
+          flexWrap: 'wrap'
         }}
       >
         {allRoles.map(r => {
@@ -19117,15 +19126,15 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                 onClick={() => setActiveRoleId(r.id)}
                 style={{
                   padding: '8px 16px',
-                  borderRadius: '10px',
+                  borderRadius: '9px',
                   fontSize: '12.5px',
                   fontWeight: isActive ? '800' : '700',
-                  border: isActive ? '1px solid rgba(13, 148, 136, 0.3)' : '1px solid transparent',
+                  border: 'none',
                   background: isActive ? '#ffffff' : 'transparent',
-                  color: isActive ? '#0d9488' : '#64748b',
+                  color: isActive ? '#0d9488' : '#475569',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
-                  boxShadow: isActive ? '0 2px 8px rgba(13, 148, 136, 0.15)' : 'none',
+                  boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
                   transition: 'all 0.15s ease'
                 }}
               >
@@ -19136,7 +19145,7 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                   type="button"
                   title="Delete Custom Role"
                   onClick={() => handleDeleteCustomRole(r.id, r.label)}
-                  style={{ marginLeft: '4px', padding: '5px 8px', borderRadius: '8px', border: '1px solid #fee2e2', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: '11px' }}
+                  style={{ marginLeft: '4px', padding: '5px 8px', borderRadius: '7px', border: '1px solid #fee2e2', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: '11px' }}
                 >
                   🗑️
                 </button>
@@ -19146,10 +19155,22 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
         })}
       </div>
 
-      {/* Permissions Matrix Table */}
-      <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid rgba(13, 148, 136, 0.2)', boxShadow: '0 4px 20px -2px rgba(13, 148, 136, 0.06)', padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+      {/* Main Permissions Card Container */}
+      <div
+        style={{
+          flexGrow: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          background: '#ffffff',
+          borderRadius: '14px',
+          border: '1px solid #cbd5e1',
+          boxShadow: '0 4px 20px -2px rgba(0,0,0,0.05)'
+        }}
+      >
+        {/* Sub Header */}
+        <div style={{ flexShrink: 0, padding: '14px 20px', background: '#ffffff', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <h3 style={{ fontSize: '15px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             Access Privileges for Role: <span style={{ color: '#0d9488', textTransform: 'uppercase', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 10px', borderRadius: '6px' }}>{currentRoleObj?.label || activeRoleId}</span>
           </h3>
           {activeRoleId === 'super_admin' ? (
@@ -19163,14 +19184,47 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
           )}
         </div>
 
-        <div style={{ overflowX: 'auto', maxHeight: '580px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-          <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
-            <thead style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f8fafc' }}>
-              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-                <th style={{ position: 'sticky', left: 0, top: 0, zIndex: 25, background: '#f8fafc', textAlign: 'left', padding: '12px 16px', fontSize: '12px', fontWeight: '800', color: '#334155', minWidth: '200px', borderRight: '1px solid #e2e8f0', boxShadow: '2px 0 5px rgba(0,0,0,0.02)' }}>
+        {/* Unified Table Scroll Container */}
+        <div style={{ flexGrow: 1, overflow: 'auto', position: 'relative' }}>
+          <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: '1350px' }}>
+            <thead>
+              <tr style={{ background: '#f8fafc' }}>
+                <th
+                  style={{
+                    position: 'sticky',
+                    left: 0,
+                    top: 0,
+                    zIndex: 35,
+                    background: '#f8fafc',
+                    textAlign: 'left',
+                    padding: '12px 16px',
+                    fontSize: '12px',
+                    fontWeight: '800',
+                    color: '#334155',
+                    minWidth: '220px',
+                    borderRight: '1px solid #e2e8f0',
+                    borderBottom: '2px solid #cbd5e1',
+                    boxShadow: '2px 0 5px rgba(0,0,0,0.03)'
+                  }}
+                >
                   Module Name
                 </th>
-                <th style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f8fafc', textAlign: 'left', padding: '12px 12px', fontSize: '12px', fontWeight: '800', color: '#334155', minWidth: '150px', borderRight: '1px solid #e2e8f0' }}>
+                <th
+                  style={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 30,
+                    background: '#f8fafc',
+                    textAlign: 'left',
+                    padding: '12px 12px',
+                    fontSize: '12px',
+                    fontWeight: '800',
+                    color: '#334155',
+                    minWidth: '160px',
+                    borderRight: '1px solid #e2e8f0',
+                    borderBottom: '2px solid #cbd5e1'
+                  }}
+                >
                   Record Access Scope
                 </th>
                 {STANDARD_ACTIONS.map(act => {
@@ -19180,7 +19234,21 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                       key={act.id}
                       onClick={() => handleToggleColumnHeader(act.id)}
                       title={`Click to toggle ${act.label} for all modules`}
-                      style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f8fafc', textAlign: 'center', padding: '10px 6px', fontSize: '11px', fontWeight: '800', color: '#334155', cursor: activeRoleId === 'super_admin' ? 'default' : 'pointer', userSelect: 'none', borderRight: '1px solid #f1f5f9' }}
+                      style={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 30,
+                        background: '#f8fafc',
+                        textAlign: 'center',
+                        padding: '10px 6px',
+                        fontSize: '11px',
+                        fontWeight: '800',
+                        color: '#334155',
+                        cursor: activeRoleId === 'super_admin' ? 'default' : 'pointer',
+                        userSelect: 'none',
+                        borderRight: '1px solid #f1f5f9',
+                        borderBottom: '2px solid #cbd5e1'
+                      }}
                     >
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
                         <span>{act.icon} {act.label}</span>
@@ -19196,7 +19264,22 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                     </th>
                   );
                 })}
-                <th style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f8fafc', textAlign: 'center', padding: '12px 8px', fontSize: '11px', fontWeight: '800', color: '#334155' }}>Toggle Row</th>
+                <th
+                  style={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 30,
+                    background: '#f8fafc',
+                    textAlign: 'center',
+                    padding: '12px 8px',
+                    fontSize: '11px',
+                    fontWeight: '800',
+                    color: '#334155',
+                    borderBottom: '2px solid #cbd5e1'
+                  }}
+                >
+                  Toggle Row
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -19206,7 +19289,17 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                   <tr style={{ background: '#f1f5f9' }}>
                     <td
                       colSpan={STANDARD_ACTIONS.length + 3}
-                      style={{ padding: '9px 16px', fontSize: '11px', fontWeight: '900', color: '#0d9488', letterSpacing: '0.06em', textTransform: 'uppercase', background: 'linear-gradient(90deg, rgba(13, 148, 136, 0.12) 0%, rgba(241, 245, 249, 0.6) 100%)', borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1' }}
+                      style={{
+                        padding: '9px 16px',
+                        fontSize: '11px',
+                        fontWeight: '900',
+                        color: '#0d9488',
+                        letterSpacing: '0.06em',
+                        textTransform: 'uppercase',
+                        background: 'linear-gradient(90deg, rgba(13, 148, 136, 0.12) 0%, rgba(241, 245, 249, 0.8) 100%)',
+                        borderTop: '1px solid #cbd5e1',
+                        borderBottom: '1px solid #cbd5e1'
+                      }}
                     >
                       📁 {categoryKey}
                     </td>
@@ -19220,7 +19313,20 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                     return (
                       <tr key={mod.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                         {/* Sticky Module Name Cell */}
-                        <td style={{ position: 'sticky', left: 0, zIndex: 10, background: '#ffffff', padding: '11px 16px', fontSize: '12.5px', fontWeight: '800', color: '#0f172a', borderRight: '1px solid #e2e8f0', boxShadow: '2px 0 5px rgba(0,0,0,0.02)' }}>
+                        <td
+                          style={{
+                            position: 'sticky',
+                            left: 0,
+                            zIndex: 15,
+                            background: '#ffffff',
+                            padding: '11px 16px',
+                            fontSize: '12.5px',
+                            fontWeight: '800',
+                            color: '#0f172a',
+                            borderRight: '1px solid #e2e8f0',
+                            boxShadow: '2px 0 5px rgba(0,0,0,0.03)'
+                          }}
+                        >
                           <span style={{ marginRight: '8px' }}>{mod.icon}</span> {mod.label}
                         </td>
 
@@ -19240,7 +19346,8 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                               background: isSuperAdmin ? '#f1f5f9' : '#f8fafc',
                               cursor: isSuperAdmin ? 'not-allowed' : 'pointer',
                               outline: 'none',
-                              maxWidth: '145px'
+                              maxWidth: '155px',
+                              width: '100%'
                             }}
                           >
                             {ACCESS_SCOPES.map(sc => (
@@ -19272,7 +19379,7 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                             disabled={isSuperAdmin}
                             onClick={() => handleToggleAllRow(mod.id)}
                             style={{
-                              padding: '3px 8px',
+                              padding: '4px 10px',
                               borderRadius: '5px',
                               fontSize: '11px',
                               fontWeight: '800',
