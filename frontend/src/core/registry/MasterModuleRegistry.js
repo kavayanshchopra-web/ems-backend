@@ -8,6 +8,7 @@ import { CRM_DEALS_MANIFEST } from './manifests/crmDeals.manifest';
 import { EMPLOYEES_MANIFEST } from './manifests/employees.manifest';
 import { PAYROLL_MANIFEST } from './manifests/payroll.manifest';
 import { ASSETS_MANIFEST } from './manifests/assets.manifest';
+import { VERIFY_DOCUMENTS_MANIFEST } from './manifests/verifyDocuments.manifest';
 import { moduleConfigService } from '../../services/moduleConfigService';
 
 class MasterModuleRegistry {
@@ -28,6 +29,7 @@ class MasterModuleRegistry {
     this.registerModule(EMPLOYEES_MANIFEST);
     this.registerModule(PAYROLL_MANIFEST);
     this.registerModule(ASSETS_MANIFEST);
+    this.registerModule(VERIFY_DOCUMENTS_MANIFEST);
 
     this._initialized = true;
   }

@@ -93,5 +93,23 @@ export const GLOBAL_MODULE_REGISTRY = {
       kanbanView: true,
       views: true
     }
+  },
+  verify_documents: {
+    id: 'verify_documents',
+    label: 'Verify Documents',
+    category: 'HR Management',
+    description: 'Audit employee KYC files, Aadhaar, PAN, Bank Passbook, and Degree Certificates',
+    icon: '📄',
+    configurable: true,
+    status: 'Configured',
+    primaryEntity: 'kyc_document',
+    capabilities: {
+      forms: true,
+      summary: true,
+      searchFilters: true,
+      listView: true,
+      kanbanView: true,
+      views: true
+    }
   }
 };

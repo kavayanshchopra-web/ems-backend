@@ -1346,6 +1346,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     return defaultAssets;
   });
 
+  const [kycDocuments, setKycDocuments] = useState(() => {
+    const saved = localStorage.getItem('omnilflow_fallback_kyc_documents');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return [
+      { id: 'KYC-0001', tag: 'KYC-0001', name: 'Kavayansh Chopra', aadharCard: '✓ Verified', panCard: '✓ Verified', bankPassbook: '✓ Verified', degreeCert: '✓ Verified', status: 'Fully Verified' },
+      { id: 'KYC-0002', tag: 'KYC-0002', name: 'Rahul Sharma', aadharCard: '✓ Verified', panCard: '✓ Verified', bankPassbook: '⏳ Pending', degreeCert: '✓ Verified', status: 'Pending Review' },
+      { id: 'KYC-0003', tag: 'KYC-0003', name: 'Priya Verma', aadharCard: '✓ Verified', panCard: '✓ Verified', bankPassbook: '✓ Verified', degreeCert: '✓ Verified', status: 'Fully Verified' },
+      { id: 'KYC-0004', tag: 'KYC-0004', name: 'Amit Kumar', aadharCard: '✓ Verified', panCard: '✓ Verified', bankPassbook: '⏳ Pending', degreeCert: '✓ Verified', status: 'Pending Review' }
+    ];
+  });
+
   const [sessions, setSessions] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [activeContact, setActiveContact] = useState(null);
@@ -12304,57 +12320,28 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
         {/* 22. VERIFY DOCUMENTS */}
         {activeTab === 'verify_documents' && (
-          <div className="payroll-page glass-panel payroll-panel">
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">📄 Document Verification Ledger</h1>
-                <p className="page-header-subtitle">Verify government IDs, bank details, and academic certificates.</p>
-              </div>
-            </div>
-
-            <div className="payroll-table-section">
-              <div className="payroll-table-card">
-                <div className="payroll-table-toolbar">
-                  <span className="payroll-table-title">Employee Document Checklists</span>
-                  <span className="payroll-table-hint">📋 {employees.length} profile{employees.length !== 1 ? 's' : ''} monitored</span>
-                </div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="std-table">
-                    <thead>
-                      <tr>
-                        <th>Employee</th>
-                        <th>Aadhar Card</th>
-                        <th>PAN Card</th>
-                        <th>Bank Passbook</th>
-                        <th>Degree Cert</th>
-                        <th style={{ textAlign: 'right' }}>Verification Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {employees.map((emp, idx) => (
-                        <tr key={emp.id}>
-                          <td><span className="emp-name-main">{emp.first_name} {emp.last_name || ''}</span></td>
-                          <td><span className="badge-success" style={{ padding: '2px 8px' }}>✓ Verified</span></td>
-                          <td><span className="badge-success" style={{ padding: '2px 8px' }}>✓ Verified</span></td>
-                          <td>
-                            <span className={idx % 2 === 0 ? 'badge-success' : 'badge-warning'} style={{ padding: '2px 8px' }}>
-                              {idx % 2 === 0 ? '✓ Verified' : '⏳ Pending'}
-                            </span>
-                          </td>
-                          <td><span className="badge-success" style={{ padding: '2px 8px' }}>✓ Verified</span></td>
-                          <td style={{ textAlign: 'right' }}>
-                            <span className={idx % 2 === 0 ? 'badge-success' : 'badge-warning'}>
-                              {idx % 2 === 0 ? 'Fully Verified' : 'Pending Review'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
+          <VerifyDocumentsWrapper
+            companyId={authUser?.companyId || 'default_tenant'}
+            kycDocuments={kycDocuments}
+            setKycDocuments={setKycDocuments}
+            authUser={authUser}
+            systemDropdowns={systemDropdowns}
+            onOpenModuleConfig={(modId) => {
+              setPreselectedConfigModuleId(modId || 'verify_documents');
+              setActiveTab('module_configuration');
+            }}
+            onManageStages={() => {
+              setActiveTab('system_dropdowns');
+            }}
+            onOpenPositionModal={() => {
+              setActiveTab('recruitment_ats');
+            }}
+            recycleBinItems={recycleBinItems}
+            handleRestoreBinItem={handleRestoreBinItem}
+            handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+            softDeleteRecord={softDeleteRecord}
+            showToast={showToast}
+          />
         )}
 
         {/* 23. WORK HOURS & OVERTIME LOG */}
@@ -18840,6 +18827,49 @@ function AssetManagementWrapper({
       moduleConfig={config}
       records={assets}
       setRecords={handleUpdateAssets}
+      authUser={authUser}
+      systemDropdowns={systemDropdowns}
+      recycleBinItems={recycleBinItems}
+      handleRestoreBinItem={handleRestoreBinItem}
+      handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+      softDeleteRecord={softDeleteRecord}
+      showToast={showToast}
+      onOpenModuleConfig={onOpenModuleConfig}
+      onManageStages={onManageStages}
+      onOpenPositionModal={onOpenPositionModal}
+    />
+  );
+}
+
+function VerifyDocumentsWrapper({
+  companyId,
+  kycDocuments,
+  setKycDocuments,
+  authUser,
+  systemDropdowns,
+  recycleBinItems,
+  handleRestoreBinItem,
+  handlePermanentDeleteBinItem,
+  softDeleteRecord,
+  showToast,
+  onOpenModuleConfig,
+  onManageStages,
+  onOpenPositionModal
+}) {
+  const { config } = useModuleRegistry(companyId || 'default_tenant', 'verify_documents');
+
+  const handleUpdateKycDocuments = (newDocs) => {
+    setKycDocuments(newDocs);
+    try {
+      localStorage.setItem('omnilflow_fallback_kyc_documents', JSON.stringify(newDocs));
+    } catch (e) {}
+  };
+
+  return (
+    <LayoutEngine
+      moduleConfig={config}
+      records={kycDocuments}
+      setRecords={handleUpdateKycDocuments}
       authUser={authUser}
       systemDropdowns={systemDropdowns}
       recycleBinItems={recycleBinItems}
