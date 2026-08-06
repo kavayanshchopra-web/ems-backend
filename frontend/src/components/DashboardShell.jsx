@@ -712,6 +712,32 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [binPageSize, setBinPageSize] = useState(10);
 
   const [recycleBinItems, setRecycleBinItems] = useState(() => TrashVaultEngine.getVaultItems('all'));
+  const [binColumnWidths, setBinColumnWidths] = useState({
+    name: 240,
+    category: 130,
+    deletedBy: 160,
+    deletedAt: 150,
+    preservedLinks: 220
+  });
+  const binResizingRef = useRef(null);
+  const binTheadRef = useRef(null);
+
+  // Non-passive wheel listener on <thead> to prevent vertical page scroll while mouse wheeling left/right
+  useEffect(() => {
+    const theadEl = binTheadRef.current;
+    if (!theadEl) return;
+    const handleWheel = (e) => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        const scrollContainer = theadEl.closest('div');
+        if (scrollContainer) {
+          scrollContainer.scrollLeft += e.deltaY;
+        }
+      }
+    };
+    theadEl.addEventListener('wheel', handleWheel, { passive: false });
+    return () => theadEl.removeEventListener('wheel', handleWheel);
+  }, [activeTab]);
 
   // Universal Soft-Delete Handler handled by async softDeleteRecord below
 
@@ -14792,32 +14818,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {/* 26. RECYCLE BIN VAULT & SOFT DELETE RECOVERY */}
         {activeTab === 'recycle_bin' && (() => {
           const isSuperAdmin = authUser?.role === 'superadmin';
-          const [binColumnWidths, setBinColumnWidths] = useState({
-            name: 240,
-            category: 130,
-            deletedBy: 160,
-            deletedAt: 150,
-            preservedLinks: 220
-          });
-          const binResizingRef = useRef(null);
-          const binTheadRef = useRef(null);
-
-          // Non-passive wheel listener on <thead> to prevent vertical page scroll while mouse wheeling left/right
-          useEffect(() => {
-            const theadEl = binTheadRef.current;
-            if (!theadEl) return;
-            const handleWheel = (e) => {
-              if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-                e.preventDefault();
-                const scrollContainer = theadEl.closest('div');
-                if (scrollContainer) {
-                  scrollContainer.scrollLeft += e.deltaY;
-                }
-              }
-            };
-            theadEl.addEventListener('wheel', handleWheel, { passive: false });
-            return () => theadEl.removeEventListener('wheel', handleWheel);
-          }, []);
 
           const handleBinResizeStart = (e, colKey) => {
             e.preventDefault();
