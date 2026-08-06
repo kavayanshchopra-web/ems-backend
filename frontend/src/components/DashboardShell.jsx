@@ -11617,32 +11617,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           />
         )}
 
-        {/* VERIFY DOCUMENTS VIEW */}
-        {activeTab === 'verify_documents' && (
-          <VerifyDocumentsWrapper
-            companyId={authUser?.companyId || 'default_tenant'}
-            kycDocuments={kycDocuments}
-            setKycDocuments={setKycDocuments}
-            employees={employees}
-            authUser={authUser}
-            systemDropdowns={systemDropdowns}
-            onOpenModuleConfig={(modId) => {
-              setPreselectedConfigModuleId(modId || 'verify_documents');
-              setActiveTab('module_configuration');
-            }}
-            onManageStages={() => {
-              setActiveTab('system_dropdowns');
-            }}
-            onOpenPositionModal={() => {
-              setActiveTab('recruitment_ats');
-            }}
-            recycleBinItems={recycleBinItems}
-            handleRestoreBinItem={handleRestoreBinItem}
-            handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
-            softDeleteRecord={softDeleteRecord}
-            showToast={showToast}
-          />
-        )}
+
 
         {/* 7. OFFBOARDING EXIT VIEW */}
         {activeTab === 'offboarding' && (
@@ -12374,6 +12349,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             companyId={authUser?.companyId || 'default_tenant'}
             kycDocuments={kycDocuments}
             setKycDocuments={setKycDocuments}
+            employees={employees}
             authUser={authUser}
             systemDropdowns={systemDropdowns}
             onOpenModuleConfig={(modId) => {
