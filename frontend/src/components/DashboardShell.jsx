@@ -19092,8 +19092,22 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
         </div>
       </div>
 
-      {/* Role Selection Switcher Bar */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '14px', overflowX: 'auto', alignItems: 'center' }}>
+      {/* Role Selection Switcher Bar (Modern Segmented Control) */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '6px',
+          marginBottom: '20px',
+          padding: '6px',
+          borderRadius: '14px',
+          background: '#f1f5f9',
+          border: '1px solid #e2e8f0',
+          overflowX: 'auto',
+          alignItems: 'center',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none'
+        }}
+      >
         {allRoles.map(r => {
           const isActive = activeRoleId === r.id;
           return (
@@ -19102,14 +19116,13 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                 type="button"
                 onClick={() => setActiveRoleId(r.id)}
                 style={{
-                  padding: '9px 18px',
+                  padding: '8px 16px',
                   borderRadius: '10px',
-                  fontSize: '13px',
-                  fontWeight: '800',
-                  border: '1.5px solid',
-                  borderColor: isActive ? '#0d9488' : '#cbd5e1',
-                  background: isActive ? 'rgba(13, 148, 136, 0.12)' : '#ffffff',
-                  color: isActive ? '#0d9488' : '#475569',
+                  fontSize: '12.5px',
+                  fontWeight: isActive ? '800' : '700',
+                  border: isActive ? '1px solid rgba(13, 148, 136, 0.3)' : '1px solid transparent',
+                  background: isActive ? '#ffffff' : 'transparent',
+                  color: isActive ? '#0d9488' : '#64748b',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
                   boxShadow: isActive ? '0 2px 8px rgba(13, 148, 136, 0.15)' : 'none',
@@ -19123,7 +19136,7 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                   type="button"
                   title="Delete Custom Role"
                   onClick={() => handleDeleteCustomRole(r.id, r.label)}
-                  style={{ marginLeft: '4px', padding: '6px 8px', borderRadius: '8px', border: '1px solid #fee2e2', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: '12px' }}
+                  style={{ marginLeft: '4px', padding: '5px 8px', borderRadius: '8px', border: '1px solid #fee2e2', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: '11px' }}
                 >
                   🗑️
                 </button>
@@ -19134,7 +19147,7 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
       </div>
 
       {/* Permissions Matrix Table */}
-      <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid rgba(13, 148, 136, 0.2)', boxShadow: '0 4px 20px -2px rgba(13, 148, 136, 0.06)', padding: '20px', overflowX: 'auto' }}>
+      <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid rgba(13, 148, 136, 0.2)', boxShadow: '0 4px 20px -2px rgba(13, 148, 136, 0.06)', padding: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             Access Privileges for Role: <span style={{ color: '#0d9488', textTransform: 'uppercase', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 10px', borderRadius: '6px' }}>{currentRoleObj?.label || activeRoleId}</span>
@@ -19144,20 +19157,20 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
               🔒 Super Admin Has Immutable 100% Full Access
             </span>
           ) : (
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', background: '#f8fafc', padding: '4px 10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
               💡 Tip: Click column headers to Select/Unselect All for that action
             </span>
           )}
         </div>
 
-        <div style={{ overflowX: 'auto', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+        <div style={{ overflowX: 'auto', maxHeight: '580px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
           <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
-            <thead>
+            <thead style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f8fafc' }}>
               <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-                <th style={{ position: 'sticky', left: 0, zIndex: 10, background: '#f8fafc', textAlign: 'left', padding: '12px 16px', fontSize: '12px', fontWeight: '800', color: '#334155', minWidth: '220px', borderRight: '1px solid #e2e8f0' }}>
+                <th style={{ position: 'sticky', left: 0, top: 0, zIndex: 25, background: '#f8fafc', textAlign: 'left', padding: '12px 16px', fontSize: '12px', fontWeight: '800', color: '#334155', minWidth: '200px', borderRight: '1px solid #e2e8f0', boxShadow: '2px 0 5px rgba(0,0,0,0.02)' }}>
                   Module Name
                 </th>
-                <th style={{ textAlign: 'left', padding: '12px 14px', fontSize: '12px', fontWeight: '800', color: '#334155', minWidth: '180px', borderRight: '1px solid #e2e8f0' }}>
+                <th style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f8fafc', textAlign: 'left', padding: '12px 12px', fontSize: '12px', fontWeight: '800', color: '#334155', minWidth: '150px', borderRight: '1px solid #e2e8f0' }}>
                   Record Access Scope
                 </th>
                 {STANDARD_ACTIONS.map(act => {
@@ -19167,7 +19180,7 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                       key={act.id}
                       onClick={() => handleToggleColumnHeader(act.id)}
                       title={`Click to toggle ${act.label} for all modules`}
-                      style={{ textAlign: 'center', padding: '10px 8px', fontSize: '11px', fontWeight: '800', color: '#334155', cursor: activeRoleId === 'super_admin' ? 'default' : 'pointer', userSelect: 'none', borderRight: '1px solid #f1f5f9' }}
+                      style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f8fafc', textAlign: 'center', padding: '10px 6px', fontSize: '11px', fontWeight: '800', color: '#334155', cursor: activeRoleId === 'super_admin' ? 'default' : 'pointer', userSelect: 'none', borderRight: '1px solid #f1f5f9' }}
                     >
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
                         <span>{act.icon} {act.label}</span>
@@ -19183,7 +19196,7 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                     </th>
                   );
                 })}
-                <th style={{ textAlign: 'center', padding: '12px 10px', fontSize: '11px', fontWeight: '800', color: '#334155' }}>Toggle Row</th>
+                <th style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f8fafc', textAlign: 'center', padding: '12px 8px', fontSize: '11px', fontWeight: '800', color: '#334155' }}>Toggle Row</th>
               </tr>
             </thead>
             <tbody>
@@ -19193,7 +19206,7 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                   <tr style={{ background: '#f1f5f9' }}>
                     <td
                       colSpan={STANDARD_ACTIONS.length + 3}
-                      style={{ padding: '8px 16px', fontSize: '11px', fontWeight: '900', color: '#0d9488', letterSpacing: '0.06em', textTransform: 'uppercase', background: 'linear-gradient(90deg, #f1f5f9 0%, #ffffff 100%)', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}
+                      style={{ padding: '9px 16px', fontSize: '11px', fontWeight: '900', color: '#0d9488', letterSpacing: '0.06em', textTransform: 'uppercase', background: 'linear-gradient(90deg, rgba(13, 148, 136, 0.12) 0%, rgba(241, 245, 249, 0.6) 100%)', borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1' }}
                     >
                       📁 {categoryKey}
                     </td>
@@ -19207,26 +19220,27 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                     return (
                       <tr key={mod.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                         {/* Sticky Module Name Cell */}
-                        <td style={{ position: 'sticky', left: 0, zIndex: 5, background: '#ffffff', padding: '12px 16px', fontSize: '13px', fontWeight: '800', color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
+                        <td style={{ position: 'sticky', left: 0, zIndex: 10, background: '#ffffff', padding: '11px 16px', fontSize: '12.5px', fontWeight: '800', color: '#0f172a', borderRight: '1px solid #e2e8f0', boxShadow: '2px 0 5px rgba(0,0,0,0.02)' }}>
                           <span style={{ marginRight: '8px' }}>{mod.icon}</span> {mod.label}
                         </td>
 
                         {/* Scope Selector */}
-                        <td style={{ padding: '10px 14px', borderRight: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '8px 10px', borderRight: '1px solid #e2e8f0' }}>
                           <select
                             value={modPerms.scope || 'all'}
                             disabled={isSuperAdmin}
                             onChange={(e) => handleScopeChange(mod.id, e.target.value)}
                             style={{
-                              padding: '6px 10px',
-                              borderRadius: '8px',
+                              padding: '5px 8px',
+                              borderRadius: '7px',
                               border: '1.5px solid #cbd5e1',
                               fontSize: '11px',
                               fontWeight: '700',
                               color: '#334155',
                               background: isSuperAdmin ? '#f1f5f9' : '#f8fafc',
                               cursor: isSuperAdmin ? 'not-allowed' : 'pointer',
-                              outline: 'none'
+                              outline: 'none',
+                              maxWidth: '145px'
                             }}
                           >
                             {ACCESS_SCOPES.map(sc => (
@@ -19239,7 +19253,7 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                         {STANDARD_ACTIONS.map(act => {
                           const isChecked = isSuperAdmin || Boolean(modPerms.actions?.[act.id]);
                           return (
-                            <td key={act.id} style={{ textAlign: 'center', padding: '10px 4px', borderRight: '1px solid #f1f5f9' }}>
+                            <td key={act.id} style={{ textAlign: 'center', padding: '8px 4px', borderRight: '1px solid #f1f5f9' }}>
                               <input
                                 type="checkbox"
                                 checked={isChecked}
@@ -19252,14 +19266,14 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                         })}
 
                         {/* Toggle All Row Button */}
-                        <td style={{ textAlign: 'center', padding: '10px 8px' }}>
+                        <td style={{ textAlign: 'center', padding: '8px 6px' }}>
                           <button
                             type="button"
                             disabled={isSuperAdmin}
                             onClick={() => handleToggleAllRow(mod.id)}
                             style={{
-                              padding: '4px 10px',
-                              borderRadius: '6px',
+                              padding: '3px 8px',
+                              borderRadius: '5px',
                               fontSize: '11px',
                               fontWeight: '800',
                               border: '1px solid #cbd5e1',
