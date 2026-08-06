@@ -5,6 +5,8 @@
  * retention scheduling (90 days), and multi-tenant isolation.
  */
 
+import FirebaseCloudEngine from './FirebaseCloudEngine';
+
 const STORAGE_PREFIX = 'whatsapp_crm_trash_vault_';
 
 const DEFAULT_INITIAL_VAULT_ITEMS = [
@@ -152,6 +154,10 @@ class TrashVaultEngine {
 
       const updated = [newItem, ...items];
       localStorage.setItem(`${STORAGE_PREFIX}all`, JSON.stringify(updated));
+
+      // Sync to Firebase Firestore live collection: recycle_bin
+      FirebaseCloudEngine.saveRecord('recycle_bin', newItem, newItem.tenantId);
+
       return newItem;
     } catch (e) {
       console.error('TrashVaultEngine.moveToTrash error:', e);

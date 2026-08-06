@@ -6,6 +6,7 @@
  */
 
 import TrashVaultEngine from './TrashVaultEngine';
+import FirebaseCloudEngine from './FirebaseCloudEngine';
 
 const PROFILES_STORAGE_KEY = 'whatsapp_crm_shift_profiles';
 const ROSTER_STORAGE_KEY = 'whatsapp_crm_shift_rosters';
@@ -171,6 +172,7 @@ class ShiftEngine {
       updated = [...profiles, newProfile];
     }
     localStorage.setItem(PROFILES_STORAGE_KEY, JSON.stringify(updated));
+    FirebaseCloudEngine.saveRecord('shift_profiles', profileData, profileData.tenantId || 'acme_corp');
     return updated;
   }
 
@@ -346,6 +348,7 @@ class ShiftEngine {
       };
       list.unshift(entry);
       localStorage.setItem(OVERRIDES_STORAGE_KEY, JSON.stringify(list));
+      FirebaseCloudEngine.saveRecord('hr_overrides', entry, overrideData.tenantId || 'acme_corp');
       return entry;
     } catch (e) {
       console.error('Error logging HR override:', e);

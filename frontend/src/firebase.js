@@ -1,37 +1,91 @@
 /**
- * Global EMS Firebase Stub
- *
- * Firebase SDK is NOT bundled in this application.
- * All authentication and data operations go through the Backend REST API.
- *
- * These exports are null/no-op stubs so that any legacy call sites
- * that still import from firebase.js do NOT crash at module evaluation time.
- *
- * DO NOT import CDN URLs here — that causes Vite/Rolldown production TDZ crashes.
+ * Global EMS Firebase Configuration & Cloud Persistence Entry Point
+ * Project: EMS AG (ems-ag)
+ * Location: asia-south1
  */
 
-export const app = null;
-export const auth = null;
-export const db = null;
-export const storage = null;
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  onAuthStateChanged
+} from 'firebase/auth';
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  addDoc,
+  deleteDoc,
+  updateDoc,
+  collection,
+  getDocs,
+  query,
+  where,
+  onSnapshot
+} from 'firebase/firestore';
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL
+} from 'firebase/storage';
 
-export const signInWithEmailAndPassword = () => Promise.reject(new Error('Use backend API for auth.'));
-export const createUserWithEmailAndPassword = () => Promise.reject(new Error('Use backend API for auth.'));
-export const signOut = () => Promise.resolve();
-export const sendPasswordResetEmail = () => Promise.reject(new Error('Use backend API for password reset.'));
-export const onAuthStateChanged = () => (() => {});
+const firebaseConfig = {
+  apiKey: "AIzaSyDqJ5mYFfBqMauki2omxMf7AO4JGJVh8ik",
+  authDomain: "ems-ag.firebaseapp.com",
+  projectId: "ems-ag",
+  storageBucket: "ems-ag.firebasestorage.app",
+  messagingSenderId: "246488148980",
+  appId: "1:246488148980:web:8abc1da1675b734ba3a7a1",
+  measurementId: "G-SN6SCQFCME"
+};
 
-export const doc = () => null;
-export const getDoc = () => Promise.resolve({ exists: () => false, data: () => ({}) });
-export const setDoc = () => Promise.resolve();
-export const addDoc = () => Promise.resolve({ id: 'stub_id' });
-export const deleteDoc = () => Promise.resolve();
-export const updateDoc = () => Promise.resolve();
-export const collection = () => null;
-export const getDocs = () => Promise.resolve({ docs: [] });
-export const query = () => null;
-export const where = () => null;
+let app = null;
+let auth = null;
+let db = null;
+let storage = null;
 
-export const ref = () => null;
-export const uploadBytes = () => Promise.resolve();
-export const getDownloadURL = () => Promise.resolve('');
+try {
+  app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
+  console.log('☁️ Live Firebase Cloud Connection Active for app.employeemanagementsystems.com [EMS AG]');
+} catch (e) {
+  console.error('Firebase Cloud setup error:', e);
+}
+
+export {
+  app,
+  auth,
+  db,
+  storage,
+  // Auth exports
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  onAuthStateChanged,
+  // Firestore exports
+  doc,
+  getDoc,
+  setDoc,
+  addDoc,
+  deleteDoc,
+  updateDoc,
+  collection,
+  getDocs,
+  query,
+  where,
+  onSnapshot,
+  // Storage exports
+  ref,
+  uploadBytes,
+  getDownloadURL
+};
+
+export default firebaseConfig;
