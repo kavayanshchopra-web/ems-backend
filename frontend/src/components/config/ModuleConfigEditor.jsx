@@ -1447,7 +1447,7 @@ export default function ModuleConfigEditor({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ padding: '18px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                 <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '15px', marginBottom: '4px' }}>
-                  ⚙️ {moduleConfig.name || 'Module'} Record & Tag ID Format Configuration
+                  ⚙️ {moduleDef?.label || 'Module'} Record & Tag ID Format Configuration
                 </div>
                 <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '18px' }}>
                   Configure ID prefix code, category-wise sequence pattern templates (e.g. AST-LAP-001, AST-MOB-001), and starting counters.
@@ -1459,7 +1459,7 @@ export default function ModuleConfigEditor({
                   <button
                     type="button"
                     onClick={() => {
-                      const prefix = configState.idConfig?.prefix || (moduleConfig.moduleId === 'asset_management' ? 'AST' : 'REC');
+                      const prefix = configState.idConfig?.prefix || (modId === 'asset_management' ? 'AST' : 'REC');
                       setConfigState(prev => ({
                         ...prev,
                         idConfig: { ...(prev.idConfig || {}), prefix, pattern: `${prefix}-{CAT}-0001` }
@@ -1481,7 +1481,7 @@ export default function ModuleConfigEditor({
                   <button
                     type="button"
                     onClick={() => {
-                      const prefix = configState.idConfig?.prefix || (moduleConfig.moduleId === 'asset_management' ? 'AST' : 'REC');
+                      const prefix = configState.idConfig?.prefix || (modId === 'asset_management' ? 'AST' : 'REC');
                       setConfigState(prev => ({
                         ...prev,
                         idConfig: { ...(prev.idConfig || {}), prefix, pattern: `${prefix}-0001` }
@@ -1503,7 +1503,7 @@ export default function ModuleConfigEditor({
                   <button
                     type="button"
                     onClick={() => {
-                      const prefix = configState.idConfig?.prefix || (moduleConfig.moduleId === 'asset_management' ? 'AST' : 'REC');
+                      const prefix = configState.idConfig?.prefix || (modId === 'asset_management' ? 'AST' : 'REC');
                       const currentYear = new Date().getFullYear();
                       setConfigState(prev => ({
                         ...prev,
@@ -1532,7 +1532,7 @@ export default function ModuleConfigEditor({
                     </label>
                     <input
                       type="text"
-                      value={configState.idConfig?.prefix || (moduleConfig.moduleId === 'asset_management' ? 'AST' : 'REC')}
+                      value={configState.idConfig?.prefix || (modId === 'asset_management' ? 'AST' : 'REC')}
                       onChange={(e) => {
                         const val = e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '');
                         setConfigState(prev => ({
@@ -1551,7 +1551,7 @@ export default function ModuleConfigEditor({
                     </label>
                     <input
                       type="text"
-                      value={configState.idConfig?.pattern || (moduleConfig.moduleId === 'asset_management' ? 'AST-{CAT}-0001' : `${configState.idConfig?.prefix || 'ATS'}-001`)}
+                      value={configState.idConfig?.pattern || (modId === 'asset_management' ? 'AST-{CAT}-0001' : `${configState.idConfig?.prefix || 'ATS'}-001`)}
                       onChange={(e) => {
                         const val = e.target.value;
                         setConfigState(prev => ({
