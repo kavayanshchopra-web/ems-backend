@@ -18873,11 +18873,21 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
   const [matrixState, setMatrixState] = useState(() => PermissionEngine.getPermissionMatrix(tenantId));
   const [activeRoleId, setActiveRoleId] = useState('manager');
   const [searchQuery, setSearchQuery] = useState('');
-  const [columnWidths, setColumnWidths] = useState({
-    moduleName: 200,
-    recordScope: 145,
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const [columnWidths, setColumnWidths] = useState(() => ({
+    moduleName: typeof window !== 'undefined' && window.innerWidth <= 768 ? 150 : 200,
+    recordScope: typeof window !== 'undefined' && window.innerWidth <= 768 ? 125 : 145,
     actionCol: 72
-  });
+  }));
   const resizingRef = useRef(null);
 
   const handleResizeStart = (e, colKey) => {
@@ -19164,31 +19174,31 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
   return (
     <div
       style={{
-        height: 'calc(100vh - 100px)',
+        height: isMobile ? 'calc(100vh - 70px)' : 'calc(100vh - 100px)',
         display: 'flex',
         flexDirection: 'column',
-        padding: '20px 24px',
+        padding: isMobile ? '12px' : '20px 24px',
         boxSizing: 'border-box',
         overflow: 'hidden',
         background: '#f8fafc'
       }}
     >
       {/* Page Header */}
-      <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+      <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', marginBottom: isMobile ? '10px' : '16px', flexDirection: isMobile ? 'column' : 'row', gap: '12px' }}>
         <div>
-          <h1 style={{ fontSize: '22px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h1 style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             🛡️ Roles &amp; Dynamic Permission Matrix
           </h1>
-          <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0 0', fontWeight: '500' }}>
+          <p style={{ fontSize: isMobile ? '11.5px' : '13px', color: '#64748b', margin: '4px 0 0 0', fontWeight: '500' }}>
             Auto-discovered modules from MasterModuleRegistry with 11 granular action controls and record visibility scopes.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '8px', width: isMobile ? '100%' : 'auto' }}>
           <button
             className="btn btn-secondary"
             type="button"
             onClick={handleAddCustomRole}
-            style={{ padding: '9px 16px', fontSize: '13px', fontWeight: '800', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ flex: isMobile ? '1' : 'initial', padding: '8px 12px', fontSize: '12px', fontWeight: '800', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}
           >
             ➕ Add Custom Role
           </button>
@@ -19199,38 +19209,40 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
               PermissionEngine.savePermissionMatrix(tenantId, matrixState);
               showToast('Permission matrix saved successfully!', 'success');
             }}
-            style={{ padding: '9px 20px', fontSize: '13px', fontWeight: '800', borderRadius: '10px', background: 'linear-gradient(135deg, #0d9488 0%, #059669 100%)', border: 'none', boxShadow: '0 4px 14px rgba(13, 148, 136, 0.35)', color: '#ffffff' }}
+            style={{ flex: isMobile ? '1' : 'initial', padding: '8px 14px', fontSize: '12px', fontWeight: '800', borderRadius: '10px', background: 'linear-gradient(135deg, #0d9488 0%, #059669 100%)', border: 'none', boxShadow: '0 4px 14px rgba(13, 148, 136, 0.35)', color: '#ffffff', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            💾 Save Permission Matrix
+            💾 Save Matrix
           </button>
         </div>
       </div>
 
-      {/* Role Selection Switcher Bar (Flexible Wrap Pills) */}
+      {/* Role Selection Switcher Bar (Horizontal Swipeable Strip on Mobile) */}
       <div
         style={{
           flexShrink: 0,
           display: 'flex',
           gap: '8px',
-          marginBottom: '16px',
+          marginBottom: isMobile ? '10px' : '16px',
           padding: '6px',
           borderRadius: '12px',
           background: '#e2e8f0',
           alignItems: 'center',
-          flexWrap: 'wrap'
+          overflowX: 'auto',
+          flexWrap: 'nowrap',
+          WebkitOverflowScrolling: 'touch'
         }}
       >
         {allRoles.map(r => {
           const isActive = activeRoleId === r.id;
           return (
-            <div key={r.id} style={{ display: 'flex', alignItems: 'center' }}>
+            <div key={r.id} style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <button
                 type="button"
                 onClick={() => setActiveRoleId(r.id)}
                 style={{
-                  padding: '8px 16px',
+                  padding: isMobile ? '6px 12px' : '8px 16px',
                   borderRadius: '9px',
-                  fontSize: '12.5px',
+                  fontSize: isMobile ? '11.5px' : '12.5px',
                   fontWeight: isActive ? '800' : '700',
                   border: 'none',
                   background: isActive ? '#ffffff' : 'transparent',
@@ -19248,7 +19260,7 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                   type="button"
                   title="Delete Custom Role"
                   onClick={() => handleDeleteCustomRole(r.id, r.label)}
-                  style={{ marginLeft: '4px', padding: '5px 8px', borderRadius: '7px', border: '1px solid #fee2e2', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: '11px' }}
+                  style={{ marginLeft: '4px', padding: '4px 6px', borderRadius: '7px', border: '1px solid #fee2e2', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: '11px' }}
                 >
                   🗑️
                 </button>
@@ -19272,10 +19284,10 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
         }}
       >
         {/* Sub Header With Search & Sorting Controls */}
-        <div style={{ flexShrink: 0, padding: '10px 20px', background: '#ffffff', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ flexShrink: 0, padding: isMobile ? '8px 12px' : '10px 20px', background: '#ffffff', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', flexDirection: isMobile ? 'column' : 'row', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: isMobile ? '100%' : 'auto' }}>
             {/* Real-time Module Search Input */}
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: isMobile ? '100%' : 'auto', flexGrow: isMobile ? 1 : 0 }}>
               <span style={{ position: 'absolute', left: '10px', fontSize: '12px', color: '#94a3b8' }}>🔍</span>
               <input
                 type="text"
@@ -19288,7 +19300,7 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                   borderRadius: '8px',
                   border: '1.5px solid #cbd5e1',
                   outline: 'none',
-                  width: '200px',
+                  width: isMobile ? '100%' : '200px',
                   background: '#f8fafc',
                   fontWeight: '600',
                   color: '#1e293b'
@@ -19306,24 +19318,24 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              Privileges for: <span style={{ color: '#0d9488', textTransform: 'uppercase', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 8px', borderRadius: '6px' }}>{currentRoleObj?.label || activeRoleId}</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+            <h3 style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
+              Role: <span style={{ color: '#0d9488', textTransform: 'uppercase', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 6px', borderRadius: '6px' }}>{currentRoleObj?.label || activeRoleId}</span>
             </h3>
             {activeRoleId === 'super_admin' ? (
-              <span style={{ fontSize: '11px', fontWeight: '800', color: '#16a34a', background: 'rgba(22, 163, 74, 0.12)', padding: '4px 10px', borderRadius: '7px', border: '1px solid rgba(22, 163, 74, 0.25)' }}>
-                🔒 Super Admin Immutable Access
+              <span style={{ fontSize: '10.5px', fontWeight: '800', color: '#16a34a', background: 'rgba(22, 163, 74, 0.12)', padding: '3px 8px', borderRadius: '6px', border: '1px solid rgba(22, 163, 74, 0.25)' }}>
+                🔒 Super Admin Access
               </span>
             ) : (
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', background: '#f8fafc', padding: '4px 8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                💡 Click header to Select/Unselect All
+              <span style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '600', background: '#f8fafc', padding: '3px 6px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                💡 Click header = Select All
               </span>
             )}
           </div>
         </div>
 
         {/* Unified Table Scroll Container */}
-        <div ref={tableScrollRef} style={{ flexGrow: 1, overflow: 'auto', position: 'relative' }}>
+        <div ref={tableScrollRef} style={{ flexGrow: 1, overflow: 'auto', position: 'relative', WebkitOverflowScrolling: 'touch' }}>
           <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: '1150px' }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
