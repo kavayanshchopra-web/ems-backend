@@ -11617,12 +11617,41 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           />
         )}
 
+        {/* VERIFY DOCUMENTS VIEW */}
+        {activeTab === 'verify_documents' && (
+          <VerifyDocumentsWrapper
+            companyId={authUser?.companyId || 'default_tenant'}
+            kycDocuments={kycDocuments}
+            setKycDocuments={setKycDocuments}
+            employees={employees}
+            authUser={authUser}
+            systemDropdowns={systemDropdowns}
+            onOpenModuleConfig={(modId) => {
+              setPreselectedConfigModuleId(modId || 'verify_documents');
+              setActiveTab('module_configuration');
+            }}
+            onManageStages={() => {
+              setActiveTab('system_dropdowns');
+            }}
+            onOpenPositionModal={() => {
+              setActiveTab('recruitment_ats');
+            }}
+            recycleBinItems={recycleBinItems}
+            handleRestoreBinItem={handleRestoreBinItem}
+            handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+            softDeleteRecord={softDeleteRecord}
+            showToast={showToast}
+          />
+        )}
+
         {/* 7. OFFBOARDING EXIT VIEW */}
         {activeTab === 'offboarding' && (
           <OffboardingWrapper
             companyId={authUser?.companyId || 'default_tenant'}
             offboardingCases={offboardingCases}
             setOffboardingCases={setOffboardingCases}
+            employees={employees}
+            assets={assets}
             authUser={authUser}
             systemDropdowns={systemDropdowns}
             onOpenModuleConfig={(modId) => {
@@ -18866,6 +18895,7 @@ function VerifyDocumentsWrapper({
   companyId,
   kycDocuments,
   setKycDocuments,
+  employees = [],
   authUser,
   systemDropdowns,
   recycleBinItems,
@@ -18879,6 +18909,29 @@ function VerifyDocumentsWrapper({
 }) {
   const { config } = useModuleRegistry(companyId || 'default_tenant', 'verify_documents');
 
+  // Inject Employee Names into schema fields for employee dropdown selection!
+  const linkedConfig = useMemo(() => {
+    if (!config) return config;
+    const empOptions = (employees || []).map(e => `${e.first_name || ''} ${e.last_name || ''}`.trim()).filter(Boolean);
+    if (empOptions.length === 0) return config;
+
+    const updatedFields = (config.fields || []).map(f => {
+      if (f.id === 'name' || f.key === 'name' || f.id === 'employee') {
+        return {
+          ...f,
+          type: 'dropdown',
+          options: empOptions
+        };
+      }
+      return f;
+    });
+
+    return {
+      ...config,
+      fields: updatedFields
+    };
+  }, [config, employees]);
+
   const handleUpdateKycDocuments = (newDocs) => {
     setKycDocuments(newDocs);
     try {
@@ -18888,7 +18941,7 @@ function VerifyDocumentsWrapper({
 
   return (
     <LayoutEngine
-      moduleConfig={config}
+      moduleConfig={linkedConfig || config}
       records={kycDocuments}
       setRecords={handleUpdateKycDocuments}
       authUser={authUser}
@@ -18909,6 +18962,8 @@ function OffboardingWrapper({
   companyId,
   offboardingCases,
   setOffboardingCases,
+  employees = [],
+  assets = [],
   authUser,
   systemDropdowns,
   recycleBinItems,
@@ -18922,6 +18977,56 @@ function OffboardingWrapper({
 }) {
   const { config } = useModuleRegistry(companyId || 'default_tenant', 'offboarding');
 
+  // Cross-Module Dynamic Linkage: Auto-compute IT Asset Clearance from live assets directory!
+  const syncedOffboardingCases = useMemo(() => {
+    return (offboardingCases || []).map(caseItem => {
+      const empName = (caseItem.employee || '').toLowerCase().trim();
+      if (!empName) return caseItem;
+
+      // Find all assets assigned to this employee in Asset Management
+      const assignedAssets = (assets || []).filter(a => {
+        const assignedTo = (a.assignedTo || a.employee || '').toLowerCase().trim();
+        return (assignedTo && empName.includes(assignedTo)) || (assignedTo && assignedTo.includes(empName));
+      });
+
+      let calculatedAssetClearance = caseItem.assetClearance;
+      if (assignedAssets.length > 0) {
+        const assetNames = assignedAssets.map(a => a.name || a.tag).join(', ');
+        calculatedAssetClearance = `⏳ Pending Return (${assignedAssets.length}: ${assetNames})`;
+      } else if (!caseItem.assetClearance || caseItem.assetClearance.includes('Pending')) {
+        calculatedAssetClearance = '✓ Cleared';
+      }
+
+      return {
+        ...caseItem,
+        assetClearance: calculatedAssetClearance
+      };
+    });
+  }, [offboardingCases, assets]);
+
+  // Inject Employee Names into schema fields for employee dropdown selection!
+  const linkedConfig = useMemo(() => {
+    if (!config) return config;
+    const empOptions = (employees || []).map(e => `${e.first_name || ''} ${e.last_name || ''}`.trim()).filter(Boolean);
+    if (empOptions.length === 0) return config;
+
+    const updatedFields = (config.fields || []).map(f => {
+      if (f.id === 'employee' || f.key === 'employee') {
+        return {
+          ...f,
+          type: 'dropdown',
+          options: empOptions
+        };
+      }
+      return f;
+    });
+
+    return {
+      ...config,
+      fields: updatedFields
+    };
+  }, [config, employees]);
+
   const handleUpdateOffboardingCases = (newCases) => {
     setOffboardingCases(newCases);
     try {
@@ -18931,8 +19036,8 @@ function OffboardingWrapper({
 
   return (
     <LayoutEngine
-      moduleConfig={config}
-      records={offboardingCases}
+      moduleConfig={linkedConfig || config}
+      records={syncedOffboardingCases}
       setRecords={handleUpdateOffboardingCases}
       authUser={authUser}
       systemDropdowns={systemDropdowns}
