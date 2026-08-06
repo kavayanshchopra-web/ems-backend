@@ -1795,183 +1795,14 @@ export default function ModuleConfigEditor({
           )}
 
           {/* SECTION: MODULE ACCESS & PERMISSIONS */}
-          {activeNav === 'permissions' && (() => {
-            const currentModId = moduleDef?.id || modId || 'recruitment_ats';
-            const tenantId = companyId || 'default_tenant';
-            const [matrixState, setMatrixState] = useState(() => PermissionEngine.getPermissionMatrix(tenantId));
-            const [activeRoleId, setActiveRoleId] = useState('manager');
-
-            const allRoles = [...DEFAULT_ROLES, ...(matrixState.customRoles || [])];
-
-            const handleActionToggle = (actionId) => {
-              if (activeRoleId === 'super_admin') return;
-              setMatrixState(prev => {
-                const currentRoleData = prev.permissions[activeRoleId] || {};
-                const currentModData = currentRoleData[currentModId] || { scope: 'all', actions: {} };
-                const updatedActions = {
-                  ...currentModData.actions,
-                  [actionId]: !currentModData.actions?.[actionId]
-                };
-                const updated = {
-                  ...prev,
-                  permissions: {
-                    ...prev.permissions,
-                    [activeRoleId]: {
-                      ...currentRoleData,
-                      [currentModId]: {
-                        ...currentModData,
-                        actions: updatedActions
-                      }
-                    }
-                  }
-                };
-                PermissionEngine.savePermissionMatrix(tenantId, updated);
-                return updated;
-              });
-              showToast('Updated role permissions', 'success');
-            };
-
-            const handleScopeChange = (newScope) => {
-              if (activeRoleId === 'super_admin') return;
-              setMatrixState(prev => {
-                const currentRoleData = prev.permissions[activeRoleId] || {};
-                const currentModData = currentRoleData[currentModId] || { scope: 'all', actions: {} };
-                const updated = {
-                  ...prev,
-                  permissions: {
-                    ...prev.permissions,
-                    [activeRoleId]: {
-                      ...currentRoleData,
-                      [currentModId]: {
-                        ...currentModData,
-                        scope: newScope
-                      }
-                    }
-                  }
-                };
-                PermissionEngine.savePermissionMatrix(tenantId, updated);
-                return updated;
-              });
-              showToast('Updated access scope', 'success');
-            };
-
-            const currentRolePerms = matrixState.permissions[activeRoleId]?.[currentModId] || { scope: 'all', actions: {} };
-            const isSuperAdmin = activeRoleId === 'super_admin';
-
-            return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div style={{ background: '#ffffff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                    <Shield size={20} style={{ color: '#0d9488' }} />
-                    <div>
-                      <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f2b26', margin: 0 }}>
-                        🛡️ {moduleDef?.label || 'Module'} Access &amp; Permission Controls
-                      </h3>
-                      <p style={{ fontSize: '12px', color: '#64748b', margin: 0, marginTop: '2px' }}>
-                        Configure granular role rights and record access scope specifically for {moduleDef?.label || 'this module'}.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Role Selector Tabs */}
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', overflowX: 'auto' }}>
-                    {allRoles.map(r => {
-                      const isActive = activeRoleId === r.id;
-                      return (
-                        <button
-                          key={r.id}
-                          type="button"
-                          onClick={() => setActiveRoleId(r.id)}
-                          style={{
-                            padding: '7px 14px',
-                            borderRadius: '8px',
-                            fontSize: '12px',
-                            fontWeight: '800',
-                            border: '1px solid',
-                            borderColor: isActive ? '#0d9488' : '#cbd5e1',
-                            background: isActive ? 'rgba(13, 148, 136, 0.12)' : '#ffffff',
-                            color: isActive ? '#0d9488' : '#475569',
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap'
-                          }}
-                        >
-                          {r.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Record Access Scope Selector */}
-                  <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
-                      🌐 Record Visibility Scope for {allRoles.find(r => r.id === activeRoleId)?.label}:
-                    </label>
-                    <select
-                      value={currentRolePerms.scope || 'all'}
-                      disabled={isSuperAdmin}
-                      onChange={(e) => handleScopeChange(e.target.value)}
-                      style={{
-                        width: '100%',
-                        maxWidth: '400px',
-                        padding: '9px 12px',
-                        borderRadius: '8px',
-                        border: '1px solid #cbd5e1',
-                        fontSize: '13px',
-                        fontWeight: '700',
-                        color: '#0f2b26',
-                        background: isSuperAdmin ? '#f1f5f9' : '#ffffff',
-                        cursor: isSuperAdmin ? 'not-allowed' : 'pointer'
-                      }}
-                    >
-                      {ACCESS_SCOPES.map(sc => (
-                        <option key={sc.id} value={sc.id}>{sc.label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* 11 Action Permissions Grid */}
-                  <h4 style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26', marginBottom: '12px' }}>
-                    ⚡ Granular Action Toggles (11 Controls):
-                  </h4>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-                    {STANDARD_ACTIONS.map(act => {
-                      const isChecked = isSuperAdmin || Boolean(currentRolePerms.actions?.[act.id]);
-                      return (
-                        <label
-                          key={act.id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px',
-                            padding: '12px',
-                            borderRadius: '8px',
-                            border: '1px solid',
-                            borderColor: isChecked ? 'rgba(13, 148, 136, 0.3)' : '#cbd5e1',
-                            background: isChecked ? 'rgba(13, 148, 136, 0.05)' : '#ffffff',
-                            cursor: isSuperAdmin ? 'not-allowed' : 'pointer'
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            disabled={isSuperAdmin}
-                            onChange={() => handleActionToggle(act.id)}
-                            style={{ width: '16px', height: '16px', accentColor: '#0d9488' }}
-                          />
-                          <div>
-                            <span style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a' }}>
-                              {act.icon} {act.label}
-                            </span>
-                          </div>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
+          {activeNav === 'permissions' && (
+            <ModulePermissionsSection
+              moduleDef={moduleDef}
+              modId={modId}
+              companyId={companyId}
+              showToast={showToast}
+            />
+          )}
 
           {/* SECTION: SEARCH & FILTERS */}
           {activeNav === 'search_filters' && capabilities.searchFilters && (
@@ -2394,6 +2225,184 @@ export default function ModuleConfigEditor({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ModulePermissionsSection({ moduleDef, modId, companyId, showToast }) {
+  const currentModId = moduleDef?.id || modId || 'recruitment_ats';
+  const tenantId = companyId || 'default_tenant';
+  const [matrixState, setMatrixState] = useState(() => PermissionEngine.getPermissionMatrix(tenantId));
+  const [activeRoleId, setActiveRoleId] = useState('manager');
+
+  const allRoles = [...DEFAULT_ROLES, ...(matrixState.customRoles || [])];
+
+  const handleActionToggle = (actionId) => {
+    if (activeRoleId === 'super_admin') return;
+    setMatrixState(prev => {
+      const currentRoleData = prev.permissions[activeRoleId] || {};
+      const currentModData = currentRoleData[currentModId] || { scope: 'all', actions: {} };
+      const updatedActions = {
+        ...currentModData.actions,
+        [actionId]: !currentModData.actions?.[actionId]
+      };
+      const updated = {
+        ...prev,
+        permissions: {
+          ...prev.permissions,
+          [activeRoleId]: {
+            ...currentRoleData,
+            [currentModId]: {
+              ...currentModData,
+              actions: updatedActions
+            }
+          }
+        }
+      };
+      PermissionEngine.savePermissionMatrix(tenantId, updated);
+      return updated;
+    });
+    showToast('Updated role permissions', 'success');
+  };
+
+  const handleScopeChange = (newScope) => {
+    if (activeRoleId === 'super_admin') return;
+    setMatrixState(prev => {
+      const currentRoleData = prev.permissions[activeRoleId] || {};
+      const currentModData = currentRoleData[currentModId] || { scope: 'all', actions: {} };
+      const updated = {
+        ...prev,
+        permissions: {
+          ...prev.permissions,
+          [activeRoleId]: {
+            ...currentRoleData,
+            [currentModId]: {
+              ...currentModData,
+              scope: newScope
+            }
+          }
+        }
+      };
+      PermissionEngine.savePermissionMatrix(tenantId, updated);
+      return updated;
+    });
+    showToast('Updated access scope', 'success');
+  };
+
+  const currentRolePerms = matrixState.permissions[activeRoleId]?.[currentModId] || { scope: 'all', actions: {} };
+  const isSuperAdmin = activeRoleId === 'super_admin';
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div style={{ background: '#ffffff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+          <Shield size={20} style={{ color: '#0d9488' }} />
+          <div>
+            <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f2b26', margin: 0 }}>
+              🛡️ {moduleDef?.label || 'Module'} Access &amp; Permission Controls
+            </h3>
+            <p style={{ fontSize: '12px', color: '#64748b', margin: 0, marginTop: '2px' }}>
+              Configure granular role rights and record access scope specifically for {moduleDef?.label || 'this module'}.
+            </p>
+          </div>
+        </div>
+
+        {/* Role Selector Tabs */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', overflowX: 'auto' }}>
+          {allRoles.map(r => {
+            const isActive = activeRoleId === r.id;
+            return (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => setActiveRoleId(r.id)}
+                style={{
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: '800',
+                  border: '1px solid',
+                  borderColor: isActive ? '#0d9488' : '#cbd5e1',
+                  background: isActive ? 'rgba(13, 148, 136, 0.12)' : '#ffffff',
+                  color: isActive ? '#0d9488' : '#475569',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {r.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Record Access Scope Selector */}
+        <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
+          <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+            🌐 Record Visibility Scope for {allRoles.find(r => r.id === activeRoleId)?.label}:
+          </label>
+          <select
+            value={currentRolePerms.scope || 'all'}
+            disabled={isSuperAdmin}
+            onChange={(e) => handleScopeChange(e.target.value)}
+            style={{
+              width: '100%',
+              maxWidth: '400px',
+              padding: '9px 12px',
+              borderRadius: '8px',
+              border: '1px solid #cbd5e1',
+              fontSize: '13px',
+              fontWeight: '700',
+              color: '#0f2b26',
+              background: isSuperAdmin ? '#f1f5f9' : '#ffffff',
+              cursor: isSuperAdmin ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {ACCESS_SCOPES.map(sc => (
+              <option key={sc.id} value={sc.id}>{sc.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* 11 Action Permissions Grid */}
+        <h4 style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26', marginBottom: '12px' }}>
+          ⚡ Granular Action Toggles (11 Controls):
+        </h4>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+          {STANDARD_ACTIONS.map(act => {
+            const isChecked = isSuperAdmin || Boolean(currentRolePerms.actions?.[act.id]);
+            return (
+              <label
+                key={act.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid',
+                  borderColor: isChecked ? 'rgba(13, 148, 136, 0.3)' : '#cbd5e1',
+                  background: isChecked ? 'rgba(13, 148, 136, 0.05)' : '#ffffff',
+                  cursor: isSuperAdmin ? 'not-allowed' : 'pointer'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  disabled={isSuperAdmin}
+                  onChange={() => handleActionToggle(act.id)}
+                  style={{ width: '16px', height: '16px', accentColor: '#0d9488' }}
+                />
+                <div>
+                  <span style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a' }}>
+                    {act.icon} {act.label}
+                  </span>
+                </div>
+              </label>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
