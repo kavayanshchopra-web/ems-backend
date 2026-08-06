@@ -18884,8 +18884,8 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
   }, []);
 
   const [columnWidths, setColumnWidths] = useState(() => ({
-    moduleName: typeof window !== 'undefined' && window.innerWidth <= 768 ? 150 : 200,
-    recordScope: typeof window !== 'undefined' && window.innerWidth <= 768 ? 125 : 145,
+    moduleName: typeof window !== 'undefined' && window.innerWidth <= 768 ? 120 : 200,
+    recordScope: typeof window !== 'undefined' && window.innerWidth <= 768 ? 100 : 145,
     actionCol: 72
   }));
   const resizingRef = useRef(null);
@@ -19186,12 +19186,14 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
       {/* Page Header */}
       <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', marginBottom: isMobile ? '10px' : '16px', flexDirection: isMobile ? 'column' : 'row', gap: '12px' }}>
         <div>
-          <h1 style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h1 style={{ fontSize: isMobile ? '17px' : '22px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             🛡️ Roles &amp; Dynamic Permission Matrix
           </h1>
-          <p style={{ fontSize: isMobile ? '11.5px' : '13px', color: '#64748b', margin: '4px 0 0 0', fontWeight: '500' }}>
-            Auto-discovered modules from MasterModuleRegistry with 11 granular action controls and record visibility scopes.
-          </p>
+          {!isMobile && (
+            <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0 0', fontWeight: '500' }}>
+              Auto-discovered modules from MasterModuleRegistry with 11 granular action controls and record visibility scopes.
+            </p>
+          )}
         </div>
         <div style={{ display: 'flex', gap: '8px', width: isMobile ? '100%' : 'auto' }}>
           <button
@@ -19500,8 +19502,8 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                             left: 0,
                             zIndex: 15,
                             background: '#ffffff',
-                            padding: '11px 16px',
-                            fontSize: '12.5px',
+                            padding: isMobile ? '8px 8px' : '11px 16px',
+                            fontSize: isMobile ? '11px' : '12.5px',
                             fontWeight: '800',
                             color: '#0f172a',
                             width: `${columnWidths.moduleName}px`,
@@ -19513,26 +19515,27 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                             boxShadow: '2px 0 5px rgba(0,0,0,0.03)'
                           }}
                         >
-                          <span style={{ marginRight: '6px' }}>{mod.icon}</span> {mod.label}
+                          <span style={{ marginRight: isMobile ? '3px' : '6px' }}>{mod.icon}</span> {mod.label}
                         </td>
 
                         {/* Scope Selector */}
-                        <td style={{ padding: '8px 10px', width: `${columnWidths.recordScope}px`, borderRight: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: isMobile ? '4px 4px' : '8px 10px', width: `${columnWidths.recordScope}px`, borderRight: '1px solid #e2e8f0' }}>
                           <select
                             value={modPerms.scope || 'all'}
                             disabled={isSuperAdmin}
                             onChange={(e) => handleScopeChange(mod.id, e.target.value)}
                             style={{
-                              padding: '5px 8px',
+                              padding: isMobile ? '3px 2px' : '5px 8px',
                               borderRadius: '7px',
                               border: '1.5px solid #cbd5e1',
-                              fontSize: '11px',
+                              fontSize: isMobile ? '10px' : '11px',
                               fontWeight: '700',
                               color: '#334155',
                               background: isSuperAdmin ? '#f1f5f9' : '#f8fafc',
                               cursor: isSuperAdmin ? 'not-allowed' : 'pointer',
                               outline: 'none',
-                              width: '100%'
+                              width: '100%',
+                              textOverflow: 'ellipsis'
                             }}
                           >
                             {ACCESS_SCOPES.map(sc => (
