@@ -1473,30 +1473,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   }, [dispositionOptions]);
 
-  // Shift Engine & Rotational Roster State
-  const [shiftProfiles, setShiftProfiles] = useState(() => ShiftEngine.getShiftProfiles());
-  const [weeklyRoster, setWeeklyRoster] = useState(() => ShiftEngine.getWeeklyRoster());
-  const [shiftActiveSubTab, setShiftActiveSubTab] = useState('roster'); // 'roster' | 'profiles' | 'overrides'
-  const [shiftSearchQuery, setShiftSearchQuery] = useState('');
-  const [shiftDeptFilter, setShiftDeptFilter] = useState('all');
-  const [showShiftProfileModal, setShowShiftProfileModal] = useState(false);
-  const [editingShiftProfile, setEditingShiftProfile] = useState(null);
-  const [shiftProfileForm, setShiftProfileForm] = useState({ name: '', code: '', startTime: '09:30', endTime: '18:30', graceMins: 15, halfDayHours: 4.5, otThresholdHours: 9.0, color: '#0d9488', bg: '#e6f4f1', description: '' });
-  const [showHROverrideModal, setShowHROverrideModal] = useState(false);
-  const [hrOverrideForm, setHrOverrideForm] = useState({ empId: null, empName: '', date: new Date().toLocaleDateString('en-GB'), previousStatus: 'LATE', newStatus: 'ON_TIME', reason: 'Client Visit / On-field duty', waiveLatePenalty: true, manualOTHours: 0 });
-  const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
-  const [bulkAssignShiftId, setBulkAssignShiftId] = useState('shift_general');
-  const [selectedEmpIdsForBulk, setSelectedEmpIdsForBulk] = useState([]);
-  const [hrOverrideLogs, setHrOverrideLogs] = useState(() => ShiftEngine.getHROverrideLogs());
-
-  useEffect(() => {
-    if (activeTab === 'shifts') {
-      setWeeklyRoster(ShiftEngine.getWeeklyRoster(employees));
-      setShiftProfiles(ShiftEngine.getShiftProfiles());
-      setHrOverrideLogs(ShiftEngine.getHROverrideLogs());
-    }
-  }, [activeTab, employees]);
-
   // System Dropdowns Module Filter & Categories state
   const [selectedDropdownCategory, setSelectedDropdownCategory] = useState('departments');
   const [dropdownModuleFilter, setDropdownModuleFilter] = useState('all');
@@ -2920,9 +2896,32 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     department: 'Sales',
     salary: '',
     createLoginAccount: false,
-    password: '',
     status: 'active'
   });
+
+  // Shift Engine & Rotational Roster State
+  const [shiftProfiles, setShiftProfiles] = useState(() => ShiftEngine.getShiftProfiles());
+  const [weeklyRoster, setWeeklyRoster] = useState(() => ShiftEngine.getWeeklyRoster(employees));
+  const [shiftActiveSubTab, setShiftActiveSubTab] = useState('roster'); // 'roster' | 'profiles' | 'overrides'
+  const [shiftSearchQuery, setShiftSearchQuery] = useState('');
+  const [shiftDeptFilter, setShiftDeptFilter] = useState('all');
+  const [showShiftProfileModal, setShowShiftProfileModal] = useState(false);
+  const [editingShiftProfile, setEditingShiftProfile] = useState(null);
+  const [shiftProfileForm, setShiftProfileForm] = useState({ name: '', code: '', startTime: '09:30', endTime: '18:30', graceMins: 15, halfDayHours: 4.5, otThresholdHours: 9.0, color: '#0d9488', bg: '#e6f4f1', description: '' });
+  const [showHROverrideModal, setShowHROverrideModal] = useState(false);
+  const [hrOverrideForm, setHrOverrideForm] = useState({ empId: null, empName: '', date: new Date().toLocaleDateString('en-GB'), previousStatus: 'LATE', newStatus: 'ON_TIME', reason: 'Client Visit / On-field duty', waiveLatePenalty: true, manualOTHours: 0 });
+  const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
+  const [bulkAssignShiftId, setBulkAssignShiftId] = useState('shift_general');
+  const [selectedEmpIdsForBulk, setSelectedEmpIdsForBulk] = useState([]);
+  const [hrOverrideLogs, setHrOverrideLogs] = useState(() => ShiftEngine.getHROverrideLogs());
+
+  useEffect(() => {
+    if (activeTab === 'shifts') {
+      setWeeklyRoster(ShiftEngine.getWeeklyRoster(employees));
+      setShiftProfiles(ShiftEngine.getShiftProfiles());
+      setHrOverrideLogs(ShiftEngine.getHROverrideLogs());
+    }
+  }, [activeTab, employees]);
 
 
 
