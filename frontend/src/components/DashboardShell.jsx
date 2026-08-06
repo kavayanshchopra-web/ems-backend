@@ -18876,6 +18876,17 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
 
   const allRoles = [...DEFAULT_ROLES, ...(matrixState.customRoles || [])];
 
+  // Group modules by Category
+  const groupedModules = useMemo(() => {
+    const groups = {};
+    discoveredModules.forEach(mod => {
+      const cat = (mod.category || 'GENERAL').toUpperCase();
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(mod);
+    });
+    return groups;
+  }, [discoveredModules]);
+
   const handleActionToggle = (modId, actionId) => {
     if (activeRoleId === 'super_admin') return;
     setMatrixState(prev => {
@@ -18955,6 +18966,37 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
     });
   };
 
+  const handleToggleColumnHeader = (actionId) => {
+    if (activeRoleId === 'super_admin') return;
+    setMatrixState(prev => {
+      const currentRoleData = prev.permissions[activeRoleId] || {};
+      const allModsChecked = discoveredModules.every(mod => Boolean(currentRoleData[mod.id]?.actions?.[actionId]));
+      const targetVal = !allModsChecked;
+
+      const updatedRoleData = { ...currentRoleData };
+      discoveredModules.forEach(mod => {
+        const modData = updatedRoleData[mod.id] || { scope: 'all', actions: {} };
+        updatedRoleData[mod.id] = {
+          ...modData,
+          actions: {
+            ...modData.actions,
+            [actionId]: targetVal
+          }
+        };
+      });
+
+      const updated = {
+        ...prev,
+        permissions: {
+          ...prev.permissions,
+          [activeRoleId]: updatedRoleData
+        }
+      };
+      PermissionEngine.savePermissionMatrix(tenantId, updated);
+      return updated;
+    });
+  };
+
   const handleAddCustomRole = () => {
     openInputModal({
       title: '🛡️ Add Custom Role',
@@ -18994,14 +19036,36 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
     });
   };
 
+  const handleDeleteCustomRole = (roleId, roleName) => {
+    if (window.confirm(`Are you sure you want to delete custom role "${roleName}"?`)) {
+      setMatrixState(prev => {
+        const updatedCustomRoles = (prev.customRoles || []).filter(r => r.id !== roleId);
+        const updatedPermissions = { ...prev.permissions };
+        delete updatedPermissions[roleId];
+
+        const updated = {
+          ...prev,
+          customRoles: updatedCustomRoles,
+          permissions: updatedPermissions
+        };
+        PermissionEngine.savePermissionMatrix(tenantId, updated);
+        return updated;
+      });
+      setActiveRoleId('manager');
+      showToast(`Deleted Custom Role "${roleName}"`, 'info');
+    }
+  };
+
+  const currentRoleObj = allRoles.find(r => r.id === activeRoleId);
+
   return (
-    <div className="payroll-page glass-panel payroll-panel" style={{ padding: '24px', margin: '16px', flexGrow: 1, overflowY: 'auto' }}>
+    <div className="payroll-page glass-panel payroll-panel" style={{ padding: '28px', margin: '16px', flexGrow: 1, overflowY: 'auto', borderRadius: '16px', background: 'rgba(255, 255, 255, 0.9)', border: '1px solid rgba(226, 232, 240, 0.9)' }}>
       <div className="page-header" style={{ marginBottom: '20px' }}>
         <div className="page-header-left">
-          <h1 className="page-header-title" style={{ fontSize: '22px', fontWeight: '900', color: '#0f2b26', margin: 0 }}>
-            🛡️ Roles &amp; Dynamic Permission Matrix (Engine Powered)
+          <h1 className="page-header-title" style={{ fontSize: '22px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span>🛡️</span> Roles &amp; Dynamic Permission Matrix
           </h1>
-          <p className="page-header-subtitle" style={{ fontSize: '13px', color: '#64748b', margin: 0, marginTop: '4px' }}>
+          <p className="page-header-subtitle" style={{ fontSize: '13px', color: '#64748b', margin: 0, marginTop: '4px', fontWeight: '500' }}>
             Auto-discovered modules from MasterModuleRegistry with 11 granular action controls and record visibility scopes.
           </p>
         </div>
@@ -19010,9 +19074,9 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
             className="btn btn-secondary"
             type="button"
             onClick={handleAddCustomRole}
-            style={{ padding: '9px 16px', fontSize: '13px', fontWeight: '800', borderRadius: '8px' }}
+            style={{ padding: '10px 18px', fontSize: '13px', fontWeight: '800', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            + Add Custom Role
+            ➕ Add Custom Role
           </button>
           <button
             className="btn btn-primary"
@@ -19021,7 +19085,7 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
               PermissionEngine.savePermissionMatrix(tenantId, matrixState);
               showToast('Permission matrix saved successfully!', 'success');
             }}
-            style={{ padding: '9px 20px', fontSize: '13px', fontWeight: '800', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488, #059669)', border: 'none', boxShadow: '0 4px 12px rgba(13, 148, 136, 0.25)' }}
+            style={{ padding: '10px 22px', fontSize: '13px', fontWeight: '800', borderRadius: '10px', background: 'linear-gradient(135deg, #0d9488 0%, #059669 100%)', border: 'none', boxShadow: '0 4px 14px rgba(13, 148, 136, 0.35)', color: '#ffffff' }}
           >
             💾 Save Permission Matrix
           </button>
@@ -19029,136 +19093,192 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
       </div>
 
       {/* Role Selection Switcher Bar */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', overflowX: 'auto' }}>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '14px', overflowX: 'auto', alignItems: 'center' }}>
         {allRoles.map(r => {
           const isActive = activeRoleId === r.id;
           return (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => setActiveRoleId(r.id)}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: '800',
-                border: '1px solid',
-                borderColor: isActive ? '#0d9488' : '#cbd5e1',
-                background: isActive ? 'rgba(13, 148, 136, 0.12)' : '#ffffff',
-                color: isActive ? '#0d9488' : '#475569',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              {r.label}
-            </button>
+            <div key={r.id} style={{ display: 'flex', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setActiveRoleId(r.id)}
+                style={{
+                  padding: '9px 18px',
+                  borderRadius: '10px',
+                  fontSize: '13px',
+                  fontWeight: '800',
+                  border: '1.5px solid',
+                  borderColor: isActive ? '#0d9488' : '#cbd5e1',
+                  background: isActive ? 'rgba(13, 148, 136, 0.12)' : '#ffffff',
+                  color: isActive ? '#0d9488' : '#475569',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  boxShadow: isActive ? '0 2px 8px rgba(13, 148, 136, 0.15)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {r.label}
+              </button>
+              {r.isCustom && isActive && (
+                <button
+                  type="button"
+                  title="Delete Custom Role"
+                  onClick={() => handleDeleteCustomRole(r.id, r.label)}
+                  style={{ marginLeft: '4px', padding: '6px 8px', borderRadius: '8px', border: '1px solid #fee2e2', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: '12px' }}
+                >
+                  🗑️
+                </button>
+              )}
+            </div>
           );
         })}
       </div>
 
       {/* Permissions Matrix Table */}
-      <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', padding: '18px', overflowX: 'auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0f2b26', margin: 0 }}>
-            Access Privileges for Role: <span style={{ color: '#0d9488', textTransform: 'uppercase' }}>{allRoles.find(r => r.id === activeRoleId)?.label || activeRoleId}</span>
+      <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid rgba(13, 148, 136, 0.2)', boxShadow: '0 4px 20px -2px rgba(13, 148, 136, 0.06)', padding: '20px', overflowX: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            Access Privileges for Role: <span style={{ color: '#0d9488', textTransform: 'uppercase', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 10px', borderRadius: '6px' }}>{currentRoleObj?.label || activeRoleId}</span>
           </h3>
-          {activeRoleId === 'super_admin' && (
-            <span style={{ fontSize: '11px', fontWeight: '800', color: '#16a34a', background: 'rgba(22, 163, 74, 0.12)', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(22, 163, 74, 0.25)' }}>
+          {activeRoleId === 'super_admin' ? (
+            <span style={{ fontSize: '11px', fontWeight: '800', color: '#16a34a', background: 'rgba(22, 163, 74, 0.12)', padding: '5px 12px', borderRadius: '8px', border: '1px solid rgba(22, 163, 74, 0.25)' }}>
               🔒 Super Admin Has Immutable 100% Full Access
+            </span>
+          ) : (
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
+              💡 Tip: Click column headers to Select/Unselect All for that action
             </span>
           )}
         </div>
 
-        <table className="std-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0' }}>
-              <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '12px', fontWeight: '800', color: '#334155', minWidth: '180px' }}>Module Name</th>
-              <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '12px', fontWeight: '800', color: '#334155', minWidth: '160px' }}>Record Access Scope</th>
-              {STANDARD_ACTIONS.map(act => (
-                <th key={act.id} style={{ textAlign: 'center', padding: '10px 6px', fontSize: '11px', fontWeight: '800', color: '#334155' }}>
-                  {act.icon} {act.label}
+        <div style={{ overflowX: 'auto', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+          <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
+                <th style={{ position: 'sticky', left: 0, zIndex: 10, background: '#f8fafc', textAlign: 'left', padding: '12px 16px', fontSize: '12px', fontWeight: '800', color: '#334155', minWidth: '220px', borderRight: '1px solid #e2e8f0' }}>
+                  Module Name
                 </th>
-              ))}
-              <th style={{ textAlign: 'center', padding: '10px 8px', fontSize: '11px', fontWeight: '800', color: '#334155' }}>Toggle Row</th>
-            </tr>
-          </thead>
-          <tbody>
-            {discoveredModules.map(mod => {
-              const modPerms = matrixState.permissions[activeRoleId]?.[mod.id] || { scope: 'all', actions: {} };
-              const isSuperAdmin = activeRoleId === 'super_admin';
-              const allChecked = isSuperAdmin || STANDARD_ACTIONS.every(act => Boolean(modPerms.actions?.[act.id]));
-
-              return (
-                <tr key={mod.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '12px', fontSize: '13px', fontWeight: '800', color: '#0f172a' }}>
-                    <span style={{ marginRight: '6px' }}>{mod.icon}</span> {mod.label}
-                  </td>
-
-                  {/* Scope Selector */}
-                  <td style={{ padding: '10px 12px' }}>
-                    <select
-                      value={modPerms.scope || 'all'}
-                      disabled={isSuperAdmin}
-                      onChange={(e) => handleScopeChange(mod.id, e.target.value)}
-                      style={{
-                        padding: '5px 8px',
-                        borderRadius: '6px',
-                        border: '1px solid #cbd5e1',
-                        fontSize: '11px',
-                        fontWeight: '700',
-                        color: '#334155',
-                        background: isSuperAdmin ? '#f1f5f9' : '#ffffff',
-                        cursor: isSuperAdmin ? 'not-allowed' : 'pointer'
-                      }}
+                <th style={{ textAlign: 'left', padding: '12px 14px', fontSize: '12px', fontWeight: '800', color: '#334155', minWidth: '180px', borderRight: '1px solid #e2e8f0' }}>
+                  Record Access Scope
+                </th>
+                {STANDARD_ACTIONS.map(act => {
+                  const allModsChecked = discoveredModules.every(mod => Boolean(matrixState.permissions[activeRoleId]?.[mod.id]?.actions?.[act.id]));
+                  return (
+                    <th
+                      key={act.id}
+                      onClick={() => handleToggleColumnHeader(act.id)}
+                      title={`Click to toggle ${act.label} for all modules`}
+                      style={{ textAlign: 'center', padding: '10px 8px', fontSize: '11px', fontWeight: '800', color: '#334155', cursor: activeRoleId === 'super_admin' ? 'default' : 'pointer', userSelect: 'none', borderRight: '1px solid #f1f5f9' }}
                     >
-                      {ACCESS_SCOPES.map(sc => (
-                        <option key={sc.id} value={sc.id}>{sc.label}</option>
-                      ))}
-                    </select>
-                  </td>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                        <span>{act.icon} {act.label}</span>
+                        {activeRoleId !== 'super_admin' && (
+                          <input
+                            type="checkbox"
+                            checked={allModsChecked}
+                            readOnly
+                            style={{ width: '13px', height: '13px', cursor: 'pointer', accentColor: '#0d9488' }}
+                          />
+                        )}
+                      </div>
+                    </th>
+                  );
+                })}
+                <th style={{ textAlign: 'center', padding: '12px 10px', fontSize: '11px', fontWeight: '800', color: '#334155' }}>Toggle Row</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.keys(groupedModules).map(categoryKey => (
+                <React.Fragment key={categoryKey}>
+                  {/* Category Header Row */}
+                  <tr style={{ background: '#f1f5f9' }}>
+                    <td
+                      colSpan={STANDARD_ACTIONS.length + 3}
+                      style={{ padding: '8px 16px', fontSize: '11px', fontWeight: '900', color: '#0d9488', letterSpacing: '0.06em', textTransform: 'uppercase', background: 'linear-gradient(90deg, #f1f5f9 0%, #ffffff 100%)', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}
+                    >
+                      📁 {categoryKey}
+                    </td>
+                  </tr>
 
-                  {/* 11 Action Checkboxes */}
-                  {STANDARD_ACTIONS.map(act => {
-                    const isChecked = isSuperAdmin || Boolean(modPerms.actions?.[act.id]);
+                  {groupedModules[categoryKey].map(mod => {
+                    const modPerms = matrixState.permissions[activeRoleId]?.[mod.id] || { scope: 'all', actions: {} };
+                    const isSuperAdmin = activeRoleId === 'super_admin';
+                    const allChecked = isSuperAdmin || STANDARD_ACTIONS.every(act => Boolean(modPerms.actions?.[act.id]));
+
                     return (
-                      <td key={act.id} style={{ textAlign: 'center', padding: '10px 4px' }}>
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          disabled={isSuperAdmin}
-                          onChange={() => handleActionToggle(mod.id, act.id)}
-                          style={{ width: '16px', height: '16px', cursor: isSuperAdmin ? 'not-allowed' : 'pointer', accentColor: '#0d9488' }}
-                        />
-                      </td>
+                      <tr key={mod.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        {/* Sticky Module Name Cell */}
+                        <td style={{ position: 'sticky', left: 0, zIndex: 5, background: '#ffffff', padding: '12px 16px', fontSize: '13px', fontWeight: '800', color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
+                          <span style={{ marginRight: '8px' }}>{mod.icon}</span> {mod.label}
+                        </td>
+
+                        {/* Scope Selector */}
+                        <td style={{ padding: '10px 14px', borderRight: '1px solid #e2e8f0' }}>
+                          <select
+                            value={modPerms.scope || 'all'}
+                            disabled={isSuperAdmin}
+                            onChange={(e) => handleScopeChange(mod.id, e.target.value)}
+                            style={{
+                              padding: '6px 10px',
+                              borderRadius: '8px',
+                              border: '1.5px solid #cbd5e1',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              color: '#334155',
+                              background: isSuperAdmin ? '#f1f5f9' : '#f8fafc',
+                              cursor: isSuperAdmin ? 'not-allowed' : 'pointer',
+                              outline: 'none'
+                            }}
+                          >
+                            {ACCESS_SCOPES.map(sc => (
+                              <option key={sc.id} value={sc.id}>{sc.label}</option>
+                            ))}
+                          </select>
+                        </td>
+
+                        {/* 11 Action Checkboxes */}
+                        {STANDARD_ACTIONS.map(act => {
+                          const isChecked = isSuperAdmin || Boolean(modPerms.actions?.[act.id]);
+                          return (
+                            <td key={act.id} style={{ textAlign: 'center', padding: '10px 4px', borderRight: '1px solid #f1f5f9' }}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                disabled={isSuperAdmin}
+                                onChange={() => handleActionToggle(mod.id, act.id)}
+                                style={{ width: '16px', height: '16px', cursor: isSuperAdmin ? 'not-allowed' : 'pointer', accentColor: '#0d9488' }}
+                              />
+                            </td>
+                          );
+                        })}
+
+                        {/* Toggle All Row Button */}
+                        <td style={{ textAlign: 'center', padding: '10px 8px' }}>
+                          <button
+                            type="button"
+                            disabled={isSuperAdmin}
+                            onClick={() => handleToggleAllRow(mod.id)}
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              fontWeight: '800',
+                              border: '1px solid #cbd5e1',
+                              background: '#f8fafc',
+                              color: '#475569',
+                              cursor: isSuperAdmin ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            {allChecked ? 'Uncheck' : 'All'}
+                          </button>
+                        </td>
+                      </tr>
                     );
                   })}
-
-                  {/* Toggle All Button */}
-                  <td style={{ textAlign: 'center', padding: '10px 8px' }}>
-                    <button
-                      type="button"
-                      disabled={isSuperAdmin}
-                      onClick={() => handleToggleAllRow(mod.id)}
-                      style={{
-                        padding: '3px 8px',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        fontWeight: '700',
-                        border: '1px solid #cbd5e1',
-                        background: '#f8fafc',
-                        color: '#475569',
-                        cursor: isSuperAdmin ? 'not-allowed' : 'pointer'
-                      }}
-                    >
-                      {allChecked ? 'Uncheck' : 'All'}
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

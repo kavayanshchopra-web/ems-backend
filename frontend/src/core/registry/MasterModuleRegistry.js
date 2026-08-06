@@ -10,6 +10,12 @@ import { PAYROLL_MANIFEST } from './manifests/payroll.manifest';
 import { ASSETS_MANIFEST } from './manifests/assets.manifest';
 import { VERIFY_DOCUMENTS_MANIFEST } from './manifests/verifyDocuments.manifest';
 import { OFFBOARDING_MANIFEST } from './manifests/offboarding.manifest';
+import { DASHBOARDS_MANIFEST } from './manifests/dashboards.manifest';
+import { WHATSAPP_CHATS_MANIFEST } from './manifests/whatsappChats.manifest';
+import { ATTENDANCE_KIOSK_MANIFEST } from './manifests/attendanceKiosk.manifest';
+import { EXPENSE_CLAIMS_MANIFEST } from './manifests/expenseClaims.manifest';
+import { MY_PORTAL_MANIFEST } from './manifests/myPortal.manifest';
+import { WORKSPACE_SETTINGS_MANIFEST } from './manifests/workspaceSettings.manifest';
 import { moduleConfigService } from '../../services/moduleConfigService';
 
 class MasterModuleRegistry {
@@ -32,6 +38,12 @@ class MasterModuleRegistry {
     this.registerModule(ASSETS_MANIFEST);
     this.registerModule(VERIFY_DOCUMENTS_MANIFEST);
     this.registerModule(OFFBOARDING_MANIFEST);
+    this.registerModule(DASHBOARDS_MANIFEST);
+    this.registerModule(WHATSAPP_CHATS_MANIFEST);
+    this.registerModule(ATTENDANCE_KIOSK_MANIFEST);
+    this.registerModule(EXPENSE_CLAIMS_MANIFEST);
+    this.registerModule(MY_PORTAL_MANIFEST);
+    this.registerModule(WORKSPACE_SETTINGS_MANIFEST);
 
     this._initialized = true;
   }
