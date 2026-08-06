@@ -739,6 +739,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     return () => theadEl.removeEventListener('wheel', handleWheel);
   }, [activeTab]);
 
+  useEffect(() => {
+    if (activeTab === 'recycle_bin') {
+      setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
+    }
+  }, [activeTab]);
+
   // Universal Soft-Delete Handler handled by async softDeleteRecord below
 
   const [telecallingSearch, setTelecallingSearch] = useState('');
@@ -3761,56 +3767,60 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   };
 
-  const softDeleteRecord = async ({ originalId, name, category, entityData, moduleTab }) => {
-    const uniqueId = `${(category || 'item').toLowerCase().replace(/[^a-z0-9]/g, '_')}_${originalId || Date.now()}_${Date.now()}`;
-    const binPayload = {
-      id: uniqueId,
-      originalId: originalId || uniqueId,
+  const softDeleteRecord = async ({ originalId, name, category, entityData, moduleTab, links, preservedLinks }) => {
+    const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
+    const currentTenantName = authUser?.companyName || (currentTenantId === 'platform_superadmin' ? 'SaaS Platform Admin' : 'Acme Corp');
+
+    const itemPayload = {
+      originalId: originalId || `item_${Date.now()}`,
       name: name || 'Untitled Record',
-      type: category || 'General Item',
       category: category || 'General Item',
       moduleTab: moduleTab || 'System Workspace',
-      deletedAt: new Date().toLocaleDateString('en-GB') + ' ' + new Date().toLocaleTimeString(),
-      payload: entityData || {},
-      entityData: entityData || {}
+      deletedBy: authUser?.name || authUser?.email?.split('@')[0] || 'System User',
+      deletedByEmail: authUser?.email || 'user@company.com',
+      tenantId: currentTenantId,
+      tenantName: currentTenantName,
+      preservedLinks: preservedLinks || links || 'Full History Intact',
+      payload: entityData || {}
     };
 
-    setRecycleBinItems(prev => [binPayload, ...prev.filter(x => x.id !== uniqueId)]);
+    const newItem = TrashVaultEngine.moveToTrash(currentTenantId, itemPayload);
+    setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
 
     try {
-      const saved = localStorage.getItem('omnilflow_fallback_recycle_bin');
-      const currentList = saved ? JSON.parse(saved) : [];
-      const updatedList = [binPayload, ...currentList.filter(x => x.id !== uniqueId)];
-      localStorage.setItem('omnilflow_fallback_recycle_bin', JSON.stringify(updatedList));
-    } catch (e) {}
-
-    try {
-      if (db) {
-        await setDoc(doc(db, 'recycle_bin', uniqueId), binPayload);
+      if (db && newItem) {
+        await setDoc(doc(db, 'recycle_bin', newItem.id), newItem);
       }
     } catch (e) {
       console.warn('Firebase recycle bin sync error:', e);
     }
 
     showToast(`🗑️ Moved "${name}" to Recycle Bin!`, 'info');
+    return newItem;
   };
 
-  const handlePermanentDeleteBinItem = async (itemId) => {
-    if (!confirm('Are you sure you want to permanently delete this item? This action is irreversible.')) return;
-    try {
-      if (db) {
-        await deleteDoc(doc(db, 'recycle_bin', itemId.toString()));
-        showToast('❌ Item permanently deleted from cloud vault!', 'error');
+  const handlePermanentDeleteBinItem = async (itemId, itemName) => {
+    const targetItem = (recycleBinItems || []).find(x => String(x.id) === String(itemId));
+    const titleToDisplay = itemName || targetItem?.name || 'this item';
+
+    openConfirm({
+      title: 'Permanently Purge Record?',
+      message: `Are you sure you want to permanently delete "${titleToDisplay}"? This item cannot be recovered once purged.`,
+      confirmText: 'Yes, Purge Permanently',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          if (db) {
+            await deleteDoc(doc(db, 'recycle_bin', itemId.toString()));
+          }
+        } catch (fbErr) {
+          console.warn(fbErr.message);
+        }
+        TrashVaultEngine.purgeItem('all', itemId);
+        setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
+        showToast(`❌ Permanently purged "${titleToDisplay}" from vault.`, 'info');
       }
-    } catch (fbErr) {
-      console.warn(fbErr.message);
-    }
-    setRecycleBinItems(prev => prev.filter(x => x.id !== itemId));
-    const saved = localStorage.getItem('omnilflow_fallback_recycle_bin');
-    if (saved) {
-      const list = JSON.parse(saved).filter(x => x.id !== itemId);
-      localStorage.setItem('omnilflow_fallback_recycle_bin', JSON.stringify(list));
-    }
+    });
   };
 
   const handleRestoreBinItem = async (itemOrId) => {
@@ -3887,14 +3897,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       });
     }
 
-    setRecycleBinItems(prev => prev.filter(x => String(x.id) !== String(item.id)));
-    try {
-      const saved = localStorage.getItem('omnilflow_fallback_recycle_bin');
-      if (saved) {
-        const list = JSON.parse(saved).filter(x => String(x.id) !== String(item.id));
-        localStorage.setItem('omnilflow_fallback_recycle_bin', JSON.stringify(list));
-      }
-    } catch (e) {}
+    TrashVaultEngine.restoreItem('all', item.id);
+    setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
     showToast(`🔄 Restored "${item.name || item.title || 'Record'}" to active workspace!`, 'success');
   };
 
@@ -3905,12 +3909,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       message: `Are you sure you want to PERMANENTLY DELETE all ${recycleBinItems.length} records in the Bin Vault? This action cannot be undone.`,
       confirmText: 'Purge All Items',
       danger: true,
-      onConfirm: () => {
-        setRecycleBinItems([]);
-        localStorage.removeItem('omnilflow_fallback_recycle_bin');
-        if (typeof showToast === 'function') {
-          showToast(`🔥 Emptied all records from Bin Vault!`, 'info');
-        }
+      onConfirm: async () => {
+        try {
+          if (db) {
+            for (const item of recycleBinItems) {
+              await deleteDoc(doc(db, 'recycle_bin', item.id.toString()));
+            }
+          }
+        } catch (e) {}
+        TrashVaultEngine.emptyVault(selectedBinTenant);
+        setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
+        showToast(`🔥 Emptied all records from Bin Vault!`, 'info');
       }
     });
   };
@@ -4311,19 +4320,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     if (!confirm('Are you sure you want to delete this task?')) return;
 
     const taskObj = tasks.find(t => t.id === taskId);
+    if (taskObj) {
+      softDeleteRecord({
+        originalId: taskId,
+        name: taskObj.title || `Task #${taskId}`,
+        category: 'Task',
+        entityData: taskObj,
+        links: '3 Work Logs, 1 Sub-task checklist'
+      });
+    }
+
     try {
-      if (db && taskObj) {
-        const binPayload = {
-          name: taskObj.title,
-          type: 'Operations Task',
-          deletedAt: new Date().toLocaleString(),
-          links: '3 Work Logs, 1 Sub-task checklist',
-          originalId: taskId,
-          payload: taskObj
-        };
-        await setDoc(doc(db, 'recycle_bin', 'task_' + taskId), binPayload);
+      if (db) {
         await deleteDoc(doc(db, 'tasks', taskId.toString()));
-        showToast('🗑️ Moved Task to Recycle Bin!', 'success');
       }
     } catch (fbErr) {
       console.warn(fbErr.message);
@@ -4428,19 +4437,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     if (!confirm('Are you sure you want to delete this notice?')) return;
 
     const noticeObj = notices.find(n => n.id === id);
+    if (noticeObj) {
+      softDeleteRecord({
+        originalId: id,
+        name: noticeObj.title || `Notice #${id}`,
+        category: 'Notice Board',
+        entityData: noticeObj,
+        links: 'System Notification Logs'
+      });
+    }
+
     try {
-      if (db && noticeObj) {
-        const binPayload = {
-          name: noticeObj.title,
-          type: 'Notice Board',
-          deletedAt: new Date().toLocaleString(),
-          links: 'System Notification Logs',
-          originalId: id,
-          payload: noticeObj
-        };
-        await setDoc(doc(db, 'recycle_bin', 'notice_' + id), binPayload);
+      if (db) {
         await deleteDoc(doc(db, 'notices', id.toString()));
-        showToast('🗑️ Moved Notice to Recycle Bin!', 'success');
       }
     } catch (fbErr) {
       console.warn(fbErr.message);
@@ -14890,40 +14899,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           const binStartIndex = (validBinPage - 1) * binPageSize;
           const binEndIndex = Math.min(binStartIndex + binPageSize, totalBinItems);
           const paginatedBinItems = sortedBinItems.slice(binStartIndex, binEndIndex);
-
-          const handleRestoreBinItem = (item) => {
-            TrashVaultEngine.restoreItem('all', item.id);
-            setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
-            showToast(`🔄 Restored "${item.name}" back to active status!`, 'success');
-          };
-
-          const handlePermanentDeleteBinItem = (itemId, itemName) => {
-            openConfirm({
-              title: 'Permanently Purge Record?',
-              message: `Are you sure you want to permanently delete "${itemName}"? This item cannot be recovered once purged.`,
-              confirmText: 'Yes, Purge Permanently',
-              danger: true,
-              onConfirm: () => {
-                TrashVaultEngine.purgeItem('all', itemId);
-                setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
-                showToast(`❌ Permanently purged "${itemName}" from vault.`, 'info');
-              }
-            });
-          };
-
-          const handleEmptyBinVault = () => {
-            openConfirm({
-              title: 'Empty Recycle Bin Vault?',
-              message: `Are you sure you want to permanently purge all ${recycleBinItems.length} soft-deleted items? This action cannot be undone.`,
-              confirmText: 'Yes, Purge All Items',
-              danger: true,
-              onConfirm: () => {
-                TrashVaultEngine.emptyVault(selectedBinTenant);
-                setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
-                showToast(`🔥 Vault Emptied! All items permanently purged.`, 'info');
-              }
-            });
-          };
 
           return (
             <div style={{ padding: 'var(--space-6)', margin: 'var(--space-4)', overflowY: 'auto', flexGrow: 1 }} className="glass-panel">

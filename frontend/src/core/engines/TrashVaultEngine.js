@@ -89,15 +89,40 @@ class TrashVaultEngine {
     try {
       const storageKey = `${STORAGE_PREFIX}all`;
       const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        const items = JSON.parse(saved);
-        if (tenantId === 'all') return items;
-        return items.filter(i => i.tenantId === tenantId);
+      let items = saved ? JSON.parse(saved) : null;
+
+      // Migrate from fallback storage if empty/null
+      if (!items || items.length === 0) {
+        try {
+          const fallbackSaved = localStorage.getItem('omnilflow_fallback_recycle_bin');
+          if (fallbackSaved) {
+            const fallbackItems = JSON.parse(fallbackSaved);
+            if (Array.isArray(fallbackItems) && fallbackItems.length > 0) {
+              items = fallbackItems.map(fb => ({
+                id: fb.id || `trash_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                tenantId: fb.tenantId || 'acme_corp',
+                tenantName: fb.tenantName || 'Acme Corp',
+                name: fb.name || fb.title || 'Archived Record',
+                category: fb.category || fb.type || 'General Item',
+                deletedBy: fb.deletedBy || 'System User',
+                deletedByEmail: fb.deletedByEmail || 'user@company.com',
+                deletedAt: fb.deletedAt || new Date().toLocaleDateString('en-GB'),
+                preservedLinks: fb.links || fb.preservedLinks || 'Full History Intact',
+                payload: fb.payload || fb.entityData || fb
+              }));
+            }
+          }
+        } catch (err) {}
       }
-      // If no saved data, seed default initial data
-      localStorage.setItem(storageKey, JSON.stringify(DEFAULT_INITIAL_VAULT_ITEMS));
-      if (tenantId === 'all') return DEFAULT_INITIAL_VAULT_ITEMS;
-      return DEFAULT_INITIAL_VAULT_ITEMS.filter(i => i.tenantId === tenantId);
+
+      // If still empty or null, seed default demo records
+      if (!items || items.length === 0) {
+        items = DEFAULT_INITIAL_VAULT_ITEMS;
+        localStorage.setItem(storageKey, JSON.stringify(DEFAULT_INITIAL_VAULT_ITEMS));
+      }
+
+      if (tenantId === 'all') return items;
+      return items.filter(i => i.tenantId === tenantId);
     } catch (e) {
       console.error('TrashVaultEngine.getVaultItems error:', e);
       return DEFAULT_INITIAL_VAULT_ITEMS;
