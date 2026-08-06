@@ -38,7 +38,8 @@ export default function UniversalModal({
       // Auto-prefill Category-Aware Asset Tag ID for Asset Management
       if (isCreate && (moduleConfig.moduleId === 'asset_management' || targetFields.some(f => f.id === 'tag'))) {
         const defaultCat = initial.category || 'Laptop';
-        initial.tag = getNextCategoryAssetTag(defaultCat, allPositions || []);
+        const customPrefixes = moduleConfig?.idConfig?.categoryPrefixes || null;
+        initial.tag = getNextCategoryAssetTag(defaultCat, allPositions || [], customPrefixes);
       }
 
       setFormData(initial);
@@ -57,7 +58,8 @@ export default function UniversalModal({
 
       // Dynamic Auto-Update Tag ID on Category Change if user hasn't manually edited Tag ID
       if (fieldId === 'category' && isCreate && !isTagManuallyEdited && (moduleConfig.moduleId === 'asset_management' || targetFields.some(f => f.id === 'tag'))) {
-        updated.tag = getNextCategoryAssetTag(value, allPositions || []);
+        const customPrefixes = moduleConfig?.idConfig?.categoryPrefixes || null;
+        updated.tag = getNextCategoryAssetTag(value, allPositions || [], customPrefixes);
       }
 
       return updated;

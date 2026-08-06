@@ -138,7 +138,10 @@ export function formatCandidateId(id, idx = 0, moduleConfig = null) {
   return formatCustomSequencePattern(pattern, idx + 1);
 }
 
-export function getCategoryPrefix(categoryName) {
+export function getCategoryPrefix(categoryName, customPrefixes = null) {
+  if (customPrefixes && customPrefixes[categoryName]) {
+    return String(customPrefixes[categoryName]).toUpperCase().trim();
+  }
   if (!categoryName) return 'LAP';
   const catLower = String(categoryName).toLowerCase();
   if (catLower.includes('laptop')) return 'LAP';
@@ -150,8 +153,8 @@ export function getCategoryPrefix(categoryName) {
   return String(categoryName).slice(0, 3).toUpperCase();
 }
 
-export function getNextCategoryAssetTag(categoryName, existingRecords = []) {
-  const catPrefix = getCategoryPrefix(categoryName);
+export function getNextCategoryAssetTag(categoryName, existingRecords = [], customPrefixes = null) {
+  const catPrefix = getCategoryPrefix(categoryName, customPrefixes);
   const targetPrefix = `AST-${catPrefix}-`;
   
   let maxSeq = 0;
