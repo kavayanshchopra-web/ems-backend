@@ -19197,7 +19197,7 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
           boxShadow: '0 4px 20px -2px rgba(0,0,0,0.05)'
         }}
       >
-        {/* Sub Header With Horizontal Scroll Controls */}
+        {/* Sub Header */}
         <div style={{ flexShrink: 0, padding: '12px 20px', background: '#ffffff', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             Access Privileges for Role: <span style={{ color: '#0d9488', textTransform: 'uppercase', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 10px', borderRadius: '6px' }}>{currentRoleObj?.label || activeRoleId}</span>
@@ -19212,26 +19212,6 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                 💡 Click column headers to Select/Unselect All
               </span>
             )}
-            {/* Smooth Table Scroll Controls */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#f1f5f9', padding: '3px 6px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-              <span style={{ fontSize: '11px', fontWeight: '800', color: '#475569', marginRight: '4px' }}>Scroll:</span>
-              <button
-                type="button"
-                onClick={() => handleScrollTable('left')}
-                title="Scroll Table Left"
-                style={{ padding: '3px 8px', borderRadius: '5px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}
-              >
-                ◀
-              </button>
-              <button
-                type="button"
-                onClick={() => handleScrollTable('right')}
-                title="Scroll Table Right"
-                style={{ padding: '3px 8px', borderRadius: '5px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}
-              >
-                ▶
-              </button>
-            </div>
           </div>
         </div>
 
@@ -19344,17 +19324,26 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                       colSpan={STANDARD_ACTIONS.length + 3}
                       style={{
                         padding: '9px 16px',
-                        fontSize: '11px',
-                        fontWeight: '900',
-                        color: '#0d9488',
-                        letterSpacing: '0.06em',
-                        textTransform: 'uppercase',
                         background: 'linear-gradient(90deg, rgba(13, 148, 136, 0.12) 0%, rgba(241, 245, 249, 0.8) 100%)',
                         borderTop: '1px solid #cbd5e1',
                         borderBottom: '1px solid #cbd5e1'
                       }}
                     >
-                      📁 {categoryKey}
+                      <div
+                        style={{
+                          position: 'sticky',
+                          left: '16px',
+                          zIndex: 12,
+                          display: 'inline-block',
+                          fontSize: '11px',
+                          fontWeight: '900',
+                          color: '#0d9488',
+                          letterSpacing: '0.06em',
+                          textTransform: 'uppercase'
+                        }}
+                      >
+                        📁 {categoryKey}
+                      </div>
                     </td>
                   </tr>
 
