@@ -18882,11 +18882,26 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
     }
   };
 
-  const handleHeaderWheel = (e) => {
-    if (tableScrollRef.current && e.deltaY !== 0) {
-      tableScrollRef.current.scrollLeft += e.deltaY;
-    }
-  };
+  useEffect(() => {
+    const container = tableScrollRef.current;
+    if (!container) return;
+
+    const theadEl = container.querySelector('thead');
+    if (!theadEl) return;
+
+    const handleTheadWheel = (e) => {
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        container.scrollLeft += e.deltaY;
+      }
+    };
+
+    theadEl.addEventListener('wheel', handleTheadWheel, { passive: false });
+    return () => {
+      theadEl.removeEventListener('wheel', handleTheadWheel);
+    };
+  }, [activeRoleId, discoveredModules]);
 
   const allRoles = [...DEFAULT_ROLES, ...(matrixState.customRoles || [])];
 
@@ -19223,7 +19238,7 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
         {/* Unified Table Scroll Container */}
         <div ref={tableScrollRef} style={{ flexGrow: 1, overflow: 'auto', position: 'relative' }}>
           <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: '1250px' }}>
-            <thead onWheel={handleHeaderWheel}>
+            <thead>
               <tr style={{ background: '#f8fafc' }}>
                 <th
                   style={{
