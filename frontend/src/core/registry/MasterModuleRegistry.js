@@ -135,7 +135,7 @@ class MasterModuleRegistry {
       views,
       kanbanFields,
       lookupData,
-      idConfig: storedConfig.idConfig || { prefix: 'ATS', pattern: 'ATS-001', nextSeq: 1 },
+      idConfig: storedConfig.idConfig || manifest.idConfig || { prefix: 'ATS', pattern: 'ATS-001', nextSeq: 1 },
       stages: manifest.defaultStages || []
     };
   }

@@ -22,6 +22,12 @@ export const ASSETS_MANIFEST = {
   isCoreModule: true,
   dependencies: [],
 
+  idConfig: {
+    prefix: 'AST',
+    pattern: 'AST-{CAT}-0001',
+    nextSeq: 1
+  },
+
   routes: [
     {
       path: '/assets',

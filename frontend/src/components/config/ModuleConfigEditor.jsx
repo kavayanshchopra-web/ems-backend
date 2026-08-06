@@ -1447,39 +1447,111 @@ export default function ModuleConfigEditor({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ padding: '18px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                 <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '15px', marginBottom: '4px' }}>
-                  ⚙️ Candidate & Record ID Format Configuration
+                  ⚙️ {moduleConfig.name || 'Module'} Record & Tag ID Format Configuration
                 </div>
                 <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '18px' }}>
-                  Type custom ID prefix (e.g. ATS, EMP, LEAD, CAND), sequence pattern template string, and next sequence starting counter directly.
+                  Configure ID prefix code, category-wise sequence pattern templates (e.g. AST-LAP-001, AST-MOB-001), and starting counters.
+                </div>
+
+                {/* PATTERN PRESET SELECTORS */}
+                <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '800', color: '#475569' }}>QUICK PRESET PATTERNS:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const prefix = configState.idConfig?.prefix || (moduleConfig.moduleId === 'asset_management' ? 'AST' : 'REC');
+                      setConfigState(prev => ({
+                        ...prev,
+                        idConfig: { ...(prev.idConfig || {}), prefix, pattern: `${prefix}-{CAT}-0001` }
+                      }));
+                    }}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '16px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      border: '1px solid #0d9488',
+                      background: 'rgba(13, 148, 136, 0.1)',
+                      color: '#0d9488',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ✨ Category-Wise (e.g. AST-LAP-0001, AST-MOB-0001)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const prefix = configState.idConfig?.prefix || (moduleConfig.moduleId === 'asset_management' ? 'AST' : 'REC');
+                      setConfigState(prev => ({
+                        ...prev,
+                        idConfig: { ...(prev.idConfig || {}), prefix, pattern: `${prefix}-0001` }
+                      }));
+                    }}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '16px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      color: '#475569',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🔢 Standard Sequential (e.g. AST-0001)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const prefix = configState.idConfig?.prefix || (moduleConfig.moduleId === 'asset_management' ? 'AST' : 'REC');
+                      const currentYear = new Date().getFullYear();
+                      setConfigState(prev => ({
+                        ...prev,
+                        idConfig: { ...(prev.idConfig || {}), prefix, pattern: `${prefix}-${currentYear}-0001` }
+                      }));
+                    }}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '16px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      color: '#475569',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    📅 Yearly Sequential (e.g. AST-2026-0001)
+                  </button>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
-                      ID Prefix Code (e.g. ATS, EMP, LEAD, CAND)
+                      ID Prefix Code (e.g. AST, EMP, LEAD, CAND)
                     </label>
                     <input
                       type="text"
-                      value={configState.idConfig?.prefix || 'ATS'}
+                      value={configState.idConfig?.prefix || (moduleConfig.moduleId === 'asset_management' ? 'AST' : 'REC')}
                       onChange={(e) => {
                         const val = e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '');
                         setConfigState(prev => ({
                           ...prev,
-                          idConfig: { ...(prev.idConfig || {}), prefix: val || 'ATS' }
+                          idConfig: { ...(prev.idConfig || {}), prefix: val || 'AST' }
                         }));
                       }}
-                      placeholder="e.g. ATS"
+                      placeholder="e.g. AST"
                       style={{ width: '100%', padding: '8px 12px', fontSize: '13px', fontWeight: '800', borderRadius: '6px', border: '1px solid #cbd5e1', textTransform: 'uppercase' }}
                     />
                   </div>
 
                   <div>
                     <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
-                      Sequence Pattern Format (e.g. ATS-2026-001, CAND-001)
+                      Sequence Pattern Format
                     </label>
                     <input
                       type="text"
-                      value={configState.idConfig?.pattern || `${configState.idConfig?.prefix || 'ATS'}-001`}
+                      value={configState.idConfig?.pattern || (moduleConfig.moduleId === 'asset_management' ? 'AST-{CAT}-0001' : `${configState.idConfig?.prefix || 'ATS'}-001`)}
                       onChange={(e) => {
                         const val = e.target.value;
                         setConfigState(prev => ({
@@ -1487,14 +1559,14 @@ export default function ModuleConfigEditor({
                           idConfig: { ...(prev.idConfig || {}), pattern: val }
                         }));
                       }}
-                      placeholder="e.g. ATS-2026-001 or CAND-001"
+                      placeholder="e.g. AST-{CAT}-0001 or AST-0001"
                       style={{ width: '100%', padding: '8px 12px', fontSize: '13px', fontWeight: '800', borderRadius: '6px', border: '1px solid #cbd5e1' }}
                     />
                   </div>
 
                   <div>
                     <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
-                      Next Sequence Number (Starting Counter ID)
+                      Next Sequence Counter (Starting ID)
                     </label>
                     <input
                       type="number"
@@ -1512,19 +1584,75 @@ export default function ModuleConfigEditor({
                   </div>
                 </div>
 
-                <div style={{ marginTop: '20px', padding: '14px 18px', background: '#ffffff', borderRadius: '8px', border: '1px dashed #0d9488', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '800', color: '#0f172a' }}>Live Pattern Sample Preview:</span>
-                  {[0, 1, 2].map(offset => {
-                    const sample = formatCustomSequencePattern(
-                      configState.idConfig?.pattern || `${configState.idConfig?.prefix || 'ATS'}-001`,
-                      (configState.idConfig?.nextSeq || 1) + offset
-                    );
-                    return (
-                      <span key={offset} style={{ fontSize: '12px', fontWeight: '800', padding: '4px 12px', borderRadius: '6px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', fontFamily: 'monospace' }}>
-                        {sample}
-                      </span>
-                    );
-                  })}
+                {/* LIVE PATTERN SAMPLE PREVIEW (ITEM / CATEGORY WISE DISPLAY) */}
+                <div style={{ marginTop: '20px', padding: '16px', background: '#ffffff', borderRadius: '8px', border: '1px dashed #0d9488', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', fontWeight: '800', color: '#0f172a' }}>
+                      ✨ Live Category & Item-Wise Pattern Sample Previews:
+                    </span>
+                    <span style={{ fontSize: '10px', fontWeight: '700', color: '#0d9488', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 8px', borderRadius: '4px' }}>
+                      DYNAMIC CATEGORY ENGINE ACTIVE
+                    </span>
+                  </div>
+
+                  {/* ITEM CATEGORY PREVIEW GRID */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                    {[
+                      { name: 'Laptop', icon: '💻', prefix: 'LAP' },
+                      { name: 'Mobile Phone', icon: '📱', prefix: 'MOB' },
+                      { name: 'Monitor', icon: '🖥️', prefix: 'MON' },
+                      { name: 'Peripheral', icon: '⌨️', prefix: 'PER' }
+                    ].map(cat => {
+                      const prefixCode = configState.idConfig?.prefix || 'AST';
+                      const pat = configState.idConfig?.pattern || 'AST-{CAT}-0001';
+                      
+                      const sample1 = pat.includes('{CAT}') 
+                        ? pat.replace('{CAT}', cat.prefix).replace(/0+1$/, '0001')
+                        : `AST-${cat.prefix}-0001`;
+                      const sample2 = pat.includes('{CAT}') 
+                        ? pat.replace('{CAT}', cat.prefix).replace(/0+1$/, '0002')
+                        : `AST-${cat.prefix}-0002`;
+
+                      return (
+                        <div key={cat.name} style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '11px', fontWeight: '800', color: '#334155', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>{cat.icon}</span>
+                            <span>{cat.name} ({cat.prefix})</span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '800', padding: '3px 8px', borderRadius: '4px', background: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.25)' }}>
+                              {sample1}
+                            </span>
+                            <span style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '800', padding: '3px 8px', borderRadius: '4px', background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1' }}>
+                              {sample2}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* ITEM CATEGORY PREFIX MAPPING TABLE */}
+                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '10px', marginTop: '4px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '800', color: '#475569', marginBottom: '6px' }}>
+                      📋 Item Category Prefix Codes Mapping:
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {[
+                        { cat: 'Laptop', code: 'LAP' },
+                        { cat: 'Mobile Phone', code: 'MOB' },
+                        { cat: 'Monitor', code: 'MON' },
+                        { cat: 'Peripheral', code: 'PER' },
+                        { cat: 'Office Equipment', code: 'OFF' },
+                        { cat: 'Furniture', code: 'FUR' }
+                      ].map((item, i) => (
+                        <span key={i} style={{ fontSize: '10.5px', padding: '3px 8px', borderRadius: '12px', background: '#ffffff', border: '1px solid #cbd5e1', color: '#334155' }}>
+                          <strong>{item.cat}:</strong> <code style={{ color: '#0d9488', fontWeight: 'bold' }}>{item.code}</code>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
                 </div>
               </div>
             </div>
