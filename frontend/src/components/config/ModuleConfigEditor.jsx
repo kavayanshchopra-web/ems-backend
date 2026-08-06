@@ -1595,107 +1595,183 @@ export default function ModuleConfigEditor({
                     </span>
                   </div>
 
-                  {/* ITEM CATEGORY PREVIEW GRID */}
+                  {/* ITEM / DOCUMENT CATEGORY PREVIEW GRID (MODULE CONTEXTUAL) */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
-                    {[
-                      { name: 'Laptop', icon: '💻', prefix: 'LAP' },
-                      { name: 'Mobile Phone', icon: '📱', prefix: 'MOB' },
-                      { name: 'Monitor', icon: '🖥️', prefix: 'MON' },
-                      { name: 'Peripheral', icon: '⌨️', prefix: 'PER' }
-                    ].map(cat => {
-                      const customCatPrefix = configState.idConfig?.categoryPrefixes?.[cat.name] || cat.prefix;
-                      const prefixCode = configState.idConfig?.prefix || 'AST';
-                      const pat = configState.idConfig?.pattern || 'AST-{CAT}-0001';
-                      
-                      const sample1 = pat.includes('{CAT}') 
-                        ? pat.replace('{CAT}', customCatPrefix).replace(/0+1$/, '0001')
-                        : `${prefixCode}-${customCatPrefix}-0001`;
-                      const sample2 = pat.includes('{CAT}') 
-                        ? pat.replace('{CAT}', customCatPrefix).replace(/0+1$/, '0002')
-                        : `${prefixCode}-${customCatPrefix}-0002`;
+                    {(() => {
+                      const categoryPresetsMap = {
+                        asset_management: [
+                          { name: 'Laptop', icon: '💻', prefix: 'LAP' },
+                          { name: 'Mobile Phone', icon: '📱', prefix: 'MOB' },
+                          { name: 'Monitor', icon: '🖥️', prefix: 'MON' },
+                          { name: 'Peripheral', icon: '⌨️', prefix: 'PER' }
+                        ],
+                        verify_documents: [
+                          { name: 'Government ID', icon: '🪪', prefix: 'GOVT' },
+                          { name: 'Financial KYC', icon: '🏦', prefix: 'BANK' },
+                          { name: 'Academic Cert', icon: '🎓', prefix: 'EDU' },
+                          { name: 'Legal & Contract', icon: '📜', prefix: 'DOC' }
+                        ],
+                        employees: [
+                          { name: 'Engineering', icon: '💻', prefix: 'ENG' },
+                          { name: 'Sales & Growth', icon: '📈', prefix: 'SLS' },
+                          { name: 'Human Resources', icon: '👥', prefix: 'HR' },
+                          { name: 'Operations', icon: '⚙️', prefix: 'OPS' }
+                        ],
+                        recruitment_ats: [
+                          { name: 'Engineering Candidate', icon: '👨‍💻', prefix: 'ENG' },
+                          { name: 'Sales Candidate', icon: '🎯', prefix: 'SLS' },
+                          { name: 'Product Candidate', icon: '🎨', prefix: 'DSG' },
+                          { name: 'Executive Search', icon: '💼', prefix: 'EXEC' }
+                        ],
+                        crm: [
+                          { name: 'Enterprise Deal', icon: '🏢', prefix: 'ENT' },
+                          { name: 'SMB Account', icon: '🏪', prefix: 'SMB' },
+                          { name: 'Partner Channel', icon: '🤝', prefix: 'PRT' },
+                          { name: 'Inbound Lead', icon: '📥', prefix: 'INB' }
+                        ],
+                        payroll: [
+                          { name: 'Monthly Salary', icon: '💵', prefix: 'SAL' },
+                          { name: 'Incentive Bonus', icon: '🎁', prefix: 'BON' },
+                          { name: 'Expense Claim', icon: '🧾', prefix: 'REIM' },
+                          { name: 'Tax Compliance', icon: '⚖️', prefix: 'TAX' }
+                        ]
+                      };
 
-                      return (
-                        <div key={cat.name} style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                          <div style={{ fontSize: '11px', fontWeight: '800', color: '#334155', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span>{cat.icon}</span>
-                            <span>{cat.name} (<code style={{ color: '#0d9488' }}>{customCatPrefix}</code>)</span>
-                          </div>
-                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '800', padding: '3px 8px', borderRadius: '4px', background: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.25)' }}>
-                              {sample1}
-                            </span>
-                            <span style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '800', padding: '3px 8px', borderRadius: '4px', background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1' }}>
-                              {sample2}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                      const currentPresets = categoryPresetsMap[modId] || categoryPresetsMap.verify_documents;
 
-                  {/* EDITABLE ITEM CATEGORY PREFIX CODES MAPPING */}
-                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '14px', marginTop: '6px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '6px' }}>
-                      <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f172a' }}>
-                        ✏️ Editable Category Prefix Codes (Custom Item Tag IDs):
-                      </div>
-                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#0d9488', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 8px', borderRadius: '4px' }}>
-                        Click input to change prefix (e.g. LAP ➔ LPT, MOB ➔ MBL)
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px' }}>
-                      {[
-                        { cat: 'Laptop', icon: '💻', defaultCode: 'LAP' },
-                        { cat: 'Mobile Phone', icon: '📱', defaultCode: 'MOB' },
-                        { cat: 'Monitor', icon: '🖥️', defaultCode: 'MON' },
-                        { cat: 'Peripheral', icon: '⌨️', defaultCode: 'PER' },
-                        { cat: 'Office Equipment', icon: '📠', defaultCode: 'OFF' },
-                        { cat: 'Furniture', icon: '🪑', defaultCode: 'FUR' }
-                      ].map(item => {
-                        const currentCustomPrefix = configState.idConfig?.categoryPrefixes?.[item.cat] || item.defaultCode;
-                        const prefixCode = configState.idConfig?.prefix || 'AST';
-                        const pat = configState.idConfig?.pattern || 'AST-{CAT}-0001';
+                      return currentPresets.map(cat => {
+                        const customCatPrefix = configState.idConfig?.categoryPrefixes?.[cat.name] || cat.prefix;
+                        const prefixCode = configState.idConfig?.prefix || (modId === 'verify_documents' ? 'KYC' : modId === 'asset_management' ? 'AST' : 'REC');
+                        const pat = configState.idConfig?.pattern || `${prefixCode}-{CAT}-0001`;
                         
-                        const sampleTag = pat.includes('{CAT}') 
-                          ? pat.replace('{CAT}', currentCustomPrefix).replace(/0+1$/, '0001')
-                          : `${prefixCode}-${currentCustomPrefix}-0001`;
+                        const sample1 = pat.includes('{CAT}') 
+                          ? pat.replace('{CAT}', customCatPrefix).replace(/0+1$/, '0001')
+                          : `${prefixCode}-${customCatPrefix}-0001`;
+                        const sample2 = pat.includes('{CAT}') 
+                          ? pat.replace('{CAT}', customCatPrefix).replace(/0+1$/, '0002')
+                          : `${prefixCode}-${customCatPrefix}-0002`;
 
                         return (
-                          <div key={item.cat} style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                          <div key={cat.name} style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                             <div style={{ fontSize: '11px', fontWeight: '800', color: '#334155', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span>{item.icon}</span>
-                              <span>{item.cat}</span>
+                              <span>{cat.icon}</span>
+                              <span>{cat.name} (<code style={{ color: '#0d9488' }}>{customCatPrefix}</code>)</span>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <input
-                                type="text"
-                                maxLength={6}
-                                value={currentCustomPrefix}
-                                onChange={(e) => {
-                                  const cleanVal = e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '');
-                                  setConfigState(prev => ({
-                                    ...prev,
-                                    idConfig: {
-                                      ...(prev.idConfig || {}),
-                                      categoryPrefixes: {
-                                        ...(prev.idConfig?.categoryPrefixes || {}),
-                                        [item.cat]: cleanVal
-                                      }
-                                    }
-                                  }));
-                                }}
-                                placeholder={item.defaultCode}
-                                style={{ width: '70px', padding: '4px 8px', fontSize: '12px', fontWeight: '800', fontFamily: 'monospace', borderRadius: '4px', border: '1px solid #0d9488', background: 'rgba(13, 148, 136, 0.08)', color: '#0d9488', textAlign: 'center', textTransform: 'uppercase', outline: 'none' }}
-                              />
-                              <span style={{ fontSize: '10px', color: '#64748b' }}>➔</span>
-                              <span style={{ fontSize: '10.5px', fontFamily: 'monospace', fontWeight: '800', color: '#0d9488', background: '#f0fdf4', padding: '3px 8px', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
-                                {sampleTag}
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '800', padding: '3px 8px', borderRadius: '4px', background: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.25)' }}>
+                                {sample1}
+                              </span>
+                              <span style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '800', padding: '3px 8px', borderRadius: '4px', background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1' }}>
+                                {sample2}
                               </span>
                             </div>
                           </div>
                         );
-                      })}
+                      });
+                    })()}
+                  </div>
+
+                  {/* EDITABLE ITEM / DOCUMENT CATEGORY PREFIX CODES MAPPING */}
+                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '14px', marginTop: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '6px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f172a' }}>
+                        ✏️ Editable Category Prefix Codes ({moduleDef?.label || 'Module'} Custom IDs):
+                      </div>
+                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#0d9488', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 8px', borderRadius: '4px' }}>
+                        Click input to change category prefix
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px' }}>
+                      {(() => {
+                        const editablePresetsMap = {
+                          asset_management: [
+                            { cat: 'Laptop', icon: '💻', defaultCode: 'LAP' },
+                            { cat: 'Mobile Phone', icon: '📱', defaultCode: 'MOB' },
+                            { cat: 'Monitor', icon: '🖥️', defaultCode: 'MON' },
+                            { cat: 'Peripheral', icon: '⌨️', defaultCode: 'PER' },
+                            { cat: 'Office Equipment', icon: '📠', defaultCode: 'OFF' },
+                            { cat: 'Furniture', icon: '🪑', defaultCode: 'FUR' }
+                          ],
+                          verify_documents: [
+                            { cat: 'Government ID', icon: '🪪', defaultCode: 'GOVT' },
+                            { cat: 'Financial KYC', icon: '🏦', defaultCode: 'BANK' },
+                            { cat: 'Academic Cert', icon: '🎓', defaultCode: 'EDU' },
+                            { cat: 'Legal & Contract', icon: '📜', defaultCode: 'DOC' }
+                          ],
+                          employees: [
+                            { cat: 'Engineering', icon: '💻', defaultCode: 'ENG' },
+                            { cat: 'Sales & Growth', icon: '📈', defaultCode: 'SLS' },
+                            { cat: 'Human Resources', icon: '👥', defaultCode: 'HR' },
+                            { cat: 'Operations', icon: '⚙️', defaultCode: 'OPS' }
+                          ],
+                          recruitment_ats: [
+                            { cat: 'Engineering Candidate', icon: '👨‍💻', defaultCode: 'ENG' },
+                            { cat: 'Sales Candidate', icon: '🎯', defaultCode: 'SLS' },
+                            { cat: 'Product Candidate', icon: '🎨', defaultCode: 'DSG' },
+                            { cat: 'Executive Search', icon: '💼', defaultCode: 'EXEC' }
+                          ],
+                          crm: [
+                            { cat: 'Enterprise Deal', icon: '🏢', defaultCode: 'ENT' },
+                            { cat: 'SMB Account', icon: '🏪', defaultCode: 'SMB' },
+                            { cat: 'Partner Channel', icon: '🤝', defaultCode: 'PRT' },
+                            { cat: 'Inbound Lead', icon: '📥', defaultCode: 'INB' }
+                          ],
+                          payroll: [
+                            { cat: 'Monthly Salary', icon: '💵', defaultCode: 'SAL' },
+                            { cat: 'Incentive Bonus', icon: '🎁', defaultCode: 'BON' },
+                            { cat: 'Expense Claim', icon: '🧾', defaultCode: 'REIM' },
+                            { cat: 'Tax Compliance', icon: '⚖️', defaultCode: 'TAX' }
+                          ]
+                        };
+
+                        const currentEditableList = editablePresetsMap[modId] || editablePresetsMap.verify_documents;
+
+                        return currentEditableList.map(item => {
+                          const currentCustomPrefix = configState.idConfig?.categoryPrefixes?.[item.cat] || item.defaultCode;
+                          const prefixCode = configState.idConfig?.prefix || (modId === 'verify_documents' ? 'KYC' : modId === 'asset_management' ? 'AST' : 'REC');
+                          const pat = configState.idConfig?.pattern || `${prefixCode}-{CAT}-0001`;
+                          
+                          const sampleTag = pat.includes('{CAT}') 
+                            ? pat.replace('{CAT}', currentCustomPrefix).replace(/0+1$/, '0001')
+                            : `${prefixCode}-${currentCustomPrefix}-0001`;
+
+                          return (
+                            <div key={item.cat} style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                              <div style={{ fontSize: '11px', fontWeight: '800', color: '#334155', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>{item.icon}</span>
+                                <span>{item.cat}</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <input
+                                  type="text"
+                                  maxLength={6}
+                                  value={currentCustomPrefix}
+                                  onChange={(e) => {
+                                    const cleanVal = e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+                                    setConfigState(prev => ({
+                                      ...prev,
+                                      idConfig: {
+                                        ...(prev.idConfig || {}),
+                                        categoryPrefixes: {
+                                          ...(prev.idConfig?.categoryPrefixes || {}),
+                                          [item.cat]: cleanVal
+                                        }
+                                      }
+                                    }));
+                                  }}
+                                  placeholder={item.defaultCode}
+                                  style={{ width: '70px', padding: '4px 8px', fontSize: '12px', fontWeight: '800', fontFamily: 'monospace', borderRadius: '4px', border: '1px solid #0d9488', background: 'rgba(13, 148, 136, 0.08)', color: '#0d9488', textAlign: 'center', textTransform: 'uppercase', outline: 'none' }}
+                                />
+                                <span style={{ fontSize: '10px', color: '#64748b' }}>➔</span>
+                                <span style={{ fontSize: '10.5px', fontFamily: 'monospace', fontWeight: '800', color: '#0d9488', background: '#f0fdf4', padding: '3px 8px', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
+                                  {sampleTag}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
 
