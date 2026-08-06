@@ -1456,6 +1456,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     };
   });
 
+  useEffect(() => {
+    if (systemDropdowns) {
+      try {
+        localStorage.setItem('omnilflow_system_dropdowns', JSON.stringify(systemDropdowns));
+      } catch (e) {}
+    }
+  }, [systemDropdowns]);
+
+  useEffect(() => {
+    if (dispositionOptions) {
+      try {
+        localStorage.setItem('omnilflow_disposition_options', JSON.stringify(dispositionOptions));
+      } catch (e) {}
+    }
+  }, [dispositionOptions]);
+
   // System Dropdowns Module Filter & Categories state
   const [selectedDropdownCategory, setSelectedDropdownCategory] = useState('departments');
   const [dropdownModuleFilter, setDropdownModuleFilter] = useState('all');
@@ -3313,16 +3329,25 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   };
 
   const handleDeleteUserAccount = (userId) => {
+    const targetUser = (superadminUsers || []).find(u => u.id === userId);
     openConfirm({
       title: 'Delete User Account?',
-      message: 'Are you sure you want to delete this user account? This will permanently remove their access and data from the system.',
+      message: 'Are you sure you want to delete this user account? This will move access to Recycle Bin.',
       confirmText: 'Delete Account',
       danger: true,
       onConfirm: async () => {
+        if (targetUser) {
+          softDeleteRecord({
+            originalId: userId,
+            name: targetUser.name || targetUser.email || `User #${userId}`,
+            category: 'System User',
+            entityData: targetUser,
+            links: 'User Permissions & Authentication Profile'
+          });
+        }
         try {
           if (db) {
             await deleteDoc(doc(db, 'users', userId.toString()));
-            showToast('🗑️ User deleted from Cloud Firestore!', 'success');
           }
         } catch (fbErr) {
           console.warn('Firebase user deletion failed:', fbErr.message);
@@ -3341,7 +3366,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           console.error(err);
         }
 
-        setSuperadminUsers(prev => prev.filter(u => u.id !== userId));
+        setSuperadminUsers(prev => {
+          const updated = prev.filter(u => u.id !== userId);
+          try {
+            localStorage.setItem('omnilflow_fallback_users', JSON.stringify(updated));
+          } catch (e) {}
+          return updated;
+        });
       }
     });
   };
@@ -3989,7 +4020,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       entityData: { company: targetCompany },
       moduleTab: 'Super Admin ➔ Manage Companies'
     });
-    setSuperadminCompanies(prev => (prev || []).filter(c => c.id !== companyId && c.tenant_id !== companyId));
+    setSuperadminCompanies(prev => {
+      const updated = (prev || []).filter(c => c.id !== companyId && c.tenant_id !== companyId);
+      try {
+        localStorage.setItem('omnilflow_fallback_companies', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
   };
 
   const handleDeleteSaasPlan = (planId) => {
@@ -4003,7 +4040,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       entityData: { plan: targetPlan },
       moduleTab: 'Super Admin ➔ Manage Plans'
     });
-    setBillingPlans(prev => (prev || []).filter(p => p.id !== planId));
+    setBillingPlans(prev => {
+      const updated = (prev || []).filter(p => p.id !== planId);
+      try {
+        localStorage.setItem('omnilflow_fallback_saas_plans', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
   };
 
   useEffect(() => {
@@ -4553,19 +4596,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     if (!confirm('Are you sure you want to delete this holiday?')) return;
 
     const holidayObj = holidays.find(h => h.id === id);
+    if (holidayObj) {
+      softDeleteRecord({
+        originalId: id,
+        name: holidayObj.name || `Holiday #${id}`,
+        category: 'Holiday List',
+        entityData: holidayObj,
+        links: 'Attendance Registry Linkages'
+      });
+    }
+
     try {
-      if (db && holidayObj) {
-        const binPayload = {
-          name: holidayObj.name,
-          type: 'Holiday List',
-          deletedAt: new Date().toLocaleString(),
-          links: 'Attendance Registry Linkages',
-          originalId: id,
-          payload: holidayObj
-        };
-        await setDoc(doc(db, 'recycle_bin', 'holiday_' + id), binPayload);
+      if (db) {
         await deleteDoc(doc(db, 'holidays', id.toString()));
-        showToast('🗑️ Moved Holiday to Recycle Bin!', 'success');
       }
     } catch (fbErr) {
       console.warn(fbErr.message);
@@ -5198,29 +5241,28 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     if (!confirm('Are you sure you want to delete this auto-reply rule?')) return;
 
     const ruleObj = chatbotRules.find(r => r.id === id);
-    try {
-      if (db && ruleObj) {
-        const binPayload = {
-          name: ruleObj.trigger_keyword || ruleObj.keyword || `Rule #${id}`,
-          type: 'Chatbot Rule',
-          deletedAt: new Date().toLocaleString(),
-          links: 'WhatsApp Event Triggers',
-          originalId: id,
-          payload: ruleObj
-        };
-        await setDoc(doc(db, 'recycle_bin', 'rule_' + id), binPayload);
-        showToast('🗑️ Auto-reply rule moved to Recycle Bin!', 'success');
-      }
-    } catch (fbErr) {
-      console.warn(fbErr.message);
+    if (ruleObj) {
+      softDeleteRecord({
+        originalId: id,
+        name: ruleObj.trigger_keyword || ruleObj.keyword || `Rule #${id}`,
+        category: 'Chatbot Rule',
+        entityData: ruleObj,
+        links: 'WhatsApp Event Triggers'
+      });
     }
 
     try {
       await fetch(`${API_URL}/chatbot/${id}`, { method: 'DELETE' });
-      setChatbotRules(prev => prev.filter(r => r.id !== id));
     } catch (err) {
       console.error('Failed to delete rule:', err);
     }
+    setChatbotRules(prev => {
+      const updated = prev.filter(r => r.id !== id);
+      try {
+        localStorage.setItem('omnilflow_fallback_chatbot_rules', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
   };
 
   const handleToggleRule = async (id, isActive) => {
@@ -5314,12 +5356,28 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   // Delete session
   const handleDeleteSession = async (id) => {
     if (!confirm('Are you sure you want to delete this session? This will log out the WhatsApp account.')) return;
+    const sessObj = sessions.find(s => s.id === id);
+    if (sessObj) {
+      softDeleteRecord({
+        originalId: id,
+        name: sessObj.phoneName || sessObj.id || `Session #${id}`,
+        category: 'WhatsApp Channel',
+        entityData: sessObj,
+        links: 'Active Baileys Session Connection'
+      });
+    }
     try {
       await fetch(`${API_URL}/sessions/${id}`, { method: 'DELETE' });
-      setSessions(prev => prev.filter(s => s.id !== id));
     } catch (err) {
       console.error('Error deleting session:', err);
     }
+    setSessions(prev => {
+      const updated = prev.filter(s => s.id !== id);
+      try {
+        localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
   };
 
   // Send WhatsApp message
@@ -5499,7 +5557,23 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
   // Delete Quick Reply template
   const handleDeleteQuickReply = (id) => {
-    setQuickReplies(quickReplies.filter(r => r.id !== id));
+    const target = quickReplies.find(r => r.id === id);
+    if (target) {
+      softDeleteRecord({
+        originalId: id,
+        name: target.title || `Template #${id}`,
+        category: 'Quick Reply Template',
+        entityData: target,
+        links: 'Chat Template Registry'
+      });
+    }
+    setQuickReplies(prev => {
+      const updated = prev.filter(r => r.id !== id);
+      try {
+        localStorage.setItem('omnilflow_quick_replies', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
   };
 
   // Update pipeline stage of a contact directly (e.g. from Kanban)
@@ -19223,6 +19297,14 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
 
   const handleDeleteCustomRole = (roleId, roleName) => {
     if (window.confirm(`Are you sure you want to delete custom role "${roleName}"?`)) {
+      const targetRole = (matrixState.customRoles || []).find(r => r.id === roleId);
+      softDeleteRecord({
+        originalId: roleId,
+        name: `Custom Role: "${roleName}"`,
+        category: 'Custom Role',
+        entityData: { role: targetRole, permissions: matrixState.permissions[roleId] },
+        links: 'RBAC Permission Matrix'
+      });
       setMatrixState(prev => {
         const updatedCustomRoles = (prev.customRoles || []).filter(r => r.id !== roleId);
         const updatedPermissions = { ...prev.permissions };
