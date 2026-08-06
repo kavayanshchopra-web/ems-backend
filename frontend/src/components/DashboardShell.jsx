@@ -18905,17 +18905,43 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
     };
   }, [activeRoleId, discoveredModules]);
 
+  const [sortField, setSortField] = useState('label'); // 'label' | 'scope'
+  const [sortOrder, setSortOrder] = useState('asc'); // 'asc' | 'desc'
+
+  const handleHeaderSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
   const allRoles = [...DEFAULT_ROLES, ...(matrixState.customRoles || [])];
 
   // Filter modules by Search Query
   const filteredModules = useMemo(() => {
-    if (!searchQuery.trim()) return discoveredModules;
-    const q = searchQuery.toLowerCase().trim();
-    return discoveredModules.filter(mod =>
-      mod.label.toLowerCase().includes(q) ||
-      (mod.category && mod.category.toLowerCase().includes(q))
-    );
-  }, [discoveredModules, searchQuery]);
+    let result = [...discoveredModules];
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(mod =>
+        mod.label.toLowerCase().includes(q) ||
+        (mod.category && mod.category.toLowerCase().includes(q))
+      );
+    }
+    // Apply Sorting
+    return result.sort((a, b) => {
+      let valA = (a[sortField] || '').toLowerCase();
+      let valB = (b[sortField] || '').toLowerCase();
+      if (sortField === 'scope') {
+        valA = (matrixState.permissions[activeRoleId]?.[a.id]?.scope || 'all').toLowerCase();
+        valB = (matrixState.permissions[activeRoleId]?.[b.id]?.scope || 'all').toLowerCase();
+      }
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [discoveredModules, searchQuery, sortField, sortOrder, matrixState, activeRoleId]);
 
   // Group modules by Category
   const groupedModules = useMemo(() => {
@@ -19210,12 +19236,9 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
           boxShadow: '0 4px 20px -2px rgba(0,0,0,0.05)'
         }}
       >
-        {/* Sub Header With Search & Density Controls */}
+        {/* Sub Header With Search, Density & Sorting Controls */}
         <div style={{ flexShrink: 0, padding: '10px 20px', background: '#ffffff', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <h3 style={{ fontSize: '14.5px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              Privileges for: <span style={{ color: '#0d9488', textTransform: 'uppercase', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 8px', borderRadius: '6px' }}>{currentRoleObj?.label || activeRoleId}</span>
-            </h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             {/* Real-time Module Search Input */}
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <span style={{ position: 'absolute', left: '10px', fontSize: '12px', color: '#94a3b8' }}>🔍</span>
@@ -19230,7 +19253,7 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                   borderRadius: '8px',
                   border: '1.5px solid #cbd5e1',
                   outline: 'none',
-                  width: '170px',
+                  width: '180px',
                   background: '#f8fafc',
                   fontWeight: '600',
                   color: '#1e293b'
@@ -19246,18 +19269,6 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                 </button>
               )}
             </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {activeRoleId === 'super_admin' ? (
-              <span style={{ fontSize: '11px', fontWeight: '800', color: '#16a34a', background: 'rgba(22, 163, 74, 0.12)', padding: '4px 10px', borderRadius: '7px', border: '1px solid rgba(22, 163, 74, 0.25)' }}>
-                🔒 Super Admin Immutable Access
-              </span>
-            ) : (
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', background: '#f8fafc', padding: '4px 8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                💡 Header Click = Select All
-              </span>
-            )}
 
             {/* Density View Switcher */}
             <div style={{ display: 'flex', alignItems: 'center', background: '#f1f5f9', padding: '2px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
@@ -19299,6 +19310,21 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
               </button>
             </div>
           </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              Privileges for: <span style={{ color: '#0d9488', textTransform: 'uppercase', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 8px', borderRadius: '6px' }}>{currentRoleObj?.label || activeRoleId}</span>
+            </h3>
+            {activeRoleId === 'super_admin' ? (
+              <span style={{ fontSize: '11px', fontWeight: '800', color: '#16a34a', background: 'rgba(22, 163, 74, 0.12)', padding: '4px 10px', borderRadius: '7px', border: '1px solid rgba(22, 163, 74, 0.25)' }}>
+                🔒 Super Admin Immutable Access
+              </span>
+            ) : (
+              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', background: '#f8fafc', padding: '4px 8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                💡 Click header to Select/Unselect All
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Unified Table Scroll Container */}
@@ -19307,6 +19333,8 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
             <thead>
               <tr style={{ background: '#f8fafc' }}>
                 <th
+                  onClick={() => handleHeaderSort('label')}
+                  title="Click to sort by Module Name"
                   style={{
                     position: 'sticky',
                     left: 0,
@@ -19321,12 +19349,16 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                     minWidth: isCompact ? '165px' : '200px',
                     borderRight: '1px solid #e2e8f0',
                     borderBottom: '2px solid #cbd5e1',
-                    boxShadow: '2px 0 5px rgba(0,0,0,0.03)'
+                    boxShadow: '2px 0 5px rgba(0,0,0,0.03)',
+                    cursor: 'pointer',
+                    userSelect: 'none'
                   }}
                 >
-                  Module Name
+                  Module Name {sortField === 'label' ? (sortOrder === 'asc' ? '▲' : '▼') : '⇅'}
                 </th>
                 <th
+                  onClick={() => handleHeaderSort('scope')}
+                  title="Click to sort by Record Access Scope"
                   style={{
                     position: 'sticky',
                     top: 0,
@@ -19339,10 +19371,12 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
                     color: '#334155',
                     minWidth: isCompact ? '125px' : '145px',
                     borderRight: '1px solid #e2e8f0',
-                    borderBottom: '2px solid #cbd5e1'
+                    borderBottom: '2px solid #cbd5e1',
+                    cursor: 'pointer',
+                    userSelect: 'none'
                   }}
                 >
-                  Record Scope
+                  Record Scope {sortField === 'scope' ? (sortOrder === 'asc' ? '▲' : '▼') : '⇅'}
                 </th>
                 {STANDARD_ACTIONS.map(act => {
                   const allModsChecked = discoveredModules.every(mod => Boolean(matrixState.permissions[activeRoleId]?.[mod.id]?.actions?.[act.id]));
