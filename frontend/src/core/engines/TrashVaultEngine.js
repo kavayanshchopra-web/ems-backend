@@ -45,17 +45,25 @@ class TrashVaultEngine {
         } catch (err) {}
       }
 
-      // If still empty or null, seed default demo records
-      if (!items || items.length === 0) {
-        items = DEFAULT_INITIAL_VAULT_ITEMS;
-        localStorage.setItem(storageKey, JSON.stringify(DEFAULT_INITIAL_VAULT_ITEMS));
-      }
+      if (!items) items = [];
+
+      // Filter out legacy dummy demo seed & old test items (e.g. emp_001, EMP-0271, EMP-0012, EMP-0013, kavayansh)
+      items = items.filter(i => {
+        const idStr = String(i.id || i.originalId || i.recycleBinId || '').toLowerCase();
+        const nameStr = String(i.name || i.title || '').toLowerCase();
+        const emailStr = String(i.deletedByEmail || i.email || '').toLowerCase();
+        if (idStr.includes('emp_00') || idStr.includes('emp-0271') || idStr.includes('emp-0012') || idStr.includes('emp-0013') || nameStr.includes('emp_001')) return false;
+        return true;
+      });
+
+      localStorage.setItem(storageKey, JSON.stringify(items));
+      try { localStorage.setItem('omnilflow_fallback_recycle_bin', JSON.stringify(items)); } catch (e) {}
 
       if (tenantId === 'all') return items;
       return items.filter(i => i.tenantId === tenantId);
     } catch (e) {
       console.error('TrashVaultEngine.getVaultItems error:', e);
-      return DEFAULT_INITIAL_VAULT_ITEMS;
+      return [];
     }
   }
 
@@ -99,8 +107,8 @@ class TrashVaultEngine {
   static restoreItem(tenantId, itemId) {
     try {
       const items = this.getVaultItems('all');
-      const itemToRestore = items.find(i => i.id === itemId);
-      const updated = items.filter(i => i.id !== itemId);
+      const itemToRestore = items.find(i => String(i.id) === String(itemId) || String(i.originalId) === String(itemId));
+      const updated = items.filter(i => String(i.id) !== String(itemId) && String(i.originalId) !== String(itemId));
       localStorage.setItem(`${STORAGE_PREFIX}all`, JSON.stringify(updated));
       return itemToRestore;
     } catch (e) {
@@ -115,8 +123,16 @@ class TrashVaultEngine {
   static purgeItem(tenantId, itemId) {
     try {
       const items = this.getVaultItems('all');
-      const updated = items.filter(i => i.id !== itemId);
+      const targetStr = String(itemId || '').trim().toLowerCase();
+      const updated = items.filter(i => {
+        const iId = String(i.id || '').trim().toLowerCase();
+        const origId = String(i.originalId || '').trim().toLowerCase();
+        const recId = String(i.recycleBinId || '').trim().toLowerCase();
+        if (iId === targetStr || origId === targetStr || recId === targetStr) return false;
+        return true;
+      });
       localStorage.setItem(`${STORAGE_PREFIX}all`, JSON.stringify(updated));
+      try { localStorage.setItem('omnilflow_fallback_recycle_bin', JSON.stringify(updated)); } catch (e) {}
       return true;
     } catch (e) {
       console.error('TrashVaultEngine.purgeItem error:', e);

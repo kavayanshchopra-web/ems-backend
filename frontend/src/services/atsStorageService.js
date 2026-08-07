@@ -9,90 +9,9 @@ import { loadAtsModuleConfig, saveAtsModuleConfig } from '../config/atsModuleCon
 const POSITIONS_STORAGE_KEY_PREFIX = 'omnilflow_recruitment_positions_';
 const CANDIDATES_STORAGE_KEY_PREFIX = 'omnilflow_recruitment_candidates_';
 
-export const DEFAULT_RECRUITMENT_POSITIONS = [
-  {
-    id: 'pos_101',
-    title: 'Senior React Developer — Chandigarh',
-    designation: 'Software Engineer',
-    department: 'IT & Engineering',
-    location: 'Chandigarh',
-    employmentType: 'Full-time',
-    openings: 2,
-    status: 'Open',
-    description: 'Looking for a Senior React.js developer to build enterprise SaaS tools.',
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'pos_102',
-    title: 'Sales Account Manager — Delhi',
-    designation: 'Sales Representative',
-    department: 'Sales & Marketing',
-    location: 'Delhi NCR',
-    employmentType: 'Full-time',
-    openings: 3,
-    status: 'Open',
-    description: 'Corporate sales account executive for North India market.',
-    createdAt: new Date().toISOString()
-  }
-];
+export const DEFAULT_RECRUITMENT_POSITIONS = [];
 
-export const DEFAULT_RECRUITMENT_CANDIDATES = [
-  {
-    id: 'ATS-005',
-    name: 'a',
-    position: 'Sales Representative',
-    status: 'Applied',
-    stage: 'Applied',
-    email: 'kavayanshchopra@gmail.com',
-    phone: '8566883642',
-    resume: 'Resume.pdf',
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'ATS-004',
-    name: 'Kavayansh Chopra',
-    position: 'Software Engineer',
-    status: 'Applied',
-    stage: 'Applied',
-    email: 'kavayanshchopra@gmail.com',
-    phone: '8566883642',
-    resume: 'Resume.pdf',
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'ATS-003',
-    name: 'Kavayansh Chopra',
-    position: 'Sales Representative',
-    status: 'Applied',
-    stage: 'Applied',
-    email: 'kavayanshchopra@gmail.com',
-    phone: '8566883642',
-    resume: 'Resume.pdf',
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'ATS-002',
-    name: 'Kavayansh Chopra',
-    position: 'Software Engineer',
-    status: 'Applied',
-    stage: 'Applied',
-    email: 'kavayanshchopra@gmail.com',
-    phone: '8566883642',
-    resume: 'Resume.pdf',
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'ATS-001',
-    name: 'Kavayansh Chopra',
-    position: 'Sales Representative',
-    status: 'Applied',
-    stage: 'Applied',
-    email: 'kavayanshchopra@gmail.com',
-    phone: '8566883642',
-    resume: 'Resume.pdf',
-    createdAt: new Date().toISOString()
-  }
-];
+export const DEFAULT_RECRUITMENT_CANDIDATES = [];
 
 export function formatCustomSequencePattern(pattern = 'ATS-001', seqNumber = 1) {
   if (!pattern || !pattern.trim()) return `ATS-${String(seqNumber).padStart(3, '0')}`;
@@ -213,14 +132,14 @@ export const atsStorageService = {
     const key = `${POSITIONS_STORAGE_KEY_PREFIX}${tenantKey}`;
     try {
       const saved = localStorage.getItem(key);
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {
       console.error('Error reading recruitment positions:', e);
     }
-    return DEFAULT_RECRUITMENT_POSITIONS;
+    return [];
   },
 
   saveRecruitmentPositions(companyId, positions) {
@@ -239,23 +158,19 @@ export const atsStorageService = {
     const key = `${CANDIDATES_STORAGE_KEY_PREFIX}${tenantKey}`;
     try {
       const saved = localStorage.getItem(key);
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((c, idx) => ({
-            position: c.position || 'Sales Representative',
-            email: c.email || 'kavayanshchopra@gmail.com',
-            phone: c.phone || '8566883642',
-            resume: c.resume || 'Resume.pdf',
-            ...c,
-            id: formatCandidateId(c.id, idx)
-          }));
-        }
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      const fallbackSaved = localStorage.getItem('omnilflow_ats_candidates');
+      if (fallbackSaved !== null) {
+        const parsed = JSON.parse(fallbackSaved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch (e) {
       console.error('Error reading candidates:', e);
     }
-    return DEFAULT_RECRUITMENT_CANDIDATES;
+    return [];
   },
 
   saveCandidates(companyId, candidates) {
@@ -263,6 +178,7 @@ export const atsStorageService = {
     const key = `${CANDIDATES_STORAGE_KEY_PREFIX}${tenantKey}`;
     try {
       localStorage.setItem(key, JSON.stringify(candidates));
+      localStorage.setItem('omnilflow_ats_candidates', JSON.stringify(candidates));
     } catch (e) {
       console.error('Error saving candidates:', e);
     }

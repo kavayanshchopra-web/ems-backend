@@ -11,6 +11,8 @@ import ArchivedModal from './ArchivedModal';
 import { LabelEngine } from '../LabelEngine';
 import { getNextSequentialId } from '../../../services/atsStorageService';
 
+import FirebaseCloudEngine from '../FirebaseCloudEngine';
+
 export default function ActionEngine({
   moduleConfig = {},
   records = [],
@@ -63,6 +65,12 @@ export default function ActionEngine({
         return r;
       });
       setRecords(updatedList);
+
+      const editedRec = updatedList.find(r => r.id === selectedRecord.id);
+      if (editedRec && moduleConfig.moduleId) {
+        FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, editedRec, 'acme_corp');
+      }
+
       showToast(`Updated ${entityName.toLowerCase()} "${normalizedData.name || selectedRecord.id}"`, 'success');
       setShowEditModal(false);
     } else {
@@ -77,6 +85,10 @@ export default function ActionEngine({
         lifecycleStatus: 'ACTIVE'
       };
       setRecords([newRec, ...records]);
+
+      if (moduleConfig.moduleId) {
+        FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, newRec, 'acme_corp');
+      }
 
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('omnilflow_config_updated', {
@@ -109,6 +121,10 @@ export default function ActionEngine({
       lifecycleStatus: 'ARCHIVED',
       archivedAt: new Date().toISOString()
     };
+
+    if (moduleConfig.moduleId && record.id) {
+      FirebaseCloudEngine.deleteRecord(moduleConfig.moduleId, record.id);
+    }
 
     if (typeof softDeleteRecord === 'function') {
       softDeleteRecord({
@@ -147,11 +163,16 @@ export default function ActionEngine({
       ...payloadRec,
       id: item.originalId || payloadRec.id || `${moduleConfig.moduleId}_${Date.now()}`,
       archived: false,
+      is_archived: 0,
       lifecycleStatus: 'ACTIVE',
       updatedAt: new Date().toISOString()
     };
 
     setRecords([restoredRecord, ...records.filter(r => r.id !== restoredRecord.id)]);
+
+    if (moduleConfig.moduleId) {
+      FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, restoredRecord, 'acme_corp');
+    }
 
     if (typeof handleRestoreBinItem === 'function') {
       handleRestoreBinItem(item);
@@ -167,16 +188,23 @@ export default function ActionEngine({
   };
 
   const handleMoveStage = (recordId, newStage) => {
+    let movedRec = null;
     const updatedList = records.map(r => {
-      if (r.id === recordId) {
-        return { ...r, status: newStage, stage: newStage, updatedAt: new Date().toISOString() };
+      if (String(r.id) === String(recordId)) {
+        movedRec = { ...r, status: newStage, stage: newStage, updatedAt: new Date().toISOString() };
+        return movedRec;
       }
       return r;
     });
     setRecords(updatedList);
+
+    if (movedRec && moduleConfig.moduleId) {
+      FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, movedRec, 'acme_corp');
+    }
+
     showToast(`Moved record to ${newStage}`, 'info');
 
-    if (selectedRecord && selectedRecord.id === recordId) {
+    if (selectedRecord && String(selectedRecord.id) === String(recordId)) {
       setSelectedRecord(prev => prev ? { ...prev, status: newStage, stage: newStage } : null);
     }
   };

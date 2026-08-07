@@ -15,6 +15,9 @@ import { useModuleRegistry } from '../core/registry/useModuleRegistry';
 import { PermissionEngine, STANDARD_ACTIONS, ACCESS_SCOPES, DEFAULT_ROLES } from '../core/engines/PermissionEngine/permissionEngine';
 import TrashVaultEngine from '../core/engines/TrashVaultEngine';
 import ShiftEngine from '../core/engines/ShiftEngine';
+import { LabelEngine } from '../core/engines/LabelEngine';
+import FirebaseCloudEngine from '../core/engines/FirebaseCloudEngine';
+import { atsStorageService } from '../services/atsStorageService';
 import {
   auth,
   db,
@@ -740,10 +743,33 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     return () => theadEl.removeEventListener('wheel', handleWheel);
   }, [activeTab]);
 
-  useEffect(() => {
-    if (activeTab === 'recycle_bin') {
+  const fetchRecycleBin = async () => {
+    try {
+      const cloudBin = await FirebaseCloudEngine.fetchRecords('recycle_bin', 'all');
+      const localBin = TrashVaultEngine.getVaultItems('all');
+      const map = new Map();
+      (localBin || []).forEach(item => { if (item && (item.id || item.originalId)) map.set(String(item.id || item.originalId), item); });
+      (cloudBin || []).forEach(item => { if (item && (item.id || item.originalId)) map.set(String(item.id || item.originalId), item); });
+      setRecycleBinItems(Array.from(map.values()));
+    } catch (e) {
       setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
     }
+  };
+
+  useEffect(() => {
+    fetchRecycleBin();
+    const unsubBin = FirebaseCloudEngine.subscribeToCollection('recycle_bin', 'all', (records) => {
+      if (Array.isArray(records)) {
+        const localBin = TrashVaultEngine.getVaultItems('all');
+        const map = new Map();
+        (localBin || []).forEach(item => { if (item && (item.id || item.originalId)) map.set(String(item.id || item.originalId), item); });
+        (records || []).forEach(item => { if (item && (item.id || item.originalId)) map.set(String(item.id || item.originalId), item); });
+        setRecycleBinItems(Array.from(map.values()));
+      }
+    });
+    return () => {
+      unsubBin();
+    };
   }, [activeTab]);
 
   // Universal Soft-Delete Handler handled by async softDeleteRecord below
@@ -1315,50 +1341,41 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
   const [assets, setAssets] = useState(() => {
     const saved = localStorage.getItem('omnilflow_fallback_assets');
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.filter(a => !isDummyRecord(a));
+        }
       } catch (e) {}
     }
-    const defaultAssets = [
-      { id: 'AST-0001', tag: 'AST-LAP-001', name: 'MacBook Pro M2 16"', category: 'Laptop', assignedTo: 'Rahul Sharma', purchaseDate: '2025-01-15', purchaseValue: '180000', status: 'In Use' },
-      { id: 'AST-0002', tag: 'AST-MOB-002', name: 'iPhone 15 Pro 256GB', category: 'Mobile Phone', assignedTo: 'Kavayansh Chopra', purchaseDate: '2025-02-20', purchaseValue: '130000', status: 'In Use' },
-      { id: 'AST-0003', tag: 'AST-MON-003', name: 'Dell UltraSharp 27" 4K', category: 'Monitor', assignedTo: 'Priya Verma', purchaseDate: '2025-03-10', purchaseValue: '45000', status: 'In Use' },
-      { id: 'AST-0004', tag: 'AST-PER-004', name: 'Logitech MX Master 3S', category: 'Peripheral', assignedTo: 'Unassigned', purchaseDate: '2025-04-05', purchaseValue: '9900', status: 'Available' }
-    ];
-    try { localStorage.setItem('omnilflow_fallback_assets', JSON.stringify(defaultAssets)); } catch (e) {}
-    return defaultAssets;
+    return [];
   });
 
   const [kycDocuments, setKycDocuments] = useState(() => {
     const saved = localStorage.getItem('omnilflow_fallback_kyc_documents');
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.filter(k => !isDummyRecord(k));
+        }
       } catch (e) {}
     }
-    return [
-      { id: 'KYC-0001', tag: 'KYC-0001', name: 'Kavayansh Chopra', aadharCard: '✓ Verified', panCard: '✓ Verified', bankPassbook: '✓ Verified', degreeCert: '✓ Verified', status: 'Fully Verified' },
-      { id: 'KYC-0002', tag: 'KYC-0002', name: 'Rahul Sharma', aadharCard: '✓ Verified', panCard: '✓ Verified', bankPassbook: '⏳ Pending', degreeCert: '✓ Verified', status: 'Pending Review' },
-      { id: 'KYC-0003', tag: 'KYC-0003', name: 'Priya Verma', aadharCard: '✓ Verified', panCard: '✓ Verified', bankPassbook: '✓ Verified', degreeCert: '✓ Verified', status: 'Fully Verified' },
-      { id: 'KYC-0004', tag: 'KYC-0004', name: 'Amit Kumar', aadharCard: '✓ Verified', panCard: '✓ Verified', bankPassbook: '⏳ Pending', degreeCert: '✓ Verified', status: 'Pending Review' }
-    ];
+    return [];
   });
 
   const [offboardingCases, setOffboardingCases] = useState(() => {
     const saved = localStorage.getItem('omnilflow_fallback_offboarding_cases');
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.filter(o => !isDummyRecord(o));
+        }
       } catch (e) {}
     }
-    return [
-      { id: 'EXIT-0001', tag: 'EXIT-0001', employee: 'Aarav Sharma', resignationDate: '2026-07-15', lastWorkingDay: '2026-08-15', noticePeriod: '30 Days', assetClearance: '✓ Cleared', financeClearance: '✓ Cleared', stage: 'NOC Clearance', reason: 'Career Advancement & Higher Studies' },
-      { id: 'EXIT-0002', tag: 'EXIT-0002', employee: 'Neha Verma', resignationDate: '2026-08-01', lastWorkingDay: '2026-08-31', noticePeriod: '30 Days', assetClearance: '⏳ Pending Return', financeClearance: '✓ Cleared', stage: 'Resignation Submitted', reason: 'Personal & Relocation' }
-    ];
+    return [];
   });
 
   const [sessions, setSessions] = useState([]);
@@ -2832,27 +2849,23 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          // Clean out legacy dummy seed records (emp_002, emp_003, emp_004)
-          const cleaned = parsed.filter(e => e.id !== 'emp_002' && e.id !== 'emp_003' && e.id !== 'emp_004' && e.id !== 'EMP-0002' && e.id !== 'EMP-0003' && e.id !== 'EMP-0004');
+          // Clean out legacy dummy seed records & old test records (emp_001, emp_002, emp_003, emp_004, EMP-0271, EMP-0012, EMP-0013)
+          const cleaned = parsed.filter(e => {
+            const idStr = String(e.id || e.originalId || '').toLowerCase();
+            const nameStr = String(e.name || e.first_name || '').toLowerCase();
+            return !idStr.includes('emp_00') && !idStr.includes('emp-0271') && !idStr.includes('emp-0012') && !idStr.includes('emp-0013') && !nameStr.includes('emp_001');
+          });
           localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(cleaned));
+          try { localStorage.setItem('omnilflow_cloud_cache_employees', JSON.stringify(cleaned)); } catch (e) {}
           return cleaned;
         }
       } catch (e) {}
     }
-    const defaultRoster = [
-      {
-        id: 'emp_001',
-        first_name: 'Kavayansh',
-        last_name: 'Chopra',
-        email: 'kavayanshchopra@gmail.com',
-        phone: '8566883642',
-        role: 'employee',
-        department: 'Software Engineering',
-        salary: '85000',
-        status: 'active'
-      }
-    ];
-    try { localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(defaultRoster)); } catch (e) {}
+    const defaultRoster = [];
+    try {
+      localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(defaultRoster));
+      localStorage.setItem('omnilflow_cloud_cache_employees', JSON.stringify(defaultRoster));
+    } catch (e) {}
     return defaultRoster;
   });
   const [isEmployeesLoading, setIsEmployeesLoading] = useState(false);
@@ -3662,33 +3675,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       } catch (e) {}
     }
 
-    // 1. Primary: Firebase Firestore Cloud Connection
+    // 1. Primary: Firebase Cloud Engine (with domain & tenant isolation)
     try {
-      if (db) {
-        const qSnap = await getDocs(collection(db, 'employees'));
-        const fbList = [];
-        for (const docDoc of qSnap.docs) {
-          const rec = { id: docDoc.id, ...docDoc.data() };
-          if (isDummyRecord(rec)) {
-            // Auto-purge dummy seed doc directly from Firestore
-            try { await deleteDoc(doc(db, 'employees', docDoc.id)); } catch (e) {}
-          } else {
-            fbList.push(rec);
-          }
-        }
-
-        // Clean out legacy items in recycle_bin as well
-        try {
-          const binSnap = await getDocs(collection(db, 'recycle_bin'));
-          for (const binDoc of binSnap.docs) {
-            if (isDummyRecord(binDoc.data())) {
-              try { await deleteDoc(doc(db, 'recycle_bin', binDoc.id)); } catch (e) {}
-            }
-          }
-        } catch (e) {}
-
-        setEmployees(fbList);
-        localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(fbList));
+      const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
+      const cloudRecords = await FirebaseCloudEngine.fetchRecords('employees', currentTenantId);
+      if (Array.isArray(cloudRecords)) {
+        const map = new Map();
+        localList.forEach(e => { if (e && e.id) map.set(String(e.id), e); });
+        cloudRecords.forEach(e => { if (e && e.id) map.set(String(e.id), e); });
+        const cleaned = Array.from(map.values()).filter(e => !isDummyRecord(e));
+        setEmployees(cleaned);
+        localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(cleaned));
         setIsEmployeesLoading(false);
         return;
       }
@@ -3705,6 +3702,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     e.preventDefault();
     setIsEmployeesLoading(true);
     const isEdit = !!newEmployeeForm.id;
+    const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
+    const activeTenantId = FirebaseCloudEngine.getTenantId(currentTenantId);
 
     const newEmpObj = {
       id: isEdit ? newEmployeeForm.id : Date.now(),
@@ -3715,7 +3714,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       role: newEmployeeForm.role,
       department: newEmployeeForm.department,
       salary: newEmployeeForm.salary,
-      status: newEmployeeForm.status || 'active'
+      status: newEmployeeForm.status || 'active',
+      tenantId: activeTenantId
     };
 
     // 1. Instant Local State & Fallback LocalStorage Sync
@@ -3744,18 +3744,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.warn('Backend employee save failed, preserved in local store:', err.message);
     }
 
-    // 3. Save to Cloud Firestore if available
-    try {
-      if (db) {
-        if (isEdit) {
-          await setDoc(doc(db, 'employees', newEmployeeForm.id.toString()), newEmpObj);
-        } else {
-          await addDoc(collection(db, 'employees'), newEmpObj);
-        }
-      }
-    } catch (fbErr) {
-      console.warn('Firestore write failed:', fbErr.message);
-    }
+    // 3. Save to Cloud Firestore & Local Engine Cache
+    FirebaseCloudEngine.saveRecord('employees', newEmpObj, activeTenantId);
 
     addNotification('👤 New Employee Profile', `${newEmployeeForm.firstName} ${newEmployeeForm.lastName || ''} (${newEmployeeForm.department}) added.`, 'employees');
     showToast(isEdit ? 'Employee profile updated successfully!' : 'Employee added successfully!', 'success');
@@ -3776,33 +3766,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setIsEmployeesLoading(false);
   };
 
-  const fetchRecycleBin = async () => {
-    try {
-      if (db) {
-        const qSnap = await getDocs(collection(db, 'recycle_bin'));
-        const list = [];
-        qSnap.forEach(docDoc => {
-          list.push({ id: docDoc.id, ...docDoc.data() });
-        });
-        if (list.length > 0) {
-          setRecycleBinItems(list);
-          localStorage.setItem('omnilflow_fallback_recycle_bin', JSON.stringify(list));
-          return;
-        }
-      }
-    } catch (fbErr) {
-      console.warn('Firebase query recycle bin failed:', fbErr.message);
-    }
-    const saved = localStorage.getItem('omnilflow_fallback_recycle_bin');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setRecycleBinItems(parsed);
-        }
-      } catch (e) {}
-    }
-  };
+
 
   const softDeleteRecord = async ({ originalId, id, name, category, entityData, moduleTab, links, preservedLinks }) => {
     const targetId = originalId || id || (entityData && entityData.id);
@@ -3856,28 +3820,38 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   };
 
   const handlePermanentDeleteBinItem = async (itemIdOrObj, itemName) => {
-    const itemId = (typeof itemIdOrObj === 'object' && itemIdOrObj !== null)
-      ? (itemIdOrObj.id || itemIdOrObj.originalId || itemIdOrObj.recycleBinId)
-      : itemIdOrObj;
-
-    const targetItem = (recycleBinItems || []).find(x => String(x.id) === String(itemId) || String(x.recycleBinId) === String(itemId) || String(x.originalId) === String(itemId));
-    const titleToDisplay = itemName || targetItem?.name || 'this record';
+    const rawObj = (typeof itemIdOrObj === 'object' && itemIdOrObj !== null) ? itemIdOrObj : null;
+    const itemId = rawObj ? (rawObj.id || rawObj.recycleBinId || rawObj.originalId) : itemIdOrObj;
+    const originalId = rawObj ? (rawObj.originalId || rawObj.id) : itemIdOrObj;
+    const targetStr = String(itemIdOrObj?.id || itemIdOrObj?.originalId || itemIdOrObj || '');
 
     try {
-      if (db && itemId) {
-        await deleteDoc(doc(db, 'recycle_bin', itemId.toString()));
+      if (db) {
+        if (targetStr) await deleteDoc(doc(db, 'recycle_bin', targetStr.toString())).catch(() => {});
+        if (itemId) await deleteDoc(doc(db, 'recycle_bin', itemId.toString())).catch(() => {});
+        if (originalId) await deleteDoc(doc(db, 'recycle_bin', originalId.toString())).catch(() => {});
+        if (originalId) await deleteDoc(doc(db, 'employees', originalId.toString())).catch(() => {});
       }
     } catch (fbErr) {
       console.warn('Firebase purge item error:', fbErr.message);
     }
-    TrashVaultEngine.purgeItem('all', itemId);
+
+    TrashVaultEngine.purgeItem('all', targetStr);
+    if (itemId) TrashVaultEngine.purgeItem('all', itemId);
+    if (originalId) TrashVaultEngine.purgeItem('all', originalId);
+
+    // Sync cloud caches & local storage
+    FirebaseCloudEngine.deleteRecord('recycle_bin', targetStr);
+    if (itemId) FirebaseCloudEngine.deleteRecord('recycle_bin', itemId);
+    if (originalId) FirebaseCloudEngine.deleteRecord('recycle_bin', originalId);
+
     setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
     showToast(`❌ Permanently purged record from vault.`, 'info');
   };
 
   const handleRestoreBinItem = async (itemOrId) => {
     let item = (itemOrId && typeof itemOrId === 'object')
-      ? itemOrId
+      ? (itemOrId._vaultRawItem || itemOrId)
       : (recycleBinItems || []).find(x => String(x.id) === String(itemOrId) || String(x.recycleBinId) === String(itemOrId) || String(x.originalId) === String(itemOrId));
 
     if (!item) {
@@ -3890,68 +3864,98 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       } catch (e) {}
     }
 
+    if (!item && itemOrId && typeof itemOrId === 'object') {
+      item = itemOrId._vaultRawItem || itemOrId;
+    }
+
     if (!item) {
       console.warn('handleRestoreBinItem: Record not found for itemOrId:', itemOrId);
       return;
     }
 
-    const payload = item.payload || item.entityData || {};
-    const type = String(item.type || item.category || item.moduleTab || '');
+    const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
+    const payload = item.payload || item.entityData || item;
+    const type = String(item.type || item.category || item.moduleTab || '').toLowerCase();
     const restoredRecord = payload.record || payload.employee || payload.candidate || payload.asset || payload;
+    const cleanId = item.originalId || restoredRecord.id || restoredRecord.originalId || item.id;
+
+    const cleanRec = {
+      ...restoredRecord,
+      id: cleanId,
+      originalId: cleanId,
+      archived: false,
+      is_archived: 0,
+      lifecycleStatus: 'ACTIVE',
+      updatedAt: new Date().toISOString()
+    };
 
     try {
       if (db) {
-        let colName = null;
-        if (type.includes('Employee') || (item.moduleTab || '').includes('employee')) colName = 'employees';
-        else if (type.includes('Task')) colName = 'tasks';
-        else if (type.includes('Notice')) colName = 'notices';
-        else if (type.includes('Holiday')) colName = 'holidays';
-        else if (type.includes('Chatbot') || type.includes('Auto-Reply')) colName = 'chatbot_rules';
-        else if (type.includes('Company')) colName = 'companies';
-        else if (type.includes('SaaS Plan')) colName = 'saas_plans';
-        else if (type.includes('System User')) colName = 'system_users';
-        else if (type.includes('Lead') || type.includes('CRM')) colName = 'crm_leads';
+        let colName = 'crm_leads';
+        if (type.includes('employee')) colName = 'employees';
+        else if (type.includes('task')) colName = 'tasks';
+        else if (type.includes('notice')) colName = 'notices';
+        else if (type.includes('holiday')) colName = 'holidays';
+        else if (type.includes('chatbot') || type.includes('reply')) colName = 'chatbot_rules';
+        else if (type.includes('company')) colName = 'companies';
+        else if (type.includes('plan')) colName = 'saas_plans';
+        else if (type.includes('ats') || type.includes('candidate') || type.includes('recruitment')) colName = 'recruitment_ats';
+        else if (type.includes('lead') || type.includes('crm') || type.includes('contact') || type.includes('deal')) colName = 'crm_leads';
 
-        if (colName && item.originalId) {
-          await setDoc(doc(db, colName, item.originalId.toString()), restoredRecord);
+        if (colName && cleanRec.id) {
+          await setDoc(doc(db, colName, cleanRec.id.toString()), cleanRec);
         }
-        await deleteDoc(doc(db, 'recycle_bin', item.id.toString()));
+        if (item.id) await deleteDoc(doc(db, 'recycle_bin', item.id.toString()));
       }
     } catch (fbErr) {
       console.warn('Firebase restore failed:', fbErr.message);
     }
 
-    const isEmployee = type.toLowerCase().includes('employee') || (item.moduleTab || '').toLowerCase().includes('employee') || (item.name || '').toLowerCase().includes('employee');
-
-    if (isEmployee || (item.moduleTab || '').toLowerCase().includes('employees')) {
+    if (type.includes('employee')) {
       setEmployees(prev => {
-        const cleanRec = { ...restoredRecord, id: item.originalId || restoredRecord.id || item.id };
         const filtered = prev.filter(e => String(e.id) !== String(cleanRec.id));
         const updated = [cleanRec, ...filtered];
-        try {
-          localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(updated));
-        } catch (e) {}
+        try { localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(updated)); } catch (e) {}
         return updated;
       });
+      FirebaseCloudEngine.saveRecord('employees', cleanRec, currentTenantId);
       fetchEmployees();
-    } else if (type.toLowerCase().includes('task')) {
-      setTasks(prev => [restoredRecord, ...prev]);
+    } else if (type.includes('task')) {
+      setTasks(prev => {
+        const updated = [cleanRec, ...prev.filter(t => String(t.id) !== String(cleanRec.id))];
+        try { localStorage.setItem('omnilflow_fallback_tasks', JSON.stringify(updated)); } catch (e) {}
+        return updated;
+      });
+      FirebaseCloudEngine.saveRecord('tasks', cleanRec, currentTenantId);
       fetchTasks();
-    } else if (type.toLowerCase().includes('ats candidate') || (item.moduleTab || '').toLowerCase().includes('ats')) {
+    } else if (type.includes('ats') || type.includes('candidate') || type.includes('recruitment')) {
       setAtsCandidates(prev => {
-        const cleanRec = { ...restoredRecord, id: item.originalId || restoredRecord.id || item.id };
-        return [cleanRec, ...prev.filter(c => String(c.id) !== String(cleanRec.id))];
+        const updated = [cleanRec, ...prev.filter(c => String(c.id) !== String(cleanRec.id))];
+        atsStorageService.saveCandidates(currentTenantId, updated);
+        return updated;
       });
-    } else if (type.toLowerCase().includes('asset') || (item.moduleTab || '').toLowerCase().includes('asset')) {
+      FirebaseCloudEngine.saveRecord('recruitment_ats', cleanRec, currentTenantId);
+    } else if (type.includes('asset') || type.includes('device')) {
       setAssets(prev => {
-        const cleanRec = { ...restoredRecord, id: item.originalId || restoredRecord.id || item.id };
-        return [cleanRec, ...prev.filter(a => String(a.id) !== String(cleanRec.id))];
+        const updated = [cleanRec, ...prev.filter(a => String(a.id) !== String(cleanRec.id))];
+        try { localStorage.setItem('omnilflow_fallback_assets', JSON.stringify(updated)); } catch (e) {}
+        return updated;
       });
+      FirebaseCloudEngine.saveRecord('assets', cleanRec, currentTenantId);
+    } else {
+      // Default: Restore as CRM Lead / Contact
+      setContacts(prev => {
+        const updated = [cleanRec, ...prev.filter(c => String(c.id) !== String(cleanRec.id))];
+        try { localStorage.setItem('omnilflow_fallback_contacts', JSON.stringify(updated)); } catch (e) {}
+        return updated;
+      });
+      FirebaseCloudEngine.saveRecord('crm_leads', cleanRec, currentTenantId);
     }
 
-    TrashVaultEngine.restoreItem('all', item.id);
+    if (item.id) TrashVaultEngine.restoreItem('all', item.id);
+    if (cleanId) TrashVaultEngine.restoreItem('all', cleanId);
     setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
-    showToast(`🔄 Restored "${item.name || item.title || 'Record'}" to active workspace!`, 'success');
+    showToast(`🔄 Restored "${cleanRec.name || cleanRec.title || item.name || 'Record'}" to active workspace!`, 'success');
   };
 
   const handleEmptyBinVault = () => {
@@ -5069,16 +5073,47 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   };
 
   const fetchContacts = async () => {
+    const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
+    let list = [];
+
+    // 1. Primary: Cloud Firestore Database
+    try {
+      const cloudRecords = await FirebaseCloudEngine.fetchRecords('crm_leads', currentTenantId);
+      if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
+        list = cloudRecords;
+      }
+    } catch (e) {}
+
+    // 2. Secondary: REST API backend
     try {
       const res = await fetch(`${API_URL}/contacts`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setContacts(data);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const map = new Map();
+          list.forEach(c => { if (c && c.id) map.set(String(c.id), c); });
+          data.forEach(c => { if (c && c.id && !map.has(String(c.id))) map.set(String(c.id), c); });
+          list = Array.from(map.values());
+        }
       }
-    } catch (err) {
-      console.error('Failed to fetch contacts:', err);
-    }
+    } catch (err) {}
+
+    // 3. Fallback & Local Storage Merge (Ensures newly added leads are NEVER lost)
+    try {
+      const saved = localStorage.getItem('omnilflow_fallback_contacts');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const map = new Map();
+          parsed.forEach(c => { if (c && c.id) map.set(String(c.id), c); });
+          list.forEach(c => { if (c && c.id) map.set(String(c.id), c); });
+          list = Array.from(map.values());
+        }
+      }
+    } catch (e) {}
+
+    setContacts(list);
+    try { localStorage.setItem('omnilflow_fallback_contacts', JSON.stringify(list)); } catch (e) {}
   };
 
   const fetchMessages = async (contactId, append = false) => {
@@ -5115,16 +5150,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       return;
     }
 
-    // Choose connected session
+    const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
     const activeSession = newChatSessionId || (sessions.find(s => s.status === 'connected')?.id);
-    if (!activeSession) {
-      setNewChatError('Please select or connect a WhatsApp channel first.');
-      return;
-    }
 
     setIsCreatingNewChat(true);
     setNewChatError('');
 
+    let data = null;
     try {
       const res = await fetch(`${API_URL}/contacts/new`, {
         method: 'POST',
@@ -5133,33 +5165,49 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           phone: newChatPhone.trim(),
           name: newChatName.trim() || null,
           initialMessage: newChatInitialMsg.trim() || null,
-          sessionId: activeSession
+          sessionId: activeSession || 'default_session'
         })
       });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to start new chat');
+      if (res.ok) {
+        data = await res.json();
       }
-
-      // Reload contacts list
-      await fetchContacts();
-
-      // Auto-select this contact as active
-      setActiveContact(data);
-
-      // Reset form and close modal
-      setNewChatPhone('');
-      setNewChatName('');
-      setNewChatInitialMsg('');
-      setNewChatError('');
-      setShowNewChatModal(false);
     } catch (err) {
-      console.error(err);
-      setNewChatError(err.message || 'Failed to start chat. Make sure the number is valid.');
-    } finally {
-      setIsCreatingNewChat(false);
+      console.warn('REST API contact create failed, fallback to local & cloud sync:', err.message);
     }
+
+    if (!data) {
+      const phoneClean = newChatPhone.trim();
+      const contactId = phoneClean.includes('@') ? phoneClean : `${phoneClean}@c.us`;
+      data = {
+        id: contactId,
+        name: newChatName.trim() || phoneClean,
+        custom_name: newChatName.trim() || phoneClean,
+        phone: phoneClean,
+        pipeline_stage: 'new',
+        is_archived: 0,
+        unread_count: 0,
+        created_at: new Date().toISOString()
+      };
+    }
+
+    // Persist to Cloud Firestore and local storage cache
+    FirebaseCloudEngine.saveRecord('crm_leads', data, currentTenantId);
+
+    setContacts(prev => {
+      const filtered = prev.filter(c => String(c.id) !== String(data.id));
+      const updated = [data, ...filtered];
+      try { localStorage.setItem('omnilflow_fallback_contacts', JSON.stringify(updated)); } catch (e) {}
+      return updated;
+    });
+
+    setActiveContact(data);
+    setNewChatPhone('');
+    setNewChatName('');
+    setNewChatInitialMsg('');
+    setNewChatError('');
+    setShowNewChatModal(false);
+    setIsCreatingNewChat(false);
+    showToast(`🎯 New Lead "${data.name || data.custom_name || data.phone}" created successfully!`, 'success');
   };
 
   const fetchChatbotRules = async () => {

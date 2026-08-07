@@ -113,16 +113,18 @@ export default function LayoutEngine({
   });
 
   const unwrapArchivedRecord = (item) => {
-    const payloadRec = item.payload?.record || item.entityData?.record || item.payload?.candidate || item.payload || {};
+    const payloadRec = item.payload?.record || item.entityData?.record || item.payload?.employee || item.payload?.candidate || item.payload?.asset || item.payload || {};
+    const trueId = item.originalId || payloadRec.id || payloadRec.originalId || item.id;
     return {
       ...payloadRec,
-      ...item,
-      id: item.originalId || item.id || payloadRec.id,
-      recycleBinId: item.id,
-      name: item.name || payloadRec.name || payloadRec.title,
-      title: item.title || payloadRec.title || item.name || payloadRec.name,
+      id: trueId,
+      originalId: trueId,
+      recycleBinId: item.id || trueId,
+      name: payloadRec.name || payloadRec.title || (payloadRec.first_name ? `${payloadRec.first_name || ''} ${payloadRec.last_name || ''}`.trim() : null) || item.name || item.title,
+      title: payloadRec.title || payloadRec.name || item.title || item.name,
       createdAt: item.deletedAt || item.archivedAt || item.timestamp || payloadRec.createdAt,
-      archivedBy: item.deletedBy || item.archivedBy || item.user || 'System Administrator'
+      archivedBy: item.deletedBy || item.archivedBy || item.user || 'System Administrator',
+      _vaultRawItem: item
     };
   };
 
@@ -242,8 +244,18 @@ export default function LayoutEngine({
         onEditRecord={(rec) => { setSelectedRecord(rec); setShowEditModal(true); }}
         onArchiveRecord={(rec) => { setRecordToArchive(rec); setSelectedRecord(rec); setShowArchiveModal(true); }}
         onMoveStage={(recId, newStage) => {
-          const updated = records.map(r => r.id === recId ? { ...r, status: newStage, stage: newStage } : r);
+          let movedRec = null;
+          const updated = records.map(r => {
+            if (String(r.id) === String(recId)) {
+              movedRec = { ...r, status: newStage, stage: newStage, updatedAt: new Date().toISOString() };
+              return movedRec;
+            }
+            return r;
+          });
           setRecords(updated);
+          if (movedRec && moduleConfig.moduleId) {
+            FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, movedRec, 'acme_corp');
+          }
           showToast(`Moved record to ${newStage}`, 'info');
         }}
         onResetFilters={handleResetFilters}

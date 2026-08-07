@@ -3,11 +3,12 @@
  * 100% Schema-Driven Reference Implementation using Global EMS Configuration Engine
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import PositionManagerView from './PositionManagerView';
 import { atsStorageService, formatCandidateId } from '../../services/atsStorageService';
+import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
 
 const DEFAULT_PIPELINE_STAGES = [
   { id: 'applied', key: 'APPLIED', name: 'Applied', emoji: '📥', color: '#0d9488', semanticType: 'APPLIED', sortOrder: 1 },
@@ -42,13 +43,43 @@ export default function RecruitmentAtsView({
   const [candidatesState, setCandidatesState] = useState(() => {
     let baseList = atsStorageService.getCandidates(companyId);
     if (Array.isArray(atsCandidates) && atsCandidates.length > 0) {
-      baseList = atsCandidates;
+      const mergedMap = new Map();
+      baseList.forEach(c => mergedMap.set(String(c.id), c));
+      atsCandidates.forEach(c => mergedMap.set(String(c.id), c));
+      baseList = Array.from(mergedMap.values());
     }
     return baseList.map((c, idx) => ({
       ...c,
       id: formatCandidateId(c.id, idx, config)
     }));
   });
+
+  // Sync with Firestore Cloud Connection on mount
+  useEffect(() => {
+    let isMounted = true;
+    async function syncFromCloud() {
+      try {
+        const cloudRecords = await FirebaseCloudEngine.fetchRecords('recruitment_ats', 'acme_corp');
+        if (isMounted && Array.isArray(cloudRecords) && cloudRecords.length > 0) {
+          setCandidatesState(prev => {
+            const map = new Map();
+            prev.forEach(item => map.set(String(item.id), item));
+            cloudRecords.forEach(item => map.set(String(item.id), item));
+            const merged = Array.from(map.values());
+            atsStorageService.saveCandidates(companyId, merged);
+            if (typeof setAtsCandidates === 'function') {
+              setAtsCandidates(merged);
+            }
+            return merged;
+          });
+        }
+      } catch (err) {
+        console.warn('Error syncing ATS candidates from cloud:', err);
+      }
+    }
+    syncFromCloud();
+    return () => { isMounted = false; };
+  }, [companyId]);
 
   const handleUpdateCandidates = (newRecords) => {
     const updated = typeof newRecords === 'function' ? newRecords(candidatesState) : newRecords;

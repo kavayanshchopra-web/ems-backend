@@ -125,16 +125,17 @@ export default function BulkActionEngine({
 
     const idsSet = new Set(selectedIds);
     selectedIds.forEach(id => {
-      const rec = records.find(r => r.id === id || r.recycleBinId === id);
-      const purgeId = rec?.recycleBinId || rec?.id || id;
+      const rec = records.find(r => String(r.id) === String(id) || String(r.recycleBinId) === String(id) || String(r.originalId) === String(id));
+      const purgeTarget = rec?._vaultRawItem || rec?.recycleBinId || rec?.originalId || rec?.id || id;
       if (typeof softDeleteRecord === 'function') {
-        softDeleteRecord(purgeId);
+        softDeleteRecord(purgeTarget);
       }
-      FirebaseCloudEngine.deleteRecord('recycle_bin', purgeId);
-      FirebaseCloudEngine.deleteRecord(moduleConfig.moduleId || 'employees', purgeId);
+      FirebaseCloudEngine.deleteRecord('recycle_bin', id);
+      if (rec?.recycleBinId) FirebaseCloudEngine.deleteRecord('recycle_bin', rec.recycleBinId);
+      if (rec?.originalId) FirebaseCloudEngine.deleteRecord(moduleConfig.moduleId || 'employees', rec.originalId);
     });
 
-    const remaining = records.filter(r => !idsSet.has(r.id) && !idsSet.has(r.recycleBinId));
+    const remaining = records.filter(r => !idsSet.has(r.id) && !idsSet.has(r.recycleBinId) && !idsSet.has(r.originalId));
     setRecords(remaining);
     setSelectedIds([]);
 
