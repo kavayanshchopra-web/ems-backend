@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { Star, Link as LinkIcon, FileText, CheckCircle2 } from 'lucide-react';
+import MediaStorageEngine from '../MediaStorageEngine';
 import { LabelEngine } from '../LabelEngine';
 
 const getValString = (val, fallback = '') => {
@@ -120,16 +121,47 @@ export default function SchemaFieldRenderer({
           {valStr}
         </span>
       );
+    } else if (field.type === 'audio' || field.id === 'recording' || field.key === 'recording' || field.id === 'audioUrl' || field.key === 'audioUrl') {
+      if (valStr && valStr !== '—') {
+        displayVal = (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(135deg, #f0fdf4 0%, #e6fffa 100%)', padding: '4px 8px', borderRadius: '12px', border: '1px solid #99f6e4', minWidth: '180px' }}>
+            <audio controls src={valStr} style={{ height: '28px', width: '100%', borderRadius: '6px' }} />
+          </div>
+        );
+      } else {
+        displayVal = (
+          <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>No Recording (Missed)</span>
+        );
+      }
     } else if (field.type === 'url' && valStr) {
       displayVal = (
         <a href={valStr.startsWith('http') ? valStr : `https://${valStr}`} target="_blank" rel="noreferrer" style={{ color: '#0d9488', textDecoration: 'underline' }}>
           {valStr}
         </a>
       );
-    } else if (field.type === 'image' && valStr) {
-      displayVal = (
-        <img src={valStr} alt={field.label} style={{ maxWidth: '100px', maxHeight: '100px', borderRadius: '6px', border: '1px solid #e2e8f0', objectFit: 'cover' }} />
-      );
+    } else if ((field.type === 'image' || field.type === 'file') && valStr) {
+      const isRealUrl = valStr.startsWith('http://') || valStr.startsWith('https://') || valStr.startsWith('data:') || valStr.startsWith('blob:');
+      
+      if (isRealUrl) {
+        displayVal = (
+          <a href={valStr} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
+            <img
+              src={valStr}
+              alt={field.label || 'Uploaded File'}
+              style={{ maxWidth: '60px', maxHeight: '36px', borderRadius: '6px', border: '1px solid #cbd5e1', objectFit: 'cover' }}
+              onError={(e) => {
+                e.target.style.display = 'none';
+              }}
+            />
+          </a>
+        );
+      } else {
+        displayVal = (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
+            📎 {valStr}
+          </span>
+        );
+      }
     } else if (field.type === 'dropdown' || field.type === 'status' || field.type === 'radio' || field.id === 'role' || field.id === 'department' || field.id === 'designation' || field.id === 'status' || field.key === 'role' || field.key === 'department' || field.key === 'designation' || field.key === 'status') {
       if (valStr) {
         const optionStyle = LabelEngine.getOptionStyle(valStr, moduleConfig);
@@ -389,17 +421,92 @@ export default function SchemaFieldRenderer({
           <input
             type="file"
             accept={field.type === 'image' ? 'image/*' : field.allowedExtensions ? field.allowedExtensions.split(',').map(ext => `.${ext.trim()}`).join(',') : undefined}
-            onChange={(e) => {
+            onChange={async (e) => {
               const file = e.target.files && e.target.files[0];
               if (file) {
-                onChange(file.name);
+                onChange(`⏳ Uploading ${file.name}...`);
+                try {
+                  const targetCategory = (field.category === 'crm_leads' || moduleConfig?.id === 'leads' || moduleConfig?.moduleKey === 'leads' || (moduleConfig?.title || '').toLowerCase().includes('lead') || (moduleConfig?.title || '').toLowerCase().includes('contact'))
+                    ? 'crm_leads'
+                    : 'employee_documents';
+
+                  // Multi-source tenantId resolution (authUser is NOT passed to this component)
+                  // Priority: window.__omniflow_tenant > localStorage omnilflow_user > 'acme_corp'
+                  let resolvedTenantId = 'acme_corp';
+                  try {
+                    if (typeof window !== 'undefined' && window.__omniflow_tenant) {
+                      resolvedTenantId = window.__omniflow_tenant;
+                    } else {
+                      const storedUser = JSON.parse(localStorage.getItem('omnilflow_user') || 'null');
+                      if (storedUser?.tenantId) resolvedTenantId = storedUser.tenantId;
+                      else if (storedUser?.companyId) resolvedTenantId = storedUser.companyId;
+                    }
+                  } catch (_) {}
+
+                  const res = await MediaStorageEngine.uploadMedia({
+                    tenantId: resolvedTenantId,
+                    category: targetCategory,
+                    entityId: 'form_upload',
+                    file: file
+                  });
+                  onChange(res.downloadUrl || res.fileName || file.name);
+                } catch (err) {
+                  console.error('Field media upload error:', err);
+                  onChange(file.name);
+                }
               }
             }}
             style={{ ...baseInputStyle, padding: '6px 10px' }}
           />
           {valStr && (
-            <div style={{ fontSize: '11px', color: '#0d9488', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <FileText size={12} /> Current File: {valStr}
+            <div style={{ fontSize: '11px', color: '#0d9488', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+              <FileText size={12} />
+              <span>Current File: </span>
+              {valStr.startsWith('http') || valStr.startsWith('data:') || valStr.startsWith('indexeddb:') ? (
+                <a
+                  href="#"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    if (valStr.startsWith('indexeddb:')) {
+                      try {
+                        const blobId = valStr.replace('indexeddb://', '');
+                        const blob = await IndexedDBStorage.getBlob(blobId);
+                        if (blob) {
+                          const url = URL.createObjectURL(blob);
+                          window.open(url, '_blank');
+                        } else {
+                          alert('File binary data expired or not found.');
+                        }
+                      } catch (err) {
+                        console.error('Failed to open IndexedDB file:', err);
+                      }
+                    } else if (valStr.startsWith('data:')) {
+                      // Convert base64 data URL to blob URL so Chrome displays it correctly (not black screen)
+                      try {
+                        const arr = valStr.split(',');
+                        const mimeMatch = arr[0].match(/:(.*?);/);
+                        const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+                        const bstr = atob(arr[1]);
+                        const u8arr = new Uint8Array(bstr.length);
+                        for (let i = 0; i < bstr.length; i++) u8arr[i] = bstr.charCodeAt(i);
+                        const blob = new Blob([u8arr], { type: mime });
+                        const blobUrl = URL.createObjectURL(blob);
+                        window.open(blobUrl, '_blank');
+                      } catch (err) {
+                        console.error('Failed to preview file:', err);
+                        window.open(valStr, '_blank'); // Fallback
+                      }
+                    } else {
+                      window.open(valStr, '_blank');
+                    }
+                  }}
+                  style={{ color: '#0284c7', textDecoration: 'underline', cursor: 'pointer' }}
+                >
+                  View Document ↗
+                </a>
+              ) : (
+                <span>{valStr}</span>
+              )}
             </div>
           )}
         </div>

@@ -94,25 +94,38 @@ export function getNextCategoryAssetTag(categoryName, existingRecords = [], cust
   return `AST-${catPrefix}-${String(nextSeq).padStart(3, '0')}`;
 }
 
-export function getNextSequentialId(companyId, moduleId = 'recruitment_ats', moduleConfig = null) {
+export function getNextSequentialId(companyId, moduleId = 'recruitment_ats', moduleConfig = null, existingRecords = []) {
   const tenantKey = companyId ? String(companyId).replace(/[^a-zA-Z0-9_-]/g, '_') : 'default';
   
   const idCfg = moduleConfig?.idConfig || loadAtsModuleConfig(companyId)?.idConfig || {
-    prefix: 'ATS',
-    pattern: 'ATS-001',
+    prefix: moduleId === 'employees' ? 'EMP' : (moduleId === 'crm_leads' ? 'LEAD' : 'ATS'),
+    pattern: moduleId === 'employees' ? 'EMP-0001' : (moduleId === 'crm_leads' ? 'LEAD-0001' : 'ATS-001'),
     nextSeq: 1
   };
 
-  const pattern = idCfg.pattern || `${idCfg.prefix || 'ATS'}-001`;
+  const pattern = idCfg.pattern || `${idCfg.prefix || 'ID'}-0001`;
   const storageKey = `omnilflow_seq_${tenantKey}_${moduleId}`;
 
+  let maxSeq = parseInt(localStorage.getItem(storageKey) || '0', 10);
+
+  if (Array.isArray(existingRecords) && existingRecords.length > 0) {
+    existingRecords.forEach(r => {
+      if (r && r.id) {
+        const match = String(r.id).match(/\d+/);
+        if (match) {
+          const num = parseInt(match[0], 10);
+          if (num > maxSeq) maxSeq = num;
+        }
+      }
+    });
+  }
+
+  const nextSeq = maxSeq + 1;
   try {
-    const currentSeq = parseInt(localStorage.getItem(storageKey) || String(idCfg.nextSeq || 1), 10);
-    const nextSeq = currentSeq + 1;
     localStorage.setItem(storageKey, String(nextSeq));
-    return formatCustomSequencePattern(pattern, currentSeq);
+    return formatCustomSequencePattern(pattern, nextSeq);
   } catch (e) {
-    return formatCustomSequencePattern(pattern, idCfg.nextSeq || 1);
+    return formatCustomSequencePattern(pattern, nextSeq);
   }
 }
 

@@ -132,13 +132,7 @@ class FirebaseCloudEngine {
     } catch (e) {}
 
     // Filter out dummy demo seed & old test items (e.g. emp_001, EMP-0271, EMP-0012, EMP-0013, kavayansh)
-    records = records.filter(i => {
-      if (!i) return false;
-      const idStr = String(i.id || i.originalId || '').toLowerCase();
-      const nameStr = String(i.name || i.first_name || i.title || '').toLowerCase();
-      if (idStr.includes('emp_00') || idStr.includes('emp-0271') || idStr.includes('emp-0012') || idStr.includes('emp-0013') || nameStr.includes('emp_001')) return false;
-      return true;
-    });
+    records = records.filter(i => !!i);
 
     if (records.length > 0) {
       try {

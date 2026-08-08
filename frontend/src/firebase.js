@@ -55,14 +55,15 @@ const sandboxFirebaseConfig = {
 };
 
 export function getActiveFirebaseConfig() {
+  // Firebase Storage is NOT used (base64+Firestore instead) — both sandbox & live work fine
   if (typeof window !== 'undefined') {
     const host = (window.location.hostname || '').toLowerCase();
     const isProduction = host.includes('employeemanagementsystems.com') || host === 'ems-crm-sandy.vercel.app';
     if (!isProduction) {
-      return sandboxFirebaseConfig;
+      return sandboxFirebaseConfig; // Sandbox for localhost & dev Vercel previews
     }
   }
-  return liveFirebaseConfig;
+  return liveFirebaseConfig; // Live for production domain
 }
 
 const firebaseConfig = getActiveFirebaseConfig();

@@ -10,6 +10,11 @@ const TaskAnalyticsView = lazy(() => import('./dashboard/TaskAnalyticsView'));
 const EmployeesView = lazy(() => import('./employees/EmployeesView'));
 const RecruitmentAtsView = lazy(() => import('./recruitment/RecruitmentAtsView'));
 const ModuleConfigCenter = lazy(() => import('./config/ModuleConfigCenter'));
+const TelecallingView = lazy(() => import('./telecalling/TelecallingView'));
+import StorageUpgradeModal from './storage/StorageUpgradeModal';
+import MediaStorageView from './storage/MediaStorageView';
+import SearchInput from './ui/SearchInput';
+import MediaStorageEngine from '../core/engines/MediaStorageEngine';
 import LayoutEngine from '../core/engines/LayoutEngine/LayoutEngine';
 import { useModuleRegistry } from '../core/registry/useModuleRegistry';
 import { PermissionEngine, STANDARD_ACTIONS, ACCESS_SCOPES, DEFAULT_ROLES } from '../core/engines/PermissionEngine/permissionEngine';
@@ -17,7 +22,7 @@ import TrashVaultEngine from '../core/engines/TrashVaultEngine';
 import ShiftEngine from '../core/engines/ShiftEngine';
 import { LabelEngine } from '../core/engines/LabelEngine';
 import FirebaseCloudEngine from '../core/engines/FirebaseCloudEngine';
-import { atsStorageService } from '../services/atsStorageService';
+import { atsStorageService, getNextSequentialId } from '../services/atsStorageService';
 import {
   auth,
   db,
@@ -77,6 +82,8 @@ import {
   CreditCard,
   ClipboardList,
   Bell,
+  Cpu,
+  HardDrive,
   Mail,
   Lock,
   Eye,
@@ -716,6 +723,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [binPageSize, setBinPageSize] = useState(10);
 
   const [recycleBinItems, setRecycleBinItems] = useState(() => TrashVaultEngine.getVaultItems('all'));
+  const [showStorageModal, setShowStorageModal] = useState(false);
   const [binColumnWidths, setBinColumnWidths] = useState({
     name: 240,
     category: 130,
@@ -783,6 +791,21 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [telecallingSubTab, setTelecallingSubTab] = useState('dashboard');
   const audioPlayerRef = useRef(null);
+
+  const filteredTelecallingLogs = useMemo(() => {
+    return (callLogs || []).filter(log => {
+      if (!log) return false;
+      const agent = (log.agentName || '').toLowerCase();
+      const phone = (log.customerPhone || '').toLowerCase();
+      const cust = (log.customerName || '').toLowerCase();
+      const notes = (log.notes || '').toLowerCase();
+      const search = (telecallingSearch || '').toLowerCase();
+      const matchSearch = !search || agent.includes(search) || phone.includes(search) || cust.includes(search) || notes.includes(search);
+      const matchChannel = telecallingChannelFilter === 'all' || log.channel === telecallingChannelFilter;
+      const matchDisp = telecallingDispositionFilter === 'all' || log.disposition === telecallingDispositionFilter;
+      return matchSearch && matchChannel && matchDisp;
+    });
+  }, [callLogs, telecallingSearch, telecallingChannelFilter, telecallingDispositionFilter]);
 
   // Dynamic System Dropdowns State for Call Dispositions
   const [dispositionOptions, setDispositionOptions] = useState([
@@ -2850,11 +2873,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
           // Clean out legacy dummy seed records & old test records (emp_001, emp_002, emp_003, emp_004, EMP-0271, EMP-0012, EMP-0013)
-          const cleaned = parsed.filter(e => {
-            const idStr = String(e.id || e.originalId || '').toLowerCase();
-            const nameStr = String(e.name || e.first_name || '').toLowerCase();
-            return !idStr.includes('emp_00') && !idStr.includes('emp-0271') && !idStr.includes('emp-0012') && !idStr.includes('emp-0013') && !nameStr.includes('emp_001');
-          });
+          const cleaned = parsed.filter(e => !!e);
           localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(cleaned));
           try { localStorage.setItem('omnilflow_cloud_cache_employees', JSON.stringify(cleaned)); } catch (e) {}
           return cleaned;
@@ -3644,18 +3663,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     return (
       str.includes('rahul.sharma@company.com') ||
       str.includes('priya.v@company.com') ||
-      str.includes('amit.k@company.com') ||
-      str.includes('emp_002') ||
-      str.includes('emp_003') ||
-      str.includes('emp_004') ||
-      str.includes('emp-0002') ||
-      str.includes('emp-0003') ||
-      str.includes('emp-0004') ||
-      str.includes('emp-0126') ||
-      str.includes('emp-0246') ||
-      str.includes('emp-0361') ||
-      str.includes('emp-0848') ||
-      str.includes('emp-0172')
+      str.includes('amit.k@company.com')
     );
   };
 
@@ -3706,7 +3714,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     const activeTenantId = FirebaseCloudEngine.getTenantId(currentTenantId);
 
     const newEmpObj = {
-      id: isEdit ? newEmployeeForm.id : Date.now(),
+      id: isEdit ? newEmployeeForm.id : getNextSequentialId(currentTenantId, 'employees', null, employees),
       first_name: newEmployeeForm.firstName,
       last_name: newEmployeeForm.lastName,
       email: newEmployeeForm.email,
@@ -3954,6 +3962,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
     if (item.id) TrashVaultEngine.restoreItem('all', item.id);
     if (cleanId) TrashVaultEngine.restoreItem('all', cleanId);
+    if (item.originalId) TrashVaultEngine.restoreItem('all', item.originalId);
     setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
     showToast(`🔄 Restored "${cleanRec.name || cleanRec.title || item.name || 'Record'}" to active workspace!`, 'success');
   };
@@ -5444,6 +5453,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
     setIsUploadingMedia(true);
 
+    // Automatically register file in Media & Storage Vault
+    MediaStorageEngine.uploadMedia({
+      tenantId: authUser?.tenantId || authUser?.companyId || 'acme_corp',
+      category: 'crm_chats',
+      entityId: activeContact.id || 'chat',
+      file: file
+    }).catch(err => console.warn('Chat media vault error:', err));
+
     const reader = new FileReader();
     reader.onload = async () => {
       const base64Data = reader.result;
@@ -5821,6 +5838,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   <span style={{ fontSize: '13px' }}>{t('auditLogs')}</span>
                 </div>
               )}
+              <div className={`nav-item ${activeTab === 'media_storage' ? 'active' : ''}`} onClick={() => setActiveTab('media_storage')}>
+                <HardDrive size={15} style={{ color: '#14d2cb' }} />
+                <span style={{ fontSize: '13px', fontWeight: '800', color: '#14d2cb' }}>📁 Media & Storage Vault</span>
+              </div>
             </AccordionCategory>
           )}
 
@@ -5837,6 +5858,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             <div className={`nav-item ${activeTab === 'gps_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('gps_attendance')}>
               <Globe size={15} />
               <span style={{ fontSize: '13px' }}>{t('liveTracking')}</span>
+            </div>
+            <div className={`nav-item ${activeTab === 'media_storage' ? 'active' : ''}`} onClick={() => setActiveTab('media_storage')}>
+              <HardDrive size={15} style={{ color: '#14d2cb' }} />
+              <span style={{ fontSize: '13px', fontWeight: '800', color: '#14d2cb' }}>📁 Media & Storage Vault</span>
             </div>
           </AccordionCategory>
 
@@ -6302,6 +6327,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       <span>{t('changePassword')}</span>
                     </div>
 
+                    <div
+                      onClick={() => {
+                        setActiveTab('media_storage');
+                        setShowStorageModal(true);
+                        setShowProfileDropdown(false);
+                      }}
+                      style={{ padding: '10px 16px', fontSize: '13px', color: '#334155', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
+                      className="profile-dropdown-item"
+                    >
+                      <HardDrive size={16} style={{ color: '#0d9488' }} />
+                      <span>Storage & Upgrades (2 GB Free)</span>
+                    </div>
+
                     {/* Localization & Preferences Section */}
                     <div style={{ borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', padding: '10px 16px', margin: '4px 0', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -6355,6 +6393,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         </header>
 
         {/* Tab Contents */}
+        {activeTab === 'media_storage' && (
+          <MediaStorageView authUser={authUser} showToast={showToast} />
+        )}
         {activeTab === 'inbox' && (
           <div className={`inbox-view ${activeContact ? 'has-active-chat' : 'no-active-chat'}`}>
             {/* Contact Chat List */}
@@ -7247,1935 +7288,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
         {/* Telecalling & SIM Call Recordings View Hub */}
         {activeTab === 'telecalling' && (
-          <div className="payroll-page glass-panel payroll-panel telecalling-page-mobile" style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-            {/* Header Zone */}
-            <div className="page-header">
-              <div className="page-header-left">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <h1 className="page-header-title">📞 Telecalling & Call Recordings</h1>
-                  <span className="badge-info" style={{ fontSize: '11px', fontWeight: 'bold' }}>
-                    Firebase Sync Active
-                  </span>
-                </div>
-                <div className="page-header-subtitle">
-                  Automatic SIM phone calls & WhatsApp voice call recording sync with cloud audio player.
-                </div>
-              </div>
-              <div className="page-header-right" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => setShowMobileAppGuideModal(true)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(135deg, #0d9488 0%, #059669 100%)', color: 'white', fontWeight: '800', border: 'none' }}
-                >
-                  <Smartphone size={14} />
-                  <span>📱 Connect Mobile SIM App</span>
-                </button>
-
-                {/* Feature Lock Toggle Simulator Button for User Feedback */}
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => setCompanySubscription(prev => ({
-                    ...prev,
-                    subscribedModules: {
-                      ...prev.subscribedModules,
-                      sim_call_recording: !prev.subscribedModules.sim_call_recording
-                    }
-                  }))}
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <Lock size={13} style={{ color: companySubscription.subscribedModules.sim_call_recording ? '#f59e0b' : '#ef4444' }} />
-                  <span>{companySubscription.subscribedModules.sim_call_recording ? '🔒 Test Lock Module' : '🔓 Unlock Feature'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* SaaS FEATURE GATING CHECK: IF LOCKED SHOW FEATURE UPGRADE BANNER */}
-            {!companySubscription?.subscribedModules?.sim_call_recording ? (
-              <div style={{ padding: '40px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexGrow: 1, textAlign: 'center' }}>
-                <div style={{ width: '72px', height: '72px', borderRadius: '24px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
-                  <Lock size={36} style={{ color: '#ef4444' }} />
-                </div>
-                <h2 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '8px' }}>
-                  🔒 Telecalling & Call Recording Package Locked
-                </h2>
-                <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '540px', lineHeight: '1.6', marginBottom: '28px' }}>
-                  Your company subscription plan currently does not include the <strong>Automatic Mobile SIM & WhatsApp Call Recording Engine</strong>. Upgrade your SaaS package tier to unlock cloud audio recordings, telecaller talk-time analytics, and disposition tracking.
-                </p>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', maxWidth: '640px', width: '100%', marginBottom: '32px', textAlign: 'left' }}>
-                  <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', padding: '14px', borderRadius: '10px' }}>
-                    <div style={{ fontWeight: '700', fontSize: '13px', color: 'var(--color-primary)', marginBottom: '4px' }}>📱 SIM & WhatsApp Recording</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Auto-sync both GSM phone calls & WhatsApp voice calls into CRM.</div>
-                  </div>
-                  <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', padding: '14px', borderRadius: '10px' }}>
-                    <div style={{ fontWeight: '700', fontSize: '13px', color: 'var(--color-primary)', marginBottom: '4px' }}>🔥 Firebase Cloud Audio</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Play recordings with 1.5x/2.0x speed directly in lead activity history.</div>
-                  </div>
-                  <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', padding: '14px', borderRadius: '10px' }}>
-                    <div style={{ fontWeight: '700', fontSize: '13px', color: 'var(--color-primary)', marginBottom: '4px' }}>📊 Agent Talk-Time Analytics</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Leaderboard reports tracking total talk hours, missed & connected calls.</div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <button className="btn btn-primary btn-lg" onClick={() => setActiveTab('super_admin_billing')}>
-                    ⚡ Upgrade Plan Package
-                  </button>
-                  <button className="btn btn-secondary btn-lg" onClick={() => alert('Support team notified for plan upgrade!')}>
-                    📞 Contact Sales
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* ACTIVE MODULE CONTENT */
-              <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, minHeight: 0, overflow: 'hidden' }}>
-                {/* Voxbay-Style Sub-Navigation Bar */}
-                <div className="telecalling-subtabs-bar" style={{ display: 'flex', gap: '4px', background: '#f8fafc', padding: '8px 12px 0 12px', borderBottom: '1px solid #e2e8f0', flexShrink: 0, overflowX: 'auto', whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
-                  <button
-                    onClick={() => setTelecallingSubTab('dashboard')}
-                    style={{
-                      padding: '10px 18px',
-                      borderRadius: '8px 8px 0 0',
-                      fontSize: '13px',
-                      fontWeight: '700',
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: telecallingSubTab === 'dashboard' ? '#ffffff' : 'transparent',
-                      color: telecallingSubTab === 'dashboard' ? '#0d9488' : '#64748b',
-                      borderTop: telecallingSubTab === 'dashboard' ? '2px solid #0d9488' : '2px solid transparent',
-                      boxShadow: telecallingSubTab === 'dashboard' ? '0 -2px 6px rgba(0,0,0,0.04)' : 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
-                  >
-                    <BarChart2 size={16} /> 📊 Dashboard Summary
-                  </button>
-
-                  <button
-                    onClick={() => setTelecallingSubTab('recordings')}
-                    style={{
-                      padding: '10px 18px',
-                      borderRadius: '8px 8px 0 0',
-                      fontSize: '13px',
-                      fontWeight: '700',
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: telecallingSubTab === 'recordings' ? '#ffffff' : 'transparent',
-                      color: telecallingSubTab === 'recordings' ? '#0d9488' : '#64748b',
-                      borderTop: telecallingSubTab === 'recordings' ? '2px solid #0d9488' : '2px solid transparent',
-                      boxShadow: telecallingSubTab === 'recordings' ? '0 -2px 6px rgba(0,0,0,0.04)' : 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
-                  >
-                    <span style={{ fontSize: '15px' }}>📞</span> 📜 Call Recordings & Logs
-                  </button>
-
-                  <button
-                    onClick={() => setTelecallingSubTab('live_monitoring')}
-                    style={{
-                      padding: '10px 18px',
-                      borderRadius: '8px 8px 0 0',
-                      fontSize: '13px',
-                      fontWeight: '700',
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: telecallingSubTab === 'live_monitoring' ? '#ffffff' : 'transparent',
-                      color: telecallingSubTab === 'live_monitoring' ? '#0d9488' : '#64748b',
-                      borderTop: telecallingSubTab === 'live_monitoring' ? '2px solid #0d9488' : '2px solid transparent',
-                      boxShadow: telecallingSubTab === 'live_monitoring' ? '0 -2px 6px rgba(0,0,0,0.04)' : 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
-                  >
-                    <span style={{ fontSize: '15px', color: '#ef4444' }}>📡</span> 🎧 Live Call Monitoring
-                  </button>
-
-                  <button
-                    onClick={() => setTelecallingSubTab('ivr_builder')}
-                    style={{
-                      padding: '10px 18px',
-                      borderRadius: '8px 8px 0 0',
-                      fontSize: '13px',
-                      fontWeight: '700',
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: telecallingSubTab === 'ivr_builder' ? '#ffffff' : 'transparent',
-                      color: telecallingSubTab === 'ivr_builder' ? '#0d9488' : '#64748b',
-                      borderTop: telecallingSubTab === 'ivr_builder' ? '2px solid #0d9488' : '2px solid transparent',
-                      boxShadow: telecallingSubTab === 'ivr_builder' ? '0 -2px 6px rgba(0,0,0,0.04)' : 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
-                  >
-                    <Layers size={16} style={{ color: '#0d9488' }} /> 🌳 Multi-Level IVR Builder
-                  </button>
-
-                  <button
-                    onClick={() => setTelecallingSubTab('analytics')}
-                    style={{
-                      padding: '10px 18px',
-                      borderRadius: '8px 8px 0 0',
-                      fontSize: '13px',
-                      fontWeight: '700',
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: telecallingSubTab === 'analytics' ? '#ffffff' : 'transparent',
-                      color: telecallingSubTab === 'analytics' ? '#0d9488' : '#64748b',
-                      borderTop: telecallingSubTab === 'analytics' ? '2px solid #0d9488' : '2px solid transparent',
-                      boxShadow: telecallingSubTab === 'analytics' ? '0 -2px 6px rgba(0,0,0,0.04)' : 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
-                  >
-                    <BarChart2 size={16} /> 📈 Agent Analytics & Leaderboard
-                  </button>
-                </div>
-
-                {/* SUB-TAB 0: VOXBAY DASHBOARD SUMMARY VIEW */}
-                {telecallingSubTab === 'dashboard' && (
-                  <div style={{ padding: '20px 24px', flexGrow: 1, overflowY: 'auto', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    {/* Voxbay Deep Teal Top Hero Container (Sidebar Theme Match) */}
-                    <div style={{ background: 'linear-gradient(135deg, #044e43 0%, #065f54 100%)', borderRadius: '16px', padding: '24px', color: '#ffffff', boxShadow: '0 12px 28px rgba(4, 78, 69, 0.25)', border: '1px solid rgba(255, 255, 255, 0.12)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                      {/* Top Welcome Banner & Filter Toolbar */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
-                        <div>
-                          <div style={{ fontSize: '11px', fontWeight: '700', color: '#99f6e4', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '4px' }}>
-                            Dashboard / Admin / Dashboard
-                          </div>
-                          <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '900', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            Welcome Back !
-                          </h2>
-                          <div style={{ fontSize: '13px', fontWeight: '500', color: '#ccfbf1', marginTop: '2px' }}>
-                            Here is your summary
-                          </div>
-                        </div>
-
-                        {/* Top Right Header Controls */}
-                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                          <button
-                            onClick={() => setShowExportReportModal(true)}
-                            style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '8px', padding: '7px 14px', color: 'white', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)' }}
-                          >
-                            📥 Export Reports
-                          </button>
-
-                          <button onClick={() => alert('Refreshing Dashboard...')} style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', width: '34px', height: '34px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} title="Refresh Summary">
-                            🔄
-                          </button>
-
-                          <select className="filter-select" style={{ background: 'rgba(255, 255, 255, 0.12)', color: '#ffffff', borderRadius: '8px', padding: '7px 14px', fontSize: '12px', fontWeight: '600', border: '1px solid rgba(255, 255, 255, 0.2)', outline: 'none' }}>
-                            <option value="all" style={{ background: '#044e43', color: 'white' }}>Select Department</option>
-                            <option value="sales" style={{ background: '#044e43', color: 'white' }}>Sales & Telecalling</option>
-                            <option value="support" style={{ background: '#044e43', color: 'white' }}>Customer Support</option>
-                          </select>
-
-                          <select className="filter-select" style={{ background: 'rgba(255, 255, 255, 0.12)', color: '#ffffff', borderRadius: '8px', padding: '7px 14px', fontSize: '12px', fontWeight: '600', border: '1px solid rgba(255, 255, 255, 0.2)', outline: 'none' }}>
-                            <option value="all" style={{ background: '#044e43', color: 'white' }}>Select DID</option>
-                            <option value="sim1" style={{ background: '#044e43', color: 'white' }}>📱 SIM 1 Work Line</option>
-                            <option value="whatsapp" style={{ background: '#044e43', color: 'white' }}>🟢 WhatsApp VoIP</option>
-                          </select>
-
-                          <select className="filter-select" style={{ background: 'rgba(255, 255, 255, 0.12)', color: '#ffffff', borderRadius: '8px', padding: '7px 14px', fontSize: '12px', fontWeight: '600', border: '1px solid rgba(255, 255, 255, 0.2)', outline: 'none' }}>
-                            <option value="today" style={{ background: '#044e43', color: 'white' }}>Today</option>
-                            <option value="yesterday" style={{ background: '#044e43', color: 'white' }}>Yesterday</option>
-                            <option value="7days" style={{ background: '#044e43', color: 'white' }}>Last 7 Days</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Section Title */}
-                      <div style={{ fontSize: '13px', fontWeight: '800', color: '#ffffff', letterSpacing: '0.4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        Current Call Status
-                      </div>
-
-                      {/* 4 VIBRANT VOXBAY GRADIENT STAT CARDS GRID */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-                        {/* CARD 1: LIVE CALLS (Vibrant Blue/Cyan) */}
-                        <div style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)', borderRadius: '14px', padding: '20px', color: '#ffffff', boxShadow: '0 8px 20px rgba(59, 130, 246, 0.3)', position: 'relative', overflow: 'hidden' }}>
-                          <div style={{ position: 'absolute', right: '-10px', bottom: '-10px', opacity: 0.15 }}>
-                            <span style={{ fontSize: '90px', opacity: 0.15, lineHeight: 1 }}>📡</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.6px', opacity: 0.9 }}>Live Calls</span>
-                            <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-                              <span style={{ fontSize: '16px' }}>📡</span>
-                            </div>
-                          </div>
-                          <div style={{ fontSize: '36px', fontWeight: '900', lineHeight: 1, marginBottom: '14px' }}>0</div>
-                          <div style={{ display: 'flex', gap: '16px', fontSize: '11px', fontWeight: '700', borderTop: '1px solid rgba(255, 255, 255, 0.25)', paddingTop: '10px' }}>
-                            <span>Incoming: <strong>0</strong></span>
-                            <span>Outgoing: <strong>0</strong></span>
-                          </div>
-                        </div>
-
-                        {/* CARD 2: CONNECTED CALLS (Vibrant Emerald/Teal) */}
-                        <div style={{ background: 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)', borderRadius: '14px', padding: '20px', color: '#ffffff', boxShadow: '0 8px 20px rgba(16, 185, 129, 0.3)', position: 'relative', overflow: 'hidden' }}>
-                          <div style={{ position: 'absolute', right: '-10px', bottom: '-10px', opacity: 0.15 }}>
-                            <PhoneCall size={110} />
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.6px', opacity: 0.9 }}>Connected Calls</span>
-                            <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-                              <PhoneCall size={18} />
-                            </div>
-                          </div>
-                          <div style={{ fontSize: '36px', fontWeight: '900', lineHeight: 1, marginBottom: '14px' }}>
-                            {callLogs.filter(c => c.type === 'OUTGOING' || c.type === 'INCOMING').length}
-                          </div>
-                          <div style={{ display: 'flex', gap: '16px', fontSize: '11px', fontWeight: '700', borderTop: '1px solid rgba(255, 255, 255, 0.25)', paddingTop: '10px' }}>
-                            <span>Incoming: <strong>{callLogs.filter(c => c.type === 'INCOMING').length}</strong></span>
-                            <span>Outgoing: <strong>{callLogs.filter(c => c.type === 'OUTGOING').length}</strong></span>
-                          </div>
-                        </div>
-
-                        {/* CARD 3: FAILED CALLS (Vibrant Rose/Coral) */}
-                        <div style={{ background: 'linear-gradient(135deg, #f43f5e 0%, #dc2626 100%)', borderRadius: '14px', padding: '20px', color: '#ffffff', boxShadow: '0 8px 20px rgba(244, 63, 94, 0.3)', position: 'relative', overflow: 'hidden' }}>
-                          <div style={{ position: 'absolute', right: '-10px', bottom: '-10px', opacity: 0.15 }}>
-                            <span style={{ fontSize: '90px', opacity: 0.15, lineHeight: 1 }}>❌</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.6px', opacity: 0.9 }}>Failed Calls</span>
-                            <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-                              <span style={{ fontSize: '16px' }}>❌</span>
-                            </div>
-                          </div>
-                          <div style={{ fontSize: '36px', fontWeight: '900', lineHeight: 1, marginBottom: '14px' }}>
-                            {callLogs.filter(c => c.type === 'MISSED' || c.type === 'REJECTED').length}
-                          </div>
-                          <div style={{ display: 'flex', gap: '16px', fontSize: '11px', fontWeight: '700', borderTop: '1px solid rgba(255, 255, 255, 0.25)', paddingTop: '10px' }}>
-                            <span>Incoming: <strong>{callLogs.filter(c => c.type === 'MISSED').length}</strong></span>
-                            <span>Outgoing: <strong>{callLogs.filter(c => c.type === 'REJECTED').length}</strong></span>
-                          </div>
-                        </div>
-
-                        {/* CARD 4: TOTAL CALLS (Vibrant Purple/Indigo) */}
-                        <div style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)', borderRadius: '14px', padding: '20px', color: '#ffffff', boxShadow: '0 8px 20px rgba(139, 92, 246, 0.3)', position: 'relative', overflow: 'hidden' }}>
-                          <div style={{ position: 'absolute', right: '-10px', bottom: '-10px', opacity: 0.15 }}>
-                            <Clock size={110} />
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.6px', opacity: 0.9 }}>Total Calls</span>
-                            <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-                              <Clock size={18} />
-                            </div>
-                          </div>
-                          <div style={{ fontSize: '36px', fontWeight: '900', lineHeight: 1, marginBottom: '14px' }}>
-                            {callLogs.length}
-                          </div>
-                          <div style={{ display: 'flex', gap: '16px', fontSize: '11px', fontWeight: '700', borderTop: '1px solid rgba(255, 255, 255, 0.25)', paddingTop: '10px' }}>
-                            <span>Incoming: <strong>{callLogs.filter(c => c.type === 'INCOMING' || c.type === 'MISSED').length}</strong></span>
-                            <span>Outgoing: <strong>{callLogs.filter(c => c.type === 'OUTGOING' || c.type === 'REJECTED').length}</strong></span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 2X2 ANALYTICS CARDS GRID (VOXBAY UI EXACT MATCH) */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 440px), 1fr))', gap: '20px' }}>
-                      {/* CARD 1: OUTGOING CALL STATUS BREAKDOWN (DONUT + STATS) */}
-                      <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #cbd5e1', padding: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-                          <span style={{ fontWeight: '800', fontSize: '14px', color: '#0f172a' }}>Outgoing Call Status</span>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <button onClick={() => alert('Refreshing Outgoing Status...')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: '13px' }}>🔄</button>
-                            <select className="filter-select" style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                              <option>Select DID</option>
-                              <option>SIM 1</option>
-                              <option>WhatsApp</option>
-                            </select>
-                            <select className="filter-select" style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                              <option>Today</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', gap: '20px', flexGrow: 1, padding: '10px 0' }}>
-                          {/* SVG Donut Chart */}
-                          <div style={{ width: '130px', height: '130px', position: 'relative' }}>
-                            <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
-                              <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e2e8f0" strokeWidth="3.8" />
-                              {/* Answered - Green 60% */}
-                              <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#10b981" strokeWidth="4.2" strokeDasharray="60, 100" />
-                              {/* Not Answered - Red 23% */}
-                              <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#ef4444" strokeWidth="4.2" strokeDasharray="23, 100" strokeDashoffset="-60" />
-                              {/* Busy - Amber 8% */}
-                              <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f59e0b" strokeWidth="4.2" strokeDasharray="8, 100" strokeDashoffset="-83" />
-                              {/* Congestion - Purple 4% */}
-                              <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#8b5cf6" strokeWidth="4.2" strokeDasharray="4, 100" strokeDashoffset="-91" />
-                            </svg>
-                            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
-                              <div style={{ fontSize: '18px', fontWeight: '900', color: '#0f172a' }}>96</div>
-                              <div style={{ fontSize: '9px', color: '#64748b', fontWeight: '700' }}>TOTAL OUT</div>
-                            </div>
-                          </div>
-
-                          {/* Legend Metrics Table */}
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', fontSize: '12px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981' }}></span>
-                              <span style={{ color: '#64748b' }}>Answered:</span>
-                              <strong style={{ color: '#0f172a', marginLeft: 'auto' }}>58</strong>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444' }}></span>
-                              <span style={{ color: '#64748b' }}>Not Answered:</span>
-                              <strong style={{ color: '#0f172a', marginLeft: 'auto' }}>22</strong>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f59e0b' }}></span>
-                              <span style={{ color: '#64748b' }}>Busy:</span>
-                              <strong style={{ color: '#0f172a', marginLeft: 'auto' }}>8</strong>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#8b5cf6' }}></span>
-                              <span style={{ color: '#64748b' }}>Congestion:</span>
-                              <strong style={{ color: '#0f172a', marginLeft: 'auto' }}>2</strong>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#94a3b8' }}></span>
-                              <span style={{ color: '#64748b' }}>Unavailable:</span>
-                              <strong style={{ color: '#0f172a', marginLeft: 'auto' }}>4</strong>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f97316' }}></span>
-                              <span style={{ color: '#64748b' }}>Cancel:</span>
-                              <strong style={{ color: '#0f172a', marginLeft: 'auto' }}>2</strong>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* CARD 2: OUTGOING CALL REPORT (LINE TREND CHART) */}
-                      <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #cbd5e1', padding: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-                          <span style={{ fontWeight: '800', fontSize: '14px', color: '#0f172a' }}>Outgoing Call Report</span>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <button onClick={() => alert('Refreshing Line Chart...')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: '13px' }}>🔄</button>
-                            <select className="filter-select" style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                              <option>Select DID</option>
-                            </select>
-                            <select className="filter-select" style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                              <option>Select department</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        {/* Multi-Day SVG Line Trend Chart */}
-                        <div style={{ height: '140px', width: '100%', position: 'relative', padding: '10px 0' }}>
-                          <svg viewBox="0 0 300 100" style={{ width: '100%', height: '100%' }}>
-                            <defs>
-                              <linearGradient id="gradientOutgoing" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
-                                <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
-                              </linearGradient>
-                            </defs>
-                            {/* Grid lines */}
-                            <line x1="0" y1="20" x2="300" y2="20" stroke="#f1f5f9" strokeDasharray="3,3" />
-                            <line x1="0" y1="50" x2="300" y2="50" stroke="#f1f5f9" strokeDasharray="3,3" />
-                            <line x1="0" y1="80" x2="300" y2="80" stroke="#f1f5f9" strokeDasharray="3,3" />
-
-                            {/* Area Fill */}
-                            <polygon points="0,80 50,55 100,70 150,30 200,45 250,25 300,60 300,95 0,95" fill="url(#gradientOutgoing)" />
-
-                            {/* Line */}
-                            <polyline points="0,80 50,55 100,70 150,30 200,45 250,25 300,60" fill="none" stroke="#3b82f6" strokeWidth="2.5" />
-
-                            {/* Data Circles */}
-                            <circle cx="0" cy="80" r="3.5" fill="#ef4444" />
-                            <circle cx="50" cy="55" r="3.5" fill="#ef4444" />
-                            <circle cx="100" cy="70" r="3.5" fill="#ef4444" />
-                            <circle cx="150" cy="30" r="3.5" fill="#ef4444" />
-                            <circle cx="200" cy="45" r="3.5" fill="#ef4444" />
-                            <circle cx="250" cy="25" r="3.5" fill="#ef4444" />
-                            <circle cx="300" cy="60" r="3.5" fill="#ef4444" />
-                          </svg>
-
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#64748b', marginTop: '4px', fontWeight: '600' }}>
-                            <span>Wed</span>
-                            <span>Tue</span>
-                            <span>Mon</span>
-                            <span>Sun</span>
-                            <span>Sat</span>
-                            <span>Fri</span>
-                            <span>Thu</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* CARD 3: INCOMING CALL STATUS BREAKDOWN */}
-                      <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #cbd5e1', padding: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-                          <span style={{ fontWeight: '800', fontSize: '14px', color: '#0f172a' }}>Incoming Call Status</span>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <button onClick={() => alert('Refreshing Incoming Status...')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: '13px' }}>🔄</button>
-                            <select className="filter-select" style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                              <option>Select DID</option>
-                            </select>
-                            <select className="filter-select" style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                              <option>Today</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', gap: '20px', flexGrow: 1, padding: '10px 0' }}>
-                          {/* SVG Donut Chart */}
-                          <div style={{ width: '130px', height: '130px', position: 'relative' }}>
-                            <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
-                              <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e2e8f0" strokeWidth="3.8" />
-                              {/* Answered - Green 65% */}
-                              <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#10b981" strokeWidth="4.2" strokeDasharray="65, 100" />
-                              {/* Not Answered - Red 35% */}
-                              <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#ef4444" strokeWidth="4.2" strokeDasharray="35, 100" strokeDashoffset="-65" />
-                            </svg>
-                            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
-                              <div style={{ fontSize: '18px', fontWeight: '900', color: '#0f172a' }}>52</div>
-                              <div style={{ fontSize: '9px', color: '#64748b', fontWeight: '700' }}>TOTAL IN</div>
-                            </div>
-                          </div>
-
-                          {/* Legend Metrics */}
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px', minWidth: '160px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#10b981' }}></span>
-                              <span style={{ color: '#64748b' }}>Answered:</span>
-                              <strong style={{ color: '#0f172a', marginLeft: 'auto', fontSize: '14px' }}>34</strong>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ef4444' }}></span>
-                              <span style={{ color: '#64748b' }}>Not Answered:</span>
-                              <strong style={{ color: '#0f172a', marginLeft: 'auto', fontSize: '14px' }}>18</strong>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* CARD 4: INCOMING CALL REPORT (LINE TREND CHART) */}
-                      <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #cbd5e1', padding: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-                          <span style={{ fontWeight: '800', fontSize: '14px', color: '#0f172a' }}>Incoming Call Report</span>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <button onClick={() => alert('Refreshing Line Chart...')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: '13px' }}>🔄</button>
-                            <select className="filter-select" style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                              <option>Select DID</option>
-                            </select>
-                            <select className="filter-select" style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                              <option>Select department</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        {/* SVG Line Trend Chart */}
-                        <div style={{ height: '140px', width: '100%', position: 'relative', padding: '10px 0' }}>
-                          <svg viewBox="0 0 300 100" style={{ width: '100%', height: '100%' }}>
-                            <defs>
-                              <linearGradient id="gradientIncoming" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#10b981" stopOpacity="0.3" />
-                                <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
-                              </linearGradient>
-                            </defs>
-                            <line x1="0" y1="20" x2="300" y2="20" stroke="#f1f5f9" strokeDasharray="3,3" />
-                            <line x1="0" y1="50" x2="300" y2="50" stroke="#f1f5f9" strokeDasharray="3,3" />
-                            <line x1="0" y1="80" x2="300" y2="80" stroke="#f1f5f9" strokeDasharray="3,3" />
-
-                            <polygon points="0,75 50,40 100,60 150,20 200,50 250,30 300,70 300,95 0,95" fill="url(#gradientIncoming)" />
-                            <polyline points="0,75 50,40 100,60 150,20 200,50 250,30 300,70" fill="none" stroke="#10b981" strokeWidth="2.5" />
-
-                            <circle cx="0" cy="75" r="3.5" fill="#10b981" />
-                            <circle cx="50" cy="40" r="3.5" fill="#10b981" />
-                            <circle cx="100" cy="60" r="3.5" fill="#10b981" />
-                            <circle cx="150" cy="20" r="3.5" fill="#10b981" />
-                            <circle cx="200" cy="50" r="3.5" fill="#10b981" />
-                            <circle cx="250" cy="30" r="3.5" fill="#10b981" />
-                            <circle cx="300" cy="70" r="3.5" fill="#10b981" />
-                          </svg>
-
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#64748b', marginTop: '4px', fontWeight: '600' }}>
-                            <span>Wed</span>
-                            <span>Tue</span>
-                            <span>Mon</span>
-                            <span>Sun</span>
-                            <span>Sat</span>
-                            <span>Fri</span>
-                            <span>Thu</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* SCORE CARD BOTTOM BAR (VOXBAY MATCH) */}
-                    <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #cbd5e1', padding: '16px 20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span style={{ fontWeight: '800', fontSize: '14px', color: '#0f172a' }}>Score Card Summary</span>
-                        <span style={{ fontSize: '12px', color: '#64748b' }}>Avg Handling: <strong>2m 45s</strong> | Resolution: <strong>84%</strong></span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <button onClick={() => alert('Refreshing Score Card...')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: '13px' }}>🔄</button>
-                        <select className="filter-select" style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                          <option>Today</option>
-                          <option>This Week</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* SUB-TAB 1: CALL RECORDINGS & LOGS MASTER VIEW */}
-                {telecallingSubTab === 'recordings' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, overflow: 'hidden' }}>
-                    {/* 4 Stat Summary Cards */}
-                    <div className="payroll-stats-row" style={{ padding: '16px 24px' }}>
-                      <div className="payroll-stat-card" style={{ borderTop: '3px solid #0d9488', background: 'linear-gradient(180deg, #ffffff 0%, #f0fdfb 100%)' }}>
-                        <div className="payroll-stat-icon teal">
-                          <PhoneCall size={22} />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div className="payroll-stat-label">Total Calls Today</div>
-                          <div className="payroll-stat-value" style={{ color: '#0d9488', fontSize: '24px' }}>{callLogs.length}</div>
-                          <div style={{ fontSize: '11px', color: '#0d9488', fontWeight: '700', marginTop: '4px' }}>
-                            🟢 {callLogs.filter(c => c.type === 'OUTGOING' || c.type === 'INCOMING').length} Connected ({callLogs.length > 0 ? Math.round((callLogs.filter(c => c.type === 'OUTGOING' || c.type === 'INCOMING').length / callLogs.length) * 100) : 0}%)
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="payroll-stat-card" style={{ borderTop: '3px solid #6366f1', background: 'linear-gradient(180deg, #ffffff 0%, #eef2ff 100%)' }}>
-                        <div className="payroll-stat-icon blue">
-                          <Clock size={22} />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div className="payroll-stat-label">Total Talk Time</div>
-                          <div className="payroll-stat-value" style={{ color: '#4f46e5', fontSize: '24px' }}>
-                            {Math.floor(callLogs.reduce((acc, c) => acc + (c.durationSeconds || 0), 0) / 3600)}h {Math.floor((callLogs.reduce((acc, c) => acc + (c.durationSeconds || 0), 0) % 3600) / 60)}m
-                          </div>
-                          <div style={{ fontSize: '11px', color: '#4f46e5', fontWeight: '700', marginTop: '4px' }}>
-                            ⚡ Avg {callLogs.length > 0 ? Math.round(callLogs.reduce((acc, c) => acc + (c.durationSeconds || 0), 0) / callLogs.length) : 0}s / call
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="payroll-stat-card" style={{ borderTop: '3px solid #10b981', background: 'linear-gradient(180deg, #ffffff 0%, #ecfdf5 100%)' }}>
-                        <div className="payroll-stat-icon green">
-                          <span style={{ fontSize: '20px' }}>🟢</span>
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div className="payroll-stat-label">WhatsApp Voice Calls</div>
-                          <div className="payroll-stat-value" style={{ color: '#059669', fontSize: '24px' }}>
-                            {callLogs.filter(c => c.channel === 'WHATSAPP').length}
-                          </div>
-                          <div style={{ fontSize: '11px', color: '#059669', fontWeight: '700', marginTop: '4px' }}>VoIP Audio Recordings</div>
-                        </div>
-                      </div>
-
-                      <div className="payroll-stat-card" style={{ borderTop: '3px solid #f59e0b', background: 'linear-gradient(180deg, #ffffff 0%, #fffbeb 100%)' }}>
-                        <div className="payroll-stat-icon amber">
-                          <Smartphone size={22} />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div className="payroll-stat-label">Cellular SIM Calls</div>
-                          <div className="payroll-stat-value" style={{ color: '#d97706', fontSize: '24px' }}>
-                            {callLogs.filter(c => c.channel === 'SIM').length}
-                          </div>
-                          <div style={{ fontSize: '11px', color: '#d97706', fontWeight: '700', marginTop: '4px' }}>SIM 1 Work Line</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Filter Toolbar Bar */}
-                    <div className="filter-bar" style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                      <div className="filter-search">
-                        <Search size={14} className="filter-search-icon" />
-                        <input
-                          type="text"
-                          placeholder="Search agent name or customer phone..."
-                          value={telecallingSearch}
-                          onChange={(e) => setTelecallingSearch(e.target.value)}
-                        />
-                      </div>
-
-                      <select
-                        className="filter-select"
-                        value={telecallingChannelFilter}
-                        onChange={(e) => setTelecallingChannelFilter(e.target.value)}
-                      >
-                        <option value="all">All Channels (SIM + WhatsApp)</option>
-                        <option value="SIM">📱 Cellular SIM Calls</option>
-                        <option value="WHATSAPP">🟢 WhatsApp Voice Calls</option>
-                      </select>
-
-                      <select
-                        className="filter-select"
-                        value={telecallingDispositionFilter}
-                        onChange={(e) => setTelecallingDispositionFilter(e.target.value)}
-                      >
-                        <option value="all">All Dispositions ({dispositionOptions.length})</option>
-                        {dispositionOptions.map(opt => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
-
-                      <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                        {/* Clear Dummy Logs Button */}
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => {
-                            try {
-                              localStorage.removeItem('omniflow_callLogs');
-                              setCallLogs(prev => prev.filter(c => !c.customerName?.includes('Amit Roy') && !c.customerName?.includes('Rohan Kapoor')));
-                              alert('🧹 Dummy test logs cleared! Real mobile calls will appear at the top.');
-                            } catch (e) {}
-                          }}
-                          style={{ background: '#fff1f2', color: '#e11d48', border: '1px solid #fecdd3', fontWeight: '800', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                        >
-                          🧹 Clear Dummy Logs
-                        </button>
-
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => setShowManageDropdownsModal(true)}
-                          style={{ background: '#f0fdf4', color: '#0d9488', border: '1px solid #99f6e4', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}
-                        >
-                          <Settings size={14} /> ⚙️ Dropdowns Section
-                        </button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => alert('Exporting call logs report as CSV...')}>
-                          <Download size={14} /> Export CSV
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Call Logs Table with Audio Player */}
-                    <div className="std-table-wrap" style={{ padding: '16px 24px', flexGrow: 1, overflowY: 'auto' }}>
-                      <div className="payroll-table-card" style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 380px)', overflowY: 'auto', position: 'relative' }}>
-                        <table className="std-table" style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse' }}>
-                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
-                            <tr>
-                              <th className="th-sortable" onClick={() => handleSortTelecalling('timestamp')} style={{ padding: '14px 12px', whiteSpace: 'nowrap', background: '#f8fafc', cursor: 'pointer' }}>
-                                Date & Time {telecallingSortField === 'timestamp' ? (telecallingSortOrder === 'asc' ? '▲' : '▼') : '↕'}
-                              </th>
-                              <th className="th-sortable" onClick={() => handleSortTelecalling('agentName')} style={{ padding: '14px 12px', whiteSpace: 'nowrap', background: '#f8fafc', cursor: 'pointer' }}>
-                                Telecaller Agent {telecallingSortField === 'agentName' ? (telecallingSortOrder === 'asc' ? '▲' : '▼') : '↕'}
-                              </th>
-                              <th className="th-sortable" onClick={() => handleSortTelecalling('customerName')} style={{ padding: '14px 12px', whiteSpace: 'nowrap', background: '#f8fafc', cursor: 'pointer' }}>
-                                Customer / Lead {telecallingSortField === 'customerName' ? (telecallingSortOrder === 'asc' ? '▲' : '▼') : '↕'}
-                              </th>
-                              <th className="th-sortable" onClick={() => handleSortTelecalling('channel')} style={{ padding: '14px 12px', whiteSpace: 'nowrap', background: '#f8fafc', cursor: 'pointer' }}>
-                                Channel {telecallingSortField === 'channel' ? (telecallingSortOrder === 'asc' ? '▲' : '▼') : '↕'}
-                              </th>
-                              <th className="th-sortable" onClick={() => handleSortTelecalling('type')} style={{ padding: '14px 12px', whiteSpace: 'nowrap', background: '#f8fafc', cursor: 'pointer' }}>
-                                Call Type {telecallingSortField === 'type' ? (telecallingSortOrder === 'asc' ? '▲' : '▼') : '↕'}
-                              </th>
-                              <th className="th-sortable" onClick={() => handleSortTelecalling('durationSeconds')} style={{ padding: '14px 12px', whiteSpace: 'nowrap', background: '#f8fafc', cursor: 'pointer' }}>
-                                Duration {telecallingSortField === 'durationSeconds' ? (telecallingSortOrder === 'asc' ? '▲' : '▼') : '↕'}
-                              </th>
-                              <th className="th-sortable" onClick={() => handleSortTelecalling('recordingUrl')} style={{ padding: '14px 12px', whiteSpace: 'nowrap', background: '#f8fafc', cursor: 'pointer' }}>
-                                Firebase Audio Player {telecallingSortField === 'recordingUrl' ? (telecallingSortOrder === 'asc' ? '▲' : '▼') : '↕'}
-                               </th>
-                               <th style={{ padding: '14px 12px', whiteSpace: 'nowrap', background: '#f8fafc' }}>
-                                 AI Speech Transcript
-                              </th>
-                              <th className="th-sortable" onClick={() => handleSortTelecalling('disposition')} style={{ padding: '14px 12px', whiteSpace: 'nowrap', background: '#f8fafc', cursor: 'pointer' }}>
-                                Disposition & Notes {telecallingSortField === 'disposition' ? (telecallingSortOrder === 'asc' ? '▲' : '▼') : '↕'}
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {callLogs
-                              .filter(log => {
-                                if (!log) return false;
-                                const agent = (log.agentName || '').toLowerCase();
-                                const phone = (log.customerPhone || '');
-                                const cust = (log.customerName || '').toLowerCase();
-                                const search = (telecallingSearch || '').toLowerCase();
-                                const matchSearch = agent.includes(search) || phone.includes(search) || cust.includes(search);
-                                const matchChannel = telecallingChannelFilter === 'all' || log.channel === telecallingChannelFilter;
-                                const matchDisp = telecallingDispositionFilter === 'all' || log.disposition === telecallingDispositionFilter;
-                                return matchSearch && matchChannel && matchDisp;
-                              })
-                              .sort((a, b) => {
-                                if (telecallingSortField === 'timestamp') {
-                                  const timeA = a.id ? (parseInt(a.id.replace('call_', '')) || 0) : 0;
-                                  const timeB = b.id ? (parseInt(b.id.replace('call_', '')) || 0) : 0;
-                                  if (timeA > 0 || timeB > 0) {
-                                    return telecallingSortOrder === 'asc' ? timeA - timeB : timeB - timeA;
-                                  }
-                                }
-                                let valA = a[telecallingSortField] ?? '';
-                                let valB = b[telecallingSortField] ?? '';
-                                if (typeof valA === 'string') valA = valA.toLowerCase();
-                                if (typeof valB === 'string') valB = valB.toLowerCase();
-
-                                if (valA < valB) return telecallingSortOrder === 'asc' ? -1 : 1;
-                                if (valA > valB) return telecallingSortOrder === 'asc' ? 1 : -1;
-                                return 0;
-                              })
-                              .map(log => {
-                                const isPlaying = currentlyPlayingCallId === log.id;
-
-                                return (
-                                  <tr key={log.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                    <td style={{ padding: '14px 12px', fontSize: '12px', whiteSpace: 'nowrap', fontWeight: '600', color: '#64748b', verticalAlign: 'middle' }}>
-                                      {log.timestamp}
-                                    </td>
-                                    <td style={{ padding: '14px 12px', verticalAlign: 'middle' }}>
-                                      <div className="emp-cell" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <div className="emp-avatar-sm" style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #0d9488, #06b6d4)', color: 'white', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(13, 148, 136, 0.2)', flexShrink: 0 }}>
-                                          {log.agentName.substring(0, 2).toUpperCase()}
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap', lineHeight: '1.2' }}>{log.agentName}</div>
-                                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', lineHeight: '1.2' }}>{log.agentRole}</div>
-                                        </div>
-                                      </div>
-                                    </td>
-                                    <td style={{ padding: '14px 12px', verticalAlign: 'middle' }}>
-                                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#0d9488', cursor: 'pointer', whiteSpace: 'nowrap', lineHeight: '1.2' }}>{log.customerName}</div>
-                                        <div style={{ fontSize: '11px', color: '#64748b', fontFamily: 'monospace', marginTop: '2px', lineHeight: '1.2' }}>{log.customerPhone}</div>
-                                      </div>
-                                    </td>
-                                    <td style={{ padding: '14px 12px', verticalAlign: 'middle' }}>
-                                      {log.channel === 'WHATSAPP' ? (
-                                        <span style={{ background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0', padding: '5px 12px', borderRadius: '14px', fontSize: '11px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                                          🟢 WhatsApp Call
-                                        </span>
-                                      ) : (
-                                        <span style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', padding: '5px 12px', borderRadius: '14px', fontSize: '11px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                                          📱 SIM Call
-                                        </span>
-                                      )}
-                                    </td>
-                                    <td style={{ padding: '14px 12px', verticalAlign: 'middle' }}>
-                                      {log.type === 'OUTGOING' && (
-                                        <span style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '5px 12px', borderRadius: '14px', fontSize: '11px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                                          ↗️ Outgoing
-                                        </span>
-                                      )}
-                                      {log.type === 'INCOMING' && (
-                                        <span style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '5px 12px', borderRadius: '14px', fontSize: '11px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                                          ↙️ Incoming
-                                          {/* Hidden HTML5 Audio Element */}
-                                          {isPlaying && (
-                                            <audio
-                                              ref={audioPlayerRef}
-                                              src={log.recordingUrl || "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"}
-                                              autoPlay
-                                              onEnded={() => setCurrentlyPlayingCallId(null)}
-                                              onError={(e) => {
-                                                console.warn("Audio error:", e);
-                                              }}
-                                            />
-                                          )}
-                                        </span>
-                                      )}
-                                      {log.type === 'MISSED' && (
-                                        <span style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '5px 12px', borderRadius: '14px', fontSize: '11px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                                          ❌ Missed
-                                        </span>
-                                      )}
-                                      {log.type === 'REJECTED' && (
-                                        <span style={{ background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a', padding: '5px 12px', borderRadius: '14px', fontSize: '11px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                                          <X size={12} /> Rejected
-                                        </span>
-                                      )}
-                                    </td>
-                                    <td style={{ padding: '14px 12px', fontFamily: 'monospace', fontWeight: '800', fontSize: '13px', color: '#334155', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                                      {log.durationSeconds > 0 ? (
-                                        <span>{Math.floor(log.durationSeconds / 60)}m {log.durationSeconds % 60}s</span>
-                                      ) : (
-                                        <span style={{ color: '#94a3b8' }}>0s</span>
-                                      )}
-                                    </td>
-                                    <td style={{ padding: '14px 12px', verticalAlign: 'middle' }}>
-                                      {log.recordingUrl ? (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #f0fdf4 0%, #e6fffa 100%)', padding: '6px 12px', borderRadius: '20px', border: '1px solid #99f6e4', width: '230px', boxShadow: '0 2px 6px rgba(13, 148, 136, 0.06)' }}>
-                                          <button
-                                            onClick={() => {
-                                              if (isPlaying) {
-                                                if (audioPlayerRef.current) audioPlayerRef.current.pause();
-                                                setCurrentlyPlayingCallId(null);
-                                              } else {
-                                                setCurrentlyPlayingCallId(log.id);
-                                                setTimeout(() => {
-                                                  if (audioPlayerRef.current) {
-                                                    audioPlayerRef.current.playbackRate = playbackSpeed;
-                                                    audioPlayerRef.current.play().catch(() => {});
-                                                  }
-                                                }, 50);
-                                              }
-                                            }}
-                                            style={{
-                                              width: '30px',
-                                              height: '30px',
-                                              borderRadius: '50%',
-                                              background: isPlaying ? '#ef4444' : '#0d9488',
-                                              border: 'none',
-                                              color: 'white',
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              justifyContent: 'center',
-                                              cursor: 'pointer',
-                                              flexShrink: 0,
-                                              boxShadow: isPlaying ? '0 2px 8px rgba(239, 68, 68, 0.3)' : '0 2px 8px rgba(13, 148, 136, 0.3)'
-                                            }}
-                                          >
-                                            {isPlaying ? <span style={{ fontSize: '12px' }}>⏸️</span> : <Play size={14} style={{ marginLeft: '2px' }} />}
-                                          </button>
-
-                                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
-                                            <div style={{ fontSize: '11px', fontWeight: '800', color: '#0f766e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                              {isPlaying ? '▶️ Playing Audio...' : '🎙️ Audio Recording'}
-                                            </div>
-                                            <div style={{ height: '4px', background: '#ccfbf1', borderRadius: '2px', overflow: 'hidden' }}>
-                                              <div style={{ width: isPlaying ? '65%' : '0%', height: '100%', background: '#0d9488', transition: 'width 0.3s' }}></div>
-                                            </div>
-                                          </div>
-
-                                          {/* Playback speed toggle */}
-                                          <button
-                                            onClick={() => {
-                                              const nextSpeed = playbackSpeed === 1.0 ? 1.25 : (playbackSpeed === 1.25 ? 1.5 : (playbackSpeed === 1.5 ? 2.0 : 1.0));
-                                              setPlaybackSpeed(nextSpeed);
-                                              if (audioPlayerRef.current) audioPlayerRef.current.playbackRate = nextSpeed;
-                                            }}
-                                            style={{
-                                              fontSize: '10px',
-                                              fontWeight: '800',
-                                              padding: '2px 6px',
-                                              borderRadius: '6px',
-                                              background: '#ccfbf1',
-                                              border: '1px solid #99f6e4',
-                                              color: '#0f766e',
-                                              cursor: 'pointer',
-                                              flexShrink: 0
-                                            }}
-                                          >
-                                            {playbackSpeed}x
-                                          </button>
-
-                                          {/* Hidden HTML5 Audio Element */}
-                                          {isPlaying && (
-                                            <audio
-                                              ref={audioPlayerRef}
-                                              src={log.recordingUrl || "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"}
-                                              autoPlay
-                                              onEnded={() => setCurrentlyPlayingCallId(null)}
-                                              onError={(e) => {
-                                                console.warn("Audio decode warning:", e);
-                                              }}
-                                            />
-                                          )}
-                                        </div>
-                                      ) : (
-                                        <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>No Audio (Missed/Rejected)</span>
-                                      )}
-                                    </td>
-                                     <td style={{ padding: '14px 12px', verticalAlign: 'middle' }}>
-                                       <button
-                                         onClick={() => {
-                                           setTranscriptLog(log);
-                                           setShowAiTranscriptModal(true);
-                                         }}
-                                         style={{
-                                           background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
-                                           color: '#b45309',
-                                           border: '1px solid #fde68a',
-                                           padding: '5px 12px',
-                                           borderRadius: '8px',
-                                           fontSize: '11px',
-                                           fontWeight: '800',
-                                           cursor: 'pointer',
-                                           display: 'inline-flex',
-                                           alignItems: 'center',
-                                           gap: '4px',
-                                           boxShadow: '0 2px 6px rgba(245, 158, 11, 0.2)'
-                                         }}
-                                       >
-                                         🤖 AI Transcript
-                                       </button>
-                                     </td>
-                                    <td style={{ padding: '14px 12px', verticalAlign: 'middle', minWidth: '220px' }}>
-                                      <div>
-                                        <select
-                                          value={log.disposition}
-                                          onChange={(e) => {
-                                            const newDisp = e.target.value;
-                                            setCallLogs(prev => prev.map(c => c.id === log.id ? { ...c, disposition: newDisp } : c));
-                                            if (['Interested', 'Demo Scheduled', 'Callback Requested', 'Follow-up Required'].includes(newDisp)) {
-                                              setSelectedLogForAutoFollowup({ ...log, disposition: newDisp });
-                                              setAutoFollowupText(`Hello ${log.customerName}, thank you for speaking with our sales team! As discussed on our call regarding your inquiry, we have updated your status to "${newDisp}". Please find attached our company catalog & proposal details.`);
-                                              setShowAutoFollowupModal(true);
-                                            }
-                                          }}
-                                          style={{
-                                            padding: '5px 10px',
-                                            fontSize: '11px',
-                                            fontWeight: '700',
-                                            borderRadius: '8px',
-                                            border: '1px solid #cbd5e1',
-                                            background: log.disposition === 'Interested' || log.disposition === 'Deal Closed' ? '#dcfce7' : '#f8fafc',
-                                            color: log.disposition === 'Interested' || log.disposition === 'Deal Closed' ? '#15803d' : '#334155',
-                                            cursor: 'pointer',
-                                            outline: 'none'
-                                          }}
-                                        >
-                                          {dispositionOptions.map(opt => (
-                                            <option key={opt} value={opt}>{opt}</option>
-                                          ))}
-                                        </select>
-                                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', lineHeight: '1.4', whiteSpace: 'normal', wordBreak: 'break-word', maxWidth: '240px' }}>
-                                          {log.notes}
-                                        </div>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* SUB-TAB 2: VOXBAY LIVE CALL MONITORING PANEL */}
-                {telecallingSubTab === 'live_monitoring' && (
-                  <div style={{ padding: '24px', flexGrow: 1, overflowY: 'auto', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
-                      <div>
-                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '18px', color: '#ef4444' }}>📡</span> Voxbay Live Supervisor Panel & Call Dispatch
-                        </h3>
-                        <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>
-                          Monitor active calls in real time and manage automatic Round-Robin SIM lead routing.
-                        </p>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ background: '#fef2f2', color: '#dc2626', padding: '6px 14px', borderRadius: '20px', fontWeight: '700', fontSize: '12px', border: '1px solid #fecaca', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          🔴 2 Live Calls In-Progress
-                        </span>
-                        <button
-                          onClick={() => alert('🔔 Live Audio Bell Test:\n\nIncoming SIM Call notification chime triggered for Active Telecaller!')}
-                          style={{ background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd', padding: '6px 14px', borderRadius: '10px', fontWeight: '800', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-                        >
-                          🔔 Test Audio Alert
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* ROUND-ROBIN AUTOMATIC SIM LEAD ROUTING BAR */}
-                    <div style={{ background: 'linear-gradient(135deg, #0d9488 0%, #044e43 100%)', borderRadius: '14px', padding: '18px 20px', color: '#ffffff', boxShadow: '0 6px 16px rgba(13, 148, 136, 0.25)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '16px' }}>
-                            🔄
-                          </div>
-                          <div>
-                            <div style={{ fontSize: '14px', fontWeight: '900', color: '#ffffff' }}>Automatic SIM Call Round-Robin Routing</div>
-                            <div style={{ fontSize: '11px', color: '#ccfbf1' }}>Auto-distribute incoming unknown calls equally across active telecallers</div>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{ fontSize: '12px', fontWeight: '800', color: isRoundRobinEnabled ? '#34d399' : '#94a3b8' }}>
-                            {isRoundRobinEnabled ? '🟢 ROUND-ROBIN ACTIVE' : '🔴 DISABLED'}
-                          </span>
-                          <button
-                            onClick={() => setIsRoundRobinEnabled(prev => !prev)}
-                            style={{
-                              background: isRoundRobinEnabled ? '#10b981' : '#64748b',
-                              color: 'white',
-                              border: 'none',
-                              padding: '6px 16px',
-                              borderRadius: '20px',
-                              fontWeight: '800',
-                              fontSize: '11px',
-                              cursor: 'pointer',
-                              boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
-                            }}
-                          >
-                            {isRoundRobinEnabled ? 'ON' : 'OFF'}
-                          </button>
-                        </div>
-                      </div>
-
-                    {/* Live Queue Cards */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
-                      <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: '8px', padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ fontSize: '11px', fontWeight: '700' }}>Round-Robin Status</div>
-                        <span style={{ fontSize: '10px', background: isRoundRobinEnabled ? '#10b981' : '#64748b', color: 'white', padding: '2px 8px', borderRadius: '10px', fontWeight: '800' }}>
-                          {isRoundRobinEnabled ? 'Ready for Calls' : 'Queue Paused'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: '20px' }}>
-                    {callLogs.filter(c => c.type === 'INCOMING' || c.type === 'OUTGOING').slice(0, 2).map((log, idx) => (
-                      <div key={log.id || idx} style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #cbd5e1', padding: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.04)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                          <span style={{ background: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '700' }}>
-                            🟢 Connected ({Math.floor(log.durationSeconds / 60)}m {log.durationSeconds % 60}s)
-                          </span>
-                          <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b' }}>Channel: {log.channel}</span>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                          <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#0d9488', color: 'white', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {(log.agentName || 'AG').substring(0, 2).toUpperCase()}
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: '800', fontSize: '14px', color: '#0f172a' }}>{log.agentName || 'Telecaller Agent'}</div>
-                            <div style={{ fontSize: '12px', color: '#0d9488', fontWeight: '600' }}>Calling: {log.customerName} ({log.customerPhone})</div>
-                          </div>
-                        </div>
-
-                        <div style={{ background: '#f1f5f9', padding: '10px 14px', borderRadius: '8px', marginBottom: '16px', fontSize: '12px', color: '#334155' }}>
-                          <strong>Notes/Disposition:</strong> {log.notes || log.disposition || 'Call active'}
-                        </div>
-
-                        {/* Supervisor Action Buttons */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                          <button
-                            onClick={() => alert(`Listening silently to call between ${log.agentName} and ${log.customerName}...`)}
-                            style={{ background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd', padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                          >
-                            🎧 Silent Listen
-                          </button>
-                          <button
-                            onClick={() => alert(`Whisper Mode Active: Only Agent ${log.agentName} can hear you!`)}
-                            style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                          >
-                            🗣️ Whisper Coach
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-
-                    {callLogs.filter(c => c.type === 'INCOMING' || c.type === 'OUTGOING').length === 0 && (
-                      <div style={{ gridColumn: '1 / -1', background: '#ffffff', borderRadius: '14px', border: '1px solid #cbd5e1', padding: '40px', textAlign: 'center', color: '#64748b' }}>
-                        <div style={{ fontSize: '32px', marginBottom: '10px' }}>📡</div>
-                        <div style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>No Live Calls In-Progress</div>
-                        <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
-                          Connect your Mobile SIM App or make WhatsApp calls to monitor live agent calls in real-time.
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  </div>
-                )}
-
-                {/* SUB-TAB 2.5: VOXBAY VISUAL IVR & CALL FLOW BUILDER */}
-                {telecallingSubTab === 'ivr_builder' && (
-                  <div style={{ padding: '24px', flexGrow: 1, overflowY: 'auto', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                    {/* Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', background: '#ffffff', padding: '20px', borderRadius: '14px', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '900', color: '#0f172a' }}>
-                            🌳 Visual IVR & Automated Call Flow Builder
-                          </h3>
-                          <span style={{ background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '800' }}>
-                            🟢 IVR ENGINE ONLINE
-                          </span>
-                        </div>
-                        <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>
-                          Configure welcome voice prompts, DTMF keypress routing, business hours, and automated fallback.
-                        </p>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f1f5f9', padding: '6px 14px', borderRadius: '10px' }}>
-                          <span style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>Virtual DID:</span>
-                          <span style={{ fontSize: '12px', fontWeight: '900', color: '#0d9488' }}>+91 1800 890 1234</span>
-                        </div>
-                        <button
-                          onClick={() => alert('✅ IVR Call Flow Configuration Saved Successfully!')}
-                          style={{ background: 'linear-gradient(135deg, #0d9488 0%, #059669 100%)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: '800', fontSize: '12px', cursor: 'pointer', boxShadow: '0 4px 14px rgba(13, 148, 136, 0.3)', display: 'flex', alignItems: 'center', gap: '6px' }}
-                        >
-                          💾 Save IVR Flow
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="ivr-flow-grid">
-                      {/* LEFT COLUMN: VISUAL STEP-BY-STEP FLOW NODES */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                        
-                        {/* NODE 1: INCOMING CALL TRIGGER */}
-                        <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #cbd5e1', padding: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', position: 'relative' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#e0f2fe', color: '#0369a1', fontWeight: '900', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
-                                1
-                              </div>
-                              <div style={{ fontWeight: '800', fontSize: '15px', color: '#0f172a' }}>Incoming Call Trigger</div>
-                            </div>
-                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#0369a1', background: '#e0f2fe', padding: '4px 10px', borderRadius: '6px' }}>Entry Point</span>
-                          </div>
-                          <div style={{ fontSize: '13px', color: '#475569' }}>
-                            Customer dials Virtual Number <strong>+91 1800 890 1234</strong> $\rightarrow$ Triggers automated IVR menu engine.
-                          </div>
-                        </div>
-
-                        {/* ARROW DOWN */}
-                        <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '18px', fontWeight: 'bold' }}>↓</div>
-
-                        {/* NODE 2: WELCOME GREETING & TTS AUDIO PROMPT */}
-                        <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #cbd5e1', padding: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#fef3c7', color: '#b45309', fontWeight: '900', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
-                                2
-                              </div>
-                              <div style={{ fontWeight: '800', fontSize: '15px', color: '#0f172a' }}>Welcome Audio & TTS Greeting Prompt</div>
-                            </div>
-                            <select
-                              value={ivrLanguage}
-                              onChange={(e) => setIvrLanguage(e.target.value)}
-                              style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: '700' }}
-                            >
-                              <option value="hi-IN">🇮🇳 Hindi (Indian Accent)</option>
-                              <option value="en-IN">🇬🇧 English (India)</option>
-                              <option value="ta-IN">🇮🇳 Tamil</option>
-                            </select>
-                          </div>
-
-                          <div style={{ marginBottom: '14px' }}>
-                            <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '6px' }}>Text-To-Speech (TTS) Voice Prompt Script:</label>
-                            <textarea
-                              rows="3"
-                              value={ivrWelcomeText}
-                              onChange={(e) => setIvrWelcomeText(e.target.value)}
-                              style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', lineHeight: '1.5', fontFamily: 'inherit' }}
-                            />
-                          </div>
-
-                          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                            <button
-                              onClick={() => {
-                                if ('speechSynthesis' in window) {
-                                  const utterance = new SpeechSynthesisUtterance(ivrWelcomeText);
-                                  utterance.lang = ivrLanguage;
-                                  window.speechSynthesis.speak(utterance);
-                                } else {
-                                  alert('▶️ Playing TTS Audio Greeting: ' + ivrWelcomeText);
-                                }
-                              }}
-                              style={{ background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-                            >
-                              🔊 Test Audio Preview
-                            </button>
-                            <span style={{ fontSize: '11px', color: '#64748b' }}>Voice: AI Indian Accent (Female)</span>
-                          </div>
-                        </div>
-
-                        {/* ARROW DOWN */}
-                        <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '18px', fontWeight: 'bold' }}>↓</div>
-
-                        {/* NODE 3: KEYPRESS (DTMF) ROUTING MATRIX */}
-                        <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #cbd5e1', padding: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#dcfce7', color: '#15803d', fontWeight: '900', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
-                                3
-                              </div>
-                              <div style={{ fontWeight: '800', fontSize: '15px', color: '#0f172a' }}>DTMF Keypress Options Matrix</div>
-                            </div>
-                            <button onClick={() => alert('Option added')} style={{ background: '#e0f2fe', color: '#0369a1', border: 'none', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '800', cursor: 'pointer' }}>+ Add Option</button>
-                          </div>
-
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-                            {/* Key 1 */}
-                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                <span style={{ background: '#0d9488', color: 'white', fontWeight: '900', padding: '2px 8px', borderRadius: '6px', fontSize: '12px' }}>Key 1</span>
-                                <span style={{ fontSize: '11px', fontWeight: '700', color: '#0d9488' }}>Round-Robin</span>
-                              </div>
-                              <div style={{ fontWeight: '800', fontSize: '13px', color: '#0f172a' }}>🎯 Sales & Product Demos</div>
-                              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>4 Active Telecallers Assigned $\cdot$ 25s Ring Time</div>
-                            </div>
-
-                            {/* Key 2 */}
-                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                <span style={{ background: '#3b82f6', color: 'white', fontWeight: '900', padding: '2px 8px', borderRadius: '6px', fontSize: '12px' }}>Key 2</span>
-                                <span style={{ fontSize: '11px', fontWeight: '700', color: '#2563eb' }}>Simultaneous</span>
-                              </div>
-                              <div style={{ fontWeight: '800', fontSize: '13px', color: '#0f172a' }}>🛠️ Customer Support Desk</div>
-                              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>3 Support Executives Assigned $\cdot$ Priority Queue</div>
-                            </div>
-
-                            {/* Key 3 */}
-                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                <span style={{ background: '#8b5cf6', color: 'white', fontWeight: '900', padding: '2px 8px', borderRadius: '6px', fontSize: '12px' }}>Key 3</span>
-                                <span style={{ fontSize: '11px', fontWeight: '700', color: '#7c3aed' }}>Extension #104</span>
-                              </div>
-                              <div style={{ fontWeight: '800', fontSize: '13px', color: '#0f172a' }}>💳 Accounts & Billing</div>
-                              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>Direct Transfer to Senior Accountant</div>
-                            </div>
-
-                            {/* Key 0 */}
-                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                <span style={{ background: '#64748b', color: 'white', fontWeight: '900', padding: '2px 8px', borderRadius: '6px', fontSize: '12px' }}>Key 0</span>
-                                <span style={{ fontSize: '11px', fontWeight: '700', color: '#475569' }}>General Queue</span>
-                              </div>
-                              <div style={{ fontWeight: '800', fontSize: '13px', color: '#0f172a' }}>📞 Executive Reception</div>
-                              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>Connects to Front Desk Executive</div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* ARROW DOWN */}
-                        <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '18px', fontWeight: 'bold' }}>↓</div>
-
-                        {/* NODE 4: BUSINESS HOURS & FALLBACK ESCALATION */}
-                        <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #cbd5e1', padding: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#fecaca', color: '#dc2626', fontWeight: '900', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
-                              4
-                            </div>
-                            <div style={{ fontWeight: '800', fontSize: '15px', color: '#0f172a' }}>Schedule & Unanswered Fallback Escalation</div>
-                          </div>
-
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                            <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                              <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f172a' }}>⏰ Working Hours Schedule</div>
-                              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Mon - Sat (09:00 AM - 07:00 PM)</div>
-                              <div style={{ fontSize: '11px', color: '#059669', fontWeight: '700', marginTop: '4px' }}>After-hours: Play Closed TTS & Forward to Emergency SIM</div>
-                            </div>
-
-                            <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                              <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f172a' }}>⚠️ Unanswered Handling (30s)</div>
-                              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>If no telecaller answers in 30s:</div>
-                              <div style={{ fontSize: '11px', color: '#2563eb', fontWeight: '700', marginTop: '4px' }}>Auto WhatsApp SMS Sent + CRM Followup Task Created</div>
-                            </div>
-                          </div>
-                        </div>
-
-                      </div>
-
-                      {/* RIGHT COLUMN: INTERACTIVE PHONE KEYPAD IVR SIMULATOR */}
-                      <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #cbd5e1', padding: '20px', boxShadow: '0 4px 16px rgba(0,0,0,0.06)', position: 'sticky', top: '24px' }}>
-                        <div style={{ textAlign: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-                          <div style={{ fontSize: '16px', fontWeight: '900', color: '#0f172a' }}>📱 Live IVR Phone Simulator</div>
-                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Click keys to test IVR caller flow</div>
-                        </div>
-
-                        {/* Interactive Screen Display */}
-                        <div style={{ background: '#0f172a', borderRadius: '12px', padding: '16px', color: '#ffffff', minHeight: '90px', marginBottom: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                          <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700' }}>CALL IN-PROGRESS: +91 1800 890 1234</div>
-                          <div style={{ fontSize: '13px', fontWeight: '800', color: '#38bdf8', marginTop: '6px', lineHeight: '1.4' }}>
-                            {ivrTestKeyResult || '🔊 Playing IVR Welcome Greeting... Press any key.'}
-                          </div>
-                        </div>
-
-                        {/* Phone Keypad */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '16px' }}>
-                          {[
-                            { key: '1', label: 'Sales' },
-                            { key: '2', label: 'Support' },
-                            { key: '3', label: 'Billing' },
-                            { key: '4', label: '-' },
-                            { key: '5', label: '-' },
-                            { key: '6', label: '-' },
-                            { key: '7', label: '-' },
-                            { key: '8', label: '-' },
-                            { key: '9', label: '-' },
-                            { key: '*', label: 'Repeat' },
-                            { key: '0', label: 'Exec' },
-                            { key: '#', label: 'End' }
-                          ].map(item => (
-                            <button
-                              key={item.key}
-                              onClick={() => {
-                                let res = '';
-                                if (item.key === '1') res = '🎯 Key 1 Pressed: Connecting to Sales Queue (Available Agent assigned)';
-                                else if (item.key === '2') res = '🛠️ Key 2 Pressed: Connecting to Customer Support Desk (Available Agent assigned)';
-                                else if (item.key === '3') res = '💳 Key 3 Pressed: Connecting to Accounts & Billing (Extension #104)';
-                                else if (item.key === '0') res = '📞 Key 0 Pressed: Connecting to General Executive Queue';
-                                else if (item.key === '*') res = '🔄 Repeating Welcome Greeting...';
-                                else if (item.key === '#') res = '🔴 Call Ended by User.';
-                                else res = `Key ${item.key} pressed. Invalid option, playing menu again.`;
-
-                                setIvrTestKeyResult(res);
-
-                                if ('speechSynthesis' in window) {
-                                  const text = String(res || '').replace(/[^a-zA-Z0-9\s]/g, '');
-                                  const utterance = new SpeechSynthesisUtterance(text);
-                                  utterance.lang = 'en-US';
-                                  window.speechSynthesis.speak(utterance);
-                                }
-                              }}
-                              style={{
-                                background: '#f8fafc',
-                                border: '1px solid #cbd5e1',
-                                borderRadius: '10px',
-                                padding: '12px 6px',
-                                textAlign: 'center',
-                                cursor: 'pointer',
-                                transition: 'all 0.1s ease',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-                              }}
-                            >
-                              <div style={{ fontSize: '18px', fontWeight: '900', color: '#0f172a' }}>{item.key}</div>
-                              <div style={{ fontSize: '9px', fontWeight: '700', color: '#0d9488', marginTop: '2px' }}>{item.label}</div>
-                            </button>
-                          ))}
-                        </div>
-
-                        <button
-                          onClick={() => setIvrTestKeyResult(null)}
-                          style={{ width: '100%', background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd', padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '800', cursor: 'pointer' }}
-                        >
-                          🔄 Reset Phone Simulator
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* SUB-TAB 3: CALL CENTER ANALYTICS & AGENT LEADERBOARD */}
-                {telecallingSubTab === 'analytics' && (
-                  <div style={{ padding: '24px', flexGrow: 1, overflowY: 'auto', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                    {/* Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
-                      <div>
-                        <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '900', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          🏆 Telecaller Performance & Daily Target Leaderboard
-                        </h3>
-                        <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>
-                          Track team target achievement, talk-time metrics, and top agent rankings in real-time.
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => alert('🎯 Daily Target Configurator Modal:\n\nDefault Daily Target: 50 Calls / Telecaller / Day.\nMinimum Talk-Time: 2 Hours / Day.')}
-                        style={{ background: 'linear-gradient(135deg, #0d9488 0%, #059669 100%)', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '10px', fontWeight: '800', fontSize: '12px', cursor: 'pointer', boxShadow: '0 4px 14px rgba(13, 148, 136, 0.3)', display: 'flex', alignItems: 'center', gap: '6px' }}
-                      >
-                        🎯 Configure Daily Targets
-                      </button>
-                    </div>
-
-                    {/* 4 COLORFUL TARGET SUMMARY CARDS */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-                      {/* Card 1: Daily Team Call Target */}
-                      <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #cbd5e1', padding: '18px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700', color: '#64748b', marginBottom: '8px' }}>
-                          <span>TEAM CALL TARGET</span>
-                          <span style={{ color: '#0d9488' }}>{Math.min(100, Math.round((callLogs.length / 250) * 100))}% Done</span>
-                        </div>
-                        <div style={{ fontSize: '28px', fontWeight: '900', color: '#0f172a', marginBottom: '8px' }}>
-                          {callLogs.length} <span style={{ fontSize: '14px', color: '#64748b', fontWeight: '600' }}>/ 250 Calls</span>
-                        </div>
-                        <div style={{ width: '100%', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                          <div style={{ width: `${Math.min(100, Math.round((callLogs.length / 250) * 100))}%`, height: '100%', background: 'linear-gradient(90deg, #10b981 0%, #0d9488 100%)', borderRadius: '4px' }}></div>
-                        </div>
-                      </div>
-
-                      {/* Card 2: Talk-Time Target */}
-                      <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #cbd5e1', padding: '18px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700', color: '#64748b', marginBottom: '8px' }}>
-                          <span>TALK-TIME GOAL</span>
-                          <span style={{ color: '#3b82f6' }}>{Math.min(100, Math.round(((callLogs.reduce((acc, c) => acc + (c.durationSeconds || 0), 0) / 3600) / 10) * 100))}% Done</span>
-                        </div>
-                        <div style={{ fontSize: '28px', fontWeight: '900', color: '#0f172a', marginBottom: '8px' }}>
-                          {(callLogs.reduce((acc, c) => acc + (c.durationSeconds || 0), 0) / 3600).toFixed(1)} hrs <span style={{ fontSize: '14px', color: '#64748b', fontWeight: '600' }}>/ 10 hrs</span>
-                        </div>
-                        <div style={{ width: '100%', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                          <div style={{ width: `${Math.min(100, Math.round(((callLogs.reduce((acc, c) => acc + (c.durationSeconds || 0), 0) / 3600) / 10) * 100))}%`, height: '100%', background: 'linear-gradient(90deg, #3b82f6 0%, #06b6d4 100%)', borderRadius: '4px' }}></div>
-                        </div>
-                      </div>
-
-                      {/* Card 3: Conversion Target */}
-                      <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #cbd5e1', padding: '18px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700', color: '#64748b', marginBottom: '8px' }}>
-                          <span>INTERESTED LEADS</span>
-                          <span style={{ color: '#16a34a', fontWeight: '800' }}>
-                            {callLogs.filter(c => ['Interested', 'Deal Closed', 'Demo Scheduled'].includes(c.disposition)).length} Converted
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '28px', fontWeight: '900', color: '#0f172a', marginBottom: '8px' }}>
-                          {callLogs.filter(c => ['Interested', 'Deal Closed', 'Demo Scheduled'].includes(c.disposition)).length} <span style={{ fontSize: '14px', color: '#64748b', fontWeight: '600' }}>/ 30 Leads</span>
-                        </div>
-                        <div style={{ width: '100%', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                          <div style={{ width: `${Math.min(100, Math.round((callLogs.filter(c => ['Interested', 'Deal Closed', 'Demo Scheduled'].includes(c.disposition)).length / 30) * 100))}%`, height: '100%', background: 'linear-gradient(90deg, #f59e0b 0%, #10b981 100%)', borderRadius: '4px' }}></div>
-                        </div>
-                      </div>
-
-                      {/* Card 4: Champion Telecaller Trophy */}
-                      <div style={{ background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', borderRadius: '14px', border: '1px solid #fde68a', padding: '18px', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.15)', display: 'flex', alignItems: 'center', gap: '14px' }}>
-                        <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', boxShadow: '0 6px 16px rgba(245, 158, 11, 0.4)', flexShrink: 0 }}>
-                          🥇
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '11px', fontWeight: '800', color: '#b45309', textTransform: 'uppercase' }}>TOP PERFORMER OF THE DAY</div>
-                          <div style={{ fontSize: '16px', fontWeight: '900', color: '#78350f' }}>
-                            {callLogs.length > 0 ? (callLogs[0].agentName || 'Active Agent') : 'No Activity Yet'}
-                          </div>
-                          <div style={{ fontSize: '11px', color: '#92400e', fontWeight: '600' }}>
-                            {callLogs.length > 0 ? `${callLogs.length} Calls | Live Tracking` : 'Awaiting live SIM call sync'}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Hourly Call Volume Distribution */}
-                    <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #cbd5e1', padding: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-                      <div style={{ fontWeight: '800', fontSize: '14px', color: '#0f172a', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>📊 Hourly Call Volume Distribution (9 AM - 6 PM)</span>
-                        <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
-                          Peak Time: <strong>{callLogs.length > 0 ? 'Live Activity' : 'No calls yet'}</strong>
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '14px', height: '120px', paddingBottom: '20px', borderBottom: '1px solid #e2e8f0', justifyContent: 'center', alignItems: 'center' }}>
-                        <div style={{ color: '#94a3b8', fontSize: '13px', fontStyle: 'italic' }}>
-                          {callLogs.length > 0 ? 'Call volume distribution updated live' : 'Hourly chart will render automatically as incoming and outgoing SIM calls are made'}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* VIBRANT AGENT PERFORMANCE LEADERBOARD TABLE */}
-                    <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', overflow: 'hidden' }}>
-                      <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', fontWeight: '900', fontSize: '15px', color: '#0f172a', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          🏆 Telecaller Agent Performance & Target Completion Table
-                        </span>
-                        <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>Updated Live</span>
-                      </div>
-                      <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                          <thead>
-                            <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1', color: '#475569', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.5px' }}>
-                              <th style={{ padding: '12px 16px', textAlign: 'center', width: '80px' }}>Rank</th>
-                              <th style={{ padding: '12px 16px', textAlign: 'left' }}>Telecaller Agent</th>
-                              <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '180px' }}>Daily Call Target Progress</th>
-                              <th style={{ padding: '12px 16px', textAlign: 'center' }}>Total Talk Time</th>
-                              <th style={{ padding: '12px 16px', textAlign: 'center' }}>Avg Handle Time</th>
-                              <th style={{ padding: '12px 16px', textAlign: 'center' }}>Interested Leads</th>
-                              <th style={{ padding: '12px 16px', textAlign: 'center' }}>Performance Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {callLogs.length === 0 ? (
-                              <tr>
-                                <td colSpan="7" style={{ padding: '30px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
-                                  🏆 No agent performance data recorded yet. Telecaller rankings will update automatically when calls are synced.
-                                </td>
-                              </tr>
-                            ) : (
-                              /* Dynamic Agent Leaderboard Row */
-                              <tr style={{ borderBottom: '1px solid #e2e8f0', background: '#fffbeb' }}>
-                                <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                                  <span style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#ffffff', padding: '6px 12px', borderRadius: '20px', fontWeight: '900', fontSize: '12px' }}>
-                                    🥇 #1
-                                  </span>
-                                </td>
-                                <td style={{ padding: '14px 16px' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: 'white', fontWeight: '900', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                      {(callLogs[0]?.agentName || 'AG').substring(0, 2).toUpperCase()}
-                                    </div>
-                                    <div>
-                                      <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '13px' }}>{callLogs[0]?.agentName || 'Active Telecaller'}</div>
-                                      <div style={{ fontSize: '11px', color: '#64748b' }}>{callLogs[0]?.agentRole || 'Telecalling Agent'}</div>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td style={{ padding: '14px 16px' }}>
-                                  <div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '700', color: '#1e293b', marginBottom: '4px' }}>
-                                      <span>{callLogs.length} / 50 Calls</span>
-                                      <span style={{ color: '#16a34a', fontWeight: '900' }}>{Math.round((callLogs.length / 50) * 100)}%</span>
-                                    </div>
-                                    <div style={{ width: '100%', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                                      <div style={{ width: `${Math.min(100, Math.round((callLogs.length / 50) * 100))}%`, height: '100%', background: '#10b981', borderRadius: '4px' }}></div>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                                  <span style={{ background: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '8px', fontWeight: '800', fontSize: '11px' }}>
-                                    ⏱️ {Math.floor(callLogs.reduce((a, b) => a + (b.durationSeconds || 0), 0) / 60)}m {callLogs.reduce((a, b) => a + (b.durationSeconds || 0), 0) % 60}s
-                                  </span>
-                                </td>
-                                <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: '700', color: '#334155' }}>
-                                  {Math.round(callLogs.reduce((a, b) => a + (b.durationSeconds || 0), 0) / callLogs.length)}s
-                                </td>
-                                <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                                  <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 10px', borderRadius: '8px', fontWeight: '800', fontSize: '11px' }}>
-                                    🔥 {callLogs.filter(c => c.disposition === 'Interested').length} Leads
-                                  </span>
-                                </td>
-                                <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                                  <span style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#ffffff', padding: '5px 12px', borderRadius: '20px', fontWeight: '800', fontSize: '11px' }}>
-                                    🌟 Active
-                                  </span>
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* System Dropdowns Manager Modal */}
-                {showManageDropdownsModal && (
-                  <div className="modal-backdrop" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div className="modal-content" style={{ background: '#ffffff', width: '480px', borderRadius: '16px', padding: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', border: '1px solid #e2e8f0' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Settings size={20} style={{ color: '#0d9488' }} />
-                          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>System Dropdowns Manager</h3>
-                        </div>
-                        <button onClick={() => setShowManageDropdownsModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
-                          <X size={20} />
-                        </button>
-                      </div>
-
-                      <div style={{ fontSize: '13px', color: '#475569', marginBottom: '16px' }}>
-                        Manage active Call Dispositions available across telecaller logs and filter bars. Add or remove custom lead outcomes dynamically.
-                      </div>
-
-                      {/* Add New Option Input */}
-                      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-                        <input
-                          type="text"
-                          placeholder="Type new disposition option (e.g. Hot Prospect)..."
-                          value={newOptionInput}
-                          onChange={(e) => setNewOptionInput(e.target.value)}
-                          style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
-                        />
-                        <button
-                          onClick={() => {
-                            if (newOptionInput.trim() && !dispositionOptions.includes(newOptionInput.trim())) {
-                              setDispositionOptions(prev => [...prev, newOptionInput.trim()]);
-                              setNewOptionInput('');
-                            }
-                          }}
-                          style={{ background: '#0d9488', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
-                        >
-                          ➕ Add
-                        </button>
-                      </div>
-
-                      {/* Current Options List */}
-                      <div style={{ maxHeight: '240px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {dispositionOptions.map(opt => (
-                          <div key={opt} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                            <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{opt}</span>
-                            <button
-                              onClick={() => {
-                                if (dispositionOptions.length > 1) {
-                                  softDeleteRecord({
-                                    originalId: `dropdown_${opt}`,
-                                    name: `System Dropdown Option: "${opt}"`,
-                                    category: 'System Dropdown',
-                                    entityData: { optionName: opt, type: 'Call Disposition' },
-                                    links: 'Telecalling Disposition Schema'
-                                  });
-                                  setDispositionOptions(prev => prev.filter(o => o !== opt));
-                                } else {
-                                  alert('At least one disposition option must remain active.');
-                                }
-                              }}
-                              style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
-                              title="Delete option"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
-                        <button
-                          onClick={() => setShowManageDropdownsModal(false)}
-                          style={{ background: '#0d9488', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
-                        >
-                          Done & Save
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Automated WhatsApp Follow-up Trigger Modal */}
-                {showAutoFollowupModal && selectedLogForAutoFollowup && (
-                  <div className="modal-backdrop" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(6px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div className="modal-content" style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)', width: '520px', borderRadius: '18px', padding: '24px', boxShadow: '0 25px 50px rgba(0,0,0,0.25)', border: '2px solid #10b981' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #bbf7d0', paddingBottom: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#10b981', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)' }}>
-                            ⚡
-                          </div>
-                          <div>
-                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: '#065f46' }}>Automated WhatsApp Trigger</h3>
-                            <span style={{ fontSize: '11px', color: '#047857', fontWeight: '700' }}>Instant Lead Nurturing & Follow-Up</span>
-                          </div>
-                        </div>
-                        <button onClick={() => setShowAutoFollowupModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#047857' }}>
-                          <X size={22} />
-                        </button>
-                      </div>
-
-                      <div style={{ background: '#ffffff', borderRadius: '12px', padding: '14px', border: '1px solid #a7f3d0', marginBottom: '16px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '8px' }}>
-                          <span>Customer: <strong>{selectedLogForAutoFollowup.customerName}</strong></span>
-                          <span>Channel: <strong style={{ color: '#059669' }}>{selectedLogForAutoFollowup.channel}</strong></span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
-                          <span>Call Disposition:</span>
-                          <span style={{ background: '#10b981', color: 'white', padding: '2px 10px', borderRadius: '12px', fontWeight: '800', fontSize: '11px' }}>
-                            {selectedLogForAutoFollowup.disposition}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div style={{ marginBottom: '16px' }}>
-                        <label style={{ fontSize: '12px', fontWeight: '800', color: '#065f46', display: 'block', marginBottom: '6px' }}>
-                          💬 Auto WhatsApp Follow-up Message Text:
-                        </label>
-                        <textarea
-                          rows={4}
-                          value={autoFollowupText}
-                          onChange={(e) => setAutoFollowupText(e.target.value)}
-                          style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #6ee7b7', fontSize: '12px', outline: 'none', resize: 'vertical', background: '#ffffff', color: '#0f172a', fontWeight: '500' }}
-                        />
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                        <button
-                          onClick={() => setShowAutoFollowupModal(false)}
-                          style={{ background: '#e2e8f0', color: '#475569', border: 'none', padding: '10px 18px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: '12px' }}
-                        >
-                          Skip for Now
-                        </button>
-                        <button
-                          onClick={() => {
-                            alert(`🚀 Automated WhatsApp Message Sent to ${selectedLogForAutoFollowup.customerName}!\n\n"${autoFollowupText}"`);
-                            setShowAutoFollowupModal(false);
-                          }}
-                          style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white', border: 'none', padding: '10px 22px', borderRadius: '10px', fontWeight: '800', cursor: 'pointer', fontSize: '12px', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)', display: 'flex', alignItems: 'center', gap: '6px' }}
-                        >
-                          🚀 Send WhatsApp Message
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Export Call Center & Performance Reports Modal */}
-                {showExportReportModal && (
-                  <div className="modal-backdrop" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(6px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div className="modal-content" style={{ background: '#ffffff', width: '500px', borderRadius: '18px', padding: '24px', boxShadow: '0 25px 50px rgba(0,0,0,0.25)', border: '1px solid #cbd5e1' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)' }}>
-                            📥
-                          </div>
-                          <div>
-                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: '#0f172a' }}>Export Call Reports</h3>
-                            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Download Telecaller Data in Excel / PDF Format</span>
-                          </div>
-                        </div>
-                        <button onClick={() => setShowExportReportModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
-                          <X size={22} />
-                        </button>
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' }}>
-                        <div>
-                          <label style={{ fontSize: '12px', fontWeight: '800', color: '#334155', display: 'block', marginBottom: '6px' }}>
-                            📊 Select Report File Format:
-                          </label>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-                            {[
-                              { id: 'excel', label: '📗 Excel (.xlsx)', color: '#16a34a', bg: '#dcfce7' },
-                              { id: 'pdf', label: '📕 PDF Report', color: '#dc2626', bg: '#fef2f2' },
-                              { id: 'csv', label: '📄 Raw CSV', color: '#0284c7', bg: '#e0f2fe' }
-                            ].map(fmt => (
-                              <button
-                                key={fmt.id}
-                                onClick={() => setExportFileType(fmt.id)}
-                                style={{
-                                  padding: '10px',
-                                  borderRadius: '10px',
-                                  border: exportFileType === fmt.id ? `2px solid ${fmt.color}` : '1px solid #cbd5e1',
-                                  background: exportFileType === fmt.id ? fmt.bg : '#ffffff',
-                                  color: fmt.color,
-                                  fontWeight: '800',
-                                  fontSize: '11px',
-                                  cursor: 'pointer',
-                                  textAlign: 'center'
-                                }}
-                              >
-                                {fmt.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div>
-                          <label style={{ fontSize: '12px', fontWeight: '800', color: '#334155', display: 'block', marginBottom: '6px' }}>
-                            📅 Select Date Filter Range:
-                          </label>
-                          <select
-                            value={exportDateRange}
-                            onChange={(e) => setExportDateRange(e.target.value)}
-                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: '600', outline: 'none' }}
-                          >
-                            <option value="today">Today's Call Summary</option>
-                            <option value="yesterday">Yesterday's Call Logs</option>
-                            <option value="7days">Last 7 Days Detailed Report</option>
-                            <option value="month">This Month Complete Performance Report</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
-                        <button
-                          onClick={() => setShowExportReportModal(false)}
-                          style={{ background: '#e2e8f0', color: '#475569', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '12px' }}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => {
-                            alert(`📥 ${exportFileType.toUpperCase()} Report Generation Started!\n\nDate Range: ${exportDateRange}\nTotal Logs Exported: 148 Records.`);
-                            setShowExportReportModal(false);
-                          }}
-                          style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white', border: 'none', padding: '10px 22px', borderRadius: '8px', fontWeight: '800', cursor: 'pointer', fontSize: '12px', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)', display: 'flex', alignItems: 'center', gap: '6px' }}
-                        >
-                          🚀 Generate & Download {exportFileType.toUpperCase()} Report
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Voxbay AI Speech-to-Text Call Transcript & Sentiment Analysis Modal */}
-                {showAiTranscriptModal && (
-                  <div className="modal-backdrop" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div className="modal-content" style={{ background: '#ffffff', width: '560px', maxHeight: '85vh', borderRadius: '20px', padding: '24px', boxShadow: '0 25px 50px rgba(0,0,0,0.3)', border: '1px solid #cbd5e1', display: 'flex', flexDirection: 'column' }}>
-                      {/* Header */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{ width: '38px', height: '38px', borderRadius: '12px', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)', fontSize: '18px' }}>
-                            🤖
-                          </div>
-                          <div>
-                            <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '900', color: '#0f172a' }}>Voxbay AI Call Speech-to-Text</h3>
-                            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Automated Speech Recognition & Sentiment Intelligence</span>
-                          </div>
-                        </div>
-                        <button onClick={() => setShowAiTranscriptModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
-                          <X size={22} />
-                        </button>
-                      </div>
-
-                      {/* Content Scroll Area */}
-                      <div style={{ flexGrow: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px', paddingRight: '4px' }}>
-                        {/* Summary & Sentiment Card */}
-                        <div style={{ background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', border: '1px solid #fde68a', borderRadius: '12px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '11px', fontWeight: '800', color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                              🧠 AI Sentiment Score
-                            </span>
-                            <span style={{ background: '#10b981', color: 'white', padding: '2px 10px', borderRadius: '12px', fontWeight: '900', fontSize: '11px' }}>
-                              🟢 94% Positive (High Purchase Intent)
-                            </span>
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#78350f', lineHeight: '1.5', fontWeight: '600' }}>
-                            <strong>Key Topics Discussed:</strong> Enterprise WhatsApp CRM Annual Pricing, Automated Follow-up workflows, and SIM recording integration.
-                          </div>
-                        </div>
-
-                        {/* Transcript Dialogue Stream */}
-                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          💬 Speaker Audio Dialogue Stream:
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          {/* Speaker 1: Customer */}
-                          <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#3b82f6', color: 'white', fontWeight: '800', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                              CUST
-                            </div>
-                            <div style={{ background: '#f1f5f9', borderRadius: '12px', padding: '10px 14px', flexGrow: 1, border: '1px solid #e2e8f0' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                <span style={{ fontWeight: '800', color: '#1e293b', fontSize: '12px' }}>{transcriptLog?.customerName || 'Customer'}</span>
-                                <span style={{ fontSize: '10px', color: '#94a3b8' }}>00:04</span>
-                              </div>
-                              <div style={{ fontSize: '12px', color: '#334155', lineHeight: '1.4' }}>
-                                "Hello! I wanted to check the pricing for Voxbay WhatsApp CRM integration with SIM call recording."
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Speaker 2: Telecaller Agent */}
-                          <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#0d9488', color: 'white', fontWeight: '800', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                              AGENT
-                            </div>
-                            <div style={{ background: '#ccfbf1', borderRadius: '12px', padding: '10px 14px', flexGrow: 1, border: '1px solid #99f6e4' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                <span style={{ fontWeight: '800', color: '#0f766e', fontSize: '12px' }}>{transcriptLog?.telecaller || 'Telecaller'}</span>
-                                <span style={{ fontSize: '10px', color: '#0d9488' }}>00:12</span>
-                              </div>
-                              <div style={{ fontSize: '12px', color: '#0f766e', lineHeight: '1.4' }}>
-                                "Hi! Absolutely, our Enterprise plan covers automated SIM recording sync, bulk broadcasts, and round-robin lead routing."
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Speaker 1: Customer */}
-                          <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#3b82f6', color: 'white', fontWeight: '800', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                              CUST
-                            </div>
-                            <div style={{ background: '#f1f5f9', borderRadius: '12px', padding: '10px 14px', flexGrow: 1, border: '1px solid #e2e8f0' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                <span style={{ fontWeight: '800', color: '#1e293b', fontSize: '12px' }}>{transcriptLog?.customerName || 'Customer'}</span>
-                                <span style={{ fontSize: '10px', color: '#94a3b8' }}>00:28</span>
-                              </div>
-                              <div style={{ fontSize: '12px', color: '#334155', lineHeight: '1.4' }}>
-                                "Awesome! Please share the catalog and pricing proposal on my WhatsApp number."
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Footer Buttons */}
-                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '14px', borderTop: '1px solid #e2e8f0', marginTop: '14px' }}>
-                        <button
-                          onClick={() => setShowAiTranscriptModal(false)}
-                          style={{ background: '#e2e8f0', color: '#475569', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '12px' }}
-                        >
-                          Close
-                        </button>
-                        <button
-                          onClick={() => {
-                            alert('📋 AI Transcript & Summary Copied to Clipboard!');
-                            setShowAiTranscriptModal(false);
-                          }}
-                          style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '800', cursor: 'pointer', fontSize: '12px', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)', display: 'flex', alignItems: 'center', gap: '6px' }}
-                        >
-                          📋 Copy Transcript & Summary
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Telecalling Engine...</div>}>
+            <TelecallingView
+              callLogs={callLogs}
+              setCallLogs={setCallLogs}
+              softDeleteRecord={softDeleteRecord}
+              authUser={authUser}
+              systemDropdowns={systemDropdowns}
+              activePipelineStages={stages}
+              recycleBinItems={recycleBinItems}
+              handleRestoreBinItem={handleRestoreBinItem}
+              handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+              showToast={showToast}
+              onOpenModuleConfig={null}
+              onManageStages={() => setShowManageStagesModal(true)}
+            />
+          </Suspense>
         )}
 
         {/* Kanban Board View */}
@@ -9273,36 +7401,36 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   {sess.phone_number ? `+${sess.phone_number}` : 'No phone connected'}
                 </p>
 
-                {sess.status === 'qr_ready' && sess.qr_code && (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <div className="channel-qr-container">
-                      <img src={sess.qr_code} alt="WhatsApp Link QR Code" />
+                {sess.status === 'qr_ready' && sess.qr_code ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '16px 0' }}>
+                    <div className="channel-qr-container" style={{ background: 'white', padding: '12px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                      <img src={sess.qr_code} alt="WhatsApp Link QR Code" style={{ width: '180px', height: '180px', objectFit: 'contain' }} />
                     </div>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Scan this QR code from your phone's WhatsApp link devices</p>
+                    <p style={{ fontSize: '12px', color: '#0d9488', fontWeight: '700', marginTop: '10px', textAlign: 'center' }}>
+                      Scan this QR code from your phone's WhatsApp ➔ Linked Devices
+                    </p>
                   </div>
-                )}
-
-                {sess.status === 'connecting' && (
-                  <div style={{ padding: '30px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                    <RefreshCw size={24} className="animate-spin text-indigo-400" />
-                    <p style={{ fontSize: '11px', color: 'var(--text-dim)' }}>Connecting to WhatsApp server...</p>
+                ) : sess.status === 'connecting' ? (
+                  <div style={{ padding: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                    <RefreshCw size={24} className="spin" style={{ color: '#0d9488' }} />
+                    <p style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>Generating WhatsApp QR Code...</p>
                   </div>
-                )}
-
-                {sess.status === 'connected' && (
-                  <div style={{ padding: '30px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ background: 'var(--color-green-glow)', padding: '8px', borderRadius: '50%' }}>
-                      <Check size={24} style={{ color: 'var(--color-green)' }} />
+                ) : sess.status === 'connected' ? (
+                  <div style={{ padding: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ background: '#dcfce7', padding: '10px', borderRadius: '50%' }}>
+                      <Check size={24} style={{ color: '#16a34a' }} />
                     </div>
-                    <p style={{ fontSize: '12px', color: 'var(--color-green)', fontWeight: '600' }}>Connection established</p>
+                    <p style={{ fontSize: '13px', color: '#16a34a', fontWeight: '700' }}>WhatsApp Connected Live</p>
                   </div>
-                )}
-
-                {sess.status === 'disconnected' && (
-                  <div style={{ padding: '30px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                    <p style={{ fontSize: '11px', color: 'var(--text-dim)' }}>Account is logged out or disconnected</p>
-                    <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px' }} onClick={() => handleStartSession(sess.id)}>
-                      Connect Now
+                ) : (
+                  <div style={{ padding: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                    <p style={{ fontSize: '12px', color: '#64748b' }}>Account disconnected or ready to pair</p>
+                    <button
+                      type="button"
+                      style={{ padding: '8px 16px', fontSize: '12px', fontWeight: '700', background: 'linear-gradient(135deg, #0d9488, #0f766e)', color: 'white', borderRadius: '8px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                      onClick={() => handleStartSession(sess.id)}
+                    >
+                      📱 Generate QR Code to Connect
                     </button>
                   </div>
                 )}
@@ -16927,7 +15055,28 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
               <div className="crm-group">
                 <label className="crm-label">Attach Site Photo Proof</label>
-                <input type="file" className="modal-input" style={{ padding: '6px' }} />
+                <input
+                  type="file"
+                  className="modal-input"
+                  style={{ padding: '6px' }}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      try {
+                        const res = await MediaStorageEngine.uploadMedia({
+                          tenantId: authUser?.companyId || authUser?.tenantId || 'acme_corp',
+                          category: 'client_visits',
+                          entityId: 'site_proof',
+                          file: file
+                        });
+                        setClientVisitForm(prev => ({ ...prev, photoProof: res.downloadUrl || file.name }));
+                        if (showToast) showToast(`✅ Uploaded site photo proof: ${file.name}`, 'success');
+                      } catch (err) {
+                        console.warn('Site proof upload warning:', err);
+                      }
+                    }
+                  }}
+                />
               </div>
 
               {/* Customer Digital Signature Canvas */}
@@ -17140,10 +15289,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         type="file"
                         style={{ display: 'none' }}
                         id="toll-file-input"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           if (e.target.files && e.target.files[0]) {
-                            setExpenseForm({ ...expenseForm, tollSlip: e.target.files[0].name });
-                            showToast(`Selected file: ${e.target.files[0].name}`, 'success');
+                            const file = e.target.files[0];
+                            try {
+                              const res = await MediaStorageEngine.uploadMedia({
+                                tenantId: authUser?.companyId || authUser?.tenantId || 'acme_corp',
+                                category: 'expenses',
+                                entityId: 'toll_receipt',
+                                file: file
+                              });
+                              setExpenseForm(prev => ({ ...prev, tollSlip: res.downloadUrl || file.name }));
+                              if (showToast) showToast(`✅ Uploaded toll receipt: ${file.name}`, 'success');
+                            } catch (err) {
+                              setExpenseForm(prev => ({ ...prev, tollSlip: file.name }));
+                              if (showToast) showToast(`Selected file: ${file.name}`, 'success');
+                            }
                           }
                         }}
                       />
@@ -20359,6 +18520,28 @@ function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
           </table>
         </div>
       </div>
+
+      {/* 35-Module Universal System Audit Suite Modal (Root Render Level) */}
+      <MasterSystemAuditSuite
+        isOpen={showAuditSuite}
+        onClose={() => setShowAuditSuite(false)}
+        authUser={authUser}
+        employees={employees}
+        setEmployees={setEmployees}
+        contacts={contacts}
+        setContacts={setContacts}
+        atsCandidates={atsCandidates}
+        setAtsCandidates={setAtsCandidates}
+        recycleBinItems={recycleBinItems}
+        setRecycleBinItems={setRecycleBinItems}
+      />
+      {/* Universal Storage & Tier Upgrade Modal */}
+      <StorageUpgradeModal
+        isOpen={showStorageModal}
+        onClose={() => setShowStorageModal(false)}
+        tenantId={authUser?.tenantId || authUser?.companyId || 'acme_corp'}
+        showToast={showToast}
+      />
     </div>
   );
 }

@@ -49,7 +49,13 @@ export default function App() {
   const [authUser, setAuthUser] = useState(() => {
     try {
       const saved = localStorage.getItem('omnilflow_user');
-      return saved ? JSON.parse(saved) : null;
+      const user = saved ? JSON.parse(saved) : null;
+      // Set global tenant on app load so SchemaFieldRenderer can use correct tenantId
+      if (user && typeof window !== 'undefined') {
+        const tId = user.tenantId || user.companyId;
+        window.__omniflow_tenant = tId ? String(tId) : 'acme_corp';
+      }
+      return user;
     } catch (err) {
       return null;
     }
@@ -74,6 +80,8 @@ export default function App() {
       localStorage.setItem('omnilflow_token', mockToken);
       localStorage.setItem('omnilflow_user', JSON.stringify(mockSuperUser));
       setAuthUser(mockSuperUser);
+      // Set global tenant so all components can resolve tenantId without authUser prop
+      if (typeof window !== 'undefined') window.__omniflow_tenant = String(mockSuperUser.tenantId || 'acme_corp');
       showToast('Welcome Superadmin! Master Access Granted.', 'success');
       setAuthLoading(false);
       return;
@@ -94,6 +102,7 @@ export default function App() {
         localStorage.setItem('omnilflow_token', fbUser.accessToken || 'firebase_token');
         localStorage.setItem('omnilflow_user', JSON.stringify(userData));
         setAuthUser(userData);
+        if (typeof window !== 'undefined') window.__omniflow_tenant = String(userData.tenantId || 'acme_corp');
         showToast('Signed in with Firebase Cloud Auth!', 'success');
         return;
       }

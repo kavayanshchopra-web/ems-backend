@@ -48,13 +48,7 @@ class TrashVaultEngine {
       if (!items) items = [];
 
       // Filter out legacy dummy demo seed & old test items (e.g. emp_001, EMP-0271, EMP-0012, EMP-0013, kavayansh)
-      items = items.filter(i => {
-        const idStr = String(i.id || i.originalId || i.recycleBinId || '').toLowerCase();
-        const nameStr = String(i.name || i.title || '').toLowerCase();
-        const emailStr = String(i.deletedByEmail || i.email || '').toLowerCase();
-        if (idStr.includes('emp_00') || idStr.includes('emp-0271') || idStr.includes('emp-0012') || idStr.includes('emp-0013') || nameStr.includes('emp_001')) return false;
-        return true;
-      });
+      items = items.filter(i => !!i);
 
       localStorage.setItem(storageKey, JSON.stringify(items));
       try { localStorage.setItem('omnilflow_fallback_recycle_bin', JSON.stringify(items)); } catch (e) {}
@@ -74,9 +68,11 @@ class TrashVaultEngine {
     try {
       const items = this.getVaultItems('all');
       const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      const origId = itemPayload.id || itemPayload.originalId || itemPayload.payload?.id || '';
 
       const newItem = {
         id: 'trash_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        originalId: origId,
         tenantId: tenantId || itemPayload.tenantId || 'acme_corp',
         tenantName: itemPayload.tenantName || (tenantId === 'platform_superadmin' ? 'SaaS Platform Admin' : 'Acme Corp'),
         name: itemPayload.name || itemPayload.title || itemPayload.label || 'Archived Item',
@@ -90,6 +86,7 @@ class TrashVaultEngine {
 
       const updated = [newItem, ...items];
       localStorage.setItem(`${STORAGE_PREFIX}all`, JSON.stringify(updated));
+      try { localStorage.setItem('omnilflow_fallback_recycle_bin', JSON.stringify(updated)); } catch (e) {}
 
       // Sync to Firebase Firestore live collection: recycle_bin
       FirebaseCloudEngine.saveRecord('recycle_bin', newItem, newItem.tenantId);
@@ -107,9 +104,28 @@ class TrashVaultEngine {
   static restoreItem(tenantId, itemId) {
     try {
       const items = this.getVaultItems('all');
-      const itemToRestore = items.find(i => String(i.id) === String(itemId) || String(i.originalId) === String(itemId));
-      const updated = items.filter(i => String(i.id) !== String(itemId) && String(i.originalId) !== String(itemId));
+      const targetStr = String(itemId || '').trim().toLowerCase();
+
+      const itemToRestore = items.find(i => {
+        const iId = String(i.id || '').trim().toLowerCase();
+        const origId = String(i.originalId || i.payload?.id || '').trim().toLowerCase();
+        const recId = String(i.recycleBinId || '').trim().toLowerCase();
+        return iId === targetStr || origId === targetStr || recId === targetStr;
+      });
+
+      const updated = items.filter(i => {
+        const iId = String(i.id || '').trim().toLowerCase();
+        const origId = String(i.originalId || i.payload?.id || '').trim().toLowerCase();
+        const recId = String(i.recycleBinId || '').trim().toLowerCase();
+        return iId !== targetStr && origId !== targetStr && recId !== targetStr;
+      });
+
       localStorage.setItem(`${STORAGE_PREFIX}all`, JSON.stringify(updated));
+      try { localStorage.setItem('omnilflow_fallback_recycle_bin', JSON.stringify(updated)); } catch (e) {}
+
+      if (itemToRestore && itemToRestore.id) {
+        FirebaseCloudEngine.deleteRecord('recycle_bin', itemToRestore.id);
+      }
       return itemToRestore;
     } catch (e) {
       console.error('TrashVaultEngine.restoreItem error:', e);

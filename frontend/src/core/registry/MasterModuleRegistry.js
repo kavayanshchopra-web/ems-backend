@@ -16,6 +16,7 @@ import { ATTENDANCE_KIOSK_MANIFEST } from './manifests/attendanceKiosk.manifest'
 import { EXPENSE_CLAIMS_MANIFEST } from './manifests/expenseClaims.manifest';
 import { MY_PORTAL_MANIFEST } from './manifests/myPortal.manifest';
 import { WORKSPACE_SETTINGS_MANIFEST } from './manifests/workspaceSettings.manifest';
+import { TELECALLING_MANIFEST } from './manifests/telecalling.manifest';
 import { moduleConfigService } from '../../services/moduleConfigService';
 
 class MasterModuleRegistry {
@@ -44,6 +45,7 @@ class MasterModuleRegistry {
     this.registerModule(EXPENSE_CLAIMS_MANIFEST);
     this.registerModule(MY_PORTAL_MANIFEST);
     this.registerModule(WORKSPACE_SETTINGS_MANIFEST);
+    this.registerModule(TELECALLING_MANIFEST);
 
     this._initialized = true;
   }

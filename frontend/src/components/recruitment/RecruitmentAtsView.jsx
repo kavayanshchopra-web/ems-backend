@@ -59,7 +59,7 @@ export default function RecruitmentAtsView({
     let isMounted = true;
     async function syncFromCloud() {
       try {
-        const cloudRecords = await FirebaseCloudEngine.fetchRecords('recruitment_ats', 'acme_corp');
+        const cloudRecords = await FirebaseCloudEngine.fetchRecords('recruitment_ats', companyId);
         if (isMounted && Array.isArray(cloudRecords) && cloudRecords.length > 0) {
           setCandidatesState(prev => {
             const map = new Map();

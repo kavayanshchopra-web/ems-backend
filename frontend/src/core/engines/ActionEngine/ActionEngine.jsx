@@ -75,7 +75,7 @@ export default function ActionEngine({
       setShowEditModal(false);
     } else {
       // CREATE WORKFLOW WITH SEQUENTIAL IDs (e.g. EMP-001, ATS-001)
-      const nextSeqId = getNextSequentialId('default_tenant', moduleConfig.moduleId || 'recruitment_ats', moduleConfig);
+      const nextSeqId = getNextSequentialId('default_tenant', moduleConfig.moduleId || 'recruitment_ats', moduleConfig, records);
       const newRec = {
         id: nextSeqId,
         ...normalizedData,
@@ -98,6 +98,24 @@ export default function ActionEngine({
 
       showToast(`Added ${entityName.toLowerCase()} "${newRec.name || newRec.title || newRec.id}"`, 'success');
       setShowAddModal(false);
+    }
+
+    // Broadcast media vault refresh if any field (system or custom like TEST) contains a file or URL
+    if (typeof window !== 'undefined' && normalizedData) {
+      const isMediaFileVal = (val) => {
+        if (!val || typeof val !== 'string' || val === '—' || val.trim() === '') return false;
+        const lower = val.toLowerCase();
+        if (lower.startsWith('http://') || lower.startsWith('https://') || lower.startsWith('data:')) return true;
+        const fileExts = ['.png', '.jpg', '.jpeg', '.pdf', '.webp', '.doc', '.docx', '.svg', '.gif', '.xls', '.xlsx'];
+        return fileExts.some(ext => lower.endsWith(ext));
+      };
+
+      const hasFileVal = Object.values(normalizedData).some(isMediaFileVal);
+      if (hasFileVal) {
+        window.dispatchEvent(new CustomEvent('media_vault_updated', {
+          detail: { moduleId: moduleConfig.moduleId }
+        }));
+      }
     }
   };
 
