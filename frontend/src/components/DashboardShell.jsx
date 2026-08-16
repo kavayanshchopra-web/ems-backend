@@ -7,10 +7,59 @@ const GpsMap = lazy(() => import('./GpsMap'));
 import DataTable from './DataTable';
 const CompanyOverviewView = lazy(() => import('./dashboard/CompanyOverviewView'));
 const TaskAnalyticsView = lazy(() => import('./dashboard/TaskAnalyticsView'));
-const EmployeesView = lazy(() => import('./employees/EmployeesView'));
-const RecruitmentAtsView = lazy(() => import('./recruitment/RecruitmentAtsView'));
+const EmployeesPage = lazy(() => import('./pages/EmployeesPage'));
+const RecruitmentPage = lazy(() => import('./pages/RecruitmentPage'));
 const ModuleConfigCenter = lazy(() => import('./config/ModuleConfigCenter'));
 const TelecallingView = lazy(() => import('./telecalling/TelecallingView'));
+const NoticeBoardPage = lazy(() => import('./pages/NoticeBoardPage'));
+const HolidaysPage = lazy(() => import('./pages/HolidaysPage'));
+const AppGuidePage = lazy(() => import('./pages/AppGuidePage'));
+const AttendancePage = lazy(() => import('./pages/AttendancePage'));
+const KanbanPage = lazy(() => import('./pages/KanbanPage'));
+const GpsTrackingPage = lazy(() => import('./pages/GpsTrackingPage'));
+const PayrollPage = lazy(() => import('./pages/PayrollPage'));
+const TaxesCompliancePage = lazy(() => import('./pages/TaxesCompliancePage'));
+const FFSettlementsPage = lazy(() => import('./pages/FFSettlementsPage'));
+const AdvancesLoansPage = lazy(() => import('./pages/AdvancesLoansPage'));
+const ExpensesPage = lazy(() => import('./pages/ExpensesPage'));
+const TasksPage = lazy(() => import('./pages/TasksPage'));
+const AssetManagementPage = lazy(() => import('./pages/AssetManagementPage'));
+const VerifyDocsPage = lazy(() => import('./pages/VerifyDocsPage'));
+const OffboardingPage = lazy(() => import('./pages/OffboardingPage'));
+const LeavesPage = lazy(() => import('./pages/LeavesPage'));
+const ShiftsPage = lazy(() => import('./pages/ShiftsPage'));
+const OfficeKioskPage = lazy(() => import('./pages/OfficeKioskPage'));
+const RewardsPage = lazy(() => import('./pages/RewardsPage'));
+const RolesPage = lazy(() => import('./pages/RolesPage'));
+const InboxPage = lazy(() => import('./pages/InboxPage'));
+const ChannelsPage = lazy(() => import('./pages/ChannelsPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const BillingPage = lazy(() => import('./pages/BillingPage'));
+const SuperAdminPage = lazy(() => import('./pages/SuperAdminPage'));
+const DropdownsPage = lazy(() => import('./pages/DropdownsPage'));
+const RecycleBinPage = lazy(() => import('./pages/RecycleBinPage'));
+const ForgotPasswordModal = lazy(() => import('./modals/ForgotPasswordModal'));
+const AddTaskModal = lazy(() => import('./modals/AddTaskModal'));
+const AddNoticeModal = lazy(() => import('./modals/AddNoticeModal'));
+const AddHolidayModal = lazy(() => import('./modals/AddHolidayModal'));
+const AddLeaveModal = lazy(() => import('./modals/AddLeaveModal'));
+const AddEmployeeModal = lazy(() => import('./modals/AddEmployeeModal'));
+const AddSessionModal = lazy(() => import('./modals/AddSessionModal'));
+const NewChatModal = lazy(() => import('./modals/NewChatModal'));
+const AddRuleModal = lazy(() => import('./modals/AddRuleModal'));
+const BroadcastModal = lazy(() => import('./modals/BroadcastModal'));
+const ScheduleMessageModal = lazy(() => import('./modals/ScheduleMessageModal'));
+const ClientVisitModal = lazy(() => import('./modals/ClientVisitModal'));
+const ExpenseModal = lazy(() => import('./modals/ExpenseModal'));
+const BeatPlannerModal = lazy(() => import('./modals/BeatPlannerModal'));
+const GlobalSearchModal = lazy(() => import('./modals/GlobalSearchModal'));
+const LiveTourOverlay = lazy(() => import('./modals/LiveTourOverlay'));
+const ClickToCallModal = lazy(() => import('./modals/ClickToCallModal'));
+const MobileAppGuideModal = lazy(() => import('./modals/MobileAppGuideModal'));
+const MobilePreviewSimulatorOverlay = lazy(() => import('./modals/MobilePreviewSimulatorOverlay'));
+const ConfirmModal = lazy(() => import('./modals/ConfirmModal'));
+const CustomInputModal = lazy(() => import('./modals/CustomInputModal'));
+const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage'));
 import StorageUpgradeModal from './storage/StorageUpgradeModal';
 import MediaStorageView from './storage/MediaStorageView';
 import SearchInput from './ui/SearchInput';
@@ -86,6 +135,7 @@ import {
   HardDrive,
   Mail,
   Lock,
+  KeyRound,
   Eye,
   EyeOff,
   Shield,
@@ -94,6 +144,7 @@ import {
   PhoneCall,
   BarChart2,
   Menu,
+  Share2,
   ArrowLeft
 } from 'lucide-react';
 
@@ -528,7 +579,7 @@ function AccordionCategory({ id, label, isExpanded, onToggle, children }) {
   );
 }
 
-export const ALL_WORLD_CURRENCIES = [
+const ALL_WORLD_CURRENCIES = [
   { code: 'USD', name: 'US Dollar ($)', flag: '🇺🇸' },
   { code: 'INR', name: 'Indian Rupee (₹)', flag: '🇮🇳' },
   { code: 'EUR', name: 'Euro (€)', flag: '🇪🇺' },
@@ -642,12 +693,26 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   // Install fetch interceptor lazily (not at module scope) to avoid Rolldown TDZ in production bundle
   installFetchInterceptor();
 
+  const handleLogout = () => {
+    localStorage.removeItem('omnilflow_token');
+    localStorage.removeItem('omnilflow_user');
+    if (setAuthUser) setAuthUser(null);
+    window.location.reload();
+  };
+
   const [activeTab, setActiveTab] = useState('inbox'); // 'inbox', 'kanban', 'channels'
   const [isMobilePreview, setIsMobilePreview] = useState(false);
   const [simViewMode, setSimViewMode] = useState('app'); // 'app' or 'permissions'
   const [simPermissions, setSimPermissions] = useState({ calendar: false, location: false, notifications: false, battery: false, phone: false, overlay: false });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('ems_theme') || 'emerald');
+
+  const isGhlEmbedded = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    const urlParams = new URLSearchParams(window.location.search);
+    return window.self !== window.top || urlParams.has('location_id') || urlParams.has('iframe');
+  }, []);
+  const [ghlSidebarOpen, setGhlSidebarOpen] = useState(false);
 
   useEffect(() => {
     setMobileSidebarOpen(false);
@@ -658,6 +723,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   const [forgotPasswordForm, setForgotPasswordForm] = useState({ email: '', newPassword: '' });
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [forgotPasswordError, setForgotPasswordError] = useState(null);
   const [activeLanguage, setActiveLanguage] = useState('en');
   const [activeCurrency, setActiveCurrency] = useState(() => localStorage.getItem('appCurrency') || 'USD');
 
@@ -1358,6 +1424,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
   const [preselectedConfigModuleId, setPreselectedConfigModuleId] = useState(null);
 
+  const handleOpenModuleConfig = (moduleId) => {
+    if (moduleId) {
+      setPreselectedConfigModuleId(moduleId);
+    }
+    setActiveTab('module_configuration');
+  };
+
   useEffect(() => {
     localStorage.setItem('omnilflow_ats_candidates', JSON.stringify(atsCandidates));
   }, [atsCandidates]);
@@ -1401,8 +1474,28 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     return [];
   });
 
-  const [sessions, setSessions] = useState([]);
-  const [contacts, setContacts] = useState([]);
+  const [sessions, setSessions] = useState(() => {
+    try {
+      const saved = localStorage.getItem('omnilflow_fallback_sessions');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+  const [contacts, setContacts] = useState(() => {
+    const saved = localStorage.getItem('omnilflow_fallback_contacts');
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(c => c && !isDummyRecord(c));
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
   const [activeContact, setActiveContact] = useState(null);
   const [messages, setMessages] = useState([]);
   const [messagesOffset, setMessagesOffset] = useState(0);
@@ -1726,7 +1819,26 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [toast, setToast] = useState({ message: '', type: 'success', visible: false });
 
   const showToast = (message, type = 'success') => {
-    setToast({ message, type, visible: true });
+    if (!message) return;
+    let msgStr = '';
+    if (typeof message === 'string') {
+      msgStr = message;
+    } else if (message instanceof Error) {
+      msgStr = message.message || String(message);
+    } else if (typeof message === 'object') {
+      if (message.nativeEvent || message.target || message.preventDefault) {
+        return; // React event object passed directly to onClick
+      }
+      try {
+        msgStr = JSON.stringify(message);
+      } catch (e) {
+        msgStr = String(message);
+      }
+    } else {
+      msgStr = String(message || '');
+    }
+
+    setToast({ message: msgStr, type: typeof type === 'string' ? type : 'info', visible: true });
     setTimeout(() => {
       setToast(prev => ({ ...prev, visible: false }));
     }, 3000);
@@ -3661,9 +3773,23 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     if (!r) return false;
     const str = (JSON.stringify(r) || '').toLowerCase();
     return (
-      str.includes('rahul.sharma@company.com') ||
+      str.includes('rahul.sharma') ||
       str.includes('priya.v@company.com') ||
-      str.includes('amit.k@company.com')
+      str.includes('amit.k@company.com') ||
+      str.includes('suman.shine') ||
+      str.includes('hiranur') ||
+      str.includes('luiza') ||
+      str.includes('vikas.singh') ||
+      str.includes('priya sharma') ||
+      str.includes('amit roy') ||
+      str.includes('karan malhotra') ||
+      str.includes('emp_001') ||
+      str.includes('emp_002') ||
+      str.includes('emp_003') ||
+      str.includes('emp_004') ||
+      str.includes('emp-0271') ||
+      str.includes('emp-0012') ||
+      str.includes('emp-0013')
     );
   };
 
@@ -3754,6 +3880,23 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
     // 3. Save to Cloud Firestore & Local Engine Cache
     FirebaseCloudEngine.saveRecord('employees', newEmpObj, activeTenantId);
+
+    // 4. Save Registered Login User Credentials for Workspace Login
+    if (newEmployeeForm.password) {
+      try {
+        const userAccountObj = {
+          email: (newEmployeeForm.email || '').toLowerCase().trim(),
+          password: newEmployeeForm.password,
+          name: `${newEmployeeForm.firstName} ${newEmployeeForm.lastName || ''}`.trim(),
+          role: newEmployeeForm.role || 'staff',
+          department: newEmployeeForm.department || 'Operations',
+          tenantId: activeTenantId
+        };
+        const savedAccounts = JSON.parse(localStorage.getItem('omniflow_registered_users') || '[]');
+        const updatedAccounts = [userAccountObj, ...savedAccounts.filter(a => a.email !== userAccountObj.email)];
+        localStorage.setItem('omniflow_registered_users', JSON.stringify(updatedAccounts));
+      } catch (e) {}
+    }
 
     addNotification('👤 New Employee Profile', `${newEmployeeForm.firstName} ${newEmployeeForm.lastName || ''} (${newEmployeeForm.department}) added.`, 'employees');
     showToast(isEdit ? 'Employee profile updated successfully!' : 'Employee added successfully!', 'success');
@@ -4223,76 +4366,73 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     console.log('📥 Export Successful: Daily Shift & Fuel Expense CSV report downloaded!');
   };
 
-  const handleCheckIn = () => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
-      return;
-    }
-    setGpsLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const res = await fetch(`${API_URL}/attendance/check-in`, {
-            method: 'POST',
-            body: JSON.stringify({
-              lat: position.coords.latitude,
-              lng: position.coords.longitude
-            })
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || 'Failed to check in');
-          alert('Successfully Checked In!');
-          fetchAttendanceTodayStatus();
-          fetchAttendanceLogs();
-          fetchLiveLocations();
-        } catch (err) {
-          alert(err.message);
-        } finally {
-          setGpsLoading(false);
-        }
-      },
-      (error) => {
-        alert('Geolocation error: ' + error.message + '. Please allow location access to check-in.');
-        setGpsLoading(false);
-      },
-      { enableHighAccuracy: true }
-    );
+  const getDeviceCoordinates = () => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        return resolve({ lat: 0, lng: 0 });
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+            () => resolve({ lat: 0, lng: 0 }),
+            { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+          );
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
+      );
+    });
   };
 
-  const handleCheckOut = () => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
-      return;
-    }
+  const handleCheckIn = async () => {
     setGpsLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const res = await fetch(`${API_URL}/attendance/check-out`, {
-            method: 'POST',
-            body: JSON.stringify({
-              lat: position.coords.latitude,
-              lng: position.coords.longitude
-            })
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || 'Failed to check out');
-          alert('Successfully Checked Out!');
-          fetchAttendanceTodayStatus();
-          fetchAttendanceLogs();
-          fetchLiveLocations();
-        } catch (err) {
-          alert(err.message);
-        } finally {
-          setGpsLoading(false);
-        }
-      },
-      (error) => {
-        alert('Geolocation error: ' + error.message + '. Please allow location access to check-out.');
-        setGpsLoading(false);
-      },
-      { enableHighAccuracy: true }
-    );
+    try {
+      const coords = await getDeviceCoordinates();
+      const res = await fetch(`${API_URL}/attendance/check-in`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: coords.lat, lng: coords.lng })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to check in');
+      // Immediately update UI state so button flips without waiting for refetch
+      setTodayStatus({ status: 'checked_in', check_in_time: new Date().toISOString(), ...data });
+      alert('✅ Successfully Checked In!');
+      // Re-fetch in background to get accurate server data
+      fetchAttendanceTodayStatus();
+      fetchAttendanceLogs();
+      fetchLiveLocations();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setGpsLoading(false);
+    }
+  };
+
+  const handleCheckOut = async () => {
+    setGpsLoading(true);
+    try {
+      const coords = await getDeviceCoordinates();
+      const res = await fetch(`${API_URL}/attendance/check-out`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: coords.lat, lng: coords.lng })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to check out');
+      // Immediately update UI state so button flips without waiting for refetch
+      setTodayStatus({ status: 'checked_out', check_out_time: new Date().toISOString(), ...data });
+      alert('✅ Successfully Checked Out!');
+      // Re-fetch in background to get accurate server data
+      fetchAttendanceTodayStatus();
+      fetchAttendanceLogs();
+      fetchLiveLocations();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setGpsLoading(false);
+    }
   };
 
   const fetchTasks = async () => {
@@ -4736,7 +4876,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   };
 
   useEffect(() => {
-    if (activeTab === 'gps_attendance' && authUser) {
+    if ((activeTab === 'gps_attendance' || activeTab === 'my_attendance') && authUser) {
       fetchAttendanceTodayStatus();
       if (authUser.role === 'owner' || authUser.role === 'admin' || authUser.role === 'manager') {
         fetchAttendanceLogs();
@@ -4783,6 +4923,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               try {
                 await fetch(`${API_URL}/gps/track`, {
                   method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     lat: pos.coords.latitude,
                     lng: pos.coords.longitude,
@@ -5069,17 +5210,46 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   }, [contacts.length]);
 
   const fetchSessions = async () => {
+    let serverData = [];
     try {
-      const res = await fetch(`${API_URL}/sessions`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setSessions(data);
+      const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('token') || '';
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const res = await fetch(`${API_URL}/sessions`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) serverData = data;
       }
-    } catch (err) {
-      console.error('Failed to fetch sessions:', err);
+    } catch (err) {}
+
+    let localData = [];
+    try {
+      const saved = localStorage.getItem('omnilflow_fallback_sessions');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) localData = parsed;
+      }
+    } catch (e) {}
+
+    const map = new Map();
+    localData.forEach(s => { if (s && s.id) map.set(String(s.id), s); });
+    serverData.forEach(s => { if (s && s.id) map.set(String(s.id), s); });
+
+    const merged = Array.from(map.values());
+    if (merged.length > 0) {
+      setSessions(merged);
+      try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(merged)); } catch (e) {}
     }
   };
+
+  useEffect(() => {
+    if (activeTab === 'channels' || (sessions || []).some(s => s.status === 'connecting' || s.status === 'qr_ready')) {
+      fetchSessions();
+      const interval = setInterval(() => {
+        fetchSessions();
+      }, 2500);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, (sessions || []).map(s => s.status).join(',')]);
 
   const fetchContacts = async () => {
     const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
@@ -5121,8 +5291,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }
     } catch (e) {}
 
-    setContacts(list);
-    try { localStorage.setItem('omnilflow_fallback_contacts', JSON.stringify(list)); } catch (e) {}
+    if (list.length > 0) {
+      setContacts(list);
+      try { localStorage.setItem('omnilflow_fallback_contacts', JSON.stringify(list)); } catch (e) {}
+    }
   };
 
   const fetchMessages = async (contactId, append = false) => {
@@ -5354,36 +5526,82 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const handleCreateSession = async (e) => {
     e.preventDefault();
     if (!newSessionName.trim()) return;
+    const sessName = newSessionName.trim();
+    const fallbackId = `sess_${Date.now()}`;
 
+    let createdSession = null;
     try {
+      const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('token') || '';
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
       const res = await fetch(`${API_URL}/sessions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneName: newSessionName })
+        headers,
+        body: JSON.stringify({ phoneName: sessName })
       });
-      const newSession = await res.json();
-      setSessions(prev => [newSession, ...prev]);
-      setNewSessionName('');
-      setShowAddSessionModal(false);
+      if (res.ok) {
+        createdSession = await res.json();
+      }
     } catch (err) {
-      console.error('Error creating session:', err);
+      console.warn('Error creating session via API, using fallback QR preview:', err);
+    }
+
+    if (!createdSession || !createdSession.id) {
+      createdSession = {
+        id: fallbackId,
+        phone_name: sessName,
+        phoneName: sessName,
+        status: 'connecting',
+        qr_code: null,
+        createdAt: new Date().toISOString()
+      };
+    } else {
+      createdSession.status = 'connecting';
+    }
+
+    setSessions(prev => {
+      const filtered = (prev || []).filter(s => String(s.id) !== String(createdSession.id));
+      const updated = [createdSession, ...filtered];
+      try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(updated)); } catch (e) {}
+      return updated;
+    });
+
+    setNewSessionName('');
+    setShowAddSessionModal(false);
+    showToast(`Created WhatsApp Channel "${sessName}". Initializing QR...`, 'info');
+
+    if (createdSession && createdSession.id) {
+      handleStartSession(createdSession.id);
     }
   };
 
   // Re-start session
   const handleStartSession = async (id) => {
+    setSessions(prev => (prev || []).map(s => String(s.id) === String(id) ? { ...s, status: 'connecting', qr_code: null } : s));
     try {
-      await fetch(`${API_URL}/sessions/start/${id}`, { method: 'POST' });
-      fetchSessions();
+      const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('token') || '';
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
+      await fetch(`${API_URL}/sessions/start/${id}`, { method: 'POST', headers });
+      setTimeout(fetchSessions, 1500);
     } catch (err) {
-      console.error('Error starting session:', err);
+      console.warn('Error starting session via API:', err);
     }
   };
 
   // Stop session
   const handleStopSession = async (id) => {
     try {
-      await fetch(`${API_URL}/sessions/stop/${id}`, { method: 'POST' });
+      const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('token') || '';
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
+      await fetch(`${API_URL}/sessions/stop/${id}`, { method: 'POST', headers });
       fetchSessions();
     } catch (err) {
       console.error('Error stopping session:', err);
@@ -5404,7 +5622,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       });
     }
     try {
-      await fetch(`${API_URL}/sessions/${id}`, { method: 'DELETE' });
+      const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('token') || '';
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      await fetch(`${API_URL}/sessions/${id}`, { method: 'DELETE', headers });
     } catch (err) {
       console.error('Error deleting session:', err);
     }
@@ -5807,13 +6027,56 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
 
 
+  const handleOpenChatWithLead = (record) => {
+    if (!record) return;
+    const cleanPhone = (record.phone || '').replace(/[^0-9+]/g, '');
+    let foundContact = (contacts || []).find(c =>
+      (cleanPhone && c.phone && c.phone.replace(/[^0-9+]/g, '') === cleanPhone) ||
+      String(c.id) === String(record.id) ||
+      (record.email && c.email && c.email.toLowerCase() === record.email.toLowerCase())
+    );
+
+    if (!foundContact) {
+      foundContact = {
+        id: record.phone || String(record.id) || `lead_${Date.now()}`,
+        name: record.name || record.clientName || record.companyName || record.title || (record.first_name ? `${record.first_name || ''} ${record.last_name || ''}`.trim() : null) || 'New Lead',
+        phone: cleanPhone || record.phone || '',
+        email: record.email || '',
+        stage: record.status || record.stage || 'New Lead',
+        unreadCount: 0,
+        lastMessageTime: new Date().toISOString(),
+        avatar: null
+      };
+      setContacts(prev => [foundContact, ...(prev || [])]);
+    }
+
+    setActiveContact(foundContact);
+    setActiveTab('inbox');
+    showToast(`Opening inbox chat for ${foundContact.name || foundContact.phone}`, 'success');
+  };
+
+  const canNav = (modId) => {
+    if (!authUser) return false;
+    if (authUser.role === 'superadmin' || authUser.role === 'owner' || authUser.role === 'admin') return true;
+    if (PermissionEngine && typeof PermissionEngine.canAccess === 'function') {
+      return PermissionEngine.canAccess(authUser, modId, 'view');
+    }
+    if (PermissionEngine && typeof PermissionEngine.can === 'function') {
+      return PermissionEngine.can(authUser, modId, 'view');
+    }
+    return true;
+  };
+
   return (
     <div className="app-layout">
       <div
         className={`sidebar-overlay ${mobileSidebarOpen ? 'active' : ''}`}
         onClick={() => setMobileSidebarOpen(false)}
       />
-      <aside className={`sidebar ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
+      <aside
+        className={`sidebar ${mobileSidebarOpen ? 'mobile-open' : ''}`}
+        style={isGhlEmbedded && !ghlSidebarOpen ? { display: 'none' } : {}}
+      >
         {/* EMS-style Sidebar Branding - Removed OmniFlow EMS text as requested */}
         <div className="sidebar-logo" style={{ padding: '20px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-start' }}>
           <span style={{ fontSize: '18px', fontWeight: '900', color: '#14d2cb', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
@@ -5823,7 +6086,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         <nav className="sidebar-nav" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
 
           {/* CATEGORY: SYSTEM (Superadmin / Owner / Admin - Placed at Top) */}
-          {(authUser?.role === 'superadmin' || authUser?.role === 'owner' || authUser?.role === 'admin') && (
+          {(canNav('superadmin_plans') || canNav('audit_logs') || canNav('media_storage')) && (
             <AccordionCategory id="system" label={t('systemCat') || "SYSTEM"} isExpanded={!!expandedCategories.system} onToggle={toggleCategory}>
               {authUser?.role === 'superadmin' && (
                 <div className={`nav-item ${activeTab === 'superadmin_plans' ? 'active' : ''}`} onClick={() => setActiveTab('superadmin_plans')}>
@@ -5831,217 +6094,284 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   <span style={{ fontSize: '13px' }}>{t('superAdminPanel')}</span>
                 </div>
               )}
-              {/* Global Audit Logs tab */}
-              {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager' || authUser?.role === 'superadmin') && (
+              {canNav('audit_logs') && (
                 <div className={`nav-item ${activeTab === 'audit_logs' ? 'active' : ''}`} onClick={() => setActiveTab('audit_logs')}>
                   <FileText size={15} />
                   <span style={{ fontSize: '13px' }}>{t('auditLogs')}</span>
                 </div>
               )}
-              <div className={`nav-item ${activeTab === 'media_storage' ? 'active' : ''}`} onClick={() => setActiveTab('media_storage')}>
-                <HardDrive size={15} style={{ color: '#14d2cb' }} />
-                <span style={{ fontSize: '13px', fontWeight: '800', color: '#14d2cb' }}>📁 Media & Storage Vault</span>
-              </div>
+              {canNav('media_storage') && (
+                <div className={`nav-item ${activeTab === 'media_storage' ? 'active' : ''}`} onClick={() => setActiveTab('media_storage')}>
+                  <HardDrive size={15} style={{ color: '#14d2cb' }} />
+                  <span style={{ fontSize: '13px', fontWeight: '800', color: '#14d2cb' }}>📁 Media & Storage Vault</span>
+                </div>
+              )}
             </AccordionCategory>
           )}
 
           {/* CATEGORY: DASHBOARDS */}
-          <AccordionCategory id="dashboards" label={t('dashboardsCat') || "DASHBOARDS"} isExpanded={!!expandedCategories.dashboards} onToggle={toggleCategory}>
-            <div className={`nav-item ${activeTab === 'admin_dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('admin_dashboard')}>
-              <BarChart3 size={15} />
-              <span style={{ fontSize: '13px' }}>{t('companyOverview')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'manager_dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('manager_dashboard')}>
-              <BarChart3 size={15} />
-              <span style={{ fontSize: '13px' }}>{t('taskAnalytics')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'gps_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('gps_attendance')}>
-              <Globe size={15} />
-              <span style={{ fontSize: '13px' }}>{t('liveTracking')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'media_storage' ? 'active' : ''}`} onClick={() => setActiveTab('media_storage')}>
-              <HardDrive size={15} style={{ color: '#14d2cb' }} />
-              <span style={{ fontSize: '13px', fontWeight: '800', color: '#14d2cb' }}>📁 Media & Storage Vault</span>
-            </div>
-          </AccordionCategory>
+          {(canNav('admin_dashboard') || canNav('manager_dashboard') || canNav('gps_attendance') || canNav('media_storage')) && (
+            <AccordionCategory id="dashboards" label={t('dashboardsCat') || "DASHBOARDS"} isExpanded={!!expandedCategories.dashboards} onToggle={toggleCategory}>
+              {canNav('admin_dashboard') && (
+                <div className={`nav-item ${activeTab === 'admin_dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('admin_dashboard')}>
+                  <BarChart3 size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('companyOverview')}</span>
+                </div>
+              )}
+              {canNav('manager_dashboard') && (
+                <div className={`nav-item ${activeTab === 'manager_dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('manager_dashboard')}>
+                  <BarChart3 size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('taskAnalytics')}</span>
+                </div>
+              )}
+              {canNav('gps_attendance') && (
+                <div className={`nav-item ${activeTab === 'gps_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('gps_attendance')}>
+                  <Globe size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('liveTracking')}</span>
+                </div>
+              )}
+              {canNav('media_storage') && (
+                <div className={`nav-item ${activeTab === 'media_storage' ? 'active' : ''}`} onClick={() => setActiveTab('media_storage')}>
+                  <HardDrive size={15} style={{ color: '#14d2cb' }} />
+                  <span style={{ fontSize: '13px', fontWeight: '800', color: '#14d2cb' }}>📁 Media & Storage Vault</span>
+                </div>
+              )}
+            </AccordionCategory>
+          )}
 
           {/* CATEGORY: HR MANAGEMENT */}
-          <AccordionCategory id="hr_management" label={t('hrCat') || "HR MANAGEMENT"} isExpanded={!!expandedCategories.hr_management} onToggle={toggleCategory}>
-            {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager' || authUser?.role === 'superadmin') && (
-              <div className={`nav-item ${activeTab === 'employees' ? 'active' : ''}`} onClick={() => setActiveTab('employees')}>
-                <Users size={15} />
-                <span style={{ fontSize: '13px' }}>{t('allEmployees')}</span>
-              </div>
-            )}
-            <div className={`nav-item ${activeTab === 'recruitment_ats' ? 'active' : ''}`} onClick={() => setActiveTab('recruitment_ats')}>
-              <Briefcase size={15} />
-              <span style={{ fontSize: '13px' }}>{t('recruitmentAts')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'asset_management' ? 'active' : ''}`} onClick={() => setActiveTab('asset_management')}>
-              <FileText size={15} />
-              <span style={{ fontSize: '13px' }}>{t('assetManagement')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'verify_documents' ? 'active' : ''}`} onClick={() => setActiveTab('verify_documents')}>
-              <FileText size={15} />
-              <span style={{ fontSize: '13px' }}>{t('verifyDocuments')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'offboarding' ? 'active' : ''}`} onClick={() => setActiveTab('offboarding')}>
-              <Trash2 size={15} />
-              <span style={{ fontSize: '13px' }}>{t('offboardingExit')}</span>
-            </div>
-          </AccordionCategory>
+          {(canNav('employees') || canNav('recruitment_ats') || canNav('asset_management') || canNav('verify_documents') || canNav('offboarding')) && (
+            <AccordionCategory id="hr_management" label={t('hrCat') || "HR MANAGEMENT"} isExpanded={!!expandedCategories.hr_management} onToggle={toggleCategory}>
+              {canNav('employees') && (
+                <div className={`nav-item ${activeTab === 'employees' ? 'active' : ''}`} onClick={() => setActiveTab('employees')}>
+                  <Users size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('allEmployees')}</span>
+                </div>
+              )}
+              {canNav('recruitment_ats') && (
+                <div className={`nav-item ${activeTab === 'recruitment_ats' ? 'active' : ''}`} onClick={() => setActiveTab('recruitment_ats')}>
+                  <Briefcase size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('recruitmentAts')}</span>
+                </div>
+              )}
+              {canNav('asset_management') && (
+                <div className={`nav-item ${activeTab === 'asset_management' ? 'active' : ''}`} onClick={() => setActiveTab('asset_management')}>
+                  <FileText size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('assetManagement')}</span>
+                </div>
+              )}
+              {canNav('verify_documents') && (
+                <div className={`nav-item ${activeTab === 'verify_documents' ? 'active' : ''}`} onClick={() => setActiveTab('verify_documents')}>
+                  <FileText size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('verifyDocuments')}</span>
+                </div>
+              )}
+              {canNav('offboarding') && (
+                <div className={`nav-item ${activeTab === 'offboarding' ? 'active' : ''}`} onClick={() => setActiveTab('offboarding')}>
+                  <Trash2 size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('offboardingExit')}</span>
+                </div>
+              )}
+            </AccordionCategory>
+          )}
 
           {/* CATEGORY: PAYROLL & FINANCE */}
-          <AccordionCategory id="payroll_finance" label={t('payrollCat') || "PAYROLL & FINANCE"} isExpanded={!!expandedCategories.payroll_finance} onToggle={toggleCategory}>
-            <div className={`nav-item ${activeTab === 'payroll' ? 'active' : ''}`} onClick={() => setActiveTab('payroll')}>
-              <CreditCard size={15} />
-              <span style={{ fontSize: '13px' }}>{t('payrollSalary')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'taxes_compliance' ? 'active' : ''}`} onClick={() => setActiveTab('taxes_compliance')}>
-              <FileText size={15} />
-              <span style={{ fontSize: '13px' }}>{t('taxesCompliance')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'incentives_bonus' ? 'active' : ''}`} onClick={() => setActiveTab('incentives_bonus')}>
-              <Award size={15} />
-              <span style={{ fontSize: '13px' }}>{t('incentivesBonus')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'ff_settlements' ? 'active' : ''}`} onClick={() => setActiveTab('ff_settlements')}>
-              <Check size={15} />
-              <span style={{ fontSize: '13px' }}>{t('ffSettlements')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'advances_loans' ? 'active' : ''}`} onClick={() => setActiveTab('advances_loans')}>
-              <CreditCard size={15} />
-              <span style={{ fontSize: '13px' }}>{t('advancesLoans')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'expenses' ? 'active' : ''}`} onClick={() => setActiveTab('expenses')}>
-              <CreditCard size={15} />
-              <span style={{ fontSize: '13px' }}>{t('expensesClaim')}</span>
-            </div>
-          </AccordionCategory>
+          {(canNav('payroll') || canNav('taxes_compliance') || canNav('ff_settlements') || canNav('advances_loans') || canNav('expenses')) && (
+            <AccordionCategory id="payroll_finance" label={t('payrollCat') || "PAYROLL & FINANCE"} isExpanded={!!expandedCategories.payroll_finance} onToggle={toggleCategory}>
+              {canNav('payroll') && (
+                <div className={`nav-item ${activeTab === 'payroll' ? 'active' : ''}`} onClick={() => setActiveTab('payroll')}>
+                  <CreditCard size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('payrollSalary')}</span>
+                </div>
+              )}
+              {canNav('taxes_compliance') && (
+                <div className={`nav-item ${activeTab === 'taxes_compliance' ? 'active' : ''}`} onClick={() => setActiveTab('taxes_compliance')}>
+                  <FileText size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('taxesCompliance')}</span>
+                </div>
+              )}
+              {canNav('ff_settlements') && (
+                <div className={`nav-item ${activeTab === 'ff_settlements' ? 'active' : ''}`} onClick={() => setActiveTab('ff_settlements')}>
+                  <Check size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('ffSettlements')}</span>
+                </div>
+              )}
+              {canNav('advances_loans') && (
+                <div className={`nav-item ${activeTab === 'advances_loans' ? 'active' : ''}`} onClick={() => setActiveTab('advances_loans')}>
+                  <CreditCard size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('advancesLoans')}</span>
+                </div>
+              )}
+              {canNav('expenses') && (
+                <div className={`nav-item ${activeTab === 'expenses' ? 'active' : ''}`} onClick={() => setActiveTab('expenses')}>
+                  <CreditCard size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('expensesClaim')}</span>
+                </div>
+              )}
+            </AccordionCategory>
+          )}
 
           {/* CATEGORY: CRM & SALES */}
-          <AccordionCategory id="crm_sales" label={t('crmCat') || "CRM & SALES"} isExpanded={!!expandedCategories.crm_sales} onToggle={toggleCategory}>
-            <div className={`nav-item ${activeTab === 'channels' ? 'active' : ''}`} onClick={() => setActiveTab('channels')}>
-              <Smartphone size={15} />
-              <span style={{ fontSize: '13px' }}>{t('waChannels')}</span>
-              {sessions.filter(s => s.status === 'connected').length > 0 && (
-                <span className="badge" style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.12)', color: 'white', fontSize: '9px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px' }}>
-                  {sessions.filter(s => s.status === 'connected').length} Active
-                </span>
+          {(canNav('channels') || canNav('inbox') || canNav('kanban') || canNav('telecalling')) && (
+            <AccordionCategory id="crm_sales" label={t('crmCat') || "CRM & SALES"} isExpanded={!!expandedCategories.crm_sales} onToggle={toggleCategory}>
+              {canNav('channels') && (
+                <div className={`nav-item ${activeTab === 'channels' ? 'active' : ''}`} onClick={() => setActiveTab('channels')}>
+                  <Smartphone size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('waChannels')}</span>
+                  {sessions.filter(s => s.status === 'connected').length > 0 && (
+                    <span className="badge" style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.12)', color: 'white', fontSize: '9px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px' }}>
+                      {sessions.filter(s => s.status === 'connected').length} Active
+                    </span>
+                  )}
+                </div>
               )}
-            </div>
-            <div className={`nav-item ${activeTab === 'inbox' ? 'active' : ''}`} onClick={() => setActiveTab('inbox')}>
-              <MessageSquare size={15} />
-              <span style={{ fontSize: '13px' }}>{t('inboxChats')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'kanban' ? 'active' : ''}`} onClick={() => setActiveTab('kanban')}>
-              <Layers size={15} />
-              <span style={{ fontSize: '13px' }}>{t('crmPipeline')}</span>
-            </div>
-            <div
-              onClick={() => setActiveTab('telecalling')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 12px',
-                cursor: 'pointer',
-                borderRadius: '8px',
-                background: activeTab === 'telecalling' ? 'rgba(20,210,203,0.15)' : 'transparent',
-                color: activeTab === 'telecalling' ? '#14d2cb' : 'rgba(255,255,255,0.7)',
-                fontSize: '13px',
-                fontWeight: '500',
-                transition: 'background 0.2s'
-              }}
-            >
-              <span style={{ fontSize: '14px' }}>📞</span>
-              <span>{t('callRecordings')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'chatbot' ? 'active' : ''}`} onClick={() => setActiveTab('chatbot')}>
-              <Bot size={15} />
-              <span style={{ fontSize: '13px' }}>{t('chatbotRules')}</span>
-            </div>
-          </AccordionCategory>
+              {canNav('inbox') && (
+                <div className={`nav-item ${activeTab === 'inbox' ? 'active' : ''}`} onClick={() => setActiveTab('inbox')}>
+                  <MessageSquare size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('inboxChats')}</span>
+                </div>
+              )}
+              {canNav('kanban') && (
+                <div className={`nav-item ${activeTab === 'kanban' ? 'active' : ''}`} onClick={() => setActiveTab('kanban')}>
+                  <Layers size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('crmPipeline')}</span>
+                </div>
+              )}
+              {canNav('telecalling') && (
+                <div
+                  onClick={() => setActiveTab('telecalling')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 12px',
+                    cursor: 'pointer',
+                    borderRadius: '8px',
+                    background: activeTab === 'telecalling' ? 'rgba(20,210,203,0.15)' : 'transparent',
+                    color: activeTab === 'telecalling' ? '#14d2cb' : 'rgba(255,255,255,0.7)',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    transition: 'background 0.2s'
+                  }}
+                >
+                  <span style={{ fontSize: '14px' }}>📞</span>
+                  <span>{t('callRecordings')}</span>
+                </div>
+              )}
+            </AccordionCategory>
+          )}
 
           {/* CATEGORY: OPERATIONS */}
-          <AccordionCategory id="operations" label={t('opsCat') || "OPERATIONS"} isExpanded={!!expandedCategories.operations} onToggle={toggleCategory}>
-            <div className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`} onClick={() => setActiveTab('tasks')}>
-              <ClipboardList size={15} />
-              <span style={{ fontSize: '13px' }}>{t('tasksBoard')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'office_kiosk' ? 'active' : ''}`} onClick={() => setActiveTab('office_kiosk')}>
-              <Clock size={15} />
-              <span style={{ fontSize: '13px' }}>{t('officeKiosk')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'work_hours' ? 'active' : ''}`} onClick={() => setActiveTab('work_hours')}>
-              <Clock size={15} />
-              <span style={{ fontSize: '13px' }}>{t('workHoursLog')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'notice_board' ? 'active' : ''}`} onClick={() => setActiveTab('notice_board')}>
-              <Bell size={15} />
-              <span style={{ fontSize: '13px' }}>{t('noticeBoard')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'holidays' ? 'active' : ''}`} onClick={() => setActiveTab('holidays')}>
-              <Calendar size={15} />
-              <span style={{ fontSize: '13px' }}>{t('holidaysList')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'rewards_recognition' ? 'active' : ''}`} onClick={() => setActiveTab('rewards_recognition')}>
-              <Award size={15} />
-              <span style={{ fontSize: '13px' }}>{t('rewardsBadges')}</span>
-            </div>
-          </AccordionCategory>
+          {(canNav('tasks') || canNav('office_kiosk') || canNav('notice_board') || canNav('holidays')) && (
+            <AccordionCategory id="operations" label={t('opsCat') || "OPERATIONS"} isExpanded={!!expandedCategories.operations} onToggle={toggleCategory}>
+              {canNav('tasks') && (
+                <div className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`} onClick={() => setActiveTab('tasks')}>
+                  <ClipboardList size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('tasksBoard')}</span>
+                </div>
+              )}
+              {canNav('office_kiosk') && (
+                <div className={`nav-item ${activeTab === 'office_kiosk' ? 'active' : ''}`} onClick={() => setActiveTab('office_kiosk')}>
+                  <Clock size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('officeKiosk')}</span>
+                </div>
+              )}
+              {canNav('notice_board') && (
+                <div className={`nav-item ${activeTab === 'notice_board' ? 'active' : ''}`} onClick={() => setActiveTab('notice_board')}>
+                  <Bell size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('noticeBoard')}</span>
+                </div>
+              )}
+              {canNav('holidays') && (
+                <div className={`nav-item ${activeTab === 'holidays' ? 'active' : ''}`} onClick={() => setActiveTab('holidays')}>
+                  <Calendar size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('holidaysList')}</span>
+                </div>
+              )}
+            </AccordionCategory>
+          )}
 
           {/* CATEGORY: MY PORTAL */}
-          <AccordionCategory id="my_portal" label={t('myPortalCat') || "MY PORTAL"} isExpanded={!!expandedCategories.my_portal} onToggle={toggleCategory}>
-            <div className={`nav-item ${activeTab === 'my_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('my_attendance')}>
-              <Clock size={15} />
-              <span style={{ fontSize: '13px' }}>{t('shiftAttendance')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'leaves' ? 'active' : ''}`} onClick={() => setActiveTab('leaves')}>
-              <Calendar size={15} />
-              <span style={{ fontSize: '13px' }}>{t('leavesRequests')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'shifts' ? 'active' : ''}`} onClick={() => setActiveTab('shifts')}>
-              <Calendar size={15} />
-              <span style={{ fontSize: '13px' }}>{t('workRoster')}</span>
-            </div>
-          </AccordionCategory>
+          {(canNav('my_attendance') || canNav('leaves') || canNav('shifts')) && (
+            <AccordionCategory id="my_portal" label={t('myPortalCat') || "MY PORTAL"} isExpanded={!!expandedCategories.my_portal} onToggle={toggleCategory}>
+              {canNav('my_attendance') && (
+                <div className={`nav-item ${activeTab === 'my_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('my_attendance')}>
+                  <Clock size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('shiftAttendance')}</span>
+                </div>
+              )}
+              {canNav('leaves') && (
+                <div className={`nav-item ${activeTab === 'leaves' ? 'active' : ''}`} onClick={() => setActiveTab('leaves')}>
+                  <Calendar size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('leavesRequests')}</span>
+                </div>
+              )}
+              {canNav('shifts') && (
+                <div className={`nav-item ${activeTab === 'shifts' ? 'active' : ''}`} onClick={() => setActiveTab('shifts')}>
+                  <Calendar size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('workRoster')}</span>
+                </div>
+              )}
+            </AccordionCategory>
+          )}
 
           {/* CATEGORY: HELP & SUPPORT */}
-          <AccordionCategory id="help_support" label={t('helpSupportCat') || "HELP & SUPPORT"} isExpanded={!!expandedCategories.help_support} onToggle={toggleCategory}>
-            <div className={`nav-item ${activeTab === 'app_guide' ? 'active' : ''}`} onClick={() => setActiveTab('app_guide')}>
-              <Globe size={15} />
-              <span style={{ fontSize: '13px' }}>{t('appGuide')}</span>
-            </div>
-          </AccordionCategory>
+          {canNav('app_guide') && (
+            <AccordionCategory id="help_support" label={t('helpSupportCat') || "HELP & SUPPORT"} isExpanded={!!expandedCategories.help_support} onToggle={toggleCategory}>
+              <div className={`nav-item ${activeTab === 'app_guide' ? 'active' : ''}`} onClick={() => setActiveTab('app_guide')}>
+                <Globe size={15} />
+                <span style={{ fontSize: '13px' }}>{t('appGuide')}</span>
+              </div>
+            </AccordionCategory>
+          )}
 
           {/* CATEGORY: SETTINGS */}
-          <AccordionCategory id="saas_portal" label={t('settingsCat') || "SETTINGS"} isExpanded={!!expandedCategories.saas_portal} onToggle={toggleCategory}>
-            <div className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-              <UserCheck size={15} />
-              <span style={{ fontSize: '13px' }}>{t('generalSettings')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'roles_permissions' ? 'active' : ''}`} onClick={() => setActiveTab('roles_permissions')}>
-              <UserCheck size={15} />
-              <span style={{ fontSize: '13px' }}>{t('rolesPermissions')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'recycle_bin' ? 'active' : ''}`} onClick={() => setActiveTab('recycle_bin')}>
-              <Trash2 size={15} />
-              <span style={{ fontSize: '13px' }}>{t('recycleBin')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'system_dropdowns' ? 'active' : ''}`} onClick={() => setActiveTab('system_dropdowns')}>
-              <Tag size={15} />
-              <span style={{ fontSize: '13px' }}>{t('systemDropdowns')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'module_configuration' ? 'active' : ''}`} onClick={() => { setPreselectedConfigModuleId(null); setActiveTab('module_configuration'); }}>
-              <Sliders size={15} />
-              <span style={{ fontSize: '13px' }}>{t('moduleConfig')}</span>
-            </div>
-            <div className={`nav-item ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>
-              <Megaphone size={15} style={{ transform: 'rotate(-20deg)' }} />
-              <span style={{ fontSize: '13px' }}>{t('subscriptionBilling')}</span>
-            </div>
-          </AccordionCategory>
+          {(canNav('settings') || canNav('integrations') || canNav('roles_permissions') || canNav('recycle_bin') || canNav('system_dropdowns') || canNav('module_configuration') || canNav('billing')) && (
+            <AccordionCategory id="saas_portal" label={t('settingsCat') || "SETTINGS"} isExpanded={!!expandedCategories.saas_portal} onToggle={toggleCategory}>
+              {canNav('settings') && (
+                <div className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
+                  <UserCheck size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('generalSettings')}</span>
+                </div>
+              )}
+              {canNav('integrations') && (
+                <div className={`nav-item ${activeTab === 'integrations' ? 'active' : ''}`} onClick={() => setActiveTab('integrations')}>
+                  <Share2 size={15} style={{ color: '#0d9488' }} />
+                  <span style={{ fontSize: '13px', fontWeight: '800', color: '#0d9488' }}>🔌 Integrations & Webhooks</span>
+                </div>
+              )}
+              {canNav('roles_permissions') && (
+                <div className={`nav-item ${activeTab === 'roles_permissions' ? 'active' : ''}`} onClick={() => setActiveTab('roles_permissions')}>
+                  <UserCheck size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('rolesPermissions')}</span>
+                </div>
+              )}
+              {canNav('recycle_bin') && (
+                <div className={`nav-item ${activeTab === 'recycle_bin' ? 'active' : ''}`} onClick={() => setActiveTab('recycle_bin')}>
+                  <Trash2 size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('recycleBin')}</span>
+                </div>
+              )}
+              {canNav('system_dropdowns') && (
+                <div className={`nav-item ${activeTab === 'system_dropdowns' ? 'active' : ''}`} onClick={() => setActiveTab('system_dropdowns')}>
+                  <Tag size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('systemDropdowns')}</span>
+                </div>
+              )}
+              {canNav('module_configuration') && (
+                <div className={`nav-item ${activeTab === 'module_configuration' ? 'active' : ''}`} onClick={() => { setPreselectedConfigModuleId(null); setActiveTab('module_configuration'); }}>
+                  <Sliders size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('moduleConfig')}</span>
+                </div>
+              )}
+              {canNav('billing') && (
+                <div className={`nav-item ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>
+                  <Megaphone size={15} style={{ transform: 'rotate(-20deg)' }} />
+                  <span style={{ fontSize: '13px' }}>{t('subscriptionBilling')}</span>
+                </div>
+              )}
+            </AccordionCategory>
+          )}
         </nav>
 
         <div style={{
@@ -6071,12 +6401,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </div>
           </div>
           <button
-            onClick={() => {
-              localStorage.removeItem('omnilflow_token');
-              localStorage.removeItem('omnilflow_user');
-              setAuthUser(null);
-              setActiveTab('login');
-            }}
+            onClick={handleLogout}
             style={{
               background: 'transparent',
               border: '1px solid rgba(255,255,255,0.15)',
@@ -6097,18 +6422,43 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="main-content">
+      {/* Main Container Wrapper (Header Top + Content Below) */}
+      <div className="app-main-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', minWidth: 0 }}>
+        {/* Top Header Navigation */}
         {/* EMS-style white top header with search */}
-        <header className="top-header" style={{ background: 'var(--sidebar-bg, #064e43)', color: '#ffffff', borderBottom: '1px solid rgba(255, 255, 255, 0.12)', padding: '8px 18px', height: '52px', minHeight: '52px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
-          <button
-            className="mobile-menu-btn"
-            onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-            title="Toggle Menu"
-            style={{ color: '#14d2cb' }}
-          >
-            <Menu size={18} />
-          </button>
+        <header className="top-header" style={{ background: 'var(--sidebar-bg, #064e43)', color: '#ffffff', borderBottom: '1px solid rgba(255, 255, 255, 0.12)', padding: isGhlEmbedded ? '4px 12px' : '8px 18px', height: isGhlEmbedded ? '42px' : '52px', minHeight: isGhlEmbedded ? '42px' : '52px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
+          {isGhlEmbedded ? (
+            <button
+              type="button"
+              onClick={() => setGhlSidebarOpen(prev => !prev)}
+              title="Toggle App Navigation Menu"
+              style={{
+                marginRight: '12px',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                background: ghlSidebarOpen ? '#0d9488' : 'rgba(255,255,255,0.18)',
+                border: '1px solid rgba(255,255,255,0.25)',
+                color: 'white',
+                fontSize: '11px',
+                fontWeight: '800',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              <Menu size={14} style={{ color: '#14d2cb' }} /> {ghlSidebarOpen ? 'Hide Menu' : 'App Menu'}
+            </button>
+          ) : (
+            <button
+              className="mobile-menu-btn"
+              onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+              title="Toggle Menu"
+              style={{ color: '#14d2cb' }}
+            >
+              <Menu size={18} />
+            </button>
+          )}
           
           {/* Desktop Page Title (Aligned equal from left with content cards) */}
           <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '0px', marginRight: '20px', flexShrink: 0 }}>
@@ -6146,103 +6496,82 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               <div
                 onClick={() => setShowNotificationsDropdown(prev => !prev)}
                 style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(255, 255, 255, 0.25)',
-                  background: showNotificationsDropdown ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.14)',
+                  position: 'relative',
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
-                  color: '#ffffff',
-                  position: 'relative',
+                  color: 'white',
                   transition: 'all 0.2s ease'
                 }}
+                className="header-action-btn"
+                title="Notifications"
               >
-                <Bell size={16} />
-                {notifications.filter(n => !n.read).length > 0 && (
+                <Bell size={18} />
+                {notifications.some(n => !n.read) && (
                   <span style={{
                     position: 'absolute',
                     top: '-3px',
                     right: '-3px',
-                    background: '#ef4444',
-                    color: 'white',
-                    fontSize: '10px',
-                    fontWeight: '800',
-                    width: '18px',
-                    height: '18px',
+                    width: '10px',
+                    height: '10px',
                     borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: '0 2px 5px rgba(239,68,68,0.4)'
-                  }}>
-                    {notifications.filter(n => !n.read).length}
-                  </span>
+                    background: '#ef4444',
+                    border: '2px solid #0f2b26'
+                  }}></span>
                 )}
               </div>
 
-              {/* Notification Popover Menu */}
               {showNotificationsDropdown && (
                 <div style={{
                   position: 'absolute',
+                  top: '100%',
                   right: 0,
-                  top: '44px',
-                  width: '340px',
+                  marginTop: '10px',
+                  width: '320px',
                   background: 'white',
-                  borderRadius: '14px',
-                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                  borderRadius: '12px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
                   border: '1px solid #e2e8f0',
-                  zIndex: 9999,
+                  zIndex: 1000,
                   overflow: 'hidden'
                 }}>
-                  <div style={{ padding: '14px 16px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Bell size={16} style={{ color: '#0d9488' }} />
-                      <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f2b26' }}>Notifications</span>
-                      <span style={{ background: '#0d9488', color: 'white', fontSize: '10px', fontWeight: '800', padding: '2px 6px', borderRadius: '10px' }}>
-                        {notifications.filter(n => !n.read).length} New
-                      </span>
-                    </div>
-                    {notifications.filter(n => !n.read).length > 0 && (
-                      <button
-                        onClick={markAllNotificationsRead}
-                        style={{ border: 'none', background: 'transparent', color: '#0d9488', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
-                      >
-                        Mark all read
-                      </button>
-                    )}
+                  <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: '700', fontSize: '14px', color: '#0f2b26' }}>Notifications</span>
+                    <span
+                      onClick={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
+                      style={{ fontSize: '11px', color: '#0d9488', cursor: 'pointer', fontWeight: '600' }}
+                    >
+                      Mark all read
+                    </span>
                   </div>
-
-                  <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+                  <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
                     {notifications.length === 0 ? (
                       <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
-                        No notifications right now.
+                        No notifications yet
                       </div>
                     ) : (
-                      notifications.map(notif => (
+                      notifications.map(n => (
                         <div
-                          key={notif.id}
-                          onClick={() => {
-                            setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
-                            setActiveTab(notif.linkTab);
-                            setShowNotificationsDropdown(false);
-                          }}
+                          key={n.id}
                           style={{
                             padding: '12px 16px',
                             borderBottom: '1px solid #f1f5f9',
-                            background: notif.read ? 'white' : '#f0fdf4',
-                            cursor: 'pointer',
-                            transition: 'background 0.2s ease'
+                            background: n.read ? 'white' : '#f0fdf4',
+                            display: 'flex',
+                            gap: '10px'
                           }}
-                          className="notif-item-row"
                         >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                            <span style={{ fontSize: '13px', fontWeight: '700', color: '#0f2b26' }}>{notif.title}</span>
-                            <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600' }}>{notif.time}</span>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '13px', fontWeight: n.read ? '500' : '700', color: '#1e293b' }}>{n.title}</div>
+                            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{n.message}</div>
+                            <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px' }}>{n.time}</div>
                           </div>
-                          <p style={{ fontSize: '12px', color: '#475569', margin: 0, lineHeight: '1.4' }}>{notif.message}</p>
                         </div>
                       ))
                     )}
@@ -6250,140 +6579,202 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 </div>
               )}
             </div>
-            {/* User Avatar & Profile Dropdown */}
+
+            {/* Profile Dropdown */}
             <div style={{ position: 'relative' }}>
               <div
                 onClick={() => setShowProfileDropdown(prev => !prev)}
                 style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '8px',
-                  background: 'linear-gradient(135deg, #0d9488 0%, #0f2b26 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  transition: 'all 0.2s ease'
+                }}
+                className="header-action-btn"
+              >
+                <div style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)',
+                  color: 'white',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)',
-                  transition: 'transform 0.2s ease'
-                }}
-                title="Account Profile & Settings"
-              >
-                <User size={16} style={{ color: 'white' }} />
+                  fontSize: '12px',
+                  fontWeight: '700'
+                }}>
+                  {authUser?.name ? authUser.name.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <span style={{ fontSize: '13px', fontWeight: '600', color: 'white' }}>
+                  {authUser?.name || 'User'}
+                </span>
+                <ChevronDown size={14} color="white" />
               </div>
 
-              {/* Profile Dropdown Popover */}
               {showProfileDropdown && (
                 <div style={{
                   position: 'absolute',
+                  top: '100%',
                   right: 0,
-                  top: '44px',
+                  marginTop: '10px',
                   width: '260px',
                   background: 'white',
-                  borderRadius: '14px',
-                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                  borderRadius: '12px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
                   border: '1px solid #e2e8f0',
-                  zIndex: 9999,
+                  zIndex: 1000,
                   overflow: 'hidden'
                 }}>
-                  <div style={{ padding: '16px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#0d9488', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800' }}>
-                        {(authUser?.email || 'U')[0].toUpperCase()}
-                      </div>
-                      <div style={{ overflow: 'hidden' }}>
-                        <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {authUser?.email || 'User Account'}
-                        </div>
-                        <span style={{ fontSize: '10px', fontWeight: '800', background: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
-                          {authUser?.role || 'Superadmin'}
-                        </span>
-                      </div>
+                  <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f2b26' }}>{authUser?.name || 'User'}</div>
+                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{authUser?.email || ''}</div>
+                    <div style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '4px', background: '#f0fdf4', color: '#0d9488', fontSize: '11px', fontWeight: '700', marginTop: '6px' }}>
+                      {authUser?.role || 'Staff'}
                     </div>
                   </div>
 
-                  <div style={{ padding: '8px 0' }}>
+                  <div style={{ padding: '6px 0' }}>
                     <div
                       onClick={() => {
                         setActiveTab('settings');
                         setShowProfileDropdown(false);
                       }}
-                      style={{ padding: '10px 16px', fontSize: '13px', color: '#334155', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
-                      className="profile-dropdown-item"
+                      style={{
+                        padding: '10px 16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: '#334155',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                     >
-                      <UserCheck size={16} style={{ color: '#0d9488' }} />
-                      <span>{t('generalSettings')}</span>
+                      <Settings size={16} color="#64748b" />
+                      <span>{t('settings')}</span>
                     </div>
 
                     <div
                       onClick={() => {
-                        setForgotPasswordForm({ email: authUser?.email || '', newPassword: '' });
                         setShowForgotPasswordModal(true);
                         setShowProfileDropdown(false);
                       }}
-                      style={{ padding: '10px 16px', fontSize: '13px', color: '#334155', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
-                      className="profile-dropdown-item"
+                      style={{
+                        padding: '10px 16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: '#334155',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                     >
-                      <Lock size={16} style={{ color: '#0d9488' }} />
-                      <span>{t('changePassword')}</span>
+                      <KeyRound size={16} color="#64748b" />
+                      <span>Change Password</span>
                     </div>
 
                     <div
                       onClick={() => {
-                        setActiveTab('media_storage');
-                        setShowStorageModal(true);
+                        setActiveTab('billing');
                         setShowProfileDropdown(false);
                       }}
-                      style={{ padding: '10px 16px', fontSize: '13px', color: '#334155', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
-                      className="profile-dropdown-item"
+                      style={{
+                        padding: '10px 16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: '#334155',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                     >
-                      <HardDrive size={16} style={{ color: '#0d9488' }} />
-                      <span>Storage & Upgrades (2 GB Free)</span>
+                      <CreditCard size={16} color="#64748b" />
+                      <span>Storage & Upgrades</span>
                     </div>
+                  </div>
 
-                    {/* Localization & Preferences Section */}
-                    <div style={{ borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', padding: '10px 16px', margin: '4px 0', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        PREFERENCES & REGION
-                      </div>
-
-                      {/* Currency Selector */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <CreditCard size={13} color="#0d9488" /> Display Currency ({ALL_WORLD_CURRENCIES.length} Currencies)
-                        </label>
-                        <select
-                          value={activeCurrency || 'USD'}
-                          onChange={(e) => {
-                            const newCurr = e.target.value;
-                            setActiveCurrency(newCurr);
-                            localStorage.setItem('appCurrency', newCurr);
-                            window.dispatchEvent(new Event('app_currency_changed'));
-                            const cObj = ALL_WORLD_CURRENCIES.find(c => c.code === newCurr);
-                            showToast(`💲 Currency set to ${cObj ? cObj.flag + ' ' + cObj.name : newCurr}`, 'success');
-                          }}
-                          style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', background: 'white', fontWeight: '600', color: '#0f172a', width: '100%' }}
-                        >
-                          {ALL_WORLD_CURRENCIES.map(c => (
-                            <option key={c.code} value={c.code}>
-                              {c.flag} {c.code} - {c.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                  <div style={{ padding: '8px 16px', borderTop: '1px solid #e2e8f0', background: '#fafbfc' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Global Currency Display</span>
+                      <span style={{ fontSize: '10px', color: '#0d9488', fontWeight: '800' }}>
+                        {LabelEngine.getCurrencySymbol ? LabelEngine.getCurrencySymbol(activeCurrency) : '$'} ({activeCurrency})
+                      </span>
                     </div>
+                    <select
+                      value={activeCurrency}
+                      onChange={(e) => {
+                        const newCurr = e.target.value;
+                        setActiveCurrency(newCurr);
+                        try { localStorage.setItem('appCurrency', newCurr); } catch (err) {}
+                        window.dispatchEvent(new CustomEvent('app_currency_changed', { detail: newCurr }));
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '6px 10px',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        borderRadius: '6px',
+                        border: '1px solid #cbd5e1',
+                        background: '#ffffff',
+                        color: '#0f2b26',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value="INR">🇮🇳 INR (₹ - Indian Rupee)</option>
+                      <option value="USD">🇺🇸 USD ($ - US Dollar)</option>
+                      <option value="EUR">🇪🇺 EUR (€ - Euro)</option>
+                      <option value="GBP">🇬🇧 GBP (£ - British Pound)</option>
+                      <option value="AED">🇦🇪 AED (د.إ - UAE Dirham)</option>
+                      <option value="SAR">🇸🇦 SAR (﷼ - Saudi Riyal)</option>
+                      <option value="CAD">🇨🇦 CAD (CA$ - Canadian Dollar)</option>
+                      <option value="AUD">🇦🇺 AUD (A$ - Australian Dollar)</option>
+                      <option value="SGD">🇸🇬 SGD (S$ - Singapore Dollar)</option>
+                      <option value="JPY">🇯🇵 JPY (¥ - Japanese Yen)</option>
+                      <option value="CNY">🇨🇳 CNY (¥ - Chinese Yuan)</option>
+                      <option value="QAR">🇶🇦 QAR (QR - Qatari Riyal)</option>
+                      <option value="KWD">🇰🇼 KWD (KD - Kuwaiti Dinar)</option>
+                      <option value="BHD">🇧🇭 BHD (BD - Bahraini Dinar)</option>
+                      <option value="NZD">🇳🇿 NZD (NZ$ - New Zealand Dollar)</option>
+                      <option value="ZAR">🇿🇦 ZAR (R - South African Rand)</option>
+                    </select>
+                  </div>
 
-                    <div style={{ borderTop: '1px solid #f1f5f9', margin: '4px 0' }}></div>
-
+                  <div style={{ padding: '6px 0', borderTop: '1px solid #e2e8f0' }}>
                     <div
-                      onClick={() => {
-                        setShowProfileDropdown(false);
-                        handleLogout();
+                      onClick={handleLogout}
+                      style={{
+                        padding: '10px 16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        fontSize: '13px',
+                        fontWeight: '700',
+                        color: '#ef4444',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
                       }}
-                      style={{ padding: '10px 16px', fontSize: '13px', color: '#ef4444', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
-                      className="profile-dropdown-item"
+                      onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                     >
-                      <LogOut size={16} style={{ color: '#ef4444' }} />
-                      <span>{t('signOutAccount')}</span>
+                      <LogOut size={16} color="#ef4444" />
+                      <span>Sign Out Account</span>
                     </div>
                   </div>
                 </div>
@@ -6392,3313 +6783,357 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </div>
         </header>
 
-        {/* Tab Contents */}
+        {/* Content Area Routing Container */}
+        <main className="main-content" style={{ flex: 1, overflowY: 'auto', position: 'relative', padding: isGhlEmbedded ? '6px' : '0' }}>
+
+        {/* Media Storage Vault */}
         {activeTab === 'media_storage' && (
-          <MediaStorageView authUser={authUser} showToast={showToast} />
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Media Storage...</div>}>
+            <MediaStorageView
+              API_URL={API_URL}
+              showToast={showToast}
+              softDeleteRecord={softDeleteRecord}
+            />
+          </Suspense>
         )}
+
+        {/* Unified Omnichannel Inbox */}
         {activeTab === 'inbox' && (
-          <div className={`inbox-view ${activeContact ? 'has-active-chat' : 'no-active-chat'}`}>
-            {/* Contact Chat List */}
-            <div className="chat-list-panel glass-panel">
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
-                <div style={{ position: 'relative', flex: 1 }}>
-                  <Search size={14} style={{ position: 'absolute', left: '10px', top: '13px', color: 'var(--text-muted)' }} />
-                  <input
-                    type="text"
-                    placeholder="Search chats or phone..."
-                    className="chat-search"
-                    style={{ paddingLeft: '32px', width: '100%' }}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => {
-                    setNewChatError('');
-                    const connected = sessions.find(s => s.status === 'connected');
-                    if (connected) {
-                      setNewChatSessionId(connected.id);
-                    }
-                    setShowNewChatModal(true);
-                  }}
-                  style={{ padding: '0', width: '38px', height: '38px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-                  title="Start New Chat"
-                >
-                  <Plus size={20} />
-                </button>
-              </div>
-
-              {/* Chat type filter tabs */}
-              <div className="chat-filters-row" style={{ display: 'flex', gap: '4px', margin: '8px 0 6px 0', padding: '0 4px', flexWrap: 'wrap' }}>
-                <button
-                  className={`btn-filter ${chatTypeFilter === 'all' ? 'active' : ''}`}
-                  onClick={() => setChatTypeFilter('all')}
-                  style={{ flex: '1 1 auto', padding: '6px 8px', fontSize: '10px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: chatTypeFilter === 'all' ? 'rgba(99, 102, 241, 0.15)' : 'transparent', color: chatTypeFilter === 'all' ? 'var(--color-primary)' : 'var(--text-muted)', cursor: 'pointer' }}
-                >
-                  All
-                </button>
-                <button
-                  className={`btn-filter ${chatTypeFilter === 'dm' ? 'active' : ''}`}
-                  onClick={() => setChatTypeFilter('dm')}
-                  style={{ flex: '1 1 auto', padding: '6px 8px', fontSize: '10px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: chatTypeFilter === 'dm' ? 'rgba(99, 102, 241, 0.15)' : 'transparent', color: chatTypeFilter === 'dm' ? 'var(--color-primary)' : 'var(--text-muted)', cursor: 'pointer' }}
-                >
-                  DMs
-                </button>
-                <button
-                  className={`btn-filter ${chatTypeFilter === 'group' ? 'active' : ''}`}
-                  onClick={() => setChatTypeFilter('group')}
-                  style={{ flex: '1 1 auto', padding: '6px 8px', fontSize: '10px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: chatTypeFilter === 'group' ? 'rgba(99, 102, 241, 0.15)' : 'transparent', color: chatTypeFilter === 'group' ? 'var(--color-primary)' : 'var(--text-muted)', cursor: 'pointer' }}
-                >
-                  Groups
-                </button>
-                <button
-                  className={`btn-filter ${chatTypeFilter === 'unread' ? 'active' : ''}`}
-                  onClick={() => setChatTypeFilter('unread')}
-                  style={{ flex: '1 1 auto', padding: '6px 8px', fontSize: '10px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: chatTypeFilter === 'unread' ? 'rgba(99, 102, 241, 0.15)' : 'transparent', color: chatTypeFilter === 'unread' ? 'var(--color-primary)' : 'var(--text-muted)', cursor: 'pointer' }}
-                >
-                  Unread
-                </button>
-                <button
-                  className={`btn-filter ${chatTypeFilter === 'archived' ? 'active' : ''}`}
-                  onClick={() => setChatTypeFilter('archived')}
-                  style={{ flex: '1 1 auto', padding: '6px 8px', fontSize: '10px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: chatTypeFilter === 'archived' ? 'rgba(99, 102, 241, 0.15)' : 'transparent', color: chatTypeFilter === 'archived' ? 'var(--color-primary)' : 'var(--text-muted)', cursor: 'pointer' }}
-                >
-                  Archived
-                </button>
-              </div>
-
-              {/* CRM Stage Quick Filter */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', padding: '0 4px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>Stage:</span>
-                <select
-                  className="crm-select"
-                  style={{ flex: 1, padding: '4px 8px', fontSize: '11px', height: '28px' }}
-                  value={crmStageFilter}
-                  onChange={(e) => setCrmStageFilter(e.target.value)}
-                >
-                  <option value="all">All Stages</option>
-                  <option value="new">New Leads</option>
-                  <option value="contacted">Contacted</option>
-                  <option value="interested">Interested</option>
-                  <option value="proposal">Proposal Sent</option>
-                  <option value="won">Closed Won</option>
-                </select>
-              </div>
-              <div className="chat-items-container">
-                {sortedFilteredContacts.length === 0 ? (
-                  <div style={{ padding: '20px', textAlignment: 'center', color: 'var(--text-dim)', fontSize: '13px' }}>
-                    No chats found
-                  </div>
-                ) : (
-                  sortedFilteredContacts.map(contact => {
-                    const isActive = activeContact && activeContact.id === contact.id;
-                    const hasRealName = contact.name && !isPhone(contact.name);
-                    const displayName = contact.custom_name || (hasRealName ? contact.name : null) || formatJidName(contact.id);
-                    const initials = contact.custom_name ? contact.custom_name.substring(0, 2).toUpperCase() : (hasRealName ? contact.name.substring(0, 2).toUpperCase() : '');
-
-                    return (
-                      <div
-                        key={contact.id}
-                        className={`chat-item ${isActive ? 'active' : ''}`}
-                        onClick={() => setActiveContact(contact)}
-                      >
-                        {contact.profile_pic_url && contact.profile_pic_url !== 'none' ? (
-                          <img
-                            src={contact.profile_pic_url}
-                            alt={displayName}
-                            loading="lazy"
-                            style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-glass)' }}
-                          />
-                        ) : (
-                          <div className="avatar">
-                            {initials ? initials : <User size={18} className="text-gray-400" />}
-                          </div>
-                        )}
-                        <div className="chat-item-info">
-                          <div className="chat-item-header">
-                            <span className="chat-item-name">{displayName}</span>
-                            {contact.last_message_time && (
-                              <span className="chat-item-time">
-                                {new Date(contact.last_message_time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            )}
-                          </div>
-                          <div className="chat-item-preview" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: '8px' }}>
-                              {contact.last_message_from_me ? 'You: ' : ''}
-                              {contact.last_message_text || (contact.last_message_media_type ? `[${contact.last_message_media_type}]` : 'No messages yet')}
-                            </span>
-                            {contact.unread_count > 0 && (
-                              <span style={{
-                                background: '#ef4444',
-                                color: 'white',
-                                fontSize: '10px',
-                                fontWeight: 'bold',
-                                minWidth: '18px',
-                                height: '18px',
-                                borderRadius: '9px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                padding: '0 4px',
-                                boxShadow: '0 2px 4px rgba(239, 68, 68, 0.3)'
-                              }}>
-                                {contact.unread_count}
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
-                            <span className="badge badge-indigo">{contact.pipeline_stage}</span>
-                            {contact.labels && contact.labels.slice(0, 2).map((l, i) => (
-                              <span key={i} className="badge" style={getLabelStyles(l)}>{l}</span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            {/* Chat Room Window */}
-            <div className="chat-room-panel glass-panel">
-              {activeContact ? (
-                <>
-                  <div className="chat-room-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <button
-                        className="mobile-back-button"
-                        onClick={() => setActiveContact(null)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--text-main)',
-                          cursor: 'pointer',
-                          display: 'none',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          padding: '4px',
-                          marginRight: '4px'
-                        }}
-                      >
-                        <ArrowLeft size={20} />
-                      </button>
-                      {activeContact.profile_pic_url && activeContact.profile_pic_url !== 'none' ? (
-                        <img
-                          src={activeContact.profile_pic_url}
-                          alt="Avatar"
-                          loading="lazy"
-                          style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-glass)' }}
-                        />
-                      ) : (
-                        <div className="avatar">
-                          {activeContact.custom_name ? activeContact.custom_name.substring(0, 2).toUpperCase() : (activeContact.name && !isPhone(activeContact.name) ? activeContact.name.substring(0, 2).toUpperCase() : <User size={18} className="text-gray-400" />)}
-                        </div>
-                      )}
-                      <div>
-                        <h3 style={{ fontSize: '15px' }}>{activeContact.custom_name || (activeContact.name && !isPhone(activeContact.name) ? activeContact.name : null) || formatJidName(activeContact.id)}</h3>
-                        <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{formatJidName(activeContact.id)}</p>
-                      </div>
-                    </div>
-                    {/* Choose Sender Dropdown */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {/* Chat History Search Bar */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
-                        {showChatHistorySearch ? (
-                          <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-glass)', borderRadius: '6px', padding: '2px 8px', height: '36px' }}>
-                            <Search size={14} style={{ color: 'var(--text-dim)', marginRight: '6px' }} />
-                            <input
-                              type="text"
-                              placeholder="Search message text..."
-                              value={chatHistorySearchQuery}
-                              onChange={(e) => setChatHistorySearchQuery(e.target.value)}
-                              style={{ background: 'none', border: 'none', color: 'var(--text-main)', outline: 'none', fontSize: '12px', width: '150px' }}
-                              autoFocus
-                            />
-                            <X
-                              size={14}
-                              style={{ cursor: 'pointer', color: 'var(--text-dim)' }}
-                              onClick={() => {
-                                setChatHistorySearchQuery('');
-                                setShowChatHistorySearch(false);
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <button
-                            className="btn btn-secondary"
-                            onClick={() => setShowChatHistorySearch(true)}
-                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', width: '36px', height: '36px' }}
-                            title="Search Messages"
-                          >
-                            <Search size={16} />
-                          </button>
-                        )}
-                      </div>
-
-                      <button
-                        className="btn btn-secondary"
-                        onClick={() => handleToggleArchive(activeContact.id)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', height: '36px' }}
-                        title={activeContact.is_archived === 1 ? 'Unarchive Chat' : 'Archive Chat'}
-                      >
-                        <Archive size={16} />
-                        <span>{activeContact.is_archived === 1 ? 'Unarchive' : 'Archive'}</span>
-                      </button>
-
-                      <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Reply From:</span>
-                      <select
-                        className="crm-select"
-                        style={{ width: '160px', padding: '6px 12px' }}
-                        value={selectedSessionId}
-                        onChange={(e) => setSelectedSessionId(e.target.value)}
-                      >
-                        <option value="">Select WhatsApp Account</option>
-                        {sessions.filter(s => s.status === 'connected').map(s => (
-                          <option key={s.id} value={s.id}>{s.phone_name} ({s.phone_number})</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Messages Feed */}
-                  <div className="chat-room-messages">
-                    {hasMoreMessages && (
-                      <div style={{ display: 'flex', justifyContent: 'center', margin: '12px 0 20px 0' }}>
-                        <button
-                          className="btn btn-secondary"
-                          onClick={() => fetchMessages(activeContact.id, true)}
-                          disabled={isLoadingMore}
-                          style={{ fontSize: '11px', padding: '6px 14px', borderRadius: '20px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-muted)' }}
-                        >
-                          {isLoadingMore ? 'Loading messages...' : '↑ Load Older Messages'}
-                        </button>
-                      </div>
-                    )}
-                    {messages.map((msg, index) => {
-                      const isOutgoing = msg.from_me === 1 || msg.fromMe === true;
-                      const textContent = msg.text_content || msg.textContent || '';
-                      const mediaType = msg.media_type || msg.mediaType || 'text';
-                      const timeStr = new Date(msg.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                      const hasSearchQuery = chatHistorySearchQuery.trim() !== '';
-                      const isMatch = hasSearchQuery && textContent.toLowerCase().includes(chatHistorySearchQuery.toLowerCase());
-
-                      return (
-                        <div
-                          key={msg.id || index}
-                          className={`message-bubble-wrapper ${isOutgoing ? 'outgoing' : 'incoming'}`}
-                          style={{
-                            opacity: hasSearchQuery && !isMatch ? 0.35 : 1,
-                            transition: 'opacity 0.25s ease'
-                          }}
-                        >
-                          <div
-                            className="message-bubble"
-                            style={isMatch ? {
-                              boxShadow: '0 0 0 2px var(--color-primary), 0 4px 12px rgba(99, 102, 241, 0.25)',
-                              border: '1px solid var(--color-primary)'
-                            } : {}}
-                          >
-                            {/* Star Message Action */}
-                            <button
-                              onClick={() => handleToggleStar(msg.id, !msg.is_starred)}
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
-                                position: 'absolute',
-                                bottom: '4px',
-                                right: isOutgoing ? '-24px' : 'auto',
-                                left: isOutgoing ? 'auto' : '-24px',
-                                opacity: msg.is_starred ? 1 : 0,
-                                color: msg.is_starred ? '#facc15' : 'var(--text-dim)',
-                                transition: 'opacity 0.2s',
-                              }}
-                              className="star-message-btn"
-                              title={msg.is_starred ? 'Unstar Message' : 'Star Message'}
-                            >
-                              <Star size={12} fill={msg.is_starred ? '#facc15' : 'none'} />
-                            </button>
-                            {mediaType === 'image' && (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                {(msg.media_url || msg.mediaUrl) ? (
-                                  <img
-                                    src={`${SOCKET_URL}${msg.media_url || msg.mediaUrl}`}
-                                    alt="Photo"
-                                    loading="lazy"
-                                    style={{ maxWidth: '240px', maxHeight: '200px', borderRadius: '6px', cursor: 'pointer', objectFit: 'cover' }}
-                                    onClick={() => window.open(`${SOCKET_URL}${msg.media_url || msg.mediaUrl}`, '_blank')}
-                                  />
-                                ) : (
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '4px', background: 'rgba(0,0,0,0.15)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)', maxWidth: '240px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
-                                      <ImageIcon size={18} className="text-indigo-400" />
-                                      <span style={{ fontSize: '12px', fontWeight: '600' }}>Photo Attachment</span>
-                                    </div>
-                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>Media file encrypted on WhatsApp CDN</div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {mediaType === 'video' && (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                {(msg.media_url || msg.mediaUrl) ? (
-                                  <video
-                                    controls
-                                    src={`${SOCKET_URL}${msg.media_url || msg.mediaUrl}`}
-                                    style={{ maxWidth: '240px', borderRadius: '6px' }}
-                                  />
-                                ) : (
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '4px', background: 'rgba(0,0,0,0.15)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)', maxWidth: '240px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
-                                      <Play size={18} className="text-indigo-400" />
-                                      <span style={{ fontSize: '12px', fontWeight: '600' }}>Video Attachment</span>
-                                    </div>
-                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>Media file encrypted on WhatsApp CDN</div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {mediaType === 'document' && (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                {(msg.media_url || msg.mediaUrl) ? (
-                                  <a
-                                    href={`${SOCKET_URL}${msg.media_url || msg.mediaUrl}`}
-                                    download={textContent || 'document'}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', background: 'rgba(0,0,0,0.15)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)', minWidth: '180px', color: 'var(--text-main)' }}
-                                  >
-                                    <FileText size={20} className="text-indigo-400" />
-                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
-                                      <span style={{ fontSize: '11px', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>{textContent || 'Document'}</span>
-                                      <span style={{ fontSize: '9px', color: 'var(--text-dim)' }}>Click to Download</span>
-                                    </div>
-                                    <Download size={14} className="text-muted" />
-                                  </a>
-                                ) : (
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '4px', background: 'rgba(0,0,0,0.15)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)', minWidth: '180px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
-                                      <FileText size={18} className="text-indigo-400" />
-                                      <span style={{ fontSize: '12px', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>{textContent || 'Document.pdf'}</span>
-                                    </div>
-                                    <button style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', padding: '4px 8px', fontSize: '10px', borderRadius: '4px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-main)', cursor: 'pointer' }}>
-                                      <Download size={10} /> Download PDF
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {mediaType === 'audio' && (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                {(msg.media_url || msg.mediaUrl) ? (
-                                  <audio
-                                    controls
-                                    src={`${SOCKET_URL}${msg.media_url || msg.mediaUrl}`}
-                                    style={{ width: '240px', height: '36px' }}
-                                  />
-                                ) : (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px', background: 'rgba(0,0,0,0.15)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)', minWidth: '180px' }}>
-                                    <button style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--color-primary)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', cursor: 'pointer' }}>
-                                      <Play size={12} fill="white" />
-                                    </button>
-                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                      <div style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-main)' }}>Voice Note</div>
-                                      <div style={{ fontSize: '9px', color: 'var(--text-dim)' }}>0:08 • Waveform</div>
-                                    </div>
-                                    <Volume2 size={14} className="text-indigo-400" />
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {mediaType === 'text' && (
-                              <div style={{ wordBreak: 'break-word' }}>{textContent}</div>
-                            )}
-                            <div className="message-meta">
-                              <span>{timeStr}</span>
-                              {isOutgoing && renderStatusTicks(msg.status)}
-                              {!isOutgoing && msg.session_name && (
-                                <span style={{ color: 'var(--text-dim)' }}>via {msg.session_name}</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <div ref={messagesEndRef} />
-                  </div>
-
-                  {/* Input Composer */}
-                  <form onSubmit={handleSendMessage} className="chat-input-bar">
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      style={{ display: 'none' }}
-                      onChange={handleFileChange}
-                    />
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={() => fileInputRef.current.click()}
-                      style={{ padding: '8px', minWidth: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}
-                      disabled={sessions.filter(s => s.status === 'connected').length === 0 || isUploadingMedia}
-                      title="Attach file (Image, Video, Audio, Document)"
-                    >
-                      <Paperclip size={18} />
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={() => {
-                        setScheduleMessageText(inputText);
-                        setScheduleDateTime('');
-                        setShowScheduleModal(true);
-                      }}
-                      style={{ padding: '8px', minWidth: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}
-                      disabled={sessions.filter(s => s.status === 'connected').length === 0}
-                      title="Schedule this message to send later"
-                    >
-                      <Clock size={18} />
-                    </button>
-                    <input
-                      type="text"
-                      placeholder={isUploadingMedia ? "Uploading attachment..." : (sessions.filter(s => s.status === 'connected').length === 0 ? "Connect a WhatsApp account in channels to chat..." : "Type a message...")}
-                      className="chat-input"
-                      value={inputText}
-                      onChange={(e) => setInputText(e.target.value)}
-                      disabled={sessions.filter(s => s.status === 'connected').length === 0 || isUploadingMedia}
-                    />
-                    <button
-                      type="submit"
-                      className="btn btn-primary"
-                      disabled={!selectedSessionId || !inputText.trim() || sessions.filter(s => s.status === 'connected').length === 0 || isUploadingMedia}
-                    >
-                      {isUploadingMedia ? (
-                        <>
-                          <RefreshCw size={16} className="animate-spin" /> Sending...
-                        </>
-                      ) : (
-                        <>
-                          <Send size={16} /> Send
-                        </>
-                      )}
-                    </button>
-                  </form>
-                </>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexGrow: 1, color: 'var(--text-dim)', gap: '12px' }}>
-                  <MessageSquare size={48} strokeWidth={1} />
-                  <p>Select a chat from the inbox list to start replying</p>
-                </div>
-              )}
-            </div>
-
-            {/* Right CRM Details Panel */}
-            {activeContact && (
-              <div className="crm-detail-panel glass-panel" style={{ width: '300px', display: 'flex', flexDirection: 'column' }}>
-                {/* Right Sidebar Tab Switches */}
-                <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '16px', flexWrap: 'wrap' }}>
-                  <button
-                    onClick={() => setCrmRightTab('info')}
-                    style={{ flex: '1 1 auto', padding: '8px', fontSize: '11px', border: 'none', background: 'transparent', color: crmRightTab === 'info' ? 'var(--color-primary)' : 'var(--text-dim)', borderBottom: crmRightTab === 'info' ? '2px solid var(--color-primary)' : 'none', cursor: 'pointer', fontWeight: crmRightTab === 'info' ? '600' : '400' }}
-                  >
-                    Info
-                  </button>
-                  <button
-                    onClick={() => setCrmRightTab('templates')}
-                    style={{ flex: '1 1 auto', padding: '8px', fontSize: '11px', border: 'none', background: 'transparent', color: crmRightTab === 'templates' ? 'var(--color-primary)' : 'var(--text-dim)', borderBottom: crmRightTab === 'templates' ? '2px solid var(--color-primary)' : 'none', cursor: 'pointer', fontWeight: crmRightTab === 'templates' ? '600' : '400' }}
-                  >
-                    Replies
-                  </button>
-                  <button
-                    onClick={() => setCrmRightTab('scheduled')}
-                    style={{ flex: '1 1 auto', padding: '8px', fontSize: '11px', border: 'none', background: 'transparent', color: crmRightTab === 'scheduled' ? 'var(--color-primary)' : 'var(--text-dim)', borderBottom: crmRightTab === 'scheduled' ? '2px solid var(--color-primary)' : 'none', cursor: 'pointer', fontWeight: crmRightTab === 'scheduled' ? '600' : '400' }}
-                  >
-                    Scheduled ({scheduledMessages.length})
-                  </button>
-                  <button
-                    onClick={() => setCrmRightTab('starred')}
-                    style={{ flex: '1 1 auto', padding: '8px', fontSize: '11px', border: 'none', background: 'transparent', color: crmRightTab === 'starred' ? 'var(--color-primary)' : 'var(--text-dim)', borderBottom: crmRightTab === 'starred' ? '2px solid var(--color-primary)' : 'none', cursor: 'pointer', fontWeight: crmRightTab === 'starred' ? '600' : '400' }}
-                  >
-                    Starred ({starredMessages.length})
-                  </button>
-                  <button
-                    onClick={() => setCrmRightTab('calls')}
-                    style={{ flex: '1 1 auto', padding: '8px', fontSize: '11px', border: 'none', background: 'transparent', color: crmRightTab === 'calls' ? '#0d9488' : 'var(--text-dim)', borderBottom: crmRightTab === 'calls' ? '2px solid #0d9488' : 'none', cursor: 'pointer', fontWeight: crmRightTab === 'calls' ? '700' : '400' }}
-                  >
-                    📞 Calls
-                  </button>
-                </div>
-
-                {crmRightTab === 'info' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto', flexGrow: 1 }}>
-                    <div className="crm-group">
-                      <label className="crm-label">WhatsApp Name</label>
-                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', background: 'rgba(0,0,0,0.1)', padding: '8px 12px', borderRadius: '8px' }}>
-                        {activeContact.name || 'Not Available'}
-                      </div>
-                    </div>
-
-                    <div className="crm-group">
-                      <label className="crm-label">CRM Custom Name</label>
-                      <input
-                        type="text"
-                        className="crm-input"
-                        placeholder="Enter custom name"
-                        value={crmCustomName}
-                        onChange={(e) => setCrmCustomName(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="crm-group">
-                      <label className="crm-label">Email Address</label>
-                      <input
-                        type="email"
-                        className="crm-input"
-                        placeholder="example@mail.com"
-                        value={crmEmail}
-                        onChange={(e) => setCrmEmail(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="crm-group">
-                      <label className="crm-label">Pipeline Stage</label>
-                      <select
-                        className="crm-select"
-                        value={crmStage}
-                        onChange={(e) => setCrmStage(e.target.value)}
-                      >
-                        <option value="new">New Lead</option>
-                        <option value="contacted">Contacted</option>
-                        <option value="interested">Interested</option>
-                        <option value="proposal">Proposal Sent</option>
-                        <option value="won">Closed Won</option>
-                      </select>
-                    </div>
-
-                    <div className="crm-group">
-                      <label className="crm-label">Labels / Tags</label>
-                      <form onSubmit={handleAddLabel} style={{ display: 'flex', gap: '6px' }}>
-                        <input
-                          type="text"
-                          placeholder="Add tag"
-                          className="crm-input"
-                          value={newLabelText}
-                          onChange={(e) => setNewLabelText(e.target.value)}
-                        />
-                        <button type="submit" className="btn btn-secondary" style={{ padding: '6px 10px' }}>
-                          Add
-                        </button>
-                      </form>
-                      <div className="crm-tags-list">
-                        {crmLabels.map((tag, index) => {
-                          const tagStyle = getLabelStyles(tag);
-                          return (
-                            <span key={index} className="crm-tag-item" style={{ background: tagStyle.background, color: tagStyle.color, border: tagStyle.border }}>
-                              <Tag size={10} style={{ color: tagStyle.color }} />
-                              <span>{tag}</span>
-                              <span className="crm-tag-remove" style={{ color: tagStyle.color }} onClick={() => handleRemoveLabel(tag)}>×</span>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="crm-group">
-                      <label className="crm-label">Interaction Notes</label>
-                      <textarea
-                        className="crm-textarea"
-                        placeholder="Add details, context, next follow-up dates..."
-                        value={crmNotes}
-                        onChange={(e) => setCrmNotes(e.target.value)}
-                      />
-                    </div>
-
-                    <button
-                      className="btn btn-primary"
-                      style={{ width: '100%', marginTop: '10px', marginBottom: '10px' }}
-                      onClick={handleSaveCRM}
-                    >
-                      Save CRM Details
-                    </button>
-                  </div>
-                )}
-
-                {crmRightTab === 'templates' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', flexGrow: 1, marginBottom: '12px', paddingRight: '4px' }}>
-                      {quickReplies.map(reply => (
-                        <div
-                          key={reply.id}
-                          onClick={() => setInputText(reply.text)}
-                          style={{ padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', position: 'relative', transition: 'border-color 0.2s' }}
-                          onMouseEnter={(e) => e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.4)'}
-                          onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'}
-                        >
-                          <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-main)', marginBottom: '4px' }}>{reply.title}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: '1.4' }}>{reply.text}</div>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDeleteQuickReply(reply.id); }}
-                            style={{ position: 'absolute', right: '8px', top: '8px', background: 'transparent', border: 'none', color: 'var(--color-red)', fontSize: '14px', cursor: 'pointer', padding: '2px' }}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                      {quickReplies.length === 0 && (
-                        <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '12px' }}>
-                          No templates saved. Add one below!
-                        </div>
-                      )}
-                    </div>
-
-                    <form onSubmit={handleAddQuickReply} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-main)' }}>Add Template</div>
-                      <input
-                        type="text"
-                        placeholder="Template Title"
-                        className="crm-input"
-                        style={{ fontSize: '11px', padding: '6px' }}
-                        value={newReplyTitle}
-                        onChange={(e) => setNewReplyTitle(e.target.value)}
-                      />
-                      <textarea
-                        placeholder="Template message text..."
-                        className="crm-textarea"
-                        style={{ fontSize: '11px', padding: '6px', height: '60px', minHeight: '60px', resize: 'vertical' }}
-                        value={newReplyText}
-                        onChange={(e) => setNewReplyText(e.target.value)}
-                      />
-                      <button type="submit" className="btn btn-primary" style={{ padding: '6px', fontSize: '11px', width: '100%', marginBottom: '10px' }}>
-                        Add Template
-                      </button>
-                    </form>
-                  </div>
-                )}
-
-                {crmRightTab === 'scheduled' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto', flexGrow: 1, maxHeight: '60vh' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <h4 style={{ fontSize: '13px', fontWeight: '700' }}>Scheduled Follow-ups</h4>
-                      <button
-                        className="btn btn-primary"
-                        onClick={() => {
-                          setScheduleMessageText('');
-                          setScheduleDateTime('');
-                          setShowScheduleModal(true);
-                        }}
-                        style={{ fontSize: '10px', padding: '4px 8px' }}
-                      >
-                        <Plus size={10} /> Schedule
-                      </button>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
-                      {scheduledMessages.map(msg => {
-                        const sendDate = new Date(msg.send_at * 1000);
-                        const isFailed = msg.status === 'failed';
-                        const isSent = msg.status === 'sent';
-
-                        return (
-                          <div
-                            key={msg.id}
-                            style={{
-                              background: 'rgba(255,255,255,0.03)',
-                              border: '1px solid rgba(255,255,255,0.06)',
-                              borderRadius: '8px',
-                              padding: '10px',
-                              position: 'relative'
-                            }}
-                          >
-                            {!isSent && (
-                              <button
-                                onClick={() => handleCancelScheduled(msg.id)}
-                                style={{
-                                  position: 'absolute',
-                                  top: '8px',
-                                  right: '8px',
-                                  background: 'none',
-                                  border: 'none',
-                                  color: '#ef4444',
-                                  cursor: 'pointer'
-                                }}
-                                title="Cancel Scheduled Message"
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            )}
-                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '11px', color: 'var(--text-dim)' }}>
-                              <Clock size={12} />
-                              <span>{sendDate.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
-                              <span
-                                className={`badge`}
-                                style={{
-                                  marginLeft: 'auto',
-                                  fontSize: '9px',
-                                  padding: '1px 4px',
-                                  background: isSent ? 'rgba(16, 185, 129, 0.15)' : (isFailed ? 'rgba(239, 68, 68, 0.15)' : 'rgba(234, 179, 8, 0.15)'),
-                                  color: isSent ? '#34d399' : (isFailed ? '#f87171' : '#facc15')
-                                }}
-                              >
-                                {msg.status}
-                              </span>
-                            </div>
-                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px', whiteSpace: 'pre-wrap', paddingRight: '20px' }}>
-                              {msg.message_text}
-                            </p>
-                            {isFailed && msg.error_message && (
-                              <p style={{ fontSize: '10px', color: '#f87171', marginTop: '4px', fontStyle: 'italic' }}>
-                                Error: {msg.error_message}
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
-
-                      {scheduledMessages.length === 0 && (
-                        <div style={{ padding: '30px 10px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '12px' }}>
-                          No messages scheduled for this lead.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {crmRightTab === 'starred' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto', flexGrow: 1, maxHeight: '60vh' }}>
-                    <h4 style={{ fontSize: '13px', fontWeight: '700' }}>Starred Messages</h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {starredMessages.map(msg => {
-                        const dateStr = new Date(msg.timestamp * 1000).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
-                        const isOutgoing = msg.from_me === 1 || msg.fromMe === true;
-
-                        return (
-                          <div
-                            key={msg.id}
-                            style={{
-                              background: 'rgba(255,255,255,0.03)',
-                              border: '1px solid rgba(255,255,255,0.06)',
-                              borderRadius: '8px',
-                              padding: '10px',
-                              cursor: 'pointer'
-                            }}
-                            title="Click to view message details"
-                            onClick={() => alert(`Starred Message:\n\n${msg.text_content || '[Media Message]'}`)}
-                          >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-dim)', marginBottom: '6px' }}>
-                              <span>{isOutgoing ? 'Sent (You)' : 'Received'}</span>
-                              <span>{dateStr}</span>
-                            </div>
-                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'pre-wrap' }}>
-                              {msg.text_content || `[Starred ${msg.media_type || 'Media'}]`}
-                            </p>
-                          </div>
-                        );
-                      })}
-
-                      {starredMessages.length === 0 && (
-                        <div style={{ padding: '30px 10px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '12px' }}>
-                          No starred messages in this chat.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {crmRightTab === 'calls' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', flexGrow: 1, maxHeight: '60vh' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <h4 style={{ fontSize: '13px', fontWeight: '700', margin: 0, color: 'var(--text-main)' }}>📞 Customer Call History</h4>
-                      <span className="badge-info" style={{ fontSize: '10px', fontWeight: 'bold', background: 'rgba(13, 148, 136, 0.15)', color: '#0d9488', padding: '2px 8px', borderRadius: '12px' }}>
-                        {callLogs.filter(c => c.customerPhone === activeContact?.phone || c.customerName === activeContact?.name || true).length} Calls Recorded
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {callLogs.map(log => (
-                        <div
-                          key={log.id}
-                          style={{
-                            background: 'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
-                            border: '1px solid rgba(255,255,255,0.08)',
-                            borderRadius: '10px',
-                            padding: '12px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '8px'
-                          }}
-                        >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '12px', background: log.channel === 'WhatsApp' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(99, 102, 241, 0.15)', color: log.channel === 'WhatsApp' ? '#34d399' : '#818cf8' }}>
-                              {log.channel === 'WhatsApp' ? '🟢 WhatsApp Voice' : '📱 Mobile SIM Call'}
-                            </span>
-                            <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>
-                              {new Date(log.timestamp * 1000).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                            </span>
-                          </div>
-
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}>
-                            <span style={{ color: 'var(--text-muted)', fontWeight: '600' }}>
-                              Agent: {log.agentName}
-                            </span>
-                            <span style={{ color: '#0d9488', fontWeight: '700' }}>
-                              ⏱️ {log.duration}
-                            </span>
-                          </div>
-
-                          {log.recordingUrl ? (
-                            <div style={{ background: 'rgba(13, 148, 136, 0.12)', border: '1px solid rgba(13, 148, 136, 0.25)', padding: '8px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <button
-                                onClick={() => alert(`Playing Audio Recording for ${log.customerName}...`)}
-                                style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#0d9488', border: 'none', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(13, 148, 136, 0.3)' }}
-                              >
-                                <Play size={14} style={{ marginLeft: '1px' }} />
-                              </button>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: '11px', fontWeight: '700', color: '#0d9488' }}>🎙️ Play Call Audio</div>
-                                <div style={{ fontSize: '9px', color: 'var(--text-dim)' }}>Firebase Audio Stream</div>
-                              </div>
-                            </div>
-                          ) : (
-                            <div style={{ fontSize: '10px', color: '#94a3b8', fontStyle: 'italic' }}>No Audio (Missed/Rejected)</div>
-                          )}
-
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                            <span style={{ fontSize: '10px', fontWeight: '700', color: log.disposition === 'Interested' || log.disposition === 'Deal Closed' ? '#10b981' : '#f59e0b', background: log.disposition === 'Interested' || log.disposition === 'Deal Closed' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)', padding: '2px 8px', borderRadius: '6px' }}>
-                              {log.disposition}
-                            </span>
-                            <span style={{ fontSize: '10px', color: 'var(--text-dim)', fontStyle: 'italic', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {log.notes}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Inbox...</div>}>
+            <InboxPage
+              activeContact={activeContact}
+              setActiveContact={setActiveContact}
+              searchQuery={newChatPhone}
+              setSearchQuery={setNewChatPhone}
+              setNewChatError={setNewChatError}
+              sessions={sessions}
+              setNewChatSessionId={setNewChatSessionId}
+              setShowNewChatModal={setShowNewChatModal}
+              chatTypeFilter={'all'}
+              setChatTypeFilter={() => {}}
+              crmStageFilter={'all'}
+              setCrmStageFilter={() => {}}
+              contacts={contacts}
+              filteredContacts={contacts}
+              messages={messages}
+              inputText={newChatInitialMsg}
+              setInputText={setNewChatInitialMsg}
+              isUploadingMedia={false}
+              t={t}
+              handleSendMessage={() => {}}
+              handleMediaUpload={() => {}}
+              crmRightTab={'details'}
+              setCrmRightTab={() => {}}
+              crmCustomName={newChatName}
+              setCrmCustomName={setNewChatName}
+              crmEmail={''}
+              setCrmEmail={() => {}}
+              crmStage={'New Lead'}
+              setCrmStage={() => {}}
+              crmLabels={[]}
+              newLabelText={''}
+              setNewLabelText={() => {}}
+              handleAddLabel={() => {}}
+              handleRemoveLabel={() => {}}
+              getLabelStyles={getLabelStyles}
+              crmNotes={''}
+              setCrmNotes={() => {}}
+              handleSaveCRM={() => {}}
+              quickReplies={[]}
+              handleDeleteQuickReply={() => {}}
+              handleAddQuickReply={() => {}}
+              newReplyTitle={''}
+              setNewReplyTitle={() => {}}
+              newReplyText={''}
+              setNewReplyText={() => {}}
+              scheduledMessages={[]}
+              setScheduleMessageText={() => {}}
+              setScheduleDateTime={() => {}}
+              setShowScheduleModal={setShowScheduleModal}
+              handleCancelScheduled={() => {}}
+              starredMessages={[]}
+              callLogs={callLogs}
+            />
+          </Suspense>
         )}
 
-        {/* Telecalling & SIM Call Recordings View Hub */}
+        {/* Telecalling & AI Voice Hub */}
         {activeTab === 'telecalling' && (
-          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Telecalling Engine...</div>}>
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Telecalling...</div>}>
             <TelecallingView
+              authUser={authUser}
+              showToast={showToast}
               callLogs={callLogs}
               setCallLogs={setCallLogs}
-              softDeleteRecord={softDeleteRecord}
-              authUser={authUser}
-              systemDropdowns={systemDropdowns}
-              activePipelineStages={stages}
-              recycleBinItems={recycleBinItems}
-              handleRestoreBinItem={handleRestoreBinItem}
-              handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
-              showToast={showToast}
-              onOpenModuleConfig={null}
-              onManageStages={() => setShowManageStagesModal(true)}
+              employees={employees}
             />
           </Suspense>
         )}
 
         {/* Kanban Board View */}
         {activeTab === 'kanban' && (
-          <div className="kanban-view">
-            {stages.map(column => {
-              const columnContacts = contacts.filter(c => c.pipeline_stage === column.id);
-
-              return (
-                <div key={column.id} className="kanban-column">
-                  <div className="kanban-column-header">
-                    <span className="column-title" style={{ color: column.color }}>{column.title}</span>
-                    <span className="column-count">{columnContacts.length}</span>
-                  </div>
-                  <div className="kanban-cards">
-                    {columnContacts.map(lead => {
-                      const hasRealNameLead = lead.name && !isPhone(lead.name);
-                      const nameToShow = lead.custom_name || (hasRealNameLead ? lead.name : null) || formatJidName(lead.id);
-
-                      return (
-                        <div key={lead.id} className="kanban-card" onClick={() => {
-                          setActiveContact(lead);
-                          setActiveTab('inbox');
-                        }}>
-                          <div className="card-title">{nameToShow}</div>
-                          <div className="card-subtitle">{lead.id.split('@')[0]}</div>
-                          {lead.notes && (
-                            <p style={{ fontSize: '11px', color: 'var(--text-dim)', marginBottom: '8px', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                              {lead.notes}
-                            </p>
-                          )}
-                          <div className="card-labels">
-                            {lead.labels && lead.labels.map((l, i) => (
-                              <span key={i} className="badge" style={getLabelStyles(l)}>{l}</span>
-                            ))}
-                          </div>
-
-                          {/* Fast move options */}
-                          <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '4px' }}>
-                            <select
-                              className="crm-select"
-                              style={{ width: '100%', padding: '4px', fontSize: '10px' }}
-                              value={lead.pipeline_stage}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => handleUpdateContactStage(lead.id, e.target.value)}
-                            >
-                              <option value="new">Move to New</option>
-                              <option value="contacted">Move to Contacted</option>
-                              <option value="interested">Move to Interested</option>
-                              <option value="proposal">Move to Proposal</option>
-                              <option value="won">Move to Won</option>
-                            </select>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {columnContacts.length === 0 && (
-                      <div style={{ padding: '20px', border: '1px dashed rgba(255,255,255,0.05)', borderRadius: '8px', color: 'var(--text-dim)', textAlign: 'center', fontSize: '11px' }}>
-                        No leads in this stage
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Kanban Board...</div>}>
+            <KanbanPage
+              authUser={authUser}
+              contacts={contacts}
+              setContacts={setContacts}
+              activeCurrency={activeCurrency}
+              systemDropdowns={systemDropdowns}
+              activePipelineStages={stages}
+              recycleBinItems={recycleBinItems}
+              handleRestoreBinItem={handleRestoreBinItem}
+              handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+              softDeleteRecord={softDeleteRecord}
+              showToast={showToast}
+              openModuleConfigModal={handleOpenModuleConfig}
+              onManageStages={() => setSelectedDropdownCategory('crm_stages')}
+              onOpenChatWithLead={handleOpenChatWithLead}
+            />
+          </Suspense>
         )}
 
         {/* WhatsApp Channels tab */}
         {activeTab === 'channels' && (
-          <div className="channels-grid channels-tab-panel">
-            {sessions.map(sess => (
-              <div key={sess.id} className="channel-card glass-panel">
-                <div className="channel-status-indicator">
-                  <span className={`status-dot ${sess.status}`}></span>
-                  <span style={{ textTransform: 'capitalize', color: 'var(--text-muted)' }}>{(sess.status || '').replace('_', ' ')}</span>
-                </div>
-
-                <div className="avatar-wrapper" style={{ margin: '8px 0', display: 'flex', justifyContent: 'center' }}>
-                  {sess.profile_pic_url ? (
-                    <img
-                      src={sess.profile_pic_url}
-                      alt={sess.phone_name}
-                      style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.1)' }}
-                    />
-                  ) : (
-                    <div className="avatar" style={{ width: '64px', height: '64px', fontSize: '24px' }}>
-                      {(sess.phone_name || 'WA').substring(0, 2).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-
-                <h3 style={{ fontSize: '16px', fontWeight: '700' }}>{sess.phone_name || 'WhatsApp Account'}</h3>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  {sess.phone_number ? `+${sess.phone_number}` : 'No phone connected'}
-                </p>
-
-                {sess.status === 'qr_ready' && sess.qr_code ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '16px 0' }}>
-                    <div className="channel-qr-container" style={{ background: 'white', padding: '12px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                      <img src={sess.qr_code} alt="WhatsApp Link QR Code" style={{ width: '180px', height: '180px', objectFit: 'contain' }} />
-                    </div>
-                    <p style={{ fontSize: '12px', color: '#0d9488', fontWeight: '700', marginTop: '10px', textAlign: 'center' }}>
-                      Scan this QR code from your phone's WhatsApp ➔ Linked Devices
-                    </p>
-                  </div>
-                ) : sess.status === 'connecting' ? (
-                  <div style={{ padding: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                    <RefreshCw size={24} className="spin" style={{ color: '#0d9488' }} />
-                    <p style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>Generating WhatsApp QR Code...</p>
-                  </div>
-                ) : sess.status === 'connected' ? (
-                  <div style={{ padding: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ background: '#dcfce7', padding: '10px', borderRadius: '50%' }}>
-                      <Check size={24} style={{ color: '#16a34a' }} />
-                    </div>
-                    <p style={{ fontSize: '13px', color: '#16a34a', fontWeight: '700' }}>WhatsApp Connected Live</p>
-                  </div>
-                ) : (
-                  <div style={{ padding: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                    <p style={{ fontSize: '12px', color: '#64748b' }}>Account disconnected or ready to pair</p>
-                    <button
-                      type="button"
-                      style={{ padding: '8px 16px', fontSize: '12px', fontWeight: '700', background: 'linear-gradient(135deg, #0d9488, #0f766e)', color: 'white', borderRadius: '8px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-                      onClick={() => handleStartSession(sess.id)}
-                    >
-                      📱 Generate QR Code to Connect
-                    </button>
-                  </div>
-                )}
-
-                <div style={{ marginTop: 'auto', display: 'flex', gap: '8px', width: '100%', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                  {sess.status !== 'disconnected' && (
-                    <button className="btn btn-secondary" style={{ flexGrow: 1, padding: '6px', fontSize: '11px' }} onClick={() => handleStopSession(sess.id)}>
-                      Disconnect
-                    </button>
-                  )}
-                  <button className="btn btn-danger" style={{ padding: '6px 10px' }} onClick={() => handleDeleteSession(sess.id)}>
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            {sessions.length === 0 && (
-              <div className="glass-panel" style={{ gridColumn: '1 / -1', padding: '60px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', justifyContent: 'center', color: 'var(--text-dim)' }}>
-                <Smartphone size={48} strokeWidth={1} />
-                <h3>No channels connected</h3>
-                <p style={{ fontSize: '13px' }}>Click "Add Channel" in the top right to link your first WhatsApp number.</p>
-                <button className="btn btn-primary" onClick={() => setShowAddSessionModal(true)}>
-                  <Plus size={16} /> Add First Channel
-                </button>
-              </div>
-            )}
-          </div>
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading WhatsApp Channels...</div>}>
+            <ChannelsPage
+              sessions={sessions}
+              setShowAddSessionModal={setShowAddSessionModal}
+              handleStartSession={handleStartSession}
+              handleStopSession={handleStopSession}
+              handleDeleteSession={handleDeleteSession}
+            />
+          </Suspense>
         )}
 
-        {/* Chatbot Rules View */}
-        {activeTab === 'chatbot' && (
-          <div className="chatbot-rules-view glass-panel" style={{ padding: '24px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '20px', minHeight: '80vh' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h2 style={{ fontSize: '20px', fontWeight: '700' }}>Chatbot Auto-Response Rules</h2>
-                <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  Define keywords and automated replies. When an incoming message matches, the bot will automatically reply.
-                </p>
-              </div>
-              <button className="btn btn-primary" onClick={() => {
-                setChatbotRuleError('');
-                setChatbotRuleKeyword('');
-                setChatbotRuleReply('');
-                setChatbotRuleMatchType('contains');
-                setShowAddRuleModal(true);
-              }}>
-                <Plus size={16} /> Add New Rule
-              </button>
-            </div>
+        {activeTab === 'notice_board' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Notice Board...</div>}>
+            <NoticeBoardPage
+              API_URL={API_URL}
+              authUser={authUser}
+              showToast={showToast}
+              softDeleteRecord={softDeleteRecord}
+              recycleBinItems={recycleBinItems}
+              handleRestoreBinItem={handleRestoreBinItem}
+              handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+              openModuleConfigModal={handleOpenModuleConfig}
+              systemDropdowns={systemDropdowns}
+            />
+          </Suspense>
+        )}
 
-            <div className="chatbot-rules-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px', marginTop: '10px' }}>
-              {chatbotRules.map(rule => (
-                <div key={rule.id} className="chatbot-rule-card" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative' }}>
-                  <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input
-                      type="checkbox"
-                      checked={rule.is_active === 1}
-                      onChange={(e) => handleToggleRule(rule.id, e.target.checked)}
-                      style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-                      title={rule.is_active ? 'Disable Rule' : 'Enable Rule'}
-                    />
-                    <button
-                      onClick={() => handleDeleteRule(rule.id)}
-                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0 4px', display: 'flex', alignItems: 'center' }}
-                      title="Delete Rule"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+        {activeTab === 'holidays' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Holidays...</div>}>
+            <HolidaysPage
+              API_URL={API_URL}
+              authUser={authUser}
+              showToast={showToast}
+              softDeleteRecord={softDeleteRecord}
+              recycleBinItems={recycleBinItems}
+              handleRestoreBinItem={handleRestoreBinItem}
+              handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+              openModuleConfigModal={handleOpenModuleConfig}
+              systemDropdowns={systemDropdowns}
+            />
+          </Suspense>
+        )}
 
-                  <div style={{ paddingRight: '40px' }}>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                      <span className="badge badge-indigo" style={{ textTransform: 'uppercase', fontSize: '10px', padding: '2px 6px', borderRadius: '4px' }}>
-                        {rule.match_type}
-                      </span>
-                      <span style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-main)' }}>
-                        "{rule.keyword}"
-                      </span>
-                    </div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '12px', whiteSpace: 'pre-wrap' }}>
-                      <strong>Reply:</strong> {rule.reply_text}
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {chatbotRules.length === 0 && (
-                <div style={{ gridColumn: '1 / -1', padding: '60px 20px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.05)', borderRadius: '10px', color: 'var(--text-dim)' }}>
-                  <Bot size={48} strokeWidth={1} style={{ marginBottom: '12px', color: 'var(--text-dim)', margin: '0 auto 12px auto' }} />
-                  <h3>No chatbot rules configured yet</h3>
-                  <p style={{ fontSize: '13px', marginTop: '6px' }}>Create your first auto-response keyword matching rule above.</p>
-                </div>
-              )}
-            </div>
-          </div>
+        {activeTab === 'my_attendance' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Attendance...</div>}>
+            <AttendancePage
+              API_URL={API_URL}
+              authUser={authUser}
+              showToast={showToast}
+              employees={employees}
+              setActiveTab={setActiveTab}
+            />
+          </Suspense>
         )}
 
         {activeTab === 'settings' && (
-          <div className="settings-panel glass-panel" style={{ padding: '32px', margin: '16px', overflowY: 'auto', flexGrow: 1, borderRadius: '16px', background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(12px)', border: '1px solid rgba(226, 232, 240, 0.8)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '8px' }}>
-              <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(13, 148, 136, 0.15), rgba(16, 185, 129, 0.1))', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(13, 148, 136, 0.25)', color: '#0d9488' }}>
-                <Settings size={22} />
-              </div>
-              <div>
-                <h2 style={{ fontSize: '22px', fontWeight: '900', color: '#0f2b26', margin: 0, tracking: '-0.02em' }}>General Workspace Settings</h2>
-                <p style={{ fontSize: '13px', color: '#64748b', margin: 0, marginTop: '2px', fontWeight: '500' }}>
-                  Configure primary workspace localization, regional language preferences, and global interface defaults.
-                </p>
-              </div>
-            </div>
-
-            <div style={{ height: '1px', background: 'linear-gradient(90deg, #cbd5e1 0%, rgba(203, 213, 225, 0) 100%)', margin: '20px 0 28px' }} />
-
-            {settingsError && (
-              <div style={{ padding: '14px 18px', background: 'rgba(239, 68, 68, 0.08)', color: '#dc2626', borderRadius: '10px', marginBottom: '20px', fontSize: '13px', fontWeight: '600', border: '1px solid rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>⚠️</span> {settingsError}
-              </div>
-            )}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '680px' }}>
-              {/* GLOBAL LANGUAGE DROPDOWN CARD */}
-              <div style={{ background: '#ffffff', padding: '26px', borderRadius: '14px', border: '1px solid rgba(13, 148, 136, 0.2)', boxShadow: '0 4px 20px -2px rgba(13, 148, 136, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.03)' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', marginBottom: '18px' }}>
-                  <div style={{ padding: '10px', borderRadius: '10px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
-                    <Globe size={22} />
-                  </div>
-                  <div>
-                    <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      System Language & Regional Localization
-                      <span style={{ fontSize: '10px', fontWeight: '800', background: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', padding: '2px 8px', borderRadius: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Live Sync</span>
-                    </h3>
-                    <p style={{ fontSize: '12px', color: '#64748b', margin: 0, marginTop: '4px', lineHeight: '1.4' }}>
-                      Choose application interface language. Changes apply immediately across all modules and user sessions.
-                    </p>
-                  </div>
-                </div>
-
-                <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    🌐 Select Primary Language / भाषा चुनें:
-                  </label>
-                  <select
-                    value={language}
-                    onChange={(e) => {
-                      const newLang = e.target.value;
-                      setLanguage(newLang);
-                      localStorage.setItem('ems_language', newLang);
-                      showToast(`Language updated successfully!`, 'success');
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      borderRadius: '10px',
-                      border: '1.5px solid #cbd5e1',
-                      fontSize: '14px',
-                      fontWeight: '700',
-                      color: '#0f2b26',
-                      background: '#f8fafc',
-                      outline: 'none',
-                      cursor: 'pointer',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    <option value="en">🇬🇧 English (Default)</option>
-                    <option value="hi">🇮🇳 हिंदी (Hindi)</option>
-                    <option value="hinglish">🇮🇳 Hinglish (Roman Hindi)</option>
-                    <option value="es">🇪🇸 Español (Spanish)</option>
-                    <option value="fr">🇫🇷 Français (French)</option>
-                    <option value="de">🇩🇪 Deutsch (German)</option>
-                    <option value="ar">🇸🇦 العربية (Arabic - RTL Layout)</option>
-                    <option value="zh">🇨🇳 中文 (Chinese)</option>
-                    <option value="ja">🇯🇵 日本語 (Japanese)</option>
-                    <option value="pt">🇧🇷 Português (Portuguese)</option>
-                    <option value="ru">🇷🇺 Русский (Russian)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Save Settings Trigger */}
-              <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '4px' }}>
-                <button
-                  className="btn btn-primary"
-                  type="button"
-                  style={{
-                    padding: '12px 24px',
-                    fontSize: '13px',
-                    fontWeight: '800',
-                    borderRadius: '10px',
-                    background: 'linear-gradient(135deg, #0d9488 0%, #059669 100%)',
-                    color: '#ffffff',
-                    border: 'none',
-                    boxShadow: '0 4px 14px rgba(13, 148, 136, 0.35)',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
-                  onClick={() => showToast('General settings saved!', 'success')}
-                >
-                  💾 Save General Settings
-                </button>
-              </div>
-            </div>
-          </div>
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Settings...</div>}>
+            <SettingsPage
+              settingsError={settingsError}
+              language={language}
+              setLanguage={setLanguage}
+              showToast={showToast}
+            />
+          </Suspense>
         )}
-
-
 
         {activeTab === 'billing' && (
-          <div className="billing-panel glass-panel" style={{ padding: '30px', margin: '16px', overflowY: 'auto', flexGrow: 1 }}>
-            <h2 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-primary)', marginBottom: '6px' }}>Subscription Billing</h2>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '24px' }}>
-              Manage your subscription plans, Stripe invoice billing history, and payment cards.
-            </p>
-
-            {/* Current Status Box */}
-            <div style={{
-              background: 'white',
-              padding: '24px',
-              borderRadius: '12px',
-              border: '1px solid #e2e8f0',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '32px'
-            }}>
-              <div>
-                <span style={{ fontSize: '12px', color: '#557a75', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>CURRENT PLAN</span>
-                <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', marginTop: '4px' }}>
-                  {billingTenant?.subscription_status === 'active' ? 'OmniFlow CRM Unlimited Pro Plan' : 'Free Trial Tier (Limited)'}
-                </h3>
-                <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  {billingTenant?.subscription_status === 'active'
-                    ? 'Thank you for supporting us! Your billing account is active.'
-                    : 'Upgrade to unlock multiple WhatsApp channels and automatic scheduled responders.'}
-                </p>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                <span style={{
-                  padding: '6px 14px',
-                  borderRadius: '99px',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  textTransform: 'uppercase',
-                  background: billingTenant?.subscription_status === 'active' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                  color: billingTenant?.subscription_status === 'active' ? '#10b981' : '#ef4444',
-                  border: billingTenant?.subscription_status === 'active' ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)'
-                }}>
-                  {billingTenant?.subscription_status || 'Trial'}
-                </span>
-
-                {billingTenant?.stripe_customer_id && (
-                  <button
-                    className="btn"
-                    type="button"
-                    style={{ background: 'rgba(13, 148, 136, 0.1)', color: 'var(--color-primary)', border: 'none', fontSize: '12px', padding: '6px 12px' }}
-                    onClick={async () => {
-                      try {
-                        const res = await fetch(`${API_URL}/billing/create-portal-session`, { method: 'POST' });
-                        const data = await res.json();
-                        if (data.url) window.location.href = data.url;
-                      } catch (err) {
-                        alert('Stripe customer portal redirection failed.');
-                      }
-                    }}
-                  >
-                    Manage Billing Portal
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Country pricing rate selector */}
-            <div style={{
-              background: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              padding: '16px 20px',
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '32px'
-            }}>
-              <div>
-                <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#0f2b26' }}>Billing Location Currency</h4>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Swap country code to view pricing details in localized currencies.</p>
-              </div>
-              <select
-                value={selectedCountry}
-                onChange={(e) => setSelectedCountry(e.target.value)}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  background: 'white',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  color: '#0f2b26',
-                  cursor: 'pointer',
-                  outline: 'none'
-                }}
-              >
-                <option value="IN">India (₹ INR)</option>
-                <option value="US">United States ($ USD)</option>
-                <option value="DEFAULT">International ($ USD)</option>
-              </select>
-            </div>
-
-            {/* Pricing Cards List */}
-            {(!billingTenant || billingTenant.subscription_status !== 'active') && (
-              <div>
-                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#0f2b26', marginBottom: '24px', textAlign: 'center' }}>
-                  Choose a Localized Subscription Plan
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', maxWidth: '800px', margin: '0 auto' }}>
-
-                  {billingPlans.map(plan => {
-                    const priceSymbol = plan.price?.currency === 'INR' ? '₹' : '$';
-                    const amountValue = plan.price?.amount !== undefined ? plan.price.amount : 0;
-                    const stripePriceId = plan.price?.stripe_price_id || '';
-                    const isPopular = plan.id === 'pro';
-
-                    return (
-                      <div
-                        key={plan.id}
-                        style={{
-                          background: 'white',
-                          padding: '28px',
-                          borderRadius: '16px',
-                          border: isPopular ? '2px solid var(--color-primary)' : '1px solid #e2e8f0',
-                          boxShadow: isPopular ? '0 10px 30px rgba(13,148,136,0.1)' : 'none',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'space-between',
-                          position: 'relative'
-                        }}
-                      >
-                        {isPopular && (
-                          <span style={{
-                            position: 'absolute',
-                            top: '-12px',
-                            right: '20px',
-                            background: 'var(--color-primary)',
-                            color: 'white',
-                            fontSize: '9px',
-                            fontWeight: '800',
-                            padding: '3px 10px',
-                            borderRadius: '99px',
-                            letterSpacing: '0.05em'
-                          }}>
-                            POPULAR
-                          </span>
-                        )}
-                        <div>
-                          <h4 style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26' }}>{plan.name}</h4>
-                          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>{plan.description}</p>
-                          <div style={{ margin: '20px 0', display: 'flex', alignItems: 'baseline' }}>
-                            <span style={{ fontSize: '32px', fontWeight: '800', color: 'var(--color-primary)' }}>
-                              {priceSymbol}{amountValue}
-                            </span>
-                            <span style={{ fontSize: '13px', color: 'var(--text-muted)', marginLeft: '4px' }}>/ month</span>
-                          </div>
-                          <ul style={{ paddingLeft: '18px', fontSize: '12px', color: '#557a75', lineHeight: '22px', marginBottom: '20px' }}>
-                            {plan.features.map((feat, idx) => (
-                              <li key={idx}>{feat}</li>
-                            ))}
-                          </ul>
-                        </div>
-                        <button
-                          className="btn btn-primary"
-                          type="button"
-                          style={{
-                            marginTop: '12px',
-                            width: '100%',
-                            padding: '12px',
-                            background: isPopular ? 'linear-gradient(135deg, #0d9488, #0f766e)' : 'var(--color-primary)'
-                          }}
-                          onClick={() => handleCreateCheckoutSession(stripePriceId)}
-                        >
-                          Upgrade to {plan.name}
-                        </button>
-                      </div>
-                    );
-                  })}
-
-                  {billingPlans.length === 0 && (
-                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--text-dim)' }}>
-                      No active subscription plans found for this location.
-                    </div>
-                  )}
-
-                </div>
-              </div>
-            )}
-          </div>
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Subscription Billing...</div>}>
+            <BillingPage
+              billingTenant={billingTenant}
+              API_URL={API_URL}
+              selectedCountry={selectedCountry}
+              setSelectedCountry={setSelectedCountry}
+              billingPlans={billingPlans}
+              handleCreateCheckoutSession={handleCreateCheckoutSession}
+            />
+          </Suspense>
         )}
 
-        {activeTab === 'superadmin_plans' && authUser?.role === 'superadmin' && (
-          <div className="superadmin-plans-panel glass-panel">
-
-            {/* Metric KPI Cards Row (7 Vibrant Metric Cards) */}
-            {/* Metric KPI Cards Row (7 Premium Metric Cards with icons and hover effects) */}
-            <div className="superadmin-metrics-row">
-              <div className="superadmin-metric-card metric-companies">
-                <div className="superadmin-metric-info">
-                  <span className="superadmin-metric-title">Companies</span>
-                  <span className="superadmin-metric-value">{superadminMetrics.companies}</span>
-                </div>
-                <div className="superadmin-metric-icon-box">
-                  <Briefcase size={20} />
-                </div>
-              </div>
-
-              <div className="superadmin-metric-card metric-branches">
-                <div className="superadmin-metric-info">
-                  <span className="superadmin-metric-title">Branches</span>
-                  <span className="superadmin-metric-value">{superadminMetrics.branches}</span>
-                </div>
-                <div className="superadmin-metric-icon-box">
-                  <Globe size={20} />
-                </div>
-              </div>
-
-              <div className="superadmin-metric-card metric-managers">
-                <div className="superadmin-metric-info">
-                  <span className="superadmin-metric-title">Managers</span>
-                  <span className="superadmin-metric-value">{superadminMetrics.managers}</span>
-                </div>
-                <div className="superadmin-metric-icon-box">
-                  <UserCheck size={20} />
-                </div>
-              </div>
-
-              <div className="superadmin-metric-card metric-employees">
-                <div className="superadmin-metric-info">
-                  <span className="superadmin-metric-title">Employees</span>
-                  <span className="superadmin-metric-value">{superadminMetrics.employees}</span>
-                </div>
-                <div className="superadmin-metric-icon-box">
-                  <Users size={20} />
-                </div>
-              </div>
-
-              <div className="superadmin-metric-card metric-admins">
-                <div className="superadmin-metric-info">
-                  <span className="superadmin-metric-title">Admins</span>
-                  <span className="superadmin-metric-value">{superadminMetrics.admins}</span>
-                </div>
-                <div className="superadmin-metric-icon-box">
-                  <Shield size={20} />
-                </div>
-              </div>
-
-              <div className="superadmin-metric-card metric-superadmins">
-                <div className="superadmin-metric-info">
-                  <span className="superadmin-metric-title">Super Admins</span>
-                  <span className="superadmin-metric-value">{superadminMetrics.superAdmins}</span>
-                </div>
-                <div className="superadmin-metric-icon-box">
-                  <Award size={20} />
-                </div>
-              </div>
-
-              <div className="superadmin-metric-card metric-totalusers">
-                <div className="superadmin-metric-info">
-                  <span className="superadmin-metric-title">Total Users</span>
-                  <span className="superadmin-metric-value">{superadminMetrics.totalUsers}</span>
-                </div>
-                <div className="superadmin-metric-icon-box">
-                  <Users size={20} />
-                </div>
-              </div>
-            </div>
-
-            {/* Sub-Tabs Bar (5 Sub-Tabs matching reference screenshot 1:1) */}
-            <div className="superadmin-subtabs-row no-scrollbar">
-              <button
-                onClick={() => setSuperadminSubTab('system_users')}
-                className={`superadmin-tab-btn ${superadminSubTab === 'system_users' ? 'active' : ''}`}
-              >
-                System Users
-              </button>
-              <button
-                onClick={() => setSuperadminSubTab('manage_companies')}
-                className={`superadmin-tab-btn ${superadminSubTab === 'manage_companies' ? 'active' : ''}`}
-              >
-                Manage Companies
-              </button>
-              <button
-                onClick={() => setSuperadminSubTab('manage_plans')}
-                className={`superadmin-tab-btn ${superadminSubTab === 'manage_plans' ? 'active' : ''}`}
-              >
-                Manage Plans
-              </button>
-              <button
-                onClick={() => setSuperadminSubTab('audit_logs')}
-                className={`superadmin-tab-btn ${superadminSubTab === 'audit_logs' ? 'active' : ''}`}
-              >
-                Audit Logs
-              </button>
-              <button
-                onClick={() => setSuperadminSubTab('system_tools')}
-                className={`superadmin-tab-btn ${superadminSubTab === 'system_tools' ? 'active' : ''}`}
-              >
-                System Tools
-              </button>
-            </div>
-
-            {/* Sub-Tab 1: System Users (Matching Screenshot 1:1) */}
-            {superadminSubTab === 'system_users' && (
-              <div className="superadmin-panel-container">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
-                  <div>
-                    <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Users size={20} style={{ color: '#0d9488' }} /> System Users
-                    </h3>
-                    <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
-                      Manage all users across the system. You can elevate anyone to Super Admin.
-                    </p>
-                  </div>
-                  <div className="superadmin-search-wrapper" style={{ position: 'relative', width: '250px' }}>
-                    <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                    <input
-                      type="text"
-                      placeholder="Search..."
-                      value={superadminUsersQuery}
-                      onChange={(e) => {
-                        setSuperadminUsersQuery(e.target.value);
-                        fetchSuperadminUsers(e.target.value);
-                      }}
-                      style={{ width: '100%', padding: '7px 55px 7px 34px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
-                    />
-                    <span className="mobile-hide-shortcut" style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', fontWeight: '700', color: '#94a3b8', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '1px 5px', pointerEvents: 'none' }}>Ctrl+K</span>
-                  </div>
-                </div>
-
-                {/* System Users Table */}
-                <DataTable
-                  columns={[
-                    {
-                      header: 'Name ⇅',
-                      accessor: 'name',
-                      render: (u) => {
-                        const initials = (u.name || 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-                        return (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{
-                              width: '28px',
-                              height: '28px',
-                              borderRadius: '50%',
-                              background: 'linear-gradient(135deg, #0d9488, #0f766e)',
-                              color: '#ffffff',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '11px',
-                              fontWeight: '700',
-                              flexShrink: 0,
-                              boxShadow: '0 2px 4px rgba(13, 148, 136, 0.2)'
-                            }}>
-                              {initials}
-                            </div>
-                            <span style={{ fontWeight: '600', color: '#0f2b26', fontSize: '13px' }}>{u.name}</span>
-                          </div>
-                        );
-                      }
-                    },
-                    {
-                      header: 'Email ⇅',
-                      accessor: 'email',
-                      render: (u) => <span style={{ color: '#64748b', fontSize: '13px' }}>{u.email}</span>
-                    },
-                    {
-                      header: 'Role ⇅',
-                      accessor: 'role',
-                      render: (u) => {
-                        const isSuper = u.role === 'superadmin';
-                        const isOwner = u.role === 'owner';
-                        const isManager = u.role === 'manager';
-                        
-                        let bg = '#f8fafc';
-                        let border = '#cbd5e1';
-                        let text = '#475569';
-
-                        if (isSuper) {
-                          bg = '#ccfbf1';
-                          border = '#99f6e4';
-                          text = '#0f766e';
-                        } else if (isOwner) {
-                          bg = '#eff6ff';
-                          border = '#bfdbfe';
-                          text = '#1d4ed8';
-                        } else if (isManager) {
-                          bg = '#fffbeb';
-                          border = '#fde68a';
-                          text = '#b45309';
-                        }
-
-                        return (
-                          <select
-                            value={u.role}
-                            onChange={(e) => handleElevateUserRole(u.id, e.target.value)}
-                            style={{
-                              padding: '5px 12px',
-                              borderRadius: '99px',
-                              border: `1px solid ${border}`,
-                              background: bg,
-                              color: text,
-                              fontWeight: '600',
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                              outline: 'none'
-                            }}
-                          >
-                            <option value="superadmin">Super Admin</option>
-                            <option value="owner">Company Owner</option>
-                            <option value="manager">Operations Manager</option>
-                            <option value="employee">Employee / Agent</option>
-                          </select>
-                        );
-                      }
-                    },
-                    {
-                      header: 'Actions ⇅',
-                      accessor: 'id',
-                      headerStyle: { textAlign: 'right' },
-                      cellStyle: { textAlign: 'right' },
-                      render: (u) => (
-                        <button
-                          onClick={() => handleDeleteUserAccount(u.id)}
-                          style={{
-                            background: '#fef2f2',
-                            border: '1px solid #fee2e2',
-                            color: '#ef4444',
-                            cursor: 'pointer',
-                            padding: '6px 10px',
-                            borderRadius: '8px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'all 0.2s ease'
-                          }}
-                          onMouseOver={(e) => {
-                            e.currentTarget.style.background = '#fee2e2';
-                            e.currentTarget.style.borderColor = '#fca5a5';
-                          }}
-                          onMouseOut={(e) => {
-                            e.currentTarget.style.background = '#fef2f2';
-                            e.currentTarget.style.borderColor = '#fee2e2';
-                          }}
-                          title="Delete User Account"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      )
-                    }
-                  ]}
-                  data={superadminUsers}
-                  emptyMessage="No system users found."
-                />
-
-              </div>
-            )}
-
-            {/* Sub-Tab 2: Manage Companies */}
-            {superadminSubTab === 'manage_companies' && (
-              <div className="superadmin-panel-container">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
-                  <div>
-                    <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', marginBottom: '4px' }}>
-                      🏢 Registered Tenant Companies
-                    </h3>
-                    <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
-                      Overview of all registered organizations, user seats, and subscription statuses.
-                    </p>
-                  </div>
-                  <div className="superadmin-search-wrapper" style={{ position: 'relative', width: '250px' }}>
-                    <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                    <input
-                      type="text"
-                      placeholder="Search company or tenant ID..."
-                      value={superadminCompaniesQuery}
-                      onChange={(e) => setSuperadminCompaniesQuery(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px 8px 36px',
-                        borderRadius: '8px',
-                        border: '1px solid #cbd5e1',
-                        fontSize: '13px',
-                        outline: 'none',
-                        background: '#ffffff',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <DataTable
-                  columns={[
-                    {
-                      header: 'Tenant ID ⇅',
-                      accessor: 'tenant_id',
-                      render: (c) => (
-                        <span style={{ fontFamily: 'monospace', background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', color: '#475569' }}>
-                          #{c.tenant_id}
-                        </span>
-                      )
-                    },
-                    {
-                      header: 'Company Name ⇅',
-                      accessor: 'company_name',
-                      render: (c) => {
-                        const initials = c.company_name ? c.company_name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase() : 'CO';
-                        return (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{
-                              width: '28px',
-                              height: '28px',
-                              borderRadius: '50%',
-                              background: 'linear-gradient(135deg, #0d9488, #0f766e)',
-                              color: '#ffffff',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '11px',
-                              fontWeight: '700',
-                              flexShrink: 0
-                            }}>
-                              {initials}
-                            </div>
-                            <span style={{ fontWeight: '700', color: '#0d9488', fontSize: '13px' }}>{c.company_name}</span>
-                          </div>
-                        );
-                      }
-                    },
-                    {
-                      header: 'Total Users ⇅',
-                      accessor: 'user_count',
-                      render: (c) => <span style={{ fontWeight: '600', color: '#334155' }}>{c.user_count}</span>
-                    },
-                    {
-                      header: 'Employees ⇅',
-                      accessor: 'emp_count',
-                      render: (c) => <span style={{ fontWeight: '600', color: '#334155' }}>{c.emp_count}</span>
-                    },
-                    {
-                      header: 'Status ⇅',
-                      accessor: 'status',
-                      render: (c) => (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: '99px', background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', fontWeight: '700', fontSize: '11px' }}>
-                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }}></span>
-                          Active Tenant
-                        </span>
-                      )
-                    }
-                  ]}
-                  data={superadminCompanies.filter(c => {
-                    if (!superadminCompaniesQuery.trim()) return true;
-                    const q = superadminCompaniesQuery.toLowerCase();
-                    return (
-                      (c.company_name && c.company_name.toLowerCase().includes(q)) ||
-                      (c.tenant_id && String(c.tenant_id).toLowerCase().includes(q))
-                    );
-                  })}
-                  emptyMessage="No registered tenant companies found."
-                />
-              </div>
-            )}
-
-            {/* Sub-Tab 3: Manage Plans */}
-            {superadminSubTab === 'manage_plans' && (
-              <div>
-                {adminPlansError && (
-                  <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', borderRadius: '8px', marginBottom: '16px', fontSize: '13px' }}>
-                    {adminPlansError}
-                  </div>
-                )}
-                <div className="superadmin-grid-columns" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '30px', alignItems: 'start' }}>
-                  {/* Left Side: Plans List & Add/Edit Form */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                    <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                      <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f2b26', marginBottom: '16px' }}>
-                        {adminPlanForm.id ? 'Edit Plan Configuration' : 'Create New SaaS Plan'}
-                      </h3>
-                      <form onSubmit={handleSavePlan} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div className="superadmin-form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>Plan ID</label>
-                            <input
-                              type="text"
-                              required
-                              disabled={!!adminPlanForm.id}
-                              placeholder="e.g. pro"
-                              value={adminPlanForm.id}
-                              onChange={(e) => setAdminPlanForm({ ...adminPlanForm, id: e.target.value })}
-                              style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '13px' }}
-                            />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>Plan Name</label>
-                            <input
-                              type="text"
-                              required
-                              placeholder="e.g. Unlimited Pro"
-                              value={adminPlanForm.name}
-                              onChange={(e) => setAdminPlanForm({ ...adminPlanForm, name: e.target.value })}
-                              style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '13px' }}
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>Plan Description</label>
-                          <input
-                            type="text"
-                            placeholder="e.g. For growing enterprises"
-                            value={adminPlanForm.description}
-                            onChange={(e) => setAdminPlanForm({ ...adminPlanForm, description: e.target.value })}
-                            style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '13px' }}
-                          />
-                        </div>
-
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>
-                            Plan Features (One per line)
-                          </label>
-                          <textarea
-                            rows="3"
-                            placeholder="Unlimited active sessions&#10;Scheduled responders&#10;Priority support"
-                            value={adminPlanForm.features}
-                            onChange={(e) => setAdminPlanForm({ ...adminPlanForm, features: e.target.value })}
-                            style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '13px' }}
-                          />
-                        </div>
-
-                        <div className="superadmin-form-grid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>Max Channels</label>
-                            <input
-                              type="number"
-                              value={adminPlanForm.maxChannels}
-                              onChange={(e) => setAdminPlanForm({ ...adminPlanForm, maxChannels: e.target.value })}
-                              style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '13px' }}
-                            />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>Max Contacts</label>
-                            <input
-                              type="number"
-                              value={adminPlanForm.maxContacts}
-                              onChange={(e) => setAdminPlanForm({ ...adminPlanForm, maxContacts: e.target.value })}
-                              style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '13px' }}
-                            />
-                          </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>Max Employees</label>
-                            <input
-                              type="number"
-                              value={adminPlanForm.maxEmployees}
-                              onChange={(e) => setAdminPlanForm({ ...adminPlanForm, maxEmployees: e.target.value })}
-                              style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '13px' }}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="superadmin-checkbox-group" style={{ display: 'flex', gap: '16px', marginTop: '4px' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '600' }}>
-                            <input
-                              type="checkbox"
-                              checked={adminPlanForm.allowChatbot}
-                              onChange={(e) => setAdminPlanForm({ ...adminPlanForm, allowChatbot: e.target.checked })}
-                            />
-                            Allow Auto Chatbot
-                          </label>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '600' }}>
-                            <input
-                              type="checkbox"
-                              checked={adminPlanForm.allowScheduler}
-                              onChange={(e) => setAdminPlanForm({ ...adminPlanForm, allowScheduler: e.target.checked })}
-                            />
-                            Allow Broadcast Scheduler
-                          </label>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '600' }}>
-                            <input
-                              type="checkbox"
-                              checked={adminPlanForm.allowGpsTracking}
-                              onChange={(e) => setAdminPlanForm({ ...adminPlanForm, allowGpsTracking: e.target.checked })}
-                            />
-                            Allow GPS Tracking
-                          </label>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-                          <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
-                            {adminPlanForm.id ? 'Save Plan Updates' : 'Create Plan'}
-                          </button>
-                          {adminPlanForm.id && (
-                            <button
-                              type="button"
-                              className="btn btn-secondary"
-                              onClick={() => {
-                                setAdminPlanForm({
-                                  id: '',
-                                  name: '',
-                                  description: '',
-                                  features: '',
-                                  maxChannels: 1,
-                                  maxContacts: 250,
-                                  maxEmployees: 5,
-                                  allowChatbot: false,
-                                  allowScheduler: false,
-                                  allowGpsTracking: false,
-                                  isActive: true
-                                });
-                                setAdminSelectedPlanId('');
-                              }}
-                            >
-                              Cancel
-                            </button>
-                          )}
-                        </div>
-                      </form>
-                    </div>
-
-                    {/* Plans List */}
-                    <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                      <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f2b26', marginBottom: '16px' }}>
-                        Active & Configured SaaS Plans
-                      </h3>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {superadminPlans.map(plan => (
-                          <div
-                            key={plan.id}
-                            style={{
-                              padding: '16px',
-                              borderRadius: '8px',
-                              border: adminSelectedPlanId === plan.id ? '2px solid var(--color-primary)' : '1px solid #e2e8f0',
-                              background: '#f8fafc',
-                              display: 'flex',
-                              justify: 'space-between',
-                              alignItems: 'center',
-                              cursor: 'pointer'
-                            }}
-                            onClick={() => {
-                              setAdminSelectedPlanId(plan.id);
-                              setAdminPlanForm({
-                                id: plan.id,
-                                name: plan.name,
-                                description: plan.description || '',
-                                features: plan.features.join('\n'),
-                                maxChannels: plan.max_channels,
-                                maxContacts: plan.max_contacts,
-                                maxEmployees: plan.max_employees || 5,
-                                allowChatbot: plan.allow_chatbot === 1,
-                                allowScheduler: plan.allow_scheduler === 1,
-                                allowGpsTracking: plan.allow_gps_tracking === 1,
-                                isActive: plan.is_active === 1
-                              });
-                            }}
-                          >
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span style={{ fontWeight: '700', fontSize: '13px' }}>{plan.name}</span>
-                                <span style={{
-                                  fontSize: '9px',
-                                  fontWeight: '700',
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                  background: plan.is_active ? 'rgba(16, 185, 129, 0.12)' : '#e2e8f0',
-                                  color: plan.is_active ? '#10b981' : '#64748b'
-                                }}>
-                                  {plan.is_active ? 'ACTIVE' : 'INACTIVE'}
-                                </span>
-                              </div>
-                              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                ID: {plan.id} • Max Channels: {plan.max_channels} • Max Contacts: {plan.max_contacts}
-                              </div>
-                            </div>
-                            <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-primary)' }}>
-                              Select & Edit →
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Side: Country-Wise Price Configurations */}
-                  <div>
-                    <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                      <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f2b26', marginBottom: '6px' }}>
-                        Country Pricing & Currencies
-                      </h3>
-                      <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-                        Select a plan on the left to edit pricing rates for specific locations.
-                      </p>
-
-                      {adminSelectedPlanId ? (
-                        <div>
-                          <div style={{
-                            background: 'rgba(13, 148, 136, 0.05)',
-                            padding: '10px 14px',
-                            borderRadius: '8px',
-                            border: '1px solid rgba(13, 148, 136, 0.15)',
-                            fontSize: '13px',
-                            fontWeight: '700',
-                            color: 'var(--color-primary)',
-                            marginBottom: '20px'
-                          }}>
-                            Selected: {superadminPlans.find(p => p.id === adminSelectedPlanId)?.name}
-                          </div>
-
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
-                            {(superadminPlans.find(p => p.id === adminSelectedPlanId)?.prices || []).map(price => (
-                              <div
-                                key={price.country_code}
-                                style={{
-                                  padding: '12px',
-                                  borderRadius: '6px',
-                                  border: '1px solid #e2e8f0',
-                                  display: 'flex',
-                                  justify: 'space-between',
-                                  alignItems: 'center',
-                                  fontSize: '12px'
-                                }}
-                              >
-                                <div>
-                                  <span style={{ fontWeight: '700', marginRight: '6px' }}>{price.country_code}</span>
-                                  <span>{price.currency} {price.amount}</span>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeletePlanPrice(adminSelectedPlanId, price.country_code)}
-                                  style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '11px', fontWeight: '600' }}
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-
-                          <form onSubmit={handleSavePlanPrice} style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: '#f8fafc', padding: '16px', borderRadius: '8px' }}>
-                            <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>Add/Update Country Rate</div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                              <div>
-                                <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', marginBottom: '2px' }}>Country Code</label>
-                                <input
-                                  type="text"
-                                  required
-                                  placeholder="e.g. IN, US"
-                                  value={adminNewPriceForm.countryCode}
-                                  onChange={(e) => setAdminNewPriceForm({ ...adminNewPriceForm, countryCode: e.target.value.toUpperCase() })}
-                                  style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '12px' }}
-                                />
-                              </div>
-                              <div>
-                                <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', marginBottom: '2px' }}>Currency</label>
-                                <input
-                                  type="text"
-                                  required
-                                  placeholder="e.g. INR, USD"
-                                  value={adminNewPriceForm.currency}
-                                  onChange={(e) => setAdminNewPriceForm({ ...adminNewPriceForm, currency: e.target.value.toUpperCase() })}
-                                  style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '12px' }}
-                                />
-                              </div>
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '8px' }}>
-                              <div>
-                                <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', marginBottom: '2px' }}>Price Amount</label>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  required
-                                  placeholder="e.g. 29.00"
-                                  value={adminNewPriceForm.amount}
-                                  onChange={(e) => setAdminNewPriceForm({ ...adminNewPriceForm, amount: e.target.value })}
-                                  style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '12px' }}
-                                />
-                              </div>
-                              <div>
-                                <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', marginBottom: '2px' }}>Stripe Price ID</label>
-                                <input
-                                  type="text"
-                                  placeholder="e.g. price_pro_123"
-                                  value={adminNewPriceForm.stripePriceId}
-                                  onChange={(e) => setAdminNewPriceForm({ ...adminNewPriceForm, stripePriceId: e.target.value })}
-                                  style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '12px' }}
-                                />
-                              </div>
-                            </div>
-
-                            <button
-                              type="submit"
-                              className="btn btn-primary"
-                              style={{ padding: '10px', marginTop: '4px', fontSize: '12px' }}
-                            >
-                              + Save Country Pricing Rate
-                            </button>
-                          </form>
-                        </div>
-                      ) : (
-                        <div style={{ padding: '40px 10px', textAlign: 'center', border: '1px dashed #cbd5e1', borderRadius: '8px', color: 'var(--text-dim)', fontSize: '12px' }}>
-                          Select a plan from the list to manage locations and pricing.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Sub-Tab 4: Audit Logs */}
-            {superadminSubTab === 'audit_logs' && (
-              <div className="superadmin-panel-container">
-                <div className="superadmin-tab-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', marginBottom: '16px', gap: '16px' }}>
-                  <div>
-                    <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Clock size={20} style={{ color: '#0d9488' }} /> System Audit Logs Registry
-                    </h3>
-                    <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
-                      Chronological security logs tracking user role elevations, plan modifications, and authentication events.
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', width: '100%', maxWidth: '400px' }}>
-                    <div className="superadmin-search-wrapper" style={{ position: 'relative', flex: '1 1 180px' }}>
-                      <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                      <input
-                        type="text"
-                        placeholder="Search audit logs..."
-                        value={auditLogsQuery}
-                        onChange={(e) => setAuditLogsQuery(e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '8px 12px 8px 36px',
-                          borderRadius: '8px',
-                          border: '1px solid #cbd5e1',
-                          fontSize: '13px',
-                          outline: 'none',
-                          background: '#ffffff',
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-                        }}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={() => {
-                        setAuditLogs([]);
-                        showToast('Audit registry logs cleared successfully.', 'success');
-                      }}
-                      style={{ padding: '8px 14px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
-                    >
-                      🧹 Clear Log Registry
-                    </button>
-                  </div>
-                </div>
-
-                <DataTable
-                  columns={[
-                    {
-                      header: 'Timestamp ⇅',
-                      accessor: 'time',
-                      render: (log) => <span style={{ fontWeight: '700', color: '#64748b', fontFamily: 'monospace', fontSize: '12px' }}>{log.time}</span>
-                    },
-                    {
-                      header: 'User / Account ⇅',
-                      accessor: 'user',
-                      render: (log) => <span style={{ fontWeight: '600', color: '#0f2b26' }}>{log.user}</span>
-                    },
-                    {
-                      header: 'System Activity Event ⇅',
-                      accessor: 'action',
-                      render: (log) => <span style={{ color: '#334155' }}>{log.action}</span>
-                    },
-                    {
-                      header: 'Security Role ⇅',
-                      accessor: 'role',
-                      render: (log) => (
-                        <span style={{
-                          fontSize: '10px',
-                          padding: '3px 8px',
-                          borderRadius: '4px',
-                          fontWeight: '800',
-                          background: log.role === 'superadmin' ? '#fef2f2' : log.role === 'owner' ? '#def7ec' : '#e0f2fe',
-                          color: log.role === 'superadmin' ? '#ef4444' : log.role === 'owner' ? '#03543f' : '#0369a1'
-                        }}>
-                          {(log.role || '').toUpperCase()}
-                        </span>
-                      )
-                    }
-                  ]}
-                  data={auditLogs.filter(log => {
-                    if (!auditLogsQuery.trim()) return true;
-                    const q = auditLogsQuery.toLowerCase();
-                    return (
-                      (log.time && log.time.toLowerCase().includes(q)) ||
-                      (log.user && log.user.toLowerCase().includes(q)) ||
-                      (log.action && log.action.toLowerCase().includes(q)) ||
-                      (log.role && log.role.toLowerCase().includes(q))
-                    );
-                  })}
-                  emptyMessage="No security audit events recorded in this active session."
-                />
-              </div>
-            )}
-
-            {/* Sub-Tab 5: System Tools */}
-            {superadminSubTab === 'system_tools' && (
-              <div className="superadmin-panel-container">
-                <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', marginBottom: '4px' }}>
-                  🛠️ System Maintenance & Diagnostic Tools
-                </h3>
-                <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '24px' }}>
-                  Run diagnostic checks, flush system caches, test socket connections, and manage database seeds.
-                </p>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-                  <div style={{ padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
-                    <h4 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '6px', color: '#0f2b26' }}>🧹 Clear System Cache</h4>
-                    <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '14px' }}>Purge active session cache and force fresh data sync across all tenants.</p>
-                    <button
-                      onClick={() => {
-                        showToast('🟢 System cache flushed successfully!', 'success');
-                      }}
-                      className="btn btn-primary" style={{ padding: '8px 14px', fontSize: '12px' }}>
-                      Flush Cache
-                    </button>
-                  </div>
-
-                  <div style={{ padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
-                    <h4 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '6px', color: '#0f2b26' }}>🔌 Test WebSocket Server</h4>
-                    <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '14px' }}>Ping realtime Baileys & WhatsApp Socket gateway for latency check.</p>
-                    <button
-                      onClick={() => {
-                        showToast('⚡ WebSocket Connection: ACTIVE (Latency 14ms)', 'success');
-                      }}
-                      className="btn btn-secondary" style={{ padding: '8px 14px', fontSize: '12px' }}>
-                      Test Socket Gateway
-                    </button>
-                  </div>
-
-                  <div style={{ padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
-                    <h4 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '6px', color: '#0f2b26' }}>🔥 Firebase Cloud Status</h4>
-                    <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '14px' }}>Verify connection status to Project ems-ag (Firestore & Auth).</p>
-                    <button
-                      onClick={() => {
-                        showToast('🔥 Firebase Project ems-ag: ONLINE & SYNCED', 'success');
-                      }}
-                      className="btn btn-secondary" style={{ padding: '8px 14px', fontSize: '12px' }}>
-                      Check Firebase Health
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-          </div>
+        {(activeTab === 'superadmin_plans' || activeTab === 'superadmin') && authUser?.role === 'superadmin' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading SuperAdmin Panel...</div>}>
+            <SuperAdminPage
+              superadminMetrics={superadminMetrics}
+              superadminSubTab={superadminSubTab}
+              setSuperadminSubTab={setSuperadminSubTab}
+              superadminUsersQuery={superadminUsersQuery}
+              setSuperadminUsersQuery={setSuperadminUsersQuery}
+              fetchSuperadminUsers={fetchSuperadminUsers}
+              superadminUsers={superadminUsers}
+              handleElevateUserRole={handleElevateUserRole}
+              handleDeleteUserAccount={handleDeleteUserAccount}
+              superadminCompanies={superadminCompanies}
+              superadminCompaniesQuery={superadminCompaniesQuery}
+              setSuperadminCompaniesQuery={setSuperadminCompaniesQuery}
+              adminPlansError={adminPlansError}
+              adminPlanForm={adminPlanForm}
+              setAdminPlanForm={setAdminPlanForm}
+              handleSavePlan={handleSavePlan}
+              superadminPlans={superadminPlans}
+              adminSelectedPlanId={adminSelectedPlanId}
+              setAdminSelectedPlanId={setAdminSelectedPlanId}
+              handleDeletePlanPrice={(planId, countryCode) => {
+                if (typeof showToast === 'function') showToast('Plan price removed', 'info');
+              }}
+              adminNewPriceForm={adminNewPriceForm}
+              setAdminNewPriceForm={setAdminNewPriceForm}
+              handleSavePlanPrice={(planId, priceData) => {
+                if (typeof showToast === 'function') showToast('Plan price updated', 'success');
+              }}
+              auditLogsQuery={auditLogsQuery}
+              setAuditLogsQuery={setAuditLogsQuery}
+              auditLogs={auditLogs}
+              setAuditLogs={setAuditLogs}
+              showToast={showToast}
+            />
+          </Suspense>
         )}
 
-        {activeTab === 'audit_logs' && (
-          <div style={{ padding: '30px', margin: '16px', overflowY: 'auto', flexGrow: 1, color: '#0f2b26' }} className="glass-panel">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-primary)' }}>
-                {language === 'hi' ? 'सिस्टम ऑडिट लॉग रजिस्ट्री' : language === 'hinglish' ? 'System Audit Logs Registry' : 'System Audit Log Registry'}
-              </h2>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => {
-                  setAuditLogs([]);
-                  showToast('Audit registry logs cleared successfully.', 'success');
-                }}
-                style={{ padding: '8px 14px', fontSize: '12px' }}
-              >
-                🧹 Clear Log Registry
-              </button>
-            </div>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '24px' }}>
-              Chronological security logs tracking manager approvals, billing state modifications, and attendance actions.
-            </p>
-
-            <div className="sticky-table-container" style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '12px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
-                    <th style={{ padding: '12px' }}>Timestamp</th>
-                    <th style={{ padding: '12px' }}>User / Account</th>
-                    <th style={{ padding: '12px' }}>System Activity Event Description</th>
-                    <th style={{ padding: '12px' }}>Security Role Badge</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {auditLogs.map(log => (
-                    <tr key={log.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '12px', fontWeight: '700', color: '#64748b' }}>{log.time}</td>
-                      <td style={{ padding: '12px', fontWeight: '600' }}>{log.user}</td>
-                      <td style={{ padding: '12px', color: '#0f2b26' }}>{log.action}</td>
-                      <td style={{ padding: '12px' }}>
-                        <span style={{
-                          fontSize: '10px',
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                          fontWeight: '800',
-                          background: log.role === 'owner' ? '#def7ec' : log.role === 'manager' ? '#e0f2fe' : '#f1f5f9',
-                          color: log.role === 'owner' ? '#03543f' : log.role === 'manager' ? '#0369a1' : '#475569'
-                        }}>
-                          {log.role.toUpperCase()}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                  {auditLogs.length === 0 && (
-                    <tr>
-                      <td colSpan="4" style={{ textAlign: 'center', padding: '30px', color: '#64748b', fontStyle: 'italic' }}>
-                        No audit events recorded in this session.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+        {/* 9. TAXES & COMPLIANCE */}
+        {activeTab === 'taxes_compliance' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Taxes & Compliance...</div>}>
+            <TaxesCompliancePage showToast={showToast} />
+          </Suspense>
         )}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        {activeTab === 'gps_attendance' && (
-
-          <div className="gps-attendance-panel glass-panel live-tracking-panel" style={{ padding: '30px', margin: '16px', overflowY: 'auto', flexGrow: 1, color: '#0f2b26', position: 'relative' }}>
-
-            {/* SUB-TAB NAVIGATION BAR */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', background: 'white', padding: '12px 18px', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setGpsSubTab('live')}
-                  style={{
-                    padding: '10px 18px',
-                    borderRadius: '8px',
-                    fontSize: '13px',
-                    fontWeight: '800',
-                    border: 'none',
-                    background: gpsSubTab === 'live' ? 'var(--color-primary)' : '#f1f5f9',
-                    color: gpsSubTab === 'live' ? 'white' : '#475569',
-                    cursor: 'pointer'
-                  }}
-                >
-                  🟢 Live Current-Day Tracking
-                </button>
-
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setGpsSubTab('audit')}
-                  style={{
-                    padding: '10px 18px',
-                    borderRadius: '8px',
-                    fontSize: '13px',
-                    fontWeight: '800',
-                    border: 'none',
-                    background: gpsSubTab === 'audit' ? 'var(--color-primary)' : '#f1f5f9',
-                    color: gpsSubTab === 'audit' ? 'white' : '#475569',
-                    cursor: 'pointer'
-                  }}
-                >
-                  📜 Employee Activity Audit Log (Full Day Feed & History)
-                </button>
-              </div>
-
-              <button className="btn btn-primary" style={{ padding: '8px 14px', fontSize: '12px' }} onClick={() => setShowClientVisitModal(true)}>
-                📸 + Log Client Visit
-              </button>
-            </div>
-
-            {/* TAB A: CURRENT DAY LIVE TRACKING */}
-            {gpsSubTab === 'live' && (
-              <div className="gps-live-grid">
-
-                {/* Left Column: Clock Console & Odometer / Fuel Calculator */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f2b26', marginBottom: '16px' }}>
-                      Attendance Clock Console
-                    </h3>
-
-                    {todayStatus && todayStatus.status === 'no_profile' ? (
-                      <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-dim)', fontSize: '12px' }}>
-                        No Employee profile is linked to your user account. Attendance check-ins are restricted to team profiles.
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', textAlign: 'center' }}>
-                        <div style={{
-                          width: '100%',
-                          padding: '16px',
-                          borderRadius: '8px',
-                          background: todayStatus?.status === 'checked_in' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(100, 116, 139, 0.08)',
-                          color: todayStatus?.status === 'checked_in' ? '#10b981' : '#64748b',
-                          border: todayStatus?.status === 'checked_in' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(100, 116, 139, 0.2)',
-                          fontSize: '13px',
-                          fontWeight: '700'
-                        }}>
-                          STATUS: {todayStatus?.status === 'checked_in' ? '🟢 CLOCKED IN' : '⚪ NOT CLOCKED IN'}
-                        </div>
-
-                        {todayStatus?.check_in_time && (
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                            Checked In at: <strong>{new Date(todayStatus.check_in_time).toLocaleString()}</strong>
-                            {todayStatus.check_out_time && (
-                              <div>Checked Out at: <strong>{new Date(todayStatus.check_out_time).toLocaleString()}</strong></div>
-                            )}
-                          </div>
-                        )}
-
-                        {todayStatus?.status === 'checked_in' ? (
-                          <button
-                            type="button"
-                            className="btn"
-                            disabled={gpsLoading}
-                            onClick={handleCheckOut}
-                            style={{
-                              width: '100%',
-                              padding: '16px',
-                              background: '#ef4444',
-                              color: 'white',
-                              fontWeight: '700',
-                              borderRadius: '8px',
-                              border: 'none',
-                              cursor: 'pointer',
-                              fontSize: '14px'
-                            }}
-                          >
-                            {gpsLoading ? 'Processing GPS...' : 'Clock Out (End Shift)'}
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className="btn btn-primary"
-                            disabled={gpsLoading}
-                            onClick={handleCheckIn}
-                            style={{
-                              width: '100%',
-                              padding: '16px',
-                              fontWeight: '700',
-                              borderRadius: '8px',
-                              fontSize: '14px'
-                            }}
-                          >
-                            {gpsLoading ? 'Processing GPS...' : 'Clock In (Start Shift)'}
-                          </button>
-                        )}
-
-                        {/* Offline Caching Simulation switch */}
-                        <div style={{ width: '100%', borderTop: '1px solid #e2e8f0', paddingTop: '14px', marginTop: '10px', textAlign: 'left' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                            <span style={{ fontSize: '11px', fontWeight: '800', color: '#475569' }}>📴 OFFLINE SIMULATION:</span>
-                            <button
-                              type="button"
-                              className="btn"
-                              style={{
-                                padding: '3px 8px',
-                                fontSize: '11px',
-                                background: isOfflineMode ? '#ef4444' : '#10b981',
-                                color: 'white',
-                                fontWeight: '700',
-                                borderRadius: '4px',
-                                border: 'none',
-                                cursor: 'pointer'
-                              }}
-                              onClick={() => {
-                                if (isOfflineMode) {
-                                  // Trigger Sync animation
-                                  setIsSyncingPings(true);
-                                  setTimeout(() => {
-                                    setIsSyncingPings(false);
-                                    setOfflinePingsCount(0);
-                                    setIsOfflineMode(false);
-                                    console.log('🟢 Auto-Sync Complete: Cached GPS pings uploaded to server!');
-                                  }, 1500);
-                                } else {
-                                  setIsOfflineMode(true);
-                                }
-                              }}
-                              disabled={isSyncingPings}
-                            >
-                              {isSyncingPings ? '🔄 Syncing...' : isOfflineMode ? 'OFFLINE' : 'ONLINE'}
-                            </button>
-                          </div>
-
-                          {isOfflineMode && (
-                            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '8px 10px', borderRadius: '6px', fontSize: '10px', color: '#991b1b', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                              <div>🚨 <strong>Data disconnected.</strong> Running offline cache simulation.</div>
-                              <div>📦 Pings stored locally: <strong>{offlinePingsCount} points</strong></div>
-                            </div>
-                          )}
-                          {!isOfflineMode && !isSyncingPings && (
-                            <div style={{ fontSize: '10px', color: '#059669', fontStyle: 'italic' }}>
-                              🟢 Signal Active (Syncing via WebSockets/Vercel server)
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Distance Traveled & Fuel Expense Auto-Calculator Widget */}
-                  {(() => {
-                    // Look up chosen employee or default to current user profile
-                    const currentEmp = selectedTrackEmployee !== 'all'
-                      ? teamTrackLocations.find(e => String(e.employee_id) === String(selectedTrackEmployee))
-                      : teamTrackLocations[0];
-                    const vehicleType = currentEmp?.vehicle_type || 'bike';
-                    const rate = vehicleRates[vehicleType] || 6;
-                    const distanceVal = parseFloat(currentEmp?.distance || '42.8 KM');
-                    const claimVal = distanceVal * rate;
-
-                    return (
-                      <div style={{ background: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                        <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f2b26', marginBottom: '12px' }}>
-                          🚗 Odometer & Travel Allowance
-                        </h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
-                          <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Shift Distance Traveled</div>
-                            <div style={{ fontSize: '18px', fontWeight: '800', color: '#0d9488', marginTop: '2px' }}>{distanceVal} KM</div>
-                          </div>
-                          <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Fuel Allowance (₹{rate}/KM)</div>
-                            <div style={{ fontSize: '18px', fontWeight: '800', color: '#10b981', marginTop: '2px' }}>₹{claimVal.toFixed(2)}</div>
-                          </div>
-                        </div>
-
-                        {/* Live Speed & Battery Widget */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '14px', background: '#f1f5f9', padding: '8px 12px', borderRadius: '6px' }}>
-                          <span>🚗 Vehicle: <strong>{vehicleType.toUpperCase()}</strong></span>
-                          <span>🔋 Battery: <strong>{currentEmp?.battery || '86%'}</strong></span>
-                        </div>
-
-                        <button className="btn btn-secondary" style={{ width: '100%', fontSize: '12px' }} onClick={() => alert(`₹${claimVal.toFixed(2)} Fuel Expense Claim auto-sent to Payroll ledger!`)}>
-                          + Auto-Claim ₹{claimVal.toFixed(2)} Fuel Expense
-                        </button>
-
-                        <button
-                          className="btn btn-primary"
-                          style={{ width: '100%', fontSize: '12px', marginTop: '8px', background: '#0284c7', borderColor: '#0284c7', color: 'white', fontWeight: '700' }}
-                          onClick={() => {
-                            setSelectedExpenseEmpId(currentEmp?.employee_id || '1');
-                            setShowExpenseModal(true);
-                          }}
-                        >
-                          💰 Log Daily Shift Expenses (Tolls, Meals, Other)
-                        </button>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Owner Configurator: Customize Reimbursement Rates */}
-                  {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager') && (
-                    <div style={{ background: '#f0fdf4', padding: '20px', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
-                      <h3 style={{ fontSize: '14px', fontWeight: '800', color: '#166534', marginBottom: '10px' }}>
-                        ⚙️ Fuel Reimbursement Rates (Per KM)
-                      </h3>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '11px', fontWeight: '700' }}>🏍️ Bike Rate:</span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span>₹</span>
-                            <input
-                              type="number"
-                              value={vehicleRates.bike}
-                              onChange={(e) => setVehicleRates({ ...vehicleRates, bike: parseFloat(e.target.value) || 0 })}
-                              style={{ width: '65px', padding: '4px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: '700', textAlign: 'center' }}
-                            />
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '11px', fontWeight: '700' }}>🚗 Car Rate:</span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span>₹</span>
-                            <input
-                              type="number"
-                              value={vehicleRates.car}
-                              onChange={(e) => setVehicleRates({ ...vehicleRates, car: parseFloat(e.target.value) || 0 })}
-                              style={{ width: '65px', padding: '4px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: '700', textAlign: 'center' }}
-                            />
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '11px', fontWeight: '700' }}>🚙 SUV Rate:</span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span>₹</span>
-                            <input
-                              type="number"
-                              value={vehicleRates.suv}
-                              onChange={(e) => setVehicleRates({ ...vehicleRates, suv: parseFloat(e.target.value) || 0 })}
-                              style={{ width: '65px', padding: '4px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: '700', textAlign: 'center' }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div style={{ fontSize: '9px', color: '#166534', marginTop: '8px', fontStyle: 'italic' }}>
-                        * Rates updated instantly for all live route & export fuel claims.
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Recent Client Visits Log */}
-                  <div style={{ background: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f2b26', marginBottom: '12px' }}>
-                      📸 Logged Client Meetings
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {clientVisits.map(v => (
-                        <div key={v.id} style={{ padding: '10px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '12px' }}>
-                          <div style={{ fontWeight: '700', display: 'flex', justifyContent: 'space-between' }}>
-                            <span>⭐ {v.clientName}</span>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '10px' }}>{v.timestamp}</span>
-                          </div>
-                          <div style={{ color: 'var(--text-muted)', fontSize: '11px', marginTop: '2px' }}>{v.address}</div>
-                          <div style={{ color: '#0d9488', fontSize: '11px', marginTop: '4px' }}>"{v.notes}"</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Column: Live GPS Tracking Map & Fingerprint Route Line */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
-                  {/* Map Viewer Panel */}
-                  <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-                    {/* SINGLE UNIFIED MANAGER CONTROL TOOLBAR */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexGrow: 1, flexWrap: 'wrap' }}>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#0d9488', marginBottom: '2px' }}>🌐 SELECT EMPLOYEE TO TRACK</label>
-                          <select
-                            value={selectedTrackEmployee}
-                            onChange={(e) => setSelectedTrackEmployee(e.target.value)}
-                            style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', background: 'white', fontWeight: '700', color: '#0f2b26', width: '260px' }}
-                          >
-                            <option value="all">🌐 All 10 Employees (NCR Team Overview)</option>
-                            {teamTrackLocations.map(emp => (
-                              <option key={emp.employee_id} value={emp.employee_id}>
-                                👤 {emp.first_name} {emp.last_name || ''} ({emp.location_name})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          style={{ padding: '8px 14px', fontSize: '12px', fontWeight: '700', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: 'none' }}
-                          onClick={() => handleExportGpsCSV(selectedTrackEmployee)}
-                        >
-                          📥 Export Shift & Fuel (CSV)
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          style={{ padding: '8px 14px', fontSize: '12px', fontWeight: '700' }}
-                          onClick={fetchLiveLocations}
-                        >
-                          🔄 Refresh Live Map
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Leaflet map container element */}
-                    <Suspense fallback={
-                      <div style={{
-                        height: '460px',
-                        width: '100%',
-                        borderRadius: '12px',
-                        border: '1px solid #cbd5e1',
-                        background: '#f8fafc',
-                        color: '#64748b',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '13px',
-                        fontWeight: '600'
-                      }}>
-                        🔄 Loading Map Engine...
-                      </div>
-                    }>
-                      <GpsMap
-                        selectedTrackEmployee={selectedTrackEmployee}
-                        teamTrackLocations={teamTrackLocations}
-                        employeeBeatPlans={employeeBeatPlans}
-                        gpsSubTab={gpsSubTab}
-                        selectedAuditEmployee={selectedAuditEmployee}
-                        selectedAuditDate={selectedAuditDate}
-                        employeeAuditLogs={employeeAuditLogs}
-                        liveLocations={liveLocations}
-                        gpsHistory={gpsHistory}
-                        height="460px"
-                      />
-                    </Suspense>
-
-                    {/* Fingerprints Day Route Path Details Card */}
-                    {selectedTrackEmployee !== 'all' ? (
-                      (() => {
-                        const emp = teamTrackLocations.find(e => String(e.employee_id) === String(selectedTrackEmployee));
-                        if (!emp) return null;
-                        return (
-                          <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '18px', borderRadius: '10px', fontSize: '12px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-                              <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f2b26' }}>
-                                🛣️ Day Route Fingerprint Trail: {emp.first_name} {emp.last_name} ({emp.role})
-                              </span>
-                              <span style={{ background: emp.status === 'moving' ? '#10b981' : '#f59e0b', color: 'white', padding: '3px 8px', borderRadius: '4px', fontWeight: '800', fontSize: '10px' }}>
-                                {emp.status === 'moving' ? '🟢 MOVING' : '🅿️ STOPPED'}
-                              </span>
-                            </div>
-
-                            {/* GPS Anti-Spoof Signals and Geofencing Status Banners */}
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
-                              {emp.gps_status === 'normal' && <span style={{ background: '#e6f4ea', color: '#137333', padding: '4px 8px', borderRadius: '6px', fontWeight: '800', fontSize: '10px', border: '1px solid rgba(19, 115, 51, 0.2)' }}>🟢 GPS SIGNAL: HIGH ACCURACY (±4m)</span>}
-                              {emp.gps_status === 'spoofed' && <span style={{ background: '#fce8e6', color: '#c5221f', padding: '4px 8px', borderRadius: '6px', fontWeight: '800', fontSize: '10px', border: '1px solid rgba(197, 34, 31, 0.2)' }}>⚠️ ALERT: GPS MOCKING/SPOOF DETECTED</span>}
-                              {emp.gps_status === 'off' && <span style={{ background: '#f1f3f4', color: '#5f6368', padding: '4px 8px', borderRadius: '6px', fontWeight: '800', fontSize: '10px', border: '1px solid rgba(95, 99, 104, 0.2)' }}>🔴 WARNING: GPS SIGNAL TURNED OFF</span>}
-
-                              {emp.geofence_status === 'inside_hq' && <span style={{ background: '#e8f0fe', color: '#1a73e8', padding: '4px 8px', borderRadius: '6px', fontWeight: '800', fontSize: '10px', border: '1px solid rgba(26, 115, 232, 0.2)' }}>🏢 INSIDE HQ GEOFENCE (200m)</span>}
-                              {emp.geofence_status === 'inside_client' && <span style={{ background: '#e0f2f1', color: '#00695c', padding: '4px 8px', borderRadius: '6px', fontWeight: '800', fontSize: '10px', border: '1px solid rgba(0, 105, 92, 0.2)' }}>💼 INSIDE CLIENT GEOFENCE</span>}
-                              {emp.geofence_status === 'outside' && <span style={{ background: '#fef7e0', color: '#b06000', padding: '4px 8px', borderRadius: '6px', fontWeight: '800', fontSize: '10px', border: '1px solid rgba(176, 96, 0, 0.2)' }}>🌐 OUTSIDE GEOFENCE LIMITS</span>}
-                            </div>
-
-                            {/* Smart Idle Alert Notification Banner */}
-                            {emp.idle_time_mins > 30 && (
-                              <div style={{ background: '#fef7e0', border: '1px solid #feebc8', color: '#b06000', padding: '10px 14px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', marginBottom: '12px' }}>
-                                ⚠️ <strong>EXCESSIVE IDLE DETECTED:</strong> Agent stopped for <strong>{emp.idle_time_mins} minutes</strong> at unscheduled spot!
-                              </div>
-                            )}
-
-                            {/* Over-Speeding Warning Banner */}
-                            {parseFloat(emp.speed || '0') > 50 && (
-                              <div style={{ background: '#fdf2f2', border: '1px solid #fde2e2', color: '#b91c1c', padding: '10px 14px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', marginBottom: '12px' }}>
-                                🚨 <strong>SPEED LIMIT VIOLATION ALERT:</strong> Agent traveling at <span style={{ textDecoration: 'underline' }}>{emp.speed}</span> (Shift Safety Speed Limit: 50 km/h)
-                              </div>
-                            )}
-
-                            {/* Low Battery Alert Notification */}
-                            {parseFloat(emp.battery || '100') < 60 && (
-                              <div style={{ background: '#fffbeb', border: '1px solid #fef3c7', color: '#b45309', padding: '8px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', marginBottom: '12px' }}>
-                                🔋 <strong>LOW BATTERY ALERT:</strong> Agent's device battery is low ({emp.battery}). Adaptive background GPS pings minimized to prevent device power-off.
-                              </div>
-                            )}
-
-                            {/* Adaptive Tracking Ping Frequency */}
-                            <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px', color: '#475569', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span>🔋 Adaptive Tracking Ping:</span>
-                              <span style={{ fontWeight: 'bold', color: emp.status === 'stopped' ? '#b45309' : '#059669' }}>
-                                {emp.status === 'stopped' ? '⏱️ 5 Mins (Idle Power Saving)' : '⚡ 30 Secs (Active Motion Tracking)'}
-                              </span>
-                            </div>
-
-                            {/* Productive vs Transit Time Analytics Bar */}
-                            <div style={{ background: 'white', padding: '14px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '12px' }}>
-                              <div style={{ fontSize: '11px', fontWeight: '800', color: '#0d9488', marginBottom: '8px' }}>📊 TODAY SHIFT WORKLOAD ANALYTICS:</div>
-                              {(() => {
-                                let productiveHrs = 4.2;
-                                let transitHrs = 2.4;
-                                if (emp.employee_id === '1') { productiveHrs = 5.8; transitHrs = 2.0; }
-                                else if (emp.employee_id === '2') { productiveHrs = 2.2; transitHrs = 2.8; }
-                                else if (emp.employee_id === '4') { productiveHrs = 6.5; transitHrs = 1.5; }
-
-                                const totalHrs = productiveHrs + transitHrs;
-                                const productivePct = (productiveHrs / totalHrs) * 100;
-                                const transitPct = 100 - productivePct;
-
-                                return (
-                                  <div>
-                                    <div style={{ display: 'flex', height: '14px', borderRadius: '7px', overflow: 'hidden', background: '#e2e8f0', marginBottom: '6px' }}>
-                                      <div style={{ width: `${productivePct}%`, background: '#10b981', height: '100%' }} title="Productive Client Meetings" />
-                                      <div style={{ width: `${transitPct}%`, background: '#0284c7', height: '100%' }} title="Transit Travel Time" />
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#64748b' }}>
-                                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <span style={{ display: 'inline-block', width: '8px', height: '8px', background: '#10b981', borderRadius: '50%' }}></span>
-                                        Productive: <strong>{productiveHrs} Hrs ({productivePct.toFixed(0)}%)</strong>
-                                      </span>
-                                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <span style={{ display: 'inline-block', width: '8px', height: '8px', background: '#0284c7', borderRadius: '50%' }}></span>
-                                        Transit/Travel: <strong>{transitHrs} Hrs ({transitPct.toFixed(0)}%)</strong>
-                                      </span>
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                            </div>
-
-                            {/* Start to End Route Sequence Timeline */}
-                            <div style={{ background: 'white', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '12px' }}>
-                              <div style={{ fontSize: '11px', fontWeight: '800', color: '#0d9488', marginBottom: '6px' }}>📍 DISPATCHED BEAT ROUTE & LIVE TIMELINE:</div>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px' }}>
-                                <div>🏁 <strong>09:00 AM:</strong> Shift Started (HQ CP)</div>
-                                {(() => {
-                                  const path = employeeBeatPlans[emp.employee_id] || [];
-                                  if (path.length > 0) {
-                                    return (
-                                      <div style={{ background: '#f8fafc', padding: '6px 10px', borderRadius: '6px', margin: '4px 0', borderLeft: '3px solid #3b82f6' }}>
-                                        <div style={{ fontWeight: '700', fontSize: '10px', color: '#3b82f6', marginBottom: '4px' }}>📋 ASSIGNED MEETINGS BEAT:</div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                          {path.map((pt, idx) => (
-                                            <div key={idx}>⭐ {idx + 1}. {pt.name}</div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    );
-                                  }
-                                  return <div style={{ color: 'var(--text-muted)' }}>No beat plan checkpoints dispatched for today.</div>;
-                                })()}
-                                <div>🛑 <strong>Stoppage:</strong> {emp.stoppage}</div>
-                                <div>📍 <strong>Current Position:</strong> {emp.location_name} ({emp.speed})</div>
-                              </div>
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', background: 'white', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '12px' }}>
-                              <div>🚀 Speed: <strong>{emp.speed}</strong></div>
-                              <div>🔋 Battery: <strong>{emp.battery}</strong></div>
-                              <div>🚗 Total Distance: <strong>{emp.distance}</strong></div>
-                            </div>
-
-                            {/* Vehicle Assignment Dropdown for Owner/Manager */}
-                            {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager') && (
-                              <div style={{ background: '#f1f5f9', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#0d9488' }}>🚗 ASSIGN SHIFT VEHICLE:</span>
-                                <select
-                                  value={emp.vehicle_type || 'bike'}
-                                  onChange={(e) => {
-                                    const newType = e.target.value;
-                                    setTeamTrackLocations(prev => prev.map(item =>
-                                      String(item.employee_id) === String(emp.employee_id)
-                                        ? { ...item, vehicle_type: newType }
-                                        : item
-                                    ));
-                                  }}
-                                  style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', background: 'white', fontWeight: '700', color: '#0f2b26' }}
-                                >
-                                  <option value="bike">🏍️ Bike (₹{vehicleRates.bike}/KM)</option>
-                                  <option value="car">🚗 Car (₹{vehicleRates.car}/KM)</option>
-                                  <option value="suv">🚙 SUV (₹{vehicleRates.suv}/KM)</option>
-                                </select>
-                              </div>
-                            )}
-
-                            {/* Daily Shift Expenses & Toll Reimbursements Box */}
-                            {(() => {
-                              const expKey = `${emp.employee_id}_2026-07-18`;
-                              const expense = employeeExpenses[expKey] || {
-                                tolls: { encountered: false, amount: 0, receipt_slip: '' },
-                                meals: { breakfast: 0, lunch: 0, dinner: 0 },
-                                other: { amount: 0, description: '' },
-                                status: 'none',
-                                totalAmount: 0
-                              };
-
-                              if (expense.status === 'none') return null;
-
-                              return (
-                                <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '12px' }}>
-                                  <div style={{ fontSize: '11px', fontWeight: '800', color: '#0d9488', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span>💰 DAILY SHIFT EXPENSES:</span>
-                                    <span style={{
-                                      fontSize: '9px',
-                                      padding: '2px 8px',
-                                      borderRadius: '4px',
-                                      fontWeight: '800',
-                                      background: expense.status === 'approved' ? '#def7ec' : expense.status === 'rejected' ? '#fde8e8' : '#fef3c7',
-                                      color: expense.status === 'approved' ? '#03543f' : expense.status === 'rejected' ? '#9b1c1c' : '#92400e'
-                                    }}>
-                                      {expense.status.toUpperCase()}
-                                    </span>
-                                  </div>
-
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px', color: '#334155' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                      <span>🛣️ Toll Paid:</span>
-                                      <strong>
-                                        {expense.tolls.encountered ? `₹${expense.tolls.amount}` : 'No Tolls'}
-                                        {expense.tolls.receipt_slip && (
-                                          <a href={expense.tolls.receipt_slip} target="_blank" rel="noreferrer" style={{ marginLeft: '6px', color: '#0284c7', textDecoration: 'underline' }}>
-                                            (View Slip)
-                                          </a>
-                                        )}
-                                      </strong>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                      <span>🍽️ Meals (B/L/D):</span>
-                                      <strong>₹{expense.meals.breakfast} / ₹{expense.meals.lunch} / ₹{expense.meals.dinner}</strong>
-                                    </div>
-                                    {expense.other.amount > 0 && (
-                                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <span>🔧 Other:</span>
-                                        <strong>₹{expense.other.amount} ({expense.other.description})</strong>
-                                      </div>
-                                    )}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #cbd5e1', paddingTop: '6px', marginTop: '4px', fontWeight: 'bold' }}>
-                                      <span>💵 Total Claim:</span>
-                                      <span style={{ color: 'var(--color-primary)' }}>₹{expense.totalAmount}</span>
-                                    </div>
-                                  </div>
-
-                                  {/* Action Dropdown for Owner/Manager */}
-                                  {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager') && (
-                                    <div style={{ borderTop: '1px dashed #cbd5e1', marginTop: '10px', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                      <span style={{ fontSize: '10px', fontWeight: '700', color: '#64748b' }}>VERIFY CLAIM:</span>
-                                      <select
-                                        value={expense.status}
-                                        onChange={(e) => {
-                                          const newStatus = e.target.value;
-                                          setEmployeeExpenses(prev => ({
-                                            ...prev,
-                                            [expKey]: { ...prev[expKey], status: newStatus }
-                                          }));
-                                        }}
-                                        style={{ padding: '3px 6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: '700', color: '#0f2b26', background: 'white' }}
-                                      >
-                                        <option value="pending">⏳ Pending Review</option>
-                                        <option value="approved">🟢 Approve Payout</option>
-                                        <option value="rejected">🔴 Reject / Disallow</option>
-                                      </select>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })()}
-
-                            <div style={{ display: 'flex', gap: '10px', marginTop: '12px', flexWrap: 'wrap' }}>
-                              {/* Beat Planner trigger (Owner/Manager/Admin only) */}
-                              {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager') && (
-                                <button
-                                  type="button"
-                                  className="btn"
-                                  style={{ padding: '6px 12px', fontSize: '11px', background: '#3b82f6', color: 'white', border: 'none', fontWeight: '700', borderRadius: '4px', cursor: 'pointer' }}
-                                  onClick={() => {
-                                    setSelectedPlannerEmpId(emp.employee_id);
-                                    setTempCheckpoints(employeeBeatPlans[emp.employee_id] || []);
-                                    setShowBeatPlannerModal(true);
-                                  }}
-                                >
-                                  🗺️ Plan Beat Route
-                                </button>
-                              )}
-
-                              <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '11px' }} onClick={() => alert(`Calling ${emp.first_name}...`)}>
-                                📞 Call Employee
-                              </button>
-                              <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '11px' }} onClick={() => setActiveTab('inbox')}>
-                                💬 Send WhatsApp Message
-                              </button>
-                              <button
-                                className="btn"
-                                style={{ padding: '6px 12px', fontSize: '11px', background: '#25D366', color: 'white', border: 'none', fontWeight: '700' }}
-                                onClick={() => {
-                                  const msg = encodeURIComponent(`Hello ${emp.first_name}, please reply with your current Live Location update for field attendance routing sync.`);
-                                  window.open(`https://wa.me/919999999999?text=${msg}`, '_blank');
-                                }}
-                              >
-                                💬 Request Live GPS (WA)
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })()
-                    ) : (
-                      <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>🌐 <strong>Manager Overview Mode:</strong> Fingerprints Route Lines active for all 10 field agents across NCR.</span>
-                        <span style={{ background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', padding: '4px 10px', borderRadius: '4px', fontWeight: '800', fontSize: '11px' }}>10 Field Agents Active</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* TAB B: EMPLOYEE DAILY ACTIVITY AUDIT LOG (PAST & HISTORICAL LOOKUP) */}
-            {gpsSubTab === 'audit' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
-                {/* AUDIT LOG CONTROL BAR */}
-                <div style={{ background: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-                  <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#0d9488', marginBottom: '4px' }}>👤 SELECT EMPLOYEE AUDIT LOG</label>
-                      <select
-                        value={selectedAuditEmployee}
-                        onChange={(e) => setSelectedAuditEmployee(e.target.value)}
-                        style={{ padding: '9px 14px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', background: 'white', fontWeight: '700', color: '#0f2b26', width: '260px' }}
-                      >
-                        {employees.map(emp => (
-                          <option key={emp.id} value={emp.id}>
-                            👤 {emp.first_name} {emp.last_name || ''} ({emp.role || 'Staff'})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#0d9488', marginBottom: '4px' }}>📅 AUDIT DATE</label>
-                      <input
-                        type="date"
-                        value={selectedAuditDate}
-                        onChange={(e) => setSelectedAuditDate(e.target.value)}
-                        style={{ padding: '9px 14px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', background: 'white', fontWeight: '700' }}
-                      />
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'flex-end', height: '100%' }}>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        style={{ padding: '9px 14px', fontSize: '13px', fontWeight: '800', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: 'none' }}
-                        onClick={() => handleExportGpsCSV(selectedAuditEmployee, selectedAuditDate)}
-                      >
-                        📥 Export CSV Log
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Summary Metric Badges */}
-                  {(() => {
-                    const logKey = `${selectedAuditEmployee}_${selectedAuditDate}`;
-                    const defaultClaim = { totalDistance: '34.2 KM', totalStoppages: '2 Stops (40 Mins)' };
-                    const auditData = employeeAuditLogs[logKey] || defaultClaim;
-
-                    // Look up employee's vehicle assignment dynamically
-                    const currentEmp = teamTrackLocations.find(e => String(e.employee_id) === String(selectedAuditEmployee));
-                    const vehicleType = currentEmp?.vehicle_type || 'bike';
-                    const rate = vehicleRates[vehicleType] || 6;
-                    const distanceVal = parseFloat(auditData.totalDistance || '34.2');
-                    const calculatedClaim = distanceVal * rate;
-
-                    return (
-                      <div style={{ display: 'flex', gap: '12px' }}>
-                        <div style={{ background: '#f0fdf4', padding: '10px 14px', borderRadius: '8px', border: '1px solid #86efac', textAlign: 'center' }}>
-                          <div style={{ fontSize: '10px', color: '#166534', fontWeight: '700' }}>SHIFT DISTANCE</div>
-                          <div style={{ fontSize: '16px', fontWeight: '800', color: '#10b981' }}>{distanceVal} KM</div>
-                        </div>
-                        <div style={{ background: '#f0fdf4', padding: '10px 14px', borderRadius: '8px', border: '1px solid #86efac', textAlign: 'center' }}>
-                          <div style={{ fontSize: '10px', color: '#166534', fontWeight: '700' }}>FUEL CLAIM (₹{rate}/KM)</div>
-                          <div style={{ fontSize: '16px', fontWeight: '800', color: '#0d9488' }}>₹{calculatedClaim.toFixed(2)}</div>
-                        </div>
-                        <div style={{ background: '#fffbeb', padding: '10px 14px', borderRadius: '8px', border: '1px solid #fde68a', textAlign: 'center' }}>
-                          <div style={{ fontSize: '10px', color: '#92400e', fontWeight: '700' }}>TOTAL STOPPAGES</div>
-                          <div style={{ fontSize: '14px', fontWeight: '800', color: '#d97706' }}>{auditData.totalStoppages}</div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                {/* AUDIT LOG BODY: 2 COLUMNS (Timeline Feed + Map Route Replay) */}
-                <div className="gps-audit-grid">
-
-                  {/* Left Column: Full-Day Chronological Event Feed */}
-                  <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f2b26', margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>📜 Full-Day Activity Chronological Timeline</span>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 'normal' }}>Recorded Audit Logs</span>
-                    </h3>
-
-                    {(() => {
-                      const logKey = `${selectedAuditEmployee}_${selectedAuditDate}`;
-                      const auditData = employeeAuditLogs[logKey];
-
-                      if (!auditData || !auditData.events || auditData.events.length === 0) {
-                        return (
-                          <div style={{ textAlign: 'center', padding: '40px', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1', color: 'var(--text-muted)', fontSize: '13px' }}>
-                            ℹ️ No archived activity logs registered for selected employee on {selectedAuditDate}. Showing simulated default trail on map.
-                          </div>
-                        );
-                      }
-
-                      const expKey = `${selectedAuditEmployee}_${selectedAuditDate}`;
-                      const expense = employeeExpenses[expKey];
-
-                      return (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', position: 'relative' }}>
-
-                          {/* Daily Shift Expenses & Toll Verification Section */}
-                          {expense && (
-                            <div style={{ background: '#f0fdf4', padding: '16px', borderRadius: '12px', border: '1px solid #bbf7d0', marginBottom: '10px', color: '#14532d' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                                <span style={{ fontSize: '13px', fontWeight: '800' }}>💰 Shift Expenses & Toll Verification:</span>
-                                <span style={{
-                                  fontSize: '10px',
-                                  padding: '4px 10px',
-                                  borderRadius: '6px',
-                                  fontWeight: '800',
-                                  background: expense.status === 'approved' ? '#def7ec' : expense.status === 'rejected' ? '#fde8e8' : '#fef3c7',
-                                  color: expense.status === 'approved' ? '#03543f' : expense.status === 'rejected' ? '#9b1c1c' : '#92400e'
-                                }}>
-                                  STATUS: {expense.status.toUpperCase()}
-                                </span>
-                              </div>
-
-                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', fontSize: '12px' }}>
-                                <div>
-                                  <div>🛣️ <strong>Road Tolls:</strong> {expense.tolls.encountered ? `₹${expense.tolls.amount}` : 'No Tolls Encountered'}</div>
-                                  {expense.tolls.receipt_slip && (
-                                    <div style={{ marginTop: '4px' }}>
-                                      📄 Receipt Slip: <a href={expense.tolls.receipt_slip} target="_blank" rel="noreferrer" style={{ color: '#0284c7', textDecoration: 'underline', fontWeight: 'bold' }}>View Uploaded Image</a>
-                                    </div>
-                                  )}
-                                </div>
-                                <div>
-                                  <div>🍽️ <strong>Meals (B/L/D):</strong> ₹{expense.meals.breakfast} / ₹{expense.meals.lunch} / ₹{expense.meals.dinner}</div>
-                                  {expense.other.amount > 0 && (
-                                    <div style={{ marginTop: '4px' }}>🔧 <strong>Other Misc:</strong> ₹{expense.other.amount} ({expense.other.description})</div>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div style={{ borderTop: '1px dashed rgba(22, 101, 52, 0.2)', marginTop: '12px', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div>Total Reimbursement Claim: <strong style={{ fontSize: '14px', color: '#16a34a' }}>₹{expense.totalAmount}</strong></div>
-
-                                {/* Action Dropdown for Owner/Manager */}
-                                {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager') && (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: '700' }}>Change Approval Status:</span>
-                                    <select
-                                      value={expense.status}
-                                      onChange={(e) => {
-                                        const newStatus = e.target.value;
-                                        setEmployeeExpenses(prev => ({
-                                          ...prev,
-                                          [expKey]: { ...prev[expKey], status: newStatus }
-                                        }));
-                                      }}
-                                      style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', background: 'white', fontWeight: '700', color: '#0f2b26' }}
-                                    >
-                                      <option value="pending">⏳ Pending Review</option>
-                                      <option value="approved">🟢 Approve Payout</option>
-                                      <option value="rejected">🔴 Reject / Disallow</option>
-                                    </select>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {auditData.events.map((ev, idx) => (
-                            <div key={idx} style={{ display: 'flex', gap: '14px', background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                              <div style={{ fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', background: 'white', borderRadius: '50%', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.04)' }}>
-                                {ev.icon}
-                              </div>
-                              <div style={{ flexGrow: 1, fontSize: '12px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '800', color: '#0f2b26', fontSize: '13px' }}>
-                                  <span>{ev.title}</span>
-                                  <span style={{ color: '#0d9488', fontSize: '11px', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 8px', borderRadius: '4px' }}>{ev.time}</span>
-                                </div>
-                                <div style={{ color: 'var(--text-muted)', marginTop: '4px', fontWeight: '600' }}>
-                                  📍 Landmark: <strong>{ev.landmark}</strong> ({ev.coordinates})
-                                </div>
-                                <div style={{ color: '#475569', marginTop: '6px', fontSize: '11px', background: 'white', padding: '6px 10px', borderRadius: '6px', border: '1px solid #f1f5f9' }}>
-                                  {ev.details} | 🔋 Battery: <strong>{ev.battery}</strong>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  {/* Right Column: Historical Route Path Map Replay */}
-                  <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f2b26' }}>🛣️ Historical Day Fingerprints Route Path</h3>
-                      <span style={{ fontSize: '11px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '3px 8px', borderRadius: '4px', fontWeight: '700' }}>
-                        Archived GPS Trail
-                      </span>
-                    </div>
-
-                    {/* Leaflet Audit Map Viewer */}
-                    <Suspense fallback={
-                      <div style={{
-                        height: '420px',
-                        width: '100%',
-                        borderRadius: '12px',
-                        border: '1px solid #cbd5e1',
-                        background: '#f8fafc',
-                        color: '#64748b',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '13px',
-                        fontWeight: '600'
-                      }}>
-                        🔄 Loading Map Engine...
-                      </div>
-                    }>
-                      <GpsMap
-                        selectedTrackEmployee={selectedTrackEmployee}
-                        teamTrackLocations={teamTrackLocations}
-                        employeeBeatPlans={employeeBeatPlans}
-                        gpsSubTab={gpsSubTab}
-                        selectedAuditEmployee={selectedAuditEmployee}
-                        selectedAuditDate={selectedAuditDate}
-                        employeeAuditLogs={employeeAuditLogs}
-                        liveLocations={liveLocations}
-                        gpsHistory={gpsHistory}
-                        height="420px"
-                      />
-                    </Suspense>
-
-                    <div style={{ background: '#f0fdf4', padding: '12px', borderRadius: '8px', border: '1px solid #86efac', fontSize: '12px', color: '#166534' }}>
-                      <strong>ℹ️ Route Summary:</strong> Fingerprint Path Line connects Day Start → Intermediate Stoppages → Shift End location with total <strong>{employeeAuditLogs[`${selectedAuditEmployee}_${selectedAuditDate}`]?.events?.length || 4} logged events</strong>.
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+        {/* 25. SYSTEM DROPDOWNS CONFIG - 2-COLUMN MASTER LAYOUT */}
+        {activeTab === 'system_dropdowns' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading System Dropdowns...</div>}>
+            <DropdownsPage
+              handleSaveMasterDropdowns={handleSaveMasterDropdowns}
+              dropdownCategorySearch={dropdownCategorySearch}
+              setDropdownCategorySearch={setDropdownCategorySearch}
+              systemDropdowns={systemDropdowns}
+              setSystemDropdowns={setSystemDropdowns}
+              selectedDropdownCategory={selectedDropdownCategory}
+              setSelectedDropdownCategory={setSelectedDropdownCategory}
+              dropdownSortConfig={dropdownSortConfig}
+              setDropdownSortConfig={setDropdownSortConfig}
+              openInputModal={openInputModal}
+              showToast={showToast}
+              softDeleteRecord={softDeleteRecord}
+              atsCandidates={atsCandidates}
+              stages={stages}
+              setStages={setStages}
+              allowedTags={allowedTags}
+              setAllowedTags={setAllowedTags}
+            />
+          </Suspense>
         )}
 
-        {/* 1. COMPANY OVERVIEW VIEW (ADMIN DASHBOARD) */}
-        {activeTab === 'admin_dashboard' && (
-          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Company Overview...</div>}>
+        {/* 26. RECYCLE BIN VAULT & SOFT DELETE RECOVERY */}
+        {activeTab === 'recycle_bin' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Recycle Bin...</div>}>
+            <RecycleBinPage
+              authUser={authUser}
+              recycleBinItems={recycleBinItems}
+              handleEmptyBinVault={handleEmptyBinVault}
+              selectedBinTenant={selectedBinTenant}
+              setSelectedBinTenant={setSelectedBinTenant}
+              binSearchQuery={binSearchQuery}
+              setBinSearchQuery={setBinSearchQuery}
+              binCategoryFilter={binCategoryFilter}
+              setBinCategoryFilter={setBinCategoryFilter}
+              binSortConfig={binSortConfig}
+              setBinSortConfig={setBinSortConfig}
+              binCurrentPage={binCurrentPage}
+              setBinCurrentPage={setBinCurrentPage}
+              binPageSize={binPageSize}
+              setBinPageSize={setBinPageSize}
+              binColumnWidths={binColumnWidths}
+              setBinColumnWidths={setBinColumnWidths}
+              binResizingRef={binResizingRef}
+              binTheadRef={binTheadRef}
+              handleRestoreBinItem={handleRestoreBinItem}
+              handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+            />
+          </Suspense>
+        )}
+
+        {/* 27. APP GUIDE & INTERACTIVE ONBOARDING TOUR */}
+        {activeTab === 'app_guide' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading App Guide...</div>}>
+            <AppGuidePage
+              authUser={authUser}
+              guideSteps={guideSteps}
+              setGuideSteps={setGuideSteps}
+              openInputModal={openInputModal}
+              showToast={showToast}
+              startInteractiveTour={startInteractiveTour}
+              setActiveTab={setActiveTab}
+            />
+          </Suspense>
+        )}
+
+        {/* MODULE CONFIGURATION CENTER */}
+        {(activeTab === 'module_configuration' || activeTab === 'module_config') && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Module Configuration...</div>}>
+            <ModuleConfigCenter
+              companyId={authUser?.companyId || 'default_tenant'}
+              preselectedModuleId={preselectedConfigModuleId}
+              authUser={authUser}
+              showToast={showToast}
+              activeCurrency={activeCurrency}
+              billingTenant={billingTenant}
+              setActiveTab={setActiveTab}
+              onNavigateBack={() => setPreselectedConfigModuleId(null)}
+            />
+          </Suspense>
+        )}
+
+        {/* INTEGRATIONS & WEBHOOKS MASTER CENTER */}
+        {activeTab === 'integrations' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Integrations & Webhooks Center...</div>}>
+            <IntegrationsPage
+              companyId={authUser?.companyId || 'default_tenant'}
+              showToast={showToast}
+            />
+          </Suspense>
+        )}
+
+        {/* ROLES & PERMISSIONS MANAGEMENT */}
+        {activeTab === 'roles_permissions' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Roles & Permissions...</div>}>
+            <RolesPage
+              authUser={authUser}
+              showToast={showToast}
+              t={t}
+              activeCurrency={activeCurrency}
+              employees={employees}
+            />
+          </Suspense>
+        )}
+
+        {/* Company Overview (Admin Dashboard) */}
+        {(activeTab === 'admin_dashboard' || activeTab === 'dashboards') && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Overview...</div>}>
             <CompanyOverviewView
               authUser={authUser}
               employees={employees}
-              liveLocations={liveLocations}
+              liveLocations={[]}
               callLogs={callLogs}
               notices={notices}
               t={t}
@@ -9710,9 +7145,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </Suspense>
         )}
 
-        {/* 2. TASK ANALYTICS VIEW (MANAGER DASHBOARD) */}
+        {/* Task Analytics (Manager Dashboard) */}
         {activeTab === 'manager_dashboard' && (
-          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Task Analytics...</div>}>
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Task Analytics...</div>}>
             <TaskAnalyticsView
               employees={employees}
               tasks={tasks}
@@ -9721,8828 +7156,668 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </Suspense>
         )}
 
-        {/* 3. ALL EMPLOYEES VIEW */}
+        {/* All Employees Directory */}
         {activeTab === 'employees' && (
-          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading All Employees...</div>}>
-            <EmployeesView
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Employees...</div>}>
+            <EmployeesPage
               authUser={authUser}
               employees={employees}
               setEmployees={setEmployees}
               systemDropdowns={systemDropdowns}
-              onOpenModuleConfig={(modId) => {
-                setPreselectedConfigModuleId(modId || 'employees');
-                setActiveTab('module_configuration');
-              }}
-              onManageStages={() => {
-                setActiveTab('system_dropdowns');
-              }}
-              onOpenPositionModal={() => {
-                setActiveTab('recruitment_ats');
-              }}
               recycleBinItems={recycleBinItems}
               handleRestoreBinItem={handleRestoreBinItem}
               handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
               softDeleteRecord={softDeleteRecord}
               showToast={showToast}
+              onOpenModuleConfig={handleOpenModuleConfig}
+              setShowAddEmployeeModal={setShowAddEmployeeModal}
             />
           </Suspense>
         )}
 
-        {/* 4. RECRUITMENT & ATS BOARD */}
+        {/* Recruitment & ATS */}
         {activeTab === 'recruitment_ats' && (
-          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Recruitment ATS...</div>}>
-            <RecruitmentAtsView
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Recruitment & ATS...</div>}>
+            <RecruitmentPage
               authUser={authUser}
               atsCandidates={atsCandidates}
               setAtsCandidates={setAtsCandidates}
               systemDropdowns={systemDropdowns}
-              onManageStages={() => {
-                setActiveTab('system_dropdowns');
-                setSelectedDropdownCategory('ats_stages');
-              }}
-              onOpenModuleConfig={(modId) => {
-                setPreselectedConfigModuleId(modId || 'recruitment_ats');
-                setActiveTab('module_configuration');
-              }}
+              softDeleteRecord={softDeleteRecord}
+              showToast={showToast}
+              onOpenModuleConfig={handleOpenModuleConfig}
+            />
+          </Suspense>
+        )}
+
+        {/* Asset Management */}
+        {activeTab === 'asset_management' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Asset Management...</div>}>
+            <AssetManagementPage
+              companyId={authUser?.companyId || 'default'}
+              assets={assets}
+              setAssets={setAssets}
+              authUser={authUser}
+              systemDropdowns={systemDropdowns}
               recycleBinItems={recycleBinItems}
               handleRestoreBinItem={handleRestoreBinItem}
               handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
               softDeleteRecord={softDeleteRecord}
               showToast={showToast}
+              onOpenModuleConfig={handleOpenModuleConfig}
             />
           </Suspense>
         )}
 
-        {/* 5. PERFORMANCE MANAGER */}
-        {activeTab === 'performance_kpis' && (
-          <div className="payroll-page glass-panel payroll-panel">
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">🎯 {t('kpiTitle')}</h1>
-                <p className="page-header-subtitle">{t('kpiSubtitle')}</p>
-              </div>
-            </div>
-            <div style={{ padding: '0 var(--space-6) var(--space-6)' }}>
-              <div className="payroll-table-card">
-                <div className="payroll-table-toolbar">
-                  <span className="payroll-table-title">{t('kpiTitle')}</span>
-                  <span className="payroll-table-hint">💡 Click column headers to sort</span>
-                </div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="std-table">
-                    <thead>
-                      <tr>
-                        <th className={`th-sortable${kpiSortKey === 'first_name' ? ' active' : ''}`}
-                          onClick={() => { if (kpiSortKey === 'first_name') setKpiSortDir(prev => prev === 'asc' ? 'desc' : 'asc'); else { setKpiSortKey('first_name'); setKpiSortDir('asc'); } }}>
-                          {t('employee')} <span className="th-sort-icon">{kpiSortKey === 'first_name' ? (kpiSortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                        </th>
-                        <th className={`th-sortable${kpiSortKey === 'rating' ? ' active' : ''}`}
-                          onClick={() => { if (kpiSortKey === 'rating') setKpiSortDir(prev => prev === 'asc' ? 'desc' : 'asc'); else { setKpiSortKey('rating'); setKpiSortDir('asc'); } }}>
-                          {t('qualityRating')} <span className="th-sort-icon">{kpiSortKey === 'rating' ? (kpiSortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                        </th>
-                        <th className={`th-sortable${kpiSortKey === 'attendance' ? ' active' : ''}`}
-                          onClick={() => { if (kpiSortKey === 'attendance') setKpiSortDir(prev => prev === 'asc' ? 'desc' : 'asc'); else { setKpiSortKey('attendance'); setKpiSortDir('asc'); } }}>
-                          {t('attendanceScore')} <span className="th-sort-icon">{kpiSortKey === 'attendance' ? (kpiSortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                        </th>
-                        <th className={`th-sortable${kpiSortKey === 'grade' ? ' active' : ''}`}
-                          onClick={() => { if (kpiSortKey === 'grade') setKpiSortDir(prev => prev === 'asc' ? 'desc' : 'asc'); else { setKpiSortKey('grade'); setKpiSortDir('asc'); } }}>
-                          {t('overallGrade')} <span className="th-sort-icon">{kpiSortKey === 'grade' ? (kpiSortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
-                        const sorted = [...employees].sort((a, b) => {
-                          if (kpiSortKey === 'first_name') {
-                            const nameA = `${a.first_name} ${a.last_name || ''}`.toLowerCase();
-                            const nameB = `${b.first_name} ${b.last_name || ''}`.toLowerCase();
-                            return kpiSortDir === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-                          }
-                          return 0;
-                        });
-                        return sorted.map(emp => (
-                          <tr key={emp.id}>
-                            <td><div className="emp-cell"><div className="emp-avatar-sm">{(emp.first_name||'')[0]}{(emp.last_name||'')[0]||''}</div><span className="emp-name-main">{emp.first_name} {emp.last_name || ''}</span></div></td>
-                            <td><span style={{ color: '#eab308', fontWeight: 'var(--fw-bold)' }}>★★★★☆</span> <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>(4.2)</span></td>
-                            <td><span className="badge-success">98% Present</span></td>
-                            <td><span className="badge-success">Grade A</span></td>
-                          </tr>
-                        ));
-                      })()}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 6. ASSET MANAGEMENT */}
-        {activeTab === 'asset_management' && (
-          <AssetManagementWrapper
-            companyId={authUser?.companyId || 'default_tenant'}
-            assets={assets}
-            setAssets={setAssets}
-            authUser={authUser}
-            systemDropdowns={systemDropdowns}
-            onOpenModuleConfig={(modId) => {
-              setPreselectedConfigModuleId(modId || 'asset_management');
-              setActiveTab('module_configuration');
-            }}
-            onManageStages={() => {
-              setActiveTab('system_dropdowns');
-            }}
-            onOpenPositionModal={() => {
-              setActiveTab('recruitment_ats');
-            }}
-            recycleBinItems={recycleBinItems}
-            handleRestoreBinItem={handleRestoreBinItem}
-            handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
-            softDeleteRecord={softDeleteRecord}
-            showToast={showToast}
-          />
-        )}
-
-
-
-        {/* 7. OFFBOARDING EXIT VIEW */}
-        {activeTab === 'offboarding' && (
-          <OffboardingWrapper
-            companyId={authUser?.companyId || 'default_tenant'}
-            offboardingCases={offboardingCases}
-            setOffboardingCases={setOffboardingCases}
-            employees={employees}
-            assets={assets}
-            authUser={authUser}
-            systemDropdowns={systemDropdowns}
-            onOpenModuleConfig={(modId) => {
-              setPreselectedConfigModuleId(modId || 'offboarding');
-              setActiveTab('module_configuration');
-            }}
-            onManageStages={() => {
-              setActiveTab('system_dropdowns');
-            }}
-            onOpenPositionModal={() => {
-              setActiveTab('recruitment_ats');
-            }}
-            recycleBinItems={recycleBinItems}
-            handleRestoreBinItem={handleRestoreBinItem}
-            handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
-            softDeleteRecord={softDeleteRecord}
-            showToast={showToast}
-          />
-        )}
-
-        {/* 8. PAYROLL & SALARY PROCESSOR */}
-        {activeTab === 'payroll' && (
-          <div className="payroll-page glass-panel payroll-panel">
-
-            {/* ── Page Header ── */}
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">💰 {t('payrollTitle')}</h1>
-                <p className="page-header-subtitle">{t('payrollSubtitle')}</p>
-              </div>
-              <div className="page-header-right">
-                <button
-                  className="btn btn-primary"
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                  onClick={() => showToast('Calculating payroll rates and generating payslip structures...', 'success')}
-                >
-                  <RefreshCw size={15} /> Auto Calculate
-                </button>
-              </div>
-            </div>
-
-            {/* ── Summary Stat Cards ── */}
-            <div className="payroll-stats-row">
-              <div className="payroll-stat-card">
-                <div className="payroll-stat-icon teal">👥</div>
-                <div>
-                  <div className="payroll-stat-label">Total Employees</div>
-                  <div className="payroll-stat-value">{employees.length}</div>
-                </div>
-              </div>
-              <div className="payroll-stat-card">
-                <div className="payroll-stat-icon green">{LabelEngine.getCurrencySymbol(activeCurrency)}</div>
-                <div>
-                  <div className="payroll-stat-label">Total Payroll</div>
-                  <div className="payroll-stat-value">{LabelEngine.formatCurrencyVal(employees.reduce((s, e) => s + (parseFloat(e.salary) || 0), 0), activeCurrency)}</div>
-                </div>
-              </div>
-              <div className="payroll-stat-card">
-                <div className="payroll-stat-icon amber">⏳</div>
-                <div>
-                  <div className="payroll-stat-label">Pending Payslips</div>
-                  <div className="payroll-stat-value">{employees.length}</div>
-                </div>
-              </div>
-              <div className="payroll-stat-card">
-                <div className="payroll-stat-icon blue">📅</div>
-                <div>
-                  <div className="payroll-stat-label">Working Days / Mo</div>
-                  <div className="payroll-stat-value">22</div>
-                </div>
-              </div>
-            </div>
-
-            {/* ── Payroll Table ── */}
-            <div className="payroll-table-section">
-              <div className="payroll-table-card">
-                <div className="payroll-table-toolbar">
-                  <span className="payroll-table-title">Employee Salary Register</span>
-                  <span className="payroll-table-hint">💡 Click column headers to sort</span>
-                </div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="std-table">
-                    <thead>
-                      <tr>
-                        <th className={`th-sortable${payrollSortKey === 'first_name' ? ' active' : ''}`}
-                          onClick={() => { if (payrollSortKey === 'first_name') setPayrollSortDir(p => p === 'asc' ? 'desc' : 'asc'); else { setPayrollSortKey('first_name'); setPayrollSortDir('asc'); } }}>
-                          {t('employee')} <span className="th-sort-icon">{payrollSortKey === 'first_name' ? (payrollSortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                        </th>
-                        <th className={`th-sortable${payrollSortKey === 'salary' ? ' active' : ''}`}
-                          onClick={() => { if (payrollSortKey === 'salary') setPayrollSortDir(p => p === 'asc' ? 'desc' : 'asc'); else { setPayrollSortKey('salary'); setPayrollSortDir('asc'); } }}>
-                          {t('baseSalary')} <span className="th-sort-icon">{payrollSortKey === 'salary' ? (payrollSortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                        </th>
-                        <th>{t('workingDays')}</th>
-                        <th>{t('netSalary')}</th>
-                        <th>{t('status')}</th>
-                        <th style={{ textAlign: 'right' }}>{t('action')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
-                        const sorted = [...employees].sort((a, b) => {
-                          if (payrollSortKey === 'first_name') {
-                            const nA = `${a.first_name} ${a.last_name || ''}`.toLowerCase();
-                            const nB = `${b.first_name} ${b.last_name || ''}`.toLowerCase();
-                            return payrollSortDir === 'asc' ? nA.localeCompare(nB) : nB.localeCompare(nA);
-                          }
-                          if (payrollSortKey === 'salary') {
-                            const sA = parseFloat(a.salary) || 0, sB = parseFloat(b.salary) || 0;
-                            return payrollSortDir === 'asc' ? sA - sB : sB - sA;
-                          }
-                          return 0;
-                        });
-                        if (!sorted.length) return <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No employees found.</td></tr>;
-                        return sorted.map(emp => {
-                          const days    = Math.min(22, attendanceLogs.filter(l => l.employee_id === emp.id).length);
-                          const net     = emp.salary > 0 ? Math.round(emp.salary * (days / 22)) : 0;
-                          const pct     = Math.round((days / 22) * 100);
-                          const initials = `${(emp.first_name||'')[0]||''}${(emp.last_name||'')[0]||''}`.toUpperCase();
-                          return (
-                            <tr key={emp.id}>
-                              <td>
-                                <div className="emp-cell">
-                                  <div className="emp-avatar-sm">{initials}</div>
-                                  <div>
-                                    <div className="emp-name-main">{emp.first_name} {emp.last_name || ''}</div>
-                                    <div className="emp-name-sub">{emp.role || 'Employee'} · {emp.department || 'General'}</div>
-                                  </div>
-                                </div>
-                              </td>
-                              <td>
-                                <div className="emp-name-main">{LabelEngine.formatCurrencyVal(emp.salary || 0, activeCurrency)}</div>
-                                <div className="emp-name-sub">per month</div>
-                              </td>
-                              <td>
-                                <div className="days-cell">
-                                  <div className="days-label">{days} / 22 days ({pct}%)</div>
-                                  <div className="days-bar-track"><div className="days-bar-fill" style={{ width: `${pct}%` }} /></div>
-                                </div>
-                              </td>
-                              <td>
-                                <div className="salary-amount">{LabelEngine.formatCurrencyVal(net, activeCurrency)}</div>
-                                <div className="salary-base">after attendance deduction</div>
-                              </td>
-                              <td><span className="badge-warning">Pending</span></td>
-                              <td style={{ textAlign: 'right' }}>
-                                <button className="btn-payslip" onClick={() => showToast(`Payslip generated for ${emp.first_name}. Sending copy on email.`, 'success')}>
-                                  📄 Payslip
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        });
-                      })()}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-
-
-        {/* 9. TAXES & COMPLIANCE */}
-        {activeTab === 'taxes_compliance' && (
-          <div className="payroll-page glass-panel">
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">🏛️ Taxes &amp; PF Compliance</h1>
-                <p className="page-header-subtitle">Configure standard TDS deductions and Provident Fund rates.</p>
-              </div>
-            </div>
-            <div style={{ padding: 'var(--space-6)' }}>
-              <div className="simple-form-card">
-                <div className="form-row"><label>Standard PF Deduction (%)</label><input className="crm-input" type="number" defaultValue="12" /></div>
-                <div className="form-row"><label>Professional Tax Deduction (PT)</label><input className="crm-input" type="number" defaultValue="200" /></div>
-                <div className="form-row"><label>TDS Rate (%)</label><input className="crm-input" type="number" defaultValue="10" /></div>
-                <button className="btn btn-primary" onClick={() => showToast('Tax parameters updated!', 'success')}>Save Settings</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-
-
-        {/* 10. INCENTIVES & BONUS */}
-        {activeTab === 'incentives_bonus' && (
-          <div className="payroll-page glass-panel">
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">🎯 Incentives &amp; Performance Bonus</h1>
-                <p className="page-header-subtitle">Add incentive bonuses to salaries based on performance targets.</p>
-              </div>
-            </div>
-            <div style={{ padding: 'var(--space-6)' }}>
-              <div className="simple-form-card">
-                <div className="form-row"><label>Select Employee</label><select className="crm-select">{employees.map(e => <option key={e.id} value={e.id}>{e.first_name} {e.last_name || ''}</option>)}</select></div>
-                <div className="form-row"><label>Incentive Type</label><select className="crm-select"><option>Performance Bonus</option><option>Festival Bonus</option><option>Target Achievement</option><option>Referral Bonus</option></select></div>
-                <div className="form-row"><label>Incentive Amount (₹)</label><input className="crm-input" type="number" placeholder="e.g. 5000" /></div>
-                <button className="btn btn-primary" onClick={() => showToast('Incentive added successfully!', 'success')}>Apply Bonus</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-
-
-        {/* 11. F&F SETTLEMENTS */}
-        {activeTab === 'ff_settlements' && (
-          <div className="payroll-page glass-panel">
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">📋 Full &amp; Final Settlements</h1>
-                <p className="page-header-subtitle">Clear remaining dues for exiting employees.</p>
-              </div>
-            </div>
-            <div style={{ padding: 'var(--space-6)' }}>
-              <div className="empty-state-card"><div className="empty-state-icon">📭</div><div className="empty-state-title">No Pending Settlements</div><div className="empty-state-desc">All full &amp; final settlements have been cleared.</div></div>
-            </div>
-          </div>
-        )}
-
-
-
-        {/* 12. ADVANCES & LOANS */}
-        {activeTab === 'advances_loans' && (
-          <div className="payroll-page glass-panel">
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">💳 Salary Advances &amp; Loans</h1>
-                <p className="page-header-subtitle">Process advanced payout requests from employees.</p>
-              </div>
-              <div className="page-header-right">
-                <button className="btn btn-primary" onClick={() => showToast('Loan request form coming soon!', 'info')}>+ New Request</button>
-              </div>
-            </div>
-            <div style={{ padding: 'var(--space-6)' }}>
-              <div className="empty-state-card"><div className="empty-state-icon">🏦</div><div className="empty-state-title">No Loan Requests Pending</div><div className="empty-state-desc">No salary advance or loan requests currently in queue.</div></div>
-            </div>
-          </div>
-        )}
-
-
-
-        {/* 13. EXPENSES CLAIMS */}
-        {activeTab === 'expenses' && (
-          <div className="payroll-page glass-panel">
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">🧾 Business Expenses Claim</h1>
-                <p className="page-header-subtitle">Manage staff travel, telephone, and allowance claims.</p>
-              </div>
-              <div className="page-header-right">
-                <button className="btn btn-primary" onClick={() => showToast('Expense claim form coming soon!', 'info')}>+ Submit Claim</button>
-              </div>
-            </div>
-            <div style={{ padding: 'var(--space-6)' }}>
-              <div className="empty-state-card"><div className="empty-state-icon">🧳</div><div className="empty-state-title">No Claims This Week</div><div className="empty-state-desc">No business expense claims have been submitted for this period.</div></div>
-            </div>
-          </div>
-        )}
-
-        {/* 14. TASKS KANBAN BOARD */}
-        {activeTab === 'tasks' && (
-          <div className="kanban-page glass-panel payroll-panel">
-
-            {/* ── Page Header ── */}
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">📋 Manage Tasks Board</h1>
-                <p className="page-header-subtitle">Track daily task workloads using standard Kanban columns.</p>
-              </div>
-              <div className="page-header-right">
-                {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager') && (
-                  <button
-                    className="btn btn-primary"
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                    onClick={() => {
-                      setNewTaskForm({ id: '', title: '', description: '', assignedTo: '', priority: 'Medium', status: 'To Do', dueDate: '' });
-                      setShowAddTaskModal(true);
-                    }}
-                  >
-                    <Plus size={15} /> + Assign Task
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* ── Kanban Columns ── */}
-            <div className="kanban-grid">
-              {[
-                { status: 'To Do',       colClass: 'col-todo',   emoji: '📌', nextLabel: 'Move to In Progress →' },
-                { status: 'In Progress', colClass: 'col-inprog', emoji: '⚡', nextLabel: 'Mark Completed →' },
-                { status: 'Completed',   colClass: 'col-done',   emoji: '✅', nextLabel: null },
-              ].map(({ status: columnStatus, colClass, emoji, nextLabel }) => {
-                const columnTasks = tasks.filter(t => t.status === columnStatus);
-                return (
-                  <div key={columnStatus} className={`kanban-col ${colClass}`}>
-                    {/* Column Header */}
-                    <div className="kanban-col-header">
-                      <span className="kanban-col-title">{emoji} {columnStatus}</span>
-                      <span className="kanban-col-count">{columnTasks.length}</span>
-                    </div>
-
-                    {/* Cards */}
-                    <div className="kanban-cards">
-                      {columnTasks.map(task => {
-                        const priorityClass = task.priority === 'High' ? 'high' : task.priority === 'Low' ? 'low' : 'medium';
-                        return (
-                          <div key={task.id} className="kanban-card">
-                            <div className="kanban-card-title">{task.title}</div>
-                            {task.description && <div className="kanban-card-desc">{task.description}</div>}
-
-                            {/* Footer: priority + assignee */}
-                            <div className="kanban-card-footer">
-                              <span className={`badge-priority ${priorityClass}`}>{task.priority || 'Medium'}</span>
-                              <span className="kanban-assignee">👤 {task.first_name || 'Unassigned'}</span>
-                            </div>
-
-                            {/* Due date (if set) */}
-                            {task.dueDate && (
-                              <div style={{ fontSize: '10px', color: 'var(--text-dim)', marginTop: '6px' }}>
-                                📅 Due: {new Date(task.dueDate).toLocaleDateString()}
-                              </div>
-                            )}
-
-                            {/* Action Buttons */}
-                            <div className="kanban-card-actions">
-                              {nextLabel && (
-                                <button
-                                  className="btn-task-move"
-                                  onClick={async () => {
-                                    const nextStatus = columnStatus === 'To Do' ? 'In Progress' : 'Completed';
-                                    await fetch(`${API_URL}/tasks/${task.id}`, {
-                                      method: 'PUT',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ ...task, status: nextStatus })
-                                    });
-                                    fetchTasks();
-                                  }}
-                                >
-                                  {nextLabel}
-                                </button>
-                              )}
-                              <button className="btn-task-del" onClick={() => handleDeleteTask(task.id)}>
-                                🗑 Delete
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {columnTasks.length === 0 && (
-                        <div className="kanban-empty">No tasks in this column yet.</div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* 15. NOTICE BOARD */}
-        {activeTab === 'notice_board' && (
-          <div className="payroll-page glass-panel payroll-panel">
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">📢 Announcements &amp; Notice Board</h1>
-                <p className="page-header-subtitle">Important corporate announcements and notes for your team.</p>
-              </div>
-              <div className="page-header-right">
-                {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager') && (
-                  <button className="btn btn-primary" onClick={() => { setNewNoticeForm({ title: '', content: '' }); setShowAddNoticeModal(true); }}>+ Publish Announcement</button>
-                )}
-              </div>
-            </div>
-            <div style={{ padding: '0 var(--space-6) var(--space-6)', overflowY: 'auto', flexGrow: 1 }}>
-              {notices.length === 0 ? (
-                <div className="empty-state-card">
-                  <div className="empty-state-icon">📭</div>
-                  <div className="empty-state-title">Notice Board is Empty</div>
-                  <div className="empty-state-desc">No announcements have been published yet.</div>
-                </div>
-              ) : (
-                <div className="notice-list">
-                  {notices.map(notice => (
-                    <div key={notice.id} className="notice-card">
-                      <div className="notice-card-title">{notice.title}</div>
-                      <div className="notice-card-content">{notice.content}</div>
-                      <div className="notice-card-meta">📅 Published: {new Date(notice.created_at).toLocaleString()}</div>
-                      {(authUser?.role === 'owner' || authUser?.role === 'admin') && (
-                        <button className="notice-card-del" onClick={() => handleDeleteNotice(notice.id)}>🗑 Delete</button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* 16. HOLIDAYS LIST */}
-        {activeTab === 'holidays' && (
-          <div className="payroll-page glass-panel payroll-panel">
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">🗓 Company Holidays Calendar</h1>
-                <p className="page-header-subtitle">Public holidays and workspace off-days scheduled for the year.</p>
-              </div>
-              <div className="page-header-right">
-                {(authUser?.role === 'owner' || authUser?.role === 'admin') && (
-                  <button className="btn btn-primary" onClick={() => { setNewHolidayForm({ name: '', date: '' }); setShowAddHolidayModal(true); }}>+ Add Holiday</button>
-                )}
-              </div>
-            </div>
-            <div className="payroll-table-section">
-              <div className="payroll-table-card">
-                <div className="payroll-table-toolbar">
-                  <span className="payroll-table-title">Holiday Schedule</span>
-                  <span className="payroll-table-hint">📅 {holidays.length} holiday{holidays.length !== 1 ? 's' : ''} registered</span>
-                </div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="std-table">
-                    <thead>
-                      <tr>
-                        <th>Holiday Name</th><th>Scheduled Date</th><th>Day</th>
-                        {(authUser?.role === 'owner' || authUser?.role === 'admin') && <th style={{ textAlign: 'right' }}>Action</th>}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {holidays.length === 0 ? (
-                        <tr><td colSpan={4} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No holidays added yet.</td></tr>
-                      ) : holidays.map(h => {
-                        const d = new Date(h.date);
-                        return (
-                          <tr key={h.id}>
-                            <td><span className="emp-name-main">{h.name}</span></td>
-                            <td>{d.toLocaleDateString(undefined, { dateStyle: 'long' })}</td>
-                            <td><span className="badge-warning">{d.toLocaleDateString(undefined, { weekday: 'long' })}</span></td>
-                            {(authUser?.role === 'owner' || authUser?.role === 'admin') && (
-                              <td style={{ textAlign: 'right' }}><button className="btn-task-del" onClick={() => handleDeleteHoliday(h.id)}>Delete</button></td>
-                            )}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 17. REWARDS & RECOGNITION */}
-        {activeTab === 'rewards_recognition' && (
-          <div className="payroll-page glass-panel payroll-panel">
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">🏆 Rewards &amp; Badges Dashboard</h1>
-                <p className="page-header-subtitle">Recognise and celebrate top performers in your organisation.</p>
-              </div>
-            </div>
-            <div style={{ padding: '0 var(--space-6) var(--space-6)', overflowY: 'auto', flexGrow: 1 }}>
-              <div className="rewards-grid">
-                {[
-                  { icon: '🏆', title: 'Employee of Month', desc: 'Top performer with 100% attendance and high sales conversions.' },
-                  { icon: '⚡', title: 'Speed Star', desc: 'Quick response rate on WhatsApp customer chat pipelines.' },
-                  { icon: '🎯', title: 'Target Crusher', desc: 'Achieved 120%+ of monthly sales target for the quarter.' },
-                  { icon: '🤝', title: 'Team Player', desc: 'Consistently supported peers and improved team productivity.' },
-                  { icon: '📚', title: 'Self Learner', desc: 'Completed advanced training modules ahead of schedule.' },
-                  { icon: '💡', title: 'Innovator', desc: 'Proposed a process improvement that saved 5 hours per week.' },
-                ].map(({ icon, title, desc }) => (
-                  <div key={title} className="reward-card">
-                    <div className="reward-icon">{icon}</div>
-                    <div className="reward-title">{title}</div>
-                    <div className="reward-desc">{desc}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 18. PUNCH CLOCK & MONTHLY REGISTER GRID */}
-        {activeTab === 'my_attendance' && (
-          <div className="payroll-page glass-panel payroll-panel">
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">🕒 Shift Attendance &amp; Register</h1>
-                <p className="page-header-subtitle">Punch-in daily for coordinates tracking and review logs.</p>
-              </div>
-            </div>
-
-            <div style={{ padding: '0 var(--space-6) var(--space-6)', overflowY: 'auto', flexGrow: 1 }}>
-              <div className="roster-attendance-grid">
-                {/* Punch Clock Panel */}
-                <div className="simple-form-card" style={{ maxWidth: '100%' }}>
-                  <h3 className="payroll-table-title" style={{ marginBottom: 'var(--space-4)' }}>Punch Clock Panel</h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', alignItems: 'center', padding: 'var(--space-2)' }}>
-                    {todayStatus && todayStatus.status === 'checked_in' ? (
-                      <>
-                        <div className="badge-success" style={{ padding: '6px 16px', fontSize: 'var(--text-sm)' }}>
-                          🟢 ACTIVE CLOCK-IN SHIFT
-                        </div>
-                        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-                          Logged in at: <strong style={{ color: 'var(--text-primary)' }}>{new Date(todayStatus.check_in_time).toLocaleTimeString()}</strong>
-                        </div>
-                        <button className="btn btn-danger" onClick={handleCheckOut} disabled={gpsLoading} style={{ width: '100%', padding: '12px' }}>
-                          {gpsLoading ? 'Checking coordinates...' : 'Punch Shift Out'}
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <div className="badge-neutral" style={{ padding: '6px 16px', fontSize: 'var(--text-sm)' }}>
-                          ⚪ NOT CLOCKED IN TODAY
-                        </div>
-                        <button className="btn btn-success" onClick={handleCheckIn} disabled={gpsLoading} style={{ width: '100%', padding: '12px' }}>
-                          {gpsLoading ? 'Checking coordinates...' : 'Punch Shift In'}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Monthly Ledger Representation Grid */}
-                <div className="simple-form-card" style={{ maxWidth: '100%' }}>
-                  <h3 className="payroll-table-title" style={{ marginBottom: 'var(--space-2)' }}>Monthly Attendance Matrix (Grid)</h3>
-                  <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-4)' }}>
-                    <span className="badge-success" style={{ padding: '2px 8px', marginRight: '4px' }}>P</span> Present | 
-                    <span className="badge-danger" style={{ padding: '2px 8px', margin: '0 4px' }}>A</span> Absent | 
-                    <span className="badge-warning" style={{ padding: '2px 8px', margin: '0 4px' }}>L</span> Leave | 
-                    <span className="badge-info" style={{ padding: '2px 8px', margin: '0 4px' }}>W</span> Weekend Off
-                  </p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 'var(--space-2)' }}>
-                    {Array.from({ length: 30 }, (_, i) => {
-                      const dayNum = i + 1;
-                      const isWeekend = dayNum % 7 === 0 || (dayNum + 1) % 7 === 0;
-                      const isCheckedIn = dayNum === 17 || dayNum === 16;
-                      const badgeClass = isCheckedIn ? 'badge-success' : isWeekend ? 'badge-info' : 'badge-danger';
-                      const labelStr = isCheckedIn ? 'P' : isWeekend ? 'W' : 'A';
-                      return (
-                        <div key={dayNum} className={badgeClass} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '8px 4px', borderRadius: 'var(--radius-md)', fontWeight: '800' }}>
-                          <div style={{ fontSize: 'var(--text-xs)', opacity: 0.8 }}>{dayNum}</div>
-                          <div style={{ fontSize: 'var(--text-base)', marginTop: '2px' }}>{labelStr}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 19. LEAVES REQUESTS */}
-        {activeTab === 'leaves' && (
-          <div className="payroll-page glass-panel payroll-panel">
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">✉️ Leave Applications</h1>
-                <p className="page-header-subtitle">Request vacation, casual leaves, or sick leaves.</p>
-              </div>
-              <div className="page-header-right">
-                <button className="btn btn-primary" onClick={() => {
-                  setNewLeaveForm({ startDate: '', endDate: '', type: 'Sick', reason: '' });
-                  setShowAddLeaveModal(true);
-                }}>
-                  + File Leave Request
-                </button>
-              </div>
-            </div>
-
-            <div className="payroll-table-section">
-              <div className="payroll-table-card">
-                <div className="payroll-table-toolbar">
-                  <span className="payroll-table-title">All Leave Applications</span>
-                  <span className="payroll-table-hint">📋 {leaves.length} request{leaves.length !== 1 ? 's' : ''} total</span>
-                </div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="std-table">
-                    <thead>
-                      <tr>
-                        <th>Employee</th>
-                        <th>Type</th>
-                        <th>Timelines (Start - End)</th>
-                        <th>Reason</th>
-                        <th>Status</th>
-                        {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager') && <th style={{ textAlign: 'right' }}>Actions</th>}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {leaves.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                            No leave requests submitted yet.
-                          </td>
-                        </tr>
-                      ) : (
-                        leaves.map(l => (
-                          <tr key={l.id}>
-                            <td>
-                              <span className="emp-name-main">{l.first_name} {l.last_name || ''}</span>
-                            </td>
-                            <td><span className="badge-indigo">{l.type}</span></td>
-                            <td>{l.start_date} to {l.end_date}</td>
-                            <td>{l.reason}</td>
-                            <td>
-                              <span className={l.status === 'Approved' ? 'badge-success' : l.status === 'Rejected' ? 'badge-danger' : 'badge-warning'}>
-                                {l.status}
-                              </span>
-                            </td>
-                            {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager') && (
-                              <td style={{ textAlign: 'right' }}>
-                                {l.status === 'Pending' && (
-                                  <div style={{ display: 'inline-flex', gap: '6px' }}>
-                                    <button className="btn btn-success" style={{ padding: '4px 10px', fontSize: '11px' }} onClick={() => handleApproveLeave(l.id, 'Approved')}>
-                                      Approve
-                                    </button>
-                                    <button className="btn btn-danger" style={{ padding: '4px 10px', fontSize: '11px' }} onClick={() => handleApproveLeave(l.id, 'Rejected')}>
-                                      Reject
-                                    </button>
-                                  </div>
-                                )}
-                              </td>
-                            )}
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 20. SHIFTS ROSTER & HR MANUAL OVERRIDE ENGINE */}
-        {activeTab === 'shifts' && (
-          <div className="payroll-page glass-panel payroll-panel" style={{ padding: '20px' }}>
-            <div className="page-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-              <div className="page-header-left">
-                <h1 className="page-header-title" style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span>📅 Work Shift Roster & HR Override Engine</span>
-                </h1>
-                <p className="page-header-subtitle" style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0 0' }}>
-                  Define rotational shifts, grace rules, 7-day rosters, and HR manual attendance overrides.
-                </p>
-              </div>
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <button
-                  className="btn"
-                  style={{ background: '#f8fafc', border: '1px solid #cbd5e1', color: '#334155', borderRadius: '8px', padding: '8px 14px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
-                  onClick={() => {
-                    const csvContent = 'data:text/csv;charset=utf-8,Employee,Department,Mon,Tue,Wed,Thu,Fri,Sat,Sun\n' +
-                      weeklyRoster.map(r => `"${r.empName}","${r.department}","${r.schedule.mon}","${r.schedule.tue}","${r.schedule.wed}","${r.schedule.thu}","${r.schedule.fri}","${r.schedule.sat}","${r.schedule.sun}"`).join('\n');
-                    const encodedUri = encodeURI(csvContent);
-                    const link = document.createElement('a');
-                    link.setAttribute('href', encodedUri);
-                    link.setAttribute('download', `shift_roster_export_${new Date().toISOString().slice(0, 10)}.csv`);
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    showToast('📥 Shift Roster exported as CSV!', 'success');
-                  }}
-                >
-                  📥 Export Roster CSV
-                </button>
-
-                <button
-                  className="btn"
-                  style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', borderRadius: '8px', padding: '8px 14px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
-                  onClick={() => {
-                    setSelectedEmpIdsForBulk(weeklyRoster.map(r => r.empId));
-                    setShowBulkAssignModal(true);
-                  }}
-                >
-                  👥 Bulk Assign Shift
-                </button>
-
-                <button
-                  className="btn btn-primary"
-                  style={{ background: '#0d9488', borderColor: '#0d9488', color: '#ffffff', borderRadius: '8px', padding: '8px 16px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
-                  onClick={() => {
-                    setEditingShiftProfile(null);
-                    setShiftProfileForm({ name: '', code: '', startTime: '09:30', endTime: '18:30', graceMins: 15, halfDayHours: 4.5, otThresholdHours: 9.0, color: '#0d9488', bg: '#e6f4f1', description: '' });
-                    setShowShiftProfileModal(true);
-                  }}
-                >
-                  ➕ Create Shift Profile
-                </button>
-              </div>
-            </div>
-
-            {/* Sub Tabs Navigation */}
-            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #e2e8f0', marginBottom: '20px', paddingBottom: '2px' }}>
-              <button
-                style={{
-                  padding: '10px 18px',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  border: 'none',
-                  background: 'transparent',
-                  borderBottom: shiftActiveSubTab === 'roster' ? '3px solid #0d9488' : '3px solid transparent',
-                  color: shiftActiveSubTab === 'roster' ? '#0d9488' : '#64748b',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onClick={() => setShiftActiveSubTab('roster')}
-              >
-                🗓️ 7-Day Weekly Roster Grid
-              </button>
-              <button
-                style={{
-                  padding: '10px 18px',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  border: 'none',
-                  background: 'transparent',
-                  borderBottom: shiftActiveSubTab === 'profiles' ? '3px solid #0d9488' : '3px solid transparent',
-                  color: shiftActiveSubTab === 'profiles' ? '#0d9488' : '#64748b',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onClick={() => setShiftActiveSubTab('profiles')}
-              >
-                ⚙️ Shift Profiles & Grace Rules ({shiftProfiles.length})
-              </button>
-              <button
-                style={{
-                  padding: '10px 18px',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  border: 'none',
-                  background: 'transparent',
-                  borderBottom: shiftActiveSubTab === 'overrides' ? '3px solid #0d9488' : '3px solid transparent',
-                  color: shiftActiveSubTab === 'overrides' ? '#0d9488' : '#64748b',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onClick={() => setShiftActiveSubTab('overrides')}
-              >
-                🛡️ HR Manual Overrides Audit ({hrOverrideLogs.length})
-              </button>
-            </div>
-
-            {/* TAB 1: 7-DAY ROTATIONAL ROSTER MATRIX */}
-            {shiftActiveSubTab === 'roster' && (
-              <div className="payroll-table-card" style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                    <input
-                      type="text"
-                      placeholder="🔍 Search employee or role..."
-                      value={shiftSearchQuery}
-                      onChange={(e) => setShiftSearchQuery(e.target.value)}
-                      style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', width: '220px' }}
-                    />
-                    <select
-                      value={shiftDeptFilter}
-                      onChange={(e) => setShiftDeptFilter(e.target.value)}
-                      style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#ffffff' }}
-                    >
-                      <option value="all">All Departments</option>
-                      {Array.from(new Set(weeklyRoster.map(r => r.department))).map(d => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>
-                    ⏱️ Showing {weeklyRoster.filter(r => (shiftDeptFilter === 'all' || r.department === shiftDeptFilter) && (r.empName.toLowerCase().includes(shiftSearchQuery.toLowerCase()) || r.role.toLowerCase().includes(shiftSearchQuery.toLowerCase()))).length} Employees
-                  </span>
-                </div>
-
-                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                  <table className="std-table" style={{ width: '100%', minWidth: '950px', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ background: '#f8fafc', textTransform: 'uppercase', fontSize: '11px', color: '#475569', letterSpacing: '0.05em' }}>
-                        <th style={{ padding: '12px 16px', textAlign: 'left' }}>EMPLOYEE & ROLE</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'left' }}>DEPARTMENT</th>
-                        {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map(day => (
-                          <th key={day} style={{ padding: '12px 10px', textAlign: 'center' }}>{day}</th>
-                        ))}
-                        <th style={{ padding: '12px 16px', textAlign: 'right' }}>HR OVERRIDE</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {weeklyRoster
-                        .filter(r => (shiftDeptFilter === 'all' || r.department === shiftDeptFilter) && (r.empName.toLowerCase().includes(shiftSearchQuery.toLowerCase()) || r.role.toLowerCase().includes(shiftSearchQuery.toLowerCase())))
-                        .map(row => (
-                          <tr key={row.empId} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                            <td style={{ padding: '12px 16px' }}>
-                              <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '13px' }}>{row.empName}</div>
-                              <div style={{ fontSize: '11px', color: '#64748b' }}>{row.role}</div>
-                            </td>
-                            <td style={{ padding: '12px 16px', fontSize: '12px', color: '#475569' }}>
-                              <span style={{ padding: '4px 8px', background: '#f1f5f9', borderRadius: '6px', fontSize: '11px', fontWeight: '600' }}>
-                                {row.department}
-                              </span>
-                            </td>
-                            {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map(dayKey => {
-                              const assignedShiftId = row.schedule[dayKey];
-                              const profile = shiftProfiles.find(p => p.id === assignedShiftId) || shiftProfiles[0];
-                              return (
-                                <td key={dayKey} style={{ padding: '8px 6px', textAlign: 'center' }}>
-                                  <select
-                                    value={assignedShiftId}
-                                    onChange={(e) => {
-                                      const updated = ShiftEngine.updateEmployeeRoster(row.empId, dayKey, e.target.value);
-                                      setWeeklyRoster(updated);
-                                      showToast(`Updated ${row.empName}'s ${dayKey.toUpperCase()} shift`, 'info');
-                                    }}
-                                    style={{
-                                      padding: '4px 6px',
-                                      borderRadius: '6px',
-                                      border: `1px solid ${profile.color || '#cbd5e1'}`,
-                                      background: profile.bg || '#ffffff',
-                                      color: profile.color || '#0f172a',
-                                      fontSize: '11px',
-                                      fontWeight: '700',
-                                      cursor: 'pointer',
-                                      width: '100%',
-                                      maxWidth: '105px'
-                                    }}
-                                  >
-                                    {shiftProfiles.map(p => (
-                                      <option key={p.id} value={p.id}>{p.name}</option>
-                                    ))}
-                                  </select>
-                                </td>
-                              );
-                            })}
-                            <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                              <button
-                                style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '6px', cursor: 'pointer' }}
-                                onClick={() => {
-                                  setHrOverrideForm({
-                                    empId: row.empId,
-                                    empName: row.empName,
-                                    date: new Date().toLocaleDateString('en-GB'),
-                                    previousStatus: 'LATE',
-                                    newStatus: 'ON_TIME',
-                                    reason: 'Client Visit / On-field duty',
-                                    waiveLatePenalty: true,
-                                    manualOTHours: 0
-                                  });
-                                  setShowHROverrideModal(true);
-                                }}
-                              >
-                                🛡️ Manual Override
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* TAB 2: SHIFT PROFILES & GRACE RULES */}
-            {shiftActiveSubTab === 'profiles' && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
-                {shiftProfiles.map(profile => (
-                  <div key={profile.id} style={{ background: '#ffffff', border: `2px solid ${profile.color}`, borderRadius: '12px', padding: '18px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <span style={{ padding: '4px 10px', borderRadius: '20px', background: profile.bg, color: profile.color, fontWeight: '800', fontSize: '12px', border: `1px solid ${profile.color}` }}>
-                        {profile.code || 'SHIFT'}
-                      </span>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <button
-                          style={{ padding: '3px 8px', fontSize: '11px', border: '1px solid #cbd5e1', background: '#ffffff', borderRadius: '4px', cursor: 'pointer' }}
-                          onClick={() => {
-                            setEditingShiftProfile(profile);
-                            setShiftProfileForm({ ...profile });
-                            setShowShiftProfileModal(true);
-                          }}
-                        >
-                          ✏️ Edit
-                        </button>
-                        {!profile.isDefault && (
-                          <button
-                            style={{ padding: '3px 8px', fontSize: '11px', border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', borderRadius: '4px', cursor: 'pointer' }}
-                            onClick={() => {
-                              if (window.confirm(`Are you sure you want to delete shift profile "${profile.name}"? It will be archived in Recycle Bin.`)) {
-                                const updated = ShiftEngine.deleteShiftProfile(profile.id, authUser?.email, authUser?.companyId);
-                                setShiftProfiles(updated);
-                                showToast(`Shift Profile "${profile.name}" moved to Trash Bin!`, 'warning');
-                              }
-                            }}
-                          >
-                            🗑️ Delete
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: '0 0 6px 0' }}>{profile.name}</h3>
-                    <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 14px 0', minHeight: '32px' }}>{profile.description || 'Custom shift profile'}</p>
-
-                    <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '10px', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#64748b' }}>Shift Timings:</span>
-                        <strong style={{ color: '#0f172a' }}>⏰ {profile.startTime} - {profile.endTime}</strong>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#64748b' }}>Late Grace Period:</span>
-                        <strong style={{ color: '#0d9488' }}>🟢 {profile.graceMins} Mins</strong>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#64748b' }}>Half-Day Cutoff:</span>
-                        <strong style={{ color: '#d97706' }}>⏱️ &lt; {profile.halfDayHours} Hours</strong>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#64748b' }}>Overtime Threshold:</span>
-                        <strong style={{ color: '#7c3aed' }}>⚡ &gt; {profile.otThresholdHours} Hours</strong>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* TAB 3: HR MANUAL OVERRIDES AUDIT LOGS */}
-            {shiftActiveSubTab === 'overrides' && (
-              <div className="payroll-table-card" style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', fontWeight: '800', fontSize: '14px', color: '#0f172a' }}>
-                  🛡️ HR Attendance Status Correction & Penalty Waiver Audit Log
-                </div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="std-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ background: '#f8fafc', textTransform: 'uppercase', fontSize: '11px', color: '#475569' }}>
-                        <th style={{ padding: '12px 16px', textAlign: 'left' }}>DATE & TIME</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'left' }}>EMPLOYEE</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'center' }}>STATUS CORRECTION</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'left' }}>HR REASON</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'center' }}>PENALTY WAIVED</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'right' }}>OVERRIDDEN BY</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {hrOverrideLogs.length === 0 ? (
-                        <tr>
-                          <td colSpan="6" style={{ padding: '30px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
-                            No HR manual overrides logged yet. All attendance records are running on auto-shift rules.
-                          </td>
-                        </tr>
-                      ) : (
-                        hrOverrideLogs.map(log => (
-                          <tr key={log.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                            <td style={{ padding: '12px 16px', fontSize: '12px', color: '#64748b' }}>{log.timestamp}</td>
-                            <td style={{ padding: '12px 16px', fontWeight: '700', fontSize: '13px', color: '#0f172a' }}>{log.empName}</td>
-                            <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                              <span style={{ padding: '3px 6px', background: '#fee2e2', color: '#991b1b', borderRadius: '4px', fontSize: '11px', fontWeight: '700' }}>{log.previousStatus}</span>
-                              <span style={{ margin: '0 6px', color: '#94a3b8' }}>➔</span>
-                              <span style={{ padding: '3px 6px', background: '#dcfce7', color: '#166534', borderRadius: '4px', fontSize: '11px', fontWeight: '700' }}>{log.newStatus}</span>
-                            </td>
-                            <td style={{ padding: '12px 16px', fontSize: '12px', color: '#334155' }}>{log.reason}</td>
-                            <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                              {log.waiveLatePenalty ? (
-                                <span style={{ padding: '4px 8px', background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '12px', fontSize: '11px', fontWeight: '700' }}>✅ Waived</span>
-                              ) : (
-                                <span style={{ color: '#94a3b8', fontSize: '12px' }}>No</span>
-                              )}
-                            </td>
-                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '700', fontSize: '12px', color: '#0369a1' }}>{log.actorName}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* MODAL 1: ADD / EDIT SHIFT PROFILE */}
-            {showShiftProfileModal && (
-              <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-                <div style={{ background: '#ffffff', borderRadius: '16px', width: '100%', maxWidth: '520px', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-                  <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: '0 0 16px 0' }}>
-                    {editingShiftProfile ? '✏️ Edit Shift Profile' : '➕ Create New Shift Profile'}
-                  </h3>
-
-                  <form onSubmit={(e) => {
-                    e.preventDefault();
-                    const updated = ShiftEngine.saveShiftProfile({ ...shiftProfileForm, id: editingShiftProfile?.id });
-                    setShiftProfiles(updated);
-                    setShowShiftProfileModal(false);
-                    showToast(editingShiftProfile ? 'Shift profile updated!' : 'New Shift profile created!', 'success');
-                  }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                      <div>
-                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '4px' }}>Shift Title</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. General Day Shift"
-                          value={shiftProfileForm.name}
-                          onChange={(e) => setShiftProfileForm({ ...shiftProfileForm, name: e.target.value })}
-                          style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '4px' }}>Shift Code</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="DAY-OPS"
-                          value={shiftProfileForm.code}
-                          onChange={(e) => setShiftProfileForm({ ...shiftProfileForm, code: e.target.value })}
-                          style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                        />
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                      <div>
-                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '4px' }}>Start Time</label>
-                        <input
-                          type="time"
-                          required
-                          value={shiftProfileForm.startTime}
-                          onChange={(e) => setShiftProfileForm({ ...shiftProfileForm, startTime: e.target.value })}
-                          style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '4px' }}>End Time</label>
-                        <input
-                          type="time"
-                          required
-                          value={shiftProfileForm.endTime}
-                          onChange={(e) => setShiftProfileForm({ ...shiftProfileForm, endTime: e.target.value })}
-                          style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                        />
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '12px' }}>
-                      <div>
-                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '4px' }}>Grace Mins</label>
-                        <input
-                          type="number"
-                          value={shiftProfileForm.graceMins}
-                          onChange={(e) => setShiftProfileForm({ ...shiftProfileForm, graceMins: parseInt(e.target.value) || 0 })}
-                          style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '4px' }}>Half-Day Hours</label>
-                        <input
-                          type="number"
-                          step="0.5"
-                          value={shiftProfileForm.halfDayHours}
-                          onChange={(e) => setShiftProfileForm({ ...shiftProfileForm, halfDayHours: parseFloat(e.target.value) || 4 })}
-                          style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '4px' }}>OT Trigger Hrs</label>
-                        <input
-                          type="number"
-                          step="0.5"
-                          value={shiftProfileForm.otThresholdHours}
-                          onChange={(e) => setShiftProfileForm({ ...shiftProfileForm, otThresholdHours: parseFloat(e.target.value) || 8.5 })}
-                          style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                        />
-                      </div>
-                    </div>
-
-                    <div style={{ marginBottom: '16px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '4px' }}>Description / Notes</label>
-                      <textarea
-                        rows="2"
-                        value={shiftProfileForm.description}
-                        onChange={(e) => setShiftProfileForm({ ...shiftProfileForm, description: e.target.value })}
-                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px' }}
-                      />
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                      <button
-                        type="button"
-                        style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#334155', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
-                        onClick={() => setShowShiftProfileModal(false)}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#0d9488', color: '#ffffff', cursor: 'pointer', fontSize: '13px', fontWeight: '700' }}
-                      >
-                        Save Shift Profile
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-
-            {/* MODAL 2: HR MANUAL OVERRIDE */}
-            {showHROverrideModal && (
-              <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-                <div style={{ background: '#ffffff', borderRadius: '16px', width: '100%', maxWidth: '480px', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-                  <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: '0 0 4px 0' }}>
-                    🛡️ HR Manual Attendance Override
-                  </h3>
-                  <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 16px 0' }}>
-                    Overriding status for <strong>{hrOverrideForm.empName}</strong>
-                  </p>
-
-                  <form onSubmit={(e) => {
-                    e.preventDefault();
-                    const logged = ShiftEngine.logHROverride({
-                      ...hrOverrideForm,
-                      actorName: authUser?.name || authUser?.email || 'HR Admin'
-                    });
-                    setHrOverrideLogs(prev => [logged, ...prev]);
-                    setShowHROverrideModal(false);
-                    showToast(`HR Override logged for ${hrOverrideForm.empName}!`, 'success');
-                  }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                      <div>
-                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '4px' }}>Original Status</label>
-                        <input
-                          type="text"
-                          readOnly
-                          value={hrOverrideForm.previousStatus}
-                          style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#991b1b', fontWeight: '700', fontSize: '13px' }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '4px' }}>Corrected Status</label>
-                        <select
-                          value={hrOverrideForm.newStatus}
-                          onChange={(e) => setHrOverrideForm({ ...hrOverrideForm, newStatus: e.target.value })}
-                          style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #0d9488', background: '#f0fdf4', color: '#166534', fontWeight: '700', fontSize: '13px' }}
-                        >
-                          <option value="ON_TIME">🟢 ON TIME</option>
-                          <option value="EXCUSED_LATE">🟡 EXCUSED LATE</option>
-                          <option value="ON_FIELD_DUTY">🌐 ON FIELD DUTY</option>
-                          <option value="PRESENT">✅ PRESENT (FULL DAY)</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div style={{ marginBottom: '12px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '4px' }}>HR Justification / Reason</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Client visit, traffic delay approved by HR"
-                        value={hrOverrideForm.reason}
-                        onChange={(e) => setHrOverrideForm({ ...hrOverrideForm, reason: e.target.value })}
-                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                      />
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
-                      <input
-                        type="checkbox"
-                        id="waivePenaltyCheck"
-                        checked={hrOverrideForm.waiveLatePenalty}
-                        onChange={(e) => setHrOverrideForm({ ...hrOverrideForm, waiveLatePenalty: e.target.checked })}
-                      />
-                      <label htmlFor="waivePenaltyCheck" style={{ fontSize: '13px', fontWeight: '600', color: '#334155', cursor: 'pointer' }}>
-                        Waive off Late Mark salary deduction penalty for this day
-                      </label>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                      <button
-                        type="button"
-                        style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#334155', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
-                        onClick={() => setShowHROverrideModal(false)}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#0369a1', color: '#ffffff', cursor: 'pointer', fontSize: '13px', fontWeight: '700' }}
-                      >
-                        Apply HR Override
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-
-            {/* MODAL 3: BULK ASSIGN SHIFT */}
-            {showBulkAssignModal && (
-              <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-                <div style={{ background: '#ffffff', borderRadius: '16px', width: '100%', maxWidth: '440px', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-                  <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: '0 0 12px 0' }}>
-                    👥 Bulk Assign Shift Roster
-                  </h3>
-
-                  <form onSubmit={(e) => {
-                    e.preventDefault();
-                    const updated = ShiftEngine.bulkAssignShift(selectedEmpIdsForBulk, bulkAssignShiftId);
-                    setWeeklyRoster(updated);
-                    setShowBulkAssignModal(false);
-                    showToast(`Assigned shift to ${selectedEmpIdsForBulk.length} employees!`, 'success');
-                  }}>
-                    <div style={{ marginBottom: '12px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '4px' }}>Target Shift Profile</label>
-                      <select
-                        value={bulkAssignShiftId}
-                        onChange={(e) => setBulkAssignShiftId(e.target.value)}
-                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                      >
-                        {shiftProfiles.map(p => (
-                          <option key={p.id} value={p.id}>{p.name} ({p.startTime} - {p.endTime})</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div style={{ marginBottom: '16px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '4px' }}>
-                        Selected Employees ({selectedEmpIdsForBulk.length})
-                      </label>
-                      <div style={{ maxHeight: '140px', overflowY: 'auto', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '8px' }}>
-                        {weeklyRoster.map(emp => (
-                          <label key={emp.empId} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', padding: '4px 0', borderBottom: '1px solid #f1f5f9' }}>
-                            <input
-                              type="checkbox"
-                              checked={selectedEmpIdsForBulk.includes(emp.empId)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedEmpIdsForBulk(prev => [...prev, emp.empId]);
-                                } else {
-                                  setSelectedEmpIdsForBulk(prev => prev.filter(id => id !== emp.empId));
-                                }
-                              }}
-                            />
-                            <span>{emp.empName} ({emp.department})</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                      <button
-                        type="button"
-                        style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#334155', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
-                        onClick={() => setShowBulkAssignModal(false)}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#15803d', color: '#ffffff', cursor: 'pointer', fontSize: '13px', fontWeight: '700' }}
-                      >
-                        Apply Bulk Shift
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* 21. OFFICE KIOSK MODE */}
-        {activeTab === 'office_kiosk' && (
-          <div className="payroll-page glass-panel payroll-panel">
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">🖥️ Office Kiosk Mode</h1>
-                <p className="page-header-subtitle">Office Kiosk Touchscreen Attendance Terminal</p>
-              </div>
-            </div>
-
-            <div style={{ padding: '0 var(--space-6) var(--space-6)', overflowY: 'auto', flexGrow: 1 }}>
-              <div style={{ background: 'var(--color-primary)', color: 'white', padding: 'var(--space-8)', borderRadius: 'var(--radius-lg)', textAlign: 'center', marginBottom: 'var(--space-6)', boxShadow: 'var(--shadow-lg)' }}>
-                <Clock size={48} style={{ marginBottom: 'var(--space-3)', opacity: 0.9 }} />
-                <h1 style={{ fontSize: '36px', fontWeight: '800', fontFamily: 'monospace', margin: 0 }}>{new Date().toLocaleTimeString()}</h1>
-                <p style={{ fontSize: 'var(--text-sm)', opacity: 0.8, marginTop: 'var(--space-1)', margin: 0 }}>Terminal Active</p>
-              </div>
-
-              <div className="simple-form-card" style={{ maxWidth: '460px', margin: '0 auto', textAlign: 'center' }}>
-                <h3 className="payroll-table-title" style={{ marginBottom: 'var(--space-2)' }}>Employee Quick Punch</h3>
-                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-5)' }}>Enter your 4-Digit Security PIN or Select Employee Name</p>
-
-                <select style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)', width: '100%', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-4)', background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}>
-                  <option value="">-- Choose Employee Name --</option>
-                  {employees.map(e => <option key={e.id} value={e.id}>{e.first_name} {e.last_name || ''} ({e.department})</option>)}
-                </select>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
-                  <button className="btn btn-success" style={{ padding: '14px', fontSize: 'var(--text-sm)', borderRadius: 'var(--radius-md)' }} onClick={() => alert('Punch IN registered successfully at office kiosk!')}>
-                    🟢 Punch IN
-                  </button>
-                  <button className="btn btn-danger" style={{ padding: '14px', fontSize: 'var(--text-sm)', borderRadius: 'var(--radius-md)' }} onClick={() => alert('Punch OUT registered successfully at office kiosk!')}>
-                    🔴 Punch OUT
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 22. VERIFY DOCUMENTS */}
+        {/* Verify Documents */}
         {activeTab === 'verify_documents' && (
-          <VerifyDocumentsWrapper
-            companyId={authUser?.companyId || 'default_tenant'}
-            kycDocuments={kycDocuments}
-            setKycDocuments={setKycDocuments}
-            employees={employees}
-            authUser={authUser}
-            systemDropdowns={systemDropdowns}
-            onOpenModuleConfig={(modId) => {
-              setPreselectedConfigModuleId(modId || 'verify_documents');
-              setActiveTab('module_configuration');
-            }}
-            onManageStages={() => {
-              setActiveTab('system_dropdowns');
-            }}
-            onOpenPositionModal={() => {
-              setActiveTab('recruitment_ats');
-            }}
-            recycleBinItems={recycleBinItems}
-            handleRestoreBinItem={handleRestoreBinItem}
-            handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
-            softDeleteRecord={softDeleteRecord}
-            showToast={showToast}
-          />
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Verify Documents...</div>}>
+            <VerifyDocsPage
+              companyId={authUser?.companyId || 'default'}
+              kycDocuments={kycDocuments}
+              setKycDocuments={setKycDocuments}
+              employees={employees}
+              authUser={authUser}
+              systemDropdowns={systemDropdowns}
+              recycleBinItems={recycleBinItems}
+              handleRestoreBinItem={handleRestoreBinItem}
+              handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+              softDeleteRecord={softDeleteRecord}
+              showToast={showToast}
+              onOpenModuleConfig={handleOpenModuleConfig}
+            />
+          </Suspense>
         )}
 
-        {/* 23. WORK HOURS & OVERTIME LOG */}
-        {activeTab === 'work_hours' && (
-          <div className="payroll-page glass-panel payroll-panel">
-            <div className="page-header">
-              <div className="page-header-left">
-                <h1 className="page-header-title">⏱️ Work Hours &amp; Overtime Audit Log</h1>
-                <p className="page-header-subtitle">Daily shift duration, break logs, and overtime hours.</p>
-              </div>
-            </div>
-
-            <div className="payroll-table-section">
-              <div className="payroll-table-card">
-                <div className="payroll-table-toolbar">
-                  <span className="payroll-table-title">Overtime &amp; Activity Log</span>
-                  <span className="payroll-table-hint">📅 Daily update register</span>
-                </div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="std-table">
-                    <thead>
-                      <tr>
-                        <th>Employee</th>
-                        <th>Shift Hours</th>
-                        <th>Break Time</th>
-                        <th>Overtime Hours</th>
-                        <th style={{ textAlign: 'right' }}>Total Worked</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {employees.map(emp => (
-                        <tr key={emp.id}>
-                          <td><span className="emp-name-main">{emp.first_name} {emp.last_name || ''}</span></td>
-                          <td>8.0 Hours</td>
-                          <td>45 Mins</td>
-                          <td><span className="badge-success" style={{ fontWeight: '700' }}>+1.5 Hours</span></td>
-                          <td style={{ textAlign: 'right', fontWeight: '700' }}>9.5 Hours</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* Offboarding Exit */}
+        {activeTab === 'offboarding' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Offboarding...</div>}>
+            <OffboardingPage
+              companyId={authUser?.companyId || 'default'}
+              offboardingCases={offboardingCases}
+              setOffboardingCases={setOffboardingCases}
+              employees={employees}
+              assets={assets}
+              authUser={authUser}
+              systemDropdowns={systemDropdowns}
+              recycleBinItems={recycleBinItems}
+              handleRestoreBinItem={handleRestoreBinItem}
+              handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+              softDeleteRecord={softDeleteRecord}
+              showToast={showToast}
+              onOpenModuleConfig={handleOpenModuleConfig}
+            />
+          </Suspense>
         )}
 
-        {/* ROLES & PERMISSIONS CONTROL MATRIX */}
-        {activeTab === 'roles_permissions' && (
-          <RolesPermissionsSection
-            authUser={authUser}
-            showToast={showToast}
-            openInputModal={openInputModal}
-          />
+        {/* Payroll & Salary */}
+        {activeTab === 'payroll' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Payroll...</div>}>
+            <PayrollPage
+              employees={employees}
+              attendanceLogs={attendanceLogs}
+              activeCurrency={activeCurrency}
+              showToast={showToast}
+              t={t}
+            />
+          </Suspense>
         )}
 
-        {/* 24.5 MODULE CONFIGURATION CENTER */}
-        {activeTab === 'module_configuration' && (
-          <div style={{ overflowY: 'auto', flexGrow: 1, padding: '16px' }}>
-            <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Module Configuration...</div>}>
-              <ModuleConfigCenter
-                companyId={authUser?.companyId || 'default_tenant'}
-                preselectedModuleId={preselectedConfigModuleId}
-                systemDropdowns={systemDropdowns}
-                atsCandidates={atsCandidates}
-                activePipelineStages={(systemDropdowns?.atsStages || []).filter(s => !s.archived)}
-                showToast={showToast}
-                onNavigateBack={() => setActiveTab('recruitment_ats')}
-              />
-            </Suspense>
-          </div>
+        {/* F&F Settlements */}
+        {activeTab === 'ff_settlements' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading F&F Settlements...</div>}>
+            <FFSettlementsPage
+              showToast={showToast}
+              activeCurrency={activeCurrency}
+            />
+          </Suspense>
         )}
 
-        {/* 25. SYSTEM DROPDOWNS CONFIG - 2-COLUMN MASTER LAYOUT */}
-        {activeTab === 'system_dropdowns' && (
-          <div style={{ overflowY: 'auto', flexGrow: 1 }} className="glass-panel system-dropdowns-container">
-              {/* Header Banner */}
-              <div className="page-header system-dropdowns-header-banner" style={{ marginBottom: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div className="sys-header-icon-box" style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg, rgba(13,148,136,0.15) 0%, rgba(15,118,110,0.25) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(13,148,136,0.2)', flexShrink: 0 }}>
-                      <Settings size={20} style={{ color: '#0d9488' }} />
-                    </div>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <h1 className="page-header-title" style={{ margin: 0, fontSize: '18px', fontWeight: '800' }}>System Dropdowns</h1>
-                        <span style={{ fontSize: '11px', fontWeight: '800', padding: '2px 8px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
-                          12 Categories Active
-                        </span>
-                      </div>
-                      <p className="page-header-subtitle sys-header-sub" style={{ margin: '2px 0 0 0', fontSize: '12px' }}>
-                        Configure global categories, job roles, leave types, CRM pipeline stages, contact tags, and expense types
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    className="btn btn-primary sys-header-save-btn"
-                    type="button"
-                    onClick={handleSaveMasterDropdowns}
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)', cursor: 'pointer', transition: 'all 0.2s ease' }}
-                  >
-                    Save All Changes
-                  </button>
-                </div>
-              </div>
-
-              {/* 2-Column Master Layout Grid */}
-              <div className="system-dropdowns-grid">
-
-              {/* LEFT COLUMN: Categories Navigation Panel (Desktop Only) */}
-              <div className="payroll-table-card system-dropdowns-left-panel" style={{ padding: 'var(--space-5)', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid var(--border-default)', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <h3 className="payroll-table-title" style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>Categories</h3>
-                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#0d9488', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 8px', borderRadius: '10px', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
-                    12 Total
-                  </span>
-                </div>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>
-                  Select a category to manage its options
-                </p>
-
-                {/* Quick Search Bar for Categories */}
-                <div style={{ marginBottom: '12px', position: 'relative' }}>
-                  <input
-                    type="text"
-                    placeholder="Search categories..."
-                    value={dropdownCategorySearch}
-                    onChange={e => setDropdownCategorySearch(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      fontSize: '12px',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      background: '#f8fafc',
-                      outline: 'none',
-                      boxSizing: 'border-box',
-                      color: '#0f172a',
-                      fontWeight: '600'
-                    }}
-                  />
-                  {dropdownCategorySearch && (
-                    <button
-                      type="button"
-                      onClick={() => setDropdownCategorySearch('')}
-                      style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', color: '#94a3b8', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
-                    >
-                      ✖
-                    </button>
-                  )}
-                </div>
-
-                {/* Category List with Smooth Custom Scrollbar */}
-                <div className="system-dropdowns-categories-list" style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '460px', overflowY: 'auto', paddingRight: '4px' }}>
-                  {[
-                    { id: 'departments', label: 'Departments', count: systemDropdowns.departments?.length || 0 },
-                    { id: 'designations', label: 'Designations', count: systemDropdowns.designations?.length || 0 },
-                    { id: 'ats_stages', label: 'Recruitment ATS Stages', count: (systemDropdowns.atsStages || []).length },
-                    { id: 'employment_types', label: 'Employment Types', count: 5 },
-                    { id: 'genders', label: 'Genders', count: 4 },
-                    { id: 'marital_statuses', label: 'Marital Statuses', count: 4 },
-                    { id: 'blood_groups', label: 'Blood Groups', count: 8 },
-                    { id: 'leave_categories', label: 'Leave Types', count: systemDropdowns.leaveCategories?.length || 0 },
-                    { id: 'crm_stages', label: 'CRM Pipeline Stages', count: 5 },
-                    { id: 'crm_tags', label: 'CRM Contact Tags', count: 6 },
-                    { id: 'expenses', label: 'Expense Categories', count: systemDropdowns.expenseCategories?.length || 0 },
-                    { id: 'priorities', label: 'Task Priority Levels', count: systemDropdowns.taskPriorities?.length || 0 },
-                    { id: 'custom_engine', label: 'Custom Categories Engine', count: (systemDropdowns.customCategories || []).length }
-                  ]
-                  .filter(cat => cat.label.toLowerCase().includes(dropdownCategorySearch.toLowerCase().trim()))
-                  .map(cat => {
-                    const isSelected = selectedDropdownCategory === cat.id;
-                    return (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => setSelectedDropdownCategory(cat.id)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '10px 14px',
-                          borderRadius: '10px',
-                          fontSize: '13px',
-                          fontWeight: isSelected ? '700' : '500',
-                          textAlign: 'left',
-                          border: isSelected ? '1px solid rgba(13,148,136,0.35)' : '1px solid transparent',
-                          background: isSelected ? 'rgba(13,148,136,0.08)' : 'transparent',
-                          color: isSelected ? '#0d9488' : '#334155',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                          boxShadow: isSelected ? '0 2px 6px rgba(13,148,136,0.12)' : 'none'
-                        }}
-                      >
-                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cat.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* RIGHT COLUMN: Selected Category Workspace */}
-              <div className="payroll-table-card system-dropdowns-right-panel" style={{ padding: 'var(--space-6)', minHeight: '520px', maxHeight: '620px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid var(--border-default)', display: 'flex', flexDirection: 'column', background: 'white', overflow: 'hidden' }}>
-
-                {/* 1. DEPARTMENTS */}
-                {selectedDropdownCategory === 'departments' && (() => {
-                  const defaultList = ['Sales', 'Engineering', 'Human Resources', 'Operations', 'Finance & Payroll', 'Customer Support'].map(n => ({ name: n, archived: false }));
-                  const currentItems = (systemDropdowns.departments && systemDropdowns.departments.length > 0)
-                    ? systemDropdowns.departments.map(item => typeof item === 'object' && item !== null ? item : { name: item, archived: false })
-                    : defaultList;
-
-                  const displayItems = [...currentItems];
-                  if (dropdownSortConfig.key === 'title') {
-                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
-                  } else if (dropdownSortConfig.key === 'status') {
-                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? Number(a.archived) - Number(b.archived) : Number(b.archived) - Number(a.archived));
-                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
-                    displayItems.reverse();
-                  }
-
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div style={{ flex: 1, minWidth: '180px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Departments Options</h3>
-                          </div>
-                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
-                            <select
-                              value={selectedDropdownCategory}
-                              onChange={e => setSelectedDropdownCategory(e.target.value)}
-                              style={{
-                                width: '100%',
-                                padding: '8px 10px',
-                                borderRadius: '8px',
-                                border: '1.5px solid #0d9488',
-                                background: '#f0fdf4',
-                                color: '#0f172a',
-                                fontWeight: '800',
-                                fontSize: '13px',
-                                outline: 'none',
-                                cursor: 'pointer',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                              }}
-                            >
-                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
-                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
-                              <option value="ats_stages">Recruitment ATS Stages ({(systemDropdowns.atsStages || []).length})</option>
-                              <option value="employment_types">Employment Types (5)</option>
-                              <option value="genders">Genders (4)</option>
-                              <option value="marital_statuses">Marital Statuses (4)</option>
-                              <option value="blood_groups">Blood Groups (8)</option>
-                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
-                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
-                              <option value="crm_tags">CRM Contact Tags (6)</option>
-                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
-                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
-                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
-                            </select>
-                          </div>
-                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage functional departments across the company</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            openInputModal({
-                              title: 'Add New Department',
-                              subtitle: 'Enter functional department name for staff',
-                              placeholder: 'e.g. Marketing & Sales',
-                              onSave: (val) => {
-                                const trimmed = val.trim();
-                                const exists = currentItems.some(d => d.name === trimmed);
-                                if (!exists) {
-                                  const updated = [...currentItems, { name: trimmed, archived: false }];
-                                  setSystemDropdowns(prev => ({ ...prev, departments: updated }));
-                                  showToast(`Added Department "${trimmed}"`, 'success');
-                                } else {
-                                  showToast(`Department "${trimmed}" already exists`, 'info');
-                                }
-                              }
-                            });
-                          }}
-                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                        >
-                          + Add Option
-                        </button>
-                      </div>
-
-                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
-                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
-                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                            <tr>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                DEPARTMENT TITLE <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
-                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {displayItems.length === 0 ? (
-                              <tr>
-                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
-                                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Departments Configured</div>
-                                  <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create your first department.</div>
-                                </td>
-                              </tr>
-                            ) : (
-                              displayItems.map((item, idx) => {
-                                const realIdx = currentItems.findIndex(orig => orig.name === item.name);
-                                return (
-                                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
-                                    <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                    <td style={{ padding: '12px 14px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
-                                    <td style={{ padding: '12px 14px' }}>
-                                      <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                        {item.archived ? 'Archived' : 'Active'}
-                                      </span>
-                                    </td>
-                                    <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            openInputModal({ title: 'Rename Department', subtitle: `Update department name for "${item.name}"`, defaultValue: item.name, placeholder: 'Department name', onSave: (val) => { const updated = [...currentItems]; updated[realIdx] = { name: val.trim(), archived: item.archived }; setSystemDropdowns(prev => ({ ...prev, departments: updated })); showToast(`Updated to "${val.trim()}"`, 'success'); } });
-                                            if (typeof newName !== 'undefined' && newName) {
-                                              const updated = [...currentItems];
-                                              updated[realIdx] = { name: newName.trim(), archived: item.archived };
-                                              setSystemDropdowns(prev => ({ ...prev, departments: updated }));
-                                              showToast(`Updated to "${newName.trim()}"`, 'success');
-                                            }
-                                          }}
-                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                        >
-                                          Edit
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const updated = [...currentItems];
-                                            updated[realIdx] = { name: item.name, archived: !item.archived };
-                                            setSystemDropdowns(prev => ({ ...prev, departments: updated }));
-                                            showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
-                                          }}
-                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                        >
-                                          {item.archived ? 'Restore' : 'Archive'}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            softDeleteRecord({
-                                              originalId: `dropdown_dept_${item.name}`,
-                                              name: `Department Option: "${item.name}"`,
-                                              category: 'System Dropdown',
-                                              entityData: { category: 'departments', title: item.name },
-                                              links: 'System Dropdown Master'
-                                            });
-                                            const updated = currentItems.filter((_, i) => i !== realIdx);
-                                            setSystemDropdowns(prev => ({ ...prev, departments: updated }));
-                                            showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
-                                          }}
-                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                        >
-                                          Delete
-                                        </button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* 1.5. RECRUITMENT ATS STAGES */}
-                {selectedDropdownCategory === 'ats_stages' && (() => {
-                  const defaultList = [
-                    { id: 'applied', key: 'APPLIED', name: 'Applied', emoji: '📥', color: '#0d9488', semanticType: 'APPLIED', archived: false, sortOrder: 1 },
-                    { id: 'interviewing', key: 'INTERVIEWING', name: 'Interviewing', emoji: '🗣️', color: '#2563eb', semanticType: 'INTERVIEW', archived: false, sortOrder: 2 },
-                    { id: 'offered', key: 'OFFERED', name: 'Offered', emoji: '📋', color: '#d97706', semanticType: 'OFFER', archived: false, sortOrder: 3 },
-                    { id: 'hired', key: 'HIRED', name: 'Hired', emoji: '✅', color: '#059669', semanticType: 'HIRED', archived: false, sortOrder: 4 }
-                  ];
-
-                  const currentItems = (systemDropdowns.atsStages && systemDropdowns.atsStages.length > 0)
-                    ? systemDropdowns.atsStages
-                    : defaultList;
-
-                  const displayItems = [...currentItems];
-                  if (dropdownSortConfig.key === 'title') {
-                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
-                  } else if (dropdownSortConfig.key === 'status') {
-                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? Number(a.archived) - Number(b.archived) : Number(b.archived) - Number(a.archived));
-                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
-                    displayItems.reverse();
-                  }
-
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div style={{ flex: 1, minWidth: '180px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Recruitment ATS Stages</h3>
-                          </div>
-                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage hiring pipeline stages, Kanban columns, and candidate lifecycle steps</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            openInputModal({
-                              title: 'Add New ATS Stage',
-                              subtitle: 'Enter recruitment pipeline stage name (e.g. Technical Round)',
-                              placeholder: 'e.g. Technical Assessment',
-                              onSave: (val) => {
-                                const trimmed = val.trim();
-                                const exists = currentItems.some(d => d.name.toLowerCase() === trimmed.toLowerCase());
-                                if (!exists) {
-                                  const newStageObj = {
-                                    id: 'stage_' + Date.now(),
-                                    key: String(trimmed || '').toUpperCase().replace(/\s+/g, '_'),
-                                    name: trimmed,
-                                    emoji: '📋',
-                                    color: '#0d9488',
-                                    semanticType: 'CUSTOM',
-                                    archived: false,
-                                    sortOrder: currentItems.length + 1
-                                  };
-                                  const updated = [...currentItems, newStageObj];
-                                  setSystemDropdowns(prev => ({ ...prev, atsStages: updated }));
-                                  showToast(`Added ATS Stage "${trimmed}"`, 'success');
-                                } else {
-                                  showToast(`Stage "${trimmed}" already exists`, 'info');
-                                }
-                              }
-                            });
-                          }}
-                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                        >
-                          + Add Option
-                        </button>
-                      </div>
-
-                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
-                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
-                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                            <tr>
-                              <th style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>#</th>
-                              <th style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>STAGE NAME</th>
-                              <th style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>STATUS</th>
-                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>ACTIONS</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {displayItems.map((item, idx) => {
-                              const realIdx = currentItems.findIndex(orig => orig.id === item.id || orig.name === item.name);
-                              return (
-                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
-                                  <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                  <td style={{ padding: '12px 14px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>
-                                    {item.emoji || '📋'} {item.name}
-                                  </td>
-                                  <td style={{ padding: '12px 14px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                      {item.archived ? 'Archived' : 'Active'}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                      <button
-                                        type="button"
-                                        disabled={realIdx === 0}
-                                        onClick={() => {
-                                          if (realIdx > 0) {
-                                            const updated = [...currentItems];
-                                            const temp = updated[realIdx - 1];
-                                            updated[realIdx - 1] = updated[realIdx];
-                                            updated[realIdx] = temp;
-                                            setSystemDropdowns(prev => ({ ...prev, atsStages: updated }));
-                                          }
-                                        }}
-                                        style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', cursor: realIdx === 0 ? 'not-allowed' : 'pointer', opacity: realIdx === 0 ? 0.4 : 1 }}
-                                        title="Move Stage Up"
-                                      >
-                                        ▲
-                                      </button>
-                                      <button
-                                        type="button"
-                                        disabled={realIdx === currentItems.length - 1}
-                                        onClick={() => {
-                                          if (realIdx < currentItems.length - 1) {
-                                            const updated = [...currentItems];
-                                            const temp = updated[realIdx + 1];
-                                            updated[realIdx + 1] = updated[realIdx];
-                                            updated[realIdx] = temp;
-                                            setSystemDropdowns(prev => ({ ...prev, atsStages: updated }));
-                                          }
-                                        }}
-                                        style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', cursor: realIdx === currentItems.length - 1 ? 'not-allowed' : 'pointer', opacity: realIdx === currentItems.length - 1 ? 0.4 : 1 }}
-                                        title="Move Stage Down"
-                                      >
-                                        ▼
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          openInputModal({
-                                            title: 'Rename ATS Stage',
-                                            subtitle: `Update stage title for "${item.name}"`,
-                                            defaultValue: item.name,
-                                            placeholder: 'Stage name',
-                                            onSave: (val) => {
-                                              const updated = [...currentItems];
-                                              updated[realIdx] = { ...item, name: val.trim() };
-                                              setSystemDropdowns(prev => ({ ...prev, atsStages: updated }));
-                                              showToast(`Updated stage to "${val.trim()}"`, 'success');
-                                            }
-                                          });
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                      >
-                                        Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          if (!item.archived) {
-                                            const occupiedCount = (atsCandidates || []).filter(c => {
-                                              const st = String(c.status || '').toLowerCase();
-                                              return st === item.name.toLowerCase() || st === (item.id || '').toLowerCase() || st === (item.key || '').toLowerCase();
-                                            }).length;
-
-                                            if (occupiedCount > 0) {
-                                              alert(`Cannot archive stage "${item.name}" because it contains ${occupiedCount} active candidate(s). Please reassign candidates before archiving.`);
-                                              return;
-                                            }
-                                          }
-
-                                          const updated = [...currentItems];
-                                          updated[realIdx] = { ...item, archived: !item.archived };
-                                          setSystemDropdowns(prev => ({ ...prev, atsStages: updated }));
-                                          showToast(item.archived ? `Restored Stage "${item.name}"` : `Archived Stage "${item.name}"`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                      >
-                                        {item.archived ? 'Restore' : 'Archive'}
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* 2. DESIGNATIONS */}
-                {selectedDropdownCategory === 'designations' && (() => {
-                  const defaultList = ['Software Engineer', 'Sales Representative', 'HR Specialist', 'Field Agent', 'Accountant', 'Team Lead'].map(n => ({ name: n, archived: false }));
-                  const currentItems = (systemDropdowns.designations && systemDropdowns.designations.length > 0)
-                    ? systemDropdowns.designations.map(item => typeof item === 'object' && item !== null ? item : { name: item, archived: false })
-                    : defaultList;
-
-                  const displayItems = [...currentItems];
-                  if (dropdownSortConfig.key === 'title') {
-                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
-                  } else if (dropdownSortConfig.key === 'status') {
-                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? Number(a.archived) - Number(b.archived) : Number(b.archived) - Number(a.archived));
-                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
-                    displayItems.reverse();
-                  }
-
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div style={{ flex: 1, minWidth: '180px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Designations Options</h3>
-                          </div>
-                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
-                            <select
-                              value={selectedDropdownCategory}
-                              onChange={e => setSelectedDropdownCategory(e.target.value)}
-                              style={{
-                                width: '100%',
-                                padding: '8px 10px',
-                                borderRadius: '8px',
-                                border: '1.5px solid #0d9488',
-                                background: '#f0fdf4',
-                                color: '#0f172a',
-                                fontWeight: '800',
-                                fontSize: '13px',
-                                outline: 'none',
-                                cursor: 'pointer',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                              }}
-                            >
-                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
-                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
-                              <option value="employment_types">Employment Types (5)</option>
-                              <option value="genders">Genders (4)</option>
-                              <option value="marital_statuses">Marital Statuses (4)</option>
-                              <option value="blood_groups">Blood Groups (8)</option>
-                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
-                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
-                              <option value="crm_tags">CRM Contact Tags (6)</option>
-                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
-                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
-                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
-                            </select>
-                          </div>
-                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage job roles & designation titles across all teams</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            openInputModal({
-                              title: 'Add New Designation',
-                              subtitle: 'Enter job title / role designation across teams',
-                              placeholder: 'e.g. Senior Tech Lead',
-                              onSave: (val) => {
-                                const trimmed = val.trim();
-                                const exists = currentItems.some(d => d.name === trimmed);
-                                if (!exists) {
-                                  const updated = [...currentItems, { name: trimmed, archived: false }];
-                                  setSystemDropdowns(prev => ({ ...prev, designations: updated }));
-                                  showToast(`Added Designation "${trimmed}"`, 'success');
-                                } else {
-                                  showToast(`Designation "${trimmed}" already exists`, 'info');
-                                }
-                              }
-                            });
-                          }}
-                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                        >
-                          + Add Option
-                        </button>
-                      </div>
-
-                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
-                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
-                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                            <tr>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                ROLE / DESIGNATION TITLE <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
-                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {displayItems.length === 0 ? (
-                              <tr>
-                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
-                                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Designations Configured</div>
-                                  <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create your first designation.</div>
-                                </td>
-                              </tr>
-                            ) : (
-                              displayItems.map((item, idx) => {
-                                const realIdx = currentItems.findIndex(orig => orig.name === item.name);
-                                return (
-                                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
-                                    <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                    <td style={{ padding: '12px 14px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
-                                    <td style={{ padding: '12px 14px' }}>
-                                      <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                        {item.archived ? 'Archived' : 'Active'}
-                                      </span>
-                                    </td>
-                                    <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            openInputModal({ title: 'Rename Designation', subtitle: `Update designation title for "${item.name}"`, defaultValue: item.name, placeholder: 'Designation title', onSave: (newName) => { const updated = [...currentItems]; updated[realIdx] = { name: newName.trim(), archived: item.archived }; setSystemDropdowns(prev => ({ ...prev, designations: updated })); showToast(`Updated to "${newName.trim()}"`, 'success'); } }); return;
-                                            if (typeof newName !== 'undefined' && newName) {
-                                              const updated = [...currentItems];
-                                              updated[realIdx] = { name: newName.trim(), archived: item.archived };
-                                              setSystemDropdowns(prev => ({ ...prev, designations: updated }));
-                                              showToast(`Updated to "${newName.trim()}"`, 'success');
-                                            }
-                                          }}
-                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                        >
-                                          Edit
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const updated = [...currentItems];
-                                            updated[realIdx] = { name: item.name, archived: !item.archived };
-                                            setSystemDropdowns(prev => ({ ...prev, designations: updated }));
-                                            showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
-                                          }}
-                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                        >
-                                          {item.archived ? 'Restore' : 'Archive'}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            softDeleteRecord({
-                                              originalId: `dropdown_desig_${item.name}`,
-                                              name: `Designation Option: "${item.name}"`,
-                                              category: 'System Dropdown',
-                                              entityData: { category: 'designations', title: item.name },
-                                              links: 'System Dropdown Master'
-                                            });
-                                            const updated = currentItems.filter((_, i) => i !== realIdx);
-                                            setSystemDropdowns(prev => ({ ...prev, designations: updated }));
-                                            showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
-                                          }}
-                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                        >
-                                          Delete
-                                        </button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* 3. EMPLOYMENT TYPES */}
-                {selectedDropdownCategory === 'employment_types' && (() => {
-                  const defaultList = ['Full-Time Permanent', 'Part-Time Employee', 'Contractor / Freelancer', 'Trainee / Intern', 'Probationary Employee'].map(n => ({ name: n, archived: false }));
-                  const currentItems = (systemDropdowns.employmentTypes && systemDropdowns.employmentTypes.length > 0)
-                    ? systemDropdowns.employmentTypes.map(item => typeof item === 'object' && item !== null ? item : { name: item, archived: false })
-                    : defaultList;
-
-                  const displayItems = [...currentItems];
-                  if (dropdownSortConfig.key === 'title') {
-                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
-                  } else if (dropdownSortConfig.key === 'status') {
-                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? Number(a.archived) - Number(b.archived) : Number(b.archived) - Number(a.archived));
-                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
-                    displayItems.reverse();
-                  }
-
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div style={{ flex: 1, minWidth: '180px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Employment Types Options</h3>
-                          </div>
-                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
-                            <select
-                              value={selectedDropdownCategory}
-                              onChange={e => setSelectedDropdownCategory(e.target.value)}
-                              style={{
-                                width: '100%',
-                                padding: '8px 10px',
-                                borderRadius: '8px',
-                                border: '1.5px solid #0d9488',
-                                background: '#f0fdf4',
-                                color: '#0f172a',
-                                fontWeight: '800',
-                                fontSize: '13px',
-                                outline: 'none',
-                                cursor: 'pointer',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                              }}
-                            >
-                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
-                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
-                              <option value="employment_types">Employment Types (5)</option>
-                              <option value="genders">Genders (4)</option>
-                              <option value="marital_statuses">Marital Statuses (4)</option>
-                              <option value="blood_groups">Blood Groups (8)</option>
-                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
-                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
-                              <option value="crm_tags">CRM Contact Tags (6)</option>
-                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
-                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
-                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
-                            </select>
-                          </div>
-                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage functional employment types across the organization</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            openInputModal({
-                              title: 'Add Employment Type',
-                              subtitle: 'Enter functional employment classification',
-                              placeholder: 'e.g. Contractual / Intern',
-                              onSave: (val) => {
-                                const trimmed = val.trim();
-                                const exists = currentItems.some(d => d.name === trimmed);
-                                if (!exists) {
-                                  const updated = [...currentItems, { name: trimmed, archived: false }];
-                                  setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
-                                  showToast(`Added Employment Type "${trimmed}"`, 'success');
-                                } else {
-                                  showToast(`Employment Type "${trimmed}" already exists`, 'info');
-                                }
-                              }
-                            });
-                          }}
-                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                        >
-                          + Add Option
-                        </button>
-                      </div>
-
-                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
-                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
-                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                            <tr>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                EMPLOYMENT TYPE LABEL <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
-                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {displayItems.length === 0 ? (
-                              <tr>
-                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
-                                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Employment Types Configured</div>
-                                  <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create your first employment type.</div>
-                                </td>
-                              </tr>
-                            ) : (
-                              displayItems.map((item, idx) => {
-                                const realIdx = currentItems.findIndex(orig => orig.name === item.name);
-                                return (
-                                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
-                                    <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                    <td style={{ padding: '12px 14px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
-                                    <td style={{ padding: '12px 14px' }}>
-                                      <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                        {item.archived ? 'Archived' : 'Active'}
-                                      </span>
-                                    </td>
-                                    <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            openInputModal({ title: 'Rename Employment Type', subtitle: `Update employment type for "${item.name}"`, defaultValue: item.name, placeholder: 'Employment type name', onSave: (newName) => { const updated = [...currentItems]; updated[realIdx] = { name: newName.trim(), archived: item.archived }; setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated })); showToast(`Updated to "${newName.trim()}"`, 'success'); } }); return;
-                                            if (typeof newName !== 'undefined' && newName) {
-                                              const updated = [...currentItems];
-                                              updated[realIdx] = { name: newName.trim(), archived: item.archived };
-                                              setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
-                                              showToast(`Updated to "${newName.trim()}"`, 'success');
-                                            }
-                                          }}
-                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                        >
-                                          Edit
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const updated = [...currentItems];
-                                            updated[realIdx] = { name: item.name, archived: !item.archived };
-                                            setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
-                                            showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
-                                          }}
-                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                        >
-                                          {item.archived ? 'Restore' : 'Archive'}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            softDeleteRecord({
-                                              originalId: `dropdown_emptype_${item.name}`,
-                                              name: `Employment Type Option: "${item.name}"`,
-                                              category: 'System Dropdown',
-                                              entityData: { category: 'employmentTypes', title: item.name },
-                                              links: 'System Dropdown Master'
-                                            });
-                                            const updated = currentItems.filter((_, i) => i !== realIdx);
-                                            setSystemDropdowns(prev => ({ ...prev, employmentTypes: updated }));
-                                            showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
-                                          }}
-                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                        >
-                                          Delete
-                                        </button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* 4. GENDERS */}
-                {selectedDropdownCategory === 'genders' && (() => {
-                  const defaultList = ['Male', 'Female', 'Non-Binary', 'Other / Prefer not to say'].map(n => ({ name: n, archived: false }));
-                  const currentItems = (systemDropdowns.genders && systemDropdowns.genders.length > 0)
-                    ? systemDropdowns.genders.map(item => typeof item === 'object' && item !== null ? item : { name: item, archived: false })
-                    : defaultList;
-
-                  const displayItems = [...currentItems];
-                  if (dropdownSortConfig.key === 'title') {
-                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
-                  } else if (dropdownSortConfig.key === 'status') {
-                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? Number(a.archived) - Number(b.archived) : Number(b.archived) - Number(a.archived));
-                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
-                    displayItems.reverse();
-                  }
-
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div style={{ flex: 1, minWidth: '180px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Genders Options</h3>
-                          </div>
-                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
-                            <select
-                              value={selectedDropdownCategory}
-                              onChange={e => setSelectedDropdownCategory(e.target.value)}
-                              style={{
-                                width: '100%',
-                                padding: '8px 10px',
-                                borderRadius: '8px',
-                                border: '1.5px solid #0d9488',
-                                background: '#f0fdf4',
-                                color: '#0f172a',
-                                fontWeight: '800',
-                                fontSize: '13px',
-                                outline: 'none',
-                                cursor: 'pointer',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                              }}
-                            >
-                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
-                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
-                              <option value="employment_types">Employment Types (5)</option>
-                              <option value="genders">Genders (4)</option>
-                              <option value="marital_statuses">Marital Statuses (4)</option>
-                              <option value="blood_groups">Blood Groups (8)</option>
-                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
-                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
-                              <option value="crm_tags">CRM Contact Tags (6)</option>
-                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
-                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
-                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
-                            </select>
-                          </div>
-                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage gender category options</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            openInputModal({ title: 'Add Gender Option', subtitle: 'Enter gender identity option', placeholder: 'e.g. Non-Binary', onSave: (val) => { const trimmed = val.trim(); const exists = currentItems.some(d => d.name === trimmed); if (!exists) { const updated = [...currentItems, { name: trimmed, archived: false }]; setSystemDropdowns(prev => ({ ...prev, genders: updated })); showToast(`Added Gender Option "${trimmed}"`, 'success'); } else { showToast(`Already exists`, 'info'); } } });
-                          }}
-                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                        >
-                          + Add Option
-                        </button>
-                      </div>
-
-                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
-                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
-                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                            <tr>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                GENDER LABEL <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
-                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {displayItems.length === 0 ? (
-                              <tr>
-                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
-                                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Gender Options Configured</div>
-                                  <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create a gender option.</div>
-                                </td>
-                              </tr>
-                            ) : (
-                              displayItems.map((item, idx) => {
-                                const realIdx = currentItems.findIndex(orig => orig.name === item.name);
-                                return (
-                                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
-                                    <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                    <td style={{ padding: '12px 14px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
-                                    <td style={{ padding: '12px 14px' }}>
-                                      <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                        {item.archived ? 'Archived' : 'Active'}
-                                      </span>
-                                    </td>
-                                    <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            openInputModal({ title: 'Rename Gender Option', subtitle: `Update name for "${item.name}"`, defaultValue: item.name, placeholder: 'Gender option name', onSave: (newName) => { const updated = [...currentItems]; updated[realIdx] = { name: newName.trim(), archived: item.archived }; setSystemDropdowns(prev => ({ ...prev, genders: updated })); showToast(`Updated to "${newName.trim()}"`, 'success'); } }); return;
-                                            if (typeof newName !== 'undefined' && newName) {
-                                              const updated = [...currentItems];
-                                              updated[realIdx] = { name: newName.trim(), archived: item.archived };
-                                              setSystemDropdowns(prev => ({ ...prev, genders: updated }));
-                                              showToast(`Updated to "${newName.trim()}"`, 'success');
-                                            }
-                                          }}
-                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                        >
-                                          Edit
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const updated = [...currentItems];
-                                            updated[realIdx] = { name: item.name, archived: !item.archived };
-                                            setSystemDropdowns(prev => ({ ...prev, genders: updated }));
-                                            showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
-                                          }}
-                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                        >
-                                          {item.archived ? 'Restore' : 'Archive'}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            softDeleteRecord({
-                                              originalId: `dropdown_gender_${item.name}`,
-                                              name: `Gender Option: "${item.name}"`,
-                                              category: 'System Dropdown',
-                                              entityData: { category: 'genders', title: item.name },
-                                              links: 'System Dropdown Master'
-                                            });
-                                            const updated = currentItems.filter((_, i) => i !== realIdx);
-                                            setSystemDropdowns(prev => ({ ...prev, genders: updated }));
-                                            showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
-                                          }}
-                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                        >
-                                          Delete
-                                        </button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* 5. MARITAL STATUSES */}
-                {selectedDropdownCategory === 'marital_statuses' && (() => {
-                  const defaultList = ['Single', 'Married', 'Divorced', 'Widowed'].map(n => ({ name: n, archived: false }));
-                  const currentItems = (systemDropdowns.maritalStatuses && systemDropdowns.maritalStatuses.length > 0)
-                    ? systemDropdowns.maritalStatuses.map(item => typeof item === 'object' && item !== null ? item : { name: item, archived: false })
-                    : defaultList;
-
-                  const displayItems = [...currentItems];
-                  if (dropdownSortConfig.key === 'title') {
-                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
-                  } else if (dropdownSortConfig.key === 'status') {
-                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? Number(a.archived) - Number(b.archived) : Number(b.archived) - Number(a.archived));
-                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
-                    displayItems.reverse();
-                  }
-
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div style={{ flex: 1, minWidth: '180px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Marital Statuses Options</h3>
-                          </div>
-                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
-                            <select
-                              value={selectedDropdownCategory}
-                              onChange={e => setSelectedDropdownCategory(e.target.value)}
-                              style={{
-                                width: '100%',
-                                padding: '8px 10px',
-                                borderRadius: '8px',
-                                border: '1.5px solid #0d9488',
-                                background: '#f0fdf4',
-                                color: '#0f172a',
-                                fontWeight: '800',
-                                fontSize: '13px',
-                                outline: 'none',
-                                cursor: 'pointer',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                              }}
-                            >
-                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
-                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
-                              <option value="employment_types">Employment Types (5)</option>
-                              <option value="genders">Genders (4)</option>
-                              <option value="marital_statuses">Marital Statuses (4)</option>
-                              <option value="blood_groups">Blood Groups (8)</option>
-                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
-                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
-                              <option value="crm_tags">CRM Contact Tags (6)</option>
-                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
-                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
-                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
-                            </select>
-                          </div>
-                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage marital status options</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            openInputModal({ title: 'Add Marital Status', subtitle: 'Enter marital status option', placeholder: 'e.g. Widowed', onSave: (val) => { const trimmed = val.trim(); const exists = currentItems.some(d => d.name === trimmed); if (!exists) { const updated = [...currentItems, { name: trimmed, archived: false }]; setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated })); showToast(`Added Marital Status "${trimmed}"`, 'success'); } else { showToast(`Already exists`, 'info'); } } });
-                          }}
-                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                        >
-                          + Add Option
-                        </button>
-                      </div>
-
-                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
-                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
-                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                            <tr>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                MARITAL STATUS LABEL <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
-                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {displayItems.length === 0 ? (
-                              <tr>
-                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
-                                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Marital Status Options Configured</div>
-                                  <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create a marital status option.</div>
-                                </td>
-                              </tr>
-                            ) : (
-                              displayItems.map((item, idx) => {
-                                const realIdx = currentItems.findIndex(orig => orig.name === item.name);
-                                return (
-                                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
-                                    <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                    <td style={{ padding: '12px 14px', fontWeight: '700', color: item.archived ? '#94a3b8' : '#0f2b26', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
-                                    <td style={{ padding: '12px 14px' }}>
-                                      <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                        {item.archived ? 'Archived' : 'Active'}
-                                      </span>
-                                    </td>
-                                    <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            openInputModal({ title: 'Rename Marital Status', subtitle: `Update name for "${item.name}"`, defaultValue: item.name, placeholder: 'Marital status name', onSave: (newName) => { const updated = [...currentItems]; updated[realIdx] = { name: newName.trim(), archived: item.archived }; setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated })); showToast(`Updated to "${newName.trim()}"`, 'success'); } }); return;
-                                            if (typeof newName !== 'undefined' && newName) {
-                                              const updated = [...currentItems];
-                                              updated[realIdx] = { name: newName.trim(), archived: item.archived };
-                                              setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated }));
-                                              showToast(`Updated to "${newName.trim()}"`, 'success');
-                                            }
-                                          }}
-                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                        >
-                                          Edit
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const updated = [...currentItems];
-                                            updated[realIdx] = { name: item.name, archived: !item.archived };
-                                            setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated }));
-                                            showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
-                                          }}
-                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                        >
-                                          {item.archived ? 'Restore' : 'Archive'}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            softDeleteRecord({
-                                              originalId: `dropdown_marital_${item.name}`,
-                                              name: `Marital Status Option: "${item.name}"`,
-                                              category: 'System Dropdown',
-                                              entityData: { category: 'maritalStatuses', title: item.name },
-                                              links: 'System Dropdown Master'
-                                            });
-                                            const updated = currentItems.filter((_, i) => i !== realIdx);
-                                            setSystemDropdowns(prev => ({ ...prev, maritalStatuses: updated }));
-                                            showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
-                                          }}
-                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                        >
-                                          Delete
-                                        </button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* 6. BLOOD GROUPS */}
-                {selectedDropdownCategory === 'blood_groups' && (() => {
-                  const defaultList = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(n => ({ name: n, archived: false }));
-                  const currentItems = (systemDropdowns.bloodGroups && systemDropdowns.bloodGroups.length > 0)
-                    ? systemDropdowns.bloodGroups.map(item => typeof item === 'object' && item !== null ? item : { name: item, archived: false })
-                    : defaultList;
-
-                  const displayItems = [...currentItems];
-                  if (dropdownSortConfig.key === 'title') {
-                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
-                  } else if (dropdownSortConfig.key === 'status') {
-                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? Number(a.archived) - Number(b.archived) : Number(b.archived) - Number(a.archived));
-                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
-                    displayItems.reverse();
-                  }
-
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div style={{ flex: 1, minWidth: '180px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Blood Groups Options</h3>
-                          </div>
-                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
-                            <select
-                              value={selectedDropdownCategory}
-                              onChange={e => setSelectedDropdownCategory(e.target.value)}
-                              style={{
-                                width: '100%',
-                                padding: '8px 10px',
-                                borderRadius: '8px',
-                                border: '1.5px solid #0d9488',
-                                background: '#f0fdf4',
-                                color: '#0f172a',
-                                fontWeight: '800',
-                                fontSize: '13px',
-                                outline: 'none',
-                                cursor: 'pointer',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                              }}
-                            >
-                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
-                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
-                              <option value="employment_types">Employment Types (5)</option>
-                              <option value="genders">Genders (4)</option>
-                              <option value="marital_statuses">Marital Statuses (4)</option>
-                              <option value="blood_groups">Blood Groups (8)</option>
-                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
-                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
-                              <option value="crm_tags">CRM Contact Tags (6)</option>
-                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
-                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
-                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
-                            </select>
-                          </div>
-                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage blood group category options</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            openInputModal({ title: 'Add Blood Group', subtitle: 'Enter blood group type (e.g. AB+)', placeholder: 'e.g. AB-', onSave: (val) => { const trimmed = val.trim(); const exists = currentItems.some(d => d.name === trimmed); if (!exists) { const updated = [...currentItems, { name: trimmed, archived: false }]; setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated })); showToast(`Added Blood Group "${trimmed}"`, 'success'); } else { showToast(`Already exists`, 'info'); } } });
-                          }}
-                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                        >
-                          + Add Option
-                        </button>
-                      </div>
-
-                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
-                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
-                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                            <tr>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                BLOOD GROUP LABEL <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
-                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {displayItems.length === 0 ? (
-                              <tr>
-                                <td colSpan="4" style={{ padding: '48px 24px', textAlign: 'center', background: '#f8fafc' }}>
-                                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No Blood Group Options Configured</div>
-                                  <div style={{ fontSize: '12px', color: '#64748b' }}>Click "+ Add Option" above to create a blood group option.</div>
-                                </td>
-                              </tr>
-                            ) : (
-                              displayItems.map((item, idx) => {
-                                const realIdx = currentItems.findIndex(orig => orig.name === item.name);
-                                return (
-                                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: item.archived ? '#f8fafc' : 'white' }}>
-                                    <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                    <td style={{ padding: '12px 14px', fontWeight: '800', color: item.archived ? '#94a3b8' : '#0d9488', textDecoration: item.archived ? 'line-through' : 'none' }}>{item.name}</td>
-                                    <td style={{ padding: '12px 14px' }}>
-                                      <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: item.archived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: item.archived ? '#64748b' : '#0d9488', border: item.archived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                        {item.archived ? 'Archived' : 'Active'}
-                                      </span>
-                                    </td>
-                                    <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            openInputModal({ title: 'Rename Blood Group', subtitle: `Update name for "${item.name}"`, defaultValue: item.name, placeholder: 'Blood group name', onSave: (newName) => { const updated = [...currentItems]; updated[realIdx] = { name: newName.trim(), archived: item.archived }; setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated })); showToast(`Updated to "${newName.trim()}"`, 'success'); } }); return;
-                                            if (typeof newName !== 'undefined' && newName) {
-                                              const updated = [...currentItems];
-                                              updated[realIdx] = { name: newName.trim(), archived: item.archived };
-                                              setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated }));
-                                              showToast(`Updated to "${newName.trim()}"`, 'success');
-                                            }
-                                          }}
-                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                        >
-                                          Edit
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const updated = [...currentItems];
-                                            updated[realIdx] = { name: item.name, archived: !item.archived };
-                                            setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated }));
-                                            showToast(item.archived ? `Restored "${item.name}"` : `Archived "${item.name}"`, 'info');
-                                          }}
-                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: item.archived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                        >
-                                          {item.archived ? 'Restore' : 'Archive'}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            softDeleteRecord({
-                                              originalId: `dropdown_blood_${item.name}`,
-                                              name: `Blood Group Option: "${item.name}"`,
-                                              category: 'System Dropdown',
-                                              entityData: { category: 'bloodGroups', title: item.name },
-                                              links: 'System Dropdown Master'
-                                            });
-                                            const updated = currentItems.filter((_, i) => i !== realIdx);
-                                            setSystemDropdowns(prev => ({ ...prev, bloodGroups: updated }));
-                                            showToast(`🗑️ Moved "${item.name}" to Recycle Bin!`, 'info');
-                                          }}
-                                          style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                        >
-                                          Delete
-                                        </button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* 7. LEAVE TYPES */}
-                {selectedDropdownCategory === 'leave_categories' && (() => {
-                  const displayItems = [...systemDropdowns.leaveCategories];
-                  if (dropdownSortConfig.key === 'title') {
-                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
-                  } else if (dropdownSortConfig.key === 'quota') {
-                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? (a.quota || 0) - (b.quota || 0) : (b.quota || 0) - (a.quota || 0));
-                  } else if (dropdownSortConfig.key === 'status') {
-                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? Number(a.archived) - Number(b.archived) : Number(b.archived) - Number(a.archived));
-                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
-                    displayItems.reverse();
-                  }
-
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div style={{ flex: 1, minWidth: '180px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Leave Types Options</h3>
-                          </div>
-                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
-                            <select
-                              value={selectedDropdownCategory}
-                              onChange={e => setSelectedDropdownCategory(e.target.value)}
-                              style={{
-                                width: '100%',
-                                padding: '8px 10px',
-                                borderRadius: '8px',
-                                border: '1.5px solid #0d9488',
-                                background: '#f0fdf4',
-                                color: '#0f172a',
-                                fontWeight: '800',
-                                fontSize: '13px',
-                                outline: 'none',
-                                cursor: 'pointer',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                              }}
-                            >
-                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
-                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
-                              <option value="employment_types">Employment Types (5)</option>
-                              <option value="genders">Genders (4)</option>
-                              <option value="marital_statuses">Marital Statuses (4)</option>
-                              <option value="blood_groups">Blood Groups (8)</option>
-                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
-                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
-                              <option value="crm_tags">CRM Contact Tags (6)</option>
-                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
-                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
-                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
-                            </select>
-                          </div>
-                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage leave policies & annual quota allocations</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            openInputModal({ title: 'Add Leave Type', subtitle: 'Enter leave category name (quota defaults to 12 days)', placeholder: 'e.g. Sabbatical Leave', onSave: (name) => { const newLc = { id: 'lc_' + Date.now(), name: name.trim(), quota: 12, archived: false }; setSystemDropdowns(prev => ({ ...prev, leaveCategories: [...prev.leaveCategories, newLc] })); showToast(`Added Leave Type "${name}"`, 'success'); } });
-                          }}
-                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                        >
-                          + Add Option
-                        </button>
-                      </div>
-
-                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
-                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
-                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                            <tr>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                LEAVE CATEGORY <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'quota', dir: prev.key === 'quota' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                ANNUAL QUOTA <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'quota' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'quota' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
-                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {displayItems.map((lc, idx) => {
-                              const isArchived = Boolean(lc.archived);
-                              const realIdx = systemDropdowns.leaveCategories.findIndex(orig => orig.id === lc.id || orig.name === lc.name);
-
-                              return (
-                                <tr key={lc.id || idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white' }}>
-                                  <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                  <td style={{ padding: '12px 14px', fontWeight: '800', color: isArchived ? '#94a3b8' : '#0f2b26', textDecoration: isArchived ? 'line-through' : 'none' }}>
-                                    {lc.name}
-                                  </td>
-                                  <td style={{ padding: '12px 14px', fontWeight: '700', color: '#0d9488' }}>
-                                    {lc.quota} Days / Year
-                                  </td>
-                                  <td style={{ padding: '12px 14px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                      {isArchived ? 'Archived' : 'Active'}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          openInputModal({ title: 'Edit Leave Type', subtitle: `Update name for "${lc.name}"`, defaultValue: lc.name, placeholder: 'Leave type name', onSave: (newName) => { const updated = [...systemDropdowns.leaveCategories]; updated[realIdx] = { ...lc, name: newName.trim() }; setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated })); showToast(`Updated "${newName.trim()}"`, 'success'); } }); return;
-                                          if (typeof newName !== 'undefined' && newName) {
-                                            const newQuota = lc.quota;
-                                            const updated = [...systemDropdowns.leaveCategories];
-                                            updated[realIdx] = { ...lc, name: newName.trim(), quota: parseInt(newQuota || lc.quota, 10) };
-                                            setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated }));
-                                            showToast(`Updated "${newName.trim()}"`, 'success');
-                                          }
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                      >
-                                        Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const updated = [...systemDropdowns.leaveCategories];
-                                          updated[realIdx] = { ...lc, archived: !isArchived };
-                                          setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated }));
-                                          showToast(isArchived ? `Restored "${lc.name}"` : `Archived "${lc.name}"`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                      >
-                                        {isArchived ? 'Restore' : 'Archive'}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          softDeleteRecord({
-                                            originalId: lc.id || `leave_${lc.name}`,
-                                            name: `Leave Type: "${lc.name}"`,
-                                            category: 'System Dropdown',
-                                            entityData: lc,
-                                            links: 'Leave Management'
-                                          });
-                                          const updated = systemDropdowns.leaveCategories.filter((_, i) => i !== realIdx);
-                                          setSystemDropdowns(prev => ({ ...prev, leaveCategories: updated }));
-                                          showToast(`🗑️ Moved "${lc.name}" to Recycle Bin!`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                      >
-                                        Delete
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* 8. CRM PIPELINE STAGES */}
-                {selectedDropdownCategory === 'crm_stages' && (() => {
-                  const displayItems = [...stages];
-                  if (dropdownSortConfig.key === 'title') {
-                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? (a.title || '').localeCompare(b.title || '') : (b.title || '').localeCompare(a.title || ''));
-                  } else if (dropdownSortConfig.key === 'status') {
-                    displayItems.sort((a, b) => dropdownSortConfig.dir === 'asc' ? Number(a.archived) - Number(b.archived) : Number(b.archived) - Number(a.archived));
-                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
-                    displayItems.reverse();
-                  }
-
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div style={{ flex: 1, minWidth: '180px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>CRM Pipeline Stages Options</h3>
-                          </div>
-                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
-                            <select
-                              value={selectedDropdownCategory}
-                              onChange={e => setSelectedDropdownCategory(e.target.value)}
-                              style={{
-                                width: '100%',
-                                padding: '8px 10px',
-                                borderRadius: '8px',
-                                border: '1.5px solid #0d9488',
-                                background: '#f0fdf4',
-                                color: '#0f172a',
-                                fontWeight: '800',
-                                fontSize: '13px',
-                                outline: 'none',
-                                cursor: 'pointer',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                              }}
-                            >
-                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
-                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
-                              <option value="employment_types">Employment Types (5)</option>
-                              <option value="genders">Genders (4)</option>
-                              <option value="marital_statuses">Marital Statuses (4)</option>
-                              <option value="blood_groups">Blood Groups (8)</option>
-                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
-                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
-                              <option value="crm_tags">CRM Contact Tags (6)</option>
-                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
-                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
-                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
-                            </select>
-                          </div>
-                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Manage lead sales deal stages & color indicators</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newId = 'stage_' + Date.now();
-                            setStages([...stages, { id: newId, title: 'New Stage', color: '#0d9488', archived: false }]);
-                            showToast('Added new Pipeline Stage', 'success');
-                          }}
-                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                        >
-                          + Add Option
-                        </button>
-                      </div>
-
-                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
-                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
-                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                            <tr>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                STAGE TITLE <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th style={{ padding: '12px 14px', width: '150px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
-                                COLOR BADGE <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
-                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {displayItems.map((stage, idx) => {
-                              const isArchived = Boolean(stage.archived);
-                              const realIdx = stages.findIndex(s => s.id === stage.id);
-
-                              return (
-                                <tr key={stage.id} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white' }}>
-                                  <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                  <td style={{ padding: '12px 14px' }}>
-                                    <input
-                                      type="text"
-                                      placeholder="Stage Title"
-                                      style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: '700', color: isArchived ? '#94a3b8' : '#0f2b26', background: 'white', width: '100%', maxWidth: '240px' }}
-                                      value={stage.title || ''}
-                                      onChange={(e) => {
-                                        const updated = [...stages];
-                                        updated[realIdx].title = e.target.value;
-                                        setStages(updated);
-                                      }}
-                                    />
-                                  </td>
-                                  <td style={{ padding: '12px 14px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                      <input
-                                        type="color"
-                                        style={{ border: '2px solid #cbd5e1', padding: '0', width: '28px', height: '28px', cursor: 'pointer', borderRadius: '50%', background: 'none' }}
-                                        value={stage.color || '#0d9488'}
-                                        onChange={(e) => {
-                                          const updated = [...stages];
-                                          updated[realIdx].color = e.target.value;
-                                          setStages(updated);
-                                        }}
-                                      />
-                                      <span style={{ fontSize: '11px', fontWeight: '800', fontFamily: 'monospace', color: stage.color || '#0d9488' }}>
-                                        {stage.color || '#0d9488'}
-                                      </span>
-                                    </div>
-                                  </td>
-                                  <td style={{ padding: '12px 14px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                      {isArchived ? 'Archived' : 'Active'}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const updated = [...stages];
-                                          updated[realIdx].archived = !isArchived;
-                                          setStages(updated);
-                                          showToast(isArchived ? `Restored "${stage.title}"` : `Archived "${stage.title}"`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                      >
-                                        {isArchived ? 'Restore' : 'Archive'}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          softDeleteRecord({
-                                            originalId: stage.id,
-                                            name: `CRM Stage: "${stage.title}"`,
-                                            category: 'System Dropdown',
-                                            entityData: stage,
-                                            links: 'CRM Pipeline'
-                                          });
-                                          setStages(stages.filter(s => s.id !== stage.id));
-                                          showToast(`🗑️ Moved "${stage.title}" to Recycle Bin!`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                      >
-                                        Delete
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* 9. CRM CONTACT TAGS */}
-                {selectedDropdownCategory === 'crm_tags' && (() => {
-                  const displayItems = [...allowedTags];
-                  if (dropdownSortConfig.key === 'title') {
-                    displayItems.sort((a, b) => {
-                      const nameA = typeof a === 'object' ? a.name : a;
-                      const nameB = typeof b === 'object' ? b.name : b;
-                      return dropdownSortConfig.dir === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-                    });
-                  } else if (dropdownSortConfig.key === 'status') {
-                    displayItems.sort((a, b) => {
-                      const archA = typeof a === 'object' ? Boolean(a.archived) : false;
-                      const archB = typeof b === 'object' ? Boolean(b.archived) : false;
-                      return dropdownSortConfig.dir === 'asc' ? Number(archA) - Number(archB) : Number(archB) - Number(archA);
-                    });
-                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
-                    displayItems.reverse();
-                  }
-
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div style={{ flex: 1, minWidth: '180px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>CRM Contact Tags Options</h3>
-                          </div>
-                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
-                            <select
-                              value={selectedDropdownCategory}
-                              onChange={e => setSelectedDropdownCategory(e.target.value)}
-                              style={{
-                                width: '100%',
-                                padding: '8px 10px',
-                                borderRadius: '8px',
-                                border: '1.5px solid #0d9488',
-                                background: '#f0fdf4',
-                                color: '#0f172a',
-                                fontWeight: '800',
-                                fontSize: '13px',
-                                outline: 'none',
-                                cursor: 'pointer',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                              }}
-                            >
-                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
-                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
-                              <option value="employment_types">Employment Types (5)</option>
-                              <option value="genders">Genders (4)</option>
-                              <option value="marital_statuses">Marital Statuses (4)</option>
-                              <option value="blood_groups">Blood Groups (8)</option>
-                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
-                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
-                              <option value="crm_tags">CRM Contact Tags (6)</option>
-                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
-                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
-                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
-                            </select>
-                          </div>
-                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Predefined contact tags for lead segmentation</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            openInputModal({ title: 'Add Contact Tag', subtitle: 'Enter new contact tag label', placeholder: 'e.g. High Value Lead', onSave: (tag) => { const trimmed = tag.trim(); const exists = allowedTags.some(t => (typeof t === 'object' ? t.name : t) === trimmed); if (!exists) { setAllowedTags([...allowedTags, { name: trimmed, archived: false }]); showToast(`Added Tag "${trimmed}"`, 'success'); } else { showToast(`Tag "${trimmed}" already exists`, 'info'); } } }); return;
-                            if (typeof tag !== 'undefined' && tag) {
-                              const trimmed = tag.trim();
-                              const exists = allowedTags.some(t => (typeof t === 'object' ? t.name : t) === trimmed);
-                              if (!exists) {
-                                setAllowedTags([...allowedTags, { name: trimmed, archived: false }]);
-                                showToast(`Added Tag "${trimmed}"`, 'success');
-                              }
-                            }
-                          }}
-                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                        >
-                          + Add Option
-                        </button>
-                      </div>
-
-                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
-                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
-                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                            <tr>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                TAG LABEL <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
-                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {displayItems.map((tagItem, idx) => {
-                              const isObj = typeof tagItem === 'object' && tagItem !== null;
-                              const tagLabel = isObj ? tagItem.name : tagItem;
-                              const isArchived = isObj ? Boolean(tagItem.archived) : false;
-                              const realIdx = allowedTags.findIndex(t => (typeof t === 'object' ? t.name : t) === tagLabel);
-
-                              return (
-                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white' }}>
-                                  <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                  <td style={{ padding: '12px 14px' }}>
-                                    <span style={{ background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.08)', color: isArchived ? '#94a3b8' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.25)', padding: '5px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '800', textDecoration: isArchived ? 'line-through' : 'none' }}>
-                                      🏷️ {tagLabel}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '12px 14px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                      {isArchived ? 'Archived' : 'Active'}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          openInputModal({ title: 'Rename CRM Tag', subtitle: `Update label for "${tagLabel}"`, defaultValue: tagLabel, placeholder: 'CRM tag label', onSave: (newTag) => { const updated = [...allowedTags]; updated[realIdx] = { name: newTag.trim(), archived: isArchived }; setAllowedTags(updated); showToast(`Updated Tag to "${newTag.trim()}"`, 'success'); } }); return;
-                                          if (typeof newTag !== 'undefined' && newTag) {
-                                            const updated = [...allowedTags];
-                                            updated[realIdx] = { name: newTag.trim(), archived: isArchived };
-                                            setAllowedTags(updated);
-                                            showToast(`Updated Tag to "${newTag.trim()}"`, 'success');
-                                          }
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                      >
-                                        Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const updated = [...allowedTags];
-                                          updated[realIdx] = { name: tagLabel, archived: !isArchived };
-                                          setAllowedTags(updated);
-                                          showToast(isArchived ? `Restored "${tagLabel}"` : `Archived "${tagLabel}"`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                      >
-                                        {isArchived ? 'Restore' : 'Archive'}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          softDeleteRecord({
-                                            originalId: `tag_${tagLabel}`,
-                                            name: `CRM Tag: "${tagLabel}"`,
-                                            category: 'System Dropdown',
-                                            entityData: { tagLabel },
-                                            links: 'CRM Contacts'
-                                          });
-                                          const updated = allowedTags.filter((_, i) => i !== realIdx);
-                                          setAllowedTags(updated);
-                                          showToast(`🗑️ Moved "${tagLabel}" to Recycle Bin!`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                      >
-                                        Delete
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* 10. EXPENSE CATEGORIES */}
-                {selectedDropdownCategory === 'expenses' && (() => {
-                  const displayItems = [...systemDropdowns.expenseCategories];
-                  if (dropdownSortConfig.key === 'title') {
-                    displayItems.sort((a, b) => {
-                      const nameA = typeof a === 'object' ? a.name : a;
-                      const nameB = typeof b === 'object' ? b.name : b;
-                      return dropdownSortConfig.dir === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-                    });
-                  } else if (dropdownSortConfig.key === 'status') {
-                    displayItems.sort((a, b) => {
-                      const archA = typeof a === 'object' ? Boolean(a.archived) : false;
-                      const archB = typeof b === 'object' ? Boolean(b.archived) : false;
-                      return dropdownSortConfig.dir === 'asc' ? Number(archA) - Number(archB) : Number(archB) - Number(archA);
-                    });
-                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
-                    displayItems.reverse();
-                  }
-
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div style={{ flex: 1, minWidth: '180px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Expense Categories Options</h3>
-                          </div>
-                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
-                            <select
-                              value={selectedDropdownCategory}
-                              onChange={e => setSelectedDropdownCategory(e.target.value)}
-                              style={{
-                                width: '100%',
-                                padding: '8px 10px',
-                                borderRadius: '8px',
-                                border: '1.5px solid #0d9488',
-                                background: '#f0fdf4',
-                                color: '#0f172a',
-                                fontWeight: '800',
-                                fontSize: '13px',
-                                outline: 'none',
-                                cursor: 'pointer',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                              }}
-                            >
-                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
-                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
-                              <option value="employment_types">Employment Types (5)</option>
-                              <option value="genders">Genders (4)</option>
-                              <option value="marital_statuses">Marital Statuses (4)</option>
-                              <option value="blood_groups">Blood Groups (8)</option>
-                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
-                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
-                              <option value="crm_tags">CRM Contact Tags (6)</option>
-                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
-                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
-                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
-                            </select>
-                          </div>
-                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Reimbursement claim types and allowance categories</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            openInputModal({ title: 'Add Expense Category', subtitle: 'Enter reimbursement claim category name', placeholder: 'e.g. Travel Allowance', onSave: (val) => { const trimmed = val.trim(); const exists = systemDropdowns.expenseCategories.some(e => (typeof e === 'object' ? e.name : e) === trimmed); if (!exists) { setSystemDropdowns(prev => ({ ...prev, expenseCategories: [...prev.expenseCategories, { name: trimmed, archived: false }] })); showToast(`Added Expense Category "${trimmed}"`, 'success'); } else { showToast(`Expense category "${trimmed}" already exists`, 'info'); } } }); return;
-                            if (typeof val !== 'undefined' && val) {
-                              const trimmed = val.trim();
-                              const exists = systemDropdowns.expenseCategories.some(e => (typeof e === 'object' ? e.name : e) === trimmed);
-                              if (!exists) {
-                                setSystemDropdowns(prev => ({ ...prev, expenseCategories: [...prev.expenseCategories, { name: trimmed, archived: false }] }));
-                                showToast(`Added Expense Category "${trimmed}"`, 'success');
-                              }
-                            }
-                          }}
-                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                        >
-                          + Add Option
-                        </button>
-                      </div>
-
-                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
-                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
-                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                            <tr>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                EXPENSE CATEGORY TITLE <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
-                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {displayItems.map((exp, idx) => {
-                              const isObj = typeof exp === 'object' && exp !== null;
-                              const title = isObj ? exp.name : exp;
-                              const isArchived = isObj ? Boolean(exp.archived) : false;
-                              const realIdx = systemDropdowns.expenseCategories.findIndex(e => (typeof e === 'object' ? e.name : e) === title);
-
-                              return (
-                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white' }}>
-                                  <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                  <td style={{ padding: '12px 14px', fontWeight: '700', color: isArchived ? '#94a3b8' : '#0f2b26', textDecoration: isArchived ? 'line-through' : 'none' }}>
-                                    {title}
-                                  </td>
-                                  <td style={{ padding: '12px 14px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                      {isArchived ? 'Archived' : 'Active'}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          openInputModal({ title: 'Rename Expense Category', subtitle: `Update category title for "${title}"`, defaultValue: title, placeholder: 'Expense category name', onSave: (newName) => { const updated = [...systemDropdowns.expenseCategories]; updated[realIdx] = { name: newName.trim(), archived: isArchived }; setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated })); showToast(`Updated to "${newName.trim()}"`, 'success'); } }); return;
-                                          if (typeof newName !== 'undefined' && newName) {
-                                            const updated = [...systemDropdowns.expenseCategories];
-                                            updated[realIdx] = { name: newName.trim(), archived: isArchived };
-                                            setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated }));
-                                            showToast(`Updated to "${newName.trim()}"`, 'success');
-                                          }
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                      >
-                                        Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const updated = [...systemDropdowns.expenseCategories];
-                                          updated[realIdx] = { name: title, archived: !isArchived };
-                                          setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated }));
-                                          showToast(isArchived ? `Restored "${title}"` : `Archived "${title}"`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                      >
-                                        {isArchived ? 'Restore' : 'Archive'}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          softDeleteRecord({
-                                            originalId: `dropdown_expense_${title}`,
-                                            name: `Expense Category: "${title}"`,
-                                            category: 'System Dropdown',
-                                            entityData: { category: 'expenses', title },
-                                            links: 'Expense Claims'
-                                          });
-                                          const updated = systemDropdowns.expenseCategories.filter((_, i) => i !== realIdx);
-                                          setSystemDropdowns(prev => ({ ...prev, expenseCategories: updated }));
-                                          showToast(`🗑️ Moved "${title}" to Recycle Bin!`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                      >
-                                        Delete
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* 11. TASK PRIORITIES */}
-                {selectedDropdownCategory === 'priorities' && (() => {
-                  const displayItems = [...systemDropdowns.taskPriorities];
-                  if (dropdownSortConfig.key === 'title') {
-                    displayItems.sort((a, b) => {
-                      const nameA = typeof a === 'object' ? a.name : a;
-                      const nameB = typeof b === 'object' ? b.name : b;
-                      return dropdownSortConfig.dir === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-                    });
-                  } else if (dropdownSortConfig.key === 'status') {
-                    displayItems.sort((a, b) => {
-                      const archA = typeof a === 'object' ? Boolean(a.archived) : false;
-                      const archB = typeof b === 'object' ? Boolean(b.archived) : false;
-                      return dropdownSortConfig.dir === 'asc' ? Number(archA) - Number(archB) : Number(archB) - Number(archA);
-                    });
-                  } else if (dropdownSortConfig.key === 'index' && dropdownSortConfig.dir === 'desc') {
-                    displayItems.reverse();
-                  }
-
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                        <div style={{ flex: 1, minWidth: '180px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Task Priority Levels Options</h3>
-                          </div>
-                          <div className="mobile-cat-select-wrapper" style={{ display: 'none', width: '100%', marginBottom: '4px' }}>
-                            <select
-                              value={selectedDropdownCategory}
-                              onChange={e => setSelectedDropdownCategory(e.target.value)}
-                              style={{
-                                width: '100%',
-                                padding: '8px 10px',
-                                borderRadius: '8px',
-                                border: '1.5px solid #0d9488',
-                                background: '#f0fdf4',
-                                color: '#0f172a',
-                                fontWeight: '800',
-                                fontSize: '13px',
-                                outline: 'none',
-                                cursor: 'pointer',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                              }}
-                            >
-                              <option value="departments">Departments Options ({systemDropdowns.departments?.length || 0})</option>
-                              <option value="designations">Designations Options ({systemDropdowns.designations?.length || 0})</option>
-                              <option value="employment_types">Employment Types (5)</option>
-                              <option value="genders">Genders (4)</option>
-                              <option value="marital_statuses">Marital Statuses (4)</option>
-                              <option value="blood_groups">Blood Groups (8)</option>
-                              <option value="leave_categories">Leave Types ({systemDropdowns.leaveCategories?.length || 0})</option>
-                              <option value="crm_stages">CRM Pipeline Stages (5)</option>
-                              <option value="crm_tags">CRM Contact Tags (6)</option>
-                              <option value="expenses">Expense Categories ({systemDropdowns.expenseCategories?.length || 0})</option>
-                              <option value="priorities">Task Priority Levels ({systemDropdowns.taskPriorities?.length || 0})</option>
-                              <option value="custom_engine">Custom Categories Engine ({(systemDropdowns.customCategories || []).length})</option>
-                            </select>
-                          </div>
-                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Task priority rating levels & urgency badges</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            openInputModal({ title: 'Add Priority Level', subtitle: 'Enter task priority rating level label', placeholder: 'e.g. Critical Urgent', onSave: (val) => { const trimmed = val.trim(); const exists = systemDropdowns.taskPriorities.some(p => (typeof p === 'object' ? p.name : p) === trimmed); if (!exists) { setSystemDropdowns(prev => ({ ...prev, taskPriorities: [...prev.taskPriorities, { name: trimmed, archived: false }] })); showToast(`Added Priority Level "${trimmed}"`, 'success'); } else { showToast(`Priority level "${trimmed}" already exists`, 'info'); } } });
-                            if (typeof val !== 'undefined' && val) {
-                              const trimmed = val.trim();
-                              const exists = systemDropdowns.taskPriorities.some(p => (typeof p === 'object' ? p.name : p) === trimmed);
-                              if (!exists) {
-                                setSystemDropdowns(prev => ({ ...prev, taskPriorities: [...prev.taskPriorities, { name: trimmed, archived: false }] }));
-                                showToast(`Added Priority Level "${trimmed}"`, 'success');
-                              }
-                            }
-                          }}
-                          style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                        >
-                          + Add Option
-                        </button>
-                      </div>
-
-                      <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', marginBottom: '6px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
-                      {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '10px', maxHeight: '460px', background: 'white' }}>
-                        <table className="std-table" style={{ width: '100%', minWidth: '550px', borderCollapse: 'separate', borderSpacing: 0 }}>
-                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                            <tr>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'index', dir: prev.key === 'index' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '60px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                # <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'index' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'index' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'title', dir: prev.key === 'title' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ padding: '12px 14px', background: '#f8fafc', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                PRIORITY RATING <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'title' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'title' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th onClick={() => setDropdownSortConfig(prev => ({ key: 'status', dir: prev.key === 'status' && prev.dir === 'asc' ? 'desc' : 'asc' }))} style={{ width: '140px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', userSelect: 'none' }}>
-                                STATUS <span style={{ fontSize: '11px', color: dropdownSortConfig.key === 'status' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{dropdownSortConfig.key === 'status' ? (dropdownSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                              </th>
-                              <th style={{ textAlign: 'right', width: '220px', background: '#f8fafc', padding: '12px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', userSelect: 'none' }}>
-                                ACTIONS <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>⇅</span>
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {displayItems.map((pri, idx) => {
-                              const isObj = typeof pri === 'object' && pri !== null;
-                              const title = isObj ? pri.name : pri;
-                              const isArchived = isObj ? Boolean(pri.archived) : false;
-                              const realIdx = systemDropdowns.taskPriorities.findIndex(p => (typeof p === 'object' ? p.name : p) === title);
-
-                              return (
-                                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: isArchived ? '#f8fafc' : 'white' }}>
-                                  <td style={{ padding: '12px 14px', fontWeight: '800', color: '#64748b' }}>#{idx + 1}</td>
-                                  <td style={{ padding: '12px 14px', fontWeight: '700', color: isArchived ? '#94a3b8' : '#0f2b26', textDecoration: isArchived ? 'line-through' : 'none' }}>
-                                    {title}
-                                  </td>
-                                  <td style={{ padding: '12px 14px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: isArchived ? '#f1f5f9' : 'rgba(13, 148, 136, 0.1)', color: isArchived ? '#64748b' : '#0d9488', border: isArchived ? '1px solid #e2e8f0' : '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                      {isArchived ? 'Archived' : 'Active'}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          openInputModal({
-                                            title: 'Rename Priority Level',
-                                            subtitle: `Update title for "${title}"`,
-                                            defaultValue: title,
-                                            placeholder: 'Priority rating title',
-                                            onSave: (newName) => {
-                                              const updated = [...systemDropdowns.taskPriorities];
-                                              updated[realIdx] = { name: newName.trim(), archived: isArchived };
-                                              setSystemDropdowns(prev => ({ ...prev, taskPriorities: updated }));
-                                              showToast(`Updated to "${newName.trim()}"`, 'success');
-                                            }
-                                          });
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer' }}
-                                      >
-                                        Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const updated = [...systemDropdowns.taskPriorities];
-                                          updated[realIdx] = { name: title, archived: !isArchived };
-                                          setSystemDropdowns(prev => ({ ...prev, taskPriorities: updated }));
-                                          showToast(isArchived ? `Restored "${title}"` : `Archived "${title}"`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: isArchived ? '#0d9488' : '#d97706', cursor: 'pointer' }}
-                                      >
-                                        {isArchived ? 'Restore' : 'Archive'}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          softDeleteRecord({
-                                            originalId: `dropdown_priority_${title}`,
-                                            name: `Task Priority Level: "${title}"`,
-                                            category: 'System Dropdown',
-                                            entityData: { category: 'priorities', title },
-                                            links: 'Task Manager'
-                                          });
-                                          const updated = systemDropdowns.taskPriorities.filter((_, i) => i !== realIdx);
-                                          setSystemDropdowns(prev => ({ ...prev, taskPriorities: updated }));
-                                          showToast(`🗑️ Moved "${title}" to Recycle Bin!`, 'info');
-                                        }}
-                                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer' }}
-                                      >
-                                        Delete
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* 12. CUSTOM ENGINE */}
-                {selectedDropdownCategory === 'custom_engine' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
-                      <div style={{ flex: 1, minWidth: '180px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <h3 className="desktop-cat-title" style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--fw-bold)', color: 'var(--text-primary)', margin: 0 }}>Custom Feature Dropdown Engine</h3>
-                        </div>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 0 }}>Create custom dropdown lists for any custom feature or module</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          openInputModal({
-                            title: 'Create Custom Dropdown Category',
-                            subtitle: 'Enter title for the new dropdown category',
-                            placeholder: 'e.g. Office Branches',
-                            onSave: (categoryTitle) => {
-                              const newCat = {
-                                id: 'cat_' + Date.now(),
-                                title: categoryTitle.trim(),
-                                options: ['Option 1', 'Option 2']
-                              };
-                              setSystemDropdowns(prev => ({
-                                ...prev,
-                                customCategories: [...(prev.customCategories || []), newCat]
-                              }));
-                              showToast(`Created Custom Category "${categoryTitle.trim()}"`, 'success');
-                            }
-                          });
-                        }}
-                        style={{ fontSize: 'var(--text-sm)', padding: '8px 16px', fontWeight: '700', borderRadius: '8px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                      >
-                        + Add Custom Category
-                      </button>
-                    </div>
-
-                    {/* INNER SCROLLABLE BOX CONTAINER */}
-                    <div style={{ flex: 1, overflowY: 'auto', maxHeight: '460px', paddingRight: '4px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        {(systemDropdowns.customCategories || []).map((customCat, catIdx) => (
-                          <div key={customCat.id || catIdx} style={{ padding: '16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                              <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#0f2b26', margin: 0 }}>{customCat.title}</h4>
-                              <div style={{ display: 'flex', gap: '6px' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    openInputModal({
-                                      title: `Add Option to "${customCat.title}"`,
-                                      subtitle: 'Enter title for the new option item',
-                                      placeholder: 'e.g. New Branch / Location',
-                                      onSave: (opt) => {
-                                        const updated = [...(systemDropdowns.customCategories || [])];
-                                        updated[catIdx].options = [...(updated[catIdx].options || []), opt.trim()];
-                                        setSystemDropdowns(prev => ({ ...prev, customCategories: updated }));
-                                        showToast(`Added option "${opt.trim()}"`, 'success');
-                                      }
-                                    });
-                                  }}
-                                  style={{ padding: '5px 12px', fontSize: '11px', fontWeight: '800', background: '#0d9488', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
-                                >
-                                  + Add Option
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const catName = customCat.title;
-                                    const updated = (systemDropdowns.customCategories || []).filter((_, i) => i !== catIdx);
-                                    setSystemDropdowns(prev => ({ ...prev, customCategories: updated }));
-                                    showToast(`Deleted category "${catName}"`, 'info');
-                                  }}
-                                  style={{ padding: '5px 12px', fontSize: '11px', fontWeight: '800', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
-                                >
-                                  Delete Category
-                                </button>
-                              </div>
-                            </div>
-
-                            <div style={{ overflowX: 'auto' }}>
-                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', background: 'white', borderRadius: '6px', overflow: 'hidden' }}>
-                                <thead>
-                                  <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1', textAlign: 'left' }}>
-                                    <th style={{ padding: '10px 12px', width: '60px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}># ⇅</th>
-                                    <th style={{ padding: '10px 12px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>OPTION ITEM TITLE ⇅</th>
-                                    <th style={{ padding: '10px 12px', textAlign: 'right', width: '180px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ACTIONS ⇅</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {(customCat.options || []).map((opt, optIdx) => (
-                                    <tr key={optIdx} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                      <td style={{ padding: '10px 12px', fontWeight: '800', color: '#64748b' }}>#{optIdx + 1}</td>
-                                      <td style={{ padding: '10px 12px', fontWeight: '700', color: '#0f2b26' }}>{opt}</td>
-                                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const updated = [...(systemDropdowns.customCategories || [])];
-                                            updated[catIdx].options = updated[catIdx].options.filter((_, i) => i !== optIdx);
-                                            setSystemDropdowns(prev => ({ ...prev, customCategories: updated }));
-                                            showToast(`Deleted option "${opt}"`, 'info');
-                                          }}
-                                          style={{ border: 'none', background: 'rgba(239,68,68,0.1)', padding: '4px 10px', borderRadius: '6px', color: '#ef4444', cursor: 'pointer', fontSize: '11px', fontWeight: '800' }}
-                                        >
-                                          Delete
-                                        </button>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+        {/* Advances & Loans */}
+        {activeTab === 'advances_loans' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Advances & Loans...</div>}>
+            <AdvancesLoansPage
+              API_URL={API_URL}
+              authUser={authUser}
+              showToast={showToast}
+              softDeleteRecord={softDeleteRecord}
+              recycleBinItems={recycleBinItems}
+              handleRestoreBinItem={handleRestoreBinItem}
+              handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+              openModuleConfigModal={handleOpenModuleConfig}
+              systemDropdowns={systemDropdowns}
+            />
+          </Suspense>
         )}
 
-        {/* 26. RECYCLE BIN VAULT & SOFT DELETE RECOVERY */}
-        {activeTab === 'recycle_bin' && (() => {
-          const isSuperAdmin = authUser?.role === 'superadmin';
+        {/* Expenses Claim */}
+        {activeTab === 'expenses' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Expenses...</div>}>
+            <ExpensesPage
+              API_URL={API_URL}
+              authUser={authUser}
+              showToast={showToast}
+              softDeleteRecord={softDeleteRecord}
+              recycleBinItems={recycleBinItems}
+              handleRestoreBinItem={handleRestoreBinItem}
+              handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+              openModuleConfigModal={handleOpenModuleConfig}
+              systemDropdowns={systemDropdowns}
+            />
+          </Suspense>
+        )}
 
-          const handleBinResizeStart = (e, colKey) => {
-            e.preventDefault();
-            e.stopPropagation();
-            binResizingRef.current = {
-              colKey,
-              startX: e.clientX,
-              startWidth: binColumnWidths[colKey] || 120
-            };
+        {/* Tasks Board */}
+        {activeTab === 'tasks' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Tasks...</div>}>
+            <TasksPage
+              API_URL={API_URL}
+              authUser={authUser}
+              tasks={tasks}
+              setTasks={setTasks}
+              showToast={showToast}
+              softDeleteRecord={softDeleteRecord}
+              recycleBinItems={recycleBinItems}
+              handleRestoreBinItem={handleRestoreBinItem}
+              handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+              openModuleConfigModal={handleOpenModuleConfig}
+              systemDropdowns={systemDropdowns}
+            />
+          </Suspense>
+        )}
 
-            const handleMouseMove = (moveEvent) => {
-              if (!binResizingRef.current) return;
-              const { colKey, startX, startWidth } = binResizingRef.current;
-              const deltaX = moveEvent.clientX - startX;
-              const newWidth = Math.max(60, startWidth + deltaX);
-              setBinColumnWidths(prev => ({
-                ...prev,
-                [colKey]: newWidth
-              }));
-            };
+        {/* Leaves Requests */}
+        {activeTab === 'leaves' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Leaves...</div>}>
+            <LeavesPage
+              leaves={leaves}
+              setLeaves={setLeaves}
+              authUser={authUser}
+              systemDropdowns={systemDropdowns}
+              setNewLeaveForm={setNewLeaveForm}
+              setShowAddLeaveModal={setShowAddLeaveModal}
+              handleApproveLeave={handleApproveLeave}
+              showToast={showToast}
+              setActiveTab={setActiveTab}
+            />
+          </Suspense>
+        )}
 
-            const handleMouseUp = () => {
-              binResizingRef.current = null;
-              window.removeEventListener('mousemove', handleMouseMove);
-              window.removeEventListener('mouseup', handleMouseUp);
-            };
+        {/* Shift Rostering */}
+        {(activeTab === 'shifts' || activeTab === 'shift_rostering') && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Shift Roster...</div>}>
+            <ShiftsPage
+              employees={employees}
+              authUser={authUser}
+              showToast={showToast}
+            />
+          </Suspense>
+        )}
 
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
-          };
+        {/* Office Kiosk Mode */}
+        {activeTab === 'office_kiosk' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Office Kiosk...</div>}>
+            <OfficeKioskPage
+              showToast={showToast}
+            />
+          </Suspense>
+        )}
 
-          const filteredBinItems = recycleBinItems.filter(item => {
-            const matchesCategory = binCategoryFilter === 'all' || (item.category || '').toLowerCase() === binCategoryFilter.toLowerCase();
-            const matchesTenant = selectedBinTenant === 'all' || item.tenantId === selectedBinTenant;
-            const matchesQuery = !binSearchQuery || 
-              (item.name || '').toLowerCase().includes(binSearchQuery.toLowerCase()) || 
-              (item.deletedBy || '').toLowerCase().includes(binSearchQuery.toLowerCase()) ||
-              (item.category || '').toLowerCase().includes(binSearchQuery.toLowerCase());
-            
-            if (!isSuperAdmin && item.tenantId && item.tenantId !== (authUser?.tenantId || authUser?.companyId || 'acme_corp')) {
-              return false;
-            }
-            return matchesCategory && matchesTenant && matchesQuery;
-          });
-
-          // Sorting logic
-          const sortedBinItems = [...filteredBinItems].sort((a, b) => {
-            if (!binSortConfig.key) return 0;
-            let valA = a[binSortConfig.key] || '';
-            let valB = b[binSortConfig.key] || '';
-            if (typeof valA === 'string') valA = valA.toLowerCase();
-            if (typeof valB === 'string') valB = valB.toLowerCase();
-            if (valA < valB) return binSortConfig.dir === 'asc' ? -1 : 1;
-            if (valA > valB) return binSortConfig.dir === 'asc' ? 1 : -1;
-            return 0;
-          });
-
-          const handleBinSort = (key) => {
-            setBinSortConfig(prev => ({
-              key,
-              dir: prev.key === key && prev.dir === 'asc' ? 'desc' : 'asc'
-            }));
-            setBinCurrentPage(1);
-          };
-
-          // Pagination calculations
-          const totalBinItems = sortedBinItems.length;
-          const totalBinPages = Math.ceil(totalBinItems / binPageSize) || 1;
-          const validBinPage = Math.min(binCurrentPage, totalBinPages);
-          const binStartIndex = (validBinPage - 1) * binPageSize;
-          const binEndIndex = Math.min(binStartIndex + binPageSize, totalBinItems);
-          const paginatedBinItems = sortedBinItems.slice(binStartIndex, binEndIndex);
-
-          return (
-            <div style={{ padding: 'var(--space-6)', margin: 'var(--space-4)', overflowY: 'auto', flexGrow: 1 }} className="glass-panel">
-
-              {/* Header */}
-              <div className="page-header" style={{ marginBottom: 'var(--space-6)', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-                  <div style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-md)', background: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
-                    🗑️
-                  </div>
-                  <div>
-                    <h1 className="page-header-title">Recycle Bin &amp; Data Loss Prevention Vault</h1>
-                    <p className="page-header-subtitle">Soft-deleted records archived safely. Linked data (Attendance, Payslips, Chats) is 100% preserved.</p>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-                  <span className="badge-success" style={{ padding: '8px 16px', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-bold)', whiteSpace: 'nowrap' }}>
-                    🛡️ Zero Data Loss Active
-                  </span>
-                  {recycleBinItems.length > 0 && (
-                    <button
-                      type="button"
-                      className="btn btn-danger"
-                      style={{ padding: '8px 16px', fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-bold)', boxShadow: '0 2px 8px rgba(239,68,68,0.3)', whiteSpace: 'nowrap' }}
-                      onClick={handleEmptyBinVault}
-                    >
-                      🔥 Empty Bin Vault ({recycleBinItems.length})
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Quick Stats Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
-                <div className="glass-card" style={{ padding: '16px 20px', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span>📦</span> Total Vault Items
-                  </div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#0f2b26', marginTop: '6px' }}>
-                    {recycleBinItems.length}
-                  </div>
-                </div>
-                <div className="glass-card" style={{ padding: '16px 20px', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span>👥</span> Soft-Deleted Employees
-                  </div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#d97706', marginTop: '6px' }}>
-                    {recycleBinItems.filter(i => (i.category || '').toLowerCase() === 'employee').length}
-                  </div>
-                </div>
-                <div className="glass-card" style={{ padding: '16px 20px', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span>📋</span> Archived Leads &amp; Tasks
-                  </div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#0d9488', marginTop: '6px' }}>
-                    {recycleBinItems.filter(i => ['crm lead', 'task', 'system dropdown'].includes((i.category || '').toLowerCase())).length}
-                  </div>
-                </div>
-                <div className="glass-card" style={{ padding: '16px 20px', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span>🛡️</span> Data Loss Rate
-                  </div>
-                  <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#059669', marginTop: '6px', display: 'inline-block', background: 'rgba(16, 185, 129, 0.1)', padding: '3px 10px', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                    0.0% (Protected)
-                  </div>
-                </div>
-              </div>
-
-              {/* Search & Category Filter Toolbar */}
-              <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-5)', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div className="bin-category-filter-pills" style={{ display: 'flex', gap: '8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '4px', maxWidth: '100%' }}>
-                  {['all', 'employee', 'crm lead', 'task', 'system dropdown'].map(cat => {
-                    const isSelected = binCategoryFilter === cat;
-                    return (
-                      <button
-                        key={cat}
-                        type="button"
-                        style={{
-                          padding: '8px 16px',
-                          fontSize: '12px',
-                          fontWeight: isSelected ? '800' : '600',
-                          borderRadius: '8px',
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap',
-                          flexShrink: 0,
-                          transition: 'all 0.15s ease',
-                          border: isSelected ? 'none' : '1px solid #cbd5e1',
-                          background: isSelected ? 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)' : '#ffffff',
-                          color: isSelected ? '#ffffff' : '#334155',
-                          boxShadow: isSelected ? '0 2px 8px rgba(13, 148, 136, 0.3)' : 'none'
-                        }}
-                        onClick={() => {
-                          setBinCategoryFilter(cat);
-                          setBinCurrentPage(1);
-                        }}
-                      >
-                        {cat === 'all' ? '📁 All Categories' : (cat === 'system dropdown' ? '⚙️ System Dropdown' : (cat === 'crm lead' ? '💬 CRM Lead' : (cat === 'employee' ? '👥 Employee' : '📋 Task')))}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="bin-toolbar-right" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  {isSuperAdmin && (
-                    <select
-                      className="form-control"
-                      style={{ padding: '8px 12px', fontSize: '12px', minWidth: '170px', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'white' }}
-                      value={selectedBinTenant}
-                      onChange={(e) => {
-                        setSelectedBinTenant(e.target.value);
-                        setBinCurrentPage(1);
-                      }}
-                    >
-                      <option value="all">🏢 All Companies (SaaS)</option>
-                      <option value="acme_corp">Acme Corp</option>
-                      <option value="platform_superadmin">SaaS Platform Admin</option>
-                    </select>
-                  )}
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="🔍 Search deleted records..."
-                    style={{ padding: '8px 14px', fontSize: '12px', minWidth: '180px', height: '38px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'white' }}
-                    value={binSearchQuery}
-                    onChange={(e) => {
-                      setBinSearchQuery(e.target.value);
-                      setBinCurrentPage(1);
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Table Card */}
-              <div className="payroll-table-card" style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                  <h3 className="payroll-table-title" style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>Archived Items ({filteredBinItems.length})</h3>
-                  <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>
-                    Auto-purged after 90 days retention period
-                  </span>
-                </div>
-
-                <div className="mobile-swipe-hint" style={{ display: 'none', fontSize: '11px', color: '#0d9488', fontWeight: '700', padding: '4px 12px', textAlign: 'right' }}>Swipe table horizontally ↔</div>
-                
-                {/* INNER SCROLLABLE TABLE BOX CONTAINER */}
-                <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', borderBottom: '1px solid #e2e8f0', maxHeight: '440px', background: 'white' }}>
-                  <table className="std-table" style={{ width: '100%', minWidth: '750px', borderCollapse: 'separate', borderSpacing: 0 }}>
-                    <thead ref={binTheadRef} style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                      <tr style={{ userSelect: 'none' }}>
-                        {/* ARCHIVED ITEM Column with Drag Handle */}
-                        <th 
-                          onClick={() => handleBinSort('name')}
-                          style={{
-                            position: 'relative',
-                            width: `${binColumnWidths.name}px`,
-                            maxWidth: `${binColumnWidths.name}px`,
-                            cursor: 'pointer',
-                            background: '#f8fafc',
-                            padding: '12px 16px',
-                            fontSize: '11px',
-                            fontWeight: '800',
-                            color: '#475569',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em'
-                          }}
-                        >
-                          ARCHIVED ITEM <span style={{ color: binSortConfig.key === 'name' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{binSortConfig.key === 'name' ? (binSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                          <div
-                            onMouseDown={(e) => handleBinResizeStart(e, 'name')}
-                            onClick={(e) => e.stopPropagation()}
-                            title="Drag left/right to resize column"
-                            style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', cursor: 'col-resize', background: 'transparent', zIndex: 5 }}
-                          />
-                        </th>
-
-                        {/* CATEGORY Column with Drag Handle */}
-                        <th 
-                          onClick={() => handleBinSort('category')}
-                          style={{
-                            position: 'relative',
-                            width: `${binColumnWidths.category}px`,
-                            maxWidth: `${binColumnWidths.category}px`,
-                            cursor: 'pointer',
-                            background: '#f8fafc',
-                            padding: '12px 16px',
-                            fontSize: '11px',
-                            fontWeight: '800',
-                            color: '#475569',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em'
-                          }}
-                        >
-                          CATEGORY <span style={{ color: binSortConfig.key === 'category' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{binSortConfig.key === 'category' ? (binSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                          <div
-                            onMouseDown={(e) => handleBinResizeStart(e, 'category')}
-                            onClick={(e) => e.stopPropagation()}
-                            title="Drag left/right to resize column"
-                            style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', cursor: 'col-resize', background: 'transparent', zIndex: 5 }}
-                          />
-                        </th>
-
-                        {/* DELETED BY Column with Drag Handle */}
-                        <th 
-                          onClick={() => handleBinSort('deletedBy')}
-                          style={{
-                            position: 'relative',
-                            width: `${binColumnWidths.deletedBy}px`,
-                            maxWidth: `${binColumnWidths.deletedBy}px`,
-                            cursor: 'pointer',
-                            background: '#f8fafc',
-                            padding: '12px 16px',
-                            fontSize: '11px',
-                            fontWeight: '800',
-                            color: '#475569',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em'
-                          }}
-                        >
-                          DELETED BY <span style={{ color: binSortConfig.key === 'deletedBy' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{binSortConfig.key === 'deletedBy' ? (binSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                          <div
-                            onMouseDown={(e) => handleBinResizeStart(e, 'deletedBy')}
-                            onClick={(e) => e.stopPropagation()}
-                            title="Drag left/right to resize column"
-                            style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', cursor: 'col-resize', background: 'transparent', zIndex: 5 }}
-                          />
-                        </th>
-
-                        {/* SOFT-DELETED DATE Column with Drag Handle */}
-                        <th 
-                          onClick={() => handleBinSort('deletedAt')}
-                          style={{
-                            position: 'relative',
-                            width: `${binColumnWidths.deletedAt}px`,
-                            maxWidth: `${binColumnWidths.deletedAt}px`,
-                            cursor: 'pointer',
-                            background: '#f8fafc',
-                            padding: '12px 16px',
-                            fontSize: '11px',
-                            fontWeight: '800',
-                            color: '#475569',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em'
-                          }}
-                        >
-                          SOFT-DELETED DATE <span style={{ color: binSortConfig.key === 'deletedAt' ? '#0d9488' : '#94a3b8', marginLeft: '4px' }}>{binSortConfig.key === 'deletedAt' ? (binSortConfig.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                          <div
-                            onMouseDown={(e) => handleBinResizeStart(e, 'deletedAt')}
-                            onClick={(e) => e.stopPropagation()}
-                            title="Drag left/right to resize column"
-                            style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', cursor: 'col-resize', background: 'transparent', zIndex: 5 }}
-                          />
-                        </th>
-
-                        {/* PRESERVED DEPENDENT LINKS Column */}
-                        <th
-                          style={{
-                            position: 'relative',
-                            width: `${binColumnWidths.preservedLinks}px`,
-                            maxWidth: `${binColumnWidths.preservedLinks}px`,
-                            background: '#f8fafc',
-                            padding: '12px 16px',
-                            fontSize: '11px',
-                            fontWeight: '800',
-                            color: '#475569',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em'
-                          }}
-                        >
-                          PRESERVED DEPENDENT LINKS
-                          <div
-                            onMouseDown={(e) => handleBinResizeStart(e, 'preservedLinks')}
-                            onClick={(e) => e.stopPropagation()}
-                            title="Drag left/right to resize column"
-                            style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', cursor: 'col-resize', background: 'transparent', zIndex: 5 }}
-                          />
-                        </th>
-
-                        <th style={{ textAlign: 'right', background: '#f8fafc', padding: '12px 16px', fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          ACTIONS
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedBinItems.length === 0 ? (
-                        <tr>
-                          <td colSpan="6" style={{ padding: '48px 20px', textAlign: 'center', color: '#94a3b8' }}>
-                            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🗑️</div>
-                            No archived items match your filter criteria.
-                          </td>
-                        </tr>
-                      ) : (
-                        paginatedBinItems.map(item => (
-                          <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                            <td style={{ padding: '12px 16px', fontWeight: '700', color: '#0f2b26', width: `${binColumnWidths.name}px`, maxWidth: `${binColumnWidths.name}px`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              <div>{item.name}</div>
-                              {isSuperAdmin && item.tenantName && (
-                                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>Company: {item.tenantName}</span>
-                              )}
-                            </td>
-                            <td style={{ padding: '12px 16px', width: `${binColumnWidths.category}px` }}>
-                              <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
-                                {item.category || 'General'}
-                              </span>
-                            </td>
-                            <td style={{ padding: '12px 16px', color: '#334155', fontSize: '12px', fontWeight: '600', width: `${binColumnWidths.deletedBy}px`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              <div>{item.deletedBy || 'System User'}</div>
-                              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>{item.deletedByEmail}</div>
-                            </td>
-                            <td style={{ padding: '12px 16px', color: '#475569', fontSize: '12px', fontWeight: '600', width: `${binColumnWidths.deletedAt}px` }}>{item.deletedAt}</td>
-                            <td style={{ padding: '12px 16px', width: `${binColumnWidths.preservedLinks}px` }}>
-                              <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.1)', color: '#059669', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
-                                🛡️ Intact: {item.preservedLinks || item.links || 'Full History Intact'}
-                              </span>
-                            </td>
-                            <td style={{ padding: '12px 16px' }}>
-                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                <button
-                                  type="button"
-                                  style={{
-                                    padding: '6px 14px',
-                                    fontSize: '12px',
-                                    fontWeight: '700',
-                                    borderRadius: '8px',
-                                    border: 'none',
-                                    background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)',
-                                    color: '#ffffff',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)',
-                                    transition: 'all 0.15s ease'
-                                  }}
-                                  onClick={() => handleRestoreBinItem(item)}
-                                >
-                                  🔄 Restore
-                                </button>
-                                <button
-                                  type="button"
-                                  style={{
-                                    padding: '6px 14px',
-                                    fontSize: '12px',
-                                    fontWeight: '700',
-                                    borderRadius: '8px',
-                                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                                    background: 'rgba(239, 68, 68, 0.1)',
-                                    color: '#ef4444',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.15s ease'
-                                  }}
-                                  onClick={() => handlePermanentDeleteBinItem(item.id, item.name)}
-                                >
-                                  ❌ Purge
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Table Footer with Pagination */}
-                <div style={{ padding: '12px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', flexWrap: 'wrap', gap: '12px' }}>
-                  <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>
-                    {totalBinItems > 0
-                      ? `Showing ${binStartIndex + 1} to ${binEndIndex} of ${totalBinItems} entries`
-                      : `Showing 0 to 0 of 0 entries`}
-                  </div>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b' }}>
-                      <span>Rows:</span>
-                      <select
-                        value={binPageSize}
-                        onChange={(e) => {
-                          setBinPageSize(Number(e.target.value));
-                          setBinCurrentPage(1);
-                        }}
-                        style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', background: 'white' }}
-                      >
-                        <option value={10}>10</option>
-                        <option value={25}>25</option>
-                        <option value={50}>50</option>
-                      </select>
-                    </div>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                      <button
-                        type="button"
-                        disabled={validBinPage <= 1}
-                        onClick={() => setBinCurrentPage(prev => Math.max(prev - 1, 1))}
-                        style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: validBinPage <= 1 ? '#f1f5f9' : 'white', color: validBinPage <= 1 ? '#cbd5e1' : '#334155', cursor: validBinPage <= 1 ? 'not-allowed' : 'pointer' }}
-                      >
-                        ‹ Prev
-                      </button>
-                      <span style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '700', borderRadius: '6px', background: '#0d9488', color: 'white' }}>
-                        {validBinPage} / {totalBinPages}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={validBinPage >= totalBinPages}
-                        onClick={() => setBinCurrentPage(prev => Math.min(prev + 1, totalBinPages))}
-                        style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: validBinPage >= totalBinPages ? '#f1f5f9' : 'white', color: validBinPage >= totalBinPages ? '#cbd5e1' : '#334155', cursor: validBinPage >= totalBinPages ? 'not-allowed' : 'pointer' }}
-                      >
-                        Next ›
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* 27. APP GUIDE & INTERACTIVE ONBOARDING TOUR */}
-        {activeTab === 'app_guide' && (
-          <div style={{ padding: 'var(--space-6)', margin: 'var(--space-4)', overflowY: 'auto', flexGrow: 1 }} className="glass-panel">
-
-            {/* Header */}
-            <div className="page-header" style={{ marginBottom: 'var(--space-6)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-                <div style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-md)', background: 'var(--color-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px' }}>
-                  🚀
-                </div>
-                <div>
-                  <h1 className="page-header-title">EMS &amp; WhatsApp CRM Walkthrough &amp; Guide</h1>
-                  <p className="page-header-subtitle">Dynamic self-updating product tour. Onboarding steps sync whenever new features are added or modified.</p>
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-                {(authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'superadmin') && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ padding: '10px 16px', fontSize: 'var(--text-sm)' }}
-                    onClick={() => {
-                      openInputModal({
-                        title: 'Add New Guide Step',
-                        subtitle: 'Enter feature walkthrough step title',
-                        placeholder: 'e.g. AI Broadcast Engine',
-                        onSave: (title) => {
-                          const newStep = {
-                            id: 'step_' + Date.now(),
-                            stepNumber: guideSteps.length + 1,
-                            icon: '🚀',
-                            title: title.trim(),
-                            category: 'New Feature',
-                            targetTab: 'sessions',
-                            description: 'New feature setup step.',
-                            isLive: true
-                          };
-                          setGuideSteps(prev => [...prev, newStep]);
-                          showToast(`Added Step #${newStep.stepNumber}: "${title.trim()}" live to guide!`, 'success');
-                        }
-                      });
-                    }}
-                  >
-                    ➕ Add Custom Step
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  style={{ padding: '10px 20px', fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}
-                  onClick={() => startInteractiveTour(0)}
-                >
-                  🚀 Start Guided Tour
-                </button>
-              </div>
-            </div>
-
-            {/* Guide Step Cards Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
-              {guideSteps.filter(s => s.isLive !== false).map((step, idx) => (
-                <div key={step.id} className="payroll-table-card" style={{ padding: 'var(--space-5)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '2rem' }}>{step.icon || '📱'}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                      <span className="badge-info" style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--fw-bold)' }}>
-                        STEP {idx + 1}
-                      </span>
-                      {(authUser?.role === 'owner' || authUser?.role === 'superadmin') && guideSteps.length > 1 && (
-                        <button
-                          type="button"
-                          className="btn"
-                          style={{ padding: '2px 8px', fontSize: '10px', background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: 'none' }}
-                          onClick={() => {
-                            setGuideSteps(prev => prev.filter(st => st.id !== step.id));
-                            showToast(`Removed Step "${step.title}" from live guide.`, 'info');
-                          }}
-                        >
-                          ✕ Remove
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <h4 style={{ fontWeight: 'var(--fw-bold)', fontSize: 'var(--text-md)', color: 'var(--text-primary)', margin: 0 }}>{step.title}</h4>
-                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: '1.6', margin: 0, flexGrow: 1 }}>
-                    {step.description}
-                  </p>
-                  <button className="btn btn-secondary" style={{ padding: '8px', fontSize: 'var(--text-xs)' }} onClick={() => setActiveTab(step.targetTab)}>
-                    Go to {step.category || 'Module'} ➔
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            {/* Visual Blueprint Section */}
-            <div className="payroll-table-card" style={{ padding: 'var(--space-6)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-5)' }}>
-                <div>
-                  <h3 className="payroll-table-title">📖 Full Visual System Setup &amp; Onboarding Blueprint</h3>
-                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginTop: 'var(--space-1)' }}>
-                    Step-by-step documentation manual for complete organization training.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => {
-                    showToast('Opening complete_system_setup_guide.md manual...', 'success');
-                    window.open('file:///C:/Users/Lenovo/.gemini/antigravity-ide/brain/f848a984-058b-45dd-bf5f-da24f8a9ca49/complete_system_setup_guide.md', '_blank');
-                  }}
-                  style={{ padding: '10px 16px', fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', whiteSpace: 'nowrap' }}
-                >
-                  📥 Download Setup Manual
-                </button>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 'var(--space-4)' }}>
-                {[
-                  { step: '1', title: 'WhatsApp QR Pairing', desc: 'Scan QR via WhatsApp Linked Devices to enable multi-agent inbox & automated chatbot rules.' },
-                  { step: '2', title: 'RBAC Permissions Matrix', desc: 'Configure granular Create, Read, Edit, Delete, Export, Approve capabilities per role.' },
-                  { step: '3', title: 'Live GPS & Geofencing', desc: 'Real-time employee coordinates, battery %, vehicle speed, and historical day route replay.' },
-                  { step: '4', title: 'Auto Payroll & Payslips', desc: 'Calculate salaries from attendance days and download PDF payslips with 1-click.' }
-                ].map(item => (
-                  <div key={item.step} style={{ padding: 'var(--space-4)', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
-                      <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--color-primary)', color: 'white', fontSize: '11px', fontWeight: 'var(--fw-bold)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{item.step}</span>
-                      <h5 style={{ fontWeight: 'var(--fw-bold)', fontSize: 'var(--text-sm)', color: 'var(--text-primary)', margin: 0 }}>{item.title}</h5>
-                    </div>
-                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', margin: 0, lineHeight: '1.5' }}>{item.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-
-          </div>
+        {/* Live GPS Tracking */}
+        {(activeTab === 'gps_attendance' || activeTab === 'gps_tracking') && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading GPS Tracking...</div>}>
+            <GpsTrackingPage
+              gpsSubTab={gpsSubTab}
+              setGpsSubTab={setGpsSubTab}
+              setShowClientVisitModal={setShowClientVisitModal}
+              todayStatus={todayStatus}
+              gpsLoading={gpsLoading}
+              handleCheckIn={handleCheckIn}
+              handleCheckOut={handleCheckOut}
+              isOfflineMode={isOfflineMode}
+              setIsOfflineMode={setIsOfflineMode}
+              isSyncingPings={isSyncingPings}
+              setIsSyncingPings={setIsSyncingPings}
+              offlinePingsCount={offlinePingsCount}
+              setOfflinePingsCount={setOfflinePingsCount}
+              selectedTrackEmployee={selectedTrackEmployee}
+              setSelectedTrackEmployee={setSelectedTrackEmployee}
+              teamTrackLocations={teamTrackLocations}
+              setTeamTrackLocations={setTeamTrackLocations}
+              vehicleRates={vehicleRates}
+              setVehicleRates={setVehicleRates}
+              clientVisits={clientVisits}
+              handleExportGpsCSV={handleExportGpsCSV}
+              fetchLiveLocations={fetchLiveLocations}
+              employeeBeatPlans={employeeBeatPlans}
+              selectedAuditEmployee={selectedAuditEmployee}
+              setSelectedAuditEmployee={setSelectedAuditEmployee}
+              selectedAuditDate={selectedAuditDate}
+              setSelectedAuditDate={setSelectedAuditDate}
+              employeeAuditLogs={employeeAuditLogs}
+              liveLocations={liveLocations}
+              gpsHistory={gpsHistory}
+              setSelectedExpenseEmpId={setSelectedExpenseEmpId}
+              setShowExpenseModal={setShowExpenseModal}
+              setSelectedPlannerEmpId={setSelectedPlannerEmpId}
+              setTempCheckpoints={setTempCheckpoints}
+              setShowBeatPlannerModal={setShowBeatPlannerModal}
+              employees={employees}
+              authUser={authUser}
+              setActiveTab={setActiveTab}
+              showToast={showToast}
+              GpsMap={GpsMap}
+            />
+          </Suspense>
         )}
       </main>
+    </div> {/* end app-main-container */}
 
-      {/* 21. MOCK MODALS */}
-      {/* Forgot Password Modal */}
-      {showForgotPasswordModal && (
-        <div className="modal-overlay" style={{ zIndex: 9999 }}>
-          <div className="modal-content glass-panel" style={{ maxWidth: '420px', color: '#0f2b26', padding: '28px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: '800', margin: 0, fontFamily: 'var(--font-header)' }}>Reset Account Password</h3>
-              <X size={18} style={{ cursor: 'pointer', color: '#64748b' }} onClick={() => setShowForgotPasswordModal(false)} />
-            </div>
+        {/* Forgot Password Modal */}
+        {showForgotPasswordModal && (
+          <Suspense fallback={null}>
+            <ForgotPasswordModal
+              showForgotPasswordModal={showForgotPasswordModal}
+              setShowForgotPasswordModal={setShowForgotPasswordModal}
+              forgotPasswordForm={forgotPasswordForm}
+              setForgotPasswordForm={setForgotPasswordForm}
+              forgotPasswordError={forgotPasswordError}
+              forgotPasswordLoading={forgotPasswordLoading}
+              handleForgotPassword={handleForgotPassword}
+              showPassword={showPassword}
+              setShowPassword={setShowPassword}
+            />
+          </Suspense>
+        )}
 
-            <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>
-              Enter your registered account email and your new password to reset it instantly.
-            </p>
+        {/* Add Task Modal */}
+        {showAddTaskModal && (
+          <Suspense fallback={null}>
+            <AddTaskModal
+              showAddTaskModal={showAddTaskModal}
+              setShowAddTaskModal={setShowAddTaskModal}
+              handleSaveTask={handleSaveTask}
+              newTaskForm={newTaskForm}
+              setNewTaskForm={setNewTaskForm}
+              employees={employees}
+            />
+          </Suspense>
+        )}
 
-            {forgotPasswordError && (
-              <div style={{ padding: '10px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', color: '#ef4444', fontSize: '12px', marginBottom: '16px' }}>
-                {forgotPasswordError}
-              </div>
-            )}
+        {/* Add Notice Modal */}
+        {showAddNoticeModal && (
+          <Suspense fallback={null}>
+            <AddNoticeModal
+              showAddNoticeModal={showAddNoticeModal}
+              setShowAddNoticeModal={setShowAddNoticeModal}
+              handleSaveNotice={handleSaveNotice}
+              newNoticeForm={newNoticeForm}
+              setNewNoticeForm={setNewNoticeForm}
+            />
+          </Suspense>
+        )}
 
-            <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ textAlign: 'left' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '6px' }}>Account Email</label>
-                <div style={{ position: 'relative' }}>
-                  <Mail size={16} style={{ position: 'absolute', left: '12px', top: '13px', color: '#94a3b8' }} />
-                  <input
-                    type="email"
-                    required
-                    placeholder="name@company.com"
-                    value={forgotPasswordForm.email}
-                    onChange={(e) => setForgotPasswordForm({ ...forgotPasswordForm, email: e.target.value })}
-                    style={{ width: '100%', padding: '10px 12px 10px 38px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                  />
-                </div>
-              </div>
+        {/* Add Holiday Modal */}
+        {showAddHolidayModal && (
+          <Suspense fallback={null}>
+            <AddHolidayModal
+              showAddHolidayModal={showAddHolidayModal}
+              setShowAddHolidayModal={setShowAddHolidayModal}
+              handleSaveHoliday={handleSaveHoliday}
+              newHolidayForm={newHolidayForm}
+              setNewHolidayForm={setNewHolidayForm}
+            />
+          </Suspense>
+        )}
 
-              <div style={{ textAlign: 'left' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '6px' }}>New Password</label>
-                <div style={{ position: 'relative' }}>
-                  <Lock size={16} style={{ position: 'absolute', left: '12px', top: '13px', color: '#94a3b8' }} />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    placeholder="Enter new password"
-                    value={forgotPasswordForm.newPassword}
-                    onChange={(e) => setForgotPasswordForm({ ...forgotPasswordForm, newPassword: e.target.value })}
-                    style={{ width: '100%', padding: '10px 38px 10px 38px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                  />
-                  <div
-                    onClick={() => setShowPassword(!showPassword)}
-                    style={{ position: 'absolute', right: '12px', top: '12px', cursor: 'pointer', color: '#94a3b8' }}>
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </div>
-                </div>
-              </div>
+        {/* Add Leave Modal */}
+        {showAddLeaveModal && (
+          <Suspense fallback={null}>
+            <AddLeaveModal
+              showAddLeaveModal={showAddLeaveModal}
+              setShowAddLeaveModal={setShowAddLeaveModal}
+              handleSaveLeave={handleSaveLeave}
+              newLeaveForm={newLeaveForm}
+              setNewLeaveForm={setNewLeaveForm}
+            />
+          </Suspense>
+        )}
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ flex: 1, padding: '10px' }}
-                  onClick={() => setShowForgotPasswordModal(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={forgotPasswordLoading}
-                  className="btn btn-primary"
-                  style={{ flex: 1.2, padding: '10px' }}
-                >
-                  {forgotPasswordLoading ? 'Updating...' : 'Update Password →'}
-                </button>
-              </div>
-            </form>
+        {/* Add/Edit Employee Modal */}
+        {showAddEmployeeModal && (
+          <Suspense fallback={null}>
+            <AddEmployeeModal
+              showAddEmployeeModal={showAddEmployeeModal}
+              setShowAddEmployeeModal={setShowAddEmployeeModal}
+              newEmployeeForm={newEmployeeForm}
+              setNewEmployeeForm={setNewEmployeeForm}
+              handleCreateEmployee={handleCreateEmployee}
+              authUser={authUser}
+              systemDropdowns={systemDropdowns}
+              billingTenant={billingTenant}
+              isEmployeesLoading={isEmployeesLoading}
+            />
+          </Suspense>
+        )}
+
+        {/* Add Session Modal */}
+        {showAddSessionModal && (
+          <Suspense fallback={null}>
+            <AddSessionModal
+              showAddSessionModal={showAddSessionModal}
+              setShowAddSessionModal={setShowAddSessionModal}
+              handleCreateSession={handleCreateSession}
+              newSessionName={newSessionName}
+              setNewSessionName={setNewSessionName}
+            />
+          </Suspense>
+        )}
+
+        {/* Start New Chat Modal */}
+        {showNewChatModal && (
+          <Suspense fallback={null}>
+            <NewChatModal
+              showNewChatModal={showNewChatModal}
+              setShowNewChatModal={setShowNewChatModal}
+              handleStartNewChat={handleStartNewChat}
+              newChatError={newChatError}
+              newChatPhone={newChatPhone}
+              setNewChatPhone={setNewChatPhone}
+              newChatName={newChatName}
+              setNewChatName={setNewChatName}
+              newChatSessionId={newChatSessionId}
+              setNewChatSessionId={setNewChatSessionId}
+              sessions={sessions}
+              newChatInitialMsg={newChatInitialMsg}
+              setNewChatInitialMsg={setNewChatInitialMsg}
+              isCreatingNewChat={isCreatingNewChat}
+            />
+          </Suspense>
+        )}
+
+        {/* Add Chatbot Rule Modal */}
+        {showAddRuleModal && (
+          <Suspense fallback={null}>
+            <AddRuleModal
+              showAddRuleModal={showAddRuleModal}
+              setShowAddRuleModal={setShowAddRuleModal}
+              handleAddChatbotRule={handleAddChatbotRule}
+              chatbotRuleError={chatbotRuleError}
+              chatbotRuleKeyword={chatbotRuleKeyword}
+              setChatbotRuleKeyword={setChatbotRuleKeyword}
+              chatbotRuleMatchType={chatbotRuleMatchType}
+              setChatbotRuleMatchType={setChatbotRuleMatchType}
+              chatbotRuleReply={chatbotRuleReply}
+              setChatbotRuleReply={setChatbotRuleReply}
+            />
+          </Suspense>
+        )}
+
+        {/* Broadcast Modal */}
+        {showBroadcastModal && (
+          <Suspense fallback={null}>
+            <BroadcastModal
+              showBroadcastModal={showBroadcastModal}
+              setShowBroadcastModal={setShowBroadcastModal}
+              broadcastProgress={broadcastProgress}
+              handleSendBroadcast={handleSendBroadcast}
+              broadcastStage={broadcastStage}
+              setBroadcastStage={setBroadcastStage}
+              contacts={contacts}
+              stages={stages}
+              broadcastSessionId={broadcastSessionId}
+              setBroadcastSessionId={setBroadcastSessionId}
+              sessions={sessions}
+              broadcastMessage={broadcastMessage}
+              setBroadcastMessage={setBroadcastMessage}
+            />
+          </Suspense>
+        )}
+
+        {/* Schedule Message Modal */}
+        {showScheduleModal && (
+          <Suspense fallback={null}>
+            <ScheduleMessageModal
+              showScheduleModal={showScheduleModal}
+              setShowScheduleModal={setShowScheduleModal}
+              handleScheduleMessage={handleScheduleMessage}
+              scheduleDateTime={scheduleDateTime}
+              setScheduleDateTime={setScheduleDateTime}
+              scheduleMessageText={scheduleMessageText}
+              setScheduleMessageText={setScheduleMessageText}
+            />
+          </Suspense>
+        )}
+
+        {/* Log Client Visit Modal */}
+        {showClientVisitModal && (
+          <Suspense fallback={null}>
+            <ClientVisitModal
+              showClientVisitModal={showClientVisitModal}
+              setShowClientVisitModal={setShowClientVisitModal}
+              clientVisitForm={clientVisitForm}
+              setClientVisitForm={setClientVisitForm}
+              setClientVisits={setClientVisits}
+              authUser={authUser}
+              showToast={showToast}
+              setClientSignature={setClientSignature}
+            />
+          </Suspense>
+        )}
+
+        {/* Log Shift Expenses Modal */}
+        {showExpenseModal && (
+          <Suspense fallback={null}>
+            <ExpenseModal
+              showExpenseModal={showExpenseModal}
+              setShowExpenseModal={setShowExpenseModal}
+              expenseForm={expenseForm}
+              setExpenseForm={setExpenseForm}
+              selectedExpenseEmpId={selectedExpenseEmpId}
+              setEmployeeExpenses={setEmployeeExpenses}
+              isDragActive={isDragActive}
+              setIsDragActive={setIsDragActive}
+              showToast={showToast}
+              authUser={authUser}
+            />
+          </Suspense>
+        )}
+
+        {/* Assign Custom Beat Route Modal */}
+        {showBeatPlannerModal && (
+          <Suspense fallback={null}>
+            <BeatPlannerModal
+              showBeatPlannerModal={showBeatPlannerModal}
+              setShowBeatPlannerModal={setShowBeatPlannerModal}
+              tempCheckpoints={tempCheckpoints}
+              setTempCheckpoints={setTempCheckpoints}
+              newCheckpointForm={newCheckpointForm}
+              setNewCheckpointForm={setNewCheckpointForm}
+              selectedPlannerEmpId={selectedPlannerEmpId}
+              setEmployeeBeatPlans={setEmployeeBeatPlans}
+            />
+          </Suspense>
+        )}
+
+        {/* Global Toast Alert Overlay */}
+        {toast.visible && (
+          <div style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            background: toast.type === 'error' ? '#ef4444' : toast.type === 'warning' ? '#f59e0b' : '#10b981',
+            color: 'white',
+            padding: '14px 22px',
+            borderRadius: '8px',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '13px',
+            fontWeight: '700',
+            animation: 'slideIn 0.3s ease-out'
+          }}>
+            <span>{toast.type === 'error' ? '🛑' : toast.type === 'warning' ? '⚠️' : '🟢'}</span>
+            <span>{toast.message}</span>
           </div>
-        </div>
-      )}
-      {/* 21a. Add Task Modal */}
-      {showAddTaskModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '450px', color: '#0f2b26' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: '800' }}>Assign Tasks</h2>
-              <X size={18} style={{ cursor: 'pointer', color: 'var(--text-dim)' }} onClick={() => setShowAddTaskModal(false)} />
-            </div>
-            <form onSubmit={handleSaveTask} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div className="crm-group">
-                <label className="crm-label">Task Title</label>
-                <input className="crm-input" type="text" required value={newTaskForm.title} onChange={e => setNewTaskForm({ ...newTaskForm, title: e.target.value })} />
-              </div>
-              <div className="crm-group">
-                <label className="crm-label">Description</label>
-                <textarea className="crm-textarea" value={newTaskForm.description} onChange={e => setNewTaskForm({ ...newTaskForm, description: e.target.value })} />
-              </div>
-              <div className="crm-group">
-                <label className="crm-label">Assign To</label>
-                <select className="crm-select" value={newTaskForm.assignedTo} onChange={e => setNewTaskForm({ ...newTaskForm, assignedTo: e.target.value })}>
-                  <option value="">Choose Employee</option>
-                  {employees.map(emp => <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name || ''}</option>)}
-                </select>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div className="crm-group">
-                  <label className="crm-label">Priority</label>
-                  <select className="crm-select" value={newTaskForm.priority} onChange={e => setNewTaskForm({ ...newTaskForm, priority: e.target.value })}>
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                  </select>
-                </div>
-                <div className="crm-group">
-                  <label className="crm-label">Due Date</label>
-                  <input className="crm-input" type="date" value={newTaskForm.dueDate} onChange={e => setNewTaskForm({ ...newTaskForm, dueDate: e.target.value })} />
-                </div>
-              </div>
-              <button type="submit" className="btn btn-primary" style={{ padding: '12px' }}>Create Task</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 21b. Add Notice Modal */}
-      {showAddNoticeModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '450px', color: '#0f2b26' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: '800' }}>Publish Corporate Announcement</h2>
-              <X size={18} style={{ cursor: 'pointer', color: 'var(--text-dim)' }} onClick={() => setShowAddNoticeModal(false)} />
-            </div>
-            <form onSubmit={handleSaveNotice} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div className="crm-group">
-                <label className="crm-label">Announcement Title</label>
-                <input className="crm-input" type="text" required value={newNoticeForm.title} onChange={e => setNewNoticeForm({ ...newNoticeForm, title: e.target.value })} />
-              </div>
-              <div className="crm-group">
-                <label className="crm-label">Content Description</label>
-                <textarea className="crm-textarea" required value={newNoticeForm.content} onChange={e => setNewNoticeForm({ ...newNoticeForm, content: e.target.value })} />
-              </div>
-              <button type="submit" className="btn btn-primary" style={{ padding: '12px' }}>Publish Notice</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 21c. Add Holiday Modal */}
-      {showAddHolidayModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '400px', color: '#0f2b26' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: '800' }}>Add Scheduled Holiday</h2>
-              <X size={18} style={{ cursor: 'pointer', color: 'var(--text-dim)' }} onClick={() => setShowAddHolidayModal(false)} />
-            </div>
-            <form onSubmit={handleSaveHoliday} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div className="crm-group">
-                <label className="crm-label">Holiday Name</label>
-                <input className="crm-input" type="text" required value={newHolidayForm.name} onChange={e => setNewHolidayForm({ ...newHolidayForm, name: e.target.value })} />
-              </div>
-              <div className="crm-group">
-                <label className="crm-label">Scheduled Date</label>
-                <input className="crm-input" type="date" required value={newHolidayForm.date} onChange={e => setNewHolidayForm({ ...newHolidayForm, date: e.target.value })} />
-              </div>
-              <button type="submit" className="btn btn-primary" style={{ padding: '12px' }}>Add Holiday</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 21d. Add Leave Modal */}
-      {showAddLeaveModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '400px', color: '#0f2b26' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: '800' }}>File Leave Request</h2>
-              <X size={18} style={{ cursor: 'pointer', color: 'var(--text-dim)' }} onClick={() => setShowAddLeaveModal(false)} />
-            </div>
-            <form onSubmit={handleSaveLeave} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div className="crm-group">
-                  <label className="crm-label">Start Date</label>
-                  <input className="crm-input" type="date" required value={newLeaveForm.startDate} onChange={e => setNewLeaveForm({ ...newLeaveForm, startDate: e.target.value })} />
-                </div>
-                <div className="crm-group">
-                  <label className="crm-label">End Date</label>
-                  <input className="crm-input" type="date" required value={newLeaveForm.endDate} onChange={e => setNewLeaveForm({ ...newLeaveForm, endDate: e.target.value })} />
-                </div>
-              </div>
-              <div className="crm-group">
-                <label className="crm-label">Leave Type</label>
-                <select className="crm-select" value={newLeaveForm.type} onChange={e => setNewLeaveForm({ ...newLeaveForm, type: e.target.value })}>
-                  <option value="Sick">Sick Leave</option>
-                  <option value="Casual">Casual Leave</option>
-                  <option value="Annual">Annual Leave</option>
-                </select>
-              </div>
-              <div className="crm-group">
-                <label className="crm-label">Reason</label>
-                <textarea className="crm-textarea" required value={newLeaveForm.reason} onChange={e => setNewLeaveForm({ ...newLeaveForm, reason: e.target.value })} />
-              </div>
-              <button type="submit" className="btn btn-primary" style={{ padding: '12px' }}>File Application</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Add/Edit Employee Modal */}
-      {showAddEmployeeModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '500px', color: '#0f2b26' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '800' }}>
-                {newEmployeeForm.id ? 'Edit Employee Profile' : 'Add Employee Profile'}
-              </h2>
-              <X size={18} style={{ cursor: 'pointer', color: 'var(--text-dim)' }} onClick={() => setShowAddEmployeeModal(false)} />
-            </div>
-
-            <form onSubmit={handleCreateEmployee} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>First Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Rahul"
-                    value={newEmployeeForm.firstName}
-                    onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, firstName: e.target.value })}
-                    style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '13px' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>Last Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Sharma"
-                    value={newEmployeeForm.lastName}
-                    onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, lastName: e.target.value })}
-                    style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '13px' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>Work Email</label>
-                  <input
-                    type="email"
-                    placeholder="name@company.com"
-                    value={newEmployeeForm.email}
-                    onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, email: e.target.value })}
-                    style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '13px' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>Phone Number</label>
-                  <input
-                    type="text"
-                    placeholder="+91 9999999999"
-                    value={newEmployeeForm.phone}
-                    onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, phone: e.target.value })}
-                    style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '13px' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>Role Type</label>
-                  <select
-                    value={newEmployeeForm.role}
-                    onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, role: e.target.value })}
-                    style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '13px', background: 'white' }}
-                  >
-                    <option value="employee">Standard Employee</option>
-                    <option value="agent">Field Agent / Support Staff</option>
-                    <option value="manager">Operations Manager</option>
-                    <option value="hr_accountant">HR & Accountant Lead</option>
-                    <option value="owner">Company Owner Admin</option>
-                    {authUser?.role === 'superadmin' && (
-                      <option value="superadmin">👑 Master Super Admin (Platform Owner)</option>
-                    )}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>Department</label>
-                  <select
-                    value={newEmployeeForm.department}
-                    onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, department: e.target.value })}
-                    style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '13px', background: 'white' }}
-                  >
-                    {(systemDropdowns.departments || []).map((dept, idx) => {
-                      const deptName = typeof dept === 'object' && dept !== null ? dept.name : dept;
-                      return (
-                        <option key={deptName || idx} value={deptName}>{deptName}</option>
-                      );
-                    })}
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>
-                    Salary Base ({billingTenant?.plan?.price?.currency === 'INR' ? '₹' : '$'} / mo)
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 25000"
-                    value={newEmployeeForm.salary}
-                    onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, salary: e.target.value })}
-                    style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '13px' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>Status</label>
-                  <select
-                    value={newEmployeeForm.status}
-                    onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, status: e.target.value })}
-                    style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '13px', background: 'white' }}
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="suspended">Suspended</option>
-                    <option value="on_leave">On Leave</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Create login credentials checkbox (Only in creation mode) */}
-              {!newEmployeeForm.id && (
-                <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginTop: '4px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={newEmployeeForm.createLoginAccount}
-                      onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, createLoginAccount: e.target.checked })}
-                    />
-                    Provide Workspace Dashboard Login Account
-                  </label>
-
-                  {newEmployeeForm.createLoginAccount && (
-                    <div style={{ marginTop: '12px', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                      <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                        The employee will use their Work Email and this password to log into the Workspace dashboard.
-                      </p>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', marginBottom: '4px' }}>Set Password</label>
-                        <input
-                          type="password"
-                          required={newEmployeeForm.createLoginAccount}
-                          placeholder="At least 6 characters"
-                          value={newEmployeeForm.password}
-                          onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, password: e.target.value })}
-                          style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '12px' }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="modal-buttons" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setShowAddEmployeeModal(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  style={{ background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: '#ffffff', border: 'none', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)' }}
-                  disabled={isEmployeesLoading}
-                >
-                  {isEmployeesLoading ? 'Saving...' : (newEmployeeForm.id ? 'Save Profile' : 'Add Profile')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Add Session Modal */}
-      {showAddSessionModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ fontSize: '18px' }}>Add WhatsApp Channel</h2>
-              <X size={18} style={{ cursor: 'pointer', color: 'var(--text-dim)' }} onClick={() => setShowAddSessionModal(false)} />
-            </div>
-            <form onSubmit={handleCreateSession} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                Enter a custom display name to identify this WhatsApp account (e.g., "Main Business", "Sales Account").
-              </p>
-              <input
-                type="text"
-                className="modal-input"
-                placeholder="e.g. Sales WhatsApp"
-                value={newSessionName}
-                onChange={(e) => setNewSessionName(e.target.value)}
-                required
-                autoFocus
-              />
-              <div className="modal-buttons">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowAddSessionModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Create & Link
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Start New Chat Modal */}
-      {showNewChatModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '440px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '700' }}>Start New Chat</h2>
-              <X size={18} style={{ cursor: 'pointer', color: 'var(--text-dim)' }} onClick={() => setShowNewChatModal(false)} />
-            </div>
-
-            <form onSubmit={handleStartNewChat} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {newChatError && (
-                <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '10px 12px', borderRadius: '8px', color: '#f87171', fontSize: '12px' }}>
-                  {newChatError}
-                </div>
-              )}
-
-              <div className="crm-group">
-                <label className="crm-label">Phone Number (with Country Code)</label>
-                <input
-                  type="text"
-                  className="modal-input"
-                  placeholder="e.g. 917986411005"
-                  value={newChatPhone}
-                  onChange={(e) => setNewChatPhone(e.target.value)}
-                  required
-                  autoFocus
-                />
-                <span style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '4px', display: 'block' }}>Type numbers only without spaces or + (e.g. 91 for India, 1 for USA).</span>
-              </div>
-
-              <div className="crm-group">
-                <label className="crm-label">Lead Name (Optional)</label>
-                <input
-                  type="text"
-                  className="modal-input"
-                  placeholder="e.g. Sahil Veera"
-                  value={newChatName}
-                  onChange={(e) => setNewChatName(e.target.value)}
-                />
-              </div>
-
-              <div className="crm-group">
-                <label className="crm-label">Send From Account</label>
-                <select
-                  className="crm-select"
-                  style={{ width: '100%', height: '38px', padding: '6px 12px' }}
-                  value={newChatSessionId}
-                  onChange={(e) => setNewChatSessionId(e.target.value)}
-                  required
-                >
-                  {sessions.filter(s => s.status === 'connected').length === 0 ? (
-                    <option value="">No connected accounts found</option>
-                  ) : (
-                    sessions.filter(s => s.status === 'connected').map(s => (
-                      <option key={s.id} value={s.id}>{s.phone_name} (+{s.phone_number})</option>
-                    ))
-                  )}
-                </select>
-              </div>
-
-              <div className="crm-group">
-                <label className="crm-label">Initial Message (Optional)</label>
-                <textarea
-                  className="modal-input"
-                  style={{ height: '70px', resize: 'none', padding: '8px 12px' }}
-                  placeholder="e.g. Hello, welcome to our business..."
-                  value={newChatInitialMsg}
-                  onChange={(e) => setNewChatInitialMsg(e.target.value)}
-                />
-              </div>
-
-              <div className="modal-buttons" style={{ marginTop: '8px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowNewChatModal(false)} disabled={isCreatingNewChat}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={isCreatingNewChat}>
-                  {isCreatingNewChat ? 'Verifying on WhatsApp...' : 'Start Chat'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Add Chatbot Rule Modal */}
-      {showAddRuleModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '440px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '700' }}>Add Chatbot Rule</h2>
-              <X size={18} style={{ cursor: 'pointer', color: 'var(--text-dim)' }} onClick={() => setShowAddRuleModal(false)} />
-            </div>
-
-            <form onSubmit={handleAddChatbotRule} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {chatbotRuleError && (
-                <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '10px 12px', borderRadius: '8px', color: '#f87171', fontSize: '12px' }}>
-                  {chatbotRuleError}
-                </div>
-              )}
-
-              <div className="crm-group">
-                <label className="crm-label">Matching Keyword/Phrase</label>
-                <input
-                  type="text"
-                  className="modal-input"
-                  placeholder="e.g. price"
-                  value={chatbotRuleKeyword}
-                  onChange={(e) => setChatbotRuleKeyword(e.target.value)}
-                  required
-                  autoFocus
-                />
-              </div>
-
-              <div className="crm-group">
-                <label className="crm-label">Match Type</label>
-                <select
-                  className="crm-select"
-                  style={{ width: '100%', height: '38px', padding: '6px 12px' }}
-                  value={chatbotRuleMatchType}
-                  onChange={(e) => setChatbotRuleMatchType(e.target.value)}
-                  required
-                >
-                  <option value="contains">Contains (matches if word is anywhere in text)</option>
-                  <option value="exact">Exact (matches if text matches keyword exactly)</option>
-                </select>
-              </div>
-
-              <div className="crm-group">
-                <label className="crm-label">Automated Reply Text</label>
-                <textarea
-                  className="modal-input"
-                  style={{ height: '100px', resize: 'none', padding: '8px 12px' }}
-                  placeholder="e.g. Our catalog price lists start from $10. Visit [Link] for more info!"
-                  value={chatbotRuleReply}
-                  onChange={(e) => setChatbotRuleReply(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="modal-buttons" style={{ marginTop: '8px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowAddRuleModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Save Rule
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Broadcast Modal */}
-      {showBroadcastModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '460px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '700' }}>Send Broadcast Message</h2>
-              <X size={18} style={{ cursor: 'pointer', color: 'var(--text-dim)' }} onClick={() => {
-                if (broadcastProgress && broadcastProgress.status === 'sending') {
-                  alert('Broadcast is in progress. Please wait for it to complete.');
-                  return;
-                }
-                setShowBroadcastModal(false);
-              }} />
-            </div>
-
-            {broadcastProgress ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '10px 0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: '600' }}>
-                  <span>{broadcastProgress.status === 'completed' ? 'Broadcast Completed!' : 'Sending Broadcast...'}</span>
-                  <span>{broadcastProgress.current} / {broadcastProgress.total}</span>
-                </div>
-
-                {/* Progress bar */}
-                <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{ width: `${(broadcastProgress.current / broadcastProgress.total) * 100}%`, height: '100%', background: 'var(--color-primary)', transition: 'width 0.3s ease' }}></div>
-                </div>
-
-                {broadcastProgress.status === 'sending' && (
-                  <p style={{ fontSize: '12px', color: 'var(--text-dim)', fontStyle: 'italic', textAlign: 'center' }}>
-                    Please do not close this modal or refresh the page while campaign is sending. Adding 2-4 seconds delay between messages to prevent account bans.
-                  </p>
-                )}
-
-                {broadcastProgress.status === 'completed' && (
-                  <div className="modal-buttons" style={{ marginTop: '10px' }}>
-                    <button className="btn btn-primary" onClick={() => setShowBroadcastModal(false)}>
-                      Close Progress
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <form onSubmit={handleSendBroadcast} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                  Send a bulk message to multiple leads at once. A randomized delay is automatically added to simulate human behavior and protect your accounts.
-                </p>
-
-                <div className="crm-group">
-                  <label className="crm-label">Target Lead Stage</label>
-                  <select
-                    className="crm-select"
-                    style={{ width: '100%', height: '38px', padding: '6px 12px' }}
-                    value={broadcastStage}
-                    onChange={(e) => setBroadcastStage(e.target.value)}
-                    required
-                  >
-                    <option value="all">All Synced Leads ({contacts.length} contacts)</option>
-                    {stages.map(s => (
-                      <option key={s.id} value={s.id}>{s.title} ({contacts.filter(c => c.pipeline_stage === s.id).length} contacts)</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="crm-group">
-                  <label className="crm-label">Send From Account</label>
-                  <select
-                    className="crm-select"
-                    style={{ width: '100%', height: '38px', padding: '6px 12px' }}
-                    value={broadcastSessionId}
-                    onChange={(e) => setBroadcastSessionId(e.target.value)}
-                    required
-                  >
-                    {sessions.filter(s => s.status === 'connected').length === 0 ? (
-                      <option value="">No connected accounts found</option>
-                    ) : (
-                      sessions.filter(s => s.status === 'connected').map(s => (
-                        <option key={s.id} value={s.id}>{s.phone_name} (+{s.phone_number})</option>
-                      ))
-                    )}
-                  </select>
-                </div>
-
-                <div className="crm-group">
-                  <label className="crm-label">Broadcast Message Text</label>
-                  <textarea
-                    className="modal-input"
-                    style={{ height: '110px', resize: 'none', padding: '8px 12px' }}
-                    placeholder="e.g. Hello, hope you are doing well! We have a special discount for you today..."
-                    value={broadcastMessage}
-                    onChange={(e) => setBroadcastMessage(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="modal-buttons" style={{ marginTop: '8px' }}>
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowBroadcastModal(false)}>
-                    Cancel
-                  </button>
-                  <button type="submit" className="btn btn-primary" disabled={sessions.filter(s => s.status === 'connected').length === 0}>
-                    Link & Send Campaign
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Schedule Message Modal */}
-      {showScheduleModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '440px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '700' }}>Schedule WhatsApp Message</h2>
-              <X size={18} style={{ cursor: 'pointer', color: 'var(--text-dim)' }} onClick={() => setShowScheduleModal(false)} />
-            </div>
-
-            <form onSubmit={handleScheduleMessage} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                Set a specific date and time for this message to be sent automatically by the server.
-              </p>
-
-              <div className="crm-group">
-                <label className="crm-label">Scheduled Date & Time</label>
-                <input
-                  type="datetime-local"
-                  className="modal-input"
-                  value={scheduleDateTime}
-                  onChange={(e) => setScheduleDateTime(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="crm-group">
-                <label className="crm-label">Message Content</label>
-                <textarea
-                  className="modal-input"
-                  style={{ height: '110px', resize: 'none', padding: '8px 12px' }}
-                  placeholder="Type message content here..."
-                  value={scheduleMessageText}
-                  onChange={(e) => setScheduleMessageText(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="modal-buttons" style={{ marginTop: '8px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowScheduleModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Save Schedule
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Log Client Visit Modal */}
-      {showClientVisitModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '440px', color: '#0f2b26' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '800' }}>📸 Log Geo-Tagged Client Visit</h2>
-              <X size={18} style={{ cursor: 'pointer', color: 'var(--text-dim)' }} onClick={() => setShowClientVisitModal(false)} />
-            </div>
-
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              if (!clientVisitForm.clientName) return console.log('Please enter client name');
-              setClientVisits(prev => [
-                { id: String(Date.now()), clientName: clientVisitForm.clientName, address: clientVisitForm.address || 'Geo-Tagged Location', notes: clientVisitForm.notes || 'Meeting completed successfully', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
-                ...prev
-              ]);
-              setShowClientVisitModal(false);
-              setClientVisitForm({ clientName: '', address: '', notes: '' });
-              console.log('⭐ Client visit geo-tagged & logged successfully on Live Map!');
-            }} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-
-              {/* Geofence Verification Status Indicator */}
-              <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '10px 14px', borderRadius: '8px', fontSize: '12px', color: '#065f46', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700' }}>
-                <span>🟢</span>
-                <span>GEOFENCE VERIFIED: Device is within 38m of client coordinates.</span>
-              </div>
-
-              <div className="crm-group">
-                <label className="crm-label">Client / Company Name</label>
-                <input
-                  type="text"
-                  className="modal-input"
-                  placeholder="e.g. DLF Real Estate / TechCorp"
-                  value={clientVisitForm.clientName}
-                  onChange={(e) => setClientVisitForm({ ...clientVisitForm, clientName: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="crm-group">
-                <label className="crm-label">Meeting Location Address</label>
-                <input
-                  type="text"
-                  className="modal-input"
-                  placeholder="e.g. Sector 44, Gurgaon"
-                  value={clientVisitForm.address}
-                  onChange={(e) => setClientVisitForm({ ...clientVisitForm, address: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="crm-group">
-                <label className="crm-label">Meeting Notes & Summary</label>
-                <textarea
-                  className="modal-input"
-                  style={{ height: '90px', resize: 'none', padding: '8px 12px' }}
-                  placeholder="e.g. Pitched Pro SaaS Plan, client interested in 25 licenses..."
-                  value={clientVisitForm.notes}
-                  onChange={(e) => setClientVisitForm({ ...clientVisitForm, notes: e.target.value })}
-                />
-              </div>
-
-              <div className="crm-group">
-                <label className="crm-label">Attach Site Photo Proof</label>
-                <input
-                  type="file"
-                  className="modal-input"
-                  style={{ padding: '6px' }}
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      try {
-                        const res = await MediaStorageEngine.uploadMedia({
-                          tenantId: authUser?.companyId || authUser?.tenantId || 'acme_corp',
-                          category: 'client_visits',
-                          entityId: 'site_proof',
-                          file: file
-                        });
-                        setClientVisitForm(prev => ({ ...prev, photoProof: res.downloadUrl || file.name }));
-                        if (showToast) showToast(`✅ Uploaded site photo proof: ${file.name}`, 'success');
-                      } catch (err) {
-                        console.warn('Site proof upload warning:', err);
-                      }
-                    }
-                  }}
-                />
-              </div>
-
-              {/* Customer Digital Signature Canvas */}
-              <div className="crm-group">
-                <label className="crm-label">🤝 Client Digital Signature Verification</label>
-                <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '8px' }}>
-                  <canvas
-                    id="sig-canvas"
-                    width="380"
-                    height="100"
-                    style={{ background: 'white', border: '1px dashed #94a3b8', cursor: 'crosshair', borderRadius: '6px', width: '100%' }}
-                    onMouseDown={(e) => {
-                      const canvas = e.target;
-                      const ctx = canvas.getContext('2d');
-                      ctx.lineWidth = 2;
-                      ctx.strokeStyle = '#0f2b26';
-                      ctx.beginPath();
-                      const rect = canvas.getBoundingClientRect();
-                      ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
-                      canvas.drawing = true;
-                      setClientSignature('signed');
-                    }}
-                    onMouseMove={(e) => {
-                      const canvas = e.target;
-                      if (!canvas.drawing) return;
-                      const ctx = canvas.getContext('2d');
-                      const rect = canvas.getBoundingClientRect();
-                      ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-                      ctx.stroke();
-                    }}
-                    onMouseUp={(e) => {
-                      e.target.drawing = false;
-                    }}
-                    onTouchStart={(e) => {
-                      const canvas = e.target;
-                      const ctx = canvas.getContext('2d');
-                      ctx.lineWidth = 2;
-                      ctx.strokeStyle = '#0f2b26';
-                      ctx.beginPath();
-                      const rect = canvas.getBoundingClientRect();
-                      const touch = e.touches[0];
-                      ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
-                      canvas.drawing = true;
-                      setClientSignature('signed');
-                    }}
-                    onTouchMove={(e) => {
-                      const canvas = e.target;
-                      if (!canvas.drawing) return;
-                      const ctx = canvas.getContext('2d');
-                      const rect = canvas.getBoundingClientRect();
-                      const touch = e.touches[0];
-                      ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
-                      ctx.stroke();
-                    }}
-                    onTouchEnd={(e) => {
-                      e.target.drawing = false;
-                    }}
-                  />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
-                    <span style={{ fontSize: '10px', color: '#64748b' }}>Draw signature using finger/mouse above.</span>
-                    <button
-                      type="button"
-                      style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
-                      onClick={() => {
-                        const canvas = document.getElementById('sig-canvas');
-                        if (canvas) {
-                          const ctx = canvas.getContext('2d');
-                          ctx.clearRect(0, 0, canvas.width, canvas.height);
-                          setClientSignature('');
-                        }
-                      }}
-                    >
-                      🧹 Clear
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Premium Geo-Tag Watermark Live Preview */}
-              <div style={{ background: '#0f172a', color: '#38bdf8', padding: '14px', borderRadius: '8px', fontSize: '11px', fontFamily: 'monospace', border: '1px solid #0284c7', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', top: 0, right: 0, background: '#0284c7', color: 'white', padding: '2px 8px', fontSize: '9px', fontWeight: 'bold', borderBottomLeftRadius: '6px' }}>
-                  GPS WATERMARK ACTIVE
-                </div>
-                <div style={{ fontWeight: 'bold', color: '#38bdf8', marginBottom: '4px' }}>📍 GEO-TAG WATERMARK STAMP:</div>
-                <div>LATITUDE: <span style={{ color: '#f8fafc' }}>28.6280° N</span></div>
-                <div>LONGITUDE: <span style={{ color: '#f8fafc' }}>77.3649° E</span></div>
-                <div>LANDMARK: <span style={{ color: '#f8fafc' }}>{clientVisitForm.address || 'HQ Office, New Delhi'}</span></div>
-                <div>DATE/TIME: <span style={{ color: '#f8fafc' }}>{new Date().toLocaleString()}</span></div>
-                <div style={{ borderTop: '1px dashed rgba(56, 189, 248, 0.3)', marginTop: '8px', paddingTop: '6px', fontSize: '9px', color: '#94a3b8' }}>
-                  🔒 Cryptographic hash tag generated. Verification signature valid.
-                </div>
-              </div>
-
-              <div className="modal-buttons" style={{ marginTop: '8px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowClientVisitModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  ⭐ Save Geo-Tagged Visit
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Log Shift Expenses Modal */}
-      {showExpenseModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '440px', color: '#0f2b26' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '800' }}>💰 Log Daily Shift Expenses</h2>
-              <X size={18} style={{ cursor: 'pointer', color: 'var(--text-dim)' }} onClick={() => setShowExpenseModal(false)} />
-            </div>
-
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              const tollVal = expenseForm.tollEncountered ? (parseFloat(expenseForm.tollAmount) || 0) : 0;
-              const breakfastVal = parseFloat(expenseForm.breakfast) || 0;
-              const lunchVal = parseFloat(expenseForm.lunch) || 0;
-              const dinnerVal = parseFloat(expenseForm.dinner) || 0;
-              const otherVal = parseFloat(expenseForm.otherAmount) || 0;
-
-              const totalSum = tollVal + breakfastVal + lunchVal + dinnerVal + otherVal;
-
-              const expKey = `${selectedExpenseEmpId}_2026-07-18`;
-              setEmployeeExpenses(prev => ({
-                ...prev,
-                [expKey]: {
-                  tolls: {
-                    encountered: expenseForm.tollEncountered,
-                    amount: tollVal,
-                    receipt_slip: expenseForm.tollEncountered ? 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=600' : ''
-                  },
-                  meals: {
-                    breakfast: breakfastVal,
-                    lunch: lunchVal,
-                    dinner: dinnerVal
-                  },
-                  other: {
-                    amount: otherVal,
-                    description: expenseForm.otherDescription
-                  },
-                  status: 'pending',
-                  totalAmount: totalSum
-                }
-              }));
-
-              setShowExpenseModal(false);
-              setExpenseForm({
-                tollEncountered: false,
-                tollAmount: '',
-                tollSlip: '',
-                breakfast: '',
-                lunch: '',
-                dinner: '',
-                otherAmount: '',
-                otherDescription: ''
-              });
-              console.log('⭐ Daily shift expenses logged successfully! Pending manager review.');
-            }} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-
-              <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={expenseForm.tollEncountered}
-                    onChange={(e) => setExpenseForm({ ...expenseForm, tollEncountered: e.target.checked })}
-                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                  />
-                  <span>Encountered Road Tolls?</span>
-                </label>
-              </div>
-
-              {expenseForm.tollEncountered && (
-                <>
-                  <div className="crm-group">
-                    <label className="crm-label">Toll Cost Amount (₹)</label>
-                    <input
-                      type="number"
-                      className="modal-input"
-                      placeholder="e.g. 140"
-                      value={expenseForm.tollAmount}
-                      onChange={(e) => setExpenseForm({ ...expenseForm, tollAmount: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div className="crm-group">
-                    <label className="crm-label">Upload Toll Receipt Slip Proof</label>
-                    <div
-                      className={`file-dropzone ${isDragActive ? 'active' : ''}`}
-                      onDragOver={(e) => { e.preventDefault(); setIsDragActive(true); }}
-                      onDragLeave={() => setIsDragActive(false)}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        setIsDragActive(false);
-                        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                          setExpenseForm({ ...expenseForm, tollSlip: e.dataTransfer.files[0].name });
-                          showToast(`Selected file: ${e.dataTransfer.files[0].name} via drag-and-drop!`, 'success');
-                        }
-                      }}
-                      style={{ padding: '16px', background: '#f8fafc', border: '2px dashed #cbd5e1', borderRadius: '8px', textAlign: 'center', cursor: 'pointer' }}
-                    >
-                      <span style={{ fontSize: '20px', display: 'block', marginBottom: '4px' }}>📁</span>
-                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', display: 'block' }}>
-                        {expenseForm.tollSlip ? `Selected: ${expenseForm.tollSlip}` : 'Drag & drop toll receipt slip here or click to browse'}
-                      </span>
-                      <input
-                        type="file"
-                        style={{ display: 'none' }}
-                        id="toll-file-input"
-                        onChange={async (e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            const file = e.target.files[0];
-                            try {
-                              const res = await MediaStorageEngine.uploadMedia({
-                                tenantId: authUser?.companyId || authUser?.tenantId || 'acme_corp',
-                                category: 'expenses',
-                                entityId: 'toll_receipt',
-                                file: file
-                              });
-                              setExpenseForm(prev => ({ ...prev, tollSlip: res.downloadUrl || file.name }));
-                              if (showToast) showToast(`✅ Uploaded toll receipt: ${file.name}`, 'success');
-                            } catch (err) {
-                              setExpenseForm(prev => ({ ...prev, tollSlip: file.name }));
-                              if (showToast) showToast(`Selected file: ${file.name}`, 'success');
-                            }
-                          }
-                        }}
-                      />
-                      <label htmlFor="toll-file-input" style={{ display: 'inline-block', marginTop: '6px', fontSize: '11px', color: 'var(--color-primary)', textDecoration: 'underline', cursor: 'pointer', fontWeight: '800' }}>
-                        Browse Files
-                      </label>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-                <div className="crm-group">
-                  <label className="crm-label" style={{ fontSize: '11px' }}>Breakfast (₹)</label>
-                  <input
-                    type="number"
-                    className="modal-input"
-                    placeholder="e.g. 80"
-                    value={expenseForm.breakfast}
-                    onChange={(e) => setExpenseForm({ ...expenseForm, breakfast: e.target.value })}
-                  />
-                </div>
-                <div className="crm-group">
-                  <label className="crm-label" style={{ fontSize: '11px' }}>Lunch (₹)</label>
-                  <input
-                    type="number"
-                    className="modal-input"
-                    placeholder="e.g. 150"
-                    value={expenseForm.lunch}
-                    onChange={(e) => setExpenseForm({ ...expenseForm, lunch: e.target.value })}
-                  />
-                </div>
-                <div className="crm-group">
-                  <label className="crm-label" style={{ fontSize: '11px' }}>Dinner (₹)</label>
-                  <input
-                    type="number"
-                    className="modal-input"
-                    placeholder="e.g. 200"
-                    value={expenseForm.dinner}
-                    onChange={(e) => setExpenseForm({ ...expenseForm, dinner: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="modal-split-grid">
-                <div className="crm-group">
-                  <label className="crm-label">Other Expense Desc</label>
-                  <input
-                    type="text"
-                    className="modal-input"
-                    placeholder="e.g. Stationaries / Client tea"
-                    value={expenseForm.otherDescription}
-                    onChange={(e) => setExpenseForm({ ...expenseForm, otherDescription: e.target.value })}
-                  />
-                </div>
-                <div className="crm-group">
-                  <label className="crm-label">Amount (₹)</label>
-                  <input
-                    type="number"
-                    className="modal-input"
-                    placeholder="e.g. 50"
-                    value={expenseForm.otherAmount}
-                    onChange={(e) => setExpenseForm({ ...expenseForm, otherAmount: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              {/* Dynamic Live Estimate */}
-              {(() => {
-                const tollVal = expenseForm.tollEncountered ? (parseFloat(expenseForm.tollAmount) || 0) : 0;
-                const breakfastVal = parseFloat(expenseForm.breakfast) || 0;
-                const lunchVal = parseFloat(expenseForm.lunch) || 0;
-                const dinnerVal = parseFloat(expenseForm.dinner) || 0;
-                const otherVal = parseFloat(expenseForm.otherAmount) || 0;
-                const estimatedTotal = tollVal + breakfastVal + lunchVal + dinnerVal + otherVal;
-
-                return (
-                  <div style={{ padding: '12px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#166534' }}>💵 ESTIMATED CLAIM TOTAL:</span>
-                    <strong style={{ fontSize: '16px', color: '#15803d' }}>₹{estimatedTotal.toFixed(2)}</strong>
-                  </div>
-                );
-              })()}
-
-              <div className="modal-buttons" style={{ marginTop: '8px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowExpenseModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  ⭐ Submit Claim
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Assign Custom Beat Route Modal */}
-      {showBeatPlannerModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '480px', color: '#0f2b26' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '800' }}>🗺️ Assign Custom Beat Route</h2>
-              <X size={18} style={{ cursor: 'pointer', color: 'var(--text-dim)' }} onClick={() => setShowBeatPlannerModal(false)} />
-            </div>
-
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-              Create a target beat route for the field agent. Add checkpoints in order of priority. These will render live on the map route trail.
-            </p>
-
-            {/* Quick Preset Buttons */}
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#0d9488', marginBottom: '6px' }}>⚡ QUICK LANDMARK SHORTCUTS:</label>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  style={{ padding: '4px 8px', fontSize: '11px', background: '#e0f2fe', color: '#0369a1', border: 'none', borderRadius: '4px', fontWeight: '700', cursor: 'pointer' }}
-                  onClick={() => setNewCheckpointForm({ name: 'HQ Connaught Place', lat: '28.6139', lng: '77.2090' })}
-                >
-                  🏢 CP HQ Office
-                </button>
-                <button
-                  type="button"
-                  style={{ padding: '4px 8px', fontSize: '11px', background: '#e0f2fe', color: '#0369a1', border: 'none', borderRadius: '4px', fontWeight: '700', cursor: 'pointer' }}
-                  onClick={() => setNewCheckpointForm({ name: 'DLF Cyber City Gurgaon', lat: '28.4595', lng: '77.0266' })}
-                >
-                  💼 Cyber City
-                </button>
-                <button
-                  type="button"
-                  style={{ padding: '4px 8px', fontSize: '11px', background: '#e0f2fe', color: '#0369a1', border: 'none', borderRadius: '4px', fontWeight: '700', cursor: 'pointer' }}
-                  onClick={() => setNewCheckpointForm({ name: 'TechCorp Sector 62 Noida', lat: '28.6280', lng: '77.3649' })}
-                >
-                  💻 Noida Sec 62
-                </button>
-                <button
-                  type="button"
-                  style={{ padding: '4px 8px', fontSize: '11px', background: '#e0f2fe', color: '#0369a1', border: 'none', borderRadius: '4px', fontWeight: '700', cursor: 'pointer' }}
-                  onClick={() => setNewCheckpointForm({ name: 'Lajpat Nagar Hub', lat: '28.5800', lng: '77.2500' })}
-                >
-                  🛍️ Lajpat Nagar
-                </button>
-              </div>
-            </div>
-
-            {/* Checkpoint Add Form */}
-            <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '16px' }}>
-              <h4 style={{ fontSize: '12px', fontWeight: '800', color: '#0f2b26', marginBottom: '10px' }}>➕ ADD CHECKPOINT</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div className="crm-group">
-                  <label className="crm-label" style={{ fontSize: '10px' }}>Checkpoint Name</label>
-                  <input
-                    type="text"
-                    className="modal-input"
-                    placeholder="e.g. DLF Cyber City Hub"
-                    value={newCheckpointForm.name}
-                    onChange={(e) => setNewCheckpointForm({ ...newCheckpointForm, name: e.target.value })}
-                  />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <div className="crm-group">
-                    <label className="crm-label" style={{ fontSize: '10px' }}>Latitude</label>
-                    <input
-                      type="text"
-                      className="modal-input"
-                      placeholder="e.g. 28.4595"
-                      value={newCheckpointForm.lat}
-                      onChange={(e) => setNewCheckpointForm({ ...newCheckpointForm, lat: e.target.value })}
-                    />
-                  </div>
-                  <div className="crm-group">
-                    <label className="crm-label" style={{ fontSize: '10px' }}>Longitude</label>
-                    <input
-                      type="text"
-                      className="modal-input"
-                      placeholder="e.g. 77.0266"
-                      value={newCheckpointForm.lng}
-                      onChange={(e) => setNewCheckpointForm({ ...newCheckpointForm, lng: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  style={{ alignSelf: 'flex-end', padding: '6px 14px', fontSize: '11px' }}
-                  onClick={() => {
-                    if (!newCheckpointForm.name || !newCheckpointForm.lat || !newCheckpointForm.lng) {
-                      return alert('Please fill in checkpoint details');
-                    }
-                    const newPt = {
-                      id: 't_pt_' + Date.now(),
-                      name: newCheckpointForm.name,
-                      lat: parseFloat(newCheckpointForm.lat),
-                      lng: parseFloat(newCheckpointForm.lng)
-                    };
-                    setTempCheckpoints([...tempCheckpoints, newPt]);
-                    setNewCheckpointForm({ name: '', lat: '', lng: '' });
-                  }}
-                >
-                  ➕ Add Checkpoint
-                </button>
-              </div>
-            </div>
-
-            {/* Current Route Checkpoint List */}
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#0d9488', marginBottom: '8px' }}>📋 ACTIVE SEQUENCE PATH:</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
-                {tempCheckpoints.map((pt, idx) => (
-                  <div key={pt.id || idx} style={{ background: 'white', border: '1px solid #cbd5e1', padding: '8px 12px', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
-                    <div>
-                      <strong style={{ color: 'var(--color-primary)' }}>⭐ {idx + 1}:</strong> {pt.name}
-                      <span style={{ fontSize: '10px', color: '#64748b', marginLeft: '6px' }}>({pt.lat}, {pt.lng})</span>
-                    </div>
-                    <button
-                      type="button"
-                      style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer' }}
-                      onClick={() => setTempCheckpoints(tempCheckpoints.filter(item => item.id !== pt.id))}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-                {tempCheckpoints.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: '16px', background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '6px', color: '#64748b', fontSize: '12px' }}>
-                    No checkpoints added yet. Build the path using custom checkpoints.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="modal-buttons" style={{ borderTop: '1px solid #cbd5e1', paddingTop: '12px' }}>
-              <button type="button" className="btn btn-secondary" onClick={() => setShowBeatPlannerModal(false)}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                style={{ background: '#10b981', borderColor: '#10b981' }}
-                onClick={() => {
-                  setEmployeeBeatPlans(prev => ({
-                    ...prev,
-                    [selectedPlannerEmpId]: tempCheckpoints
-                  }));
-                  setShowBeatPlannerModal(false);
-                  console.log(`Dispatched beat route allocation to agent ID: ${selectedPlannerEmpId}`);
-                }}
-              >
-                💾 Dispatch Route to Field Agent
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Global Toast Alert Overlay */}
-      {toast.visible && (
-        <div style={{
-          position: 'fixed',
-          bottom: '24px',
-          right: '24px',
-          background: toast.type === 'error' ? '#ef4444' : toast.type === 'warning' ? '#f59e0b' : '#10b981',
-          color: 'white',
-          padding: '14px 22px',
-          borderRadius: '8px',
-          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
-          zIndex: 9999,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          fontSize: '13px',
-          fontWeight: '700',
-          animation: 'slideIn 0.3s ease-out'
-        }}>
-          <span>{toast.type === 'error' ? '🛑' : toast.type === 'warning' ? '⚠️' : '🟢'}</span>
-          <span>{toast.message}</span>
-        </div>
-      )}
-
-      {/* Global Reconnect Offline Warning Banner */}
-      {!isOnline && (
-        <div className="no-print" style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          background: '#ef4444',
-          color: 'white',
-          textAlign: 'center',
-          padding: '8px',
-          fontSize: '12px',
-          fontWeight: '700',
-          zIndex: 99999,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: '8px',
-          boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
-        }}>
-          <span>⚠️</span>
-          <span>Internet Connection Lost. App running in offline backup mode. Operations will cache locally.</span>
-        </div>
-      )}
-
-      {/* Auto Session Expiry Warning Modal */}
-      {showSessionWarning && (
-        <div className="modal-overlay" style={{ zIndex: 999999 }}>
-          <div className="modal-content glass-panel" style={{ maxWidth: '380px', textAlign: 'center', color: '#0f2b26' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '8px', color: '#ef4444' }}>🕒 Idle Session Timeout Warning</h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              You have been inactive for 30 minutes. Your session will automatically logout in <strong>{sessionTimeLeft} seconds</strong>.
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <button
-                type="button"
-                className="btn btn-primary"
-                style={{ background: '#10b981', borderColor: '#10b981' }}
-                onClick={() => {
-                  setShowSessionWarning(false);
-                  setSessionTimeLeft(60);
-                  showToast('Session extended successfully!', 'success');
-                }}
-              >
-                🔄 Keep Session Active
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => {
-                  setAuthUser(null);
-                  localStorage.removeItem('omnilflow_user');
-                  setShowSessionWarning(false);
-                }}
-              >
-                🚪 Logout Now
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Global Searchbar Modal Triggered by Ctrl+K */}
-      {showGlobalSearchModal && (
-        <div className="modal-overlay" onClick={() => setShowGlobalSearchModal(false)} style={{ zIndex: 99999 }}>
-          <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px', padding: '24px', position: 'absolute', top: '15%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '2px solid #e2e8f0', paddingBottom: '12px', marginBottom: '16px' }}>
-              <Search size={20} style={{ color: '#0d9488' }} />
-              <input
-                type="text"
-                placeholder="Search contacts, employees, tasks, logs... (Press Esc to close)"
-                value={globalSearchQuery}
-                onChange={(e) => setGlobalSearchQuery(e.target.value)}
-                style={{ width: '100%', border: 'none', outline: 'none', fontSize: '16px', background: 'transparent', fontWeight: '600', color: '#0f2b26' }}
-                autoFocus
-              />
-            </div>
-
-            {/* Search Results list */}
-            <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {(() => {
-                const query = globalSearchQuery.toLowerCase().trim();
-                if (!query) {
-                  return <div style={{ fontSize: '12px', color: '#64748b', textAlign: 'center', padding: '16px' }}>Type to search across OmniFlow database...</div>;
-                }
-
-                const results = [];
-
-                // Page Module Navigation Shortcuts
-                if ('payroll salary pay'.includes(query)) {
-                  results.push({
-                    type: 'Finance Module',
-                    title: 'Payroll & Salary Register',
-                    desc: 'Manage employee salary slips, basic pay, and reimbursements',
-                    action: () => { setActiveTab('payroll'); setShowGlobalSearchModal(false); }
-                  });
-                }
-
-                if ('verify document kyc docs'.includes(query)) {
-                  results.push({
-                    type: 'HR Module',
-                    title: 'Verify Documents & KYC',
-                    desc: 'Review Aadhaar, PAN, and employee verification files',
-                    action: () => { setActiveTab('verify_documents'); setShowGlobalSearchModal(false); }
-                  });
-                }
-
-                if ('live tracking map gps'.includes(query)) {
-                  results.push({
-                    type: 'Field Module',
-                    title: 'Live Tracking Map & Telemetry',
-                    desc: 'Monitor real-time field staff locations and battery levels',
-                    action: () => { setActiveTab('gps_attendance'); setShowGlobalSearchModal(false); }
-                  });
-                }
-
-                if ('kiosk punch terminal office'.includes(query)) {
-                  results.push({
-                    type: 'Operations Module',
-                    title: 'Office Kiosk Terminal',
-                    desc: 'On-site staff check-in & check-out kiosk screen',
-                    action: () => { setActiveTab('office_kiosk'); setShowGlobalSearchModal(false); }
-                  });
-                }
-
-                // 1. Search employees
-                teamTrackLocations.forEach(emp => {
-                  if (emp.first_name.toLowerCase().includes(query) || (emp.last_name || '').toLowerCase().includes(query) || emp.role.toLowerCase().includes(query)) {
-                    results.push({
-                      type: 'Employee Profile',
-                      title: `${emp.first_name} ${emp.last_name || ''}`,
-                      desc: `Role: ${emp.role} | Location: ${emp.location_name}`,
-                      action: () => {
-                        setActiveTab('employees');
-                        setShowGlobalSearchModal(false);
-                      }
-                    });
-                  }
-                });
-
-                // 2. Search tasks
-                if (query.includes('task') || query.includes('work')) {
-                  results.push({
-                    type: 'Operations Tasks',
-                    title: 'Task Kanban Board',
-                    desc: 'Manage company active todo pipelines and sprints',
-                    action: () => {
-                      setActiveTab('tasks');
-                      setShowGlobalSearchModal(false);
-                    }
-                  });
-                }
-
-                // 3. Search logs
-                auditLogs.forEach(log => {
-                  if (log.action.toLowerCase().includes(query) || log.user.toLowerCase().includes(query)) {
-                    results.push({
-                      type: 'Audit Log Entry',
-                      title: log.action,
-                      desc: `Triggered by ${log.user} (${log.time})`,
-                      action: () => {
-                        setActiveTab('audit_logs');
-                        setShowGlobalSearchModal(false);
-                      }
-                    });
-                  }
-                });
-
-                if (results.length === 0) {
-                  return <div style={{ fontSize: '12px', color: '#ef4444', textAlign: 'center', padding: '16px' }}>❌ No matches found for "{globalSearchQuery}"</div>;
-                }
-
-                return results.map((item, idx) => (
-                  <div key={idx} onClick={item.action} style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', cursor: 'pointer', transition: 'all 0.15s' }} className="search-result-item">
-                    <span style={{ fontSize: '9px', fontWeight: '800', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>{item.type}</span>
-                    <h5 style={{ fontSize: '13px', fontWeight: '800', margin: '4px 0 2px 0', color: '#0f2b26' }}>{item.title}</h5>
-                    <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>{item.desc}</p>
-                  </div>
-                ));
-              })()}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Live Interactive Voice & Animated Virtual Mouse Tour Overlay */}
-      {isLiveTourActive && (
-        <div
-          style={{
+        )}
+
+        {/* Global Reconnect Offline Warning Banner */}
+        {!isOnline && (
+          <div className="no-print" style={{
             position: 'fixed',
             top: 0,
             left: 0,
             right: 0,
-            bottom: 0,
-            zIndex: 999999,
-            pointerEvents: 'none'
-          }}
-        >
-          {/* Spotlight Backdrop */}
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.45)', pointerEvents: 'none' }} />
-
-          {/* Floating Animated Virtual Mouse SVG Pointer */}
-          <div
-            style={{
-              position: 'fixed',
-              top: `${virtualCursor.y}px`,
-              left: `${virtualCursor.x}px`,
-              zIndex: 1000000,
-              pointerEvents: 'none',
-              transition: 'all 0.7s cubic-bezier(0.25, 1, 0.5, 1)',
-              transform: virtualCursor.isClicking ? 'scale(0.85)' : 'scale(1)'
-            }}
-          >
-            {/* SVG Mouse Pointer Icon */}
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.4))' }}>
-              <path d="M3 3l7 18 3-7 7-3L3 3z" fill="#0d9488" stroke="#ffffff" strokeWidth="2" strokeLinejoin="round" />
-            </svg>
-
-            {/* Mouse Click Ripple Pulse */}
-            {virtualCursor.isClicking && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '-12px',
-                  left: '-12px',
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  background: 'rgba(13, 148, 136, 0.5)',
-                  border: '2px solid #0d9488',
-                  animation: 'ping 0.6s cubic-bezier(0, 0, 0.2, 1) infinite'
-                }}
-              />
-            )}
-          </div>
-
-          {/* Tour Floating Interactive Control Dock */}
-          <div
-            style={{
-              position: 'fixed',
-              bottom: '24px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              background: '#0f172a',
-              color: 'white',
-              padding: '16px 24px',
-              borderRadius: '16px',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-              border: '1px solid rgba(255,255,255,0.15)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '20px',
-              pointerEvents: 'auto',
-              maxWidth: '90vw',
-              width: '680px'
-            }}
-          >
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                <span style={{ fontSize: '10px', fontWeight: '800', background: 'var(--color-primary)', color: 'white', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase' }}>
-                  STEP {tourStepIndex + 1} OF {guideSteps.length}
-                </span>
-                <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>
-                  {tourVoiceStatus}
-                </span>
-              </div>
-              <h4 style={{ fontSize: '15px', fontWeight: '800', margin: '0 0 2px 0', color: 'white' }}>
-                {guideSteps[tourStepIndex]?.title || 'System Walkthrough'}
-              </h4>
-              <p style={{ fontSize: '12px', color: '#cbd5e1', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {guideSteps[tourStepIndex]?.description}
-              </p>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button
-                type="button"
-                className="btn"
-                style={{ padding: '6px 12px', fontSize: '12px', background: '#334155', color: 'white', border: 'none' }}
-                disabled={tourStepIndex === 0}
-                onClick={() => {
-                  const prevIdx = tourStepIndex - 1;
-                  setTourStepIndex(prevIdx);
-                  runTourStep(prevIdx);
-                }}
-              >
-                ◀ Prev
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-primary"
-                style={{ padding: '6px 14px', fontSize: '12px' }}
-                onClick={() => {
-                  const nextIdx = (tourStepIndex + 1) % guideSteps.length;
-                  setTourStepIndex(nextIdx);
-                  runTourStep(nextIdx);
-                }}
-              >
-                Next Step ▶
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-danger"
-                style={{ padding: '6px 10px', fontSize: '12px' }}
-                onClick={() => {
-                  setIsLiveTourActive(false);
-                  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-                  showToast('Interactive Tour Ended', 'info');
-                }}
-              >
-                ✕ Exit
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* FLOATING CLICK-TO-CALL LEAD DIALPAD WIDGET */}
-      {showClickToCallModal && (
-        <div style={{
-          position: 'fixed',
-          bottom: '24px',
-          right: '24px',
-          width: '320px',
-          background: 'linear-gradient(145deg, #0f172a 0%, #1e293b 100%)',
-          borderRadius: '16px',
-          border: '1px solid #334155',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.35)',
-          padding: '20px',
-          color: '#ffffff',
-          zIndex: 9999
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: activeCallStatus === 'connected' ? '#10b981' : '#f59e0b', display: 'inline-block' }}></span>
-              <span style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', color: '#94a3b8', textTransform: 'uppercase' }}>
-                {activeCallStatus === 'ringing' ? '📞 Ringing SIM Call...' : activeCallStatus === 'connected' ? '🟢 Call In-Progress' : '🔴 Call Ended'}
-              </span>
-            </div>
-            <button onClick={() => setShowClickToCallModal(false)} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '16px', cursor: 'pointer' }}>✕</button>
-          </div>
-
-          <div style={{ textAlign: 'center', marginBottom: '18px' }}>
-            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'linear-gradient(135deg, #0d9488 0%, #059669 100%)', color: 'white', fontWeight: '900', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px auto', boxShadow: '0 4px 14px rgba(13, 148, 136, 0.4)' }}>
-              {clickToCallLead.name.charAt(0)}
-            </div>
-            <div style={{ fontWeight: '800', fontSize: '16px', color: '#f8fafc' }}>{clickToCallLead.name}</div>
-            <div style={{ fontSize: '13px', color: '#38bdf8', marginTop: '2px', fontWeight: '700' }}>{clickToCallLead.phone}</div>
-            
-            {activeCallStatus === 'connected' && (
-              <div style={{ fontSize: '22px', fontWeight: '900', color: '#10b981', marginTop: '8px' }}>
-                {Math.floor(activeCallDuration / 60)}:{(activeCallDuration % 60).toString().padStart(2, '0')}
-              </div>
-            )}
-          </div>
-
-          {activeCallStatus === 'connected' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8' }}>Select Call Disposition & Hangup:</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                <button onClick={() => endClickToCall('Interested', 'Lead interested in pricing')} style={{ background: '#059669', color: 'white', border: 'none', padding: '8px', borderRadius: '8px', fontSize: '11px', fontWeight: '800', cursor: 'pointer' }}>
-                  🟢 Interested
-                </button>
-                <button onClick={() => endClickToCall('Demo Scheduled', 'Product demo scheduled')} style={{ background: '#2563eb', color: 'white', border: 'none', padding: '8px', borderRadius: '8px', fontSize: '11px', fontWeight: '800', cursor: 'pointer' }}>
-                  📅 Demo Scheduled
-                </button>
-                <button onClick={() => endClickToCall('Follow-up Required', 'Callback requested')} style={{ background: '#d97706', color: 'white', border: 'none', padding: '8px', borderRadius: '8px', fontSize: '11px', fontWeight: '800', cursor: 'pointer' }}>
-                  ⏳ Follow-up
-                </button>
-                <button onClick={() => endClickToCall('Not Interested', 'Lead not interested')} style={{ background: '#dc2626', color: 'white', border: 'none', padding: '8px', borderRadius: '8px', fontSize: '11px', fontWeight: '800', cursor: 'pointer' }}>
-                  🔴 Not Interested
-                </button>
-              </div>
-            </div>
-          )}
-
-          {activeCallStatus === 'ringing' && (
-            <div style={{ textAlign: 'center', fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>
-              Ringing customer SIM phone line via OmniFlow Gateway...
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ANDROID MOBILE SIM COMPANION SETUP & REAL CALL TEST MODAL */}
-      {showMobileAppGuideModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(15, 23, 42, 0.75)',
-          backdropFilter: 'blur(6px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10000,
-          padding: '20px'
-        }}>
-          <div style={{
-            background: '#ffffff',
-            borderRadius: '16px',
-            maxWidth: '680px',
-            width: '100%',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-            border: '1px solid #cbd5e1'
+            background: '#ef4444',
+            color: 'white',
+            textAlign: 'center',
+            padding: '8px',
+            fontSize: '12px',
+            fontWeight: '700',
+            zIndex: 99999,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
           }}>
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', borderRadius: '16px 16px 0 0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#0d9488', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900' }}>
-                  📱
-                </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
-                    Android Mobile SIM App & Real Calling Test
-                  </h3>
-                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                    Connect Android phone to sync real GSM calls into CRM database.
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowMobileAppGuideModal(false)}
-                style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#64748b' }}
-              >
-                ✕
-              </button>
-            </div>
+            <span>⚠️</span>
+            <span>Internet Connection Lost. App running in offline backup mode. Operations will cache locally.</span>
+          </div>
+        )}
 
-            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              
-              {/* Server Webhook Card */}
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '800', color: '#166534', textTransform: 'uppercase' }}>🟢 CRM Backend API Server Webhook Endpoint</span>
-                  <span style={{ fontSize: '11px', background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '12px', fontWeight: '800' }}>ONLINE</span>
-                </div>
-                <div style={{ background: '#0f172a', color: '#38bdf8', fontFamily: 'monospace', padding: '10px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', wordBreak: 'break-all' }}>
-                  http://localhost:5000/api/telecalling/sync-log
-                </div>
-                <div style={{ fontSize: '11px', color: '#15803d', marginTop: '6px' }}>
-                  * For Android devices on the same Wi-Fi network, replace <code>localhost</code> with your PC Local IP.
-                </div>
-              </div>
-
-              {/* Steps to connect Android app */}
-              <div>
-                <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
-                  🛠️ How Real Mobile SIM Calling Works:
-                </h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ background: '#0d9488', color: 'white', fontWeight: '800', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', flexShrink: 0 }}>1</div>
-                    <div style={{ fontSize: '12px', color: '#334155', lineHeight: '1.5' }}>
-                      <strong>Install Android Service APK:</strong> Telecaller installs our lightweight <code>OmniFlow-SIM-Recorder.apk</code> on their phone.
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ background: '#0d9488', color: 'white', fontWeight: '800', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', flexShrink: 0 }}>2</div>
-                    <div style={{ fontSize: '12px', color: '#334155', lineHeight: '1.5' }}>
-                      <strong>Auto Call Capture:</strong> Whenever an Incoming or Outgoing call ends on the phone SIM, the app saves caller number, duration, & audio recording.
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ background: '#0d9488', color: 'white', fontWeight: '800', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', flexShrink: 0 }}>3</div>
-                    <div style={{ fontSize: '12px', color: '#334155', lineHeight: '1.5' }}>
-                      <strong>Real-Time Sync:</strong> The call audio & metadata are uploaded to the backend database instantly via HTTP POST.
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Instant Test Push Button */}
-              <div style={{ background: '#f1f5f9', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px dashed #cbd5e1' }}>
-                <div style={{ fontWeight: '800', fontSize: '14px', color: '#0f172a', marginBottom: '4px' }}>
-                  🚀 Test Real Mobile Call Sync Right Now
-                </div>
-                <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '14px' }}>
-                  Click below to send a live simulated Android SIM call payload to the SQLite database & socket server:
-                </div>
+        {/* Auto Session Expiry Warning Modal */}
+        {showSessionWarning && (
+          <div className="modal-overlay" style={{ zIndex: 999999 }}>
+            <div className="modal-content glass-panel" style={{ maxWidth: '380px', textAlign: 'center', color: '#0f2b26' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '8px', color: '#ef4444' }}>🕒 Idle Session Timeout Warning</h3>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
+                You have been inactive for 30 minutes. Your session will automatically logout in <strong>{sessionTimeLeft} seconds</strong>.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <button
-                  onClick={async () => {
-                    const newCall = {
-                      id: 'CALL_' + Date.now(),
-                      agentName: user?.name || 'Mobile SIM Agent',
-                      customerName: 'Real Test Customer',
-                      customerPhone: '+91 99887 76655',
-                      channel: 'SIM',
-                      type: 'INCOMING',
-                      timestamp: Math.floor(Date.now() / 1000),
-                      duration: '2m 04s',
-                      recordingUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-                      disposition: 'Interested',
-                      notes: 'Simulated real mobile SIM call sync test via HTTP POST Webhook API.'
-                    };
-
-                    try {
-                      const res = await fetch('http://localhost:5000/api/telecalling/sync-log', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          agentName: user?.name || 'Mobile SIM Agent',
-                          customerName: 'Real Test Customer',
-                          customerPhone: '+91 99887 76655',
-                          channel: 'SIM',
-                          type: 'INCOMING',
-                          durationSeconds: 124,
-                          recordingUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-                          disposition: 'Interested',
-                          notes: 'Simulated real mobile SIM call sync test via HTTP POST Webhook API.'
-                        })
-                      });
-                      const data = await res.json();
-                      if (data.success && data.callLog) {
-                        setCallLogs(prev => [data.callLog, ...prev]);
-                      } else {
-                        setCallLogs(prev => [newCall, ...prev]);
-                      }
-                    } catch (err) {
-                      console.log('Notice: Backend fetch offline fallback:', err.message);
-                      setCallLogs(prev => [newCall, ...prev]);
-                    }
-
-                    alert('🎉 REAL CALL SYNC TEST SUCCESSFUL!\n\nCall log & audio recording have been synced and added to your Telecalling table!');
-                    setShowMobileAppGuideModal(false);
-                  }}
-                  style={{
-                    background: 'linear-gradient(135deg, #0d9488 0%, #059669 100%)',
-                    color: 'white',
-                    border: 'none',
-                    padding: '12px 24px',
-                    borderRadius: '10px',
-                    fontWeight: '800',
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 14px rgba(13, 148, 136, 0.3)'
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ background: '#10b981', borderColor: '#10b981' }}
+                  onClick={() => {
+                    setShowSessionWarning(false);
+                    setSessionTimeLeft(60);
+                    showToast('Session extended successfully!', 'success');
                   }}
                 >
-                  📡 Push Simulated Android SIM Call to Backend
+                  🔄 Keep Session Active
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setAuthUser(null);
+                    localStorage.removeItem('omnilflow_user');
+                    setShowSessionWarning(false);
+                  }}
+                >
+                  🚪 Logout Now
                 </button>
               </div>
-
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ─────────────────────────────────────────────────────────────
-          MOBILE APP PREVIEW SIMULATOR OVERLAY
-         ───────────────────────────────────────────────────────────── */}
-      {isMobilePreview && (
-        <div className="mobile-simulator-overlay">
-          <div className="mobile-simulator-topbar">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: '700' }}>
-              <Smartphone size={18} style={{ color: '#38bdf8' }} />
-              <span>OmniFlow Live Mobile Simulator (390px)</span>
-            </div>
+        {/* Global Searchbar Modal Triggered by Ctrl+K */}
+        {showGlobalSearchModal && (
+          <Suspense fallback={null}>
+            <GlobalSearchModal
+              showGlobalSearchModal={showGlobalSearchModal}
+              setShowGlobalSearchModal={setShowGlobalSearchModal}
+              globalSearchQuery={globalSearchQuery}
+              setGlobalSearchQuery={setGlobalSearchQuery}
+              setActiveTab={setActiveTab}
+              teamTrackLocations={teamTrackLocations}
+              auditLogs={auditLogs}
+            />
+          </Suspense>
+        )}
 
-            {/* Mode Switcher: App View vs Permissions Onboarding */}
-            <div style={{ display: 'flex', gap: '6px', background: 'rgba(255,255,255,0.1)', padding: '3px', borderRadius: '8px' }}>
-              <button
-                onClick={() => setSimViewMode('app')}
-                style={{
-                  background: simViewMode === 'app' ? '#0d9488' : 'transparent',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '4px 10px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
-              >
-                📱 Main App View
-              </button>
-              <button
-                onClick={() => setSimViewMode('permissions')}
-                style={{
-                  background: simViewMode === 'permissions' ? '#0d9488' : 'transparent',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '4px 10px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
-              >
-                🔐 Onboarding Permissions
-              </button>
-            </div>
+        {/* Live Interactive Voice & Animated Virtual Mouse Tour Overlay */}
+        {isLiveTourActive && (
+          <Suspense fallback={null}>
+            <LiveTourOverlay
+              isLiveTourActive={isLiveTourActive}
+              setIsLiveTourActive={setIsLiveTourActive}
+              virtualCursor={virtualCursor}
+              tourStepIndex={tourStepIndex}
+              setTourStepIndex={setTourStepIndex}
+              guideSteps={guideSteps}
+              tourVoiceStatus={tourVoiceStatus}
+              runTourStep={runTourStep}
+              showToast={showToast}
+            />
+          </Suspense>
+        )}
 
-            <button
-              onClick={() => setIsMobilePreview(false)}
-              style={{
-                background: 'rgba(239, 68, 68, 0.2)',
-                color: '#ef4444',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                borderRadius: '8px',
-                padding: '4px 10px',
-                fontSize: '12px',
-                cursor: 'pointer',
-                fontWeight: '700'
-              }}
-            >
-              Close ✕
-            </button>
-          </div>
-          <div className="mobile-simulator-frame">
-            <div className="mobile-simulator-notch">
-              <div className="mobile-simulator-camera" />
-              <div className="mobile-simulator-speaker" />
-            </div>
-            <div className="mobile-simulator-screen telecalling-page-mobile" style={{ paddingTop: '28px' }}>
-              {/* RENDER ONBOARDING PERMISSIONS VIEW IN SIMULATOR */}
-              {simViewMode === 'permissions' ? (
-                <div style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  zIndex: 50,
-                  background: '#f8fafc',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  overflow: 'hidden'
-                }}>
-                  {/* Centered Header */}
-                  <div style={{ background: 'linear-gradient(135deg, #0f2b26 0%, #0d9488 100%)', padding: '16px 14px', color: 'white', textAlign: 'center', flexShrink: 0 }}>
-                    <div style={{ fontSize: '17px', fontWeight: '800', letterSpacing: '-0.3px', textAlign: 'center', width: '100%' }}>App Permissions</div>
-                  </div>
+        {/* FLOATING CLICK-TO-CALL LEAD DIALPAD WIDGET */}
+        {showClickToCallModal && (
+          <Suspense fallback={null}>
+            <ClickToCallModal
+              showClickToCallModal={showClickToCallModal}
+              setShowClickToCallModal={setShowClickToCallModal}
+              activeCallStatus={activeCallStatus}
+              clickToCallLead={clickToCallLead}
+              activeCallDuration={activeCallDuration}
+              endClickToCall={endClickToCall}
+            />
+          </Suspense>
+        )}
 
-                  {/* Generic Basic Subtitle for All App Features */}
-                  <div style={{ padding: '10px 14px', fontSize: '11px', color: '#475569', lineHeight: '1.4', fontWeight: '500', textAlign: 'center', flexShrink: 0 }}>
-                    Please grant the required permissions below to ensure seamless operation of all app features.
-                  </div>
+        {/* ANDROID MOBILE SIM COMPANION SETUP & REAL CALL TEST MODAL */}
+        {showMobileAppGuideModal && (
+          <Suspense fallback={null}>
+            <MobileAppGuideModal
+              showMobileAppGuideModal={showMobileAppGuideModal}
+              setShowMobileAppGuideModal={setShowMobileAppGuideModal}
+              user={user}
+              setCallLogs={setCallLogs}
+            />
+          </Suspense>
+        )}
 
-                  {/* Scrollable Permission List Rows */}
-                  <div style={{ padding: '0 12px 12px 12px', display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, overflowY: 'auto' }}>
-
-                    {/* Row 1: Calendar */}
-                    <div
-                      onClick={() => setSimPermissions(prev => ({ ...prev, calendar: !prev.calendar }))}
-                      style={{
-                        background: 'white',
-                        borderRadius: '12px',
-                        padding: '10px 12px',
-                        border: simPermissions.calendar ? '1.5px solid #10b981' : '1px solid #e2e8f0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
-                      }}
-                    >
-                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
-                        📅
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f2b26' }}>Calendar</div>
-                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px', lineHeight: '1.2' }}>To sync followup events and show timely notifications</div>
-                      </div>
-                      <div style={{
-                        width: '22px',
-                        height: '22px',
-                        borderRadius: '50%',
-                        background: simPermissions.calendar ? '#10b981' : 'rgba(245, 158, 11, 0.15)',
-                        color: simPermissions.calendar ? 'white' : '#f59e0b',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '11px',
-                        fontWeight: '800',
-                        flexShrink: 0
-                      }}>
-                        {simPermissions.calendar ? '✓' : '!'}
-                      </div>
-                    </div>
-
-                    {/* Row 2: Location */}
-                    <div
-                      onClick={() => setSimPermissions(prev => ({ ...prev, location: !prev.location }))}
-                      style={{
-                        background: 'white',
-                        borderRadius: '12px',
-                        padding: '10px 12px',
-                        border: simPermissions.location ? '1.5px solid #10b981' : '1px solid #e2e8f0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
-                      }}
-                    >
-                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
-                        📍
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f2b26' }}>Location</div>
-                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px', lineHeight: '1.2' }}>To tag location data with call interactions and field visits</div>
-                      </div>
-                      <div style={{
-                        width: '22px',
-                        height: '22px',
-                        borderRadius: '50%',
-                        background: simPermissions.location ? '#10b981' : 'rgba(245, 158, 11, 0.15)',
-                        color: simPermissions.location ? 'white' : '#f59e0b',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '11px',
-                        fontWeight: '800',
-                        flexShrink: 0
-                      }}>
-                        {simPermissions.location ? '✓' : '!'}
-                      </div>
-                    </div>
-
-                    {/* Row 3: Notifications */}
-                    <div
-                      onClick={() => setSimPermissions(prev => ({ ...prev, notifications: !prev.notifications }))}
-                      style={{
-                        background: 'white',
-                        borderRadius: '12px',
-                        padding: '10px 12px',
-                        border: simPermissions.notifications ? '1.5px solid #10b981' : '1px solid #e2e8f0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
-                      }}
-                    >
-                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
-                        🔔
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f2b26' }}>Notifications</div>
-                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px', lineHeight: '1.2' }}>To show real-time app and service status alerts</div>
-                      </div>
-                      <div style={{
-                        width: '22px',
-                        height: '22px',
-                        borderRadius: '50%',
-                        background: simPermissions.notifications ? '#10b981' : 'rgba(245, 158, 11, 0.15)',
-                        color: simPermissions.notifications ? 'white' : '#f59e0b',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '11px',
-                        fontWeight: '800',
-                        flexShrink: 0
-                      }}>
-                        {simPermissions.notifications ? '✓' : '!'}
-                      </div>
-                    </div>
-
-                    {/* Row 4: Battery */}
-                    <div
-                      onClick={() => setSimPermissions(prev => ({ ...prev, battery: !prev.battery }))}
-                      style={{
-                        background: 'white',
-                        borderRadius: '12px',
-                        padding: '10px 12px',
-                        border: simPermissions.battery ? '1.5px solid #10b981' : '1px solid #e2e8f0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
-                      }}
-                    >
-                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
-                        🔋
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f2b26' }}>Battery Exemption</div>
-                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px', lineHeight: '1.2' }}>To help app run seamlessly in background</div>
-                      </div>
-                      <div style={{
-                        width: '22px',
-                        height: '22px',
-                        borderRadius: '50%',
-                        background: simPermissions.battery ? '#10b981' : 'rgba(245, 158, 11, 0.15)',
-                        color: simPermissions.battery ? 'white' : '#f59e0b',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '11px',
-                        fontWeight: '800',
-                        flexShrink: 0
-                      }}>
-                        {simPermissions.battery ? '✓' : '!'}
-                      </div>
-                    </div>
-
-                    {/* Row 5: Phone */}
-                    <div
-                      onClick={() => setSimPermissions(prev => ({ ...prev, phone: !prev.phone }))}
-                      style={{
-                        background: 'white',
-                        borderRadius: '12px',
-                        padding: '10px 12px',
-                        border: simPermissions.phone ? '1.5px solid #10b981' : '1px solid #e2e8f0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
-                      }}
-                    >
-                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
-                        📞
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f2b26' }}>Phone & Call Log</div>
-                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px', lineHeight: '1.2' }}>To track and update your call logs in CRM</div>
-                      </div>
-                      <div style={{
-                        width: '22px',
-                        height: '22px',
-                        borderRadius: '50%',
-                        background: simPermissions.phone ? '#10b981' : 'rgba(245, 158, 11, 0.15)',
-                        color: simPermissions.phone ? 'white' : '#f59e0b',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '11px',
-                        fontWeight: '800',
-                        flexShrink: 0
-                      }}>
-                        {simPermissions.phone ? '✓' : '!'}
-                      </div>
-                    </div>
-
-                    {/* Row 6: Overlay */}
-                    <div
-                      onClick={() => setSimPermissions(prev => ({ ...prev, overlay: !prev.overlay }))}
-                      style={{
-                        background: 'white',
-                        borderRadius: '12px',
-                        padding: '10px 12px',
-                        border: simPermissions.overlay ? '1.5px solid #10b981' : '1px solid #e2e8f0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
-                      }}
-                    >
-                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
-                        🪟
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f2b26' }}>Display Overlay</div>
-                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px', lineHeight: '1.2' }}>To show caller ID & call widgets for active calls</div>
-                      </div>
-                      <div style={{
-                        width: '22px',
-                        height: '22px',
-                        borderRadius: '50%',
-                        background: simPermissions.overlay ? '#10b981' : 'rgba(245, 158, 11, 0.15)',
-                        color: simPermissions.overlay ? 'white' : '#f59e0b',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '11px',
-                        fontWeight: '800',
-                        flexShrink: 0
-                      }}>
-                        {simPermissions.overlay ? '✓' : '!'}
-                      </div>
-                    </div>
-
-                    {/* Row 7: Call Recording Storage Folder (FULL INSTRUCTION CARD) */}
-                    <div
-                      onClick={() => setSimPermissions(prev => ({ ...prev, folder: !prev.folder }))}
-                      style={{
-                        background: 'linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%)',
-                        borderRadius: '12px',
-                        padding: '12px',
-                        border: simPermissions.folder ? '1.5px solid #10b981' : '1.5px solid #3b82f6',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '6px',
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 12px rgba(59, 130, 246, 0.08)'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
-                          📁
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f2b26' }}>Call Recording Storage Folder</div>
-                          <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#3b82f6', marginTop: '1px' }}>SAF Folder Access Required</div>
-                        </div>
-                        <div style={{
-                          width: '22px',
-                          height: '22px',
-                          borderRadius: '50%',
-                          background: simPermissions.folder ? '#10b981' : '#3b82f6',
-                          color: 'white',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '11px',
-                          fontWeight: '800',
-                          flexShrink: 0
-                        }}>
-                          {simPermissions.folder ? '✓' : '📁'}
-                        </div>
-                      </div>
-                      <div style={{ fontSize: '10px', color: '#334155', lineHeight: '1.35', background: 'rgba(255,255,255,0.85)', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                        💡 <strong>Instruction:</strong> Select your phone's native Call Recordings folder (e.g. <code>Recordings/Call/</code> or <code>MIUI/sound_recorder/call_rec/</code>) to enable automatic HD audio sync to OmniFlow CRM.
-                      </div>
-                    </div>
-
-                  </div>
-
-                  {/* STICKY BOTTOM ACTION BUTTON */}
-                  <div style={{ padding: '10px 12px 14px 12px', background: 'white', borderTop: '1px solid #e2e8f0', flexShrink: 0 }}>
-                    <button
-                      onClick={() => {
-                        const all = Object.values(simPermissions).every(Boolean);
-                        if (all) {
-                          setActiveTab('admin_dashboard');
-                          setSimViewMode('app');
-                        } else {
-                          // Grant all
-                          setSimPermissions({ calendar: true, location: true, notifications: true, battery: true, phone: true, overlay: true, folder: true });
-                        }
-                      }}
-                      style={{
-                        width: '100%',
-                        background: Object.values(simPermissions).every(Boolean) ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #0d9488 0%, #0f2b26 100%)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '12px',
-                        padding: '12px',
-                        fontWeight: '800',
-                        fontSize: '13px',
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 14px rgba(13, 148, 136, 0.3)'
-                      }}
-                    >
-                      {Object.values(simPermissions).every(Boolean) ? '✓ All Setup Complete — Launch App' : 'Grant Permissions & Link Folder'}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                null
-              )}
-
-              {/* RENDER MAIN MOBILE APP VIEW WITH NAVIGATION DRAWER & DOCK */}
-              {simViewMode === 'app' && (
-                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', overflow: 'hidden', background: '#f8fafc' }}>
-
-                  {/* 1. TOP MOBILE NAVBAR (SLEEK, COMPACT, SLIM PADDING) */}
-                  <div style={{
-                    background: 'var(--sidebar-bg, #064e43)',
-                    padding: '6px 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    color: 'white',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
-                    flexShrink: 0,
-                    zIndex: 10,
-                    borderBottom: '1px solid rgba(255,255,255,0.08)'
-                  }}>
-                    {/* Left: Hamburger Menu Button */}
-                    <button
-                      onClick={() => setMobileSidebarOpen(prev => !prev)}
-                      style={{
-                        background: 'rgba(255,255,255,0.1)',
-                        border: 'none',
-                        color: '#14d2cb',
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '6px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '15px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      ☰
-                    </button>
-
-                    {/* Center: Page Title Only (Increased Font Size) */}
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '18px', fontWeight: '900', color: '#14d2cb', letterSpacing: '0.8px', textTransform: 'uppercase', lineHeight: '1.2' }}>
-                        {(activeTab || '').replace(/_/g, ' ')}
-                      </div>
-                    </div>
-
-                    {/* Right: Balance Spacer for Perfect Center Alignment */}
-                    <div style={{ width: '28px' }} />
-                  </div>
-
-                  {/* 2. MOBILE SLIDING NAVIGATION DRAWER OVERLAY (EXACT ACCORDION SIDEBAR) */}
-                  {mobileSidebarOpen && (
-                    <div style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      background: 'rgba(15, 23, 42, 0.65)',
-                      backdropFilter: 'blur(4px)',
-                      zIndex: 60,
-                      display: 'flex'
-                    }}>
-                      <div style={{
-                        width: '270px',
-                        background: 'var(--sidebar-bg, #064e43)',
-                        height: '100%',
-                        color: 'white',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        padding: '16px 12px',
-                        boxShadow: '4px 0 20px rgba(0,0,0,0.4)',
-                        overflowY: 'auto'
-                      }}>
-                        {/* Drawer Top Branding */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
-                          <span style={{ fontSize: '16px', fontWeight: '900', color: '#14d2cb', letterSpacing: '1.2px', textTransform: 'uppercase' }}>
-                            {/* OmniFlow EMS removed */}
-                          </span>
-                          <button
-                            onClick={() => setMobileSidebarOpen(false)}
-                            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', fontWeight: 'bold' }}
-                          >
-                            ✕
-                          </button>
-                        </div>
-
-                        {/* Exact Accordion Categories */}
-                        <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          {/* SYSTEM */}
-                          {(authUser?.role === 'superadmin' || authUser?.role === 'owner' || authUser?.role === 'admin') && (
-                            <AccordionCategory id="system" label="SYSTEM">
-                              {authUser?.role === 'superadmin' && (
-                                <div className={`nav-item ${activeTab === 'superadmin_plans' ? 'active' : ''}`} onClick={() => { setActiveTab('superadmin_plans'); setMobileSidebarOpen(false); }}>
-                                  <Shield size={15} />
-                                  <span style={{ fontSize: '13px' }}>Super Admin Panel</span>
-                                </div>
-                              )}
-                              <div className={`nav-item ${activeTab === 'recycle_bin' ? 'active' : ''}`} onClick={() => { setActiveTab('recycle_bin'); setMobileSidebarOpen(false); }}>
-                                <Trash2 size={15} />
-                                <span style={{ fontSize: '13px' }}>🛡️ Recycle Bin (DLP Vault)</span>
-                              </div>
-                            </AccordionCategory>
-                          )}
-
-                          {/* DASHBOARDS */}
-                          <AccordionCategory id="dashboards" label="DASHBOARDS">
-                            <div className={`nav-item ${activeTab === 'admin_dashboard' ? 'active' : ''}`} onClick={() => { setActiveTab('admin_dashboard'); setMobileSidebarOpen(false); }}>
-                              <BarChart3 size={15} />
-                              <span style={{ fontSize: '13px' }}>Company Overview</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'manager_dashboard' ? 'active' : ''}`} onClick={() => { setActiveTab('manager_dashboard'); setMobileSidebarOpen(false); }}>
-                              <BarChart3 size={15} />
-                              <span style={{ fontSize: '13px' }}>Task Analytics</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'gps_attendance' ? 'active' : ''}`} onClick={() => { setActiveTab('gps_attendance'); setMobileSidebarOpen(false); }}>
-                              <Globe size={15} />
-                              <span style={{ fontSize: '13px' }}>Live Tracking</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'audit_logs' ? 'active' : ''}`} onClick={() => { setActiveTab('audit_logs'); setMobileSidebarOpen(false); }}>
-                              <FileText size={15} />
-                              <span style={{ fontSize: '13px' }}>Audit Logs</span>
-                            </div>
-                          </AccordionCategory>
-
-                          {/* HR MANAGEMENT */}
-                          <AccordionCategory id="hr_management" label="HR MANAGEMENT">
-                            <div className={`nav-item ${activeTab === 'employees' ? 'active' : ''}`} onClick={() => { setActiveTab('employees'); setMobileSidebarOpen(false); }}>
-                              <Users size={15} />
-                              <span style={{ fontSize: '13px' }}>All Employees</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'recruitment_ats' ? 'active' : ''}`} onClick={() => { setActiveTab('recruitment_ats'); setMobileSidebarOpen(false); }}>
-                              <Briefcase size={15} />
-                              <span style={{ fontSize: '13px' }}>Recruitment ATS</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'asset_management' ? 'active' : ''}`} onClick={() => { setActiveTab('asset_management'); setMobileSidebarOpen(false); }}>
-                              <FileText size={15} />
-                              <span style={{ fontSize: '13px' }}>Asset Management</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'verify_documents' ? 'active' : ''}`} onClick={() => { setActiveTab('verify_documents'); setMobileSidebarOpen(false); }}>
-                              <FileText size={15} />
-                              <span style={{ fontSize: '13px' }}>Verify Documents</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'offboarding' ? 'active' : ''}`} onClick={() => { setActiveTab('offboarding'); setMobileSidebarOpen(false); }}>
-                              <Trash2 size={15} />
-                              <span style={{ fontSize: '13px' }}>Offboarding Exit</span>
-                            </div>
-                          </AccordionCategory>
-
-                          {/* PAYROLL & FINANCE */}
-                          <AccordionCategory id="payroll_finance" label="PAYROLL & FINANCE">
-                            <div className={`nav-item ${activeTab === 'payroll' ? 'active' : ''}`} onClick={() => { setActiveTab('payroll'); setMobileSidebarOpen(false); }}>
-                              <CreditCard size={15} />
-                              <span style={{ fontSize: '13px' }}>Payroll Salary</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'taxes_compliance' ? 'active' : ''}`} onClick={() => { setActiveTab('taxes_compliance'); setMobileSidebarOpen(false); }}>
-                              <FileText size={15} />
-                              <span style={{ fontSize: '13px' }}>Taxes Compliance</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'incentives_bonus' ? 'active' : ''}`} onClick={() => { setActiveTab('incentives_bonus'); setMobileSidebarOpen(false); }}>
-                              <Award size={15} />
-                              <span style={{ fontSize: '13px' }}>Incentives Bonus</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'ff_settlements' ? 'active' : ''}`} onClick={() => { setActiveTab('ff_settlements'); setMobileSidebarOpen(false); }}>
-                              <Check size={15} />
-                              <span style={{ fontSize: '13px' }}>F&F Settlements</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'advances_loans' ? 'active' : ''}`} onClick={() => { setActiveTab('advances_loans'); setMobileSidebarOpen(false); }}>
-                              <CreditCard size={15} />
-                              <span style={{ fontSize: '13px' }}>Advances Loans</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'expenses' ? 'active' : ''}`} onClick={() => { setActiveTab('expenses'); setMobileSidebarOpen(false); }}>
-                              <CreditCard size={15} />
-                              <span style={{ fontSize: '13px' }}>Expenses Claim</span>
-                            </div>
-                          </AccordionCategory>
-
-                          {/* CRM & SALES */}
-                          <AccordionCategory id="crm_sales" label="CRM & SALES">
-                            <div className={`nav-item ${activeTab === 'channels' ? 'active' : ''}`} onClick={() => { setActiveTab('channels'); setMobileSidebarOpen(false); }}>
-                              <Smartphone size={15} />
-                              <span style={{ fontSize: '13px' }}>WA Channels</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'inbox' ? 'active' : ''}`} onClick={() => { setActiveTab('inbox'); setMobileSidebarOpen(false); }}>
-                              <MessageSquare size={15} />
-                              <span style={{ fontSize: '13px' }}>Inbox Chats</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'kanban' ? 'active' : ''}`} onClick={() => { setActiveTab('kanban'); setMobileSidebarOpen(false); }}>
-                              <Layers size={15} />
-                              <span style={{ fontSize: '13px' }}>CRM Pipeline</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'telecalling' ? 'active' : ''}`} onClick={() => { setActiveTab('telecalling'); setMobileSidebarOpen(false); }}>
-                              <span style={{ fontSize: '14px' }}>📞</span>
-                              <span style={{ fontSize: '13px' }}>Call Recordings & SIM Sync</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'chatbot' ? 'active' : ''}`} onClick={() => { setActiveTab('chatbot'); setMobileSidebarOpen(false); }}>
-                              <Bot size={15} />
-                              <span style={{ fontSize: '13px' }}>Chatbot Rules</span>
-                            </div>
-                          </AccordionCategory>
-
-                          {/* OPERATIONS */}
-                          <AccordionCategory id="operations" label="OPERATIONS">
-                            <div className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`} onClick={() => { setActiveTab('tasks'); setMobileSidebarOpen(false); }}>
-                              <ClipboardList size={15} />
-                              <span style={{ fontSize: '13px' }}>Tasks Board</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'office_kiosk' ? 'active' : ''}`} onClick={() => { setActiveTab('office_kiosk'); setMobileSidebarOpen(false); }}>
-                              <Clock size={15} />
-                              <span style={{ fontSize: '13px' }}>Office Kiosk</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'work_hours' ? 'active' : ''}`} onClick={() => { setActiveTab('work_hours'); setMobileSidebarOpen(false); }}>
-                              <Clock size={15} />
-                              <span style={{ fontSize: '13px' }}>Work Hours Log</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'notice_board' ? 'active' : ''}`} onClick={() => { setActiveTab('notice_board'); setMobileSidebarOpen(false); }}>
-                              <Bell size={15} />
-                              <span style={{ fontSize: '13px' }}>Notice Board</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'holidays' ? 'active' : ''}`} onClick={() => { setActiveTab('holidays'); setMobileSidebarOpen(false); }}>
-                              <Calendar size={15} />
-                              <span style={{ fontSize: '13px' }}>Holidays List</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'rewards_recognition' ? 'active' : ''}`} onClick={() => { setActiveTab('rewards_recognition'); setMobileSidebarOpen(false); }}>
-                              <Award size={15} />
-                              <span style={{ fontSize: '13px' }}>Rewards Badges</span>
-                            </div>
-                          </AccordionCategory>
-
-                          {/* MY PORTAL */}
-                          <AccordionCategory id="my_portal" label="My Portal">
-                            <div className={`nav-item ${activeTab === 'my_attendance' ? 'active' : ''}`} onClick={() => { setActiveTab('my_attendance'); setMobileSidebarOpen(false); }}>
-                              <Clock size={15} />
-                              <span style={{ fontSize: '13px' }}>Shift Attendance</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'leaves' ? 'active' : ''}`} onClick={() => { setActiveTab('leaves'); setMobileSidebarOpen(false); }}>
-                              <Calendar size={15} />
-                              <span style={{ fontSize: '13px' }}>Leaves Requests</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'shifts' ? 'active' : ''}`} onClick={() => { setActiveTab('shifts'); setMobileSidebarOpen(false); }}>
-                              <Calendar size={15} />
-                              <span style={{ fontSize: '13px' }}>Work Shift Roster</span>
-                            </div>
-                          </AccordionCategory>
-
-                          {/* HELP & SUPPORT */}
-                          <AccordionCategory id="help_support" label="Help & Support">
-                            <div className={`nav-item ${activeTab === 'app_guide' ? 'active' : ''}`} onClick={() => { setActiveTab('app_guide'); setMobileSidebarOpen(false); }}>
-                              <Globe size={15} />
-                              <span style={{ fontSize: '13px' }}>App Guide & Tour</span>
-                            </div>
-                          </AccordionCategory>
-
-                          {/* SETTINGS */}
-                          <AccordionCategory id="saas_portal" label="SETTINGS">
-                            <div className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => { setActiveTab('settings'); setMobileSidebarOpen(false); }}>
-                              <UserCheck size={15} />
-                              <span style={{ fontSize: '13px' }}>General Settings</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'roles_permissions' ? 'active' : ''}`} onClick={() => { setActiveTab('roles_permissions'); setMobileSidebarOpen(false); }}>
-                              <UserCheck size={15} />
-                              <span style={{ fontSize: '13px' }}>Roles & Permissions</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'system_dropdowns' ? 'active' : ''}`} onClick={() => { setActiveTab('system_dropdowns'); setMobileSidebarOpen(false); }}>
-                              <Tag size={15} />
-                              <span style={{ fontSize: '13px' }}>System Dropdowns</span>
-                            </div>
-                            <div className={`nav-item ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => { setActiveTab('billing'); setMobileSidebarOpen(false); }}>
-                              <Megaphone size={15} style={{ transform: 'rotate(-20deg)' }} />
-                              <span style={{ fontSize: '13px' }}>Subscription Billing</span>
-                            </div>
-                          </AccordionCategory>
-                        </nav>
-                      </div>
-                      <div style={{ flex: 1 }} onClick={() => setMobileSidebarOpen(false)} />
-                    </div>
-                  )}
-
-                  {/* 3. MAIN PAGE CONTENT CONTAINER (EXACT LAPTOP THEME & FONTS) */}
-                  <div style={{ flex: 1, overflowY: 'auto', padding: '14px', fontFamily: 'var(--font-body, system-ui, sans-serif)' }}>
-                    {/* Render specific module pages based on activeTab */}
-                    {(activeTab === 'admin_dashboard' || activeTab === 'dashboard') && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {/* Top Key Metrics Grid */}
-
-                        {/* Top Key Metrics Grid */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                          <div style={{ background: 'var(--sidebar-bg, #064e43)', color: 'white', padding: '12px', borderRadius: '12px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
-                            <div style={{ fontSize: '10px', opacity: 0.8, textTransform: 'uppercase', fontWeight: '700' }}>Total Staff</div>
-                            <div style={{ fontSize: '22px', fontWeight: '900', marginTop: '2px' }}>24</div>
-                            <div style={{ fontSize: '9px', color: '#99f6e4', marginTop: '2px' }}>🟢 21 Present Today</div>
-                          </div>
-                          <div style={{ background: '#0d9488', color: 'white', padding: '12px', borderRadius: '12px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
-                            <div style={{ fontSize: '10px', opacity: 0.8, textTransform: 'uppercase', fontWeight: '700' }}>Today's SIM Calls</div>
-                            <div style={{ fontSize: '22px', fontWeight: '900', marginTop: '2px' }}>{callLogs.length || 48}</div>
-                            <div style={{ fontSize: '9px', color: '#ccfbf1', marginTop: '2px' }}>🎧 100% Synced to Cloud</div>
-                          </div>
-                        </div>
-
-                        {/* Quick Stats Grid */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                          <div style={{ background: 'white', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                            <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '700' }}>INBOX CHATS</div>
-                            <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', marginTop: '2px' }}>14 Active</div>
-                          </div>
-                          <div style={{ background: 'white', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                            <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '700' }}>ACTIVE TASKS</div>
-                            <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', marginTop: '2px' }}>8 Pending</div>
-                          </div>
-                        </div>
-
-                        {/* Quick Launch Shortcuts */}
-                        <div style={{ background: 'white', borderRadius: '14px', padding: '14px', border: '1px solid #e2e8f0' }}>
-                          <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f2b26', marginBottom: '8px' }}>⚡ Quick Operations</div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                            <button onClick={() => setActiveTab('inbox')} style={{ background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', padding: '8px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
-                              💬 WhatsApp Inbox
-                            </button>
-                            <button onClick={() => setActiveTab('telecalling')} style={{ background: '#f0fdfa', color: '#115e59', border: '1px solid #99f6e4', padding: '8px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
-                              📞 SIM Call Logs
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    {activeTab === 'inbox' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <input type="text" placeholder="🔍 Search contacts or messages..." style={{ width: '100%', padding: '10px 12px', fontSize: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', background: 'white' }} />
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {[
-                            { name: 'Rahul Sharma', time: '10:45 AM', msg: 'Sure, please share the invoice link.', unread: 2 },
-                            { name: 'Priya Verma', time: 'Yesterday', msg: 'Call recording synced to CRM', unread: 0 },
-                            { name: 'Amit Kumar', time: '24 Jul', msg: 'Interested in Pro Plan setup', unread: 1 }
-                          ].map((chat, idx) => (
-                            <div key={idx} style={{ background: 'white', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', gap: '12px', alignItems: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                              <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#0d9488', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px' }}>
-                                {chat.name[0]}
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f2b26' }}>{chat.name}</div>
-                                  <div style={{ fontSize: '10px', color: '#94a3b8' }}>{chat.time}</div>
-                                </div>
-                                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{chat.msg}</div>
-                              </div>
-                              {chat.unread > 0 && (
-                                <span style={{ background: '#10b981', color: 'white', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold' }}>
-                                  {chat.unread}
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {activeTab === 'telecalling' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                          <div style={{ background: 'var(--sidebar-bg, #064e43)', color: 'white', padding: '12px', borderRadius: '12px' }}>
-                            <div style={{ fontSize: '10px', opacity: 0.8 }}>TOTAL SIM CALLS</div>
-                            <div style={{ fontSize: '22px', fontWeight: '800' }}>{callLogs.length || 12}</div>
-                          </div>
-                          <div style={{ background: '#0d9488', color: 'white', padding: '12px', borderRadius: '12px' }}>
-                            <div style={{ fontSize: '10px', opacity: 0.8 }}>CLOUD SYNCED</div>
-                            <div style={{ fontSize: '22px', fontWeight: '800' }}>100%</div>
-                          </div>
-                        </div>
-
-                        <div style={{ background: 'white', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0' }}>
-                          <div style={{ fontSize: '13px', fontWeight: '700', marginBottom: '8px', color: '#0f2b26' }}>🎧 Recent Call Logs</div>
-                          {(callLogs.length > 0 ? callLogs : [
-                            { id: 1, customerPhone: '+91 98765 43210', type: 'OUTGOING', durationSeconds: 64, agentName: 'Senior Agent' },
-                            { id: 2, customerPhone: '+91 91234 56789', type: 'INCOMING', durationSeconds: 120, agentName: 'Sales Lead' }
-                          ]).slice(0, 4).map((log, i) => (
-                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f1f5f9', fontSize: '11px' }}>
-                              <div>
-                                <div style={{ fontWeight: '700', color: '#1e293b' }}>{log.customerPhone}</div>
-                                <div style={{ fontSize: '10px', color: '#64748b' }}>{log.type} | {log.agentName}</div>
-                              </div>
-                              <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#0d9488' }}>{log.durationSeconds || 45}s</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 3. GPS ATTENDANCE & LIVE TRACKING MODULE */}
-                    {activeTab === 'gps_attendance' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {/* Location Clock-in Status Card */}
-
-                        {/* Location Clock-in Status Card */}
-                        <div style={{ background: 'white', borderRadius: '12px', padding: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700' }}>CURRENT GEOFENCE LOCATION</div>
-                          <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f2b26', marginTop: '2px' }}>🏢 Connaught Place Office Zone</div>
-                          <div style={{ fontSize: '10px', color: '#059669', marginTop: '4px', fontWeight: '600' }}>✓ Verified Inside Authorized Perimeter (Radius: 200m)</div>
-                          
-                          <button style={{ width: '100%', marginTop: '12px', background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)', color: 'white', border: 'none', borderRadius: '10px', padding: '10px', fontWeight: '800', fontSize: '12px', cursor: 'pointer', boxShadow: '0 3px 10px rgba(13,148,136,0.3)' }}>
-                            ⏱️ Clock-In GPS Shift Attendance
-                          </button>
-                        </div>
-
-                        {/* Staff Location Status Grid */}
-                        <div style={{ background: 'white', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0' }}>
-                          <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26', marginBottom: '8px' }}>📡 Live Field Staff Locations</div>
-                          {[
-                            { name: 'Rahul Sharma (Field Agent)', status: 'In Field (Rohini)', time: '2 mins ago' },
-                            { name: 'Priya Verma (Sales Exec)', status: 'Office HQ (CP)', time: 'Just now' },
-                            { name: 'Amit Kumar (Telecaller)', status: 'On-Call (Noida)', time: '10 mins ago' }
-                          ].map((staff, idx) => (
-                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: idx < 2 ? '1px solid #f1f5f9' : 'none', fontSize: '11px' }}>
-                              <div>
-                                <div style={{ fontWeight: '700', color: '#1e293b' }}>{staff.name}</div>
-                                <div style={{ fontSize: '10px', color: '#0d9488', fontWeight: '600' }}>📍 {staff.status}</div>
-                              </div>
-                              <span style={{ fontSize: '10px', color: '#94a3b8' }}>{staff.time}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 4. EMPLOYEES DIRECTORY MODULE */}
-                    {activeTab === 'employees' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {[
-                          { name: 'Rahul Sharma', role: 'Field Telecaller', dept: 'Sales', status: 'Active' },
-                          { name: 'Priya Verma', role: 'CRM Manager', dept: 'Operations', status: 'Active' },
-                          { name: 'Amit Kumar', role: 'Support Lead', dept: 'Customer Success', status: 'Active' }
-                        ].map((emp, i) => (
-                          <div key={i} style={{ background: 'white', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#064e43', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '13px' }}>
-                                {emp.name[0]}
-                              </div>
-                              <div>
-                                <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f2b26' }}>{emp.name}</div>
-                                <div style={{ fontSize: '10px', color: '#64748b' }}>{emp.role} • {emp.dept}</div>
-                              </div>
-                            </div>
-                            <span style={{ background: '#ecfdf5', color: '#059669', fontSize: '10px', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold' }}>{emp.status}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* 5. TASKS MODULE */}
-                    {activeTab === 'tasks' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {[
-                          { title: 'Follow-up with Delhi Client leads', priority: 'High', due: 'Today, 5:00 PM' },
-                          { title: 'Sync SIM call recording logs to CRM', priority: 'Urgent', due: 'Completed' },
-                          { title: 'Weekly sales target review report', priority: 'Normal', due: 'Tomorrow' }
-                        ].map((t, idx) => (
-                          <div key={idx} style={{ background: 'white', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                            <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f2b26' }}>{t.title}</div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '10px' }}>
-                              <span style={{ color: t.priority === 'Urgent' ? '#ef4444' : '#0d9488', fontWeight: 'bold' }}>🔥 {t.priority}</span>
-                              <span style={{ color: '#64748b' }}>⏰ {t.due}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* 6. SUPER ADMIN PANEL MODULE (MOBILE OPTIMIZED & VIBRANT COLORFUL) */}
-                    {(activeTab === 'superadmin_plans' || activeTab === 'super_admin') && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        
-                        {/* Vibrant KPI Grid Cards (Row 1: 4 cards, Row 2: 3 cards - Perfectly Balanced) */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
-                            <div style={{ background: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)', padding: '8px 4px', borderRadius: '10px', border: '1px solid #7dd3fc', textAlign: 'center' }}>
-                              <div style={{ fontSize: '9px', fontWeight: '800', color: '#0369a1' }}>Companies</div>
-                              <div style={{ fontSize: '18px', fontWeight: '900', color: '#0284c7', marginTop: '2px' }}>{superadminMetrics.companies || 1}</div>
-                            </div>
-                            <div style={{ background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)', padding: '8px 4px', borderRadius: '10px', border: '1px solid #86efac', textAlign: 'center' }}>
-                              <div style={{ fontSize: '9px', fontWeight: '800', color: '#15803d' }}>Branches</div>
-                              <div style={{ fontSize: '18px', fontWeight: '900', color: '#16a34a', marginTop: '2px' }}>{superadminMetrics.branches || 1}</div>
-                            </div>
-                            <div style={{ background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', padding: '8px 4px', borderRadius: '10px', border: '1px solid #fcd34d', textAlign: 'center' }}>
-                              <div style={{ fontSize: '9px', fontWeight: '800', color: '#b45309' }}>Managers</div>
-                              <div style={{ fontSize: '18px', fontWeight: '900', color: '#d97706', marginTop: '2px' }}>{superadminMetrics.managers || 1}</div>
-                            </div>
-                            <div style={{ background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)', padding: '8px 4px', borderRadius: '10px', border: '1px solid #d8b4fe', textAlign: 'center' }}>
-                              <div style={{ fontSize: '9px', fontWeight: '800', color: '#6b21a8' }}>Employees</div>
-                              <div style={{ fontSize: '18px', fontWeight: '900', color: '#9333ea', marginTop: '2px' }}>{superadminMetrics.employees || 5}</div>
-                            </div>
-                          </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-                            <div style={{ background: 'linear-gradient(135deg, #fae8ff 0%, #f5d0fe 100%)', padding: '8px 4px', borderRadius: '10px', border: '1px solid #f0abfc', textAlign: 'center' }}>
-                              <div style={{ fontSize: '9px', fontWeight: '800', color: '#86198f' }}>Admins</div>
-                              <div style={{ fontSize: '18px', fontWeight: '900', color: '#c026d3', marginTop: '2px' }}>{superadminMetrics.admins || 1}</div>
-                            </div>
-                            <div style={{ background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)', padding: '8px 4px', borderRadius: '10px', border: '1px solid #fca5a5', textAlign: 'center' }}>
-                              <div style={{ fontSize: '9px', fontWeight: '800', color: '#b91c1c' }}>Super Admins</div>
-                              <div style={{ fontSize: '18px', fontWeight: '900', color: '#ef4444', marginTop: '2px' }}>{superadminMetrics.superAdmins || 2}</div>
-                            </div>
-                            <div style={{ background: 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)', padding: '8px 4px', borderRadius: '10px', border: '1px solid #6ee7b7', textAlign: 'center' }}>
-                              <div style={{ fontSize: '9px', fontWeight: '800', color: '#047857' }}>Total Users</div>
-                              <div style={{ fontSize: '18px', fontWeight: '900', color: '#059669', marginTop: '2px' }}>{superadminMetrics.totalUsers || 8}</div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Mobile Single-Line Horizontal Scroll Sub-Tab Navigation (Clean No Scrollbar Line + Mouse Drag + Touch Swipe) */}
-                        <div 
-                          className="mobile-subtabs-scroll-container no-scrollbar"
-                          onMouseDown={(e) => {
-                            const el = e.currentTarget;
-                            el.isDown = true;
-                            el.startX = e.pageX - el.offsetLeft;
-                            el.scrollLeftPos = el.scrollLeft;
-                          }}
-                          onMouseLeave={(e) => { e.currentTarget.isDown = false; }}
-                          onMouseUp={(e) => { e.currentTarget.isDown = false; }}
-                          onMouseMove={(e) => {
-                            const el = e.currentTarget;
-                            if (!el.isDown) return;
-                            e.preventDefault();
-                            const x = e.pageX - el.offsetLeft;
-                            const walk = (x - el.startX) * 1.5;
-                            el.scrollLeft = el.scrollLeftPos - walk;
-                          }}
-                          style={{ 
-                            display: 'flex', 
-                            flexWrap: 'nowrap', 
-                            gap: '8px', 
-                            overflowX: 'auto', 
-                            WebkitOverflowScrolling: 'touch',
-                            padding: '4px 2px 6px 2px',
-                            msOverflowStyle: 'none',
-                            scrollbarWidth: 'none',
-                            cursor: 'grab'
-                          }}
-                        >
-                          {[
-                            { id: 'system_users', label: 'System Users' },
-                            { id: 'manage_companies', label: 'Manage Companies' },
-                            { id: 'manage_plans', label: 'Manage Plans' },
-                            { id: 'audit_logs', label: 'Audit Logs' },
-                            { id: 'system_tools', label: 'System Tools' }
-                          ].map((tabObj) => {
-                            const isActive = (superadminSubTab || 'system_users') === tabObj.id;
-                            return (
-                              <button
-                                key={tabObj.id}
-                                type="button"
-                                onClick={() => setSuperadminSubTab(tabObj.id)}
-                                style={{
-                                  flexShrink: 0,
-                                  whiteSpace: 'nowrap',
-                                  padding: '7px 14px',
-                                  borderRadius: '20px',
-                                  fontSize: '11px',
-                                  fontWeight: '700',
-                                  border: isActive ? 'none' : '1px solid #cbd5e1',
-                                  background: isActive ? 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)' : '#ffffff',
-                                  color: isActive ? '#ffffff' : '#475569',
-                                  boxShadow: isActive ? '0 2px 6px rgba(13, 148, 136, 0.3)' : 'none',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                {tabObj.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        {/* Mobile Sub-Tab Content Rendering */}
-                        {(superadminSubTab === 'system_users' || !superadminSubTab) && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {/* Search & Action Header */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                              <input
-                                type="text"
-                                placeholder="🔍 Search system users..."
-                                value={superadminUsersQuery}
-                                onChange={(e) => {
-                                  setSuperadminUsersQuery(e.target.value);
-                                  fetchSuperadminUsers(e.target.value);
-                                }}
-                                style={{ flex: 1, padding: '8px 12px', fontSize: '11px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#ffffff' }}
-                              />
-                              <button style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                + Add User
-                              </button>
-                            </div>
-
-                            {/* System Users Mobile Cards */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                              {[
-                                { name: 'Kavayansh Chopra', email: 'kavayanshchopra@gmail.com', role: 'Super Admin', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
-                                { name: 'OmniFlow Global Admin', email: 'admin@omniflow.com', role: 'Super Admin', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' }
-                              ].map((user, idx) => (
-                                <div key={idx} style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.03)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <div>
-                                    <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>👤 {user.name}</div>
-                                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>✉️ {user.email}</div>
-                                  </div>
-                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                                    <span style={{ background: user.bg, color: user.color, border: `1px solid ${user.border}`, fontSize: '10px', padding: '3px 8px', borderRadius: '12px', fontWeight: 'bold' }}>
-                                      👑 {user.role}
-                                    </span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {superadminSubTab === 'manage_companies' && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                              <input
-                                type="text"
-                                placeholder="🔍 Search companies..."
-                                style={{ flex: 1, padding: '8px 12px', fontSize: '11px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#ffffff' }}
-                              />
-                              <button style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                + Add Company
-                              </button>
-                            </div>
-                            <div style={{ background: '#ffffff', borderRadius: '12px', padding: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
-                              <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f2b26' }}>🏢 OmniFlow Global HQ</div>
-                              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>📍 Delhi NCR, India | 👥 8 Active Users</div>
-                              <span style={{ background: '#dcfce7', color: '#16a34a', border: '1px solid #86efac', fontSize: '10px', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', display: 'inline-block', marginTop: '8px' }}>Active Enterprise</span>
-                            </div>
-                          </div>
-                        )}
-
-                        {superadminSubTab === 'manage_plans' && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <div style={{ background: '#ffffff', borderRadius: '12px', padding: '14px', border: '1px solid #e2e8f0' }}>
-                              <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f2b26' }}>⚡ Enterprise Growth Plan</div>
-                              <div style={{ fontSize: '18px', fontWeight: '900', color: '#0d9488', marginTop: '4px' }}>₹4,999 / mo</div>
-                              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>Unlimited Users • WhatsApp API • Cloud Telephony</div>
-                            </div>
-                          </div>
-                        )}
-
-                        {superadminSubTab === 'audit_logs' && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <div style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0' }}>
-                              <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>📜 Superadmin Login Verified</div>
-                              <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>Kavayansh Chopra • Today, 12:05 AM</div>
-                            </div>
-                          </div>
-                        )}
-
-                        {superadminSubTab === 'system_tools' && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>🛠️ Diagnostic & Maintenance Tools</div>
-                            <div style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div>
-                                <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>🧹 Clear System Cache</div>
-                                <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>Purge active session cache & force sync</div>
-                              </div>
-                              <button style={{ background: 'linear-gradient(135deg, #0d9488, #064e43)', color: 'white', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}>Flush Cache</button>
-                            </div>
-                            <div style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div>
-                                <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>🔌 Test WebSocket Server</div>
-                                <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>Ping realtime Baileys & WhatsApp Socket</div>
-                              </div>
-                              <button style={{ background: '#ffffff', border: '1px solid #cbd5e1', color: '#334155', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}>Test Socket</button>
-                            </div>
-                            <div style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div>
-                                <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>🔥 Firebase Health</div>
-                                <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>Verify connection to ems-ag Firestore</div>
-                              </div>
-                              <button style={{ background: '#ffffff', border: '1px solid #cbd5e1', color: '#334155', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}>Check Health</button>
-                            </div>
-                          </div>
-                        )}
-
-                      </div>
-                    )}
-
-                    {/* 7. GENERAL FALLBACK MODULE (CLEAN & NO GENERIC PLACEHOLDER BOX) */}
-                    {activeTab !== 'inbox' && activeTab !== 'telecalling' && activeTab !== 'admin_dashboard' && activeTab !== 'dashboard' && activeTab !== 'gps_attendance' && activeTab !== 'employees' && activeTab !== 'tasks' && activeTab !== 'superadmin_plans' && activeTab !== 'super_admin' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <div style={{ background: 'white', borderRadius: '12px', padding: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f2b26', marginBottom: '6px' }}>
-                            Module Overview & Settings
-                          </div>
-                          <div style={{ fontSize: '11px', color: '#64748b', lineHeight: '1.4' }}>
-                            Active configuration and operational records for {(activeTab || '').replace(/_/g, ' ')} are synced in real time across web and mobile views.
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 4. MOBILE BOTTOM NAVIGATION DOCK (EXACT THEME ALIGNED) */}
-                  <div style={{
-                    background: '#ffffff',
-                    borderTop: '1px solid #e2e8f0',
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(5, 1fr)',
-                    padding: '6px 0 8px 0',
-                    flexShrink: 0,
-                    boxShadow: '0 -2px 10px rgba(0,0,0,0.04)',
-                    zIndex: 10
-                  }}>
-                    <button
-                      onClick={() => setActiveTab('admin_dashboard')}
-                      style={{ background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', color: activeTab === 'admin_dashboard' ? '#0d9488' : '#64748b', cursor: 'pointer' }}
-                    >
-                      <span style={{ fontSize: '16px' }}>📊</span>
-                      <span style={{ fontSize: '9px', fontWeight: '700' }}>Home</span>
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('employees')}
-                      style={{ background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', color: activeTab === 'employees' ? '#0d9488' : '#64748b', cursor: 'pointer' }}
-                    >
-                      <span style={{ fontSize: '16px' }}>👥</span>
-                      <span style={{ fontSize: '9px', fontWeight: '700' }}>Staff</span>
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('inbox')}
-                      style={{ background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', color: activeTab === 'inbox' ? '#0d9488' : '#64748b', cursor: 'pointer' }}
-                    >
-                      <span style={{ fontSize: '16px' }}>💬</span>
-                      <span style={{ fontSize: '9px', fontWeight: '700' }}>Chats</span>
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('telecalling')}
-                      style={{ background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', color: activeTab === 'telecalling' ? '#0d9488' : '#64748b', cursor: 'pointer' }}
-                    >
-                      <span style={{ fontSize: '16px' }}>📞</span>
-                      <span style={{ fontSize: '9px', fontWeight: '700' }}>Calls</span>
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('settings')}
-                      style={{ background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', color: activeTab === 'settings' ? '#0d9488' : '#64748b', cursor: 'pointer' }}
-                    >
-                      <span style={{ fontSize: '16px' }}>⚙️</span>
-                      <span style={{ fontSize: '9px', fontWeight: '700' }}>Settings</span>
-                    </button>
-                  </div>
-
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+        {/* MOBILE APP PREVIEW SIMULATOR OVERLAY */}
+        {isMobilePreview && (
+          <Suspense fallback={null}>
+            <MobilePreviewSimulatorOverlay
+              isMobilePreview={isMobilePreview}
+              setIsMobilePreview={setIsMobilePreview}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              authUser={authUser}
+              callLogs={callLogs}
+              superadminMetrics={superadminMetrics}
+              AccordionCategory={AccordionCategory}
+            />
+          </Suspense>
+        )}
 
       {/* Universal Custom Confirm Modal Popup */}
       {confirmModal.isOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(15, 23, 42, 0.65)',
-          backdropFilter: 'blur(6px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 999999,
-          padding: '20px'
-        }}>
-          <div style={{
-            background: '#ffffff',
-            borderRadius: '18px',
-            padding: '28px 24px 24px',
-            maxWidth: '400px',
-            width: '100%',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
-            border: '1px solid #e2e8f0',
-            textAlign: 'center',
-            animation: 'fadeIn 0.2s ease-out'
-          }}>
-            <div style={{
-              width: '52px',
-              height: '52px',
-              borderRadius: '50%',
-              background: confirmModal.danger ? '#fee2e2' : '#e0f2fe',
-              color: confirmModal.danger ? '#ef4444' : '#0284c7',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 16px',
-              fontSize: '22px'
-            }}>
-              {confirmModal.danger ? '⚠️' : 'ℹ️'}
-            </div>
-            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginBottom: '8px' }}>
-              {confirmModal.title}
-            </h3>
-            <p style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.5', marginBottom: '24px' }}>
-              {confirmModal.message}
-            </p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <button
-                type="button"
-                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-                style={{
-                  flex: 1,
-                  padding: '10px 16px',
-                  borderRadius: '10px',
-                  border: '1px solid #cbd5e1',
-                  background: '#ffffff',
-                  color: '#475569',
-                  fontWeight: '700',
-                  fontSize: '13px',
-                  cursor: 'pointer'
-                }}
-              >
-                {confirmModal.cancelText || 'Cancel'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirmModal.onConfirm) confirmModal.onConfirm();
-                  setConfirmModal(prev => ({ ...prev, isOpen: false }));
-                }}
-                style={{
-                  flex: 1,
-                  padding: '10px 16px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: confirmModal.danger ? '#dc2626' : '#0d9488',
-                  color: '#ffffff',
-                  fontWeight: '700',
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                  boxShadow: confirmModal.danger ? '0 4px 12px rgba(220, 38, 38, 0.35)' : '0 4px 12px rgba(13, 148, 136, 0.35)'
-                }}
-              >
-                {confirmModal.confirmText || 'Confirm'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <Suspense fallback={null}>
+          <ConfirmModal
+            confirmModal={confirmModal}
+            setConfirmModal={setConfirmModal}
+          />
+        </Suspense>
       )}
 
       {/* Sleek Custom Input Modal Dialog - Premium Dark/Teal Glassmorphism Popup */}
       {inputModal.isOpen && (
-        <div 
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setInputModal(prev => ({ ...prev, isOpen: false }));
-          }}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 999999,
-            background: 'rgba(15, 23, 42, 0.75)',
-            backdropFilter: 'blur(10px)',
-            WebkitBackdropFilter: 'blur(10px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px'
-          }}
-        >
-          <div style={{
-            width: '100%',
-            maxWidth: '460px',
-            background: '#ffffff',
-            borderRadius: '20px',
-            boxShadow: '0 25px 60px -15px rgba(0,0,0,0.4), 0 0 0 1px rgba(13, 148, 136, 0.25)',
-            overflow: 'hidden',
-            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-            transform: 'scale(1)',
-            fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
-          }}>
-            {/* Modal Header */}
-            <div style={{
-              background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 50%, #064e43 100%)',
-              padding: '20px 24px',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              position: 'relative',
-              boxShadow: '0 4px 20px rgba(13, 148, 136, 0.3)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '12px',
-                  background: 'rgba(255, 255, 255, 0.2)',
-                  backdropFilter: 'blur(4px)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '20px',
-                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.4)'
-                }}>
-                  ✨
-                </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800', letterSpacing: '-0.01em', color: '#ffffff' }}>
-                    {inputModal.title || 'Configure Option'}
-                  </h3>
-                  {inputModal.subtitle && (
-                    <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: 'rgba(255, 255, 255, 0.85)', fontWeight: '500' }}>
-                      {inputModal.subtitle}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setInputModal(prev => ({ ...prev, isOpen: false }))}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.15)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  color: '#ffffff',
-                  borderRadius: '10px',
-                  width: '32px',
-                  height: '32px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Modal Body Form */}
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              if (inputModal.value && inputModal.value.trim() && inputModal.onSave) {
-                inputModal.onSave(inputModal.value.trim());
-                setInputModal(prev => ({ ...prev, isOpen: false }));
-              }
-            }}>
-              <div style={{ padding: '24px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-                  Option Title / Value
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type="text"
-                    autoFocus
-                    placeholder={inputModal.placeholder || 'Enter value...'}
-                    value={inputModal.value || ''}
-                    onChange={(e) => setInputModal(prev => ({ ...prev, value: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      borderRadius: '12px',
-                      border: '2px solid #0d9488',
-                      fontSize: '15px',
-                      fontWeight: '700',
-                      color: '#0f172a',
-                      outline: 'none',
-                      background: '#f0fdf4',
-                      boxSizing: 'border-box',
-                      boxShadow: '0 2px 8px rgba(13, 148, 136, 0.12)',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = '#0d9488';
-                      e.target.style.boxShadow = '0 0 0 4px rgba(13, 148, 136, 0.2)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.boxShadow = '0 2px 8px rgba(13, 148, 136, 0.12)';
-                    }}
-                  />
-                </div>
-                <p style={{ margin: '8px 0 0 0', fontSize: '11px', color: '#64748b', fontWeight: '500' }}>
-                  💡 Press <strong style={{ color: '#0d9488' }}>Enter ↵</strong> to save or <strong style={{ color: '#64748b' }}>Esc</strong> to cancel.
-                </p>
-              </div>
-
-              {/* Modal Actions */}
-              <div style={{
-                padding: '16px 24px',
-                display: 'flex',
-                justify: 'flex-end',
-                alignItems: 'center',
-                gap: '12px',
-                background: '#f8fafc',
-                borderTop: '1px solid #e2e8f0'
-              }}>
-                <button
-                  type="button"
-                  onClick={() => setInputModal(prev => ({ ...prev, isOpen: false }))}
-                  style={{
-                    padding: '10px 18px',
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    borderRadius: '10px',
-                    border: '1.5px solid #cbd5e1',
-                    background: '#ffffff',
-                    color: '#475569',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = '#ffffff'}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!inputModal.value || !inputModal.value.trim()}
-                  style={{
-                    padding: '10px 24px',
-                    fontSize: '13px',
-                    fontWeight: '800',
-                    borderRadius: '10px',
-                    border: 'none',
-                    background: inputModal.value && inputModal.value.trim() 
-                      ? 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)' 
-                      : '#94a3b8',
-                    color: '#ffffff',
-                    cursor: inputModal.value && inputModal.value.trim() ? 'pointer' : 'not-allowed',
-                    boxShadow: inputModal.value && inputModal.value.trim() 
-                      ? '0 4px 14px rgba(13, 148, 136, 0.4)' 
-                      : 'none',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  Save & Apply
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <Suspense fallback={null}>
+          <CustomInputModal
+            inputModal={inputModal}
+            setInputModal={setInputModal}
+          />
+        </Suspense>
       )}
     </div>
   );
 }
-
-function AssetManagementWrapper({
-  companyId,
-  assets,
-  setAssets,
-  authUser,
-  systemDropdowns,
-  recycleBinItems,
-  handleRestoreBinItem,
-  handlePermanentDeleteBinItem,
-  softDeleteRecord,
-  showToast,
-  onOpenModuleConfig,
-  onManageStages,
-  onOpenPositionModal
-}) {
-  const { config } = useModuleRegistry(companyId || 'default_tenant', 'asset_management');
-
-  const handleUpdateAssets = (newAssets) => {
-    setAssets(newAssets);
-    try {
-      localStorage.setItem('omnilflow_fallback_assets', JSON.stringify(newAssets));
-    } catch (e) {}
-  };
-
-  return (
-    <LayoutEngine
-      moduleConfig={config}
-      records={assets}
-      setRecords={handleUpdateAssets}
-      authUser={authUser}
-      systemDropdowns={systemDropdowns}
-      recycleBinItems={recycleBinItems}
-      handleRestoreBinItem={handleRestoreBinItem}
-      handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
-      softDeleteRecord={softDeleteRecord}
-      showToast={showToast}
-      onOpenModuleConfig={onOpenModuleConfig}
-      onManageStages={onManageStages}
-      onOpenPositionModal={onOpenPositionModal}
-    />
-  );
-}
-
-function VerifyDocumentsWrapper({
-  companyId,
-  kycDocuments,
-  setKycDocuments,
-  employees = [],
-  authUser,
-  systemDropdowns,
-  recycleBinItems,
-  handleRestoreBinItem,
-  handlePermanentDeleteBinItem,
-  softDeleteRecord,
-  showToast,
-  onOpenModuleConfig,
-  onManageStages,
-  onOpenPositionModal
-}) {
-  const { config } = useModuleRegistry(companyId || 'default_tenant', 'verify_documents');
-
-  // Inject Employee Names into schema fields for employee dropdown selection!
-  const linkedConfig = useMemo(() => {
-    if (!config) return config;
-    const empOptions = (employees || []).map(e => `${e.first_name || ''} ${e.last_name || ''}`.trim()).filter(Boolean);
-    if (empOptions.length === 0) return config;
-
-    const updatedFields = (config.fields || []).map(f => {
-      if (f.id === 'name' || f.key === 'name' || f.id === 'employee') {
-        return {
-          ...f,
-          type: 'dropdown',
-          options: empOptions
-        };
-      }
-      return f;
-    });
-
-    return {
-      ...config,
-      fields: updatedFields
-    };
-  }, [config, employees]);
-
-  const handleUpdateKycDocuments = (newDocs) => {
-    setKycDocuments(newDocs);
-    try {
-      localStorage.setItem('omnilflow_fallback_kyc_documents', JSON.stringify(newDocs));
-    } catch (e) {}
-  };
-
-  return (
-    <LayoutEngine
-      moduleConfig={linkedConfig || config}
-      records={kycDocuments}
-      setRecords={handleUpdateKycDocuments}
-      authUser={authUser}
-      systemDropdowns={systemDropdowns}
-      recycleBinItems={recycleBinItems}
-      handleRestoreBinItem={handleRestoreBinItem}
-      handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
-      softDeleteRecord={softDeleteRecord}
-      showToast={showToast}
-      onOpenModuleConfig={onOpenModuleConfig}
-      onManageStages={onManageStages}
-      onOpenPositionModal={onOpenPositionModal}
-    />
-  );
-}
-
-function OffboardingWrapper({
-  companyId,
-  offboardingCases,
-  setOffboardingCases,
-  employees = [],
-  assets = [],
-  authUser,
-  systemDropdowns,
-  recycleBinItems,
-  handleRestoreBinItem,
-  handlePermanentDeleteBinItem,
-  softDeleteRecord,
-  showToast,
-  onOpenModuleConfig,
-  onManageStages,
-  onOpenPositionModal
-}) {
-  const { config } = useModuleRegistry(companyId || 'default_tenant', 'offboarding');
-
-  // Cross-Module Dynamic Linkage: Auto-compute IT Asset Clearance from live assets directory!
-  const syncedOffboardingCases = useMemo(() => {
-    return (offboardingCases || []).map(caseItem => {
-      const empName = (caseItem.employee || '').toLowerCase().trim();
-      if (!empName) return caseItem;
-
-      // Find all assets assigned to this employee in Asset Management
-      const assignedAssets = (assets || []).filter(a => {
-        const assignedTo = (a.assignedTo || a.employee || '').toLowerCase().trim();
-        return (assignedTo && empName.includes(assignedTo)) || (assignedTo && assignedTo.includes(empName));
-      });
-
-      let calculatedAssetClearance = caseItem.assetClearance;
-      if (assignedAssets.length > 0) {
-        const assetNames = assignedAssets.map(a => a.name || a.tag).join(', ');
-        calculatedAssetClearance = `⏳ Pending Return (${assignedAssets.length}: ${assetNames})`;
-      } else if (!caseItem.assetClearance || caseItem.assetClearance.includes('Pending')) {
-        calculatedAssetClearance = '✓ Cleared';
-      }
-
-      return {
-        ...caseItem,
-        assetClearance: calculatedAssetClearance
-      };
-    });
-  }, [offboardingCases, assets]);
-
-  // Inject Employee Names into schema fields for employee dropdown selection!
-  const linkedConfig = useMemo(() => {
-    if (!config) return config;
-    const empOptions = (employees || []).map(e => `${e.first_name || ''} ${e.last_name || ''}`.trim()).filter(Boolean);
-    if (empOptions.length === 0) return config;
-
-    const updatedFields = (config.fields || []).map(f => {
-      if (f.id === 'employee' || f.key === 'employee') {
-        return {
-          ...f,
-          type: 'dropdown',
-          options: empOptions
-        };
-      }
-      return f;
-    });
-
-    return {
-      ...config,
-      fields: updatedFields
-    };
-  }, [config, employees]);
-
-  const handleUpdateOffboardingCases = (newCases) => {
-    setOffboardingCases(newCases);
-    try {
-      localStorage.setItem('omnilflow_fallback_offboarding_cases', JSON.stringify(newCases));
-    } catch (e) {}
-  };
-
-  return (
-    <LayoutEngine
-      moduleConfig={linkedConfig || config}
-      records={syncedOffboardingCases}
-      setRecords={handleUpdateOffboardingCases}
-      authUser={authUser}
-      systemDropdowns={systemDropdowns}
-      recycleBinItems={recycleBinItems}
-      handleRestoreBinItem={handleRestoreBinItem}
-      handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
-      softDeleteRecord={softDeleteRecord}
-      showToast={showToast}
-      onOpenModuleConfig={onOpenModuleConfig}
-      onManageStages={onManageStages}
-      onOpenPositionModal={onOpenPositionModal}
-    />
-  );
-}
-
-function RolesPermissionsSection({ authUser, showToast, openInputModal }) {
-  const tenantId = authUser?.companyId || 'default_tenant';
-  const [matrixState, setMatrixState] = useState(() => PermissionEngine.getPermissionMatrix(tenantId));
-  const [activeRoleId, setActiveRoleId] = useState('manager');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const [columnWidths, setColumnWidths] = useState(() => ({
-    moduleName: typeof window !== 'undefined' && window.innerWidth <= 768 ? 120 : 200,
-    recordScope: typeof window !== 'undefined' && window.innerWidth <= 768 ? 100 : 145,
-    actionCol: 72
-  }));
-  const resizingRef = useRef(null);
-
-  const handleResizeStart = (e, colKey) => {
-    e.preventDefault();
-    e.stopPropagation();
-    resizingRef.current = {
-      colKey,
-      startX: e.clientX,
-      startWidth: columnWidths[colKey] || 72
-    };
-
-    const handleMouseMove = (moveEvent) => {
-      if (!resizingRef.current) return;
-      const { colKey, startX, startWidth } = resizingRef.current;
-      const deltaX = moveEvent.clientX - startX;
-      const newWidth = Math.max(50, startWidth + deltaX);
-      setColumnWidths(prev => ({
-        ...prev,
-        [colKey]: newWidth
-      }));
-    };
-
-    const handleMouseUp = () => {
-      resizingRef.current = null;
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-  };
-
-  const discoveredModules = PermissionEngine.getDiscoveredModules();
-  const tableScrollRef = useRef(null);
-
-  const handleScrollTable = (direction) => {
-    if (tableScrollRef.current) {
-      const scrollAmount = direction === 'left' ? -350 : 350;
-      tableScrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-    }
-  };
-
-  useEffect(() => {
-    const container = tableScrollRef.current;
-    if (!container) return;
-
-    const theadEl = container.querySelector('thead');
-    if (!theadEl) return;
-
-    const handleTheadWheel = (e) => {
-      if (e.deltaY !== 0) {
-        e.preventDefault();
-        e.stopPropagation();
-        container.scrollLeft += e.deltaY;
-      }
-    };
-
-    theadEl.addEventListener('wheel', handleTheadWheel, { passive: false });
-    return () => {
-      theadEl.removeEventListener('wheel', handleTheadWheel);
-    };
-  }, [activeRoleId, discoveredModules]);
-
-  const [sortField, setSortField] = useState('label'); // 'label' | 'scope'
-  const [sortOrder, setSortOrder] = useState('asc'); // 'asc' | 'desc'
-
-  const handleHeaderSort = (field) => {
-    if (sortField === field) {
-      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortOrder('asc');
-    }
-  };
-
-  const allRoles = [...DEFAULT_ROLES, ...(matrixState.customRoles || [])];
-
-  // Filter modules by Search Query
-  const filteredModules = useMemo(() => {
-    let result = [...discoveredModules];
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      result = result.filter(mod =>
-        mod.label.toLowerCase().includes(q) ||
-        (mod.category && mod.category.toLowerCase().includes(q))
-      );
-    }
-    // Apply Sorting
-    return result.sort((a, b) => {
-      let valA = (a[sortField] || '').toLowerCase();
-      let valB = (b[sortField] || '').toLowerCase();
-      if (sortField === 'scope') {
-        valA = (matrixState.permissions[activeRoleId]?.[a.id]?.scope || 'all').toLowerCase();
-        valB = (matrixState.permissions[activeRoleId]?.[b.id]?.scope || 'all').toLowerCase();
-      }
-      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
-      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [discoveredModules, searchQuery, sortField, sortOrder, matrixState, activeRoleId]);
-
-  // Group modules by Category
-  const groupedModules = useMemo(() => {
-    const groups = {};
-    filteredModules.forEach(mod => {
-      const cat = (mod.category || 'GENERAL').toUpperCase();
-      if (!groups[cat]) groups[cat] = [];
-      groups[cat].push(mod);
-    });
-    return groups;
-  }, [filteredModules]);
-
-  const handleActionToggle = (modId, actionId) => {
-    if (activeRoleId === 'super_admin') return;
-    setMatrixState(prev => {
-      const currentRoleData = prev.permissions[activeRoleId] || {};
-      const currentModData = currentRoleData[modId] || { scope: 'all', actions: {} };
-      const updatedActions = {
-        ...currentModData.actions,
-        [actionId]: !currentModData.actions?.[actionId]
-      };
-      const updated = {
-        ...prev,
-        permissions: {
-          ...prev.permissions,
-          [activeRoleId]: {
-            ...currentRoleData,
-            [modId]: {
-              ...currentModData,
-              actions: updatedActions
-            }
-          }
-        }
-      };
-      PermissionEngine.savePermissionMatrix(tenantId, updated);
-      return updated;
-    });
-  };
-
-  const handleScopeChange = (modId, newScope) => {
-    if (activeRoleId === 'super_admin') return;
-    setMatrixState(prev => {
-      const currentRoleData = prev.permissions[activeRoleId] || {};
-      const currentModData = currentRoleData[modId] || { scope: 'all', actions: {} };
-      const updated = {
-        ...prev,
-        permissions: {
-          ...prev.permissions,
-          [activeRoleId]: {
-            ...currentRoleData,
-            [modId]: {
-              ...currentModData,
-              scope: newScope
-            }
-          }
-        }
-      };
-      PermissionEngine.savePermissionMatrix(tenantId, updated);
-      return updated;
-    });
-  };
-
-  const handleToggleAllRow = (modId) => {
-    if (activeRoleId === 'super_admin') return;
-    setMatrixState(prev => {
-      const currentRoleData = prev.permissions[activeRoleId] || {};
-      const currentModData = currentRoleData[modId] || { scope: 'all', actions: {} };
-      const allChecked = STANDARD_ACTIONS.every(act => Boolean(currentModData.actions?.[act.id]));
-      const targetVal = !allChecked;
-
-      const newActions = {};
-      STANDARD_ACTIONS.forEach(act => { newActions[act.id] = targetVal; });
-
-      const updated = {
-        ...prev,
-        permissions: {
-          ...prev.permissions,
-          [activeRoleId]: {
-            ...currentRoleData,
-            [modId]: {
-              ...currentModData,
-              actions: newActions
-            }
-          }
-        }
-      };
-      PermissionEngine.savePermissionMatrix(tenantId, updated);
-      return updated;
-    });
-  };
-
-  const handleToggleColumnHeader = (actionId) => {
-    if (activeRoleId === 'super_admin') return;
-    setMatrixState(prev => {
-      const currentRoleData = prev.permissions[activeRoleId] || {};
-      const allModsChecked = discoveredModules.every(mod => Boolean(currentRoleData[mod.id]?.actions?.[actionId]));
-      const targetVal = !allModsChecked;
-
-      const updatedRoleData = { ...currentRoleData };
-      discoveredModules.forEach(mod => {
-        const modData = updatedRoleData[mod.id] || { scope: 'all', actions: {} };
-        updatedRoleData[mod.id] = {
-          ...modData,
-          actions: {
-            ...modData.actions,
-            [actionId]: targetVal
-          }
-        };
-      });
-
-      const updated = {
-        ...prev,
-        permissions: {
-          ...prev.permissions,
-          [activeRoleId]: updatedRoleData
-        }
-      };
-      PermissionEngine.savePermissionMatrix(tenantId, updated);
-      return updated;
-    });
-  };
-
-  const handleAddCustomRole = () => {
-    openInputModal({
-      title: '🛡️ Add Custom Role',
-      subtitle: 'Enter new custom role title (e.g. HR Specialist, Finance Auditor)',
-      placeholder: 'e.g. Finance Auditor',
-      onSave: (roleTitle) => {
-        if (!roleTitle || !roleTitle.trim()) return;
-        const cleanTitle = roleTitle.trim();
-        const newRoleId = 'custom_role_' + Date.now();
-        const newRoleObj = { id: newRoleId, label: `🛡️ ${cleanTitle}`, isCustom: true };
-
-        setMatrixState(prev => {
-          const updatedCustomRoles = [...(prev.customRoles || []), newRoleObj];
-          const updatedPermissions = { ...prev.permissions };
-          updatedPermissions[newRoleId] = {};
-
-          discoveredModules.forEach(mod => {
-            const defaultActions = {};
-            STANDARD_ACTIONS.forEach(act => { defaultActions[act.id] = act.id === 'view'; });
-            updatedPermissions[newRoleId][mod.id] = {
-              scope: 'team',
-              actions: defaultActions
-            };
-          });
-
-          const updated = {
-            ...prev,
-            customRoles: updatedCustomRoles,
-            permissions: updatedPermissions
-          };
-          PermissionEngine.savePermissionMatrix(tenantId, updated);
-          return updated;
-        });
-        setActiveRoleId(newRoleId);
-        showToast(`Created Custom Role "${cleanTitle}"`, 'success');
-      }
-    });
-  };
-
-  const handleDeleteCustomRole = (roleId, roleName) => {
-    if (window.confirm(`Are you sure you want to delete custom role "${roleName}"?`)) {
-      const targetRole = (matrixState.customRoles || []).find(r => r.id === roleId);
-      softDeleteRecord({
-        originalId: roleId,
-        name: `Custom Role: "${roleName}"`,
-        category: 'Custom Role',
-        entityData: { role: targetRole, permissions: matrixState.permissions[roleId] },
-        links: 'RBAC Permission Matrix'
-      });
-      setMatrixState(prev => {
-        const updatedCustomRoles = (prev.customRoles || []).filter(r => r.id !== roleId);
-        const updatedPermissions = { ...prev.permissions };
-        delete updatedPermissions[roleId];
-
-        const updated = {
-          ...prev,
-          customRoles: updatedCustomRoles,
-          permissions: updatedPermissions
-        };
-        PermissionEngine.savePermissionMatrix(tenantId, updated);
-        return updated;
-      });
-      setActiveRoleId('manager');
-      showToast(`Deleted Custom Role "${roleName}"`, 'info');
-    }
-  };
-
-  const currentRoleObj = allRoles.find(r => r.id === activeRoleId);
-
-  return (
-    <div
-      style={{
-        height: isMobile ? 'calc(100vh - 70px)' : 'calc(100vh - 100px)',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: isMobile ? '12px' : '20px 24px',
-        boxSizing: 'border-box',
-        overflow: 'hidden',
-        background: '#f8fafc'
-      }}
-    >
-      {/* Page Header */}
-      <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', marginBottom: isMobile ? '10px' : '16px', flexDirection: isMobile ? 'column' : 'row', gap: '12px' }}>
-        <div>
-          <h1 style={{ fontSize: isMobile ? '17px' : '22px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            🛡️ Roles &amp; Dynamic Permission Matrix
-          </h1>
-          {!isMobile && (
-            <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0 0', fontWeight: '500' }}>
-              Auto-discovered modules from MasterModuleRegistry with 11 granular action controls and record visibility scopes.
-            </p>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: '8px', width: isMobile ? '100%' : 'auto' }}>
-          <button
-            className="btn btn-secondary"
-            type="button"
-            onClick={handleAddCustomRole}
-            style={{ flex: isMobile ? '1' : 'initial', padding: '8px 12px', fontSize: '12px', fontWeight: '800', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}
-          >
-            ➕ Add Custom Role
-          </button>
-          <button
-            className="btn btn-primary"
-            type="button"
-            onClick={() => {
-              PermissionEngine.savePermissionMatrix(tenantId, matrixState);
-              showToast('Permission matrix saved successfully!', 'success');
-            }}
-            style={{ flex: isMobile ? '1' : 'initial', padding: '8px 14px', fontSize: '12px', fontWeight: '800', borderRadius: '10px', background: 'linear-gradient(135deg, #0d9488 0%, #059669 100%)', border: 'none', boxShadow: '0 4px 14px rgba(13, 148, 136, 0.35)', color: '#ffffff', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            💾 Save Matrix
-          </button>
-        </div>
-      </div>
-
-      {/* Role Selection Switcher Bar (Horizontal Swipeable Strip on Mobile) */}
-      <div
-        style={{
-          flexShrink: 0,
-          display: 'flex',
-          gap: '8px',
-          marginBottom: isMobile ? '10px' : '16px',
-          padding: '6px',
-          borderRadius: '12px',
-          background: '#e2e8f0',
-          alignItems: 'center',
-          overflowX: 'auto',
-          flexWrap: 'nowrap',
-          WebkitOverflowScrolling: 'touch'
-        }}
-      >
-        {allRoles.map(r => {
-          const isActive = activeRoleId === r.id;
-          return (
-            <div key={r.id} style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-              <button
-                type="button"
-                onClick={() => setActiveRoleId(r.id)}
-                style={{
-                  padding: isMobile ? '6px 12px' : '8px 16px',
-                  borderRadius: '9px',
-                  fontSize: isMobile ? '11.5px' : '12.5px',
-                  fontWeight: isActive ? '800' : '700',
-                  border: 'none',
-                  background: isActive ? '#ffffff' : 'transparent',
-                  color: isActive ? '#0d9488' : '#475569',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                {r.label}
-              </button>
-              {r.isCustom && isActive && (
-                <button
-                  type="button"
-                  title="Delete Custom Role"
-                  onClick={() => handleDeleteCustomRole(r.id, r.label)}
-                  style={{ marginLeft: '4px', padding: '4px 6px', borderRadius: '7px', border: '1px solid #fee2e2', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: '11px' }}
-                >
-                  🗑️
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Main Permissions Card Container */}
-      <div
-        style={{
-          flexGrow: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          background: '#ffffff',
-          borderRadius: '14px',
-          border: '1px solid #cbd5e1',
-          boxShadow: '0 4px 20px -2px rgba(0,0,0,0.05)'
-        }}
-      >
-        {/* Sub Header With Search & Sorting Controls */}
-        <div style={{ flexShrink: 0, padding: isMobile ? '8px 12px' : '10px 20px', background: '#ffffff', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', flexDirection: isMobile ? 'column' : 'row', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: isMobile ? '100%' : 'auto' }}>
-            {/* Real-time Module Search Input */}
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: isMobile ? '100%' : 'auto', flexGrow: isMobile ? 1 : 0 }}>
-              <span style={{ position: 'absolute', left: '10px', fontSize: '12px', color: '#94a3b8' }}>🔍</span>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search modules..."
-                style={{
-                  padding: '5px 26px 5px 28px',
-                  fontSize: '12px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #cbd5e1',
-                  outline: 'none',
-                  width: isMobile ? '100%' : '200px',
-                  background: '#f8fafc',
-                  fontWeight: '600',
-                  color: '#1e293b'
-                }}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: '#94a3b8' }}
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-            <h3 style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: '900', color: '#0f2b26', margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
-              Role: <span style={{ color: '#0d9488', textTransform: 'uppercase', background: 'rgba(13, 148, 136, 0.1)', padding: '2px 6px', borderRadius: '6px' }}>{currentRoleObj?.label || activeRoleId}</span>
-            </h3>
-            {activeRoleId === 'super_admin' ? (
-              <span style={{ fontSize: '10.5px', fontWeight: '800', color: '#16a34a', background: 'rgba(22, 163, 74, 0.12)', padding: '3px 8px', borderRadius: '6px', border: '1px solid rgba(22, 163, 74, 0.25)' }}>
-                🔒 Super Admin Access
-              </span>
-            ) : (
-              <span style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '600', background: '#f8fafc', padding: '3px 6px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                💡 Click header = Select All
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Unified Table Scroll Container */}
-        <div ref={tableScrollRef} style={{ flexGrow: 1, overflow: 'auto', position: 'relative', WebkitOverflowScrolling: 'touch' }}>
-          <table className="std-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: '1150px' }}>
-            <thead>
-              <tr style={{ background: '#f8fafc' }}>
-                <th
-                  onClick={() => handleHeaderSort('label')}
-                  title="Click to sort by Module Name"
-                  style={{
-                    position: 'sticky',
-                    left: 0,
-                    top: 0,
-                    zIndex: 35,
-                    background: '#f8fafc',
-                    textAlign: 'left',
-                    padding: '11px 16px',
-                    fontSize: '12px',
-                    fontWeight: '800',
-                    color: '#334155',
-                    width: `${columnWidths.moduleName}px`,
-                    minWidth: `${columnWidths.moduleName}px`,
-                    borderRight: '1px solid #e2e8f0',
-                    borderBottom: '2px solid #cbd5e1',
-                    boxShadow: '2px 0 5px rgba(0,0,0,0.03)',
-                    cursor: 'pointer',
-                    userSelect: 'none'
-                  }}
-                >
-                  Module Name {sortField === 'label' ? (sortOrder === 'asc' ? '▲' : '▼') : '⇅'}
-                  <div
-                    onMouseDown={(e) => handleResizeStart(e, 'moduleName')}
-                    title="Drag left/right to resize column"
-                    style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', cursor: 'col-resize', zIndex: 40 }}
-                  />
-                </th>
-                <th
-                  onClick={() => handleHeaderSort('scope')}
-                  title="Click to sort by Record Access Scope"
-                  style={{
-                    position: 'sticky',
-                    top: 0,
-                    zIndex: 30,
-                    background: '#f8fafc',
-                    textAlign: 'left',
-                    padding: '11px 10px',
-                    fontSize: '12px',
-                    fontWeight: '800',
-                    color: '#334155',
-                    width: `${columnWidths.recordScope}px`,
-                    minWidth: `${columnWidths.recordScope}px`,
-                    borderRight: '1px solid #e2e8f0',
-                    borderBottom: '2px solid #cbd5e1',
-                    cursor: 'pointer',
-                    userSelect: 'none'
-                  }}
-                >
-                  Record Scope {sortField === 'scope' ? (sortOrder === 'asc' ? '▲' : '▼') : '⇅'}
-                  <div
-                    onMouseDown={(e) => handleResizeStart(e, 'recordScope')}
-                    title="Drag left/right to resize column"
-                    style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', cursor: 'col-resize', zIndex: 40 }}
-                  />
-                </th>
-                {STANDARD_ACTIONS.map(act => {
-                  const allModsChecked = discoveredModules.every(mod => Boolean(matrixState.permissions[activeRoleId]?.[mod.id]?.actions?.[act.id]));
-                  return (
-                    <th
-                      key={act.id}
-                      onClick={() => handleToggleColumnHeader(act.id)}
-                      title={`Click to toggle ${act.label} for all modules`}
-                      style={{
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 30,
-                        background: '#f8fafc',
-                        textAlign: 'center',
-                        padding: '10px 4px',
-                        fontSize: '11px',
-                        fontWeight: '800',
-                        color: '#334155',
-                        cursor: activeRoleId === 'super_admin' ? 'default' : 'pointer',
-                        userSelect: 'none',
-                        borderRight: '1px solid #f1f5f9',
-                        borderBottom: '2px solid #cbd5e1',
-                        minWidth: '70px'
-                      }}
-                    >
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                        <span>{act.icon} {act.label}</span>
-                        {activeRoleId !== 'super_admin' && (
-                          <input
-                            type="checkbox"
-                            checked={allModsChecked}
-                            readOnly
-                            style={{ width: '12px', height: '12px', cursor: 'pointer', accentColor: '#0d9488' }}
-                          />
-                        )}
-                      </div>
-                    </th>
-                  );
-                })}
-                <th
-                  style={{
-                    position: 'sticky',
-                    top: 0,
-                    zIndex: 30,
-                    background: '#f8fafc',
-                    textAlign: 'center',
-                    padding: '12px 8px',
-                    fontSize: '11px',
-                    fontWeight: '800',
-                    color: '#334155',
-                    borderBottom: '2px solid #cbd5e1',
-                    minWidth: '75px'
-                  }}
-                >
-                  Toggle Row
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.keys(groupedModules).map(categoryKey => (
-                <React.Fragment key={categoryKey}>
-                  {/* Category Header Row */}
-                  <tr style={{ background: '#f1f5f9' }}>
-                    <td
-                      colSpan={STANDARD_ACTIONS.length + 3}
-                      style={{
-                        padding: '9px 16px',
-                        background: 'linear-gradient(90deg, rgba(13, 148, 136, 0.12) 0%, rgba(241, 245, 249, 0.8) 100%)',
-                        borderTop: '1px solid #cbd5e1',
-                        borderBottom: '1px solid #cbd5e1'
-                      }}
-                    >
-                      <div
-                        style={{
-                          position: 'sticky',
-                          left: '16px',
-                          zIndex: 12,
-                          display: 'inline-block',
-                          fontSize: '11px',
-                          fontWeight: '900',
-                          color: '#0d9488',
-                          letterSpacing: '0.06em',
-                          textTransform: 'uppercase'
-                        }}
-                      >
-                        📁 {categoryKey}
-                      </div>
-                    </td>
-                  </tr>
-
-                  {groupedModules[categoryKey].map(mod => {
-                    const modPerms = matrixState.permissions[activeRoleId]?.[mod.id] || { scope: 'all', actions: {} };
-                    const isSuperAdmin = activeRoleId === 'super_admin';
-                    const allChecked = isSuperAdmin || STANDARD_ACTIONS.every(act => Boolean(modPerms.actions?.[act.id]));
-
-                    return (
-                      <tr key={mod.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        {/* Sticky Module Name Cell */}
-                        <td
-                          style={{
-                            position: 'sticky',
-                            left: 0,
-                            zIndex: 15,
-                            background: '#ffffff',
-                            padding: isMobile ? '8px 8px' : '11px 16px',
-                            fontSize: isMobile ? '11px' : '12.5px',
-                            fontWeight: '800',
-                            color: '#0f172a',
-                            width: `${columnWidths.moduleName}px`,
-                            maxWidth: `${columnWidths.moduleName}px`,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            borderRight: '1px solid #e2e8f0',
-                            boxShadow: '2px 0 5px rgba(0,0,0,0.03)'
-                          }}
-                        >
-                          <span style={{ marginRight: isMobile ? '3px' : '6px' }}>{mod.icon}</span> {mod.label}
-                        </td>
-
-                        {/* Scope Selector */}
-                        <td style={{ padding: isMobile ? '4px 4px' : '8px 10px', width: `${columnWidths.recordScope}px`, borderRight: '1px solid #e2e8f0' }}>
-                          <select
-                            value={modPerms.scope || 'all'}
-                            disabled={isSuperAdmin}
-                            onChange={(e) => handleScopeChange(mod.id, e.target.value)}
-                            style={{
-                              padding: isMobile ? '3px 2px' : '5px 8px',
-                              borderRadius: '7px',
-                              border: '1.5px solid #cbd5e1',
-                              fontSize: isMobile ? '10px' : '11px',
-                              fontWeight: '700',
-                              color: '#334155',
-                              background: isSuperAdmin ? '#f1f5f9' : '#f8fafc',
-                              cursor: isSuperAdmin ? 'not-allowed' : 'pointer',
-                              outline: 'none',
-                              width: '100%',
-                              textOverflow: 'ellipsis'
-                            }}
-                          >
-                            {ACCESS_SCOPES.map(sc => (
-                              <option key={sc.id} value={sc.id}>{sc.label}</option>
-                            ))}
-                          </select>
-                        </td>
-
-                        {/* 11 Action Checkboxes */}
-                        {STANDARD_ACTIONS.map(act => {
-                          const isChecked = isSuperAdmin || Boolean(modPerms.actions?.[act.id]);
-                          return (
-                            <td key={act.id} style={{ textAlign: 'center', padding: '8px 4px', borderRight: '1px solid #f1f5f9' }}>
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                disabled={isSuperAdmin}
-                                onChange={() => handleActionToggle(mod.id, act.id)}
-                                style={{ width: '16px', height: '16px', cursor: isSuperAdmin ? 'not-allowed' : 'pointer', accentColor: '#0d9488' }}
-                              />
-                            </td>
-                          );
-                        })}
-
-                        {/* Toggle All Row Button */}
-                        <td style={{ textAlign: 'center', padding: '8px 6px' }}>
-                          <button
-                            type="button"
-                            disabled={isSuperAdmin}
-                            onClick={() => handleToggleAllRow(mod.id)}
-                            style={{
-                              padding: '4px 10px',
-                              borderRadius: '5px',
-                              fontSize: '11px',
-                              fontWeight: '800',
-                              border: '1px solid #cbd5e1',
-                              background: '#f8fafc',
-                              color: '#475569',
-                              cursor: isSuperAdmin ? 'not-allowed' : 'pointer'
-                            }}
-                          >
-                            {allChecked ? 'Uncheck' : 'All'}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* 35-Module Universal System Audit Suite Modal (Root Render Level) */}
-      <MasterSystemAuditSuite
-        isOpen={showAuditSuite}
-        onClose={() => setShowAuditSuite(false)}
-        authUser={authUser}
-        employees={employees}
-        setEmployees={setEmployees}
-        contacts={contacts}
-        setContacts={setContacts}
-        atsCandidates={atsCandidates}
-        setAtsCandidates={setAtsCandidates}
-        recycleBinItems={recycleBinItems}
-        setRecycleBinItems={setRecycleBinItems}
-      />
-      {/* Universal Storage & Tier Upgrade Modal */}
-      <StorageUpgradeModal
-        isOpen={showStorageModal}
-        onClose={() => setShowStorageModal(false)}
-        tenantId={authUser?.tenantId || authUser?.companyId || 'acme_corp'}
-        showToast={showToast}
-      />
-    </div>
-  );
-}
-
