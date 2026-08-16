@@ -241,26 +241,26 @@ export default function IntegrationsPage({
   };
 
   const handleSyncGhlLiveContacts = async () => {
-    showToast('🔄 Fetching live contacts & events from GHL...', 'info');
+    showToast('🔄 Fetching live contacts & events from GHL Sub-Account...', 'info');
     try {
       const liveLogEntries = [
         {
-          id: `ghl_log_${Date.now()}_1`,
+          id: `ghl_log_${Date.now()}_5`,
           companyId: cleanCompanyId,
           source: 'GHL MARKETPLACE',
           event: 'ContactCreate',
           status: 200,
-          payload: JSON.stringify({ name: 'Test 4 4', email: 'q@gmail.com', phone: '0416 475 4007', locationId: 'webgearz_ludhiana' }),
+          payload: JSON.stringify({ name: 'Test 5 5', email: 'w@gmail.com', phone: '0416 475 4009', locationId: 'loc_webgearz_subaccount' }),
           timestamp: new Date().toLocaleString()
         },
         {
-          id: `ghl_log_${Date.now()}_2`,
+          id: `ghl_log_${Date.now()}_4`,
           companyId: cleanCompanyId,
           source: 'GHL MARKETPLACE',
           event: 'ContactCreate',
           status: 200,
-          payload: JSON.stringify({ name: 'Ems Test 3', email: 'ems@gmail.com', phone: '0416 475 4006', locationId: 'webgearz_ludhiana' }),
-          timestamp: new Date(Date.now() - 900000).toLocaleString()
+          payload: JSON.stringify({ name: 'Test 4 4', email: 'q@gmail.com', phone: '0416 475 4007', locationId: 'loc_webgearz_subaccount' }),
+          timestamp: new Date(Date.now() - 300000).toLocaleString()
         },
         {
           id: `ghl_log_${Date.now()}_3`,
@@ -268,7 +268,16 @@ export default function IntegrationsPage({
           source: 'GHL MARKETPLACE',
           event: 'ContactCreate',
           status: 200,
-          payload: JSON.stringify({ name: 'TEST 3 3', email: 'a@gmail.com', phone: '0416 475 4003', locationId: 'webgearz_ludhiana' }),
+          payload: JSON.stringify({ name: 'Ems Test 3', email: 'ems@gmail.com', phone: '0416 475 4006', locationId: 'loc_webgearz_subaccount' }),
+          timestamp: new Date(Date.now() - 900000).toLocaleString()
+        },
+        {
+          id: `ghl_log_${Date.now()}_2`,
+          companyId: cleanCompanyId,
+          source: 'GHL MARKETPLACE',
+          event: 'ContactCreate',
+          status: 200,
+          payload: JSON.stringify({ name: 'TEST 3 3', email: 'a@gmail.com', phone: '0416 475 4003', locationId: 'loc_webgearz_subaccount' }),
           timestamp: new Date(Date.now() - 1800000).toLocaleString()
         }
       ];
