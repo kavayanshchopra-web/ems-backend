@@ -5,7 +5,7 @@
  */
 
 import React, { useState } from 'react';
-import { Eye, Edit2, Archive, FileText, Calendar, Mail, Phone, Briefcase } from 'lucide-react';
+import { Eye, Edit2, Archive, FileText, Calendar, Mail, Phone, Briefcase, MessageSquare } from 'lucide-react';
 import Badge from '../../../components/ui/Badge';
 import { LabelEngine } from '../LabelEngine';
 import { formatCandidateId } from '../../../services/atsStorageService';
@@ -46,27 +46,50 @@ export default function KanbanCard({
   onEditRecord = () => {},
   onArchiveRecord = () => {},
   onMoveStage = () => {},
+  onOpenChatWithLead = null,
   canManage = true
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [, setCurrencyUpdate] = React.useState(0);
+
+  React.useEffect(() => {
+    const handleCurrChange = () => setCurrencyUpdate(v => v + 1);
+    window.addEventListener('app_currency_changed', handleCurrChange);
+    return () => window.removeEventListener('app_currency_changed', handleCurrChange);
+  }, []);
+
+  const activeCurr = moduleConfig?.activeCurrency || (typeof window !== 'undefined' ? localStorage.getItem('appCurrency') : null) || 'USD';
 
   const kanbanConfig = moduleConfig.kanbanFields || {};
   const fieldsMap = new Map((moduleConfig.fields || []).map(f => [f.id, f]));
 
-  const cardName = getValString(record.name || record.fullName || record.employeeName || record.candidateName || record.title, LabelEngine.getEntityName(moduleConfig));
-  const cardSubtitle = getValString(record.position || record.appliedFor || record.department, 'Sales Representative');
+  const isCrm = moduleConfig?.moduleId === 'crm_deals' || moduleConfig?.moduleId === 'crm_leads';
+  const rawName = record.name || record.clientName || record.companyName || record.title || (record.first_name ? `${record.first_name || ''} ${record.last_name || ''}`.trim() : null) || record.fullName;
+  const cardName = getValString(rawName, LabelEngine.getEntityName(moduleConfig));
+
+  const amountVal = parseFloat(record.amount || 0);
+  const formattedAmount = amountVal > 0 ? LabelEngine.formatCurrencyVal(amountVal, activeCurr) : '';
+  const cardSubtitle = isCrm
+    ? getValString(record.contact || formattedAmount || record.phone, formattedAmount || 'Sales Deal')
+    : getValString(record.position || record.appliedFor || record.department, 'Staff Member');
+
   const cardEmail = getValString(record.email, '');
   const cardPhone = getValString(record.phone, '');
+  const cleanPhone = cardPhone.replace(/[^0-9+]/g, '');
   const cardFile = getValString(record.resume || record.attachment, '');
   const createdDateStr = formatDate(record.createdAt || record.appliedDate);
   const currentStage = getValString(record.status || record.stage, 'Applied');
-  const displayId = formatCandidateId(record.id, 0, moduleConfig);
+  const displayId = isCrm ? String(record.id || 'LEAD-0001') : formatCandidateId(record.id, 0, moduleConfig);
 
-  const showPosition = kanbanConfig.position !== false && fieldsMap.get('position')?.showOnKanban !== false;
+  const stagesList = (Array.isArray(activePipelineStages) && activePipelineStages.length > 0)
+    ? activePipelineStages
+    : (moduleConfig?.stages || []);
+
+  const showPosition = kanbanConfig.position !== false && fieldsMap.get('position')?.showOnKanban !== false && cardSubtitle.length > 0;
   const showEmail = kanbanConfig.email !== false && fieldsMap.get('email')?.showOnKanban !== false;
   const showPhone = kanbanConfig.phone !== false && fieldsMap.get('phone')?.showOnKanban !== false;
-  const showResume = kanbanConfig.resume !== false && fieldsMap.get('resume')?.showOnKanban !== false;
+  const showResume = !isCrm && kanbanConfig.resume !== false && fieldsMap.get('resume')?.showOnKanban !== false;
 
   // Dynamic Custom Fields Added via Module Configuration
   const customFields = (moduleConfig.fields || []).filter(f =>
@@ -108,10 +131,10 @@ export default function KanbanCard({
         boxSizing: 'border-box'
       }}
     >
-      {/* 1. TOP BAR: FIXED-WIDTH ATS ID (NEVER WRAP) + UNIFORM 28px ACTION BUTTONS */}
+      {/* 1. TOP BAR: FIXED-WIDTH ID + 1-CLICK DIAL/WHATSAPP & VIEW/EDIT/ARCHIVE BUTTONS */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span
-          title={`Candidate ID: ${displayId}`}
+          title={`ID: ${displayId}`}
           style={{
             fontSize: '10px',
             fontWeight: '800',
@@ -129,35 +152,66 @@ export default function KanbanCard({
           {displayId}
         </span>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+          {/* Quick Call Button */}
+          {cleanPhone && (
+            <button
+              type="button"
+              title={`Call ${cleanPhone}`}
+              onClick={(e) => { e.stopPropagation(); window.open(`tel:${cleanPhone}`); }}
+              style={{ width: '26px', height: '26px', minWidth: '26px', borderRadius: '5px', border: 'none', background: '#dcfce7', color: '#166534', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+            >
+              <Phone size={12} />
+            </button>
+          )}
+
+          {/* Quick Unified Inbox Chat Button */}
+          <button
+            type="button"
+            title={`Open Unified Inbox Chat (${cardName})`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onOpenChatWithLead) {
+                onOpenChatWithLead(record);
+              } else if (cleanPhone) {
+                window.open(`https://wa.me/${cleanPhone.replace('+', '')}`, '_blank');
+              }
+            }}
+            style={{ width: '26px', height: '26px', minWidth: '26px', borderRadius: '5px', border: 'none', background: '#25d366', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+          >
+            <MessageSquare size={12} />
+          </button>
+
           <button
             type="button"
             title={`View ${LabelEngine.getEntityName(moduleConfig)} Profile`}
             onClick={(e) => { e.stopPropagation(); onViewRecord(record); }}
-            style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '5px', border: 'none', background: '#f1f5f9', color: '#0d9488', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+            style={{ width: '26px', height: '26px', minWidth: '26px', borderRadius: '5px', border: 'none', background: '#f1f5f9', color: '#0d9488', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
           >
-            <Eye size={13} />
+            <Eye size={12} />
           </button>
+
           <button
             type="button"
-            title="Edit Candidate"
+            title="Edit Record"
             onClick={(e) => { e.stopPropagation(); onEditRecord(record); }}
-            style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '5px', border: 'none', background: '#f1f5f9', color: '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+            style={{ width: '26px', height: '26px', minWidth: '26px', borderRadius: '5px', border: 'none', background: '#f1f5f9', color: '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
           >
-            <Edit2 size={13} />
+            <Edit2 size={12} />
           </button>
+
           <button
             type="button"
-            title="Archive Candidate"
+            title="Archive Record"
             onClick={(e) => { e.stopPropagation(); onArchiveRecord(record); }}
-            style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '5px', border: 'none', background: '#f1f5f9', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+            style={{ width: '26px', height: '26px', minWidth: '26px', borderRadius: '5px', border: 'none', background: '#f1f5f9', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
           >
-            <Archive size={13} />
+            <Archive size={12} />
           </button>
         </div>
       </div>
 
-      {/* 2. CANDIDATE NAME & POSITION WITH SINGLE-LINE ELLIPSIS & TOOLTIPS */}
+      {/* 2. NAME & POSITION WITH SINGLE-LINE ELLIPSIS & TOOLTIPS */}
       <div>
         <div
           title={cardName}
@@ -166,7 +220,7 @@ export default function KanbanCard({
         >
           {cardName}
         </div>
-        {showPosition && cardSubtitle && (
+        {showPosition && (
           <div
             title={cardSubtitle}
             style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0d9488', fontSize: '11px', fontWeight: '700', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
@@ -213,7 +267,7 @@ export default function KanbanCard({
 
       {/* 5. RESUME ("No Resume" FALLBACK) & FORMATTED DATE */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', fontSize: '10px' }}>
-        {showResume ? (
+        {showResume && (
           cardFile ? (
             <Badge variant="info" style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px', padding: '2px 6px', maxWidth: '120px' }}>
               <FileText size={9} style={{ flexShrink: 0 }} />
@@ -222,9 +276,9 @@ export default function KanbanCard({
           ) : (
             <span style={{ color: '#94a3b8', fontSize: '10px', fontWeight: '600' }}>No Resume</span>
           )
-        ) : <div />}
+        )}
 
-        <div title={`Applied: ${createdDateStr}`} style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#64748b', fontWeight: '700', marginLeft: 'auto', flexShrink: 0 }}>
+        <div title={`Created: ${createdDateStr}`} style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#64748b', fontWeight: '700', marginLeft: 'auto', flexShrink: 0 }}>
           <Calendar size={10} />
           <span>{createdDateStr}</span>
         </div>
@@ -251,11 +305,15 @@ export default function KanbanCard({
               maxWidth: '120px'
             }}
           >
-            {activePipelineStages.map(s => (
-              <option key={s.id || s.name} value={getValString(s.name)}>
-                {getValString(s.name)}
-              </option>
-            ))}
+            {stagesList.map(s => {
+              const valStr = typeof s === 'string' ? s : getValString(s.name || s.title || s.label || s.id || s);
+              const labelStr = typeof s === 'string' ? s : getValString(s.title || s.name || s.label || s.id || s);
+              return (
+                <option key={s.id || valStr} value={valStr}>
+                  {labelStr}
+                </option>
+              );
+            })}
           </select>
         </div>
       )}

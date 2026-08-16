@@ -90,6 +90,23 @@ export default function ActionEngine({
         FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, newRec, 'acme_corp');
       }
 
+      // Save user credentials for workspace login if password is provided
+      if (normalizedData.password) {
+        try {
+          const userAccountObj = {
+            email: (normalizedData.email || '').toLowerCase().trim(),
+            password: normalizedData.password,
+            name: normalizedData.name || normalizedData.title || 'Staff User',
+            role: normalizedData.role || 'staff',
+            department: normalizedData.department || 'Operations',
+            tenantId: 'acme_corp'
+          };
+          const savedAccounts = JSON.parse(localStorage.getItem('omniflow_registered_users') || '[]');
+          const updatedAccounts = [userAccountObj, ...savedAccounts.filter(a => a.email !== userAccountObj.email)];
+          localStorage.setItem('omniflow_registered_users', JSON.stringify(updatedAccounts));
+        } catch (e) {}
+      }
+
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('omnilflow_config_updated', {
           detail: { moduleId: moduleConfig.moduleId }

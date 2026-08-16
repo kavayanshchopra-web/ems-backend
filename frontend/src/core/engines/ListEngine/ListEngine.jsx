@@ -345,8 +345,8 @@ export default function ListEngine({
             );
           }
 
-          {/* CONTACT DETAILS COLUMN */}
-          if (col.id === 'contact' || col.id === 'contact_details' || col.fieldKey === 'contact' || col.fieldKey === 'phone') {
+          {/* COMBINED CONTACT DETAILS COLUMN (ONLY FOR COMBINED TYPE 'contact_details') */}
+          if (col.id === 'contact_details') {
             const emailStr = getValString(record.email);
             const phoneStr = getValString(record.phone);
             return (
@@ -389,11 +389,15 @@ export default function ListEngine({
           }
 
           {/* STATUS / STAGE COLUMN WITH STANDARDIZED BADGES */}
-          if (col.id === 'stage' || col.fieldKey === 'status') {
+          if (col.id === 'stage' || col.fieldKey === 'status' || col.id === 'status' || col.fieldKey === 'stage') {
             const normalizedBadgeVariant = isArchivedView ? 'warning' : LabelEngine.getBadgeVariant(recordStatus);
+            const stagesList = (Array.isArray(activePipelineStages) && activePipelineStages.length > 0)
+              ? activePipelineStages
+              : (systemDropdowns?.crmStages || systemDropdowns?.crm_stages || moduleConfig?.stages || []);
+
             return (
               <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0' }} onClick={(e) => e.stopPropagation()}>
-                {!isArchivedView && canManage && activePipelineStages.length > 0 ? (
+                {!isArchivedView && canManage && stagesList.length > 0 ? (
                   <select
                     value={recordStatus}
                     onChange={(e) => {
@@ -402,11 +406,15 @@ export default function ListEngine({
                     }}
                     style={{ padding: '5px 10px', fontSize: '11.5px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
                   >
-                    {activePipelineStages.map(s => (
-                      <option key={s.id || s.name} value={getValString(s.name)}>
-                        {getValString(s.name)}
-                      </option>
-                    ))}
+                    {stagesList.map(s => {
+                      const valStr = typeof s === 'string' ? s : getValString(s.name || s.title || s.label || s.id || s);
+                      const labelStr = typeof s === 'string' ? s : getValString(s.title || s.name || s.label || s.id || s);
+                      return (
+                        <option key={s.id || valStr} value={valStr}>
+                          {labelStr}
+                        </option>
+                      );
+                    })}
                   </select>
                 ) : (
                   <Badge variant={normalizedBadgeVariant} style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '12px', fontWeight: '700' }}>

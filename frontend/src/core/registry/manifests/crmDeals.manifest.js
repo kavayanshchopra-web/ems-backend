@@ -48,10 +48,12 @@ export const CRM_DEALS_MANIFEST = {
   
   defaultFields: [
     { id: 'name', label: 'Deal Title', type: 'text', systemField: true, required: true, searchable: true, filterable: false, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, placeholder: 'e.g. Acme Corp Enterprise License' },
-    { id: 'amount', label: 'Deal Amount', type: 'currency', systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, placeholder: 'e.g. 50000' },
+    { id: 'phone', label: 'Phone Number', type: 'phone', systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, placeholder: 'e.g. +91 9876543210' },
     { id: 'contact', label: 'Contact Person', type: 'text', systemField: true, required: false, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, placeholder: 'e.g. John Doe' },
     { id: 'email', label: 'Contact Email', type: 'email', systemField: true, required: false, searchable: true, filterable: true, sortable: false, showOnCreate: true, showOnEdit: true, showOnView: true, placeholder: 'e.g. john@acme.com' },
-    { id: 'status', label: 'Deal Stage', type: 'dropdown', optionsSource: 'crm_stages', systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true }
+    { id: 'amount', label: 'Deal Amount', type: 'currency', systemField: true, required: false, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, placeholder: 'e.g. 50000' },
+    { id: 'status', label: 'Deal Stage', type: 'dropdown', optionsSource: 'crm_stages', systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true },
+    { id: 'notes', label: 'Deal Notes', type: 'textarea', systemField: true, required: false, searchable: true, filterable: false, sortable: false, showOnCreate: true, showOnEdit: true, showOnView: true, placeholder: 'e.g. Customer requested API documentation' }
   ],
   
   defaultSummaryWidgets: [
@@ -63,10 +65,11 @@ export const CRM_DEALS_MANIFEST = {
   
   defaultColumns: [
     { id: 'deal', label: 'Deal Title', visible: true, fieldKey: 'name', order: 1 },
-    { id: 'amount', label: 'Amount', visible: true, fieldKey: 'amount', order: 2 },
+    { id: 'phone', label: 'Phone Number', visible: true, fieldKey: 'phone', order: 2 },
     { id: 'contact', label: 'Contact', visible: true, fieldKey: 'contact', order: 3 },
-    { id: 'stage', label: 'Pipeline Stage', visible: true, fieldKey: 'status', order: 4 },
-    { id: 'createdAt', label: 'Created Date', visible: true, fieldKey: 'createdAt', order: 5 }
+    { id: 'email', label: 'Email', visible: true, fieldKey: 'email', order: 4 },
+    { id: 'stage', label: 'Pipeline Stage', visible: true, fieldKey: 'status', order: 5 },
+    { id: 'amount', label: 'Amount', visible: true, fieldKey: 'amount', order: 6 }
   ],
   
   defaultViews: {

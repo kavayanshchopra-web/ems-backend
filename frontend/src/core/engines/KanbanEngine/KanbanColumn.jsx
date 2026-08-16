@@ -4,28 +4,43 @@
  * per-column 25-card pagination with "Load More" & centered empty state
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import KanbanCard from './KanbanCard';
 import EmptyState from '../../../components/ui/EmptyState';
 import { ChevronDown } from 'lucide-react';
+import { LabelEngine } from '../LabelEngine';
 
 export default function KanbanColumn({
   stage = {},
   records = [],
   moduleConfig = {},
+  activeCurrency = null,
   activePipelineStages = [],
   isFilterActive = false,
   onViewRecord = () => {},
   onEditRecord = () => {},
   onArchiveRecord = () => {},
   onMoveStage = () => {},
+  onOpenChatWithLead = null,
   canManage = true
 }) {
   const [visibleCount, setVisibleCount] = useState(25);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [, setCurrencyUpdate] = useState(0);
+
+  useEffect(() => {
+    const handleCurrChange = () => setCurrencyUpdate(v => v + 1);
+    window.addEventListener('app_currency_changed', handleCurrChange);
+    return () => window.removeEventListener('app_currency_changed', handleCurrChange);
+  }, []);
+
+  const activeCurr = activeCurrency || moduleConfig?.activeCurrency || (typeof window !== 'undefined' ? localStorage.getItem('appCurrency') : null) || 'USD';
 
   const visibleRecords = records.slice(0, visibleCount);
   const remainingCount = records.length - visibleCount;
+
+  // Calculate total column deal revenue value
+  const totalColumnValue = records.reduce((sum, r) => sum + (parseFloat(r?.amount) || 0), 0);
 
   const handleLoadMore = (e) => {
     e.stopPropagation();
@@ -90,7 +105,7 @@ export default function KanbanColumn({
         }
       `}</style>
 
-      {/* STICKY COLUMN HEADER */}
+      {/* STICKY COLUMN HEADER WITH COUNT & TOTAL REVENUE VALUE */}
       <div
         style={{
           position: 'sticky',
@@ -107,10 +122,18 @@ export default function KanbanColumn({
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '15px' }}>{stage.emoji || '📋'}</span>
-          <span style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a' }}>
-            {stage.name}
-          </span>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a' }}>
+              {stage.name}
+            </div>
+            {totalColumnValue > 0 && (
+              <div style={{ fontSize: '10px', fontWeight: '800', color: '#059669', marginTop: '1px' }}>
+                {LabelEngine.formatCurrencyVal(totalColumnValue, activeCurr)}
+              </div>
+            )}
+          </div>
         </div>
+
         <span
           style={{
             fontSize: '11px',
@@ -146,8 +169,8 @@ export default function KanbanColumn({
           <div style={{ padding: '32px 16px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
             <EmptyState
               icon="📥"
-              title="No candidates"
-              description={isFilterActive ? 'No records match active filters.' : `Drag candidates here to move to ${stage.name}.`}
+              title={`No ${(moduleConfig?.name || moduleConfig?.title || 'records').toLowerCase()}`}
+              description={isFilterActive ? 'No records match active filters.' : `Drag records here to move to ${stage.name || stage.id || 'this stage'}.`}
             />
           </div>
         ) : (
@@ -162,6 +185,7 @@ export default function KanbanColumn({
                 onEditRecord={onEditRecord}
                 onArchiveRecord={onArchiveRecord}
                 onMoveStage={onMoveStage}
+                onOpenChatWithLead={onOpenChatWithLead}
                 canManage={canManage}
               />
             ))}

@@ -22,6 +22,7 @@ const getValString = (val, fallback = '') => {
 export default function KanbanEngine({
   records = [],
   moduleConfig = {},
+  activeCurrency = 'INR',
   activePipelineStages = [],
   systemDropdowns = null,
   isFilterActive = false,
@@ -29,6 +30,7 @@ export default function KanbanEngine({
   onEditRecord = () => {},
   onArchiveRecord = () => {},
   onMoveStage = () => {},
+  onOpenChatWithLead = null,
   canManage = true
 }) {
   const scrollContainerRef = useRef(null);
@@ -86,14 +88,33 @@ export default function KanbanEngine({
 
   // Column Headers List Resolution
   let stageColumns = [];
+  let stagesToUse = [];
 
-  if ((groupByFieldId === 'status' || groupByFieldId === 'stage') && Array.isArray(activePipelineStages) && activePipelineStages.length > 0) {
-    stageColumns = activePipelineStages.map(s => ({
-      id: s.id || s.name,
-      name: getValString(s.name || s.id),
-      emoji: s.emoji || '📋',
-      color: s.color || '#0d9488'
-    }));
+  const isModuleSpecificStages = Array.isArray(moduleConfig?.stages) && moduleConfig.stages.length > 0;
+
+  if (isModuleSpecificStages) {
+    stagesToUse = moduleConfig.stages;
+  } else if (Array.isArray(activePipelineStages) && activePipelineStages.length > 0 && (!moduleConfig?.moduleId || moduleConfig.moduleId === 'crm' || moduleConfig.moduleId === 'crm_deals')) {
+    stagesToUse = activePipelineStages;
+  } else if (systemDropdowns?.crmStages && Array.isArray(systemDropdowns.crmStages) && systemDropdowns.crmStages.length > 0) {
+    stagesToUse = systemDropdowns.crmStages;
+  } else if (systemDropdowns?.crm_stages && Array.isArray(systemDropdowns.crm_stages) && systemDropdowns.crm_stages.length > 0) {
+    stagesToUse = systemDropdowns.crm_stages;
+  } else if (Array.isArray(moduleConfig?.stages) && moduleConfig.stages.length > 0) {
+    stagesToUse = moduleConfig.stages;
+  }
+
+  if (stagesToUse.length > 0 && (isModuleSpecificStages || groupByFieldId === 'status' || groupByFieldId === 'stage' || groupByFieldId === 'pipeline_stage' || groupByFieldId === 'type')) {
+    stageColumns = stagesToUse.map(s => {
+      const stageName = typeof s === 'string' ? s : getValString(s.name || s.title || s.label || s.id || '');
+      const stageId = typeof s === 'string' ? s : String(s.id || s.key || stageName);
+      return {
+        id: stageId,
+        name: stageName || stageId,
+        emoji: (typeof s === 'object' && s.emoji) ? s.emoji : '📋',
+        color: (typeof s === 'object' && s.color) ? s.color : '#0d9488'
+      };
+    });
   } else {
     // Resolve from Lookup Data or System Dropdowns
     const lookupKey = groupFieldDef?.optionsSource || groupFieldDef?.key || groupFieldDef?.id || groupByFieldId;
@@ -120,21 +141,23 @@ export default function KanbanEngine({
     if (rawOptions.length === 0 && systemDropdowns) {
       if (Array.isArray(systemDropdowns[lookupKey])) rawOptions = systemDropdowns[lookupKey];
       else if (Array.isArray(systemDropdowns[lookupKey + 's'])) rawOptions = systemDropdowns[lookupKey + 's'];
+      else if (Array.isArray(systemDropdowns['crmStages'])) rawOptions = systemDropdowns['crmStages'];
+      else if (Array.isArray(systemDropdowns['crm_stages'])) rawOptions = systemDropdowns['crm_stages'];
     }
 
     if (rawOptions.length === 0) {
-      const recordVals = Array.from(new Set(records.map(r => getValString(r[groupByFieldId] || r.status || r.stage || r.department)).filter(Boolean)));
+      const recordVals = Array.from(new Set(records.map(r => getValString(r[groupByFieldId] || r.status || r.stage || r.pipeline_stage || r.department)).filter(Boolean)));
       if (recordVals.length > 0) rawOptions = recordVals;
-      else rawOptions = ['Active', 'On Leave', 'Suspended', 'Terminated'];
+      else rawOptions = ['New Lead', 'Contacted', 'Qualified', 'Proposal Sent', 'Won', 'Lost'];
     }
 
     stageColumns = rawOptions.map(opt => {
       const nameStr = getValString(opt);
       return {
-        id: nameStr,
+        id: typeof opt === 'object' ? (opt.id || opt.key || nameStr) : nameStr,
         name: nameStr,
-        emoji: '📌',
-        color: '#0d9488'
+        emoji: (typeof opt === 'object' && opt.emoji) ? opt.emoji : '📌',
+        color: (typeof opt === 'object' && opt.color) ? opt.color : '#0d9488'
       };
     });
   }
@@ -147,11 +170,17 @@ export default function KanbanEngine({
     const stageRecords = records.filter(r => {
       if (!r) return false;
       const recVal = getValString(
-        r[groupByFieldId] !== undefined ? r[groupByFieldId] : (r.status || r.stage || r.department || r.role)
+        r[groupByFieldId] !== undefined ? r[groupByFieldId] : (r.type || r.status || r.stage || r.pipeline_stage || r.department || r.role)
       );
+      const rLower = recVal.toLowerCase();
+      const sNameLower = stageName.toLowerCase();
+      const sIdLower = stageId.toLowerCase();
+
       return (
-        recVal.toLowerCase() === stageName.toLowerCase() ||
-        recVal.toLowerCase() === stageId.toLowerCase()
+        rLower === sNameLower ||
+        rLower === sIdLower ||
+        (sNameLower.includes('gazetted') && rLower.includes('gazetted')) ||
+        (sNameLower.includes('restricted') && rLower.includes('restricted'))
       );
     });
 
@@ -227,13 +256,15 @@ export default function KanbanEngine({
               <KanbanColumn
                 stage={col}
                 records={col.list}
-                moduleConfig={moduleConfig}
+                moduleConfig={{ ...moduleConfig, activeCurrency }}
+                activeCurrency={activeCurrency}
                 activePipelineStages={activePipelineStages}
                 isFilterActive={isFilterActive}
                 onViewRecord={onViewRecord}
                 onEditRecord={onEditRecord}
                 onArchiveRecord={onArchiveRecord}
                 onMoveStage={onMoveStage}
+                onOpenChatWithLead={onOpenChatWithLead}
                 canManage={canManage}
               />
             </div>

@@ -33,7 +33,8 @@ export default function UniversalModal({
 
   useEffect(() => {
     if (isOpen) {
-      const initial = DefaultValueEngine.initializeFormState(targetFields, initialRecord || {});
+      const allModuleFields = moduleConfig.fields || [];
+      const initial = DefaultValueEngine.initializeFormState(allModuleFields, initialRecord || {});
       
       // Auto-prefill Category-Aware Asset Tag ID for Asset Management
       if (isCreate && (moduleConfig.moduleId === 'asset_management' || targetFields.some(f => f.id === 'tag'))) {

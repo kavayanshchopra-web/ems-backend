@@ -143,43 +143,51 @@ class ShiftEngine {
   /**
    * Get 7-Day Weekly Roster Matrix
    */
-  static getWeeklyRoster(employeesList = []) {
+  static getWeeklyRoster(employeesList = [], authUser = null) {
+    let roster = [];
     try {
       const saved = localStorage.getItem(ROSTER_STORAGE_KEY);
       if (saved) {
         let rosterMap = JSON.parse(saved);
         if (Array.isArray(rosterMap) && rosterMap.length > 0) {
-          return rosterMap;
+          roster = rosterMap;
         }
       }
     } catch (e) {
       console.error('Error fetching roster:', e);
     }
 
-    // Merge employees list into roster baseline
-    let roster = [...DEFAULT_SEED_ROSTER];
-    if (Array.isArray(employeesList) && employeesList.length > 0) {
-      employeesList.forEach(emp => {
-        if (!roster.some(r => r.empId === emp.id)) {
-          const empName = `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.name || `Employee #${emp.id}`;
-          roster.push({
-            empId: emp.id,
-            empName,
-            role: emp.role || 'Staff Member',
-            department: emp.department || 'General Operations',
-            schedule: {
-              mon: 'shift_general',
-              tue: 'shift_general',
-              wed: 'shift_general',
-              thu: 'shift_general',
-              fri: 'shift_general',
-              sat: 'shift_off',
-              sun: 'shift_off'
-            }
-          });
-        }
-      });
-    }
+    const effectiveEmployees = Array.isArray(employeesList) && employeesList.length > 0
+      ? employeesList
+      : (authUser ? [{
+          id: authUser.id || 'emp_current',
+          name: authUser.name || 'Admin User',
+          first_name: authUser.first_name || (authUser.name ? authUser.name.split(' ')[0] : 'Admin'),
+          last_name: authUser.last_name || (authUser.name && authUser.name.split(' ').length > 1 ? authUser.name.split(' ').slice(1).join(' ') : 'User'),
+          role: authUser.role || 'HR Admin',
+          department: authUser.department || 'Management'
+        }] : []);
+
+    effectiveEmployees.forEach(emp => {
+      if (!roster.some(r => String(r.empId) === String(emp.id))) {
+        const empName = `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.name || `Employee #${emp.id}`;
+        roster.push({
+          empId: emp.id,
+          empName,
+          role: emp.role || emp.designation || 'Staff Member',
+          department: emp.department || 'General Operations',
+          schedule: {
+            mon: 'shift_general',
+            tue: 'shift_general',
+            wed: 'shift_general',
+            thu: 'shift_general',
+            fri: 'shift_general',
+            sat: 'shift_off',
+            sun: 'shift_off'
+          }
+        });
+      }
+    });
 
     localStorage.setItem(ROSTER_STORAGE_KEY, JSON.stringify(roster));
     return roster;

@@ -86,7 +86,13 @@ export default function FilterPanel({
           if (opts.length === 0) {
             if (field.optionsSource === 'departments') opts = (systemDropdowns?.departments || []).map(getValString);
             if (field.optionsSource === 'designations') opts = (systemDropdowns?.designations || []).map(getValString);
-            if (field.optionsSource === 'ats_stages') opts = activePipelineStages.map(s => getValString(s.name));
+            if (field.optionsSource === 'ats_stages') opts = activePipelineStages.map(s => getValString(s.name || s.title));
+            if (field.optionsSource === 'crm_stages' || lookupKey === 'crm_stages' || (moduleConfig?.moduleId === 'crm_deals' && (lookupKey === 'status' || lookupKey === 'stage'))) {
+              const raw = (activePipelineStages && activePipelineStages.length > 0)
+                ? activePipelineStages
+                : (systemDropdowns?.crmStages || systemDropdowns?.crm_stages || moduleConfig?.stages || []);
+              opts = raw.map(s => typeof s === 'string' ? s : getValString(s.name || s.title || s.label || s.id || s));
+            }
             if (field.optionsSource === 'employment_types') opts = ['Full-time', 'Part-time', 'Contract', 'Internship'];
             if (field.optionsSource === 'positions') opts = allPositions;
           }

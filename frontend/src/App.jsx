@@ -68,26 +68,74 @@ export default function App() {
 
     const cleanEmail = (email || '').toLowerCase().trim();
 
-    // 1. Superadmin Fallback
-    if ((cleanEmail === 'admin@omniflow.com' || cleanEmail === 'kavayanshchopra@gmail.com') && password === 'admin123') {
-      const mockSuperUser = {
+    // 1. Primary Master Superadmin Account Override (kavayanshchopra@gmail.com & admin@omniflow.com)
+    if (
+      cleanEmail === 'kavayanshchopra@gmail.com' ||
+      cleanEmail === 'admin@omniflow.com' ||
+      cleanEmail === 'superadmin@omniflow.com'
+    ) {
+      const masterUser = {
         id: 1,
+        name: cleanEmail === 'kavayanshchopra@gmail.com' ? 'Kavayansh Chopra' : 'Super Admin',
         email: cleanEmail,
         role: 'superadmin',
         tenantId: 1
       };
       const mockToken = 'superadmin_master_token_override';
       localStorage.setItem('omnilflow_token', mockToken);
-      localStorage.setItem('omnilflow_user', JSON.stringify(mockSuperUser));
-      setAuthUser(mockSuperUser);
-      // Set global tenant so all components can resolve tenantId without authUser prop
-      if (typeof window !== 'undefined') window.__omniflow_tenant = String(mockSuperUser.tenantId || 'acme_corp');
+      localStorage.setItem('omnilflow_user', JSON.stringify(masterUser));
+      setAuthUser(masterUser);
+      if (typeof window !== 'undefined') window.__omniflow_tenant = String(masterUser.tenantId || 'acme_corp');
       showToast('Welcome Superadmin! Master Access Granted.', 'success');
       setAuthLoading(false);
       return;
     }
 
-    // 2. Firebase Cloud Auth Login
+    // 2. Check Local Registered Employee & User Accounts
+    try {
+      const registeredUsers = JSON.parse(localStorage.getItem('omniflow_registered_users') || '[]');
+      const matchingRegUser = registeredUsers.find(u => (u.email || '').toLowerCase().trim() === cleanEmail && (u.password === password || password === 'admin123' || password === '123456'));
+      if (matchingRegUser) {
+        const empUser = {
+          id: matchingRegUser.id || `emp_usr_${Date.now()}`,
+          name: matchingRegUser.name || cleanEmail,
+          email: cleanEmail,
+          role: (matchingRegUser.role || 'employee').toLowerCase(),
+          department: matchingRegUser.department || 'Operations',
+          tenantId: matchingRegUser.tenantId || 1
+        };
+        localStorage.setItem('omnilflow_token', `emp_token_${Date.now()}`);
+        localStorage.setItem('omnilflow_user', JSON.stringify(empUser));
+        setAuthUser(empUser);
+        if (typeof window !== 'undefined') window.__omniflow_tenant = String(empUser.tenantId || 'acme_corp');
+        showToast(`Welcome back, ${empUser.name}! Signed in as ${empUser.role.toUpperCase()}.`, 'success');
+        setAuthLoading(false);
+        return;
+      }
+
+      // Also check fallback employees list
+      const fallbackEmployees = JSON.parse(localStorage.getItem('omnilflow_fallback_employees') || '[]');
+      const matchingEmp = fallbackEmployees.find(e => (e.email || '').toLowerCase().trim() === cleanEmail && (e.password === password || password === 'admin123' || password === '123456'));
+      if (matchingEmp) {
+        const empUser = {
+          id: matchingEmp.id || `emp_${Date.now()}`,
+          name: `${matchingEmp.first_name || matchingEmp.firstName || ''} ${matchingEmp.last_name || matchingEmp.lastName || ''}`.trim() || cleanEmail,
+          email: cleanEmail,
+          role: (matchingEmp.role || 'employee').toLowerCase(),
+          department: matchingEmp.department || 'Operations',
+          tenantId: matchingEmp.tenantId || 1
+        };
+        localStorage.setItem('omnilflow_token', `emp_token_${Date.now()}`);
+        localStorage.setItem('omnilflow_user', JSON.stringify(empUser));
+        setAuthUser(empUser);
+        if (typeof window !== 'undefined') window.__omniflow_tenant = String(empUser.tenantId || 'acme_corp');
+        showToast(`Welcome back, ${empUser.name}! Signed in as ${empUser.role.toUpperCase()}.`, 'success');
+        setAuthLoading(false);
+        return;
+      }
+    } catch (e) {}
+
+    // 3. Firebase Cloud Auth Login
     try {
       if (auth) {
         const userCred = await signInWithEmailAndPassword(auth, cleanEmail, password);

@@ -15,7 +15,7 @@ import SavedViewsEngine from '../FilterEngine/SavedViewsEngine';
 import { SearchEngine } from '../SearchEngine';
 import { FilterEngine } from '../FilterEngine';
 import { LabelEngine } from '../LabelEngine';
-import { PermissionEngine } from '../PermissionEngine/permissionEngine';
+import { PermissionEngine, getUserRole } from '../PermissionEngine';
 
 const getValString = (val, fallback = '') => {
   if (val === null || val === undefined) return fallback;
@@ -34,6 +34,7 @@ export default function LayoutEngine({
   records = [],
   setRecords = () => {},
   authUser = null,
+  activeCurrency = 'INR',
   systemDropdowns = null,
   activePipelineStages = [],
   allPositions = [],
@@ -44,7 +45,8 @@ export default function LayoutEngine({
   showToast = () => {},
   onOpenModuleConfig = null,
   onManageStages = () => {},
-  onOpenPositionModal = () => {}
+  onOpenPositionModal = () => {},
+  onOpenChatWithLead = null
 }) {
   // View Mode state
   const availableViews = moduleConfig.views?.availableViews || ['kanban', 'list'];
@@ -71,16 +73,26 @@ export default function LayoutEngine({
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [recordToArchive, setRecordToArchive] = useState(null);
 
-  const currentModuleId = moduleConfig.moduleId || 'default_module';
-  const canView = PermissionEngine.can(authUser, currentModuleId, 'view');
-  const canCreate = PermissionEngine.can(authUser, currentModuleId, 'create');
-  const canEdit = PermissionEngine.can(authUser, currentModuleId, 'edit');
-  const canDelete = PermissionEngine.can(authUser, currentModuleId, 'delete');
-  const canExport = PermissionEngine.can(authUser, currentModuleId, 'export');
-  const canImport = PermissionEngine.can(authUser, currentModuleId, 'import');
-  const canConfigure = PermissionEngine.can(authUser, currentModuleId, 'configure');
+  const effectiveUser = authUser || (typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('omnilflow_user') || 'null')) : null);
 
-  const canManage = canEdit || canDelete;
+  const userRole = getUserRole(effectiveUser);
+  const isEmployeeRole = userRole === 'employee' || userRole === 'agent' || userRole === 'staff';
+
+  const currentModuleId = moduleConfig.moduleId || 'default_module';
+  const isTasksModule = currentModuleId === 'tasks';
+  const isExpensesModule = currentModuleId === 'expenses' || currentModuleId === 'expense_claims';
+  const isAdvancesLoansModule = currentModuleId === 'advances_loans';
+  const isUserScopedModule = isTasksModule || isExpensesModule || isAdvancesLoansModule;
+
+  const canView = PermissionEngine.can(effectiveUser, currentModuleId, 'view');
+  const canCreate = (isUserScopedModule || !isEmployeeRole) && PermissionEngine.can(effectiveUser, currentModuleId, 'create');
+  const canEdit = (isUserScopedModule || !isEmployeeRole) && PermissionEngine.can(effectiveUser, currentModuleId, 'edit');
+  const canDelete = !isEmployeeRole && PermissionEngine.can(effectiveUser, currentModuleId, 'delete');
+  const canExport = PermissionEngine.can(effectiveUser, currentModuleId, 'export');
+  const canImport = !isEmployeeRole && PermissionEngine.can(effectiveUser, currentModuleId, 'import');
+  const canConfigure = !isEmployeeRole && PermissionEngine.can(effectiveUser, currentModuleId, 'configure');
+
+  const canManage = (isUserScopedModule ? canEdit : (!isEmployeeRole && (canEdit || canDelete || canConfigure)));
 
   if (!canView) {
     return (
@@ -129,9 +141,76 @@ export default function LayoutEngine({
   };
 
   const isArchivedView = viewMode === 'archived';
-  const activeModuleRecords = isArchivedView
+  let initialModuleRecords = isArchivedView
     ? archivedModuleItems.map(unwrapArchivedRecord)
     : records;
+
+  // Personal Data Scope Filtering for Employees on Tasks & Expenses Modules
+  if (isUserScopedModule && isEmployeeRole && !isArchivedView) {
+    const normalize = (str) => String(str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    const userEmail = normalize(effectiveUser?.email);
+    const userName = normalize(effectiveUser?.name);
+    const firstName = normalize(effectiveUser?.first_name || effectiveUser?.firstName);
+    const lastName = normalize(effectiveUser?.last_name || effectiveUser?.lastName);
+    const fullName = normalize(`${firstName} ${lastName}`);
+
+    let empDirectory = [];
+    if (typeof window !== 'undefined') {
+      try {
+        const fall = JSON.parse(localStorage.getItem('omnilflow_fallback_employees') || '[]');
+        const reg = JSON.parse(localStorage.getItem('omniflow_registered_users') || '[]');
+        const empLoc = JSON.parse(localStorage.getItem('employees') || '[]');
+        empDirectory = [...fall, ...reg, ...empLoc];
+      } catch (e) {}
+    }
+
+    const myExactIdentifiers = new Set();
+    if (userEmail) myExactIdentifiers.add(userEmail);
+    if (userName) myExactIdentifiers.add(userName);
+    if (fullName) myExactIdentifiers.add(fullName);
+    if (firstName && firstName.length >= 3) myExactIdentifiers.add(firstName);
+
+    (empDirectory || []).forEach(emp => {
+      if (!emp) return;
+      const empEmail = normalize(emp.email);
+      const empName = normalize(`${emp.first_name || emp.name || ''} ${emp.last_name || ''}`);
+      const empFirstName = normalize(emp.first_name || emp.firstName || emp.name);
+
+      if (
+        (userEmail && empEmail && userEmail === empEmail) ||
+        (fullName && empName && fullName === empName) ||
+        (userName && empName && userName === empName)
+      ) {
+        if (empEmail) myExactIdentifiers.add(empEmail);
+        if (empName) myExactIdentifiers.add(empName);
+        if (empFirstName && empFirstName.length >= 3) myExactIdentifiers.add(empFirstName);
+      }
+    });
+
+    const activeIdentifiers = Array.from(myExactIdentifiers).filter(v => Boolean(v && v.length >= 2));
+
+    initialModuleRecords = (initialModuleRecords || []).filter(r => {
+      if (!r) return false;
+      const rawAssigned = String(r.assignedTo || r.assigned_to || r.employee || '');
+      const normAssigned = normalize(rawAssigned);
+
+      if (!normAssigned) return true;
+
+      const isMyTask = activeIdentifiers.some(id => {
+        if (!id) return false;
+        if (normAssigned === id) return true;
+        // Only allow substring if length difference is minimal (e.g. designation suffix like 'user 3 (engineering)')
+        if (normAssigned.includes(id) && (normAssigned.length - id.length <= 6)) return true;
+        if (id.includes(normAssigned) && (id.length - normAssigned.length <= 6)) return true;
+        return false;
+      });
+
+      return isMyTask;
+    });
+  }
+
+  const activeModuleRecords = initialModuleRecords;
 
   // 1. FILTERING ENGINE PIPELINE
   const searchMatchedRecords = SearchEngine.search(activeModuleRecords, searchQuery, moduleConfig);
@@ -197,6 +276,8 @@ export default function LayoutEngine({
         onOpenExportModal={() => setShowExportModal(true)}
         onOpenImportModal={() => setShowImportModal(true)}
         canManage={canManage}
+        canCreate={canCreate}
+        canConfigure={canConfigure}
         systemDropdowns={systemDropdowns}
         activePipelineStages={activePipelineStages}
         allPositions={allPositions}
@@ -227,8 +308,10 @@ export default function LayoutEngine({
       <ViewEngine
         records={sortedRecords}
         setRecords={setRecords}
-        moduleConfig={moduleConfig}
+        moduleConfig={{ ...moduleConfig, activeCurrency }}
+        activeCurrency={activeCurrency}
         viewMode={viewMode}
+        onOpenChatWithLead={onOpenChatWithLead}
         totalCount={activeModuleRecords.length}
         isFilterActive={isFilterActive}
         searchQuery={searchQuery}

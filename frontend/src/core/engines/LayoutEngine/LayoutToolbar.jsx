@@ -39,6 +39,8 @@ export default function LayoutToolbar({
   onOpenExportModal = () => {},
   onOpenImportModal = () => {},
   canManage = true,
+  canCreate = true,
+  canConfigure = true,
   systemDropdowns = null,
   activePipelineStages = [],
   allPositions = [],
@@ -122,7 +124,7 @@ export default function LayoutToolbar({
         {/* Header Action Controls */}
         <div className="module-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginLeft: 'auto' }}>
 
-          {canManage && (
+          {(canConfigure || canManage) && (
             <div style={{ position: 'relative' }}>
               <button
                 type="button"
@@ -211,7 +213,7 @@ export default function LayoutToolbar({
             </div>
           )}
 
-          {canManage && (
+          {canCreate && (
             <Button
               variant="primary"
               size="md"

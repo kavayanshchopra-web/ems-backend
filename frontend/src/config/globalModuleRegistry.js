@@ -94,6 +94,42 @@ export const GLOBAL_MODULE_REGISTRY = {
       views: true
     }
   },
+  expenses: {
+    id: 'expenses',
+    label: 'Expense Claims',
+    category: 'Payroll & Finance',
+    description: 'Employee voucher claims, travel reimbursements, receipt attachments & approvals',
+    icon: '🧾',
+    configurable: true,
+    status: 'Configured',
+    primaryEntity: 'expense',
+    capabilities: {
+      forms: true,
+      summary: true,
+      searchFilters: true,
+      listView: true,
+      kanbanView: true,
+      views: true
+    }
+  },
+  advances_loans: {
+    id: 'advances_loans',
+    label: 'Advances & Loans',
+    category: 'Payroll & Finance',
+    description: 'Process advanced payout requests and company loan approvals for employees',
+    icon: '💳',
+    configurable: true,
+    status: 'Configured',
+    primaryEntity: 'advance_loan',
+    capabilities: {
+      forms: true,
+      summary: true,
+      searchFilters: true,
+      listView: true,
+      kanbanView: true,
+      views: true
+    }
+  },
   verify_documents: {
     id: 'verify_documents',
     label: 'Verify Documents',
@@ -121,6 +157,60 @@ export const GLOBAL_MODULE_REGISTRY = {
     configurable: true,
     status: 'Configured',
     primaryEntity: 'offboarding_case',
+    capabilities: {
+      forms: true,
+      summary: true,
+      searchFilters: true,
+      listView: true,
+      kanbanView: true,
+      views: true
+    }
+  },
+  holidays: {
+    id: 'holidays',
+    label: 'Company Holidays Calendar',
+    category: 'Operations & IT',
+    description: 'Annual official gazetted holidays, restricted leave schedule, and festival calendar',
+    icon: '📅',
+    configurable: true,
+    status: 'Configured',
+    primaryEntity: 'holiday',
+    capabilities: {
+      forms: true,
+      summary: true,
+      searchFilters: true,
+      listView: true,
+      kanbanView: true,
+      views: true
+    }
+  },
+  notice_board: {
+    id: 'notice_board',
+    label: 'Workspace Notice Board',
+    category: 'Operations & IT',
+    description: 'Broadcast company announcements, updates, guidelines, and official notices',
+    icon: '🔔',
+    configurable: true,
+    status: 'Configured',
+    primaryEntity: 'notice',
+    capabilities: {
+      forms: true,
+      summary: true,
+      searchFilters: true,
+      listView: true,
+      kanbanView: true,
+      views: true
+    }
+  },
+  tasks: {
+    id: 'tasks',
+    label: 'Tasks Board',
+    category: 'Operations & IT',
+    description: 'Assign, track, and manage team task workloads with interactive Kanban boards',
+    icon: '📋',
+    configurable: true,
+    status: 'Configured',
+    primaryEntity: 'task',
     capabilities: {
       forms: true,
       summary: true,

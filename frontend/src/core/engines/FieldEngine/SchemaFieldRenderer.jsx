@@ -94,9 +94,51 @@ export default function SchemaFieldRenderer({
   if (optionsList.length === 0) {
     if (field.optionsSource === 'departments' || lookupKey === 'department' || lookupKey === 'departments') optionsList = (systemDropdowns?.departments || []).map(getValString);
     if (field.optionsSource === 'designations' || lookupKey === 'designation' || lookupKey === 'designations') optionsList = (systemDropdowns?.designations || []).map(getValString);
-    if (field.optionsSource === 'ats_stages') optionsList = activePipelineStages.map(s => getValString(s.name));
+    if (field.optionsSource === 'ats_stages') optionsList = activePipelineStages.map(s => getValString(s.name || s.title));
+    if (field.optionsSource === 'crm_stages' || lookupKey === 'crm_stages' || (moduleConfig?.moduleId === 'crm_deals' && (lookupKey === 'status' || lookupKey === 'stage'))) {
+      const raw = (activePipelineStages && activePipelineStages.length > 0)
+        ? activePipelineStages
+        : (systemDropdowns?.crmStages || systemDropdowns?.crm_stages || moduleConfig?.stages || []);
+      optionsList = raw.map(s => typeof s === 'string' ? s : getValString(s.name || s.title || s.label || s.id || s));
+    }
     if (field.optionsSource === 'employment_types') optionsList = ['Full-time', 'Part-time', 'Contract', 'Internship'];
     if (field.optionsSource === 'positions') optionsList = allPositions;
+    if (field.optionsSource === 'employees' || lookupKey === 'assignedTo' || lookupKey === 'assigned_to' || lookupKey === 'employee' || lookupKey === 'employees') {
+      let rawEmpList = [];
+      if (Array.isArray(systemDropdowns?.employees) && systemDropdowns.employees.length > 0) {
+        rawEmpList.push(...systemDropdowns.employees);
+      }
+      if (typeof window !== 'undefined') {
+        try {
+          const fall = JSON.parse(localStorage.getItem('omnilflow_fallback_employees') || '[]');
+          const empLoc = JSON.parse(localStorage.getItem('employees') || '[]');
+          const reg = JSON.parse(localStorage.getItem('omniflow_registered_users') || '[]');
+          rawEmpList.push(...fall, ...empLoc, ...reg);
+        } catch (e) {}
+      }
+
+      const uniqueNames = new Set();
+      (rawEmpList || []).forEach(e => {
+        if (!e) return;
+        let name = '';
+        if (typeof e === 'string') {
+          name = e.trim();
+        } else {
+          name = `${e.first_name || e.firstName || e.name || ''} ${e.last_name || e.lastName || ''}`.trim();
+          if (!name && e.email) name = e.email;
+        }
+        if (name && name.toLowerCase() !== 'undefined' && name.toLowerCase() !== 'null') {
+          uniqueNames.add(name);
+        }
+      });
+
+      let resolvedEmpNames = Array.from(uniqueNames);
+
+      if (resolvedEmpNames.length === 0) {
+        resolvedEmpNames = ['sahil', 'kavayansh Chopra'];
+      }
+      optionsList = resolvedEmpNames;
+    }
   }
 
   // ----------------------------------------------------

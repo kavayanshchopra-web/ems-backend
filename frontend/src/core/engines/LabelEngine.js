@@ -361,3 +361,5 @@ export class LabelEngine {
     return 'neutral';
   }
 }
+
+export default LabelEngine;

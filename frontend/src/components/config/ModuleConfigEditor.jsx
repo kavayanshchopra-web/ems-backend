@@ -438,7 +438,8 @@ export default function ModuleConfigEditor({
     }
 
     const fieldId = 'custom_' + Date.now();
-    const key = newFieldKey.trim() || newFieldLabel.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    const rawKey = newFieldKey.trim() || newFieldLabel.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    const key = rawKey.startsWith('custom_') ? rawKey : `custom_${rawKey}`;
 
     let manualOpts = [];
     if (newFieldOptionsSource === 'manual' && newFieldManualOptions.trim()) {

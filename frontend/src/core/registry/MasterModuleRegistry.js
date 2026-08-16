@@ -17,6 +17,10 @@ import { EXPENSE_CLAIMS_MANIFEST } from './manifests/expenseClaims.manifest';
 import { MY_PORTAL_MANIFEST } from './manifests/myPortal.manifest';
 import { WORKSPACE_SETTINGS_MANIFEST } from './manifests/workspaceSettings.manifest';
 import { TELECALLING_MANIFEST } from './manifests/telecalling.manifest';
+import { HOLIDAYS_MANIFEST } from './manifests/holidays.manifest';
+import { NOTICE_BOARD_MANIFEST } from './manifests/notice_board.manifest';
+import { TASKS_MANIFEST } from './manifests/tasks.manifest';
+import { ADVANCES_LOANS_MANIFEST } from './manifests/advancesLoans.manifest';
 import { moduleConfigService } from '../../services/moduleConfigService';
 
 class MasterModuleRegistry {
@@ -46,6 +50,10 @@ class MasterModuleRegistry {
     this.registerModule(MY_PORTAL_MANIFEST);
     this.registerModule(WORKSPACE_SETTINGS_MANIFEST);
     this.registerModule(TELECALLING_MANIFEST);
+    this.registerModule(HOLIDAYS_MANIFEST);
+    this.registerModule(NOTICE_BOARD_MANIFEST);
+    this.registerModule(TASKS_MANIFEST);
+    this.registerModule(ADVANCES_LOANS_MANIFEST);
 
     this._initialized = true;
   }
@@ -96,23 +104,39 @@ class MasterModuleRegistry {
     // Read stored tenant overrides from moduleConfigService
     const storedConfig = moduleConfigService.getModuleConfig(companyId, moduleId);
 
-    // Deep merge manifest defaults with tenant stored overrides
-    const fields = storedConfig.fields && storedConfig.fields.length > 0
-      ? storedConfig.fields
-      : manifest.defaultFields;
+    // Deep merge manifest defaults with tenant stored overrides (Smart Schema Reconciler)
+    let fields = manifest.defaultFields || [];
+    if (storedConfig.fields && storedConfig.fields.length > 0) {
+      const storedMap = new Map();
+      storedConfig.fields.forEach(sf => {
+        const sfKey = sf.id || sf.key;
+        if (sfKey) storedMap.set(sfKey, sf);
+      });
+
+      const mergedFields = [...storedConfig.fields];
+      (manifest.defaultFields || []).forEach(df => {
+        const dfKey = df.id || df.key;
+        if (dfKey && !storedMap.has(dfKey)) {
+          mergedFields.push(df); // Auto-append new system fields from code updates!
+        }
+      });
+      fields = mergedFields;
+    }
 
     const summaryWidgets = storedConfig.summaryWidgets && storedConfig.summaryWidgets.length > 0
       ? storedConfig.summaryWidgets
       : manifest.defaultSummaryWidgets;
 
     // Auto-sync columns to guarantee 1:1 match with fields
-    const rawCols = storedConfig.columns && storedConfig.columns.length > 0
+    const rawCols = (storedConfig.columns && storedConfig.columns.length > 0)
       ? storedConfig.columns
-      : manifest.defaultColumns;
+      : (manifest.defaultColumns || []);
+
+    const safeRawCols = Array.isArray(rawCols) ? rawCols : [];
 
     const columns = (fields || []).filter(f => !f.archived && !f.deleted).map((f, idx) => {
       const key = f.key || f.id;
-      const matchedCol = rawCols.find(c => c.id === f.id || c.fieldKey === key || c.id === key);
+      const matchedCol = safeRawCols.find(c => c && (c.id === f.id || c.fieldKey === key || c.id === key));
       return {
         id: f.id || key,
         fieldKey: key,

@@ -10,6 +10,13 @@ import { masterModuleRegistry } from '../core/registry/MasterModuleRegistry';
 
 const MASTER_CONFIG_PREFIX = 'omnilflow_master_module_configs_';
 
+function getTenantKey(companyId) {
+  if (!companyId || companyId === 'default' || companyId === 'default_tenant') {
+    return 'default_tenant';
+  }
+  return String(companyId).replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
 export const moduleConfigService = {
   // Get Configuration for specific Module
   getModuleConfig(companyId, moduleId = 'recruitment_ats') {
@@ -17,11 +24,11 @@ export const moduleConfigService = {
       return loadAtsModuleConfig(companyId);
     }
 
-    const tenantKey = companyId ? String(companyId).replace(/[^a-zA-Z0-9_-]/g, '_') : 'default';
+    const tenantKey = getTenantKey(companyId);
     const key = `${MASTER_CONFIG_PREFIX}${tenantKey}`;
 
     try {
-      const saved = localStorage.getItem(key);
+      const saved = localStorage.getItem(key) || localStorage.getItem(`${MASTER_CONFIG_PREFIX}default`);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed[moduleId]) return parsed[moduleId];
@@ -63,7 +70,7 @@ export const moduleConfigService = {
       return;
     }
 
-    const tenantKey = companyId ? String(companyId).replace(/[^a-zA-Z0-9_-]/g, '_') : 'default';
+    const tenantKey = getTenantKey(companyId);
     const key = `${MASTER_CONFIG_PREFIX}${tenantKey}`;
 
     try {
@@ -75,6 +82,8 @@ export const moduleConfigService = {
         updatedAt: new Date().toISOString()
       };
       localStorage.setItem(key, JSON.stringify(allConfigs));
+      // Sync fallback key as well
+      localStorage.setItem(`${MASTER_CONFIG_PREFIX}default`, JSON.stringify(allConfigs));
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('omnilflow_config_updated', { detail: { moduleId, companyId } }));
       }

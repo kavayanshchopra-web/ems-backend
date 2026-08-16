@@ -38,37 +38,63 @@ class PermissionEngineService {
    * Auto-discover all active modules from MasterModuleRegistry
    */
   getDiscoveredModules() {
-    const modulesMap = (masterModuleRegistry && typeof masterModuleRegistry.getAllRegisteredModules === 'function')
-      ? masterModuleRegistry.getAllRegisteredModules()
-      : {};
-    const modulesList = Object.keys(modulesMap).map(key => {
-      const config = modulesMap[key];
-      return {
-        id: config.moduleId || key,
-        label: config.label || key,
-        icon: config.icon || '📦',
-        category: config.category || 'GENERAL'
-      };
-    });
+    // 100% Canonical Sidebar Module Definitions (Matched 1:1 with DashboardShell.jsx nav items)
+    const CANONICAL_SIDEBAR_MODULES = [
+      // SYSTEM
+      { id: 'superadmin_plans', label: 'Super Admin Panel', icon: '👑', category: 'SYSTEM' },
+      { id: 'audit_logs', label: 'System Audit Logs', icon: '📋', category: 'SYSTEM' },
+      { id: 'media_storage', label: 'Media & Storage Vault', icon: '📁', category: 'SYSTEM' },
 
-    // Fallback module definitions if registry is initializing
-    const fallbackModules = [
+      // DASHBOARDS
+      { id: 'admin_dashboard', label: 'Company Overview', icon: '📊', category: 'DASHBOARDS' },
+      { id: 'manager_dashboard', label: 'Task Analytics', icon: '📈', category: 'DASHBOARDS' },
+      { id: 'gps_attendance', label: 'Live Tracking Map', icon: '🌐', category: 'DASHBOARDS' },
+
+      // HR MANAGEMENT
       { id: 'employees', label: 'All Employees', icon: '👥', category: 'HR MANAGEMENT' },
       { id: 'recruitment_ats', label: 'Recruitment & ATS', icon: '🎯', category: 'HR MANAGEMENT' },
+      { id: 'asset_management', label: 'Asset Management', icon: '💻', category: 'HR MANAGEMENT' },
       { id: 'verify_documents', label: 'Verify Documents', icon: '📋', category: 'HR MANAGEMENT' },
       { id: 'offboarding', label: 'Offboarding Exit', icon: '🚪', category: 'HR MANAGEMENT' },
-      { id: 'asset_management', label: 'Asset Management', icon: '💻', category: 'OPERATIONS & IT' },
-      { id: 'crm', label: 'CRM & Lead Pipeline', icon: '📈', category: 'SALES & MARKETING' },
-      { id: 'payroll', label: 'Payroll & Salaries', icon: '💰', category: 'PAYROLL & FINANCE' },
-      { id: 'work_hours', label: 'Work Hours & Overtime', icon: '⏱️', category: 'OPERATIONS & IT' },
-      { id: 'performance_kpis', label: 'Performance & KPIs', icon: '🎯', category: 'HR MANAGEMENT' }
+
+      // PAYROLL & FINANCE
+      { id: 'payroll', label: 'Payroll & Salary', icon: '💰', category: 'PAYROLL & FINANCE' },
+      { id: 'taxes_compliance', label: 'Taxes & Compliance', icon: '📄', category: 'PAYROLL & FINANCE' },
+      { id: 'ff_settlements', label: 'F&F Settlements', icon: '✅', category: 'PAYROLL & FINANCE' },
+      { id: 'advances_loans', label: 'Advances & Loans', icon: '💳', category: 'PAYROLL & FINANCE' },
+      { id: 'expenses', label: 'Expenses Claim', icon: '🧾', category: 'PAYROLL & FINANCE' },
+
+      // CRM & SALES
+      { id: 'channels', label: 'WA Channels', icon: '📱', category: 'CRM & SALES' },
+      { id: 'inbox', label: 'Unified Inbox Chats', icon: '💬', category: 'CRM & SALES' },
+      { id: 'kanban', label: 'CRM Pipeline Board', icon: '📈', category: 'CRM & SALES' },
+      { id: 'telecalling', label: 'Call Recordings & SIM Sync', icon: '📞', category: 'CRM & SALES' },
+
+      // OPERATIONS
+      { id: 'tasks', label: 'Tasks Board', icon: '📋', category: 'OPERATIONS' },
+      { id: 'office_kiosk', label: 'Office Kiosk Mode', icon: '🏢', category: 'OPERATIONS' },
+      { id: 'notice_board', label: 'Notice Board', icon: '🔔', category: 'OPERATIONS' },
+      { id: 'holidays', label: 'Holidays List', icon: '🏖️', category: 'OPERATIONS' },
+
+      // MY PORTAL
+      { id: 'my_attendance', label: 'Shift Attendance', icon: '⏱️', category: 'MY PORTAL' },
+      { id: 'leaves', label: 'Leaves Requests', icon: '🏖️', category: 'MY PORTAL' },
+      { id: 'shifts', label: 'Work Roster', icon: '📅', category: 'MY PORTAL' },
+
+      // HELP & SUPPORT
+      { id: 'app_guide', label: 'App Guide & Manual', icon: '🌐', category: 'HELP & SUPPORT' },
+
+      // SETTINGS
+      { id: 'settings', label: 'General Settings', icon: '👤', category: 'SETTINGS' },
+      { id: 'integrations', label: 'Integrations & Webhooks', icon: '🔌', category: 'SETTINGS' },
+      { id: 'roles_permissions', label: 'Roles & Permissions', icon: '🔐', category: 'SETTINGS' },
+      { id: 'recycle_bin', label: 'Trash & Recycle Bin', icon: '🗑️', category: 'SETTINGS' },
+      { id: 'system_dropdowns', label: 'System Master Dropdowns', icon: '🏷️', category: 'SETTINGS' },
+      { id: 'module_configuration', label: 'Module Configuration', icon: '🎛️', category: 'SETTINGS' },
+      { id: 'billing', label: 'Subscription Billing', icon: '💳', category: 'SETTINGS' }
     ];
 
-    const mergedMap = {};
-    fallbackModules.forEach(m => { mergedMap[m.id] = m; });
-    modulesList.forEach(m => { mergedMap[m.id] = m; });
-
-    return Object.values(mergedMap);
+    return CANONICAL_SIDEBAR_MODULES;
   }
 
   /**
@@ -197,6 +223,13 @@ class PermissionEngineService {
 
     const modPerm = rolePerms[moduleId];
     return Boolean(modPerm.actions?.[actionId]);
+  }
+
+  /**
+   * Alias for can() method
+   */
+  canAccess(userObj, moduleId, actionId = 'view') {
+    return this.can(userObj, moduleId, actionId);
   }
 
   /**

@@ -306,47 +306,22 @@ export default function MediaStorageView({ authUser, showToast }) {
     }
   };
 
-  // Safe File Opener (Converts Data URL & IndexedDB Blobs to Blob URLs safely to bypass browser top-frame block)
+  // Safe File Opener (Converts Data URL & Firestore Base64 Chunks to Blob URLs safely to bypass browser top-frame block)
   const handleOpenFile = async (file) => {
-    if (!file || !file.downloadUrl) return;
+    if (!file) return;
 
-    if (file.downloadUrl.startsWith('indexeddb://')) {
-      const blobId = file.downloadUrl.replace('indexeddb://', '');
-      const blob = await IndexedDBStorage.getBlob(blobId);
-      if (blob) {
-        const blobUrl = URL.createObjectURL(blob);
-        setActivePreviewFile({ ...file, downloadUrl: blobUrl });
-        window.open(blobUrl, '_blank');
-      } else {
-        if (showToast) showToast('File content not found in local browser vault', 'error');
+    try {
+      const resolvedUrl = await MediaStorageEngine.resolveDownloadUrl(file);
+      if (!resolvedUrl) {
+        if (showToast) showToast('File content unavailable', 'error');
+        return;
       }
-      return;
-    }
 
-    setActivePreviewFile(file);
-
-    if (file.downloadUrl.startsWith('data:')) {
-      try {
-        const parts = file.downloadUrl.split(',');
-        const mimeMatch = parts[0].match(/:(.*?);/);
-        const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
-        
-        // Clean base64 string
-        const base64Data = parts[1].replace(/\s/g, '');
-        const bstr = window.atob(base64Data);
-        let n = bstr.length;
-        const u8arr = new Uint8Array(n);
-        while (n--) {
-          u8arr[n] = bstr.charCodeAt(n);
-        }
-        const blob = new Blob([u8arr], { type: mime });
-        const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, '_blank');
-      } catch (e) {
-        console.warn('Blob URL fallback exception:', e);
-      }
-    } else {
-      window.open(file.downloadUrl, '_blank');
+      setActivePreviewFile({ ...file, downloadUrl: resolvedUrl });
+      window.open(resolvedUrl, '_blank');
+    } catch (err) {
+      console.error('Failed to open file:', err);
+      if (showToast) showToast(`Failed to open file: ${err.message}`, 'error');
     }
   };
 

@@ -54,6 +54,7 @@ export default function ViewEngine({
   onEditRecord = () => {},
   onArchiveRecord = () => {},
   onMoveStage = () => {},
+  onOpenChatWithLead = null,
   onResetFilters = () => {},
   systemDropdowns = null,
   activePipelineStages = [],
@@ -97,6 +98,7 @@ export default function ViewEngine({
       <KanbanEngine
         records={records}
         moduleConfig={moduleConfig}
+        activeCurrency={moduleConfig?.activeCurrency}
         activePipelineStages={activePipelineStages}
         systemDropdowns={systemDropdowns}
         isFilterActive={isFilterActive}
@@ -104,6 +106,7 @@ export default function ViewEngine({
         onEditRecord={onEditRecord}
         onArchiveRecord={onArchiveRecord}
         onMoveStage={onMoveStage}
+        onOpenChatWithLead={onOpenChatWithLead}
         canManage={canManage}
       />
     );
