@@ -195,38 +195,46 @@ export default function IntegrationsPage({
 
   const loadActivityLogs = async () => {
     setLoadingLogs(true);
+    let allLogs = [];
+
+    // 1. Try local storage logs
+    try {
+      const localLogs = JSON.parse(localStorage.getItem(`omnilflow_webhook_logs_${cleanCompanyId}`) || '[]');
+      if (Array.isArray(localLogs) && localLogs.length > 0) {
+        allLogs = [...localLogs];
+      }
+    } catch (err) {}
+
+    // 2. Fetch from backend API
     try {
       const apiHost = typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:5000' : 'https://ems-backend-9hig.onrender.com';
       const res = await fetch(`${apiHost}/api/v1/integrations/logs?companyId=${cleanCompanyId}`);
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.logs) && data.logs.length > 0) {
-          setLogs(data.logs);
-          setLoadingLogs(false);
-          return;
+          allLogs = [...data.logs, ...allLogs];
         }
       }
     } catch (e) {
       console.warn('API log fetch fallback:', e);
     }
 
-    try {
-      const q = query(collection(db, 'integrations_logs'), where('companyId', '==', cleanCompanyId));
-      const snap = await getDocs(q);
-      const list = [];
-      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
-      list.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
-      if (list.length > 0) {
-        setLogs(list.slice(0, 50));
-      }
-    } catch (e) {
-      setLogs([
-        { id: '1', timestamp: new Date().toISOString(), source: 'GHL MARKETPLACE', event: 'ContactCreate', status: 200, payload: '{"name":"Rahul GHL Lead","phone":"+919876543219","email":"ghltest@example.com"}' },
-        { id: '2', timestamp: new Date(Date.now() - 3600000).toISOString(), source: 'GHL WORKFLOW', event: 'on_stage_changed', status: 200, payload: '{"stage":"Qualified Lead"}' }
-      ]);
-    } finally {
-      setLoadingLogs(false);
+    // 3. Fallback demo logs if empty
+    if (allLogs.length === 0) {
+      allLogs = [
+        { id: '1', timestamp: new Date().toLocaleString(), source: 'GHL MARKETPLACE', event: 'ContactCreate', status: 200, payload: '{"name":"Rahul GHL Test Lead","phone":"+91 98765 43219","email":"ghltest@example.com"}' },
+        { id: '2', timestamp: new Date(Date.now() - 3600000).toLocaleString(), source: 'GHL WORKFLOW', event: 'OpportunityStageUpdate', status: 200, payload: '{"stage":"Qualified Lead","value":"$5,000"}' },
+        { id: '3', timestamp: new Date(Date.now() - 7200000).toLocaleString(), source: 'FACEBOOK LEAD ADS', event: 'on_lead_created', status: 200, payload: '{"campaign":"Growth Promo","name":"Amit Verma"}' }
+      ];
     }
+
+    // Deduplicate by ID
+    const unique = Array.from(new Map(allLogs.map(item => [item.id || item.timestamp, item])).values());
+    unique.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+
+    setLogs(unique.slice(0, 50));
+    setLoadingLogs(false);
+    showToast('🔄 Activity logs refreshed!', 'info');
   };
 
   const handleCopyUrl = (text, key) => {
