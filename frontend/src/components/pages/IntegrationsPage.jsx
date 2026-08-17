@@ -86,20 +86,10 @@ export default function IntegrationsPage({
       setGhlClientId(savedKeys.clientId || '');
       setGhlClientSecret(savedKeys.clientSecret || '');
 
-      if ((!locs || locs.length === 0) && (savedKeys.clientId || ghlClientId)) {
-        locs = [{
-          id: `loc_ghl_${cleanCompanyId}`,
-          companyId: cleanCompanyId,
-          locationId: 'loc_webgearz_subaccount',
-          locationName: 'Active Sub-Account (Ludhiana, PB)',
-          scope: 'contacts.readonly contacts.write conversations.readonly conversations.write workflows.readonly',
-          installedAt: new Date().toLocaleDateString(),
-          status: 'connected'
-        }];
-      }
-      setGhlLocations(locs);
+      setGhlLocations(locs || []);
     } catch (e) {
       console.warn('GHL data load warning:', e);
+      setGhlLocations([]);
     }
   };
 
