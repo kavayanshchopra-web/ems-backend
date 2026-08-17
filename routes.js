@@ -1491,6 +1491,61 @@ export default function setupRoutes(io) {
     res.json({ success: true, logs });
   });
 
+  // Direct GHL Live Contacts Sync Endpoint
+  router.post('/v1/integrations/ghl/sync-live-contacts', async (req, res) => {
+    try {
+      const { companyId, contacts = [] } = req.body;
+      const cleanId = companyId || 'default_tenant';
+      const syncedLogs = [];
+
+      for (const c of contacts) {
+        const fullName = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.email || c.phone || 'GHL Contact';
+        const rawPhone = c.phone || c.phoneNumber || '';
+        const cleanPhone = rawPhone.replace(/\D/g, '');
+        const contactId = cleanPhone ? `${cleanPhone}@s.whatsapp.net` : (c.id ? `ghl_${c.id}` : `ghl_${Date.now()}`);
+
+        if (fullName && fullName !== 'GHL Contact') {
+          try {
+            await saveContact(contactId, fullName, 1);
+          } catch (err) {
+            console.warn('GHL Sync saveContact warning:', err.message);
+          }
+
+          const logItem = {
+            id: `ghl_live_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            companyId: cleanId,
+            source: 'GHL MARKETPLACE',
+            event: 'ContactCreate',
+            status: 200,
+            payload: JSON.stringify({
+              name: fullName,
+              email: c.email || '',
+              phone: rawPhone,
+              locationId: c.locationId || 'loc_webgearz_subaccount',
+              tags: c.tags || []
+            }),
+            timestamp: new Date().toISOString()
+          };
+
+          globalWebhookLogs.unshift(logItem);
+          syncedLogs.push(logItem);
+
+          if (io) {
+            io.emit('webhook_received', logItem);
+            io.emit('contact_updated', { id: contactId, name: fullName, phone: rawPhone, source: 'GHL' });
+          }
+        }
+      }
+
+      if (globalWebhookLogs.length > 200) globalWebhookLogs.splice(200);
+
+      res.json({ success: true, count: syncedLogs.length, logs: syncedLogs });
+    } catch (err) {
+      console.error('GHL Live Sync error:', err);
+      res.status(500).json({ error: err.message || 'Failed to sync GHL contacts' });
+    }
+  });
+
   // GHL OAuth Callback Redirect Page
   router.get('/v1/integrations/oauth/callback', (req, res) => {
     const { code } = req.query;

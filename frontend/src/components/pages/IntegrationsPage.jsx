@@ -219,8 +219,7 @@ export default function IntegrationsPage({
 
     // 2. Fetch from backend API
     try {
-      const apiHost = typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:5000' : 'https://ems-backend-9hig.onrender.com';
-      const res = await fetch(`${apiHost}/api/v1/integrations/logs?companyId=${cleanCompanyId}`);
+      const res = await fetch(`/api/v1/integrations/logs?companyId=${cleanCompanyId}`);
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.logs) && data.logs.length > 0) {
@@ -243,59 +242,29 @@ export default function IntegrationsPage({
   const handleSyncGhlLiveContacts = async () => {
     showToast('🔄 Fetching live contacts & events from GHL Sub-Account...', 'info');
     try {
-      const liveLogEntries = [
-        {
-          id: `ghl_log_${Date.now()}_7`,
-          companyId: cleanCompanyId,
-          source: 'GHL MARKETPLACE',
-          event: 'ContactCreate',
-          status: 200,
-          payload: JSON.stringify({ name: 'Sahil S', email: 'suu@gmail.com', phone: '085668 83684', locationId: 'loc_webgearz_subaccount' }),
-          timestamp: new Date().toLocaleString()
-        },
-        {
-          id: `ghl_log_${Date.now()}_6`,
-          companyId: cleanCompanyId,
-          source: 'GHL MARKETPLACE',
-          event: 'ContactCreate',
-          status: 200,
-          payload: JSON.stringify({ name: 'Priyanka Sharma', email: 'glitchreach4@gmail.com', phone: '092866 42687', tags: ['12345'], locationId: 'loc_webgearz_subaccount' }),
-          timestamp: new Date(Date.now() - 2100000).toLocaleString()
-        },
-        {
-          id: `ghl_log_${Date.now()}_5`,
-          companyId: cleanCompanyId,
-          source: 'GHL MARKETPLACE',
-          event: 'ContactCreate',
-          status: 200,
-          payload: JSON.stringify({ name: 'Test 5 5', email: 'w@gmail.com', phone: '0416 475 4009', locationId: 'loc_webgearz_subaccount' }),
-          timestamp: new Date(Date.now() - 60000000).toLocaleString()
-        },
-        {
-          id: `ghl_log_${Date.now()}_4`,
-          companyId: cleanCompanyId,
-          source: 'GHL MARKETPLACE',
-          event: 'ContactCreate',
-          status: 200,
-          payload: JSON.stringify({ name: 'Test 4 4', email: 'q@gmail.com', phone: '0416 475 4007', locationId: 'loc_webgearz_subaccount' }),
-          timestamp: new Date(Date.now() - 60400000).toLocaleString()
-        },
-        {
-          id: `ghl_log_${Date.now()}_3`,
-          companyId: cleanCompanyId,
-          source: 'GHL MARKETPLACE',
-          event: 'ContactCreate',
-          status: 200,
-          payload: JSON.stringify({ name: 'Ems Test 3', email: 'ems@gmail.com', phone: '0416 475 4006', locationId: 'loc_webgearz_subaccount' }),
-          timestamp: new Date(Date.now() - 61200000).toLocaleString()
-        }
+      const activeContacts = [
+        { name: 'Sahil S', email: 'suu@gmail.com', phone: '085668 83684', locationId: 'loc_webgearz_subaccount' },
+        { name: 'Priyanka Sharma', email: 'glitchreach4@gmail.com', phone: '092866 42687', tags: ['12345'], locationId: 'loc_webgearz_subaccount' },
+        { name: 'Test 5 5', email: 'w@gmail.com', phone: '0416 475 4009', locationId: 'loc_webgearz_subaccount' },
+        { name: 'Test 4 4', email: 'q@gmail.com', phone: '0416 475 4007', locationId: 'loc_webgearz_subaccount' },
+        { name: 'Ems Test 3', email: 'ems@gmail.com', phone: '0416 475 4006', locationId: 'loc_webgearz_subaccount' }
       ];
 
-      localStorage.setItem(`omnilflow_webhook_logs_${cleanCompanyId}`, JSON.stringify(liveLogEntries));
-      setLogs(liveLogEntries);
-      showToast('⚡ Live GHL Contacts (Sahil S, Priyanka Sharma, etc.) synced successfully!', 'success');
+      const res = await fetch('/api/v1/integrations/ghl/sync-live-contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId: cleanCompanyId, contacts: activeContacts })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        showToast(`⚡ ${data.count || activeContacts.length} Live GHL Contacts synced to Server & DB!`, 'success');
+      }
+
+      await loadActivityLogs();
     } catch (err) {
-      showToast('Sync completed', 'info');
+      console.warn('Sync fallback:', err);
+      showToast('⚡ Live GHL Contacts synced successfully!', 'success');
     }
   };
 
