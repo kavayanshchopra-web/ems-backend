@@ -1,0 +1,213 @@
+/**
+ * GLOBAL EMS MASTER MODULE REGISTRY
+ * Singleton Engine & Registry Manager for Platform Modules
+ */
+
+import { RECRUITMENT_ATS_MANIFEST } from './manifests/recruitmentAts.manifest';
+import { CRM_DEALS_MANIFEST } from './manifests/crmDeals.manifest';
+import { EMPLOYEES_MANIFEST } from './manifests/employees.manifest';
+import { PAYROLL_MANIFEST } from './manifests/payroll.manifest';
+import { ASSETS_MANIFEST } from './manifests/assets.manifest';
+import { VERIFY_DOCUMENTS_MANIFEST } from './manifests/verifyDocuments.manifest';
+import { OFFBOARDING_MANIFEST } from './manifests/offboarding.manifest';
+import { DASHBOARDS_MANIFEST } from './manifests/dashboards.manifest';
+import { WHATSAPP_CHATS_MANIFEST } from './manifests/whatsappChats.manifest';
+import { ATTENDANCE_KIOSK_MANIFEST } from './manifests/attendanceKiosk.manifest';
+import { EXPENSE_CLAIMS_MANIFEST } from './manifests/expenseClaims.manifest';
+import { MY_PORTAL_MANIFEST } from './manifests/myPortal.manifest';
+import { WORKSPACE_SETTINGS_MANIFEST } from './manifests/workspaceSettings.manifest';
+import { TELECALLING_MANIFEST } from './manifests/telecalling.manifest';
+import { HOLIDAYS_MANIFEST } from './manifests/holidays.manifest';
+import { NOTICE_BOARD_MANIFEST } from './manifests/notice_board.manifest';
+import { TASKS_MANIFEST } from './manifests/tasks.manifest';
+import { ADVANCES_LOANS_MANIFEST } from './manifests/advancesLoans.manifest';
+import { moduleConfigService } from '../../services/moduleConfigService';
+
+class MasterModuleRegistry {
+  constructor() {
+    this._manifests = new Map();
+    this._initialized = false;
+    this._initSystemManifests();
+  }
+
+  /**
+   * Register default system manifests
+   */
+  _initSystemManifests() {
+    if (this._initialized) return;
+
+    this.registerModule(RECRUITMENT_ATS_MANIFEST);
+    this.registerModule(CRM_DEALS_MANIFEST);
+    this.registerModule(EMPLOYEES_MANIFEST);
+    this.registerModule(PAYROLL_MANIFEST);
+    this.registerModule(ASSETS_MANIFEST);
+    this.registerModule(VERIFY_DOCUMENTS_MANIFEST);
+    this.registerModule(OFFBOARDING_MANIFEST);
+    this.registerModule(DASHBOARDS_MANIFEST);
+    this.registerModule(WHATSAPP_CHATS_MANIFEST);
+    this.registerModule(ATTENDANCE_KIOSK_MANIFEST);
+    this.registerModule(EXPENSE_CLAIMS_MANIFEST);
+    this.registerModule(MY_PORTAL_MANIFEST);
+    this.registerModule(WORKSPACE_SETTINGS_MANIFEST);
+    this.registerModule(TELECALLING_MANIFEST);
+    this.registerModule(HOLIDAYS_MANIFEST);
+    this.registerModule(NOTICE_BOARD_MANIFEST);
+    this.registerModule(TASKS_MANIFEST);
+    this.registerModule(ADVANCES_LOANS_MANIFEST);
+
+    this._initialized = true;
+  }
+
+  /**
+   * Register a module manifest in the system
+   * @param {Object} manifest 
+   */
+  registerModule(manifest) {
+    if (!manifest || !manifest.moduleId) {
+      throw new Error('[MasterModuleRegistry] Manifest must specify a valid moduleId.');
+    }
+    
+    // Freeze to prevent accidental mutation of system defaults
+    this._manifests.set(manifest.moduleId, Object.freeze({ ...manifest }));
+  }
+
+  /**
+   * Retrieve a system manifest by moduleId
+   * @param {string} moduleId 
+   * @returns {Object|null}
+   */
+  getSystemManifest(moduleId) {
+    return this._manifests.get(moduleId) || null;
+  }
+
+  /**
+   * Get all registered system manifests
+   * @returns {Array<Object>}
+   */
+  getAllSystemManifests() {
+    return Array.from(this._manifests.values());
+  }
+
+  /**
+   * Resolve live module configuration merging System Manifest with Tenant Storage Overrides
+   * @param {string} companyId 
+   * @param {string} moduleId 
+   * @returns {Object} Effective runtime module configuration
+   */
+  resolveTenantModuleConfig(companyId, moduleId) {
+    const manifest = this.getSystemManifest(moduleId);
+    if (!manifest) {
+      console.warn(`[MasterModuleRegistry] Unknown moduleId "${moduleId}". Returning empty schema.`);
+      return { fields: [], summaryWidgets: [], columns: [], views: { availableViews: ['kanban', 'list'], defaultView: 'kanban' } };
+    }
+
+    // Read stored tenant overrides from moduleConfigService
+    const storedConfig = moduleConfigService.getModuleConfig(companyId, moduleId);
+
+    // Deep merge manifest defaults with tenant stored overrides (Smart Schema Reconciler)
+    let fields = manifest.defaultFields || [];
+    if (storedConfig.fields && storedConfig.fields.length > 0) {
+      const storedMap = new Map();
+      storedConfig.fields.forEach(sf => {
+        const sfKey = sf.id || sf.key;
+        if (sfKey) storedMap.set(sfKey, sf);
+      });
+
+      const mergedFields = [...storedConfig.fields];
+      (manifest.defaultFields || []).forEach(df => {
+        const dfKey = df.id || df.key;
+        if (dfKey && !storedMap.has(dfKey)) {
+          mergedFields.push(df); // Auto-append new system fields from code updates!
+        }
+      });
+      fields = mergedFields;
+    }
+
+    const summaryWidgets = storedConfig.summaryWidgets && storedConfig.summaryWidgets.length > 0
+      ? storedConfig.summaryWidgets
+      : manifest.defaultSummaryWidgets;
+
+    // Auto-sync columns to guarantee 1:1 match with fields
+    const rawCols = (storedConfig.columns && storedConfig.columns.length > 0)
+      ? storedConfig.columns
+      : (manifest.defaultColumns || []);
+
+    const safeRawCols = Array.isArray(rawCols) ? rawCols : [];
+
+    const columns = (fields || []).filter(f => !f.archived && !f.deleted).map((f, idx) => {
+      const key = f.key || f.id;
+      const matchedCol = safeRawCols.find(c => c && (c.id === f.id || c.fieldKey === key || c.id === key));
+      return {
+        id: f.id || key,
+        fieldKey: key,
+        label: f.label, // 100% sync exact field label from Forms & Fields
+        visible: matchedCol ? matchedCol.visible : (f.showOnList !== false),
+        width: matchedCol?.width || (key === 'name' ? '220px' : key === 'email' ? '200px' : '140px'),
+        align: matchedCol?.align || 'left',
+        sortable: true,
+        sortOrder: f.sortOrder || idx + 1
+      };
+    });
+
+    const views = storedConfig.views
+      ? storedConfig.views
+      : manifest.defaultViews;
+
+    const kanbanFields = storedConfig.kanbanFields
+      ? storedConfig.kanbanFields
+      : { position: true, email: true, phone: true, resume: true };
+
+    const lookupData = {
+      ...(manifest.defaultLookupData || {}),
+      ...(storedConfig.lookupData || {})
+    };
+
+    return {
+      moduleId: manifest.moduleId,
+      moduleTitle: manifest.name,
+      moduleSubtitle: manifest.description,
+      entityName: manifest.entityName || (manifest.name || '').replace(/ Directory$/i, '').replace(/s$/i, '').trim(),
+      entityNamePlural: manifest.name,
+      icon: manifest.icon,
+      accentColor: manifest.accentColor,
+      category: manifest.category,
+      fields,
+      summaryWidgets,
+      columns,
+      views,
+      kanbanFields,
+      lookupData,
+      idConfig: storedConfig.idConfig || manifest.idConfig || { prefix: 'ATS', pattern: 'ATS-001', nextSeq: 1 },
+      stages: manifest.defaultStages || []
+    };
+  }
+
+  /**
+   * Validate dependency graph for a target module
+   * @param {string} companyId 
+   * @param {string} moduleId 
+   * @returns {{ valid: boolean, missingDependencies: Array<string> }}
+   */
+  validateDependencies(companyId, moduleId) {
+    const manifest = this.getSystemManifest(moduleId);
+    if (!manifest) return { valid: false, missingDependencies: [`Module "${moduleId}" not found`] };
+
+    const missing = [];
+    (manifest.dependencies || []).forEach(dep => {
+      const depManifest = this.getSystemManifest(dep.moduleId);
+      if (!depManifest) {
+        missing.push(dep.moduleId);
+      }
+    });
+
+    return {
+      valid: missing.length === 0,
+      missingDependencies: missing
+    };
+  }
+}
+
+// Export singleton instance & Class
+export { MasterModuleRegistry };
+export const masterModuleRegistry = new MasterModuleRegistry();
+export default masterModuleRegistry;
