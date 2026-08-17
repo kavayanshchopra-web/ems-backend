@@ -15,7 +15,7 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5173" 2^>nul') do taskkill 
 timeout /t 2 >nul
 
 echo Starting Backend (Port 5000)...
-start "OmniFlow Backend :5000" cmd /k "cd /d d:\AG Projects\whatsapp-crm && node server.js"
+start "OmniFlow Backend :5000" cmd /k "cd /d d:\AG Projects\whatsapp-crm\backend && node server.js"
 
 timeout /t 3 >nul
 
