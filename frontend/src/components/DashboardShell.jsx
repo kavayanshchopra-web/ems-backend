@@ -5074,6 +5074,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         });
       });
 
+      socket.on('contact_updated', (data) => {
+        console.log('Contact updated via socket:', data);
+        fetchContacts();
+      });
+
+      socket.on('webhook_received', (data) => {
+        console.log('Webhook received via socket:', data);
+        fetchContacts();
+      });
+
       socket.on('message_star_update', (data) => {
         setMessages(prev => prev.map(m => m.id === data.id ? { ...m, is_starred: data.isStarred } : m));
         setActiveContact(current => {
@@ -5252,49 +5262,49 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   }, [activeTab, (sessions || []).map(s => s.status).join(',')]);
 
   const fetchContacts = async () => {
-    const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
     let list = [];
 
-    // 1. Primary: Cloud Firestore Database
-    try {
-      const cloudRecords = await FirebaseCloudEngine.fetchRecords('crm_leads', currentTenantId);
-      if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
-        list = cloudRecords;
-      }
-    } catch (e) {}
-
-    // 2. Secondary: REST API backend
+    // 1. Primary: REST API Backend (SQLite Server DB)
     try {
       const res = await fetch(`${API_URL}/contacts`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
-          const map = new Map();
-          list.forEach(c => { if (c && c.id) map.set(String(c.id), c); });
-          data.forEach(c => { if (c && c.id && !map.has(String(c.id))) map.set(String(c.id), c); });
-          list = Array.from(map.values());
+          list = data;
         }
       }
-    } catch (err) {}
+    } catch (err) {
+      console.warn('REST API contacts fetch warning:', err);
+    }
 
-    // 3. Fallback & Local Storage Merge (Ensures newly added leads are NEVER lost)
+    // 2. Secondary: Cloud Firestore Database
+    try {
+      const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
+      const cloudRecords = await FirebaseCloudEngine.fetchRecords('crm_leads', currentTenantId);
+      if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
+        const map = new Map();
+        list.forEach(c => { if (c && c.id) map.set(String(c.id), c); });
+        cloudRecords.forEach(c => { if (c && c.id && !map.has(String(c.id))) map.set(String(c.id), c); });
+        list = Array.from(map.values());
+      }
+    } catch (e) {}
+
+    // 3. Fallback & Local Storage Merge
     try {
       const saved = localStorage.getItem('omnilflow_fallback_contacts');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const map = new Map();
-          parsed.forEach(c => { if (c && c.id) map.set(String(c.id), c); });
           list.forEach(c => { if (c && c.id) map.set(String(c.id), c); });
+          parsed.forEach(c => { if (c && c.id && !map.has(String(c.id))) map.set(String(c.id), c); });
           list = Array.from(map.values());
         }
       }
     } catch (e) {}
 
-    if (list.length > 0) {
-      setContacts(list);
-      try { localStorage.setItem('omnilflow_fallback_contacts', JSON.stringify(list)); } catch (e) {}
-    }
+    setContacts(list);
+    try { localStorage.setItem('omnilflow_fallback_contacts', JSON.stringify(list)); } catch (e) {}
   };
 
   const fetchMessages = async (contactId, append = false) => {
