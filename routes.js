@@ -1372,14 +1372,19 @@ export default function setupRoutes(io) {
   // ==========================================
   // UNIVERSAL INTEGRATIONS & WEBHOOKS RECEIVER
   // ==========================================
-  router.post('/v1/integrations/webhook/receive/:companyId/:source', async (req, res) => {
+  router.all(['/v1/integrations/webhook/receive/:companyId/:source', '/v1/integrations/webhook/receive/:source'], async (req, res) => {
     try {
-      const { companyId, source } = req.params;
+      if (req.method === 'OPTIONS' || req.method === 'HEAD') {
+        return res.status(200).send('OK');
+      }
+
+      const companyId = req.params.companyId || 'default_tenant';
+      const source = req.params.source || 'ghl';
       const payload = req.body || {};
       const eventType = payload.type || payload.event || `${source}_inbound_event`;
       const timestamp = new Date().toISOString();
 
-      console.log(`📥 [INBOUND WEBHOOK] Source: ${source} | Company: ${companyId} | Event: ${eventType}`, payload);
+      console.log(`📥 [INBOUND WEBHOOK - ${req.method}] Source: ${source} | Company: ${companyId} | Event: ${eventType}`, payload);
 
       const logRecord = {
         id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -1406,7 +1411,7 @@ export default function setupRoutes(io) {
 
       try {
         if (fullName && fullName !== 'GHL Lead') {
-          await saveContact(contactId, fullName, 1);
+          await saveContact(contactId, fullName, 1, 'lead');
         }
       } catch (err) {
         console.warn('GHL Auto Contact Save:', err.message);
@@ -1432,57 +1437,6 @@ export default function setupRoutes(io) {
       res.status(200).json({ success: true, message: 'Webhook received & logged successfully', timestamp });
     } catch (err) {
       console.error('Webhook receive error:', err);
-      res.status(200).json({ success: true, message: 'Webhook received' });
-    }
-  });
-
-  // Handle fallback wildcard for /v1/integrations/webhook/receive/:source
-  router.post('/v1/integrations/webhook/receive/:source', async (req, res) => {
-    try {
-      const { source } = req.params;
-      const payload = req.body || {};
-      const eventType = payload.type || payload.event || `${source}_inbound_event`;
-      const timestamp = new Date().toISOString();
-
-      console.log(`📥 [INBOUND WEBHOOK] Source: ${source} | Event: ${eventType}`, payload);
-
-      const logRecord = {
-        id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-        companyId: 'default_tenant',
-        source: source ? source.toUpperCase() : 'WEBHOOK',
-        event: eventType,
-        status: 200,
-        payload: JSON.stringify(payload),
-        timestamp
-      };
-
-      globalWebhookLogs.unshift(logRecord);
-      if (globalWebhookLogs.length > 200) globalWebhookLogs.pop();
-      await saveWebhookLog(logRecord);
-
-      const contactObj = payload.contact || payload;
-      const firstName = contactObj.first_name || contactObj.firstName || '';
-      const lastName = contactObj.last_name || contactObj.lastName || '';
-      const fullName = `${firstName} ${lastName}`.trim() || contactObj.name || contactObj.email || contactObj.phone || 'GHL Lead';
-      const rawPhone = contactObj.phone || contactObj.phoneNumber || contactObj.phone_number || '';
-      const cleanPhone = rawPhone.replace(/\D/g, '');
-      const contactId = cleanPhone ? `${cleanPhone}@s.whatsapp.net` : (contactObj.id ? `ghl_${contactObj.id}` : `ghl_${Date.now()}`);
-
-      try {
-        if (fullName && fullName !== 'GHL Lead') {
-          await saveContact(contactId, fullName, 1);
-        }
-      } catch (err) {
-        console.warn('GHL Auto Contact Save:', err.message);
-      }
-
-      if (io) {
-        io.emit('webhook_received', logRecord);
-        io.emit('contact_updated', { id: contactId, name: fullName, phone: rawPhone, source: 'GHL' });
-      }
-
-      res.status(200).json({ success: true, message: 'Webhook received & logged successfully', timestamp });
-    } catch (err) {
       res.status(200).json({ success: true, message: 'Webhook received' });
     }
   });
