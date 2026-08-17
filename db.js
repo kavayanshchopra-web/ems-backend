@@ -137,6 +137,19 @@ export async function initDb() {
 
   // Create chatbot_rules table
   await db.exec(`
+    CREATE TABLE IF NOT EXISTS webhook_logs (
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL DEFAULT 'default_tenant',
+      source TEXT NOT NULL,
+      event TEXT NOT NULL,
+      status INTEGER NOT NULL DEFAULT 200,
+      payload TEXT,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Create chatbot_rules table
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS chatbot_rules (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       keyword TEXT NOT NULL,
@@ -495,16 +508,24 @@ export async function saveSession(id, phoneName, tenantId = 1) {
 }
 
 export async function updateSessionStatus(id, status, qrCode = null, phoneNumber = null, profilePicUrl = null) {
-  await db.run(
-    `UPDATE whatsapp_sessions 
-     SET status = ?, 
-         qr_code = ?, 
-         phone_number = COALESCE(?, phone_number), 
-         profile_pic_url = COALESCE(?, profile_pic_url), 
-         updated_at = CURRENT_TIMESTAMP 
-     WHERE id = ?`,
-    [status, qrCode, phoneNumber, profilePicUrl, id]
-  );
+  const existing = await db.get(`SELECT id FROM whatsapp_sessions WHERE id = ?`, [id]);
+  if (!existing) {
+    await db.run(
+      `INSERT INTO whatsapp_sessions (id, phone_name, status, qr_code, phone_number, profile_pic_url, tenant_id) VALUES (?, ?, ?, ?, ?, ?, 1)`,
+      [id, id, status, qrCode, phoneNumber, profilePicUrl]
+    );
+  } else {
+    await db.run(
+      `UPDATE whatsapp_sessions 
+       SET status = ?, 
+           qr_code = ?, 
+           phone_number = COALESCE(?, phone_number), 
+           profile_pic_url = COALESCE(?, profile_pic_url), 
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = ?`,
+      [status, qrCode, phoneNumber, profilePicUrl, id]
+    );
+  }
 }
 
 export async function getSession(id) {
@@ -519,16 +540,15 @@ export async function deleteSession(id) {
   await db.run(`DELETE FROM whatsapp_sessions WHERE id = ?`, [id]);
 }
 
-// Contact Helpers
-export async function saveContact(id, name, tenantId = 1) {
+export async function saveContact(id, name, tenantId = 1, stage = 'lead') {
   await db.run(
-    `INSERT OR IGNORE INTO contacts (id, name, pipeline_stage, labels, tenant_id) VALUES (?, ?, 'new', '[]', ?)`,
-    [id, name, tenantId]
+    `INSERT OR IGNORE INTO contacts (id, name, pipeline_stage, labels, tenant_id) VALUES (?, ?, ?, '[]', ?)`,
+    [id, name, stage || 'lead', tenantId]
   );
   if (name) {
     await db.run(
-      `UPDATE contacts SET name = ? WHERE id = ? AND tenant_id = ? AND (name IS NULL OR name = '')`,
-      [name, id, tenantId]
+      `UPDATE contacts SET name = ?, pipeline_stage = COALESCE(NULLIF(pipeline_stage, 'new'), ?) WHERE id = ? AND tenant_id = ?`,
+      [name, stage || 'lead', id, tenantId]
     );
   }
 }
@@ -542,6 +562,31 @@ export async function saveLidMapping(lid, pn) {
     `INSERT OR REPLACE INTO lid_mappings (lid, pn) VALUES (?, ?)`,
     [lid, pn]
   );
+}
+
+export async function saveWebhookLog({ id, companyId, source, event, status, payload, timestamp }) {
+  try {
+    const cleanId = id || `wh_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const cleanCompanyId = companyId || 'default_tenant';
+    await db.run(
+      `INSERT OR REPLACE INTO webhook_logs (id, company_id, source, event, status, payload, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [cleanId, cleanCompanyId, source, event, status || 200, typeof payload === 'string' ? payload : JSON.stringify(payload || {}), timestamp || new Date().toISOString()]
+    );
+  } catch (err) {
+    console.warn('saveWebhookLog warning:', err.message);
+  }
+}
+
+export async function getWebhookLogs(companyId = 'default_tenant') {
+  try {
+    return await db.all(
+      `SELECT id, company_id as companyId, source, event, status, payload, timestamp FROM webhook_logs WHERE company_id = ? OR company_id = 'default_tenant' ORDER BY timestamp DESC LIMIT 200`,
+      [companyId]
+    );
+  } catch (err) {
+    console.warn('getWebhookLogs warning:', err.message);
+    return [];
+  }
 }
 
 export async function getPnFromLid(lid) {
@@ -632,7 +677,7 @@ export async function getRecentChats(tenantId = 1) {
       ) m2 ON m1.contact_id = m2.contact_id AND m1.timestamp = m2.max_ts AND m1.id = m2.max_id
     ) m ON c.id = m.contact_id
     WHERE c.tenant_id = ?
-    ORDER BY COALESCE(m.timestamp, 0) DESC
+    ORDER BY COALESCE(m.timestamp, strftime('%s', c.created_at)*1000, 0) DESC
   `, [tenantId, tenantId, tenantId]);
   
   return chats.map(c => {
