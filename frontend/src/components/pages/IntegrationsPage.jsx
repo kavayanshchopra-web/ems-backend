@@ -199,34 +199,25 @@ export default function IntegrationsPage({
     setLoadingLogs(true);
     let allLogs = [];
 
-    // 1. Fetch from local storage logs
-    try {
-      const localLogs = JSON.parse(localStorage.getItem(`omnilflow_webhook_logs_${cleanCompanyId}`) || '[]');
-      if (Array.isArray(localLogs) && localLogs.length > 0) {
-        allLogs = [...localLogs];
-      }
-    } catch (err) {}
-
-    // 2. Fetch from backend API
+    // Fetch live logs 100% from backend API
     try {
       const res = await fetch(`/api/v1/integrations/logs?companyId=${cleanCompanyId}`);
       if (res.ok) {
         const data = await res.json();
-        if (data && Array.isArray(data.logs) && data.logs.length > 0) {
-          allLogs = [...data.logs, ...allLogs];
+        if (data && Array.isArray(data.logs)) {
+          allLogs = data.logs;
         }
       }
     } catch (e) {
-      console.warn('API log fetch fallback:', e);
+      console.warn('API log fetch error:', e);
     }
 
-    // Deduplicate by ID/Timestamp
-    const unique = Array.from(new Map(allLogs.map(item => [item.id || item.timestamp, item])).values());
-    unique.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+    // Sort descending by timestamp
+    allLogs.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
 
-    setLogs(unique.slice(0, 50));
+    setLogs(allLogs);
     setLoadingLogs(false);
-    showToast('🔄 Activity logs refreshed!', 'info');
+    showToast('🔄 Live Activity logs refreshed from server!', 'info');
   };
 
   const handleSyncGhlLiveContacts = async () => {
