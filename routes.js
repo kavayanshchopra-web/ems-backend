@@ -1392,8 +1392,26 @@ export default function setupRoutes(io) {
       globalWebhookLogs.unshift(logRecord);
       if (globalWebhookLogs.length > 200) globalWebhookLogs.pop();
 
+      // Auto-extract GHL / External Contact Data and Save into DB
+      const contactObj = payload.contact || payload;
+      const firstName = contactObj.first_name || contactObj.firstName || '';
+      const lastName = contactObj.last_name || contactObj.lastName || '';
+      const fullName = `${firstName} ${lastName}`.trim() || contactObj.name || contactObj.email || contactObj.phone || 'GHL Lead';
+      const rawPhone = contactObj.phone || contactObj.phoneNumber || contactObj.phone_number || '';
+      const cleanPhone = rawPhone.replace(/\D/g, '');
+      const contactId = cleanPhone ? `${cleanPhone}@s.whatsapp.net` : (contactObj.id ? `ghl_${contactObj.id}` : `ghl_${Date.now()}`);
+
+      try {
+        if (fullName && fullName !== 'GHL Lead') {
+          await saveContact(contactId, fullName, 1);
+        }
+      } catch (err) {
+        console.warn('GHL Auto Contact Save:', err.message);
+      }
+
       if (io) {
         io.emit('webhook_received', logRecord);
+        io.emit('contact_updated', { id: contactId, name: fullName, phone: rawPhone, source: 'GHL' });
       }
 
       try {
@@ -1438,8 +1456,25 @@ export default function setupRoutes(io) {
       globalWebhookLogs.unshift(logRecord);
       if (globalWebhookLogs.length > 200) globalWebhookLogs.pop();
 
+      const contactObj = payload.contact || payload;
+      const firstName = contactObj.first_name || contactObj.firstName || '';
+      const lastName = contactObj.last_name || contactObj.lastName || '';
+      const fullName = `${firstName} ${lastName}`.trim() || contactObj.name || contactObj.email || contactObj.phone || 'GHL Lead';
+      const rawPhone = contactObj.phone || contactObj.phoneNumber || contactObj.phone_number || '';
+      const cleanPhone = rawPhone.replace(/\D/g, '');
+      const contactId = cleanPhone ? `${cleanPhone}@s.whatsapp.net` : (contactObj.id ? `ghl_${contactObj.id}` : `ghl_${Date.now()}`);
+
+      try {
+        if (fullName && fullName !== 'GHL Lead') {
+          await saveContact(contactId, fullName, 1);
+        }
+      } catch (err) {
+        console.warn('GHL Auto Contact Save:', err.message);
+      }
+
       if (io) {
         io.emit('webhook_received', logRecord);
+        io.emit('contact_updated', { id: contactId, name: fullName, phone: rawPhone, source: 'GHL' });
       }
 
       res.status(200).json({ success: true, message: 'Webhook received & logged successfully', timestamp });
