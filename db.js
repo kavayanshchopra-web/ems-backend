@@ -540,16 +540,15 @@ export async function deleteSession(id) {
   await db.run(`DELETE FROM whatsapp_sessions WHERE id = ?`, [id]);
 }
 
-// Contact Helpers
-export async function saveContact(id, name, tenantId = 1) {
+export async function saveContact(id, name, tenantId = 1, stage = 'lead') {
   await db.run(
-    `INSERT OR IGNORE INTO contacts (id, name, pipeline_stage, labels, tenant_id) VALUES (?, ?, 'new', '[]', ?)`,
-    [id, name, tenantId]
+    `INSERT OR IGNORE INTO contacts (id, name, pipeline_stage, labels, tenant_id) VALUES (?, ?, ?, '[]', ?)`,
+    [id, name, stage || 'lead', tenantId]
   );
   if (name) {
     await db.run(
-      `UPDATE contacts SET name = ? WHERE id = ? AND tenant_id = ? AND (name IS NULL OR name = '')`,
-      [name, id, tenantId]
+      `UPDATE contacts SET name = ?, pipeline_stage = COALESCE(NULLIF(pipeline_stage, 'new'), ?) WHERE id = ? AND tenant_id = ?`,
+      [name, stage || 'lead', id, tenantId]
     );
   }
 }

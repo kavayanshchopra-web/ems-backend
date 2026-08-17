@@ -1393,12 +1393,13 @@ export default function setupRoutes(io) {
 
       globalWebhookLogs.unshift(logRecord);
       if (globalWebhookLogs.length > 200) globalWebhookLogs.pop();
+      await saveWebhookLog(logRecord);
 
       // Auto-extract GHL / External Contact Data and Save into DB
       const contactObj = payload.contact || payload;
       const firstName = contactObj.first_name || contactObj.firstName || '';
       const lastName = contactObj.last_name || contactObj.lastName || '';
-      const fullName = `${firstName} ${lastName}`.trim() || contactObj.name || contactObj.email || contactObj.phone || 'GHL Lead';
+      const fullName = `${firstName} ${lastName}`.trim() || contactObj.full_name || contactObj.name || contactObj.email || contactObj.phone || 'GHL Lead';
       const rawPhone = contactObj.phone || contactObj.phoneNumber || contactObj.phone_number || '';
       const cleanPhone = rawPhone.replace(/\D/g, '');
       const contactId = cleanPhone ? `${cleanPhone}@s.whatsapp.net` : (contactObj.id ? `ghl_${contactObj.id}` : `ghl_${Date.now()}`);
