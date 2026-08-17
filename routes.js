@@ -12,6 +12,8 @@ import {
   markMessagesAsRead,
   getDb,
   saveContact,
+  saveWebhookLog,
+  getWebhookLogs,
   getContact,
   getChatbotRules,
   addChatbotRule,
@@ -1455,6 +1457,7 @@ export default function setupRoutes(io) {
 
       globalWebhookLogs.unshift(logRecord);
       if (globalWebhookLogs.length > 200) globalWebhookLogs.pop();
+      await saveWebhookLog(logRecord);
 
       const contactObj = payload.contact || payload;
       const firstName = contactObj.first_name || contactObj.firstName || '';
@@ -1484,11 +1487,27 @@ export default function setupRoutes(io) {
   });
 
   // Get Webhook Activity Logs
-  router.get('/v1/integrations/logs', (req, res) => {
-    const { companyId } = req.query;
-    const cleanId = companyId || 'default_tenant';
-    const logs = globalWebhookLogs.filter(l => l.companyId === cleanId || l.companyId === 'default_tenant' || !l.companyId);
-    res.json({ success: true, logs });
+  router.get('/v1/integrations/logs', async (req, res) => {
+    try {
+      const { companyId } = req.query;
+      const cleanId = companyId || 'default_tenant';
+      const dbLogs = await getWebhookLogs(cleanId);
+      const combinedLogs = [...globalWebhookLogs, ...dbLogs];
+      
+      // Remove duplicates by id
+      const uniqueLogs = [];
+      const seenIds = new Set();
+      for (const log of combinedLogs) {
+        if (!seenIds.has(log.id)) {
+          seenIds.add(log.id);
+          uniqueLogs.push(log);
+        }
+      }
+
+      res.json({ success: true, logs: uniqueLogs });
+    } catch (err) {
+      res.json({ success: true, logs: globalWebhookLogs });
+    }
   });
 
   // Direct GHL Live Contacts Sync Endpoint
