@@ -677,7 +677,7 @@ export async function getRecentChats(tenantId = 1) {
       ) m2 ON m1.contact_id = m2.contact_id AND m1.timestamp = m2.max_ts AND m1.id = m2.max_id
     ) m ON c.id = m.contact_id
     WHERE c.tenant_id = ?
-    ORDER BY COALESCE(m.timestamp, 0) DESC
+    ORDER BY COALESCE(m.timestamp, strftime('%s', c.created_at)*1000, 0) DESC
   `, [tenantId, tenantId, tenantId]);
   
   return chats.map(c => {
