@@ -292,7 +292,9 @@ const getLabelStyles = (label) => {
 };
 
 const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-const LIVE_BACKEND = 'https://ems-backend-9hig.onrender.com';
+const DEFAULT_GATEWAY = 'https://api.employeemanagementsystems.com';
+const customGateway = typeof window !== 'undefined' ? localStorage.getItem('omniflow_custom_gateway') : null;
+const LIVE_BACKEND = customGateway || DEFAULT_GATEWAY;
 const SOCKET_URL = IS_DEV ? 'http://localhost:5000' : LIVE_BACKEND;
 const API_URL = IS_DEV ? 'http://localhost:5000/api' : `${LIVE_BACKEND}/api`;
 
@@ -413,13 +415,7 @@ function installFetchInterceptor() {
 
     const isAuthRoute = targetUrl.includes('/auth/login') || targetUrl.includes('/auth/register');
 
-    if (token === 'superadmin_master_token_override' && !isAuthRoute) {
-      const fallbackData = getSafeFallbackData(targetUrl, options.method);
-      return new Response(JSON.stringify(fallbackData), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
+
 
     try {
       const response = await originalFetch(targetUrl, {
@@ -4982,12 +4978,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       fetchTenantSettings();
 
       // Connect WebSockets
-      const currentToken = localStorage.getItem('omnilflow_token');
-      if (currentToken !== 'superadmin_master_token_override') {
-        const socket = io(SOCKET_URL, {
-          query: { token: currentToken }
-        });
-        socketRef.current = socket;
+      const currentToken = localStorage.getItem('omnilflow_token') || '';
+      const socket = io(SOCKET_URL, {
+        query: { token: currentToken }
+      });
+      socketRef.current = socket;
 
         socket.on('connect', () => {
         console.log('Connected to WebSocket server');
@@ -5004,18 +4999,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
       socket.on('session_update', (data) => {
         console.log('Session updated:', data);
-        setSessions(prev => prev.map(s => {
-          if (s.id === data.id) {
-            return {
-              ...s,
-              status: data.status,
-              qr_code: data.qr || s.qr_code,
-              phone_number: data.phoneNumber || s.phone_number,
-              profile_pic_url: data.profilePicUrl || s.profile_pic_url
-            };
-          }
-          return s;
-        }));
+        setSessions(prev => {
+          const updated = (prev || []).map(s => {
+            if (String(s.id) === String(data.id)) {
+              return {
+                ...s,
+                status: data.status,
+                qr_code: data.qr || data.qr_code || s.qr_code,
+                phone_number: data.phoneNumber || data.phone_number || s.phone_number,
+                profile_pic_url: data.profilePicUrl || data.profile_pic_url || s.profile_pic_url
+              };
+            }
+            return s;
+          });
+          try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(updated)); } catch (e) {}
+          return updated;
+        });
       });
 
       socket.on('new_message', (msg) => {
@@ -5105,8 +5104,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         });
       });
 
-      } // Close if (currentToken !== 'superadmin_master_token_override')
-
       return () => {
         if (socketRef.current) {
           socketRef.current.disconnect();
@@ -5119,6 +5116,79 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const fetchContacts = async () => {
+    try {
+      const res = await fetch(`${API_URL}/contacts`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setContacts(data);
+          try { localStorage.setItem('omnilflow_fallback_contacts', JSON.stringify(data)); } catch (e) {}
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('REST API contacts fetch warning:', err);
+    }
+
+    setContacts([]);
+  };
+
+  const fetchMessages = async (contactId, append = false) => {
+    if (!contactId) return;
+    try {
+      const currentOffset = append ? messagesOffset + 50 : 0;
+      if (append) {
+        setIsLoadingMore(true);
+      }
+
+      const encodedId = encodeURIComponent(contactId);
+      const res = await fetch(`${API_URL}/contacts/${encodedId}/messages?limit=50&offset=${currentOffset}`);
+      if (res.ok) {
+        const data = await res.json();
+        const msgList = data.messages || (Array.isArray(data) ? data : []);
+        if (append) {
+          setMessages(prev => [...msgList, ...prev]);
+          setMessagesOffset(currentOffset);
+        } else {
+          setMessages(msgList);
+          setMessagesOffset(0);
+        }
+        setHasMoreMessages(data.hasMore || false);
+      }
+    } catch (err) {
+      console.error('Failed to fetch messages:', err);
+    } finally {
+      if (append) {
+        setIsLoadingMore(false);
+      }
+    }
+  };
+
+  const fetchScheduledMessages = async (contactId) => {
+    if (!contactId) return;
+    try {
+      const encodedId = encodeURIComponent(contactId);
+      const res = await fetch(`${API_URL}/contacts/${encodedId}/scheduled`);
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof setScheduledMessages === 'function') setScheduledMessages(data || []);
+      }
+    } catch (err) {}
+  };
+
+  const fetchStarredMessages = async (contactId) => {
+    if (!contactId) return;
+    try {
+      const encodedId = encodeURIComponent(contactId);
+      const res = await fetch(`${API_URL}/contacts/${encodedId}/starred`);
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof setStarredMessages === 'function') setStarredMessages(data || []);
+      }
+    } catch (err) {}
+  };
 
   // Load CRM Form data when active contact changes
   useEffect(() => {
@@ -5231,24 +5301,27 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }
     } catch (err) {}
 
-    let localData = [];
-    try {
-      const saved = localStorage.getItem('omnilflow_fallback_sessions');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) localData = parsed;
+    setSessions(prev => {
+      const map = new Map();
+      (prev || []).forEach(s => { if (s && s.id) map.set(String(s.id), s); });
+
+      serverData.forEach(s => {
+        if (s && s.id) {
+          const existing = map.get(String(s.id)) || {};
+          map.set(String(s.id), {
+            ...existing,
+            ...s,
+            qr_code: s.qr_code || s.qr || existing.qr_code
+          });
+        }
+      });
+
+      const merged = Array.from(map.values());
+      if (merged.length > 0) {
+        try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(merged)); } catch (e) {}
       }
-    } catch (e) {}
-
-    const map = new Map();
-    localData.forEach(s => { if (s && s.id) map.set(String(s.id), s); });
-    serverData.forEach(s => { if (s && s.id) map.set(String(s.id), s); });
-
-    const merged = Array.from(map.values());
-    if (merged.length > 0) {
-      setSessions(merged);
-      try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(merged)); } catch (e) {}
-    }
+      return merged.length > 0 ? merged : prev;
+    });
   };
 
   useEffect(() => {
@@ -5261,78 +5334,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   }, [activeTab, (sessions || []).map(s => s.status).join(',')]);
 
-  const fetchContacts = async () => {
-    let list = [];
 
-    // 1. Primary: REST API Backend (SQLite Server DB)
-    try {
-      const res = await fetch(`${API_URL}/contacts`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          list = data;
-        }
-      }
-    } catch (err) {
-      console.warn('REST API contacts fetch warning:', err);
-    }
-
-    // 2. Secondary: Cloud Firestore Database
-    try {
-      const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
-      const cloudRecords = await FirebaseCloudEngine.fetchRecords('crm_leads', currentTenantId);
-      if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
-        const map = new Map();
-        list.forEach(c => { if (c && c.id) map.set(String(c.id), c); });
-        cloudRecords.forEach(c => { if (c && c.id && !map.has(String(c.id))) map.set(String(c.id), c); });
-        list = Array.from(map.values());
-      }
-    } catch (e) {}
-
-    // 3. Fallback & Local Storage Merge
-    try {
-      const saved = localStorage.getItem('omnilflow_fallback_contacts');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const map = new Map();
-          list.forEach(c => { if (c && c.id) map.set(String(c.id), c); });
-          parsed.forEach(c => { if (c && c.id && !map.has(String(c.id))) map.set(String(c.id), c); });
-          list = Array.from(map.values());
-        }
-      }
-    } catch (e) {}
-
-    setContacts(list);
-    try { localStorage.setItem('omnilflow_fallback_contacts', JSON.stringify(list)); } catch (e) {}
-  };
-
-  const fetchMessages = async (contactId, append = false) => {
-    try {
-      const currentOffset = append ? messagesOffset + 50 : 0;
-      if (append) {
-        setIsLoadingMore(true);
-      }
-
-      const res = await fetch(`${API_URL}/contacts/${contactId}/messages?limit=50&offset=${currentOffset}`);
-      const data = await res.json();
-
-      if (append) {
-        setMessages(prev => [...data.messages, ...prev]);
-        setMessagesOffset(currentOffset);
-      } else {
-        setMessages(data.messages);
-        setMessagesOffset(0);
-      }
-      setHasMoreMessages(data.hasMore);
-    } catch (err) {
-      console.error('Failed to fetch messages:', err);
-    } finally {
-      if (append) {
-        setIsLoadingMore(false);
-      }
-    }
-  };
 
   const handleStartNewChat = async (e) => {
     e.preventDefault();
@@ -5621,7 +5623,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   // Delete session
   const handleDeleteSession = async (id) => {
     if (!confirm('Are you sure you want to delete this session? This will log out the WhatsApp account.')) return;
-    const sessObj = sessions.find(s => s.id === id);
+    const sessObj = (sessions || []).find(s => String(s.id) === String(id));
     if (sessObj) {
       softDeleteRecord({
         originalId: id,
@@ -5631,6 +5633,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         links: 'Active Baileys Session Connection'
       });
     }
+
+    setSessions(prev => {
+      const updated = (prev || []).filter(s => String(s.id) !== String(id));
+      try {
+        localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(updated));
+        localStorage.setItem('omnilflow_sessions', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
     try {
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('token') || '';
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
@@ -5638,13 +5650,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.error('Error deleting session:', err);
     }
-    setSessions(prev => {
-      const updated = prev.filter(s => s.id !== id);
-      try {
-        localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(updated));
-      } catch (e) {}
-      return updated;
-    });
   };
 
   // Send WhatsApp message
@@ -5905,25 +5910,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   };
 
-  const fetchStarredMessages = async (contactId) => {
-    try {
-      const res = await fetch(`${API_URL}/contacts/${contactId}/starred`);
-      const data = await res.json();
-      setStarredMessages(data);
-    } catch (err) {
-      console.error('Failed to fetch starred messages:', err);
-    }
-  };
 
-  const fetchScheduledMessages = async (contactId) => {
-    try {
-      const res = await fetch(`${API_URL}/contacts/${contactId}/scheduled`);
-      const data = await res.json();
-      setScheduledMessages(data);
-    } catch (err) {
-      console.error('Failed to fetch scheduled messages:', err);
-    }
-  };
 
   const handleToggleStar = async (msgId, isStarred) => {
     try {
@@ -6490,7 +6477,23 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               </button>
             )}
             {activeTab === 'channels' && (
-              <button className="btn btn-primary" onClick={() => setShowAddSessionModal(true)} style={{ padding: '5px 10px', fontSize: '12px', borderRadius: '6px' }}>
+              <button 
+                className="btn btn-primary" 
+                onClick={() => {
+                  if (authUser?.role !== 'superadmin' && (sessions || []).length >= 1) {
+                    showToast('Limit Reached: 1 WhatsApp account per user is allowed. Disconnect or delete your current channel to pair another.', 'warning');
+                    return;
+                  }
+                  setShowAddSessionModal(true);
+                }} 
+                style={{ 
+                  padding: '5px 10px', 
+                  fontSize: '12px', 
+                  borderRadius: '6px',
+                  opacity: (authUser?.role !== 'superadmin' && (sessions || []).length >= 1) ? 0.6 : 1,
+                  cursor: (authUser?.role !== 'superadmin' && (sessions || []).length >= 1) ? 'not-allowed' : 'pointer'
+                }}
+              >
                 <Plus size={14} /> Add Channel
               </button>
             )}

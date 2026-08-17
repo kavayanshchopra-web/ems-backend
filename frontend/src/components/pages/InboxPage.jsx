@@ -56,7 +56,10 @@ export default function InboxPage({
   setShowScheduleModal,
   handleCancelScheduled,
   starredMessages,
-  callLogs
+  callLogs,
+  hasMoreMessages = false,
+  isLoadingMore = false,
+  onLoadMoreMessages = () => {}
 }) {
   return (
     <div className={`inbox-view ${activeContact ? 'has-active-chat' : 'no-active-chat'}`}>
@@ -232,6 +235,42 @@ export default function InboxPage({
 
             {/* Chat Messages Log */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {/* On-Demand Lazy Loading Button (Conserves RAM & Speed) */}
+              {hasMoreMessages && (
+                <div style={{ display: 'flex', justifyContent: 'center', margin: '4px 0 10px 0' }}>
+                  <button
+                    type="button"
+                    onClick={() => onLoadMoreMessages && onLoadMoreMessages()}
+                    disabled={isLoadingMore}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      color: 'var(--text-main, #ffffff)',
+                      padding: '6px 14px',
+                      borderRadius: '20px',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+                    }}
+                  >
+                    {isLoadingMore ? (
+                      <>
+                        <RefreshCw size={12} className="spin animate-spin" /> Loading previous messages...
+                      </>
+                    ) : (
+                      <>
+                        <span>⬆ Load Older Messages (50 more)</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
               {(messages || []).map((msg) => {
                 const isOut = msg.fromMe || msg.from_me === 1;
                 return (

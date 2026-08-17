@@ -646,14 +646,16 @@ export async function updateMessageStatus(id, status) {
 }
 
 export async function getMessagesForContact(contactId, limit = 50, offset = 0, tenantId = 1) {
+  const cleanJid = contactId.includes('@') ? contactId : `${contactId}@s.whatsapp.net`;
+  const rawNum = contactId.split('@')[0];
   const messages = await db.all(
     `SELECT m.*, s.phone_name as session_name 
      FROM messages m
      LEFT JOIN whatsapp_sessions s ON m.session_id = s.id
-     WHERE m.contact_id = ? AND m.tenant_id = ?
+     WHERE (m.contact_id = ? OR m.contact_id = ? OR m.contact_id LIKE ?)
      ORDER BY m.timestamp DESC
      LIMIT ? OFFSET ?`,
-    [contactId, tenantId, limit, offset]
+    [contactId, cleanJid, `%${rawNum}%`, limit, offset]
   );
   return messages.reverse();
 }
@@ -661,8 +663,12 @@ export async function getMessagesForContact(contactId, limit = 50, offset = 0, t
 export async function getRecentChats(tenantId = 1) {
   const chats = await db.all(`
     SELECT c.*, 
+           COALESCE(NULLIF(c.name, ''), c.custom_name, REPLACE(REPLACE(c.id, '@s.whatsapp.net', ''), '@g.us', '')) as displayName,
+           REPLACE(REPLACE(c.id, '@s.whatsapp.net', ''), '@g.us', '') as phone_computed,
            m.text_content as last_message_text, 
+           m.text_content as lastMessage,
            m.timestamp as last_message_time,
+           m.timestamp as lastMessageTime,
            m.from_me as last_message_from_me,
            m.media_type as last_message_media_type,
            (SELECT COUNT(*) FROM messages m3 WHERE m3.contact_id = c.id AND m3.from_me = 0 AND m3.is_read = 0 AND m3.tenant_id = ?) as unread_count
@@ -675,9 +681,9 @@ export async function getRecentChats(tenantId = 1) {
         FROM messages WHERE tenant_id = ?
         GROUP BY contact_id
       ) m2 ON m1.contact_id = m2.contact_id AND m1.timestamp = m2.max_ts AND m1.id = m2.max_id
-    ) m ON c.id = m.contact_id
-    WHERE c.tenant_id = ?
-    ORDER BY COALESCE(m.timestamp, strftime('%s', c.created_at)*1000, 0) DESC
+    ) m ON (c.id = m.contact_id OR m.contact_id LIKE '%' || REPLACE(c.id, '@s.whatsapp.net', '') || '%')
+    WHERE c.tenant_id = ? AND c.id != '0@s.whatsapp.net' AND c.id NOT LIKE '%@lid'
+    ORDER BY (CASE WHEN m.timestamp IS NOT NULL THEN 1 ELSE 0 END) DESC, COALESCE(m.timestamp, 0) DESC, c.name ASC
   `, [tenantId, tenantId, tenantId]);
   
   return chats.map(c => {
@@ -685,6 +691,11 @@ export async function getRecentChats(tenantId = 1) {
       c.labels = JSON.parse(c.labels || '[]');
     } catch {
       c.labels = [];
+    }
+    c.name = c.name || c.custom_name || c.displayName || c.phone_computed;
+    c.phone = c.phone_computed || c.id.split('@')[0];
+    if (c.lastMessageTime && c.lastMessageTime < 10000000000) {
+      c.lastMessageTime = c.lastMessageTime * 1000;
     }
     return c;
   });

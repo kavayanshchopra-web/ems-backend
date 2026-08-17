@@ -1,7 +1,9 @@
 import makeWASocket, { 
   useMultiFileAuthState, 
   DisconnectReason,
-  downloadMediaMessage
+  downloadMediaMessage,
+  fetchLatestWaWebVersion,
+  Browsers
 } from '@whiskeysockets/baileys';
 import path from 'path';
 import fs from 'fs';
@@ -140,13 +142,22 @@ export async function startSession(id, io) {
   // Set up low-verbosity logger for Baileys
   const logger = pino({ level: 'silent' });
 
+  const { version, isLatest } = await fetchLatestWaWebVersion().catch(() => ({ version: [2, 3000, 1045345293], isLatest: false }));
+  console.log(`[Session ${id}] Using WAWeb version: ${version.join('.')} (isLatest: ${isLatest})`);
+
   const sock = makeWASocket({
+    version,
     auth: state,
     logger,
     printQRInTerminal: false,
-    syncFullHistory: true,
-    shouldSyncHistoryMessage: () => true,
-    defaultQueryTimeoutMs: undefined,
+    browser: ['Ubuntu', 'Chrome', '20.0.04'],
+    connectTimeoutMs: 60000,
+    defaultQueryTimeoutMs: 60000,
+    keepAliveIntervalMs: 30000,
+    syncFullHistory: false, // Lite mode: Prevents downloading huge past chat history to conserve VPS RAM
+    shouldSyncHistoryMessage: () => false,
+    markOnlineOnConnect: false,
+    generateHighQualityLinkPreview: false
   });
 
   activeSockets.set(id, sock);
@@ -164,9 +175,7 @@ export async function startSession(id, io) {
       } catch (err) {
         console.error('Error generating QR data URL:', err);
       }
-    }
-
-    if (connection === 'connecting') {
+    } else if (connection === 'connecting') {
       console.log(`[Session ${id}] Connecting...`);
       await updateSessionStatus(id, 'connecting', null, null);
       io.emit('session_update', { id, status: 'connecting' });
@@ -310,6 +319,8 @@ export async function startSession(id, io) {
             else if (msg.message?.documentMessage) mediaType = 'document';
             else if (msg.message?.audioMessage) mediaType = 'audio';
             else if (msg.message?.videoMessage) mediaType = 'video';
+
+            if (!textContent && mediaType === 'text') continue;
 
             if (mediaType !== 'text') {
               triggerDownloadMediaBackground(msg, mediaType, io);
@@ -458,6 +469,8 @@ export async function startSession(id, io) {
       else if (msg.message?.documentMessage) mediaType = 'document';
       else if (msg.message?.audioMessage) mediaType = 'audio';
       else if (msg.message?.videoMessage) mediaType = 'video';
+
+      if (!textContent && mediaType === 'text') continue;
 
       let mediaUrl = null;
       if (mediaType !== 'text') {
@@ -804,3 +817,4 @@ export function startScheduledMessagesWorker(io) {
     }
   }, 10000); // Check every 10 seconds
 }
+
