@@ -142,7 +142,7 @@ export async function startSession(id, io) {
   // Set up low-verbosity logger for Baileys
   const logger = pino({ level: 'silent' });
 
-  const { version, isLatest } = await fetchLatestWaWebVersion().catch(() => ({ version: [2, 3000, 1045345293], isLatest: false }));
+  const { version, isLatest } = await fetchLatestWaWebVersion().catch(() => ({ version: [2, 3000, 1015901307], isLatest: false }));
   console.log(`[Session ${id}] Using WAWeb version: ${version.join('.')} (isLatest: ${isLatest})`);
 
   const sock = makeWASocket({
@@ -153,10 +153,11 @@ export async function startSession(id, io) {
     browser: Browsers.ubuntu('Chrome'),
     connectTimeoutMs: 60000,
     defaultQueryTimeoutMs: 60000,
-    keepAliveIntervalMs: 30000,
+    keepAliveIntervalMs: 25000,
     syncFullHistory: false, // Lite mode: Prevents downloading huge past chat history to conserve VPS RAM
     shouldSyncHistoryMessage: () => false,
     markOnlineOnConnect: false,
+    retryRequestDelayMs: 250,
     generateHighQualityLinkPreview: false
   });
 

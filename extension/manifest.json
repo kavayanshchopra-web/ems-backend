@@ -1,0 +1,62 @@
+{
+  "manifest_version": 3,
+  "name": "OmniFlow - WhatsApp Web CRM & Staff Suite",
+  "version": "1.0.0",
+  "description": "Supercharge WhatsApp Web with 2-Way Cloud CRM, Multi-Staff Sync, AI Smart Replies, Follow-up Alarms & Lead Pipelines.",
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications",
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "*://*.whatsapp.com/*",
+    "*://*.whatsapp.net/*",
+    "https://*.employeemanagementsystems.com/*",
+    "https://*.trycloudflare.com/*",
+    "http://localhost:*/*"
+  ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ruleset_1",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "OmniFlow WhatsApp CRM Settings",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://web.whatsapp.com/*"],
+      "js": ["frame-fix.js"],
+      "all_frames": true,
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://web.whatsapp.com/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*", "styles.css"],
+      "matches": ["https://web.whatsapp.com/*"]
+    }
+  ]
+}
