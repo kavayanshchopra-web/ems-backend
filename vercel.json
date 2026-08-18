@@ -19,7 +19,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://retention-ellen-beijing-motorcycles.trycloudflare.com/api/$1"
+      "destination": "https://api.employeemanagementsystems.com/api/$1"
     },
     {
       "source": "/(.*)",

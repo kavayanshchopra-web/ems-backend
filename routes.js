@@ -1862,5 +1862,260 @@ export default function setupRoutes(io) {
     }
   });
 
+  // ==========================================
+  // 📱 SIM BRIDGE & TELECALLING ENDPOINTS
+  // ==========================================
+
+  // Socket.io handlers for SIM Bridge
+  if (io) {
+    io.on('connection', (socket) => {
+      // Mobile app joins its staff room
+      socket.on('sim_bridge:register_device', async (data) => {
+        const { staffId, deviceId, deviceName, simCarrier, simNumber, deviceIp, batteryLevel } = data || {};
+        if (staffId) {
+          socket.join(`staff_${staffId}`);
+          socket.join(`device_${deviceId}`);
+          await registerOrUpdateSimDevice(1, {
+            staffId,
+            staffName: data.staffName || `Staff ${staffId}`,
+            deviceId: deviceId || socket.id,
+            deviceName: deviceName || 'Android Phone',
+            simCarrier: simCarrier || 'Jio 4G',
+            simNumber: simNumber || '',
+            deviceIp: deviceIp || socket.handshake.address,
+            batteryLevel: batteryLevel || 100,
+            status: 'online'
+          });
+          io.emit('sim_bridge:device_updated', { staffId, status: 'online', deviceName, simCarrier });
+        }
+      });
+
+      // Desktop triggers call to mobile phone
+      socket.on('sim_bridge:trigger_call', (data) => {
+        const { staffId, customerPhone, customerName } = data || {};
+        if (staffId) {
+          io.to(`staff_${staffId}`).emit('sim_bridge:incoming_trigger', {
+            customerPhone,
+            customerName: customerName || 'Customer',
+            timestamp: Date.now()
+          });
+        }
+      });
+
+      // Mobile reports call state back to desktop
+      socket.on('sim_bridge:call_status', (data) => {
+        const { staffId, status, duration, customerPhone } = data || {};
+        if (staffId) {
+          io.emit(`sim_bridge:status_${staffId}`, { status, duration, customerPhone, timestamp: Date.now() });
+        }
+      });
+
+      // Desktop or mobile requests hangup
+      socket.on('sim_bridge:hangup', (data) => {
+        const { staffId } = data || {};
+        if (staffId) {
+          io.to(`staff_${staffId}`).emit('sim_bridge:hangup_command');
+        }
+      });
+    });
+  }
+
+  // Get list of all paired SIM Bridge Devices
+  router.get('/sim-bridge/devices', async (req, res) => {
+    try {
+      const devices = await getSimBridgeDevices(1);
+      const now = Date.now();
+      const enriched = devices.map(d => {
+        const lastSeenMs = d.last_seen ? new Date(d.last_seen).getTime() : 0;
+        const isOnline = (now - lastSeenMs) < 30000;
+        return {
+          ...d,
+          isOnline,
+          status: isOnline ? (d.status || 'online') : 'offline'
+        };
+      });
+      res.json({ success: true, devices: enriched });
+    } catch (err) {
+      console.error('Error fetching sim bridge devices:', err);
+      res.status(500).json({ error: 'Failed to fetch devices' });
+    }
+  });
+
+  // Get status of specific staff / extension
+  router.get('/sim-bridge/device-status', async (req, res) => {
+    try {
+      const { staffId, extension } = req.query;
+      const device = await getSimBridgeDeviceByStaff(1, extension || staffId || '101');
+      if (!device) {
+        return res.json({ success: true, isPaired: false, status: 'offline' });
+      }
+      const lastSeenMs = device.last_seen ? new Date(device.last_seen).getTime() : 0;
+      const isOnline = (Date.now() - lastSeenMs) < 30000;
+      res.json({
+        success: true,
+        isPaired: true,
+        isOnline,
+        device: {
+          ...device,
+          status: isOnline ? (device.status || 'online') : 'offline'
+        }
+      });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to fetch device status' });
+    }
+  });
+
+  // Pair or update mobile SIM device (from Mobile App)
+  router.post('/sim-bridge/pair', async (req, res) => {
+    try {
+      const device = await registerOrUpdateSimDevice(1, req.body);
+      console.log(`📱 [SIM BRIDGE] Staff Device Paired: Ext ${device.extension || device.staff_id} (${device.device_name}) - SIM: ${device.sim_carrier}`);
+      if (io) {
+        io.emit('sim_bridge:device_paired', device);
+      }
+      res.json({ success: true, device });
+    } catch (err) {
+      console.error('Error pairing sim device:', err);
+      res.status(500).json({ error: 'Failed to pair device' });
+    }
+  });
+
+  // Mobile App Heartbeat (keeps device status ONLINE)
+  router.post('/sim-bridge/heartbeat', async (req, res) => {
+    try {
+      const { extension, staffId, batteryLevel, status } = req.body;
+      const key = String(extension || staffId || '101');
+      await registerOrUpdateSimDevice(1, {
+        staffId: key,
+        extension: key,
+        batteryLevel: batteryLevel || 100,
+        status: status || 'online'
+      });
+      res.json({ success: true, timestamp: Date.now() });
+    } catch (err) {
+      res.status(500).json({ error: 'Heartbeat failed' });
+    }
+  });
+
+  const pendingSimCalls = new Map(); // extension/staffId -> call data
+
+  // Poll for pending call command (Mobile App)
+  router.get('/sim-bridge/poll-call', (req, res) => {
+    const key1 = String(req.query.extension || '');
+    const key2 = String(req.query.staffId || '');
+    const ext = key1 || key2 || '101';
+    
+    // Check both extension key and staffId key
+    let pending = pendingSimCalls.get(ext);
+    if (!pending && key2) pending = pendingSimCalls.get(key2);
+    if (!pending && key1) pending = pendingSimCalls.get(key1);
+
+    if (pending && (Date.now() - pending.timestamp < 45000)) {
+      pendingSimCalls.delete(ext);
+      if (key1) pendingSimCalls.delete(key1);
+      if (key2) pendingSimCalls.delete(key2);
+      console.log(`⚡ [SIM BRIDGE] Mobile Fetched Call Command -> Dialing ${pending.customerPhone} (Ext: ${ext})`);
+      return res.json({ hasCall: true, ...pending });
+    }
+    res.json({ hasCall: false });
+  });
+
+  // REST Trigger Call (Desktop -> Server -> Mobile)
+  router.post('/sim-bridge/trigger-call', async (req, res) => {
+    try {
+      const { staffId, extension, customerPhone, customerName } = req.body;
+      if (!customerPhone) {
+        return res.status(400).json({ error: 'customerPhone is required' });
+      }
+
+      const targetExt = String(extension || staffId || '101');
+      console.log(`📞 [SIM BRIDGE] Call Queued from Laptop CRM -> Target Ext: ${targetExt} -> Customer Phone: ${customerPhone}`);
+
+      // Add to pending poll queue for mobile device
+      const callData = {
+        extension: targetExt,
+        staffId: String(staffId || targetExt),
+        customerPhone,
+        customerName: customerName || 'Customer',
+        timestamp: Date.now()
+      };
+
+      pendingSimCalls.set(targetExt, callData);
+      if (staffId && String(staffId) !== targetExt) {
+        pendingSimCalls.set(String(staffId), callData);
+      }
+
+      if (io) {
+        io.to(`staff_${targetExt}`).emit('sim_bridge:incoming_trigger', callData);
+        io.emit(`sim_bridge:status_${targetExt}`, { status: 'DIALING', customerPhone, timestamp: Date.now() });
+      }
+      res.json({ success: true, message: `Call queued for extension ${targetExt}` });
+    } catch (err) {
+      console.error('Error triggering sim call:', err);
+      res.status(500).json({ error: 'Failed to trigger call' });
+    }
+  });
+
+  // Telecalling Logs List
+  router.get('/telecalling/logs', async (req, res) => {
+    try {
+      const logs = await getCallLogs(1, 200);
+      res.json({ success: true, logs });
+    } catch (err) {
+      console.error('Error fetching call logs:', err);
+      res.status(500).json({ error: 'Failed to fetch call logs' });
+    }
+  });
+
+  // Save new Call Log
+  router.post('/telecalling/logs', async (req, res) => {
+    try {
+      const log = await createCallLog(1, req.body);
+      if (io) {
+        io.emit('telecalling:new_log', log);
+      }
+      res.json({ success: true, log });
+    } catch (err) {
+      console.error('Error saving call log:', err);
+      res.status(500).json({ error: 'Failed to save call log' });
+    }
+  });
+
+  // Upload Call Audio Recording (.mp3 / base64)
+  router.post('/telecalling/upload-recording', async (req, res) => {
+    try {
+      const { audioBase64, customerPhone, customerName, staffId, staffName, durationSeconds, disposition, notes } = req.body;
+      if (!audioBase64) {
+        return res.status(400).json({ error: 'audioBase64 payload required' });
+      }
+      const filename = `call_rec_${staffId || 'staff'}_${Date.now()}.mp3`;
+      const filePath = path.join(recordingsDir, filename);
+      const cleanBase64 = audioBase64.replace(/^data:audio\/\w+;base64,/, '');
+      fs.writeFileSync(filePath, Buffer.from(cleanBase64, 'base64'));
+
+      const recordingUrl = `/media/recordings/${filename}`;
+      const log = await createCallLog(1, {
+        staffId: staffId || '1',
+        staffName: staffName || 'Telecaller',
+        customerName: customerName || 'Customer',
+        customerPhone: customerPhone || 'Unknown',
+        channel: 'SIM',
+        type: 'OUTGOING',
+        durationSeconds: durationSeconds || 0,
+        recordingUrl,
+        disposition: disposition || 'Interested',
+        notes: notes || 'Auto-recorded via OmniFlow SIM Bridge'
+      });
+
+      if (io) {
+        io.emit('telecalling:new_log', log);
+      }
+      res.json({ success: true, recordingUrl, log });
+    } catch (err) {
+      console.error('Error uploading call recording:', err);
+      res.status(500).json({ error: 'Failed to upload call recording' });
+    }
+  });
+
   return router;
 }
