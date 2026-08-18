@@ -40,16 +40,8 @@ export default function SimBridgeSoftphone({
   const [selectedExtension, setSelectedExtension] = useState('101');
   const [allExtensions, setAllExtensions] = useState([]);
   
-  // Paired mobile device status
-  const [pairedDevice, setPairedDevice] = useState({
-    status: 'online',
-    deviceName: 'Staff Android Phone',
-    simCarrier: 'Mobile SIM (Active)',
-    battery: 88,
-    ip: '192.168.29.95',
-    lastSeen: 'Just now',
-    isOnline: true
-  });
+  // Real paired mobile device status (null = NOT PAIRED / OFFLINE)
+  const [pairedDevice, setPairedDevice] = useState(null);
 
   // Post-call disposition state
   const [disposition, setDisposition] = useState('Interested');
@@ -86,7 +78,13 @@ export default function SimBridgeSoftphone({
     window.location.hostname === '127.0.0.1' || 
     window.location.hostname.startsWith('192.168.')
   );
-  const API_BASE = IS_DEV ? 'http://localhost:5000/api' : 'https://ems-backend-9hig.onrender.com/api';
+  const API_BASE = IS_DEV 
+    ? `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:5000/api` 
+    : 'https://ems-backend-9hig.onrender.com/api';
+
+  const SERVER_URL = IS_DEV
+    ? `http://${typeof window !== 'undefined' ? (window.location.hostname === 'localhost' ? '192.168.29.95' : window.location.hostname) : '192.168.29.95'}:5000`
+    : 'https://ems-backend-9hig.onrender.com';
 
   // Poll for paired device status & extensions list
   useEffect(() => {
@@ -97,29 +95,30 @@ export default function SimBridgeSoftphone({
         const res = await fetch(`${API_BASE}/sim-bridge/devices`);
         if (res.ok) {
           const data = await res.json();
-          if (data.devices && data.devices.length > 0) {
+          if (data.devices) {
             setAllExtensions(data.devices);
-            const active = data.devices.find(d => String(d.extension) === String(selectedExtension)) || data.devices[0];
+            // Match active device strictly by selected extension AND online status
+            const active = data.devices.find(d => String(d.extension) === String(selectedExtension) && d.isOnline);
             if (active) {
-              setPairedDevice({
-                status: active.status || (active.isOnline ? 'online' : 'offline'),
-                deviceName: active.device_name || 'Android Companion Phone',
-                simCarrier: active.sim_carrier || 'Mobile SIM (Active)',
-                battery: active.battery_level || 90,
-                ip: active.device_ip || '192.168.29.95',
-                lastSeen: active.isOnline ? 'Active Now' : 'Offline',
-                isOnline: active.isOnline
-              });
+              setPairedDevice(active);
+              if (showPairModal) {
+                setShowPairModal(false); // Auto close modal when scanned!
+              }
+            } else {
+              setPairedDevice(null);
             }
           }
         }
-      } catch (err) {}
+      } catch (err) {
+        setPairedDevice(null);
+      }
     };
 
     fetchDeviceStatus();
-    const interval = setInterval(fetchDeviceStatus, 3000);
+    const interval = setInterval(fetchDeviceStatus, 2500);
     return () => clearInterval(interval);
-  }, [isOpen, selectedExtension, API_BASE]);
+  }, [isOpen, selectedExtension, API_BASE, showPairModal]);
+
 
   // Trigger call via SIM Bridge
   const handleStartCall = async () => {
@@ -302,8 +301,8 @@ export default function SimBridgeSoftphone({
         {/* Paired Device Status Pill & Extension Selector */}
         <div style={{
           padding: '10px 18px',
-          background: pairedDevice.isOnline ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)',
-          borderBottom: pairedDevice.isOnline ? '1px solid rgba(16, 185, 129, 0.15)' : '1px solid rgba(245, 158, 11, 0.15)',
+          background: pairedDevice?.isOnline ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+          borderBottom: pairedDevice?.isOnline ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -314,12 +313,36 @@ export default function SimBridgeSoftphone({
               width: '8px', 
               height: '8px', 
               borderRadius: '50%', 
-              background: pairedDevice.isOnline ? '#10b981' : '#f59e0b', 
-              boxShadow: pairedDevice.isOnline ? '0 0 6px #10b981' : '0 0 6px #f59e0b' 
+              background: pairedDevice?.isOnline ? '#10b981' : '#ef4444', 
+              boxShadow: pairedDevice?.isOnline ? '0 0 8px #10b981' : '0 0 8px #ef4444' 
             }}></span>
-            <span style={{ fontWeight: '700', color: pairedDevice.isOnline ? '#34d399' : '#fbbf24' }}>
-              {pairedDevice.isOnline ? `${pairedDevice.simCarrier}` : 'Ready / Pairing'}
-            </span>
+            {pairedDevice?.isOnline ? (
+              <span style={{ fontWeight: '700', color: '#34d399' }}>
+                🟢 {pairedDevice.sim_carrier || 'Active SIM'} ({pairedDevice.device_name || 'Phone'}) • 🔋 {pairedDevice.battery_level || 90}%
+              </span>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontWeight: '700', color: '#f87171' }}>
+                  🔴 Ext {selectedExtension}: Offline (No Phone Paired)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowPairModal(true)}
+                  style={{
+                    background: '#0d9488',
+                    border: 'none',
+                    color: '#ffffff',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    fontSize: '10.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  📷 Scan QR
+                </button>
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -420,23 +443,28 @@ export default function SimBridgeSoftphone({
                 <label style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', display: 'block', marginBottom: '5px' }}>
                   CUSTOMER / LEAD NAME
                 </label>
-                <div style={{ position: 'relative' }}>
-                  <User size={15} style={{ position: 'absolute', left: '12px', top: '11px', color: '#64748b' }} />
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  background: '#1a2630',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  padding: '8px 12px',
+                  gap: '8px'
+                }}>
+                  <User size={15} style={{ color: '#94a3b8' }} />
                   <input
                     type="text"
                     value={contactName}
                     onChange={(e) => setContactName(e.target.value)}
-                    placeholder="Enter customer name..."
+                    placeholder="Customer Name"
                     style={{
-                      width: '100%',
-                      background: '#1a2630',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      borderRadius: '8px',
-                      padding: '9px 12px 9px 34px',
+                      background: 'none',
+                      border: 'none',
                       color: '#ffffff',
                       fontSize: '13px',
                       outline: 'none',
-                      boxSizing: 'border-box'
+                      width: '100%'
                     }}
                   />
                 </div>
@@ -446,58 +474,90 @@ export default function SimBridgeSoftphone({
                 <label style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', display: 'block', marginBottom: '5px' }}>
                   PHONE NUMBER (GSM SIM)
                 </label>
-                <div style={{ position: 'relative' }}>
-                  <Phone size={15} style={{ position: 'absolute', left: '12px', top: '11px', color: '#10b981' }} />
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  background: '#1a2630',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(20, 210, 203, 0.3)',
+                  padding: '8px 12px',
+                  gap: '8px'
+                }}>
+                  <Phone size={15} style={{ color: '#14d2cb' }} />
                   <input
-                    type="tel"
+                    type="text"
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="+91 98765 43210"
                     style={{
-                      width: '100%',
-                      background: '#1a2630',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      borderRadius: '8px',
-                      padding: '9px 12px 9px 34px',
+                      background: 'none',
+                      border: 'none',
                       color: '#ffffff',
-                      fontSize: '14px',
+                      fontSize: '15px',
                       fontWeight: '700',
                       letterSpacing: '0.5px',
                       outline: 'none',
-                      boxSizing: 'border-box'
+                      width: '100%'
                     }}
                   />
                 </div>
               </div>
 
               {/* Call Now Action Button */}
-              <button
-                type="button"
-                onClick={handleStartCall}
-                disabled={!phoneNumber}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '10px',
-                  background: phoneNumber ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#334155',
-                  border: 'none',
-                  color: '#ffffff',
-                  fontSize: '14px',
-                  fontWeight: '800',
-                  letterSpacing: '0.3px',
-                  cursor: phoneNumber ? 'pointer' : 'not-allowed',
-                  boxShadow: phoneNumber ? '0 6px 20px rgba(16, 185, 129, 0.4)' : 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  marginTop: '4px',
-                  transition: 'transform 0.15s ease'
-                }}
-              >
-                <PhoneCall size={18} />
-                <span>Call via Ext {selectedExtension} ({pairedDevice.simCarrier})</span>
-              </button>
+              {pairedDevice?.isOnline ? (
+                <button
+                  type="button"
+                  onClick={handleStartCall}
+                  disabled={!phoneNumber}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '10px',
+                    background: phoneNumber ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#334155',
+                    border: 'none',
+                    color: '#ffffff',
+                    fontSize: '14px',
+                    fontWeight: '800',
+                    letterSpacing: '0.3px',
+                    cursor: phoneNumber ? 'pointer' : 'not-allowed',
+                    boxShadow: phoneNumber ? '0 6px 20px rgba(16, 185, 129, 0.4)' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    marginTop: '4px',
+                    transition: 'transform 0.15s ease'
+                  }}
+                >
+                  <PhoneCall size={18} />
+                  <span>Call via Ext {selectedExtension} ({pairedDevice.sim_carrier || 'Mobile SIM'})</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowPairModal(true)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '10px',
+                    background: '#1e293b',
+                    border: '1px dashed #f59e0b',
+                    color: '#f59e0b',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    letterSpacing: '0.3px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    marginTop: '4px'
+                  }}
+                >
+                  <QrCode size={18} />
+                  <span>⚠️ Phone Not Paired (Click to Scan QR)</span>
+                </button>
+              )}
             </>
           )}
 
@@ -782,9 +842,9 @@ export default function SimBridgeSoftphone({
           <div style={{
             position: 'absolute',
             inset: 0,
-            background: 'rgba(11, 20, 26, 0.96)',
+            background: 'rgba(11, 20, 26, 0.98)',
             borderRadius: '18px',
-            padding: '24px',
+            padding: '20px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -799,11 +859,11 @@ export default function SimBridgeSoftphone({
               <X size={20} />
             </button>
 
-            <div style={{ fontSize: '15px', fontWeight: '800', color: '#ffffff', textAlign: 'center', marginBottom: '4px' }}>
-              Pair Staff Mobile SIM
+            <div style={{ fontSize: '16px', fontWeight: '800', color: '#ffffff', textAlign: 'center', marginBottom: '4px' }}>
+              Pair Ext {selectedExtension} with Phone
             </div>
-            <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', maxWidth: '280px', marginBottom: '16px' }}>
-              Open OmniFlow Mobile APK on staff's phone and scan this QR code to bridge calls via WiFi.
+            <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', maxWidth: '280px', marginBottom: '14px' }}>
+              Open <strong style={{ color: '#14d2cb' }}>OmniFlow Mobile APK</strong> and tap <strong style={{ color: '#14d2cb' }}>[ 📷 Scan QR ]</strong> to pair your SIM instantly.
             </div>
 
             {/* QR Code Box */}
@@ -815,18 +875,47 @@ export default function SimBridgeSoftphone({
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: '8px'
+              gap: '6px'
             }}>
               <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(JSON.stringify({ staffId: currentStaff.id, action: 'PAIR_SIM_BRIDGE', timestamp: Date.now() }))}`}
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(JSON.stringify({
+                  action: 'PAIR_SIM_BRIDGE',
+                  serverUrl: SERVER_URL,
+                  extension: selectedExtension,
+                  staffId: selectedExtension,
+                  staffName: `Telecaller ${selectedExtension}`
+                }))}`}
                 alt="Pair SIM Bridge QR"
-                style={{ width: '150px', height: '150px', display: 'block' }}
+                style={{ width: '160px', height: '160px', display: 'block' }}
               />
             </div>
 
-            <div style={{ fontSize: '11px', color: '#14d2cb', fontWeight: '700', marginTop: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <RefreshCw size={12} className="animate-spin" />
-              <span>Waiting for staff mobile device scan...</span>
+            {/* Extension & Server details */}
+            <div style={{
+              marginTop: '12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+              width: '100%',
+              maxWidth: '280px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              fontSize: '11px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#94a3b8' }}>PBX Extension:</span>
+                <strong style={{ color: '#14d2cb' }}>Ext {selectedExtension}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#94a3b8' }}>Server:</span>
+                <span style={{ color: '#e2e8f0', fontSize: '10px' }}>{SERVER_URL}</span>
+              </div>
+            </div>
+
+            <div style={{ fontSize: '11.5px', color: '#14d2cb', fontWeight: '700', marginTop: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <RefreshCw size={13} className="animate-spin" />
+              <span>Waiting for Mobile APK to scan...</span>
             </div>
           </div>
         )}

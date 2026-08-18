@@ -1,8 +1,25 @@
 {
     "logs": [
         {
-            "outputFile": "com.omniflow.simrecorder-mergeDebugResources-26:/values-tr/values-tr.xml",
+            "outputFile": "com.omniflow.simrecorder-mergeDebugResources-27:/values-tr/values-tr.xml",
             "map": [
+                {
+                    "source": "C:\\Users\\Lenovo\\.gradle\\caches\\transforms-3\\c68c4351e62fbff08f07c9084b29a6e8\\transformed\\jetified-zxing-android-embedded-4.3.0\\res\\values-tr\\values-tr.xml",
+                    "from": {
+                        "startLines": "2,3,4,5",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "55,116,166,313",
+                        "endColumns": "60,49,146,119",
+                        "endOffsets": "111,161,308,428"
+                    },
+                    "to": {
+                        "startLines": "97,98,99,100",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "8033,8094,8144,8291",
+                        "endColumns": "60,49,146,119",
+                        "endOffsets": "8089,8139,8286,8406"
+                    }
+                },
                 {
                     "source": "C:\\Users\\Lenovo\\.gradle\\caches\\transforms-3\\543740e42155bb89dcbd6bdda0f43b68\\transformed\\core-1.9.0\\res\\values-tr\\values-tr.xml",
                     "from": {

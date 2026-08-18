@@ -27,6 +27,10 @@ import androidx.core.content.ContextCompat;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.journeyapps.barcodescanner.ScanContract;
+import com.journeyapps.barcodescanner.ScanOptions;
+import org.json.JSONObject;
+
 public class MainActivity extends AppCompatActivity {
 
     private static final int PERMISSION_REQUEST_CODE = 101;
@@ -36,10 +40,19 @@ public class MainActivity extends AppCompatActivity {
     public static final String DASHBOARD_URL = "https://ems-crm-sandy.vercel.app";
 
     private TextView tvFolderStatus;
+    private Button btnScanQr;
     private Button btnSelectFolder;
     private Button btnToggleService;
     private Button btnExtSetup;
     private LinearLayout header;
+
+    // QR Code Scanner Launcher
+    private final androidx.activity.result.ActivityResultLauncher<ScanOptions> barcodeLauncher = 
+        registerForActivityResult(new ScanContract(), result -> {
+            if (result.getContents() != null) {
+                handleScannedQrData(result.getContents());
+            }
+        });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,7 +66,7 @@ public class MainActivity extends AppCompatActivity {
         // Programmatic settings header bar
         header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setPadding(20, 12, 20, 12);
+        header.setPadding(16, 12, 16, 12);
         header.setBackgroundColor(Color.parseColor("#0F172A")); // Dark Slate
         header.setGravity(Gravity.CENTER_VERTICAL);
 
@@ -61,15 +74,15 @@ public class MainActivity extends AppCompatActivity {
         textContainer.setOrientation(LinearLayout.VERTICAL);
         
         TextView tvTitle = new TextView(this);
-        tvTitle.setText("OmniFlow PBX Companion");
+        tvTitle.setText("OmniFlow PBX");
         tvTitle.setTextColor(Color.WHITE);
-        tvTitle.setTextSize(13f);
+        tvTitle.setTextSize(12f);
         tvTitle.setTypeface(null, Typeface.BOLD);
 
         tvFolderStatus = new TextView(this);
         tvFolderStatus.setText("Ext: 101 • Ready");
         tvFolderStatus.setTextColor(Color.parseColor("#10B981")); // Green
-        tvFolderStatus.setTextSize(11f);
+        tvFolderStatus.setTextSize(10f);
 
         textContainer.addView(tvTitle);
         textContainer.addView(tvFolderStatus);
@@ -78,45 +91,56 @@ public class MainActivity extends AppCompatActivity {
             0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f);
         header.addView(textContainer, textParams);
 
-        // Extension Setup Button
+        // 1. Scan QR from Laptop Button
+        btnScanQr = new Button(this);
+        btnScanQr.setText("📷 Scan QR");
+        btnScanQr.setTextSize(11f);
+        btnScanQr.setTextColor(Color.WHITE);
+        btnScanQr.setBackgroundColor(Color.parseColor("#0D9488")); // Emerald Teal
+        btnScanQr.setAllCaps(false);
+        btnScanQr.setPadding(12, 5, 12, 5);
+        btnScanQr.setOnClickListener(v -> startQrScanner());
+
+        LinearLayout.LayoutParams qrParams = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        qrParams.setMargins(3, 0, 3, 0);
+        header.addView(btnScanQr, qrParams);
+
+        // 2. Extension Setup Button
         btnExtSetup = new Button(this);
-        btnExtSetup.setText("☎️ Ext 101");
+        btnExtSetup.setText("☎️ 101");
         btnExtSetup.setTextSize(11f);
         btnExtSetup.setTextColor(Color.WHITE);
         btnExtSetup.setBackgroundColor(Color.parseColor("#6366F1")); // Indigo
         btnExtSetup.setAllCaps(false);
-        btnExtSetup.setPadding(15, 5, 15, 5);
+        btnExtSetup.setPadding(12, 5, 12, 5);
         btnExtSetup.setOnClickListener(v -> showExtensionConfigDialog());
 
-        LinearLayout.LayoutParams extParams = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        extParams.setMargins(5, 0, 5, 0);
-        header.addView(btnExtSetup, extParams);
+        header.addView(btnExtSetup, qrParams);
 
+        // 3. Folder Button
         btnSelectFolder = new Button(this);
         btnSelectFolder.setText("📁 Folder");
         btnSelectFolder.setTextSize(11f);
         btnSelectFolder.setTextColor(Color.WHITE);
         btnSelectFolder.setBackgroundColor(Color.parseColor("#3B82F6")); // Blue
         btnSelectFolder.setAllCaps(false);
-        btnSelectFolder.setPadding(15, 5, 15, 5);
+        btnSelectFolder.setPadding(12, 5, 12, 5);
         btnSelectFolder.setOnClickListener(v -> selectCallRecordingsFolder());
 
-        LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        btnParams.setMargins(5, 0, 5, 0);
-        header.addView(btnSelectFolder, btnParams);
+        header.addView(btnSelectFolder, qrParams);
 
+        // 4. Toggle Service Button
         btnToggleService = new Button(this);
         btnToggleService.setText("🟢 ACTIVE");
         btnToggleService.setTextSize(11f);
         btnToggleService.setTextColor(Color.WHITE);
         btnToggleService.setBackgroundColor(Color.parseColor("#10B981")); // Green
         btnToggleService.setAllCaps(false);
-        btnToggleService.setPadding(15, 5, 15, 5);
+        btnToggleService.setPadding(12, 5, 12, 5);
         btnToggleService.setOnClickListener(v -> toggleMonitorService());
 
-        header.addView(btnToggleService, btnParams);
+        header.addView(btnToggleService, qrParams);
 
         // Add header to root
         root.addView(header);
@@ -141,6 +165,55 @@ public class MainActivity extends AppCompatActivity {
         updateUI();
         startMonitorService();
     }
+
+    private void startQrScanner() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 109);
+            return;
+        }
+        ScanOptions options = new ScanOptions();
+        options.setPrompt("Scan Laptop CRM Pairing QR Code");
+        options.setBeepEnabled(true);
+        options.setOrientationLocked(false);
+        options.setBarcodeImageEnabled(false);
+        barcodeLauncher.launch(options);
+    }
+
+    private void handleScannedQrData(String rawData) {
+        try {
+            JSONObject json = new JSONObject(rawData);
+            String action = json.optString("action", "");
+            String serverUrl = json.optString("serverUrl", "");
+            String ext = json.optString("extension", "101");
+            String name = json.optString("staffName", "Telecaller Agent");
+
+            if (!serverUrl.isEmpty()) {
+                SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
+                prefs.edit()
+                    .putString("api_url", serverUrl)
+                    .putString("extension", ext)
+                    .putString("staff_id", ext)
+                    .putString("staff_name", name)
+                    .apply();
+
+                updateUI();
+                stopMonitorService();
+                startMonitorService();
+
+                android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
+                builder.setTitle("🎉 Paired Successfully!");
+                builder.setMessage("Connected to Laptop CRM!\n\nExtension: " + ext + "\nAgent: " + name + "\nServer: " + serverUrl);
+                builder.setPositiveButton("OK", null);
+                builder.show();
+            } else {
+                Toast.makeText(this, "Invalid QR Code: Server URL missing", Toast.LENGTH_LONG).show();
+            }
+        } catch (Exception e) {
+            // Handle plain URL or extension text
+            Toast.makeText(this, "QR Code Scanned: " + rawData, Toast.LENGTH_SHORT).show();
+        }
+    }
+
 
     private void showExtensionConfigDialog() {
         SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);

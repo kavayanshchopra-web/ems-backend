@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.omniflow.simrecorder-mergeDebugResources-26:/values-da/values-da.xml",
+            "outputFile": "com.omniflow.simrecorder-mergeDebugResources-27:/values-da/values-da.xml",
             "map": [
                 {
                     "source": "C:\\Users\\Lenovo\\.gradle\\caches\\transforms-3\\6c6ffd2b5c140a59a107fe5eaa0e19c4\\transformed\\appcompat-1.6.1\\res\\values-da\\values-da.xml",
@@ -37,6 +37,23 @@
                         "endLines": "5,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94",
                         "endColumns": "12,77,75,77,96,79,99,148,77,63,85,72,59,86,63,61,61,67,64,55,117,57,60,55,74,125,85,79,140,77,79,85,55,50,65,67,73,88,71,77,69,72,83,76,87,88,73,72,84,48,65,79,82,61,63,62,107,94,100,94,59,54,79",
                         "endOffsets": "317,3047,3123,3201,3298,3378,3478,3627,3705,3769,3855,3928,3988,4075,4139,4201,4263,4331,4396,4452,4570,4628,4689,4745,4820,4946,5032,5112,5253,5331,5411,5497,5553,5604,5670,5738,5812,5901,5973,6051,6121,6194,6278,6355,6443,6532,6606,6679,6764,6813,6879,6959,7042,7104,7168,7231,7339,7434,7535,7630,7690,7745,7825"
+                    }
+                },
+                {
+                    "source": "C:\\Users\\Lenovo\\.gradle\\caches\\transforms-3\\c68c4351e62fbff08f07c9084b29a6e8\\transformed\\jetified-zxing-android-embedded-4.3.0\\res\\values-da\\values-da.xml",
+                    "from": {
+                        "startLines": "2,3,4,5",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "55,114,161,307",
+                        "endColumns": "58,46,145,109",
+                        "endOffsets": "109,156,302,412"
+                    },
+                    "to": {
+                        "startLines": "97,98,99,100",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "8011,8070,8117,8263",
+                        "endColumns": "58,46,145,109",
+                        "endOffsets": "8065,8112,8258,8368"
                     }
                 },
                 {
