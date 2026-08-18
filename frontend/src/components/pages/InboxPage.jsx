@@ -61,10 +61,65 @@ export default function InboxPage({
   isLoadingMore = false,
   onLoadMoreMessages = () => {}
 }) {
+  const [selectedStaffSession, setSelectedStaffSession] = React.useState('all');
+
   return (
     <div className={`inbox-view ${activeContact ? 'has-active-chat' : 'no-active-chat'}`}>
       {/* Contact Chat List */}
       <div className="chat-list-panel glass-panel">
+        {/* StaffPeek-Style Multi-Staff Accounts Switcher */}
+        {sessions && sessions.length > 0 && (
+          <div style={{ marginBottom: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '8px', border: '1px solid var(--border-glass)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <span>STAFF ACCOUNTS ({sessions.length})</span>
+              <span style={{ fontSize: '10px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }}></span> Live Monitoring
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }}>
+              <button
+                onClick={() => setSelectedStaffSession('all')}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '20px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  background: selectedStaffSession === 'all' ? 'linear-gradient(135deg, #0d9488, #00a884)' : 'rgba(255,255,255,0.06)',
+                  color: selectedStaffSession === 'all' ? '#fff' : 'var(--text-muted)',
+                  border: selectedStaffSession === 'all' ? '1px solid #14d2cb' : '1px solid var(--border-glass)',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                🌐 All Staff
+              </button>
+              {sessions.map((s, idx) => (
+                <button
+                  key={s.id || idx}
+                  onClick={() => setSelectedStaffSession(s.id)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '20px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    background: selectedStaffSession === s.id ? 'linear-gradient(135deg, #0d9488, #00a884)' : 'rgba(255,255,255,0.06)',
+                    color: selectedStaffSession === s.id ? '#fff' : 'var(--text-muted)',
+                    border: selectedStaffSession === s.id ? '1px solid #14d2cb' : '1px solid var(--border-glass)',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}
+                >
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: s.status === 'connected' ? '#10b981' : '#f59e0b' }}></span>
+                  {s.name || s.phone_number || `Staff ${idx + 1}`}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
           <div style={{ position: 'relative', flex: 1 }}>
             <Search size={14} style={{ position: 'absolute', left: '10px', top: '13px', color: 'var(--text-muted)' }} />
@@ -152,56 +207,93 @@ export default function InboxPage({
         </div>
 
         <div className="chat-items-list" style={{ overflowY: 'auto', flex: 1 }}>
-          {(filteredContacts || []).map((contact) => (
-            <div
-              key={contact.id}
-              className={`chat-item ${activeContact?.id === contact.id ? 'active' : ''}`}
-              onClick={() => setActiveContact(contact)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '10px 12px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                marginBottom: '4px',
-                background: activeContact?.id === contact.id ? 'rgba(99, 102, 241, 0.12)' : 'transparent',
-                transition: 'background 0.2s ease'
-              }}
-            >
-              <div style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
-                background: 'var(--color-primary)',
-                color: 'white',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: '700',
-                fontSize: '14px',
-                flexShrink: 0
-              }}>
-                {(contact.name || contact.phone || 'C')[0].toUpperCase()}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {contact.name || contact.phone}
+          {(
+            (filteredContacts || contacts || []).filter((contact) => {
+              if (!contact) return false;
+              if (selectedStaffSession !== 'all') {
+                const cSess = contact.session_id || contact.sessionId;
+                if (cSess && cSess !== selectedStaffSession) return false;
+              }
+              if (!searchQuery || !searchQuery.trim()) return true;
+              const q = searchQuery.toLowerCase().trim();
+              const cleanQ = q.replace(/[^0-9]/g, '');
+              const name = (contact.name || '').toLowerCase();
+              const customName = (contact.custom_name || '').toLowerCase();
+              const phone = (contact.phone || contact.id || '').toLowerCase();
+              const cleanPhone = phone.replace(/[^0-9]/g, '');
+              const lastMsg = (contact.lastMessage || contact.last_message || '').toLowerCase();
+              return (
+                name.includes(q) ||
+                customName.includes(q) ||
+                lastMsg.includes(q) ||
+                phone.includes(q) ||
+                (cleanQ && cleanPhone.includes(cleanQ))
+              );
+            })
+          ).map((contact) => {
+            const avatarUrl = contact.profile_picture_url || contact.profilePic || contact.avatar;
+            const isGroup = contact.id?.endsWith('@g.us');
+            return (
+              <div
+                key={contact.id}
+                className={`chat-item ${activeContact?.id === contact.id ? 'active' : ''}`}
+                onClick={() => setActiveContact(contact)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  marginBottom: '4px',
+                  background: activeContact?.id === contact.id ? 'rgba(13, 148, 136, 0.18)' : 'transparent',
+                  border: activeContact?.id === contact.id ? '1px solid rgba(13, 148, 136, 0.3)' : '1px solid transparent',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={contact.name || 'avatar'}
+                    style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                ) : (
+                  <div style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    background: isGroup ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'linear-gradient(135deg, #0d9488, #059669)',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: '700',
+                    fontSize: '15px',
+                    flexShrink: 0
+                  }}>
+                    {(contact.name || contact.phone || 'C')[0].toUpperCase()}
                   </div>
-                  {contact.lastMessageTime && (
-                    <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>
-                      {new Date(contact.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-main, #ffffff)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {contact.name || contact.phone}
                     </div>
-                  )}
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
-                  {contact.lastMessage || contact.phone}
+                    {contact.lastMessageTime && (
+                      <div style={{ fontSize: '10px', color: 'var(--text-dim, #94a3b8)' }}>
+                        {new Date(contact.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted, #94a3b8)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+                    {contact.lastMessage || contact.phone}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-          {(!filteredContacts || filteredContacts.length === 0) && (
+            );
+          })}
+          {(!contacts || contacts.length === 0) && (
             <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '12px' }}>
               No chats found.
             </div>
@@ -210,12 +302,30 @@ export default function InboxPage({
       </div>
 
       {/* Center Main Chat Panel */}
-      <div className="chat-main-panel glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div
+        className="chat-main-panel glass-panel"
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          backgroundColor: '#0b141a',
+          backgroundImage: 'radial-gradient(rgba(255,255,255,0.035) 1px, transparent 0)',
+          backgroundSize: '24px 24px',
+          overflow: 'hidden'
+        }}
+      >
         {activeContact ? (
           <>
-            {/* Active Chat Header */}
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Active Chat Header (WhatsApp Style) */}
+            <div style={{
+              padding: '10px 16px',
+              borderBottom: '1px solid rgba(255,255,255,0.08)',
+              backgroundColor: '#111b21',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <button
                   className="btn btn-secondary mobile-back-btn"
                   onClick={() => setActiveContact(null)}
@@ -223,19 +333,112 @@ export default function InboxPage({
                 >
                   ← Back
                 </button>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--color-primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '13px' }}>
-                  {(activeContact.name || activeContact.phone || 'C')[0].toUpperCase()}
-                </div>
+                {activeContact.profile_picture_url || activeContact.profilePic || activeContact.avatar ? (
+                  <img
+                    src={activeContact.profile_picture_url || activeContact.profilePic || activeContact.avatar}
+                    alt={activeContact.name || 'avatar'}
+                    style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                ) : (
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    background: activeContact.id?.endsWith('@g.us') ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'linear-gradient(135deg, #0d9488, #059669)',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: '700',
+                    fontSize: '14px',
+                    flexShrink: 0
+                  }}>
+                    {(activeContact.name || activeContact.phone || 'C')[0].toUpperCase()}
+                  </div>
+                )}
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '14px', color: 'var(--text-main)' }}>{activeContact.name || activeContact.phone}</h3>
-                  <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{activeContact.phone}</span>
+                  <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: '#e9edef' }}>
+                    {activeContact.name || activeContact.phone}
+                  </h3>
+                  <span style={{ fontSize: '11px', color: '#8696a0' }}>
+                    {(() => {
+                      const raw = (activeContact.phone || activeContact.id || '').replace('@s.whatsapp.net', '').replace('@g.us', '');
+                      return raw.startsWith('+') ? raw : (raw ? `+${raw}` : '');
+                    })()}
+                  </span>
                 </div>
+              </div>
+
+              {/* Action Buttons for Calling & Native WhatsApp Web */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const raw = (activeContact.phone || activeContact.id || '').replace(/[^0-9]/g, '');
+                    if (raw) window.open(`https://web.whatsapp.com/send?phone=${raw}`, '_blank');
+                  }}
+                  style={{
+                    background: 'rgba(13, 148, 136, 0.15)',
+                    border: '1px solid #0d9488',
+                    color: '#14d2cb',
+                    borderRadius: '8px',
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  title="Open this conversation in native WhatsApp Web tab with OmniFlow Extension Dock"
+                >
+                  <span>🚀</span> Open in WhatsApp Web
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const raw = (activeContact.phone || activeContact.id || '').replace(/[^0-9]/g, '');
+                    if (raw) window.open(`https://web.whatsapp.com/send?phone=${raw}`, '_blank');
+                  }}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    border: '1px solid var(--border-glass)',
+                    color: '#00a884',
+                    borderRadius: '8px',
+                    padding: '6px 10px',
+                    fontSize: '12px',
+                    cursor: 'pointer'
+                  }}
+                  title="Native Voice Call via WhatsApp"
+                >
+                  📞 Call
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const raw = (activeContact.phone || activeContact.id || '').replace(/[^0-9]/g, '');
+                    if (raw) window.open(`https://web.whatsapp.com/send?phone=${raw}`, '_blank');
+                  }}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    border: '1px solid var(--border-glass)',
+                    color: '#0ea5e9',
+                    borderRadius: '8px',
+                    padding: '6px 10px',
+                    fontSize: '12px',
+                    cursor: 'pointer'
+                  }}
+                  title="Native Video Call via WhatsApp"
+                >
+                  📹 Video
+                </button>
               </div>
             </div>
 
-            {/* Chat Messages Log */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {/* On-Demand Lazy Loading Button (Conserves RAM & Speed) */}
+            {/* Chat Messages Log (WhatsApp Style) */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {/* On-Demand Lazy Loading Button */}
               {hasMoreMessages && (
                 <div style={{ display: 'flex', justifyContent: 'center', margin: '4px 0 10px 0' }}>
                   <button
@@ -245,7 +448,7 @@ export default function InboxPage({
                     style={{
                       background: 'rgba(255, 255, 255, 0.08)',
                       border: '1px solid rgba(255, 255, 255, 0.15)',
-                      color: 'var(--text-main, #ffffff)',
+                      color: '#e9edef',
                       padding: '6px 14px',
                       borderRadius: '20px',
                       fontSize: '11px',
@@ -253,9 +456,7 @@ export default function InboxPage({
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '6px',
-                      transition: 'all 0.2s ease',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+                      gap: '6px'
                     }}
                   >
                     {isLoadingMore ? (
@@ -271,63 +472,330 @@ export default function InboxPage({
                 </div>
               )}
 
-              {(messages || []).map((msg) => {
-                const isOut = msg.fromMe || msg.from_me === 1;
-                return (
-                  <div
-                    key={msg.id}
-                    style={{
-                      alignSelf: isOut ? 'flex-end' : 'flex-start',
-                      maxWidth: '70%',
-                      background: isOut ? 'var(--color-primary)' : 'rgba(255,255,255,0.08)',
-                      color: isOut ? 'white' : 'var(--text-main)',
-                      padding: '10px 14px',
-                      borderRadius: '12px',
-                      fontSize: '13px',
-                      lineHeight: '1.4'
-                    }}
-                  >
-                    <div>{msg.text_content || msg.text || msg.body}</div>
-                    <div style={{ fontSize: '10px', opacity: 0.7, textAlign: 'right', marginTop: '4px' }}>
-                      {msg.timestamp ? new Date(msg.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                    </div>
-                  </div>
-                );
-              })}
+              {(() => {
+                let lastDateStr = null;
+                const isGroup = activeContact?.id?.endsWith('@g.us');
+
+                return (messages || []).map((msg) => {
+                  const isOut = Boolean(
+                    msg.fromMe === true ||
+                    msg.fromMe === 1 ||
+                    msg.from_me === 1 ||
+                    msg.from_me === true ||
+                    msg.direction === 'outbound' ||
+                    msg.is_outbound === 1
+                  );
+
+                  const msgDate = msg.timestamp
+                    ? new Date(typeof msg.timestamp === 'number' && msg.timestamp < 10000000000 ? msg.timestamp * 1000 : msg.timestamp)
+                    : new Date();
+                  
+                  const timeString = isNaN(msgDate.getTime())
+                    ? ''
+                    : msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                  // WhatsApp Date Divider
+                  let showDateDivider = false;
+                  let dividerText = '';
+                  if (!isNaN(msgDate.getTime())) {
+                    const dateKey = msgDate.toDateString();
+                    if (dateKey !== lastDateStr) {
+                      showDateDivider = true;
+                      lastDateStr = dateKey;
+                      const today = new Date().toDateString();
+                      const yesterday = new Date(Date.now() - 86400000).toDateString();
+                      if (dateKey === today) dividerText = 'Today';
+                      else if (dateKey === yesterday) dividerText = 'Yesterday';
+                      else dividerText = msgDate.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+                    }
+                  }
+
+                  const rawText = msg.text_content || msg.textContent || msg.text || msg.body || msg.message_text || msg.message || msg.content || '';
+                  const mediaUrl = msg.media_url || msg.mediaUrl;
+                  const mediaType = msg.media_type || msg.mediaType || 'text';
+
+                  let displayText = rawText;
+                  if (mediaUrl && (displayText === '[Sent image]' || displayText === '[Sent document]' || displayText === '[Sent video]' || displayText === '[Sent audio]')) {
+                    displayText = '';
+                  }
+
+                  if (!displayText && !mediaUrl && mediaType === 'text') {
+                    return null;
+                  }
+
+                  return (
+                    <React.Fragment key={msg.id || Math.random()}>
+                      {/* Date Divider Badge */}
+                      {showDateDivider && (
+                        <div style={{ display: 'flex', justifyContent: 'center', margin: '12px 0 6px 0' }}>
+                          <div style={{
+                            backgroundColor: '#182229',
+                            color: '#8696a0',
+                            fontSize: '11px',
+                            fontWeight: '500',
+                            padding: '4px 12px',
+                            borderRadius: '8px',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px'
+                          }}>
+                            {dividerText}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* WhatsApp Chat Bubble */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: isOut ? 'flex-end' : 'flex-start',
+                          width: '100%',
+                          margin: '1px 0'
+                        }}
+                      >
+                        <div
+                          style={{
+                            maxWidth: '75%',
+                            minWidth: '90px',
+                            backgroundColor: isOut ? '#005c4b' : '#202c33',
+                            color: '#e9edef',
+                            padding: '6px 9px 4px 9px',
+                            borderRadius: isOut ? '8px 8px 0px 8px' : '8px 8px 8px 0px',
+                            fontSize: '13.5px',
+                            lineHeight: '1.4',
+                            boxShadow: '0 1px 0.5px rgba(11,20,26,0.13)',
+                            position: 'relative',
+                            wordBreak: 'break-word'
+                          }}
+                        >
+                          {/* Sender Name ONLY in Groups (Hidden in 1-on-1 DMs) */}
+                          {!isOut && isGroup && (msg.sender_name || msg.contactName) && (
+                            <div style={{ fontSize: '11.5px', fontWeight: '600', color: '#53bdeb', marginBottom: '2px' }}>
+                              {msg.sender_name || msg.contactName}
+                            </div>
+                          )}
+
+                          {/* Media Image */}
+                          {mediaType === 'image' && mediaUrl && (
+                            <div style={{ marginBottom: '4px', borderRadius: '6px', overflow: 'hidden' }}>
+                              <img
+                                src={mediaUrl}
+                                alt="Attachment"
+                                style={{ maxWidth: '100%', maxHeight: '280px', borderRadius: '6px', display: 'block', objectFit: 'contain' }}
+                                onError={(e) => { e.target.style.display = 'none'; }}
+                              />
+                            </div>
+                          )}
+
+                          {/* Media Audio */}
+                          {mediaType === 'audio' && mediaUrl && (
+                            <div style={{ margin: '4px 0' }}>
+                              <audio controls src={mediaUrl} style={{ maxWidth: '240px', height: '34px' }} />
+                            </div>
+                          )}
+
+                          {/* Media Video */}
+                          {mediaType === 'video' && mediaUrl && (
+                            <div style={{ marginBottom: '4px', borderRadius: '6px', overflow: 'hidden' }}>
+                              <video controls src={mediaUrl} style={{ maxWidth: '100%', maxHeight: '240px', borderRadius: '6px' }} />
+                            </div>
+                          )}
+
+                          {/* Media Document */}
+                          {mediaType === 'document' && mediaUrl && (
+                            <a
+                              href={mediaUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#53bdeb', textDecoration: 'underline', marginBottom: '4px', fontSize: '12px' }}
+                            >
+                              📄 Download Document
+                            </a>
+                          )}
+
+                          {/* Message Text */}
+                          {displayText ? (
+                            <div style={{ whiteSpace: 'pre-wrap', color: '#e9edef' }}>
+                              {displayText}
+                            </div>
+                          ) : null}
+
+                          {/* Timestamp & Status Checkmark */}
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                            alignItems: 'center',
+                            gap: '4px',
+                            marginTop: '2px',
+                            fontSize: '10.5px',
+                            color: '#8696a0',
+                            float: 'right',
+                            marginLeft: '12px'
+                          }}>
+                            <span>{timeString}</span>
+                            {isOut && <span style={{ color: '#53bdeb', fontSize: '11px' }}>✓✓</span>}
+                          </div>
+                        </div>
+                      </div>
+                    </React.Fragment>
+                  );
+                });
+              })()}
             </div>
 
-            {/* Chat Input Bar */}
-            <form onSubmit={handleSendMessage} style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {/* Chat Input Bar (WhatsApp Web Style) */}
+            <form
+              onSubmit={handleSendMessage}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#111b21',
+                borderTop: '1px solid rgba(255,255,255,0.08)',
+                display: 'flex',
+                gap: '10px',
+                alignItems: 'center'
+              }}
+            >
               <input
                 type="text"
                 className="crm-input"
                 placeholder="Type a message..."
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                style={{ flex: 1, padding: '10px 14px' }}
+                style={{
+                  flex: 1,
+                  padding: '9px 16px',
+                  backgroundColor: '#2a3942',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#e9edef',
+                  fontSize: '13.5px'
+                }}
               />
               <button
                 type="submit"
                 className="btn btn-primary"
                 disabled={isUploadingMedia || !inputText.trim()}
-                style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                style={{
+                  padding: '9px 18px',
+                  backgroundColor: '#00a884',
+                  borderColor: '#00a884',
+                  color: 'white',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '13px',
+                  fontWeight: '600'
+                }}
               >
                 {isUploadingMedia ? (
                   <>
-                    <RefreshCw size={16} className="animate-spin" /> Sending...
+                    <RefreshCw size={15} className="animate-spin" /> Sending...
                   </>
                 ) : (
                   <>
-                    <Send size={16} /> Send
+                    <Send size={15} /> Send
                   </>
                 )}
               </button>
             </form>
           </>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexGrow: 1, color: 'var(--text-dim)', gap: '12px' }}>
-            <MessageSquare size={48} strokeWidth={1} />
-            <p>Select a chat from the inbox list to start replying</p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexGrow: 1, padding: '40px 20px', textAlign: 'center' }}>
+            <div style={{
+              maxWidth: '560px',
+              width: '100%',
+              background: 'rgba(17, 27, 33, 0.85)',
+              backdropFilter: 'blur(16px)',
+              border: '1px solid rgba(13, 148, 136, 0.3)',
+              borderRadius: '16px',
+              padding: '32px 28px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '20px'
+            }}>
+              {/* WhatsApp Web Icon with Glow */}
+              <div style={{
+                width: '68px',
+                height: '68px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #0d9488, #00a884)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 0 25px rgba(0, 168, 132, 0.4)'
+              }}>
+                <MessageSquare size={34} color="#ffffff" />
+              </div>
+
+              <div>
+                <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#e9edef', margin: '0 0 8px 0' }}>
+                  Real WhatsApp Web & CRM Workspace
+                </h2>
+                <p style={{ fontSize: '13px', color: '#8696a0', lineHeight: 1.5, margin: 0 }}>
+                  Zero server load • Native video & voice calling • 2-Way automated cloud CRM sync
+                </p>
+              </div>
+
+              {/* Big Launch Button */}
+              <button
+                type="button"
+                onClick={() => window.open('https://web.whatsapp.com', '_blank')}
+                style={{
+                  width: '100%',
+                  padding: '14px 20px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #0d9488 0%, #00a884 100%)',
+                  color: '#ffffff',
+                  fontSize: '15px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  boxShadow: '0 8px 20px rgba(0, 168, 132, 0.3)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <span>🚀</span> Launch Real WhatsApp Web with OmniFlow Dock
+              </button>
+
+              {/* 2-Step Quick Onboarding Checklist */}
+              <div style={{
+                width: '100%',
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.06)',
+                borderRadius: '12px',
+                padding: '14px 16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+                textAlign: 'left'
+              }}>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  ⚡ Quick 2-Step Staff Setup Guide
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12.5px', color: '#cbd5e1' }}>
+                  <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(13, 148, 136, 0.25)', color: '#14d2cb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 'bold' }}>1</span>
+                  <span><strong>Install Extension:</strong> Load <code>extension/</code> folder in <code>chrome://extensions</code></span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12.5px', color: '#cbd5e1' }}>
+                  <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(0, 168, 132, 0.25)', color: '#00a884', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 'bold' }}>2</span>
+                  <span><strong>Scan WhatsApp:</strong> Open <a href="https://web.whatsapp.com" target="_blank" rel="noreferrer" style={{ color: '#14d2cb', textDecoration: 'underline' }}>web.whatsapp.com</a> & scan QR code</span>
+                </div>
+              </div>
+
+              {/* Active Monitoring Status */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#10b981' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }}></span>
+                <span>Active Session: <strong>{sessions?.[0]?.phone_number || '+917986411005 (Live)'}</strong></span>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -413,6 +881,19 @@ export default function InboxPage({
                   <option value="proposal">Proposal Sent</option>
                   <option value="won">Closed Won</option>
                 </select>
+              </div>
+
+              <div className="crm-group">
+                <label className="crm-label">Deal Value (₹ / $)</label>
+                <input
+                  type="text"
+                  className="crm-input"
+                  placeholder="e.g. ₹25,000 or $1,500"
+                  defaultValue={activeContact.deal_value || activeContact.dealValue || ''}
+                  onChange={(e) => {
+                    activeContact.deal_value = e.target.value;
+                  }}
+                />
               </div>
 
               <div className="crm-group">
