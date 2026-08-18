@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:2:1-61:12
-INJECTED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:2:1-61:12
-INJECTED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:2:1-61:12
-INJECTED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:2:1-61:12
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:2:1-75:12
+INJECTED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:2:1-75:12
+INJECTED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:2:1-75:12
+INJECTED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:2:1-75:12
 MERGED from [com.google.android.material:material:1.9.0] C:\Users\Lenovo\.gradle\caches\transforms-3\476b26d8fcc09bc62d64d9d4afb0a264\transformed\material-1.9.0\AndroidManifest.xml:17:1-26:12
 MERGED from [androidx.appcompat:appcompat-resources:1.6.1] C:\Users\Lenovo\.gradle\caches\transforms-3\17f345d3d1e2cd2162a910482c9c4110\transformed\jetified-appcompat-resources-1.6.1\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.constraintlayout:constraintlayout:2.0.1] C:\Users\Lenovo\.gradle\caches\transforms-3\c343692e604bdce3bc81566e07bacb0a\transformed\constraintlayout-2.0.1\AndroidManifest.xml:2:1-11:12
@@ -57,53 +57,65 @@ uses-permission#android.permission.READ_PHONE_STATE
 ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:5:5-75
 	android:name
 		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:5:22-72
+uses-permission#android.permission.CALL_PHONE
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:6:5-69
+	android:name
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:6:22-66
 uses-permission#android.permission.RECORD_AUDIO
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:6:5-71
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:7:5-71
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:6:22-68
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:7:22-68
 uses-permission#android.permission.READ_CALL_LOG
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:7:5-72
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:8:5-72
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:7:22-69
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:8:22-69
 uses-permission#android.permission.PROCESS_OUTGOING_CALLS
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:8:5-81
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:9:5-81
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:8:22-78
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:9:22-78
 uses-permission#android.permission.INTERNET
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:9:5-67
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:10:5-67
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:9:22-64
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:10:22-64
 uses-permission#android.permission.ACCESS_NETWORK_STATE
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:10:5-79
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:11:5-79
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:10:22-76
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:11:22-76
 uses-permission#android.permission.FOREGROUND_SERVICE
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:11:5-77
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:12:5-77
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:11:22-74
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:12:22-74
 uses-permission#android.permission.FOREGROUND_SERVICE_MICROPHONE
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:12:5-88
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:13:5-88
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:12:22-85
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:13:22-85
 uses-permission#android.permission.SYSTEM_ALERT_WINDOW
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:13:5-78
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:14:5-78
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:13:22-75
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:14:22-75
 uses-permission#android.permission.RECEIVE_BOOT_COMPLETED
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:14:5-81
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:15:5-81
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:14:22-78
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:15:22-78
 uses-permission#android.permission.READ_EXTERNAL_STORAGE
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:15:5-80
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:16:5-80
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:15:22-77
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:16:22-77
 uses-permission#android.permission.READ_MEDIA_AUDIO
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:16:5-75
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:17:5-75
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:16:22-72
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:17:22-72
+uses-permission#android.permission.POST_NOTIFICATIONS
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:18:5-77
+	android:name
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:18:22-74
+uses-permission#android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:19:5-95
+	android:name
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:19:22-92
 application
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:18:5-60:19
-INJECTED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:18:5-60:19
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:21:5-74:19
+INJECTED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:21:5-74:19
 MERGED from [com.google.android.material:material:1.9.0] C:\Users\Lenovo\.gradle\caches\transforms-3\476b26d8fcc09bc62d64d9d4afb0a264\transformed\material-1.9.0\AndroidManifest.xml:24:5-20
 MERGED from [com.google.android.material:material:1.9.0] C:\Users\Lenovo\.gradle\caches\transforms-3\476b26d8fcc09bc62d64d9d4afb0a264\transformed\material-1.9.0\AndroidManifest.xml:24:5-20
 MERGED from [androidx.constraintlayout:constraintlayout:2.0.1] C:\Users\Lenovo\.gradle\caches\transforms-3\c343692e604bdce3bc81566e07bacb0a\transformed\constraintlayout-2.0.1\AndroidManifest.xml:9:5-20
@@ -123,71 +135,87 @@ MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\Le
 	android:appComponentFactory
 		ADDED from [androidx.core:core:1.9.0] C:\Users\Lenovo\.gradle\caches\transforms-3\543740e42155bb89dcbd6bdda0f43b68\transformed\core-1.9.0\AndroidManifest.xml:28:18-86
 	android:label
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:21:9-45
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:24:9-45
 	android:icon
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:20:9-43
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:23:9-43
 	android:allowBackup
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:19:9-35
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:22:9-35
 	android:theme
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:23:9-65
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:26:9-65
 	android:usesCleartextTraffic
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:22:9-44
-activity#com.omniflow.simrecorder.MainActivity
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:25:9-33:20
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:25:9-44
+activity#com.omniflow.simrecorder.PermissionsActivity
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:28:9-36:20
 	android:exported
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:27:13-36
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:30:13-36
 	android:configChanges
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:28:13-74
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:31:13-74
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:26:13-41
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:29:13-48
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:29:13-32:29
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:32:13-35:29
 action#android.intent.action.MAIN
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:30:17-69
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:33:17-69
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:30:25-66
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:33:25-66
 category#android.intent.category.LAUNCHER
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:31:17-77
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:34:17-77
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:31:27-74
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:34:27-74
+activity#com.omniflow.simrecorder.MainActivity
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:38:9-41:77
+	android:exported
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:40:13-37
+	android:configChanges
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:41:13-74
+	android:name
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:39:13-41
 receiver#com.omniflow.simrecorder.CallStateReceiver
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:35:9-43:20
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:43:9-51:20
 	android:enabled
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:37:13-35
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:45:13-35
 	android:exported
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:38:13-36
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:46:13-36
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:36:13-46
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:44:13-46
 intent-filter#action:name:android.intent.action.NEW_OUTGOING_CALL+action:name:android.intent.action.PHONE_STATE
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:39:13-42:29
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:47:13-50:29
 action#android.intent.action.PHONE_STATE
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:40:17-76
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:48:17-76
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:40:25-73
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:48:25-73
 action#android.intent.action.NEW_OUTGOING_CALL
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:41:17-82
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:49:17-82
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:41:25-79
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:49:25-79
 receiver#com.omniflow.simrecorder.BootReceiver
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:46:9-52:20
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:54:9-60:20
 	android:exported
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:48:13-37
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:56:13-37
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:47:13-41
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:55:13-41
 intent-filter#action:name:android.intent.action.BOOT_COMPLETED
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:49:13-51:29
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:57:13-59:29
 action#android.intent.action.BOOT_COMPLETED
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:50:17-79
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:58:17-79
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:50:25-76
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:58:25-76
 service#com.omniflow.simrecorder.CallRecordingService
-ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:55:9-58:58
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:63:9-66:58
 	android:exported
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:57:13-37
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:65:13-37
 	android:foregroundServiceType
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:58:13-55
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:66:13-55
 	android:name
-		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:56:13-49
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:64:13-49
+service#com.omniflow.simrecorder.SimBridgeService
+ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:69:9-72:58
+	android:exported
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:71:13-37
+	android:foregroundServiceType
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:72:13-55
+	android:name
+		ADDED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml:70:13-45
 uses-sdk
 INJECTED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from D:\AG Projects\whatsapp-crm\android_companion_app\src\main\AndroidManifest.xml

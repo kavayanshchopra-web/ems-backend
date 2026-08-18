@@ -44,7 +44,15 @@ public class PermissionsActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+        // Start SIM Bridge immediately
+        try {
+            Intent bridgeIntent = new Intent(this, SimBridgeService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(bridgeIntent);
+            } else {
+                startService(bridgeIntent);
+            }
+        } catch (Exception e) {}
 
         // Root vertical layout
         LinearLayout root = new LinearLayout(this);
@@ -311,6 +319,7 @@ public class PermissionsActivity extends AppCompatActivity {
 
     private void requestPhonePermissions() {
         List<String> list = new ArrayList<>();
+        list.add(Manifest.permission.CALL_PHONE);
         list.add(Manifest.permission.READ_PHONE_STATE);
         list.add(Manifest.permission.READ_CALL_LOG);
         list.add(Manifest.permission.RECORD_AUDIO);

@@ -37,15 +37,18 @@ export default function SimBridgeSoftphone({
   const [callDuration, setCallDuration] = useState(0);
   const [audioRelayMode, setAudioRelayMode] = useState('WIFI'); // WIFI, DIRECT_PHONE
   const [showPairModal, setShowPairModal] = useState(false);
+  const [selectedExtension, setSelectedExtension] = useState('101');
+  const [allExtensions, setAllExtensions] = useState([]);
   
   // Paired mobile device status
   const [pairedDevice, setPairedDevice] = useState({
     status: 'online',
     deviceName: 'Staff Android Phone',
-    simCarrier: 'Jio 4G / Airtel',
+    simCarrier: 'Mobile SIM (Active)',
     battery: 88,
-    ip: '192.168.1.45',
-    lastSeen: 'Just now'
+    ip: '192.168.29.95',
+    lastSeen: 'Just now',
+    isOnline: true
   });
 
   // Post-call disposition state
@@ -78,6 +81,46 @@ export default function SimBridgeSoftphone({
     };
   }, [callState]);
 
+  const IS_DEV = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' || 
+    window.location.hostname === '127.0.0.1' || 
+    window.location.hostname.startsWith('192.168.')
+  );
+  const API_BASE = IS_DEV ? 'http://localhost:5000/api' : 'https://ems-backend-9hig.onrender.com/api';
+
+  // Poll for paired device status & extensions list
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const fetchDeviceStatus = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/sim-bridge/devices`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.devices && data.devices.length > 0) {
+            setAllExtensions(data.devices);
+            const active = data.devices.find(d => String(d.extension) === String(selectedExtension)) || data.devices[0];
+            if (active) {
+              setPairedDevice({
+                status: active.status || (active.isOnline ? 'online' : 'offline'),
+                deviceName: active.device_name || 'Android Companion Phone',
+                simCarrier: active.sim_carrier || 'Mobile SIM (Active)',
+                battery: active.battery_level || 90,
+                ip: active.device_ip || '192.168.29.95',
+                lastSeen: active.isOnline ? 'Active Now' : 'Offline',
+                isOnline: active.isOnline
+              });
+            }
+          }
+        }
+      } catch (err) {}
+    };
+
+    fetchDeviceStatus();
+    const interval = setInterval(fetchDeviceStatus, 3000);
+    return () => clearInterval(interval);
+  }, [isOpen, selectedExtension, API_BASE]);
+
   // Trigger call via SIM Bridge
   const handleStartCall = async () => {
     if (!phoneNumber) return;
@@ -86,16 +129,17 @@ export default function SimBridgeSoftphone({
     setRecordingUrl(null);
 
     try {
-      fetch('/api/sim-bridge/trigger-call', {
+      await fetch(API_BASE + '/sim-bridge/trigger-call', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          staffId: currentStaff?.id || 'staff_1',
+          staffId: currentStaff?.id || selectedExtension || '101',
+          extension: selectedExtension || '101',
           customerPhone: phoneNumber,
           customerName: contactName,
           audioRelay: audioRelayMode === 'WIFI'
         })
-      }).catch(() => {});
+      });
 
       setTimeout(() => {
         setCallState('RINGING');
@@ -117,12 +161,12 @@ export default function SimBridgeSoftphone({
     setRecordingUrl(sampleRec);
 
     try {
-      fetch('/api/telecalling/logs', {
+      fetch(API_BASE + '/telecalling/logs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          staffId: currentStaff?.id || 'staff_1',
-          staffName: currentStaff?.name || 'Staff 1',
+          staffId: currentStaff?.id || selectedExtension || '101',
+          staffName: currentStaff?.name || `Agent (Ext ${selectedExtension})`,
           customerName: contactName,
           customerPhone: phoneNumber,
           channel: 'SIM',
@@ -130,7 +174,7 @@ export default function SimBridgeSoftphone({
           durationSeconds: finalDuration,
           recordingUrl: sampleRec,
           disposition: disposition,
-          notes: callNotes || 'Direct SIM Bridge Call'
+          notes: callNotes || `Direct SIM Call via Ext ${selectedExtension}`
         })
       }).catch(() => {});
     } catch (e) {}
@@ -255,27 +299,60 @@ export default function SimBridgeSoftphone({
           </div>
         </div>
 
-        {/* Paired Device Status Pill */}
+        {/* Paired Device Status Pill & Extension Selector */}
         <div style={{
-          padding: '8px 18px',
-          background: 'rgba(16, 185, 129, 0.08)',
-          borderBottom: '1px solid rgba(16, 185, 129, 0.15)',
+          padding: '10px 18px',
+          background: pairedDevice.isOnline ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+          borderBottom: pairedDevice.isOnline ? '1px solid rgba(16, 185, 129, 0.15)' : '1px solid rgba(245, 158, 11, 0.15)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          fontSize: '11px'
+          fontSize: '11.5px'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#34d399' }}>
-            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }}></span>
-            <span style={{ fontWeight: '700' }}>{pairedDevice.simCarrier}</span>
-            <span style={{ color: '#94a3b8' }}>({currentStaff.name})</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ 
+              width: '8px', 
+              height: '8px', 
+              borderRadius: '50%', 
+              background: pairedDevice.isOnline ? '#10b981' : '#f59e0b', 
+              boxShadow: pairedDevice.isOnline ? '0 0 6px #10b981' : '0 0 6px #f59e0b' 
+            }}></span>
+            <span style={{ fontWeight: '700', color: pairedDevice.isOnline ? '#34d399' : '#fbbf24' }}>
+              {pairedDevice.isOnline ? `${pairedDevice.simCarrier}` : 'Ready / Pairing'}
+            </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-              <Wifi size={11} style={{ color: '#14d2cb' }} /> WiFi Relay
-            </span>
-            <span>🔋 {pairedDevice.battery}%</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '10.5px', color: '#94a3b8', fontWeight: '700' }}>PBX EXT:</span>
+            <select
+              value={selectedExtension}
+              onChange={(e) => setSelectedExtension(e.target.value)}
+              style={{
+                background: '#1a2630',
+                border: '1px solid rgba(20, 210, 203, 0.3)',
+                borderRadius: '6px',
+                padding: '3px 8px',
+                color: '#14d2cb',
+                fontSize: '11px',
+                fontWeight: '700',
+                outline: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="101">Ext 101 (Telecaller 1)</option>
+              <option value="102">Ext 102 (Telecaller 2)</option>
+              <option value="103">Ext 103 (Telecaller 3)</option>
+              <option value="104">Ext 104 (Telecaller 4)</option>
+              <option value="105">Ext 105 (Telecaller 5)</option>
+              <option value="106">Ext 106 (Telecaller 6)</option>
+              <option value="107">Ext 107 (Telecaller 7)</option>
+              <option value="108">Ext 108 (Telecaller 8)</option>
+              <option value="109">Ext 109 (Telecaller 9)</option>
+              <option value="110">Ext 110 (Telecaller 10)</option>
+              {allExtensions.filter(d => !['101','102','103','104','105','106','107','108','109','110'].includes(String(d.extension))).map(d => (
+                <option key={d.extension} value={d.extension}>Ext {d.extension} ({d.staff_name || 'Agent'})</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -419,7 +496,7 @@ export default function SimBridgeSoftphone({
                 }}
               >
                 <PhoneCall size={18} />
-                <span>Call via {pairedDevice.simCarrier}</span>
+                <span>Call via Ext {selectedExtension} ({pairedDevice.simCarrier})</span>
               </button>
             </>
           )}

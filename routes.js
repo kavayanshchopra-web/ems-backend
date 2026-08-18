@@ -2,6 +2,9 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import Stripe from 'stripe';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { 
   getAllSessions, 
   saveSession, 
@@ -62,17 +65,29 @@ import {
   deleteHoliday,
   getLeaves,
   createLeave,
-  updateLeaveStatus
+  updateLeaveStatus,
+  getSimBridgeDevices,
+  getSimBridgeDeviceByStaff,
+  registerOrUpdateSimDevice,
+  getCallLogs,
+  createCallLog
 } from './db.js';
 import { 
   startSession, 
   stopSession, 
   destroySession, 
-  sendWhatsAppMessage,
+  sendWhatsAppMessage, 
   sendWhatsAppMedia,
   getProfilePicUrl,
   checkWhatsAppNumber
 } from './sessionManager.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const recordingsDir = path.join(__dirname, 'media_store', 'recordings');
+if (!fs.existsSync(recordingsDir)) {
+  fs.mkdirSync(recordingsDir, { recursive: true });
+}
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'omniflow_super_secret_jwt_key';
@@ -394,10 +409,9 @@ export default function setupRoutes(io) {
       const plan = await getTenantPlanDetails(req.user.tenant_id);
       const currentSessions = await getAllSessions(req.user.tenant_id);
       
-      // Strict 1 WhatsApp Channel per user enforcement (SuperAdmin exempt)
-      if (req.user.role !== 'superadmin' && currentSessions.length >= 1) {
+      if (req.user.role !== 'superadmin' && plan && currentSessions.length >= plan.max_channels) {
         return res.status(403).json({ 
-          error: `Channel Limit Reached: 1 WhatsApp account per user is allowed. Please delete or disconnect your existing channel to link a new one.` 
+          error: `Plan Limit Exceeded: Your plan (${plan.name}) allows a maximum of ${plan.max_channels} active channel(s). Please upgrade to add more.` 
         });
       }
 
@@ -568,17 +582,51 @@ export default function setupRoutes(io) {
     }
   });
 
+  // 2-Way CRM Sync from OmniFlow Chrome Extension / Web Overlay
+  router.post('/contacts/crm-sync', async (req, res) => {
+    const { name, phone, stage, notes, dealValue, customName, email, labels } = req.body;
+    if (!phone && !name) {
+      return res.status(400).json({ error: 'Phone or Name is required for CRM sync' });
+    }
+
+    try {
+      const cleanPhone = (phone || '').replace(/[^0-9]/g, '');
+      const contactId = cleanPhone ? `${cleanPhone}@s.whatsapp.net` : `${name.replace(/\s+/g, '_')}@temp.net`;
+      
+      let contact = await getContact(contactId, req.user.tenant_id);
+      if (!contact) {
+        await saveContact(contactId, name || cleanPhone || 'New Contact', req.user.tenant_id, stage || 'new');
+      }
+
+      const updated = await updateContactCRM(contactId, {
+        customName: customName || name,
+        email,
+        notes,
+        pipelineStage: stage,
+        labels,
+        dealValue
+      }, req.user.tenant_id);
+
+      io.emit('contact_update', updated);
+      res.json({ success: true, contact: updated });
+    } catch (err) {
+      console.error('[CRM-Sync Error]', err);
+      res.status(500).json({ error: 'Failed to sync CRM data from extension' });
+    }
+  });
+
   // Update CRM information for a contact
   router.put('/contacts/:id', async (req, res) => {
     const { id } = req.params;
-    const { customName, email, notes, pipelineStage, labels } = req.body;
+    const { customName, email, notes, pipelineStage, labels, dealValue } = req.body;
     try {
       const updated = await updateContactCRM(id, {
         customName,
         email,
         notes,
         pipelineStage,
-        labels
+        labels,
+        dealValue
       }, req.user.tenant_id);
       
       io.emit('contact_update', updated);
@@ -715,10 +763,15 @@ export default function setupRoutes(io) {
       io.emit('new_message', {
         id: sentMessage.id,
         sessionId,
+        session_id: sessionId,
         contactId: sentMessage.recipientJid,
+        contact_id: sentMessage.recipientJid,
         fromMe: 1,
+        from_me: 1,
         textContent: text,
+        text_content: text,
         mediaType: 'text',
+        media_type: 'text',
         timestamp: sentMessage.timestamp,
         tenantId: req.user.tenant_id
       });
@@ -1547,52 +1600,265 @@ export default function setupRoutes(io) {
               window.opener.postMessage({ type: 'GHL_OAUTH_SUCCESS', code: '${code}' }, '*');
             }
             setTimeout(() => window.close(), 3000);
-  // Send Broadcast WhatsApp Campaign with Anti-Ban Randomized Delay
-  router.post('/broadcast', async (req, res) => {
-    const { stage, message, sessionId } = req.body;
-    if (!message || !message.trim()) {
-      return res.status(400).json({ error: 'Message text is required' });
-    }
+          </script>
+        </div>
+      </body>
+      </html>
+    `);
+  });
 
-    try {
-      const db = getDb();
-      let query = `SELECT id, name, custom_name FROM contacts WHERE tenant_id = ?`;
-      const params = [req.user.tenant_id];
+  // ==========================================
+  // 📱 SIM BRIDGE & TELECALLING ENDPOINTS
+  // ==========================================
 
-      if (stage && stage !== 'all') {
-        query += ` AND pipeline_stage = ?`;
-        params.push(stage);
-      }
-
-      const targetContacts = await db.all(query, params);
-      if (!targetContacts || targetContacts.length === 0) {
-        return res.status(404).json({ error: 'No contacts found matching the selected stage filter.' });
-      }
-
-      // Run broadcast in background with safe randomized human typing delays (5 to 10s per contact)
-      (async () => {
-        for (let i = 0; i < targetContacts.length; i++) {
-          const contact = targetContacts[i];
-          try {
-            await sendWhatsAppMessage(sessionId, contact.id, message.trim());
-            io.emit('broadcast_progress', { current: i + 1, total: targetContacts.length, status: 'sending' });
-          } catch (sendErr) {
-            console.error(`[Broadcast] Error sending to ${contact.id}:`, sendErr.message);
-          }
-
-          // Anti-ban jitter sleep between 5000ms and 10000ms
-          if (i < targetContacts.length - 1) {
-            const randomDelay = Math.floor(Math.random() * 5000) + 5000;
-            await new Promise(resolve => setTimeout(resolve, randomDelay));
-          }
+  // Socket.io handlers for SIM Bridge
+  if (io) {
+    io.on('connection', (socket) => {
+      // Mobile app joins its staff room
+      socket.on('sim_bridge:register_device', async (data) => {
+        const { staffId, deviceId, deviceName, simCarrier, simNumber, deviceIp, batteryLevel } = data || {};
+        if (staffId) {
+          socket.join(`staff_${staffId}`);
+          socket.join(`device_${deviceId}`);
+          await registerOrUpdateSimDevice(1, {
+            staffId,
+            staffName: data.staffName || `Staff ${staffId}`,
+            deviceId: deviceId || socket.id,
+            deviceName: deviceName || 'Android Phone',
+            simCarrier: simCarrier || 'Jio 4G',
+            simNumber: simNumber || '',
+            deviceIp: deviceIp || socket.handshake.address,
+            batteryLevel: batteryLevel || 100,
+            status: 'online'
+          });
+          io.emit('sim_bridge:device_updated', { staffId, status: 'online', deviceName, simCarrier });
         }
-        io.emit('broadcast_progress', { current: targetContacts.length, total: targetContacts.length, status: 'completed' });
-      })().catch(err => console.error('[Broadcast Worker Error]:', err));
+      });
 
-      res.json({ success: true, total: targetContacts.length, message: 'Broadcast campaign initiated with anti-ban protections.' });
+      // Desktop triggers call to mobile phone
+      socket.on('sim_bridge:trigger_call', (data) => {
+        const { staffId, customerPhone, customerName } = data || {};
+        if (staffId) {
+          io.to(`staff_${staffId}`).emit('sim_bridge:incoming_trigger', {
+            customerPhone,
+            customerName: customerName || 'Customer',
+            timestamp: Date.now()
+          });
+        }
+      });
+
+      // Mobile reports call state back to desktop
+      socket.on('sim_bridge:call_status', (data) => {
+        const { staffId, status, duration, customerPhone } = data || {};
+        if (staffId) {
+          io.emit(`sim_bridge:status_${staffId}`, { status, duration, customerPhone, timestamp: Date.now() });
+        }
+      });
+
+      // Desktop or mobile requests hangup
+      socket.on('sim_bridge:hangup', (data) => {
+        const { staffId } = data || {};
+        if (staffId) {
+          io.to(`staff_${staffId}`).emit('sim_bridge:hangup_command');
+        }
+      });
+    });
+  }
+
+  // Get list of all paired SIM Bridge Devices
+  router.get('/sim-bridge/devices', async (req, res) => {
+    try {
+      const devices = await getSimBridgeDevices(1);
+      const now = Date.now();
+      const enriched = devices.map(d => {
+        const lastSeenMs = d.last_seen ? new Date(d.last_seen).getTime() : 0;
+        const isOnline = (now - lastSeenMs) < 30000;
+        return {
+          ...d,
+          isOnline,
+          status: isOnline ? (d.status || 'online') : 'offline'
+        };
+      });
+      res.json({ success: true, devices: enriched });
     } catch (err) {
-      console.error('Broadcast failed:', err);
-      res.status(500).json({ error: err.message || 'Failed to start broadcast' });
+      console.error('Error fetching sim bridge devices:', err);
+      res.status(500).json({ error: 'Failed to fetch devices' });
+    }
+  });
+
+  // Get status of specific staff / extension
+  router.get('/sim-bridge/device-status', async (req, res) => {
+    try {
+      const { staffId, extension } = req.query;
+      const device = await getSimBridgeDeviceByStaff(1, extension || staffId || '101');
+      if (!device) {
+        return res.json({ success: true, isPaired: false, status: 'offline' });
+      }
+      const lastSeenMs = device.last_seen ? new Date(device.last_seen).getTime() : 0;
+      const isOnline = (Date.now() - lastSeenMs) < 30000;
+      res.json({
+        success: true,
+        isPaired: true,
+        isOnline,
+        device: {
+          ...device,
+          status: isOnline ? (device.status || 'online') : 'offline'
+        }
+      });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to fetch device status' });
+    }
+  });
+
+  // Pair or update mobile SIM device (from Mobile App)
+  router.post('/sim-bridge/pair', async (req, res) => {
+    try {
+      const device = await registerOrUpdateSimDevice(1, req.body);
+      console.log(`📱 [SIM BRIDGE] Staff Device Paired: Ext ${device.extension || device.staff_id} (${device.device_name}) - SIM: ${device.sim_carrier}`);
+      if (io) {
+        io.emit('sim_bridge:device_paired', device);
+      }
+      res.json({ success: true, device });
+    } catch (err) {
+      console.error('Error pairing sim device:', err);
+      res.status(500).json({ error: 'Failed to pair device' });
+    }
+  });
+
+  // Mobile App Heartbeat (keeps device status ONLINE)
+  router.post('/sim-bridge/heartbeat', async (req, res) => {
+    try {
+      const { extension, staffId, batteryLevel, status } = req.body;
+      const key = String(extension || staffId || '101');
+      await registerOrUpdateSimDevice(1, {
+        staffId: key,
+        extension: key,
+        batteryLevel: batteryLevel || 100,
+        status: status || 'online'
+      });
+      res.json({ success: true, timestamp: Date.now() });
+    } catch (err) {
+      res.status(500).json({ error: 'Heartbeat failed' });
+    }
+  });
+
+  const pendingSimCalls = new Map(); // extension/staffId -> call data
+
+  // Poll for pending call command (Mobile App)
+  router.get('/sim-bridge/poll-call', (req, res) => {
+    const key1 = String(req.query.extension || '');
+    const key2 = String(req.query.staffId || '');
+    const ext = key1 || key2 || '101';
+    
+    // Check both extension key and staffId key
+    let pending = pendingSimCalls.get(ext);
+    if (!pending && key2) pending = pendingSimCalls.get(key2);
+    if (!pending && key1) pending = pendingSimCalls.get(key1);
+
+    if (pending && (Date.now() - pending.timestamp < 45000)) {
+      pendingSimCalls.delete(ext);
+      if (key1) pendingSimCalls.delete(key1);
+      if (key2) pendingSimCalls.delete(key2);
+      console.log(`⚡ [SIM BRIDGE] Mobile Fetched Call Command -> Dialing ${pending.customerPhone} (Ext: ${ext})`);
+      return res.json({ hasCall: true, ...pending });
+    }
+    res.json({ hasCall: false });
+  });
+
+  // REST Trigger Call (Desktop -> Server -> Mobile)
+  router.post('/sim-bridge/trigger-call', async (req, res) => {
+    try {
+      const { staffId, extension, customerPhone, customerName } = req.body;
+      if (!customerPhone) {
+        return res.status(400).json({ error: 'customerPhone is required' });
+      }
+
+      const targetExt = String(extension || staffId || '101');
+      console.log(`📞 [SIM BRIDGE] Call Queued from Laptop CRM -> Target Ext: ${targetExt} -> Customer Phone: ${customerPhone}`);
+
+      // Add to pending poll queue for mobile device
+      const callData = {
+        extension: targetExt,
+        staffId: String(staffId || targetExt),
+        customerPhone,
+        customerName: customerName || 'Customer',
+        timestamp: Date.now()
+      };
+
+      pendingSimCalls.set(targetExt, callData);
+      if (staffId && String(staffId) !== targetExt) {
+        pendingSimCalls.set(String(staffId), callData);
+      }
+
+      if (io) {
+        io.to(`staff_${targetExt}`).emit('sim_bridge:incoming_trigger', callData);
+        io.emit(`sim_bridge:status_${targetExt}`, { status: 'DIALING', customerPhone, timestamp: Date.now() });
+      }
+      res.json({ success: true, message: `Call queued for extension ${targetExt}` });
+    } catch (err) {
+      console.error('Error triggering sim call:', err);
+      res.status(500).json({ error: 'Failed to trigger call' });
+    }
+  });
+
+  // Telecalling Logs List
+  router.get('/telecalling/logs', async (req, res) => {
+    try {
+      const logs = await getCallLogs(1, 200);
+      res.json({ success: true, logs });
+    } catch (err) {
+      console.error('Error fetching call logs:', err);
+      res.status(500).json({ error: 'Failed to fetch call logs' });
+    }
+  });
+
+  // Save new Call Log
+  router.post('/telecalling/logs', async (req, res) => {
+    try {
+      const log = await createCallLog(1, req.body);
+      if (io) {
+        io.emit('telecalling:new_log', log);
+      }
+      res.json({ success: true, log });
+    } catch (err) {
+      console.error('Error saving call log:', err);
+      res.status(500).json({ error: 'Failed to save call log' });
+    }
+  });
+
+  // Upload Call Audio Recording (.mp3 / base64)
+  router.post('/telecalling/upload-recording', async (req, res) => {
+    try {
+      const { audioBase64, customerPhone, customerName, staffId, staffName, durationSeconds, disposition, notes } = req.body;
+      if (!audioBase64) {
+        return res.status(400).json({ error: 'audioBase64 payload required' });
+      }
+      const filename = `call_rec_${staffId || 'staff'}_${Date.now()}.mp3`;
+      const filePath = path.join(recordingsDir, filename);
+      const cleanBase64 = audioBase64.replace(/^data:audio\/\w+;base64,/, '');
+      fs.writeFileSync(filePath, Buffer.from(cleanBase64, 'base64'));
+
+      const recordingUrl = `/media/recordings/${filename}`;
+      const log = await createCallLog(1, {
+        staffId: staffId || '1',
+        staffName: staffName || 'Telecaller',
+        customerName: customerName || 'Customer',
+        customerPhone: customerPhone || 'Unknown',
+        channel: 'SIM',
+        type: 'OUTGOING',
+        durationSeconds: durationSeconds || 0,
+        recordingUrl,
+        disposition: disposition || 'Interested',
+        notes: notes || 'Auto-recorded via OmniFlow SIM Bridge'
+      });
+
+      if (io) {
+        io.emit('telecalling:new_log', log);
+      }
+      res.json({ success: true, recordingUrl, log });
+    } catch (err) {
+      console.error('Error uploading call recording:', err);
+      res.status(500).json({ error: 'Failed to upload call recording' });
     }
   });
 

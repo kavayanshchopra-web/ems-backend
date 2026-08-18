@@ -12,6 +12,7 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.View;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -37,6 +38,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvFolderStatus;
     private Button btnSelectFolder;
     private Button btnToggleService;
+    private Button btnExtSetup;
     private LinearLayout header;
 
     @Override
@@ -51,7 +53,7 @@ public class MainActivity extends AppCompatActivity {
         // Programmatic settings header bar
         header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setPadding(25, 15, 25, 15);
+        header.setPadding(20, 12, 20, 12);
         header.setBackgroundColor(Color.parseColor("#0F172A")); // Dark Slate
         header.setGravity(Gravity.CENTER_VERTICAL);
 
@@ -59,14 +61,14 @@ public class MainActivity extends AppCompatActivity {
         textContainer.setOrientation(LinearLayout.VERTICAL);
         
         TextView tvTitle = new TextView(this);
-        tvTitle.setText("OmniFlow Recording Engine");
+        tvTitle.setText("OmniFlow PBX Companion");
         tvTitle.setTextColor(Color.WHITE);
-        tvTitle.setTextSize(14f);
+        tvTitle.setTextSize(13f);
         tvTitle.setTypeface(null, Typeface.BOLD);
 
         tvFolderStatus = new TextView(this);
-        tvFolderStatus.setText("⚠️ Folder Not Configured");
-        tvFolderStatus.setTextColor(Color.parseColor("#EF4444")); // Red
+        tvFolderStatus.setText("Ext: 101 • Ready");
+        tvFolderStatus.setTextColor(Color.parseColor("#10B981")); // Green
         tvFolderStatus.setTextSize(11f);
 
         textContainer.addView(tvTitle);
@@ -76,27 +78,42 @@ public class MainActivity extends AppCompatActivity {
             0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f);
         header.addView(textContainer, textParams);
 
+        // Extension Setup Button
+        btnExtSetup = new Button(this);
+        btnExtSetup.setText("☎️ Ext 101");
+        btnExtSetup.setTextSize(11f);
+        btnExtSetup.setTextColor(Color.WHITE);
+        btnExtSetup.setBackgroundColor(Color.parseColor("#6366F1")); // Indigo
+        btnExtSetup.setAllCaps(false);
+        btnExtSetup.setPadding(15, 5, 15, 5);
+        btnExtSetup.setOnClickListener(v -> showExtensionConfigDialog());
+
+        LinearLayout.LayoutParams extParams = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        extParams.setMargins(5, 0, 5, 0);
+        header.addView(btnExtSetup, extParams);
+
         btnSelectFolder = new Button(this);
-        btnSelectFolder.setText("📁 Link Folder");
+        btnSelectFolder.setText("📁 Folder");
         btnSelectFolder.setTextSize(11f);
         btnSelectFolder.setTextColor(Color.WHITE);
         btnSelectFolder.setBackgroundColor(Color.parseColor("#3B82F6")); // Blue
         btnSelectFolder.setAllCaps(false);
-        btnSelectFolder.setPadding(20, 5, 20, 5);
+        btnSelectFolder.setPadding(15, 5, 15, 5);
         btnSelectFolder.setOnClickListener(v -> selectCallRecordingsFolder());
 
         LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        btnParams.setMargins(10, 0, 10, 0);
+        btnParams.setMargins(5, 0, 5, 0);
         header.addView(btnSelectFolder, btnParams);
 
         btnToggleService = new Button(this);
-        btnToggleService.setText("Pause");
+        btnToggleService.setText("🟢 ACTIVE");
         btnToggleService.setTextSize(11f);
         btnToggleService.setTextColor(Color.WHITE);
         btnToggleService.setBackgroundColor(Color.parseColor("#10B981")); // Green
         btnToggleService.setAllCaps(false);
-        btnToggleService.setPadding(20, 5, 20, 5);
+        btnToggleService.setPadding(15, 5, 15, 5);
         btnToggleService.setOnClickListener(v -> toggleMonitorService());
 
         header.addView(btnToggleService, btnParams);
@@ -122,19 +139,92 @@ public class MainActivity extends AppCompatActivity {
 
         requestEssentialPermissions();
         updateUI();
+        startMonitorService();
+    }
 
-        // Start background call monitor service if active
+    private void showExtensionConfigDialog() {
         SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
-        boolean enabled = prefs.getBoolean("recording_enabled", true);
-        if (enabled && hasAllPermissions()) {
+        String currentExt = prefs.getString("extension", "101");
+        String currentName = prefs.getString("staff_name", "Telecaller Agent");
+        String currentUrl = prefs.getString("api_url", "http://192.168.29.95:5000");
+
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
+        builder.setTitle("📞 Telecaller Extension & Server Setup");
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(40, 20, 40, 10);
+
+        TextView tvExtLabel = new TextView(this);
+        tvExtLabel.setText("Your Extension Number (e.g. 101, 102, 103):");
+        tvExtLabel.setTextSize(12f);
+        layout.addView(tvExtLabel);
+
+        final android.widget.EditText inputExt = new android.widget.EditText(this);
+        inputExt.setText(currentExt);
+        inputExt.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        layout.addView(inputExt);
+
+        TextView tvNameLabel = new TextView(this);
+        tvNameLabel.setText("Staff / Agent Name:");
+        tvNameLabel.setTextSize(12f);
+        tvNameLabel.setPadding(0, 15, 0, 0);
+        layout.addView(tvNameLabel);
+
+        final android.widget.EditText inputName = new android.widget.EditText(this);
+        inputName.setText(currentName);
+        layout.addView(inputName);
+
+        TextView tvUrlLabel = new TextView(this);
+        tvUrlLabel.setText("CRM Server IP / URL:");
+        tvUrlLabel.setTextSize(12f);
+        tvUrlLabel.setPadding(0, 15, 0, 0);
+        layout.addView(tvUrlLabel);
+
+        final android.widget.EditText inputUrl = new android.widget.EditText(this);
+        inputUrl.setText(currentUrl);
+        layout.addView(inputUrl);
+
+        builder.setView(layout);
+
+        builder.setPositiveButton("Save & Pair", (dialog, which) -> {
+            String newExt = inputExt.getText().toString().trim();
+            String newName = inputName.getText().toString().trim();
+            String newUrl = inputUrl.getText().toString().trim();
+
+            if (newExt.isEmpty()) newExt = "101";
+            if (newName.isEmpty()) newName = "Telecaller Agent";
+            if (newUrl.isEmpty()) newUrl = "http://192.168.29.95:5000";
+
+            prefs.edit()
+                .putString("extension", newExt)
+                .putString("staff_id", newExt)
+                .putString("staff_name", newName)
+                .putString("api_url", newUrl)
+                .apply();
+
+            updateUI();
+            // Restart SimBridgeService to apply new credentials
+            stopMonitorService();
             startMonitorService();
-        }
+
+            Toast.makeText(MainActivity.this, "✅ Extension " + newExt + " Paired Successfully!", Toast.LENGTH_LONG).show();
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+        builder.show();
     }
 
     private void updateUI() {
         SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
         boolean enabled = prefs.getBoolean("recording_enabled", true);
         String folderUriStr = prefs.getString("selected_folder_uri", "");
+        String ext = prefs.getString("extension", "101");
+        String name = prefs.getString("staff_name", "Telecaller Agent");
+
+        if (btnExtSetup != null) {
+            btnExtSetup.setText("☎️ Ext: " + ext);
+        }
 
         if (enabled) {
             btnToggleService.setText("🟢 ACTIVE");
@@ -145,24 +235,11 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (folderUriStr.isEmpty()) {
-            if (header != null) header.setVisibility(View.VISIBLE);
-            tvFolderStatus.setText("⚠️ Link Call Recordings folder!");
+            tvFolderStatus.setText("Ext " + ext + " • ⚠️ Link Folder");
             tvFolderStatus.setTextColor(Color.parseColor("#F59E0B")); // Amber
         } else {
-            // Once folder is linked, hide top header bar for clean screen!
-            if (header != null) header.setVisibility(View.GONE);
-            try {
-                Uri folderUri = Uri.parse(folderUriStr);
-                String folderName = folderUri.getLastPathSegment();
-                if (folderName != null && folderName.contains(":")) {
-                    folderName = folderName.substring(folderName.indexOf(":") + 1);
-                }
-                tvFolderStatus.setText("🟢 Linked: " + folderName);
-                tvFolderStatus.setTextColor(Color.parseColor("#10B981")); // Green
-            } catch (Exception e) {
-                tvFolderStatus.setText("🟢 Folder Linked Successfully");
-                tvFolderStatus.setTextColor(Color.parseColor("#10B981"));
-            }
+            tvFolderStatus.setText("Ext " + ext + " (" + name + ") • 🟢 Ready");
+            tvFolderStatus.setTextColor(Color.parseColor("#10B981")); // Green
         }
     }
 
@@ -196,23 +273,28 @@ public class MainActivity extends AppCompatActivity {
 
     private void startMonitorService() {
         try {
-            Intent serviceIntent = new Intent(this, CallRecordingService.class);
+            Intent recIntent = new Intent(this, CallRecordingService.class);
+            Intent bridgeIntent = new Intent(this, SimBridgeService.class);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(serviceIntent);
+                startForegroundService(recIntent);
+                startForegroundService(bridgeIntent);
             } else {
-                startService(serviceIntent);
+                startService(recIntent);
+                startService(bridgeIntent);
             }
         } catch (Exception e) {
-            Log.e("OmniFlow", "Error starting service: " + e.getMessage());
+            Log.e("OmniFlow", "Error starting services: " + e.getMessage());
         }
     }
 
     private void stopMonitorService() {
         try {
-            Intent serviceIntent = new Intent(this, CallRecordingService.class);
-            stopService(serviceIntent);
+            Intent recIntent = new Intent(this, CallRecordingService.class);
+            Intent bridgeIntent = new Intent(this, SimBridgeService.class);
+            stopService(recIntent);
+            stopService(bridgeIntent);
         } catch (Exception e) {
-            Log.e("OmniFlow", "Error stopping service: " + e.getMessage());
+            Log.e("OmniFlow", "Error stopping services: " + e.getMessage());
         }
     }
 

@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="app_name">OmniFlow Telecalling</string>
-    <string name="accessibility_service_description">OmniFlow Telephony Helper — Enables background call logging and HD audio capture for business calls.</string>
-</resources>
