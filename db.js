@@ -321,6 +321,56 @@ export async function initDb() {
     )
   `);
 
+  // Create sim_bridge_devices table for Laptop-to-Mobile SIM pairing
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS sim_bridge_devices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER NOT NULL DEFAULT 1,
+      staff_id TEXT NOT NULL,
+      staff_name TEXT,
+      extension TEXT DEFAULT '101',
+      pin TEXT DEFAULT '1234',
+      device_id TEXT UNIQUE,
+      device_name TEXT,
+      sim_carrier TEXT DEFAULT 'Mobile SIM (Active)',
+      sim_number TEXT,
+      device_ip TEXT,
+      status TEXT DEFAULT 'online', -- online, offline, calling, busy
+      battery_level INTEGER DEFAULT 100,
+      last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
+      paired_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Auto-migrate extension and pin columns if table already exists
+  try {
+    await db.exec(`ALTER TABLE sim_bridge_devices ADD COLUMN extension TEXT DEFAULT '101'`);
+  } catch (e) {}
+  try {
+    await db.exec(`ALTER TABLE sim_bridge_devices ADD COLUMN pin TEXT DEFAULT '1234'`);
+  } catch (e) {}
+
+  // Create call_logs table for Telecalling and Auto-Recordings
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS call_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER NOT NULL DEFAULT 1,
+      staff_id TEXT,
+      staff_name TEXT,
+      customer_name TEXT,
+      customer_phone TEXT NOT NULL,
+      channel TEXT DEFAULT 'SIM',
+      type TEXT DEFAULT 'OUTGOING',
+      duration_seconds INTEGER DEFAULT 0,
+      recording_url TEXT,
+      disposition TEXT DEFAULT 'Interested',
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    )
+  `);
+
   // Seed default plans if empty
   const planCount = await db.get(`SELECT COUNT(*) as count FROM plans`);
   if (planCount && planCount.count === 0) {
@@ -356,6 +406,7 @@ export async function initDb() {
   const migrateColumns = [
     { table: 'whatsapp_sessions', column: 'tenant_id', type: 'INTEGER DEFAULT 1' },
     { table: 'contacts', column: 'tenant_id', type: 'INTEGER DEFAULT 1' },
+    { table: 'contacts', column: 'deal_value', type: 'TEXT DEFAULT ""' },
     { table: 'messages', column: 'tenant_id', type: 'INTEGER DEFAULT 1' },
     { table: 'chatbot_rules', column: 'tenant_id', type: 'INTEGER DEFAULT 1' },
     { table: 'scheduled_messages', column: 'tenant_id', type: 'INTEGER DEFAULT 1' }
@@ -594,12 +645,27 @@ export async function getPnFromLid(lid) {
   return row ? row.pn : null;
 }
 
-export async function updateContactCRM(id, { customName, email, notes, pipelineStage, labels }, tenantId = 1) {
+export async function updateContactCRM(id, { customName, email, notes, pipelineStage, labels, dealValue }, tenantId = 1) {
   await db.run(
     `UPDATE contacts 
-     SET custom_name = ?, email = ?, notes = ?, pipeline_stage = ?, labels = ? 
+     SET custom_name = COALESCE(?, custom_name), 
+         email = COALESCE(?, email), 
+         notes = COALESCE(?, notes), 
+         pipeline_stage = COALESCE(?, pipeline_stage), 
+         labels = CASE WHEN ? IS NOT NULL THEN ? ELSE labels END,
+         deal_value = COALESCE(?, deal_value)
      WHERE id = ? AND tenant_id = ?`,
-    [customName, email, notes, pipelineStage, JSON.stringify(labels || []), id, tenantId]
+    [
+      customName ?? null,
+      email ?? null,
+      notes ?? null,
+      pipelineStage ?? null,
+      labels ? JSON.stringify(labels) : null,
+      labels ? JSON.stringify(labels) : null,
+      dealValue ?? null,
+      id,
+      tenantId
+    ]
   );
   return await db.get(`SELECT * FROM contacts WHERE id = ? AND tenant_id = ?`, [id, tenantId]);
 }
@@ -646,14 +712,16 @@ export async function updateMessageStatus(id, status) {
 }
 
 export async function getMessagesForContact(contactId, limit = 50, offset = 0, tenantId = 1) {
+  const cleanJid = contactId.includes('@') ? contactId : `${contactId}@s.whatsapp.net`;
+  const rawNum = contactId.split('@')[0];
   const messages = await db.all(
     `SELECT m.*, s.phone_name as session_name 
      FROM messages m
      LEFT JOIN whatsapp_sessions s ON m.session_id = s.id
-     WHERE m.contact_id = ? AND m.tenant_id = ?
+     WHERE (m.contact_id = ? OR m.contact_id = ? OR m.contact_id LIKE ?)
      ORDER BY m.timestamp DESC
      LIMIT ? OFFSET ?`,
-    [contactId, tenantId, limit, offset]
+    [contactId, cleanJid, `%${rawNum}%`, limit, offset]
   );
   return messages.reverse();
 }
@@ -661,8 +729,12 @@ export async function getMessagesForContact(contactId, limit = 50, offset = 0, t
 export async function getRecentChats(tenantId = 1) {
   const chats = await db.all(`
     SELECT c.*, 
+           COALESCE(NULLIF(c.name, ''), c.custom_name, REPLACE(REPLACE(c.id, '@s.whatsapp.net', ''), '@g.us', '')) as displayName,
+           REPLACE(REPLACE(c.id, '@s.whatsapp.net', ''), '@g.us', '') as phone_computed,
            m.text_content as last_message_text, 
+           m.text_content as lastMessage,
            m.timestamp as last_message_time,
+           m.timestamp as lastMessageTime,
            m.from_me as last_message_from_me,
            m.media_type as last_message_media_type,
            (SELECT COUNT(*) FROM messages m3 WHERE m3.contact_id = c.id AND m3.from_me = 0 AND m3.is_read = 0 AND m3.tenant_id = ?) as unread_count
@@ -675,9 +747,9 @@ export async function getRecentChats(tenantId = 1) {
         FROM messages WHERE tenant_id = ?
         GROUP BY contact_id
       ) m2 ON m1.contact_id = m2.contact_id AND m1.timestamp = m2.max_ts AND m1.id = m2.max_id
-    ) m ON c.id = m.contact_id
-    WHERE c.tenant_id = ?
-    ORDER BY COALESCE(m.timestamp, strftime('%s', c.created_at)*1000, 0) DESC
+    ) m ON (c.id = m.contact_id OR m.contact_id LIKE '%' || REPLACE(c.id, '@s.whatsapp.net', '') || '%')
+    WHERE c.tenant_id = ? AND c.id != '0@s.whatsapp.net' AND c.id NOT LIKE '%@lid'
+    ORDER BY (CASE WHEN m.timestamp IS NOT NULL THEN 1 ELSE 0 END) DESC, COALESCE(m.timestamp, 0) DESC, c.name ASC
   `, [tenantId, tenantId, tenantId]);
   
   return chats.map(c => {
@@ -685,6 +757,11 @@ export async function getRecentChats(tenantId = 1) {
       c.labels = JSON.parse(c.labels || '[]');
     } catch {
       c.labels = [];
+    }
+    c.name = c.name || c.custom_name || c.displayName || c.phone_computed;
+    c.phone = c.phone_computed || c.id.split('@')[0];
+    if (c.lastMessageTime && c.lastMessageTime < 10000000000) {
+      c.lastMessageTime = c.lastMessageTime * 1000;
     }
     return c;
   });
@@ -1072,6 +1149,74 @@ export async function updateLeaveStatus(tenantId, id, status) {
     [status, id, tenantId]
   );
   return await db.get(`SELECT * FROM leaves WHERE id = ?`, [id]);
+}
+
+// ==========================================
+// 📱 SIM BRIDGE & TELECALLING HELPERS
+// ==========================================
+
+export async function getSimBridgeDevices(tenantId = 1) {
+  return await db.all(
+    `SELECT * FROM sim_bridge_devices WHERE tenant_id = ? ORDER BY last_seen DESC`,
+    [tenantId]
+  );
+}
+
+export async function getSimBridgeDeviceByStaff(tenantId = 1, staffId) {
+  return await db.get(
+    `SELECT * FROM sim_bridge_devices WHERE tenant_id = ? AND (staff_id = ? OR extension = ?)`,
+    [tenantId, String(staffId), String(staffId)]
+  );
+}
+
+export async function getSimBridgeDeviceByExtension(tenantId = 1, extension) {
+  return await db.get(
+    `SELECT * FROM sim_bridge_devices WHERE tenant_id = ? AND extension = ?`,
+    [tenantId, String(extension)]
+  );
+}
+
+export async function registerOrUpdateSimDevice(tenantId = 1, deviceData) {
+  const { staffId, staffName, extension, pin, deviceId, deviceName, simCarrier, simNumber, deviceIp, batteryLevel, status } = deviceData;
+  const ext = String(extension || staffId || '101');
+  const existing = await db.get(
+    `SELECT id FROM sim_bridge_devices WHERE tenant_id = ? AND (device_id = ? OR extension = ? OR staff_id = ?)`,
+    [tenantId, deviceId, ext, String(staffId)]
+  );
+
+  if (existing) {
+    await db.run(
+      `UPDATE sim_bridge_devices 
+       SET staff_id = ?, staff_name = ?, extension = ?, pin = ?, device_name = ?, sim_carrier = ?, sim_number = ?, device_ip = ?, battery_level = ?, status = ?, last_seen = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [String(staffId || ext), staffName || 'Staff Agent', ext, pin || '1234', deviceName || 'Android Phone', simCarrier || 'Mobile SIM (Active)', simNumber || '', deviceIp || '127.0.0.1', batteryLevel || 100, status || 'online', existing.id]
+    );
+    return await db.get(`SELECT * FROM sim_bridge_devices WHERE id = ?`, [existing.id]);
+  } else {
+    const result = await db.run(
+      `INSERT INTO sim_bridge_devices (tenant_id, staff_id, staff_name, extension, pin, device_id, device_name, sim_carrier, sim_number, device_ip, battery_level, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [tenantId, String(staffId || ext), staffName || 'Staff Agent', ext, pin || '1234', deviceId || `DEV_${Date.now()}`, deviceName || 'Android Phone', simCarrier || 'Mobile SIM (Active)', simNumber || '', deviceIp || '127.0.0.1', batteryLevel || 100, status || 'online']
+    );
+    return await db.get(`SELECT * FROM sim_bridge_devices WHERE id = ?`, [result.lastID]);
+  }
+}
+
+export async function getCallLogs(tenantId = 1, limit = 100) {
+  return await db.all(
+    `SELECT * FROM call_logs WHERE tenant_id = ? ORDER BY id DESC LIMIT ?`,
+    [tenantId, limit]
+  );
+}
+
+export async function createCallLog(tenantId = 1, logData) {
+  const { staffId, staffName, customerName, customerPhone, channel, type, durationSeconds, recordingUrl, disposition, notes } = logData;
+  const result = await db.run(
+    `INSERT INTO call_logs (tenant_id, staff_id, staff_name, customer_name, customer_phone, channel, type, duration_seconds, recording_url, disposition, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [tenantId, staffId || '1', staffName || 'Telecaller', customerName || 'Customer', customerPhone, channel || 'SIM', type || 'OUTGOING', durationSeconds || 0, recordingUrl || '', disposition || 'Interested', notes || '']
+  );
+  return await db.get(`SELECT * FROM call_logs WHERE id = ?`, [result.lastID]);
 }
 
 // Export database connection instance for transactions
