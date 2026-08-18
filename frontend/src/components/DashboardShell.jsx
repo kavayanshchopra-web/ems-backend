@@ -5536,10 +5536,35 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
   // Create new session
   const handleCreateSession = async (e) => {
-    e.preventDefault();
-    if (!newSessionName.trim()) return;
-    const sessName = newSessionName.trim();
+    if (e && e.preventDefault) e.preventDefault();
+    const sessName = (newSessionName || '').trim();
+    if (!sessName) {
+      showToast('Please enter a channel display name', 'warning');
+      return;
+    }
     const fallbackId = `sess_${Date.now()}`;
+
+    // Close modal and clear input immediately for instant snappy UI feedback
+    setShowAddSessionModal(false);
+    setNewSessionName('');
+    showToast(`Initializing WhatsApp Channel "${sessName}"...`, 'info');
+
+    // Add optimistic session card in UI
+    const optimisticSession = {
+      id: fallbackId,
+      phone_name: sessName,
+      phoneName: sessName,
+      status: 'connecting',
+      qr_code: null,
+      createdAt: new Date().toISOString()
+    };
+
+    setSessions(prev => {
+      const filtered = (prev || []).filter(s => String(s.id) !== String(fallbackId));
+      const updated = [optimisticSession, ...filtered];
+      try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(updated)); } catch (err) {}
+      return updated;
+    });
 
     let createdSession = null;
     try {
@@ -5555,38 +5580,26 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       });
       if (res.ok) {
         createdSession = await res.json();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        if (errData.error) {
+          showToast(errData.error, 'warning');
+        }
       }
     } catch (err) {
       console.warn('Error creating session via API, using fallback QR preview:', err);
     }
 
-    if (!createdSession || !createdSession.id) {
-      createdSession = {
-        id: fallbackId,
-        phone_name: sessName,
-        phoneName: sessName,
-        status: 'connecting',
-        qr_code: null,
-        createdAt: new Date().toISOString()
-      };
-    } else {
-      createdSession.status = 'connecting';
+    const finalSessionId = createdSession?.id || fallbackId;
+    if (createdSession && createdSession.id && createdSession.id !== fallbackId) {
+      setSessions(prev => {
+        const updated = (prev || []).map(s => String(s.id) === String(fallbackId) ? { ...s, ...createdSession, status: 'connecting' } : s);
+        try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(updated)); } catch (err) {}
+        return updated;
+      });
     }
 
-    setSessions(prev => {
-      const filtered = (prev || []).filter(s => String(s.id) !== String(createdSession.id));
-      const updated = [createdSession, ...filtered];
-      try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(updated)); } catch (e) {}
-      return updated;
-    });
-
-    setNewSessionName('');
-    setShowAddSessionModal(false);
-    showToast(`Created WhatsApp Channel "${sessName}". Initializing QR...`, 'info');
-
-    if (createdSession && createdSession.id) {
-      handleStartSession(createdSession.id);
-    }
+    handleStartSession(finalSessionId);
   };
 
   // Re-start session
