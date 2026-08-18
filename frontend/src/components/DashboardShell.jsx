@@ -60,6 +60,7 @@ const MobilePreviewSimulatorOverlay = lazy(() => import('./modals/MobilePreviewS
 const ConfirmModal = lazy(() => import('./modals/ConfirmModal'));
 const CustomInputModal = lazy(() => import('./modals/CustomInputModal'));
 const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage'));
+const LiveWhatsAppWebPage = lazy(() => import('./pages/LiveWhatsAppWebPage'));
 import StorageUpgradeModal from './storage/StorageUpgradeModal';
 import MediaStorageView from './storage/MediaStorageView';
 import SearchInput from './ui/SearchInput';
@@ -93,6 +94,7 @@ import {
 } from '../firebase.js';
 
 import {
+  Laptop,
   MessageSquare,
   Layers,
   Smartphone,
@@ -292,7 +294,9 @@ const getLabelStyles = (label) => {
 };
 
 const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-const LIVE_BACKEND = 'https://ems-backend-9hig.onrender.com';
+const DEFAULT_GATEWAY = 'https://retention-ellen-beijing-motorcycles.trycloudflare.com';
+const customGateway = typeof window !== 'undefined' ? localStorage.getItem('omniflow_custom_gateway') : null;
+const LIVE_BACKEND = customGateway || DEFAULT_GATEWAY;
 const SOCKET_URL = IS_DEV ? 'http://localhost:5000' : LIVE_BACKEND;
 const API_URL = IS_DEV ? 'http://localhost:5000/api' : `${LIVE_BACKEND}/api`;
 
@@ -413,13 +417,7 @@ function installFetchInterceptor() {
 
     const isAuthRoute = targetUrl.includes('/auth/login') || targetUrl.includes('/auth/register');
 
-    if (token === 'superadmin_master_token_override' && !isAuthRoute) {
-      const fallbackData = getSafeFallbackData(targetUrl, options.method);
-      return new Response(JSON.stringify(fallbackData), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
+
 
     try {
       const response = await originalFetch(targetUrl, {
@@ -528,30 +526,73 @@ const renderStatusTicks = (status) => {
   return <Check size={14} style={{ color: 'rgba(255,255,255,0.15)' }} title="Pending" />;
 };
 
-function AccordionCategoryItem({ id, label, isExpanded, onToggle, children }) {
+function AccordionCategoryItem({ id, label, icon: IconComponent, iconColor, iconBg, isExpanded, onToggle, children }) {
+  const defaultColors = {
+    system: { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' },
+    dashboards: { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' },
+    hr_management: { color: '#2dd4bf', bg: 'rgba(45, 212, 191, 0.16)' },
+    payroll_finance: { color: '#34d399', bg: 'rgba(52, 211, 153, 0.16)' },
+    crm_sales: { color: '#10b981', bg: 'rgba(16, 185, 129, 0.22)' },
+    operations: { color: '#2dd4bf', bg: 'rgba(45, 212, 191, 0.16)' },
+    my_portal: { color: '#34d399', bg: 'rgba(52, 211, 153, 0.16)' },
+    help_support: { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' },
+    saas_portal: { color: '#10b981', bg: 'rgba(16, 185, 129, 0.2)' }
+  };
+
+  const theme = defaultColors[id] || { color: iconColor || '#14d2cb', bg: iconBg || 'rgba(20, 210, 203, 0.16)' };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '8px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '4px' }}>
       <div
         onClick={() => onToggle && onToggle(id)}
+        className="category-header-row"
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '8px 12px',
+          padding: '6px 10px',
           cursor: 'pointer',
-          fontSize: '11px',
+          fontSize: '11.5px',
           fontWeight: '700',
-          color: isExpanded ? '#14d2cb' : 'rgba(255, 255, 255, 0.45)',
+          color: isExpanded ? '#ffffff' : 'rgba(255, 255, 255, 0.65)',
           textTransform: 'uppercase',
           letterSpacing: '0.05em',
           userSelect: 'none',
-          transition: 'color 0.2s ease'
+          transition: 'all 0.2s ease',
+          borderRadius: '10px',
+          margin: '2px 4px'
         }}
       >
-        <span>{label}</span>
-        {isExpanded ? <ChevronDown size={12} style={{ color: '#14d2cb' }} /> : <ChevronRight size={12} style={{ color: 'rgba(255, 255, 255, 0.3)' }} />}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+          {IconComponent && (
+            <span
+              className="category-icon"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minWidth: '36px',
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: theme.bg,
+                color: theme.color,
+                border: `1px solid ${isExpanded ? theme.color : 'rgba(255,255,255,0.08)'}`,
+                boxShadow: isExpanded ? `0 0 10px ${theme.bg}` : 'none'
+              }}
+            >
+              <IconComponent size={18} />
+            </span>
+          )}
+          <span className="category-label-text" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {label}
+          </span>
+        </div>
+        <span className="category-chevron">
+          {isExpanded ? <ChevronDown size={12} style={{ color: '#14d2cb' }} /> : <ChevronRight size={12} style={{ color: 'rgba(255, 255, 255, 0.3)' }} />}
+        </span>
       </div>
-      <div style={{
+      <div className="category-children-container" style={{
         display: 'flex',
         flexDirection: 'column',
         gap: '2px',
@@ -566,11 +607,12 @@ function AccordionCategoryItem({ id, label, isExpanded, onToggle, children }) {
   );
 }
 
-function AccordionCategory({ id, label, isExpanded, onToggle, children }) {
+function AccordionCategory({ id, label, icon, isExpanded, onToggle, children }) {
   return (
     <AccordionCategoryItem
       id={id}
       label={label}
+      icon={icon}
       isExpanded={isExpanded}
       onToggle={onToggle}
     >
@@ -705,6 +747,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [simViewMode, setSimViewMode] = useState('app'); // 'app' or 'permissions'
   const [simPermissions, setSimPermissions] = useState({ calendar: false, location: false, notifications: false, battery: false, phone: false, overlay: false });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('ems_theme') || 'emerald');
 
   const isGhlEmbedded = useMemo(() => {
@@ -4982,12 +5025,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       fetchTenantSettings();
 
       // Connect WebSockets
-      const currentToken = localStorage.getItem('omnilflow_token');
-      if (currentToken !== 'superadmin_master_token_override') {
-        const socket = io(SOCKET_URL, {
-          query: { token: currentToken }
-        });
-        socketRef.current = socket;
+      const currentToken = localStorage.getItem('omnilflow_token') || '';
+      const socket = io(SOCKET_URL, {
+        query: { token: currentToken }
+      });
+      socketRef.current = socket;
 
         socket.on('connect', () => {
         console.log('Connected to WebSocket server');
@@ -5004,18 +5046,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
       socket.on('session_update', (data) => {
         console.log('Session updated:', data);
-        setSessions(prev => prev.map(s => {
-          if (s.id === data.id) {
-            return {
-              ...s,
-              status: data.status,
-              qr_code: data.qr || s.qr_code,
-              phone_number: data.phoneNumber || s.phone_number,
-              profile_pic_url: data.profilePicUrl || s.profile_pic_url
-            };
-          }
-          return s;
-        }));
+        setSessions(prev => {
+          const updated = (prev || []).map(s => {
+            if (String(s.id) === String(data.id)) {
+              return {
+                ...s,
+                status: data.status,
+                qr_code: data.qr || data.qr_code || s.qr_code,
+                phone_number: data.phoneNumber || data.phone_number || s.phone_number,
+                profile_pic_url: data.profilePicUrl || data.profile_pic_url || s.profile_pic_url
+              };
+            }
+            return s;
+          });
+          try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(updated)); } catch (e) {}
+          return updated;
+        });
       });
 
       socket.on('new_message', (msg) => {
@@ -5105,8 +5151,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         });
       });
 
-      } // Close if (currentToken !== 'superadmin_master_token_override')
-
       return () => {
         if (socketRef.current) {
           socketRef.current.disconnect();
@@ -5119,6 +5163,79 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const fetchContacts = async () => {
+    try {
+      const res = await fetch(`${API_URL}/contacts`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setContacts(data);
+          try { localStorage.setItem('omnilflow_fallback_contacts', JSON.stringify(data)); } catch (e) {}
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('REST API contacts fetch warning:', err);
+    }
+
+    setContacts([]);
+  };
+
+  const fetchMessages = async (contactId, append = false) => {
+    if (!contactId) return;
+    try {
+      const currentOffset = append ? messagesOffset + 50 : 0;
+      if (append) {
+        setIsLoadingMore(true);
+      }
+
+      const encodedId = encodeURIComponent(contactId);
+      const res = await fetch(`${API_URL}/contacts/${encodedId}/messages?limit=50&offset=${currentOffset}`);
+      if (res.ok) {
+        const data = await res.json();
+        const msgList = data.messages || (Array.isArray(data) ? data : []);
+        if (append) {
+          setMessages(prev => [...msgList, ...prev]);
+          setMessagesOffset(currentOffset);
+        } else {
+          setMessages(msgList);
+          setMessagesOffset(0);
+        }
+        setHasMoreMessages(data.hasMore || false);
+      }
+    } catch (err) {
+      console.error('Failed to fetch messages:', err);
+    } finally {
+      if (append) {
+        setIsLoadingMore(false);
+      }
+    }
+  };
+
+  const fetchScheduledMessages = async (contactId) => {
+    if (!contactId) return;
+    try {
+      const encodedId = encodeURIComponent(contactId);
+      const res = await fetch(`${API_URL}/contacts/${encodedId}/scheduled`);
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof setScheduledMessages === 'function') setScheduledMessages(data || []);
+      }
+    } catch (err) {}
+  };
+
+  const fetchStarredMessages = async (contactId) => {
+    if (!contactId) return;
+    try {
+      const encodedId = encodeURIComponent(contactId);
+      const res = await fetch(`${API_URL}/contacts/${encodedId}/starred`);
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof setStarredMessages === 'function') setStarredMessages(data || []);
+      }
+    } catch (err) {}
+  };
 
   // Load CRM Form data when active contact changes
   useEffect(() => {
@@ -5231,24 +5348,27 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }
     } catch (err) {}
 
-    let localData = [];
-    try {
-      const saved = localStorage.getItem('omnilflow_fallback_sessions');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) localData = parsed;
+    setSessions(prev => {
+      const map = new Map();
+      (prev || []).forEach(s => { if (s && s.id) map.set(String(s.id), s); });
+
+      serverData.forEach(s => {
+        if (s && s.id) {
+          const existing = map.get(String(s.id)) || {};
+          map.set(String(s.id), {
+            ...existing,
+            ...s,
+            qr_code: s.qr_code || s.qr || existing.qr_code
+          });
+        }
+      });
+
+      const merged = Array.from(map.values());
+      if (merged.length > 0) {
+        try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(merged)); } catch (e) {}
       }
-    } catch (e) {}
-
-    const map = new Map();
-    localData.forEach(s => { if (s && s.id) map.set(String(s.id), s); });
-    serverData.forEach(s => { if (s && s.id) map.set(String(s.id), s); });
-
-    const merged = Array.from(map.values());
-    if (merged.length > 0) {
-      setSessions(merged);
-      try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(merged)); } catch (e) {}
-    }
+      return merged.length > 0 ? merged : prev;
+    });
   };
 
   useEffect(() => {
@@ -5261,78 +5381,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   }, [activeTab, (sessions || []).map(s => s.status).join(',')]);
 
-  const fetchContacts = async () => {
-    let list = [];
 
-    // 1. Primary: REST API Backend (SQLite Server DB)
-    try {
-      const res = await fetch(`${API_URL}/contacts`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          list = data;
-        }
-      }
-    } catch (err) {
-      console.warn('REST API contacts fetch warning:', err);
-    }
-
-    // 2. Secondary: Cloud Firestore Database
-    try {
-      const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
-      const cloudRecords = await FirebaseCloudEngine.fetchRecords('crm_leads', currentTenantId);
-      if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
-        const map = new Map();
-        list.forEach(c => { if (c && c.id) map.set(String(c.id), c); });
-        cloudRecords.forEach(c => { if (c && c.id && !map.has(String(c.id))) map.set(String(c.id), c); });
-        list = Array.from(map.values());
-      }
-    } catch (e) {}
-
-    // 3. Fallback & Local Storage Merge
-    try {
-      const saved = localStorage.getItem('omnilflow_fallback_contacts');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const map = new Map();
-          list.forEach(c => { if (c && c.id) map.set(String(c.id), c); });
-          parsed.forEach(c => { if (c && c.id && !map.has(String(c.id))) map.set(String(c.id), c); });
-          list = Array.from(map.values());
-        }
-      }
-    } catch (e) {}
-
-    setContacts(list);
-    try { localStorage.setItem('omnilflow_fallback_contacts', JSON.stringify(list)); } catch (e) {}
-  };
-
-  const fetchMessages = async (contactId, append = false) => {
-    try {
-      const currentOffset = append ? messagesOffset + 50 : 0;
-      if (append) {
-        setIsLoadingMore(true);
-      }
-
-      const res = await fetch(`${API_URL}/contacts/${contactId}/messages?limit=50&offset=${currentOffset}`);
-      const data = await res.json();
-
-      if (append) {
-        setMessages(prev => [...data.messages, ...prev]);
-        setMessagesOffset(currentOffset);
-      } else {
-        setMessages(data.messages);
-        setMessagesOffset(0);
-      }
-      setHasMoreMessages(data.hasMore);
-    } catch (err) {
-      console.error('Failed to fetch messages:', err);
-    } finally {
-      if (append) {
-        setIsLoadingMore(false);
-      }
-    }
-  };
 
   const handleStartNewChat = async (e) => {
     e.preventDefault();
@@ -5534,10 +5583,35 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
   // Create new session
   const handleCreateSession = async (e) => {
-    e.preventDefault();
-    if (!newSessionName.trim()) return;
-    const sessName = newSessionName.trim();
+    if (e && e.preventDefault) e.preventDefault();
+    const sessName = (newSessionName || '').trim();
+    if (!sessName) {
+      showToast('Please enter a channel display name', 'warning');
+      return;
+    }
     const fallbackId = `sess_${Date.now()}`;
+
+    // Close modal and clear input immediately for instant snappy UI feedback
+    setShowAddSessionModal(false);
+    setNewSessionName('');
+    showToast(`Initializing WhatsApp Channel "${sessName}"...`, 'info');
+
+    // Add optimistic session card in UI
+    const optimisticSession = {
+      id: fallbackId,
+      phone_name: sessName,
+      phoneName: sessName,
+      status: 'connecting',
+      qr_code: null,
+      createdAt: new Date().toISOString()
+    };
+
+    setSessions(prev => {
+      const filtered = (prev || []).filter(s => String(s.id) !== String(fallbackId));
+      const updated = [optimisticSession, ...filtered];
+      try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(updated)); } catch (err) {}
+      return updated;
+    });
 
     let createdSession = null;
     try {
@@ -5553,38 +5627,26 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       });
       if (res.ok) {
         createdSession = await res.json();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        if (errData.error) {
+          showToast(errData.error, 'warning');
+        }
       }
     } catch (err) {
       console.warn('Error creating session via API, using fallback QR preview:', err);
     }
 
-    if (!createdSession || !createdSession.id) {
-      createdSession = {
-        id: fallbackId,
-        phone_name: sessName,
-        phoneName: sessName,
-        status: 'connecting',
-        qr_code: null,
-        createdAt: new Date().toISOString()
-      };
-    } else {
-      createdSession.status = 'connecting';
+    const finalSessionId = createdSession?.id || fallbackId;
+    if (createdSession && createdSession.id && createdSession.id !== fallbackId) {
+      setSessions(prev => {
+        const updated = (prev || []).map(s => String(s.id) === String(fallbackId) ? { ...s, ...createdSession, status: 'connecting' } : s);
+        try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(updated)); } catch (err) {}
+        return updated;
+      });
     }
 
-    setSessions(prev => {
-      const filtered = (prev || []).filter(s => String(s.id) !== String(createdSession.id));
-      const updated = [createdSession, ...filtered];
-      try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(updated)); } catch (e) {}
-      return updated;
-    });
-
-    setNewSessionName('');
-    setShowAddSessionModal(false);
-    showToast(`Created WhatsApp Channel "${sessName}". Initializing QR...`, 'info');
-
-    if (createdSession && createdSession.id) {
-      handleStartSession(createdSession.id);
-    }
+    handleStartSession(finalSessionId);
   };
 
   // Re-start session
@@ -5621,7 +5683,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   // Delete session
   const handleDeleteSession = async (id) => {
     if (!confirm('Are you sure you want to delete this session? This will log out the WhatsApp account.')) return;
-    const sessObj = sessions.find(s => s.id === id);
+    const sessObj = (sessions || []).find(s => String(s.id) === String(id));
     if (sessObj) {
       softDeleteRecord({
         originalId: id,
@@ -5631,6 +5693,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         links: 'Active Baileys Session Connection'
       });
     }
+
+    setSessions(prev => {
+      const updated = (prev || []).filter(s => String(s.id) !== String(id));
+      try {
+        localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(updated));
+        localStorage.setItem('omnilflow_sessions', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
     try {
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('token') || '';
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
@@ -5638,13 +5710,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.error('Error deleting session:', err);
     }
-    setSessions(prev => {
-      const updated = prev.filter(s => s.id !== id);
-      try {
-        localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(updated));
-      } catch (e) {}
-      return updated;
-    });
   };
 
   // Send WhatsApp message
@@ -5905,25 +5970,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   };
 
-  const fetchStarredMessages = async (contactId) => {
-    try {
-      const res = await fetch(`${API_URL}/contacts/${contactId}/starred`);
-      const data = await res.json();
-      setStarredMessages(data);
-    } catch (err) {
-      console.error('Failed to fetch starred messages:', err);
-    }
-  };
 
-  const fetchScheduledMessages = async (contactId) => {
-    try {
-      const res = await fetch(`${API_URL}/contacts/${contactId}/scheduled`);
-      const data = await res.json();
-      setScheduledMessages(data);
-    } catch (err) {
-      console.error('Failed to fetch scheduled messages:', err);
-    }
-  };
 
   const handleToggleStar = async (msgId, isStarred) => {
     try {
@@ -6084,7 +6131,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         onClick={() => setMobileSidebarOpen(false)}
       />
       <aside
-        className={`sidebar ${mobileSidebarOpen ? 'mobile-open' : ''}`}
+        className={`sidebar ${!desktopSidebarOpen ? 'collapsed' : ''} ${mobileSidebarOpen ? 'mobile-open' : ''}`}
         style={isGhlEmbedded && !ghlSidebarOpen ? { display: 'none' } : {}}
       >
         {/* EMS-style Sidebar Branding - Removed OmniFlow EMS text as requested */}
@@ -6097,7 +6144,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
           {/* CATEGORY: SYSTEM (Superadmin / Owner / Admin - Placed at Top) */}
           {(canNav('superadmin_plans') || canNav('audit_logs') || canNav('media_storage')) && (
-            <AccordionCategory id="system" label={t('systemCat') || "SYSTEM"} isExpanded={!!expandedCategories.system} onToggle={toggleCategory}>
+            <AccordionCategory id="system" label={t('systemCat') || "SYSTEM"} icon={Shield} isExpanded={!!expandedCategories.system} onToggle={toggleCategory}>
               {authUser?.role === 'superadmin' && (
                 <div className={`nav-item ${activeTab === 'superadmin_plans' ? 'active' : ''}`} onClick={() => setActiveTab('superadmin_plans')}>
                   <Shield size={15} />
@@ -6121,7 +6168,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
           {/* CATEGORY: DASHBOARDS */}
           {(canNav('admin_dashboard') || canNav('manager_dashboard') || canNav('gps_attendance') || canNav('media_storage')) && (
-            <AccordionCategory id="dashboards" label={t('dashboardsCat') || "DASHBOARDS"} isExpanded={!!expandedCategories.dashboards} onToggle={toggleCategory}>
+            <AccordionCategory id="dashboards" label={t('dashboardsCat') || "DASHBOARDS"} icon={BarChart3} isExpanded={!!expandedCategories.dashboards} onToggle={toggleCategory}>
               {canNav('admin_dashboard') && (
                 <div className={`nav-item ${activeTab === 'admin_dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('admin_dashboard')}>
                   <BarChart3 size={15} />
@@ -6151,7 +6198,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
           {/* CATEGORY: HR MANAGEMENT */}
           {(canNav('employees') || canNav('recruitment_ats') || canNav('asset_management') || canNav('verify_documents') || canNav('offboarding')) && (
-            <AccordionCategory id="hr_management" label={t('hrCat') || "HR MANAGEMENT"} isExpanded={!!expandedCategories.hr_management} onToggle={toggleCategory}>
+            <AccordionCategory id="hr_management" label={t('hrCat') || "HR MANAGEMENT"} icon={Users} isExpanded={!!expandedCategories.hr_management} onToggle={toggleCategory}>
               {canNav('employees') && (
                 <div className={`nav-item ${activeTab === 'employees' ? 'active' : ''}`} onClick={() => setActiveTab('employees')}>
                   <Users size={15} />
@@ -6187,7 +6234,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
           {/* CATEGORY: PAYROLL & FINANCE */}
           {(canNav('payroll') || canNav('taxes_compliance') || canNav('ff_settlements') || canNav('advances_loans') || canNav('expenses')) && (
-            <AccordionCategory id="payroll_finance" label={t('payrollCat') || "PAYROLL & FINANCE"} isExpanded={!!expandedCategories.payroll_finance} onToggle={toggleCategory}>
+            <AccordionCategory id="payroll_finance" label={t('payrollCat') || "PAYROLL & FINANCE"} icon={CreditCard} isExpanded={!!expandedCategories.payroll_finance} onToggle={toggleCategory}>
               {canNav('payroll') && (
                 <div className={`nav-item ${activeTab === 'payroll' ? 'active' : ''}`} onClick={() => setActiveTab('payroll')}>
                   <CreditCard size={15} />
@@ -6223,7 +6270,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
           {/* CATEGORY: CRM & SALES */}
           {(canNav('channels') || canNav('inbox') || canNav('kanban') || canNav('telecalling')) && (
-            <AccordionCategory id="crm_sales" label={t('crmCat') || "CRM & SALES"} isExpanded={!!expandedCategories.crm_sales} onToggle={toggleCategory}>
+            <AccordionCategory id="crm_sales" label={t('crmCat') || "CRM & SALES"} icon={MessageSquare} isExpanded={!!expandedCategories.crm_sales} onToggle={toggleCategory}>
               {canNav('channels') && (
                 <div className={`nav-item ${activeTab === 'channels' ? 'active' : ''}`} onClick={() => setActiveTab('channels')}>
                   <Smartphone size={15} />
@@ -6239,6 +6286,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 <div className={`nav-item ${activeTab === 'inbox' ? 'active' : ''}`} onClick={() => setActiveTab('inbox')}>
                   <MessageSquare size={15} />
                   <span style={{ fontSize: '13px' }}>{t('inboxChats')}</span>
+                </div>
+              )}
+              {canNav('wa_live_web') && (
+                <div className={`nav-item ${activeTab === 'wa_live_web' ? 'active' : ''}`} onClick={() => setActiveTab('wa_live_web')}>
+                  <Laptop size={15} style={{ color: '#14d2cb' }} />
+                  <span style={{ fontSize: '13px', fontWeight: activeTab === 'wa_live_web' ? '700' : '500', color: activeTab === 'wa_live_web' ? '#ffffff' : '#14d2cb' }}>
+                    Staff WhatsApp Live
+                  </span>
+                  <span className="badge" style={{ marginLeft: 'auto', background: 'rgba(20, 210, 203, 0.2)', color: '#14d2cb', fontSize: '9px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px' }}>
+                    Live Hub
+                  </span>
                 </div>
               )}
               {canNav('kanban') && (
@@ -6273,7 +6331,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
           {/* CATEGORY: OPERATIONS */}
           {(canNav('tasks') || canNav('office_kiosk') || canNav('notice_board') || canNav('holidays')) && (
-            <AccordionCategory id="operations" label={t('opsCat') || "OPERATIONS"} isExpanded={!!expandedCategories.operations} onToggle={toggleCategory}>
+            <AccordionCategory id="operations" label={t('opsCat') || "OPERATIONS"} icon={Briefcase} isExpanded={!!expandedCategories.operations} onToggle={toggleCategory}>
               {canNav('tasks') && (
                 <div className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`} onClick={() => setActiveTab('tasks')}>
                   <ClipboardList size={15} />
@@ -6303,7 +6361,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
           {/* CATEGORY: MY PORTAL */}
           {(canNav('my_attendance') || canNav('leaves') || canNav('shifts')) && (
-            <AccordionCategory id="my_portal" label={t('myPortalCat') || "MY PORTAL"} isExpanded={!!expandedCategories.my_portal} onToggle={toggleCategory}>
+            <AccordionCategory id="my_portal" label={t('myPortalCat') || "MY PORTAL"} icon={User} isExpanded={!!expandedCategories.my_portal} onToggle={toggleCategory}>
               {canNav('my_attendance') && (
                 <div className={`nav-item ${activeTab === 'my_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('my_attendance')}>
                   <Clock size={15} />
@@ -6327,7 +6385,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
           {/* CATEGORY: HELP & SUPPORT */}
           {canNav('app_guide') && (
-            <AccordionCategory id="help_support" label={t('helpSupportCat') || "HELP & SUPPORT"} isExpanded={!!expandedCategories.help_support} onToggle={toggleCategory}>
+            <AccordionCategory id="help_support" label={t('helpSupportCat') || "HELP & SUPPORT"} icon={Megaphone} isExpanded={!!expandedCategories.help_support} onToggle={toggleCategory}>
               <div className={`nav-item ${activeTab === 'app_guide' ? 'active' : ''}`} onClick={() => setActiveTab('app_guide')}>
                 <Globe size={15} />
                 <span style={{ fontSize: '13px' }}>{t('appGuide')}</span>
@@ -6337,7 +6395,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
           {/* CATEGORY: SETTINGS */}
           {(canNav('settings') || canNav('integrations') || canNav('roles_permissions') || canNav('recycle_bin') || canNav('system_dropdowns') || canNav('module_configuration') || canNav('billing')) && (
-            <AccordionCategory id="saas_portal" label={t('settingsCat') || "SETTINGS"} isExpanded={!!expandedCategories.saas_portal} onToggle={toggleCategory}>
+            <AccordionCategory id="saas_portal" label={t('settingsCat') || "SETTINGS"} icon={Settings} isExpanded={!!expandedCategories.saas_portal} onToggle={toggleCategory}>
               {canNav('settings') && (
                 <div className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
                   <UserCheck size={15} />
@@ -6384,50 +6442,60 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           )}
         </nav>
 
-        <div style={{
-          padding: '12px',
-          borderTop: '1px solid rgba(255,255,255,0.05)',
+        <div className="sidebar-bottom-user" style={{
+          padding: '10px 8px',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
           marginTop: 'auto',
           display: 'flex',
           flexDirection: 'column',
           gap: '8px'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden', padding: '2px 4px' }}>
             <div style={{
-              background: 'rgba(255,255,255,0.1)',
-              borderRadius: '50%',
-              width: '28px',
-              height: '28px',
+              background: 'rgba(20, 210, 203, 0.16)',
+              border: '1px solid rgba(20, 210, 203, 0.3)',
+              borderRadius: '10px',
+              minWidth: '36px',
+              width: '36px',
+              height: '36px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0
             }}>
-              <User size={14} style={{ color: 'white' }} />
+              <User size={18} style={{ color: '#14d2cb' }} />
             </div>
-            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              <div style={{ fontSize: '11px', fontWeight: 'bold', color: 'white' }}>{authUser?.email}</div>
-              <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>{authUser?.role}</div>
+            <div className="user-profile-text" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+              <div style={{ fontSize: '11.5px', fontWeight: 'bold', color: 'white', overflow: 'hidden', textOverflow: 'ellipsis' }}>{authUser?.email}</div>
+              <div style={{ fontSize: '9.5px', color: '#14d2cb', textTransform: 'uppercase', fontWeight: '700' }}>{authUser?.role}</div>
             </div>
           </div>
           <button
             onClick={handleLogout}
+            className="user-signout-btn"
             style={{
-              background: 'transparent',
-              border: '1px solid rgba(255,255,255,0.15)',
-              borderRadius: '6px',
-              color: 'rgba(255,255,255,0.7)',
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.25)',
+              borderRadius: '8px',
+              color: '#f87171',
               fontSize: '11px',
-              padding: '6px',
+              fontWeight: '600',
+              padding: '6px 8px',
               cursor: 'pointer',
               width: '100%',
               textAlign: 'center',
-              transition: 'all 0.2s'
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
             }}
-            onMouseOver={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)'; }}
-            onMouseOut={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; }}
+            title="Sign Out"
+            onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.25)'; e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)'; e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.25)'; }}
           >
-            Sign Out
+            <LogOut size={14} style={{ flexShrink: 0 }} />
+            <span className="signout-text">Sign Out</span>
           </button>
         </div>
       </aside>
@@ -6437,38 +6505,37 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {/* Top Header Navigation */}
         {/* EMS-style white top header with search */}
         <header className="top-header" style={{ background: 'var(--sidebar-bg, #064e43)', color: '#ffffff', borderBottom: '1px solid rgba(255, 255, 255, 0.12)', padding: isGhlEmbedded ? '4px 12px' : '8px 18px', height: isGhlEmbedded ? '42px' : '52px', minHeight: isGhlEmbedded ? '42px' : '52px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
-          {isGhlEmbedded ? (
-            <button
-              type="button"
-              onClick={() => setGhlSidebarOpen(prev => !prev)}
-              title="Toggle App Navigation Menu"
-              style={{
-                marginRight: '12px',
-                padding: '3px 8px',
-                borderRadius: '6px',
-                background: ghlSidebarOpen ? '#0d9488' : 'rgba(255,255,255,0.18)',
-                border: '1px solid rgba(255,255,255,0.25)',
-                color: 'white',
-                fontSize: '11px',
-                fontWeight: '800',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
-            >
-              <Menu size={14} style={{ color: '#14d2cb' }} /> {ghlSidebarOpen ? 'Hide Menu' : 'App Menu'}
-            </button>
-          ) : (
-            <button
-              className="mobile-menu-btn"
-              onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-              title="Toggle Menu"
-              style={{ color: '#14d2cb' }}
-            >
-              <Menu size={18} />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              if (isGhlEmbedded) {
+                setGhlSidebarOpen(prev => !prev);
+              } else {
+                setDesktopSidebarOpen(prev => !prev);
+                setMobileSidebarOpen(prev => !prev);
+              }
+            }}
+            title="Toggle Menu"
+            style={{
+              marginRight: '12px',
+              padding: '4px 9px',
+              borderRadius: '6px',
+              background: 'rgba(255,255,255,0.1)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              color: '#14d2cb',
+              fontSize: '11px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <Menu size={16} />
+            <span style={{ fontSize: '11px', color: '#ffffff' }}>
+              {(isGhlEmbedded ? ghlSidebarOpen : desktopSidebarOpen) ? 'Hide Menu' : 'Menu'}
+            </span>
+          </button>
           
           {/* Desktop Page Title (Aligned equal from left with content cards) */}
           <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '0px', marginRight: '20px', flexShrink: 0 }}>
@@ -6490,7 +6557,23 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               </button>
             )}
             {activeTab === 'channels' && (
-              <button className="btn btn-primary" onClick={() => setShowAddSessionModal(true)} style={{ padding: '5px 10px', fontSize: '12px', borderRadius: '6px' }}>
+              <button 
+                className="btn btn-primary" 
+                onClick={() => {
+                  if (authUser?.role !== 'superadmin' && (sessions || []).length >= 1) {
+                    showToast('Limit Reached: 1 WhatsApp account per user is allowed. Disconnect or delete your current channel to pair another.', 'warning');
+                    return;
+                  }
+                  setShowAddSessionModal(true);
+                }} 
+                style={{ 
+                  padding: '5px 10px', 
+                  fontSize: '12px', 
+                  borderRadius: '6px',
+                  opacity: (authUser?.role !== 'superadmin' && (sessions || []).length >= 1) ? 0.6 : 1,
+                  cursor: (authUser?.role !== 'superadmin' && (sessions || []).length >= 1) ? 'not-allowed' : 'pointer'
+                }}
+              >
                 <Plus size={14} /> Add Channel
               </button>
             )}
@@ -6813,56 +6896,72 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             <InboxPage
               activeContact={activeContact}
               setActiveContact={setActiveContact}
-              searchQuery={newChatPhone}
-              setSearchQuery={setNewChatPhone}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
               setNewChatError={setNewChatError}
               sessions={sessions}
               setNewChatSessionId={setNewChatSessionId}
               setShowNewChatModal={setShowNewChatModal}
-              chatTypeFilter={'all'}
-              setChatTypeFilter={() => {}}
-              crmStageFilter={'all'}
-              setCrmStageFilter={() => {}}
+              chatTypeFilter={chatTypeFilter}
+              setChatTypeFilter={setChatTypeFilter}
+              crmStageFilter={crmStageFilter}
+              setCrmStageFilter={setCrmStageFilter}
               contacts={contacts}
-              filteredContacts={contacts}
+              filteredContacts={sortedFilteredContacts.length > 0 ? sortedFilteredContacts : filteredContacts}
               messages={messages}
-              inputText={newChatInitialMsg}
-              setInputText={setNewChatInitialMsg}
-              isUploadingMedia={false}
+              inputText={inputText}
+              setInputText={setInputText}
+              isUploadingMedia={isUploadingMedia}
               t={t}
-              handleSendMessage={() => {}}
-              handleMediaUpload={() => {}}
-              crmRightTab={'details'}
-              setCrmRightTab={() => {}}
-              crmCustomName={newChatName}
-              setCrmCustomName={setNewChatName}
-              crmEmail={''}
-              setCrmEmail={() => {}}
-              crmStage={'New Lead'}
-              setCrmStage={() => {}}
-              crmLabels={[]}
-              newLabelText={''}
-              setNewLabelText={() => {}}
-              handleAddLabel={() => {}}
-              handleRemoveLabel={() => {}}
+              handleSendMessage={handleSendMessage}
+              handleMediaUpload={handleFileChange}
+              crmRightTab={crmRightTab}
+              setCrmRightTab={setCrmRightTab}
+              crmCustomName={crmCustomName}
+              setCrmCustomName={setCrmCustomName}
+              crmEmail={crmEmail}
+              setCrmEmail={setCrmEmail}
+              crmStage={crmStage}
+              setCrmStage={setCrmStage}
+              crmLabels={crmLabels}
+              newLabelText={newLabelText}
+              setNewLabelText={setNewLabelText}
+              handleAddLabel={handleAddLabel}
+              handleRemoveLabel={handleRemoveLabel}
               getLabelStyles={getLabelStyles}
-              crmNotes={''}
-              setCrmNotes={() => {}}
-              handleSaveCRM={() => {}}
-              quickReplies={[]}
-              handleDeleteQuickReply={() => {}}
-              handleAddQuickReply={() => {}}
-              newReplyTitle={''}
-              setNewReplyTitle={() => {}}
-              newReplyText={''}
-              setNewReplyText={() => {}}
-              scheduledMessages={[]}
-              setScheduleMessageText={() => {}}
-              setScheduleDateTime={() => {}}
+              crmNotes={crmNotes}
+              setCrmNotes={setCrmNotes}
+              handleSaveCRM={handleSaveCRM}
+              quickReplies={quickReplies}
+              handleDeleteQuickReply={handleDeleteQuickReply}
+              handleAddQuickReply={handleAddQuickReply}
+              newReplyTitle={newReplyTitle}
+              setNewReplyTitle={setNewReplyTitle}
+              newReplyText={newReplyText}
+              setNewReplyText={setNewReplyText}
+              scheduledMessages={scheduledMessages}
+              setScheduleMessageText={setScheduleMessageText}
+              setScheduleDateTime={setScheduleDateTime}
               setShowScheduleModal={setShowScheduleModal}
-              handleCancelScheduled={() => {}}
-              starredMessages={[]}
+              handleCancelScheduled={handleCancelScheduled}
+              starredMessages={starredMessages}
               callLogs={callLogs}
+              hasMoreMessages={hasMoreMessages}
+              isLoadingMore={isLoadingMore}
+              onLoadMoreMessages={() => activeContact && activeContact.id && fetchMessages(activeContact.id, true)}
+            />
+          </Suspense>
+        )}
+
+        {/* Staff WhatsApp Web Live Hub */}
+        {activeTab === 'wa_live_web' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading WhatsApp Live Hub...</div>}>
+            <LiveWhatsAppWebPage
+              sessions={sessions}
+              contacts={contacts}
+              activeContact={activeContact}
+              setActiveContact={setActiveContact}
+              setActiveTab={setActiveTab}
             />
           </Suspense>
         )}

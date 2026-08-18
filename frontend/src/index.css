@@ -567,19 +567,101 @@ h1, h2, h3, h4, h5, h6 {
 
 
 .sidebar {
-  width: 240px;
-  min-width: 240px;
+  width: 68px;
+  min-width: 68px;
   display: flex;
   flex-direction: column;
   height: 100%;
   flex-shrink: 0;
-  background: var(--sidebar-bg);
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--sidebar-bg, #064e43);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 0;
   color: var(--sidebar-text);
-  padding: 0;
+  padding: 8px 0;
   overflow-y: auto;
   overflow-x: hidden;
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+/* On Mouse Hover: Smoothly expands in place without covering content */
+.sidebar:hover {
+  width: 230px;
+  min-width: 230px;
+}
+
+/* WappBlaster-Style Category Header Pill Row */
+.sidebar .category-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 6px 14px !important;
+  margin: 3px 6px !important;
+  border-radius: 10px;
+  transition: background 0.15s ease;
+}
+
+.sidebar .category-header-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Circular Icon Badges (Exact WappBlaster style) */
+.sidebar .category-icon {
+  min-width: 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.sidebar:hover .category-icon {
+  transform: scale(0.95);
+}
+
+/* Labels and Chevrons fade in smoothly when hovered */
+.sidebar .category-label-text,
+.sidebar .category-chevron,
+.sidebar .nav-item span,
+.sidebar .sidebar-logo span,
+.sidebar .sidebar-category {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+}
+
+.sidebar:hover .category-label-text,
+.sidebar:hover .category-chevron,
+.sidebar:hover .nav-item span,
+.sidebar:hover .sidebar-logo span,
+.sidebar:hover .sidebar-category {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* In collapsed mode, child items inside accordion are hidden, show when expanded/hovered */
+.sidebar:not(:hover) .category-children-container {
+  display: none !important;
+}
+
+/* Bottom User Profile Section: Collapsed vs Hovered */
+.sidebar:not(:hover) .user-profile-text,
+.sidebar:not(:hover) .signout-text {
+  display: none !important;
+}
+
+.sidebar:not(:hover) .user-signout-btn {
+  padding: 8px !important;
+  width: 36px !important;
+  height: 36px !important;
+  margin: 0 auto !important;
+  border-radius: 10px !important;
+  justify-content: center !important;
 }
 
 .main-content {
@@ -623,15 +705,22 @@ h1, h2, h3, h4, h5, h6 {
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 10px 14px;
-  margin: 2px 8px;
+  margin: 2px 6px;
   border-radius: 8px;
   cursor: pointer;
   color: var(--sidebar-text);
   font-size: 13px;
   font-weight: 500;
   transition: var(--transition-smooth);
+}
+
+.nav-item svg {
+  min-width: 18px;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 .nav-item:hover {

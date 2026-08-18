@@ -411,7 +411,7 @@ export default function setupRoutes(io) {
       
       if (req.user.role !== 'superadmin' && plan && currentSessions.length >= plan.max_channels) {
         return res.status(403).json({ 
-          error: `Plan Limit Exceeded: Your plan (${plan.name}) allows a maximum of ${plan.max_channels} active channel(s). Please upgrade to add more.` 
+          error: `Channel Limit Reached: 1 WhatsApp account per user is allowed. Please delete or disconnect your existing channel to link a new one.` 
         });
       }
 
@@ -1600,11 +1600,53 @@ export default function setupRoutes(io) {
               window.opener.postMessage({ type: 'GHL_OAUTH_SUCCESS', code: '${code}' }, '*');
             }
             setTimeout(() => window.close(), 3000);
-          </script>
-        </div>
-      </body>
-      </html>
-    `);
+  // Send Broadcast WhatsApp Campaign with Anti-Ban Randomized Delay
+  router.post('/broadcast', async (req, res) => {
+    const { stage, message, sessionId } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: 'Message text is required' });
+    }
+
+    try {
+      const db = getDb();
+      let query = `SELECT id, name, custom_name FROM contacts WHERE tenant_id = ?`;
+      const params = [req.user.tenant_id];
+
+      if (stage && stage !== 'all') {
+        query += ` AND pipeline_stage = ?`;
+        params.push(stage);
+      }
+
+      const targetContacts = await db.all(query, params);
+      if (!targetContacts || targetContacts.length === 0) {
+        return res.status(404).json({ error: 'No contacts found matching the selected stage filter.' });
+      }
+
+      // Run broadcast in background with safe randomized human typing delays (5 to 10s per contact)
+      (async () => {
+        for (let i = 0; i < targetContacts.length; i++) {
+          const contact = targetContacts[i];
+          try {
+            await sendWhatsAppMessage(sessionId, contact.id, message.trim());
+            io.emit('broadcast_progress', { current: i + 1, total: targetContacts.length, status: 'sending' });
+          } catch (sendErr) {
+            console.error(`[Broadcast] Error sending to ${contact.id}:`, sendErr.message);
+          }
+
+          // Anti-ban jitter sleep between 5000ms and 10000ms
+          if (i < targetContacts.length - 1) {
+            const randomDelay = Math.floor(Math.random() * 5000) + 5000;
+            await new Promise(resolve => setTimeout(resolve, randomDelay));
+          }
+        }
+        io.emit('broadcast_progress', { current: targetContacts.length, total: targetContacts.length, status: 'completed' });
+      })().catch(err => console.error('[Broadcast Worker Error]:', err));
+
+      res.json({ success: true, total: targetContacts.length, message: 'Broadcast campaign initiated with anti-ban protections.' });
+    } catch (err) {
+      console.error('Broadcast failed:', err);
+      res.status(500).json({ error: err.message || 'Failed to start broadcast' });
+    }
   });
 
   // ==========================================

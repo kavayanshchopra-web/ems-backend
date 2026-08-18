@@ -10,6 +10,29 @@ export default function ChannelsPage({
 }) {
   return (
     <div className="channels-grid channels-tab-panel">
+      {sessions && sessions.length >= 1 && (
+        <div style={{
+          gridColumn: '1 / -1',
+          background: 'rgba(13, 148, 136, 0.08)',
+          border: '1px solid rgba(13, 148, 136, 0.25)',
+          borderRadius: '10px',
+          padding: '10px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: '12px',
+          color: '#14d2cb'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '14px' }}>🔒</span>
+            <span><strong>1 User = 1 WhatsApp Policy:</strong> Your WhatsApp account is linked. Disconnect or delete to link a different number.</span>
+          </div>
+          <span style={{ fontSize: '11px', background: 'rgba(13, 148, 136, 0.2)', padding: '2px 8px', borderRadius: '4px', fontWeight: '700' }}>
+            {sessions.length} / 1 Linked
+          </span>
+        </div>
+      )}
+
       {(sessions || []).map(sess => (
         <div key={sess.id} className="channel-card glass-panel">
           <div className="channel-status-indicator">
