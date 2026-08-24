@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import { 
   Laptop, 
   Users, 
@@ -15,7 +15,7 @@ import {
   Smartphone,
   PhoneCall
 } from 'lucide-react';
-import SimBridgeSoftphone from '../telecalling/SimBridgeSoftphone';
+// SimBridge removed
 
 export default function LiveWhatsAppWebPage({
   sessions = [],
@@ -167,6 +167,65 @@ export default function LiveWhatsAppWebPage({
       overflow: 'hidden',
       position: 'relative'
     }}>
+      {/* WhatsApp Companion Desktop App Notice Banner */}
+      <div style={{
+        background: 'linear-gradient(90deg, #052e16 0%, #064e3b 100%)',
+        borderBottom: '1px solid #059669',
+        padding: '6px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexShrink: 0,
+        zIndex: 40
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ecfdf5', fontSize: '12px', fontWeight: '600' }}>
+          <Laptop size={15} style={{ color: '#34d399', flexShrink: 0 }} />
+          <span>🚀 <strong>WhatsApp Desktop Companion App:</strong> Install on your Windows PC for 24/7 background sync & multi-session multi-staff live chat.</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <a
+            href="/downloads/OmniFlow-WhatsApp-CRM.exe"
+            download="OmniFlow-WhatsApp-CRM.exe"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '4px 12px',
+              borderRadius: '6px',
+              background: '#10b981',
+              color: '#ffffff',
+              fontSize: '11.5px',
+              fontWeight: '800',
+              textDecoration: 'none',
+              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)',
+              cursor: 'pointer'
+            }}
+          >
+            <span>📥 Download Desktop App (.exe)</span>
+          </a>
+          <a
+            href="/downloads/OmniFlow-WhatsApp-Desktop-Suite.zip"
+            download="OmniFlow-WhatsApp-Desktop-Suite.zip"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '4px 8px',
+              borderRadius: '6px',
+              background: 'rgba(255, 255, 255, 0.12)',
+              color: '#a7f3d0',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              fontSize: '11px',
+              fontWeight: '700',
+              textDecoration: 'none',
+              cursor: 'pointer'
+            }}
+            title="Download portable zip package"
+          >
+            <span>Portable .zip</span>
+          </a>
+        </div>
+      </div>
       {/* Top Staff Switcher Dropdown Bar (Ultra Compact & Space-Saving) */}
       <div style={{
         display: 'flex',
@@ -491,8 +550,8 @@ export default function LiveWhatsAppWebPage({
       </div>
 
       {/* Main Full-Screen WhatsApp Web Center Viewport (100% Space) */}
-      <div style={{ flex: 1, height: '100%', position: 'relative', backgroundColor: '#111b21' }}>
-        {typeof window !== 'undefined' && window.electronAPI?.isDesktopApp ? (
+      <div style={{ flex: 1, height: '100%', position: 'relative', backgroundColor: '#111b21', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {typeof window !== 'undefined' && (window.electronAPI?.isDesktopApp || !!window.navigator.userAgent.match(/Electron/i)) ? (
           <webview
             key={`${selectedStaffId}_${frameKey}`}
             ref={iframeRef}
@@ -508,62 +567,51 @@ export default function LiveWhatsAppWebPage({
             allowpopups="true"
           />
         ) : (
-          <iframe
-            key={`${selectedStaffId}_${frameKey}`}
-            ref={iframeRef}
-            src="https://web.whatsapp.com"
-            title={`Live WhatsApp Web - ${currentStaff.name}`}
-            style={{
-              width: '100%',
-              height: '100%',
-              border: 'none',
-              display: 'block'
-            }}
-            allow="camera; microphone; display-capture; clipboard-read; clipboard-write; autoplay; geolocation"
-          />
+          <div style={{ maxWidth: '580px', width: '90%', padding: '36px', background: '#0b141a', borderRadius: '18px', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', color: 'white', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(37, 211, 102, 0.15)', color: '#25d366', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm5.78 14.07c-.24.68-1.39 1.3-1.92 1.38-.51.08-1.17.11-3.37-.8-2.65-1.09-4.35-3.8-4.48-3.98-.13-.18-1.08-1.44-1.08-2.75 0-1.31.69-1.95.93-2.22.24-.27.53-.34.71-.34.18 0 .36 0 .51.01.16.01.38-.06.59.45.22.53.75 1.83.82 1.96.07.13.11.29.02.47-.09.18-.13.29-.27.45-.13.16-.29.36-.41.48-.13.13-.27.27-.12.53.16.27.69 1.14 1.48 1.84 1.02.91 1.88 1.19 2.15 1.32.27.13.42.11.58-.07.16-.18.67-.78.85-1.05.18-.27.36-.22.59-.13.24.09 1.5.71 1.76.84.27.13.44.2.51.31.07.11.07.64-.17 1.32z"/>
+              </svg>
+            </div>
+            <h2 style={{ fontSize: '20px', fontWeight: '800', margin: '0 0 10px 0', color: '#ffffff' }}>
+              Real WhatsApp Web & Multi-Staff Workspace
+            </h2>
+            <p style={{ color: '#94a3b8', fontSize: '13px', lineHeight: '1.6', margin: '0 0 24px 0' }}>
+              Zero server load • Real-time WhatsApp sync • Multi-staff account live management
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => window.open('https://web.whatsapp.com', '_blank')}
+                style={{
+                  width: '100%',
+                  padding: '14px 20px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #25d366 0%, #128c7e 100%)',
+                  color: 'white',
+                  fontWeight: '800',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: '0 6px 20px rgba(37, 211, 102, 0.35)'
+                }}
+              >
+                <span>🚀 Launch WhatsApp Web in New Window</span>
+              </button>
+
+              <div style={{ padding: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', fontSize: '12px', color: '#64748b', textAlign: 'left', lineHeight: '1.5' }}>
+                <strong style={{ color: '#14d2cb' }}>💡 Pro Tip:</strong> For fully embedded in-app WhatsApp viewing with native voice & video calling, run the <strong>OmniFlow Desktop App</strong> on your PC!
+              </div>
+            </div>
+          </div>
         )}
 
-        {/* Floating Quick SIM Call Floating Pill (Bottom Right) */}
-        <button
-          type="button"
-          onClick={() => setActiveCall({ phone: activeContact?.phone || '', name: activeContact?.name || 'Customer' })}
-          title="Open OmniFlow SIM Bridge Dialer"
-          style={{
-            position: 'absolute',
-            bottom: '24px',
-            right: '24px',
-            padding: '10px 16px',
-            borderRadius: '30px',
-            background: 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)',
-            color: '#ffffff',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            boxShadow: '0 8px 25px rgba(0, 0, 0, 0.6), 0 0 15px rgba(16, 185, 129, 0.4)',
-            fontSize: '12px',
-            fontWeight: '800',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '7px',
-            zIndex: 9999,
-            transition: 'transform 0.15s ease'
-          }}
-          onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-          onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-        >
-          <Smartphone size={16} />
-          <span>SIM Bridge Dialer</span>
-        </button>
       </div>
-
-      {/* OmniFlow Softphone & SIM Bridge Modal */}
-      {activeCall && (
-        <SimBridgeSoftphone
-          isOpen={Boolean(activeCall)}
-          onClose={() => setActiveCall(null)}
-          initialContact={activeCall}
-          currentStaff={currentStaff}
-        />
-      )}
     </div>
   );
 }

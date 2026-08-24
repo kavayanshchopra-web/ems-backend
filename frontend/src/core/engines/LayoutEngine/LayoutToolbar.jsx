@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Plus, Archive, Settings, Sliders, Filter, Download, Upload, X, Columns, ChevronDown } from 'lucide-react';
+import { Plus, Archive, Settings, Sliders, Filter, Download, Upload, X, Columns, ChevronDown, PhoneCall, Phone } from 'lucide-react';
 import Button from '../../../components/ui/Button';
 import SearchInput from '../../../components/ui/SearchInput';
 import ViewSwitcher from '../ViewEngine/ViewSwitcher';
@@ -50,6 +50,7 @@ export default function LayoutToolbar({
   setHiddenColIds = () => {},
   currentPage = 1,
   pageSize = 25,
+  customHeaderActions = null,
   onPageChange = () => {},
   onPageSizeChange = () => {}
 }) {
@@ -123,7 +124,37 @@ export default function LayoutToolbar({
 
         {/* Header Action Controls */}
         <div className="module-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginLeft: 'auto' }}>
+          {customHeaderActions}
 
+          {/* Voxbay Cloud Dialer Button on CRM Modules */}
+          {!customHeaderActions && (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.openGlobalDialer) {
+                  window.openGlobalDialer('', 'Customer', false);
+                }
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '7px',
+                padding: '7px 14px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+                border: '1px solid #0d9488',
+                color: '#ffffff',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <PhoneCall size={14} />
+              <span>Dial via Voxbay Cloud</span>
+            </button>
+          )}
           {(canConfigure || canManage) && (
             <div style={{ position: 'relative' }}>
               <button

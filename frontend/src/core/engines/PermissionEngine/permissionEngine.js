@@ -66,7 +66,7 @@ class PermissionEngineService {
 
       // CRM & SALES
       { id: 'channels', label: 'WA Channels', icon: '📱', category: 'CRM & SALES' },
-      { id: 'inbox', label: 'Unified Inbox Chats', icon: '💬', category: 'CRM & SALES' },
+      { id: 'wa_live_web', label: 'Staff WhatsApp Live', icon: '💻', category: 'CRM & SALES' },
       { id: 'kanban', label: 'CRM Pipeline Board', icon: '📈', category: 'CRM & SALES' },
       { id: 'telecalling', label: 'Call Recordings & SIM Sync', icon: '📞', category: 'CRM & SALES' },
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UNIVERSAL ACTION ENGINE ORCHESTRATOR
  * Core Action Handler Managing Add, Edit, View, Archive & Restore Workflows
  */
@@ -12,6 +12,7 @@ import { LabelEngine } from '../LabelEngine';
 import { getNextSequentialId } from '../../../services/atsStorageService';
 
 import FirebaseCloudEngine from '../FirebaseCloudEngine';
+import { AuditEngine } from '../AuditEngine/AuditEngine';
 
 export default function ActionEngine({
   moduleConfig = {},
@@ -71,6 +72,13 @@ export default function ActionEngine({
         FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, editedRec, 'acme_corp');
       }
 
+      AuditEngine.logRecordUpdated(
+        moduleConfig.moduleId || 'module',
+        normalizedData.name || selectedRecord.name || selectedRecord.title || String(selectedRecord.id),
+        selectedRecord,
+        normalizedData
+      );
+
       showToast(`Updated ${entityName.toLowerCase()} "${normalizedData.name || selectedRecord.id}"`, 'success');
       setShowEditModal(false);
     } else {
@@ -89,6 +97,12 @@ export default function ActionEngine({
       if (moduleConfig.moduleId) {
         FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, newRec, 'acme_corp');
       }
+
+      AuditEngine.logRecordCreated(
+        moduleConfig.moduleId || 'module',
+        newRec.name || newRec.title || String(newRec.id),
+        newRec
+      );
 
       // Save user credentials for workspace login if password is provided
       if (normalizedData.password) {

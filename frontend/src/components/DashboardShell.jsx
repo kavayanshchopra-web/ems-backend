@@ -1,8 +1,8 @@
+﻿import VoxbayCloudDialerModal from './telecalling/VoxbayCloudDialerModal';
 // OmniFlow EMS v2.5 — Telecalling + Mobile UI — Build 20260729
 // CACHE BUSTER: 2026-07-29 03:20 PM - Verified 100% syntactically balanced JSX!
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import io from 'socket.io-client';
-
 const GpsMap = lazy(() => import('./GpsMap'));
 import DataTable from './DataTable';
 const CompanyOverviewView = lazy(() => import('./dashboard/CompanyOverviewView'));
@@ -33,6 +33,8 @@ const RewardsPage = lazy(() => import('./pages/RewardsPage'));
 const RolesPage = lazy(() => import('./pages/RolesPage'));
 const InboxPage = lazy(() => import('./pages/InboxPage'));
 const ChannelsPage = lazy(() => import('./pages/ChannelsPage'));
+const SystemAuditLogsPage = lazy(() => import('./pages/SystemAuditLogsPage'));
+import { AuditEngine } from '../core/engines/AuditEngine/AuditEngine';
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const BillingPage = lazy(() => import('./pages/BillingPage'));
 const SuperAdminPage = lazy(() => import('./pages/SuperAdminPage'));
@@ -92,7 +94,6 @@ import {
   uploadBytes,
   getDownloadURL
 } from '../firebase.js';
-
 import {
   Laptop,
   MessageSquare,
@@ -149,7 +150,6 @@ import {
   Share2,
   ArrowLeft
 } from 'lucide-react';
-
 // Dynamic Registry - Auto-Extensible Module Config for RBAC
 export const DYNAMIC_MODULE_REGISTRY = [
   { key: 'dashboards', label: '📊 Dashboards & Analytics' },
@@ -159,7 +159,6 @@ export const DYNAMIC_MODULE_REGISTRY = [
   { key: 'operations', label: '⚙️ Operations & Tasks' },
   { key: 'saas_portal', label: '🔒 SaaS Portal Settings' }
 ];
-
 // Dynamic Self-Updating System Onboarding Guide Steps Engine with Multi-Lingual Voice Scripts
 export const INITIAL_GUIDE_STEPS = [
   {
@@ -259,7 +258,6 @@ export const INITIAL_GUIDE_STEPS = [
     isLive: true
   }
 ];
-
 const getLabelStyles = (label) => {
   if (!label) return {};
   const lower = label.toLowerCase();
@@ -275,7 +273,6 @@ const getLabelStyles = (label) => {
   if (lower.includes('won') || lower.includes('closed') || lower.includes('done') || lower.includes('success')) {
     return { background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)', fontSize: '10px', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase', fontWeight: 'bold' };
   }
-
   // Custom hash color for other labels
   let hash = 0;
   for (let i = 0; i < label.length; i++) {
@@ -292,14 +289,12 @@ const getLabelStyles = (label) => {
     fontWeight: '500'
   };
 };
-
 const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 const DEFAULT_GATEWAY = 'https://retention-ellen-beijing-motorcycles.trycloudflare.com';
 const customGateway = typeof window !== 'undefined' ? localStorage.getItem('omniflow_custom_gateway') : null;
 const LIVE_BACKEND = customGateway || DEFAULT_GATEWAY;
 const SOCKET_URL = IS_DEV ? 'http://localhost:5000' : LIVE_BACKEND;
 const API_URL = IS_DEV ? 'http://localhost:5000/api' : `${LIVE_BACKEND}/api`;
-
 // Safe reference to original fetch — must be captured lazily to avoid Rolldown TDZ in production bundle
 let _originalFetch = null;
 function getOriginalFetch() {
@@ -308,7 +303,6 @@ function getOriginalFetch() {
   }
   return _originalFetch;
 }
-
 // Safe Fallback Provider for Backend Errors / Offline / Master Login Mode
 const getSafeFallbackData = (url, method = 'GET') => {
   const cleanMethod = (method || 'GET').toUpperCase();
@@ -335,26 +329,23 @@ const getSafeFallbackData = (url, method = 'GET') => {
     }
     return { success: true, message: 'Operation completed in safe offline/fallback mode.' };
   }
-
   if (url.includes('/admin/metrics')) {
     return {
-      companies: 1,
-      branches: 1,
-      managers: 1,
-      employees: 5,
-      admins: 1,
-      superAdmins: 2,
-      totalUsers: 8
+      companies: 0,
+      branches: 0,
+      managers: 0,
+      employees: 0,
+      admins: 0,
+      superAdmins: 0,
+      totalUsers: 0
     };
   }
-
   if (url.includes('/settings')) {
     return {
       pipeline_stages: ['New Lead', 'Contacted', 'Qualified', 'Proposal Sent', 'Won', 'Lost'],
       tags: ['VIP', 'Hot Lead', 'Follow Up', 'Needs Demo']
     };
   }
-
   if (url.includes('/auth/me')) {
     return {
       id: '1',
@@ -363,34 +354,14 @@ const getSafeFallbackData = (url, method = 'GET') => {
       name: 'OmniFlow Super Admin'
     };
   }
-
   if (url.includes('/chatbot')) {
     return { active: false, rules: [] };
   }
-
   if (url.includes('/telecalling/logs')) {
-    return [
-      {
-        id: 'call_seed_1',
-        agentName: 'Telecaller Agent',
-        agentRole: 'Senior Telecaller',
-        customerName: 'Priya Sharma (Sample Call)',
-        customerPhone: '+91 98765 11223',
-        channel: 'SIM',
-        type: 'OUTGOING',
-        durationSeconds: 145,
-        timestamp: new Date().toLocaleString(),
-        recordingUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-        disposition: 'Interested',
-        notes: 'Sample voice call recording with playable audio',
-        simSlot: 'SIM 1 (Work)'
-      }
-    ];
+    return [];
   }
-
   return [];
 };
-
 // Globally override fetch to inject bearer tokens, resolve relative paths, and handle 401/403/network errors safely
 // Installed lazily on first render to avoid Rolldown module-scope TDZ in production bundle
 function installFetchInterceptor() {
@@ -401,30 +372,22 @@ function installFetchInterceptor() {
   window.fetch = async (input, options = {}) => {
   const rawUrl = typeof input === 'string' ? input : (input?.url || '');
   const isApiRequest = rawUrl.startsWith('/api/') || rawUrl.startsWith(API_URL) || rawUrl.includes('.onrender.com/api');
-
   if (isApiRequest) {
     const targetUrl = rawUrl.startsWith('/api/') ? `${API_URL}${rawUrl.substring(4)}` : rawUrl;
     const token = localStorage.getItem('omnilflow_token');
     const headers = { ...options.headers };
-
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-
     if (options.body && !headers['Content-Type'] && !(options.body instanceof FormData)) {
       headers['Content-Type'] = 'application/json';
     }
-
     const isAuthRoute = targetUrl.includes('/auth/login') || targetUrl.includes('/auth/register');
-
-
-
     try {
       const response = await originalFetch(targetUrl, {
         ...options,
         headers,
       });
-
       if (!response.ok && !isAuthRoute) {
         if (response.status === 401 || response.status === 403 || response.status === 400 || response.status === 500 || response.status === 502 || response.status === 503) {
           console.warn(`[OmniFlow Guard] API ${targetUrl} returned ${response.status}. Serving safe fallback response.`);
@@ -435,7 +398,6 @@ function installFetchInterceptor() {
           });
         }
       }
-
       return response;
     } catch (netErr) {
       console.warn(`[OmniFlow Guard] Network error fetching ${targetUrl}. Serving safe fallback:`, netErr.message);
@@ -446,11 +408,9 @@ function installFetchInterceptor() {
       });
     }
   }
-
   return originalFetch(input, options);
   }; // end window.fetch override
 } // end installFetchInterceptor
-
 const formatJidName = (jid) => {
   if (!jid) return '';
   const number = jid.split('@')[0];
@@ -460,7 +420,6 @@ const formatJidName = (jid) => {
   if (jid.endsWith('@lid')) {
     return `LID User (${number.substring(0, 6)}...)`;
   }
-
   // Format phone numbers
   if (number.startsWith('91') && number.length === 12) {
     return `+91 ${number.substring(2, 7)} ${number.substring(7)}`;
@@ -468,27 +427,21 @@ const formatJidName = (jid) => {
   if (number.startsWith('1') && number.length === 11) {
     return `+1 (${number.substring(1, 4)}) ${number.substring(4, 7)}-${number.substring(7)}`;
   }
-
   return `+${number}`;
 };
-
 const playNotificationSound = () => {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-
     osc.connect(gain);
     gain.connect(ctx.destination);
-
     // Pleasant dual-frequency WhatsApp-like notification sound
     osc.type = 'sine';
-
     // Play D5 note then G5 note
     osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
     gain.gain.setValueAtTime(0.08, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
-
     const osc2 = ctx.createOscillator();
     const gain2 = ctx.createGain();
     osc2.connect(gain2);
@@ -497,7 +450,6 @@ const playNotificationSound = () => {
     osc2.frequency.setValueAtTime(783.99, ctx.currentTime + 0.06); // G5
     gain2.gain.setValueAtTime(0.08, ctx.currentTime + 0.06);
     gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.22);
-
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.08);
     osc2.start(ctx.currentTime + 0.06);
@@ -506,9 +458,7 @@ const playNotificationSound = () => {
     console.error('Audio play failed:', e);
   }
 };
-
 const isPhone = (str) => /^\d+$/.test(str || '');
-
 const renderStatusTicks = (status) => {
   // Statuses from WhatsApp / Baileys:
   // 1: sent (single gray tick)
@@ -525,7 +475,6 @@ const renderStatusTicks = (status) => {
   }
   return <Check size={14} style={{ color: 'rgba(255,255,255,0.15)' }} title="Pending" />;
 };
-
 function AccordionCategoryItem({ id, label, icon: IconComponent, iconColor, iconBg, isExpanded, onToggle, children }) {
   const defaultColors = {
     system: { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' },
@@ -538,9 +487,7 @@ function AccordionCategoryItem({ id, label, icon: IconComponent, iconColor, icon
     help_support: { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' },
     saas_portal: { color: '#10b981', bg: 'rgba(16, 185, 129, 0.2)' }
   };
-
   const theme = defaultColors[id] || { color: iconColor || '#14d2cb', bg: iconBg || 'rgba(20, 210, 203, 0.16)' };
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '4px' }}>
       <div
@@ -606,7 +553,6 @@ function AccordionCategoryItem({ id, label, icon: IconComponent, iconColor, icon
     </div>
   );
 }
-
 function AccordionCategory({ id, label, icon, isExpanded, onToggle, children }) {
   return (
     <AccordionCategoryItem
@@ -620,7 +566,6 @@ function AccordionCategory({ id, label, icon, isExpanded, onToggle, children }) 
     </AccordionCategoryItem>
   );
 }
-
 const ALL_WORLD_CURRENCIES = [
   { code: 'USD', name: 'US Dollar ($)', flag: '🇺🇸' },
   { code: 'INR', name: 'Indian Rupee (₹)', flag: '🇮🇳' },
@@ -685,7 +630,6 @@ const ALL_WORLD_CURRENCIES = [
   { code: 'UGX', name: 'Ugandan Shilling (USh)', flag: '🇺🇬' },
   { code: 'MUR', name: 'Mauritian Rupee (Rs)', flag: '🇲🇺' }
 ];
-
 export const ALL_WORLD_LANGUAGES = [
   { code: 'en', name: 'English (Global)', nativeName: 'English', flag: '🇬🇧' },
   { code: 'hi', name: 'Hindi', nativeName: 'हिंदी', flag: '🇮🇳' },
@@ -730,37 +674,32 @@ export const ALL_WORLD_LANGUAGES = [
   { code: 'sw', name: 'Swahili', nativeName: 'Kiswahili', flag: '🇰🇪' },
   { code: 'af', name: 'Afrikaans', nativeName: 'Afrikaans', flag: '🇿🇦' }
 ];
-
 export default function DashboardShell({ authUser, setAuthUser }) {
   // Install fetch interceptor lazily (not at module scope) to avoid Rolldown TDZ in production bundle
   installFetchInterceptor();
-
   const handleLogout = () => {
     localStorage.removeItem('omnilflow_token');
     localStorage.removeItem('omnilflow_user');
     if (setAuthUser) setAuthUser(null);
     window.location.reload();
   };
-
   const [activeTab, setActiveTab] = useState('inbox'); // 'inbox', 'kanban', 'channels'
   const [isMobilePreview, setIsMobilePreview] = useState(false);
+  const [globalVoxbayOpen, setGlobalVoxbayOpen] = useState(false);
   const [simViewMode, setSimViewMode] = useState('app'); // 'app' or 'permissions'
   const [simPermissions, setSimPermissions] = useState({ calendar: false, location: false, notifications: false, battery: false, phone: false, overlay: false });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('ems_theme') || 'emerald');
-
   const isGhlEmbedded = useMemo(() => {
     if (typeof window === 'undefined') return false;
     const urlParams = new URLSearchParams(window.location.search);
     return window.self !== window.top || urlParams.has('location_id') || urlParams.has('iframe');
   }, []);
   const [ghlSidebarOpen, setGhlSidebarOpen] = useState(false);
-
   useEffect(() => {
     setMobileSidebarOpen(false);
   }, [activeTab]);
-
   // Password visibility & Forgot Password modal states
   const [showPassword, setShowPassword] = useState(false);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
@@ -769,16 +708,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [forgotPasswordError, setForgotPasswordError] = useState(null);
   const [activeLanguage, setActiveLanguage] = useState('en');
   const [activeCurrency, setActiveCurrency] = useState(() => localStorage.getItem('appCurrency') || 'USD');
-
   useEffect(() => {
     localStorage.setItem('appLanguage', 'en');
   }, []);
-
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', currentTheme);
     localStorage.setItem('ems_theme', currentTheme);
   }, [currentTheme]);
-
   const [expandedCategories, setExpandedCategories] = useState({
     system: false,
     dashboards: false,
@@ -790,7 +726,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     saas_portal: false,
     help_support: false
   });
-
   const toggleCategory = (cat) => {
     setExpandedCategories(prev => {
       const isCurrentlyOpen = !!prev[cat];
@@ -808,7 +743,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       };
     });
   };
-
   // SaaS Feature Gating & Subscription Tier Control
   const [companySubscription, setCompanySubscription] = useState({
     planName: 'OmniFlow Pro SaaS Tier',
@@ -819,10 +753,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       live_gps_tracking: true
     }
   });
-
   // Telecalling & SIM Call Recordings State Hub
   const [callLogs, setCallLogs] = useState([]);
-
   // Universal Bin (DLP Vault) & Soft-Delete State Hub
   const [binCategoryFilter, setBinCategoryFilter] = useState('all');
   const [selectedBinTenant, setSelectedBinTenant] = useState('all');
@@ -830,7 +762,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [binSortConfig, setBinSortConfig] = useState({ key: 'deletedAt', dir: 'desc' });
   const [binCurrentPage, setBinCurrentPage] = useState(1);
   const [binPageSize, setBinPageSize] = useState(10);
-
   const [recycleBinItems, setRecycleBinItems] = useState(() => TrashVaultEngine.getVaultItems('all'));
   const [showStorageModal, setShowStorageModal] = useState(false);
   const [binColumnWidths, setBinColumnWidths] = useState({
@@ -842,7 +773,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   });
   const binResizingRef = useRef(null);
   const binTheadRef = useRef(null);
-
   // Non-passive wheel listener on <thead> to prevent vertical page scroll while mouse wheeling left/right
   useEffect(() => {
     const theadEl = binTheadRef.current;
@@ -859,7 +789,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     theadEl.addEventListener('wheel', handleWheel, { passive: false });
     return () => theadEl.removeEventListener('wheel', handleWheel);
   }, [activeTab]);
-
   const fetchRecycleBin = async () => {
     try {
       const cloudBin = await FirebaseCloudEngine.fetchRecords('recycle_bin', 'all');
@@ -872,7 +801,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
     }
   };
-
   useEffect(() => {
     fetchRecycleBin();
     const unsubBin = FirebaseCloudEngine.subscribeToCollection('recycle_bin', 'all', (records) => {
@@ -888,9 +816,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       unsubBin();
     };
   }, [activeTab]);
-
   // Universal Soft-Delete Handler handled by async softDeleteRecord below
-
   const [telecallingSearch, setTelecallingSearch] = useState('');
   const [telecallingChannelFilter, setTelecallingChannelFilter] = useState('all');
   const [telecallingDispositionFilter, setTelecallingDispositionFilter] = useState('all');
@@ -900,7 +826,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [telecallingSubTab, setTelecallingSubTab] = useState('dashboard');
   const audioPlayerRef = useRef(null);
-
   const filteredTelecallingLogs = useMemo(() => {
     return (callLogs || []).filter(log => {
       if (!log) return false;
@@ -915,7 +840,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       return matchSearch && matchChannel && matchDisp;
     });
   }, [callLogs, telecallingSearch, telecallingChannelFilter, telecallingDispositionFilter]);
-
   // Dynamic System Dropdowns State for Call Dispositions
   const [dispositionOptions, setDispositionOptions] = useState([
     'Interested',
@@ -929,7 +853,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [showManageDropdownsModal, setShowManageDropdownsModal] = useState(false);
   const [dropdownSortConfig, setDropdownSortConfig] = useState({ key: null, dir: 'asc' });
   const [newOptionInput, setNewOptionInput] = useState('');
-
   // Sleek Custom Input Modal State for System Dropdowns
   const [inputModal, setInputModal] = useState({
     isOpen: false,
@@ -939,7 +862,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     value: '',
     onSave: null
   });
-
   const openInputModal = ({ title = 'Add New Item', subtitle = '', placeholder = 'Enter title...', defaultValue = '', onSave }) => {
     setInputModal({
       isOpen: true,
@@ -958,7 +880,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [exportDateRange, setExportDateRange] = useState('7days');
   const [isRoundRobinEnabled, setIsRoundRobinEnabled] = useState(true);
   const [activeQueueAgent, setActiveQueueAgent] = useState('Active Telecaller');
-
   // Custom Universal Confirmation Modal State
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
@@ -969,7 +890,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     danger: true,
     onConfirm: null
   });
-
   const openConfirm = ({ title, message, confirmText = 'Delete', onConfirm, danger = true }) => {
     setConfirmModal({
       isOpen: true,
@@ -988,13 +908,43 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [audioPlaybackSpeed, setAudioPlaybackSpeed] = useState(1.0);
   const [showAiTranscriptModal, setShowAiTranscriptModal] = useState(false);
   const [transcriptLog, setTranscriptLog] = useState(null);
-
   // Multi-Level Visual IVR & Call Flow Builder States
   const [isIvrActive, setIsIvrActive] = useState(true);
   const [ivrWelcomeText, setIvrWelcomeText] = useState('Thank you for calling OmniFlow Solutions. For Sales & Product Demos, press 1. For Customer Support, press 2. For Billing & Accounts, press 3. Or stay on line for executive.');
   const [ivrLanguage, setIvrLanguage] = useState('hi-IN');
   const [ivrTestKeyResult, setIvrTestKeyResult] = useState(null);
-
+  // Global Voxbay Cloud Telephony Dialer State
+  const [voxbayDialerState, setVoxbayDialerState] = useState({
+    isOpen: false,
+    destination: '',
+    contactName: '',
+    autoDial: false
+  });
+  const openVoxbayDialer = (phone, name = 'Customer', autoDial = true) => {
+    setVoxbayDialerState({
+      isOpen: true,
+      destination: phone || '',
+      contactName: name || 'Customer',
+      autoDial: Boolean(autoDial)
+    });
+  };
+  useEffect(() => {
+    window.openGlobalDialer = (phone, name, autoDial = true) => {
+      openVoxbayDialer(phone, name, autoDial);
+    };
+    const handleCustomDialerEvent = (e) => {
+      if (e.detail) {
+        const { phone, name, autoDial } = e.detail;
+        openVoxbayDialer(phone, name, autoDial !== false);
+      }
+    };
+    window.addEventListener('omniflow:open_voxbay_dialer', handleCustomDialerEvent);
+    window.addEventListener('omniflow:open_global_dialer', handleCustomDialerEvent);
+    return () => {
+      window.removeEventListener('omniflow:open_voxbay_dialer', handleCustomDialerEvent);
+      window.removeEventListener('omniflow:open_global_dialer', handleCustomDialerEvent);
+    };
+  }, []);
   // Floating Click-to-Call CRM Lead Dialpad Widget States
   const [showClickToCallModal, setShowClickToCallModal] = useState(false);
   const [showMobileAppGuideModal, setShowMobileAppGuideModal] = useState(false);
@@ -1002,13 +952,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [activeCallStatus, setActiveCallStatus] = useState('idle'); // 'idle' | 'ringing' | 'connected' | 'ended'
   const [activeCallDuration, setActiveCallDuration] = useState(0);
   const activeCallTimerRef = useRef(null);
-
   const initiateClickToCall = (leadName, leadPhone) => {
     setClickToCallLead({ name: leadName || 'CRM Lead', phone: leadPhone || '' });
     setShowClickToCallModal(true);
     setActiveCallStatus('ringing');
     setActiveCallDuration(0);
-
     setTimeout(() => {
       setActiveCallStatus('connected');
       if (activeCallTimerRef.current) clearInterval(activeCallTimerRef.current);
@@ -1017,11 +965,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }, 1000);
     }, 2500);
   };
-
   const endClickToCall = async (disposition = 'Interested', notes = 'Completed call via Click-to-Call dialpad') => {
     if (activeCallTimerRef.current) clearInterval(activeCallTimerRef.current);
     setActiveCallStatus('ended');
-
     const fallbackLog = {
       id: `call_${Date.now()}`,
       agentName: authUser?.name || authUser?.email || 'Telecaller Agent',
@@ -1037,7 +983,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       notes: notes,
       simSlot: 'SIM 1 (Work)'
     };
-
     try {
       const res = await fetch(`${API_URL}/telecalling/sync-log`, {
         method: 'POST',
@@ -1063,20 +1008,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       setCallLogs(prev => [fallbackLog, ...prev]);
     }
-
     setTimeout(() => {
       setShowClickToCallModal(false);
       setActiveCallStatus('idle');
     }, 1200);
   };
-
   // Live Microphone Audio Recording for Real Call Engine
   const [isRecordingMic, setIsRecordingMic] = useState(false);
   const [recordingTimer, setRecordingTimer] = useState(0);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const timerIntervalRef = useRef(null);
-
   // Fetch Call Logs on mount — localStorage first (fastest, has audio), then Firestore merge
   useEffect(() => {
     // 1. Load from localStorage immediately (has real audio base64, persists same browser)
@@ -1086,7 +1028,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         setCallLogs(localLogs);
       }
     } catch (e) {}
-
     // 2. Also load from Backend API (/api/telecalling/logs) for Mobile APK synced calls
     try {
       fetch('/api/telecalling/logs')
@@ -1102,7 +1043,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         })
         .catch(() => {});
     } catch (err) {}
-
     // 3. Also load from Firestore (for cross-device sync fallback)
     try {
       getDocs(collection(db, 'callLogs'))
@@ -1122,7 +1062,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         })
         .catch(() => {});
     } catch (err) {}
-
     try {
       const socketInstance = io(SOCKET_URL);
       const handleCallSynced = (newLog) => {
@@ -1137,16 +1076,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.log('Notice: Socket client initialization:', err.message);
     }
   }, []);
-
   const recordingTimerRef = useRef(0);
-
   const startMicRecording = async () => {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         alert('⚠️ Microphone access requires HTTPS.\nPlease use https://ems-crm-sandy.vercel.app');
         return;
       }
-
       // Mobile-optimized audio constraints
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -1157,7 +1093,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         }
       });
       audioChunksRef.current = [];
-
       // Detect best MIME type (iOS Safari needs mp4, Android uses webm)
       const getSupportedMime = () => {
         const types = [
@@ -1175,7 +1110,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         }
         return '';
       };
-
       let mediaRecorder;
       try {
         const mimeType = getSupportedMime();
@@ -1186,21 +1120,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         mediaRecorder = new MediaRecorder(stream);
       }
       mediaRecorderRef.current = mediaRecorder;
-
       mediaRecorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
           audioChunksRef.current.push(e.data);
         }
       };
-
       // Use 1000ms timeslice on mobile for reliability
       const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
       mediaRecorder.start(isMobile ? 1000 : 500);
-
       setIsRecordingMic(true);
       setRecordingTimer(0);
       recordingTimerRef.current = 0;
-
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = setInterval(() => {
         setRecordingTimer(prev => prev + 1);
@@ -1215,18 +1145,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       alert('⚠️ Mic Error: ' + msg);
     }
   };
-
   const stopMicRecording = () => {
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     setIsRecordingMic(false);
-
     const finalDuration = recordingTimerRef.current > 0 ? recordingTimerRef.current : 1;
-
     const processAndSave = (audioBlob) => {
       const localAudioUrl = audioBlob && audioBlob.size > 100
         ? URL.createObjectURL(audioBlob)
         : 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
-
       const newRecord = {
         id: `call_${Date.now()}`,
         agentName: authUser?.name || authUser?.email || 'Telecaller Agent',
@@ -1243,11 +1169,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         simSlot: 'SIM 1 (Work)',
         _createdAt: Date.now()
       };
-
       // Instant state update
       setCallLogs(prev => [newRecord, ...prev]);
       alert('🎉 Recording Saved! Check table below.');
-
       // Save to localStorage as base64 (survives refresh, works on mobile)
       if (audioBlob && audioBlob.size > 100) {
         const reader = new FileReader();
@@ -1279,7 +1203,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         try { addDoc(collection(db, 'callLogs'), { ...newRecord, recordingUrl: '[no audio]' }).catch(() => {}); } catch (e) {}
       }
     };
-
     const recorder = mediaRecorderRef.current;
     if (recorder && recorder.state !== 'inactive') {
       // onstop fires AFTER final ondataavailable — safe to build blob here
@@ -1309,16 +1232,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       processAndSave(audioBlob);
     }
   };
-
-
-
   const handleSimulateCall = async (callType) => {
-
     const isIncoming = callType === 'INCOMING';
     const sampleAudio = isIncoming 
       ? 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'
       : 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
-
     const fallbackLog = {
       id: `call_${Date.now()}`,
       agentName: authUser?.name || authUser?.email || 'Telecaller Agent',
@@ -1333,16 +1251,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       disposition: isIncoming ? 'Demo Scheduled' : 'Interested',
       notes: `${isIncoming ? 'Incoming SIM call answered' : 'Outgoing call completed'} & auto-synced via Android Mobile Engine.`
     };
-
     setCallLogs(prev => [fallbackLog, ...prev]);
-
     // Save to Firebase Firestore so it persists after refresh
     try {
       addDoc(collection(db, 'callLogs'), { ...fallbackLog, _createdAt: Date.now() })
         .then(() => console.log('✅ Simulated call log saved to Firebase!'))
         .catch(err => console.log('Notice: Firebase save:', err.message));
     } catch (fbErr) {}
-
     try {
       await fetch('/api/telecalling/sync-log', {
         method: 'POST',
@@ -1350,10 +1265,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         body: JSON.stringify(fallbackLog)
       });
     } catch (err) {}
-
     alert(`🎉 Real ${callType} SIM Call Synced & Audio Player Ready!`);
   };
-
   const handleSortTelecalling = (field) => {
     if (telecallingSortField === field) {
       setTelecallingSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
@@ -1362,7 +1275,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setTelecallingSortOrder('asc');
     }
   };
-
   useEffect(() => {
     const tabToCategory = {
       admin_dashboard: 'dashboards',
@@ -1409,7 +1321,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }));
     }
   }, [activeTab]);
-
   // Cloned modules state hooks with rich default dummy data
   const [tasks, setTasks] = useState([]);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
@@ -1422,21 +1333,18 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     status: 'To Do',
     dueDate: ''
   });
-
   const [notices, setNotices] = useState([]);
   const [showAddNoticeModal, setShowAddNoticeModal] = useState(false);
   const [newNoticeForm, setNewNoticeForm] = useState({
     title: '',
     content: ''
   });
-
   const [holidays, setHolidays] = useState([]);
   const [showAddHolidayModal, setShowAddHolidayModal] = useState(false);
   const [newHolidayForm, setNewHolidayForm] = useState({
     name: '',
     date: ''
   });
-
   const [leaves, setLeaves] = useState([]);
   const [showAddLeaveModal, setShowAddLeaveModal] = useState(false);
   const [newLeaveForm, setNewLeaveForm] = useState({
@@ -1445,7 +1353,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     type: 'Sick',
     reason: ''
   });
-
   const [atsCandidates, setAtsCandidates] = useState(() => {
     const saved = localStorage.getItem('omnilflow_ats_candidates');
     if (saved) {
@@ -1464,20 +1371,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     return [];
   });
-
   const [preselectedConfigModuleId, setPreselectedConfigModuleId] = useState(null);
-
   const handleOpenModuleConfig = (moduleId) => {
     if (moduleId) {
       setPreselectedConfigModuleId(moduleId);
     }
     setActiveTab('module_configuration');
   };
-
   useEffect(() => {
     localStorage.setItem('omnilflow_ats_candidates', JSON.stringify(atsCandidates));
   }, [atsCandidates]);
-
   const [assets, setAssets] = useState(() => {
     const saved = localStorage.getItem('omnilflow_fallback_assets');
     if (saved !== null) {
@@ -1490,7 +1393,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     return [];
   });
-
   const [kycDocuments, setKycDocuments] = useState(() => {
     const saved = localStorage.getItem('omnilflow_fallback_kyc_documents');
     if (saved !== null) {
@@ -1503,7 +1405,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     return [];
   });
-
   const [offboardingCases, setOffboardingCases] = useState(() => {
     const saved = localStorage.getItem('omnilflow_fallback_offboarding_cases');
     if (saved !== null) {
@@ -1516,7 +1417,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     return [];
   });
-
   const [sessions, setSessions] = useState(() => {
     try {
       const saved = localStorage.getItem('omnilflow_fallback_sessions');
@@ -1544,7 +1444,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [messagesOffset, setMessagesOffset] = useState(0);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-
   // New Chat states
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [newChatPhone, setNewChatPhone] = useState('');
@@ -1553,7 +1452,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [newChatSessionId, setNewChatSessionId] = useState('');
   const [newChatError, setNewChatError] = useState('');
   const [isCreatingNewChat, setIsCreatingNewChat] = useState(false);
-
   // Chatbot states with default rules
   const [chatbotRules, setChatbotRules] = useState([]);
   const [showAddRuleModal, setShowAddRuleModal] = useState(false);
@@ -1561,40 +1459,32 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [chatbotRuleReply, setChatbotRuleReply] = useState('');
   const [chatbotRuleMatchType, setChatbotRuleMatchType] = useState('contains');
   const [chatbotRuleError, setChatbotRuleError] = useState('');
-
   // Broadcast states
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
   const [broadcastStage, setBroadcastStage] = useState('all');
   const [broadcastMessage, setBroadcastMessage] = useState('');
-
   // GPS & Client Visit states
   const [showClientVisitModal, setShowClientVisitModal] = useState(false);
   const [clientVisitForm, setClientVisitForm] = useState({ clientName: '', address: '', notes: '' });
   const [clientVisits, setClientVisits] = useState([]);
   const [sosActive, setSosActive] = useState(false);
   const [isPlayingTrail, setIsPlayingTrail] = useState(false);
-
   // Multi-Employee Manager Tracking state
   const [gpsSubTab, setGpsSubTab] = useState('live'); // 'live' | 'audit'
   const [selectedAuditEmployee, setSelectedAuditEmployee] = useState('1');
   const [selectedAuditDate, setSelectedAuditDate] = useState('2026-07-18');
-
   // Custom vehicle fuel reimbursement rates per KM (customizable by Owner)
   const [vehicleRates, setVehicleRates] = useState({ bike: 6, car: 12, suv: 18 });
-
   // Offline Simulation Tracking states
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [offlinePingsCount, setOfflinePingsCount] = useState(0);
   const [isSyncingPings, setIsSyncingPings] = useState(false);
-
   // Client visit verification and signature
   const [clientSignature, setClientSignature] = useState('');
-
   // Real-Time Notification Center state
   const [notifications, setNotifications] = useState([]);
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-
   // Master Dynamic System Dropdowns Registry
   const [systemDropdowns, setSystemDropdowns] = useState(() => {
     const saved = localStorage.getItem('omnilflow_system_dropdowns');
@@ -1632,7 +1522,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       customCategories: []
     };
   });
-
   useEffect(() => {
     if (systemDropdowns) {
       try {
@@ -1640,7 +1529,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       } catch (e) {}
     }
   }, [systemDropdowns]);
-
   useEffect(() => {
     if (dispositionOptions) {
       try {
@@ -1648,7 +1536,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       } catch (e) {}
     }
   }, [dispositionOptions]);
-
   // System Dropdowns Module Filter & Categories state
   const [selectedDropdownCategory, setSelectedDropdownCategory] = useState('departments');
   const [dropdownModuleFilter, setDropdownModuleFilter] = useState('all');
@@ -1662,15 +1549,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     priorities: false,
     customEngine: false
   });
-
   // System Dropdowns Search & Inline Quick Add State
   const [dropdownSearchQuery, setDropdownSearchQuery] = useState('');
   const [inlineQuickAddText, setInlineQuickAddText] = useState('');
-
   const toggleDropdownAccordion = (key) => {
     setDropdownAccordionsOpen(prev => ({ ...prev, [key]: !prev[key] }));
   };
-
   // RBAC Roles & Permissions Scalable State
   const [selectedRbacRole, setSelectedRbacRole] = useState('manager');
   const [customRoles, setCustomRoles] = useState(() => {
@@ -1680,7 +1564,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     return [];
   });
-
   const [rbacMatrix, setRbacMatrix] = useState(() => {
     const saved = localStorage.getItem('omnilflow_rbac_matrix');
     if (saved) {
@@ -1721,7 +1604,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }
     };
   });
-
   const handleSaveMasterDropdowns = () => {
     try {
       localStorage.setItem('omnilflow_system_dropdowns', JSON.stringify(systemDropdowns));
@@ -1733,7 +1615,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       showToast('Saved successfully!', 'success');
     }
   };
-
   const handleMoveOption = (categoryKey, index, direction) => {
     const targetIndex = index + direction;
     if (categoryKey === 'crm_stages') {
@@ -1760,11 +1641,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setSystemDropdowns(prev => ({ ...prev, [categoryKey]: updated }));
     }
   };
-
   const handleQuickAddOption = () => {
     if (!inlineQuickAddText || !inlineQuickAddText.trim()) return;
     const val = inlineQuickAddText.trim();
-
     if (selectedDropdownCategory === 'departments') {
       const exists = (systemDropdowns.departments || []).some(d => (typeof d === 'object' ? d.name : d) === val);
       if (!exists) {
@@ -1815,7 +1694,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     setInlineQuickAddText('');
   };
-
   const addNotification = (title, message, linkTab = 'admin_dashboard') => {
     const newNotif = {
       id: Date.now(),
@@ -1827,21 +1705,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     };
     setNotifications(prev => [newNotif, ...prev]);
   };
-
   const markAllNotificationsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     showToast('All notifications marked as read', 'info');
   };
-
   // Dynamic Beat Planning: Maps employee ID to active visit route sequence
   const [employeeBeatPlans, setEmployeeBeatPlans] = useState({});
-
   // Beat Planner Modal Control states
   const [showBeatPlannerModal, setShowBeatPlannerModal] = useState(false);
   const [selectedPlannerEmpId, setSelectedPlannerEmpId] = useState('1');
   const [tempCheckpoints, setTempCheckpoints] = useState([]);
   const [newCheckpointForm, setNewCheckpointForm] = useState({ name: '', lat: '', lng: '' });
-
   // Shift Expenses state: Tolls, Breakfast, Lunch, Dinner, Misc other
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [selectedExpenseEmpId, setSelectedExpenseEmpId] = useState('1');
@@ -1855,12 +1729,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     otherAmount: '',
     otherDescription: ''
   });
-
   const [employeeExpenses, setEmployeeExpenses] = useState({});
-
   // Global Toast Notification state
   const [toast, setToast] = useState({ message: '', type: 'success', visible: false });
-
   const showToast = (message, type = 'success') => {
     if (!message) return;
     let msgStr = '';
@@ -1880,16 +1751,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } else {
       msgStr = String(message || '');
     }
-
     setToast({ message: msgStr, type: typeof type === 'string' ? type : 'info', visible: true });
     setTimeout(() => {
       setToast(prev => ({ ...prev, visible: false }));
     }, 3000);
   };
-
   // Multi-language Translation Support
   const [language, setLanguage] = useState('en'); // 'en', 'hi', 'hinglish'
-
   const translations = {
     en: {
       systemCat: 'SYSTEM',
@@ -1901,13 +1769,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       myPortalCat: 'MY PORTAL',
       helpSupportCat: 'HELP & SUPPORT',
       settingsCat: 'SETTINGS',
-
       superAdminPanel: 'Super Admin Panel',
       companyOverview: 'Company Overview',
       taskAnalytics: 'Task Analytics',
       liveTracking: 'Live Tracking Map',
       auditLogs: 'System Audit Logs',
-
       allEmployees: 'All Employees',
       employeeDirectory: 'Employee Directory',
       recruitmentAts: 'Recruitment & ATS',
@@ -1915,45 +1781,38 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       assetManagement: 'Asset Management',
       verifyDocuments: 'Verify Documents',
       offboardingExit: 'Offboarding Exit',
-
       payrollSalary: 'Payroll & Salary',
       taxesCompliance: 'Taxes & Compliance',
       incentivesBonus: 'Incentives & Bonus',
       ffSettlements: 'F&F Settlements',
       advancesLoans: 'Advances & Loans',
       expensesClaim: 'Expenses Claim',
-
       waChannels: 'WA Channels',
       inboxChats: 'Unified Inbox Chats',
       crmPipeline: 'CRM Pipeline Board',
       callRecordings: 'Call Recordings & SIM Sync',
       chatbotRules: 'Chatbot Rules',
-
       tasksBoard: 'Tasks Board',
       officeKiosk: 'Office Kiosk Mode',
       workHoursLog: 'Work Hours Log',
       noticeBoard: 'Notice Board',
       holidaysList: 'Holidays List',
       rewardsBadges: 'Rewards Badges',
-
       shiftAttendance: 'Shift Attendance',
       leavesRequests: 'Leaves Requests',
       workRoster: 'Work Shift Roster',
       appGuide: 'App Guide & Tour',
-
       generalSettings: 'General Settings',
       rolesPermissions: 'Roles & Permissions',
       recycleBin: 'Trash Bin',
       systemDropdowns: 'System Dropdowns',
       moduleConfig: 'Module Configuration',
       subscriptionBilling: 'Subscription Billing',
-
       changePassword: 'Change Password',
       preferencesRegion: 'PREFERENCES & REGION',
       languageLabel: 'Language',
       displayCurrencyLabel: 'Display Currency',
       signOutAccount: 'Sign Out Account',
-
       companyDashboardTitle: 'Company Dashboard (Super Admin View)',
       overviewSubtitle: 'Overview of your field team\'s activity today.',
       totalEmployees: 'Total Employees',
@@ -1995,13 +1854,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       myPortalCat: 'मेरा पोर्टल',
       helpSupportCat: 'सहायता एवं समर्थन',
       settingsCat: 'सेटिंग्स',
-
       superAdminPanel: 'सुपर एडमिन पैनल',
       companyOverview: 'कंपनी अवलोकन',
       taskAnalytics: 'कार्य विश्लेषण',
       liveTracking: 'लाइव ट्रैकिंग मानचित्र',
       auditLogs: 'सिस्टम ऑडिट लॉग',
-
       allEmployees: 'सभी कर्मचारी',
       employeeDirectory: 'कर्मचारी निर्देशिका',
       recruitmentAts: 'भर्ती एवं एटीएस',
@@ -2009,45 +1866,38 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       assetManagement: 'संपत्ति प्रबंधन',
       verifyDocuments: 'दस्तावेज़ सत्यापन',
       offboardingExit: 'ऑफ़बोर्डिंग एग्जिट',
-
       payrollSalary: 'पेरोल और वेतन',
       taxesCompliance: 'कर एवं अनुपालन',
       incentivesBonus: 'प्रोत्साहन एवं बोनस',
       ffSettlements: 'अंतिम निपटान (F&F)',
       advancesLoans: 'अग्रिम एवं ऋण',
       expensesClaim: 'व्यय दावा',
-
       waChannels: 'व्हाट्सएप चैनल्स',
       inboxChats: 'एकीकृत इनबॉक्स चैट',
       crmPipeline: 'सीआरएम पाइपलाइन बोर्ड',
       callRecordings: 'कॉल रिकॉर्डिंग एवं सिम सिंक',
       chatbotRules: 'चैटबॉट नियम',
-
       tasksBoard: 'कार्य बोर्ड',
       officeKiosk: 'कार्यालय कियोस्क',
       workHoursLog: 'कार्य घंटे लॉग',
       noticeBoard: 'सूचना बोर्ड',
       holidaysList: 'छुट्टियों की सूची',
       rewardsBadges: 'पुरस्कार एवं बैज',
-
       shiftAttendance: 'शिफ्ट उपस्थिति',
       leavesRequests: 'छुट्टी के आवेदन',
       workRoster: 'कार्य शिफ्ट रोस्टर',
       appGuide: 'ऐप गाइड एवं टूर',
-
       generalSettings: 'सामान्य सेटिंग्स',
       rolesPermissions: 'भूमिकाएं एवं अनुमतियां',
       recycleBin: 'कचरा पेटी (Bin)',
       systemDropdowns: 'सिस्टम ड्रॉपडाउन',
       moduleConfig: 'मॉड्यूल कॉन्फ़िगरेशन',
       subscriptionBilling: 'सदस्यता बिलिंग',
-
       changePassword: 'पासवर्ड बदलें',
       preferencesRegion: 'प्राथमिकताएं और क्षेत्र',
       languageLabel: 'भाषा',
       displayCurrencyLabel: 'प्रदर्शित मुद्रा',
       signOutAccount: 'साइन आउट करें',
-
       companyDashboardTitle: 'कंपनी डैशबोर्ड (सुपर एडमिन व्यू)',
       overviewSubtitle: 'आज आपकी फ़ील्ड टीम की गतिविधि का अवलोकन।',
       totalEmployees: 'कुल कर्मचारी',
@@ -2085,7 +1935,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       taskAnalytics: 'Task Analytics',
       liveTracking: 'Live Tracking Map',
       auditLogs: 'System Audit Logs',
-
       hrCat: 'HR Management',
       allEmployees: 'Sabh Employees',
       employeeDirectory: 'Employee Directory',
@@ -2094,7 +1943,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       assetManagement: 'Asset Management',
       verifyDocuments: 'Documents Verify Karein',
       offboardingExit: 'Offboarding Exit',
-
       payrollCat: 'Salary & Payroll',
       payrollSalary: 'Salary aur Payroll',
       taxesCompliance: 'Taxes & Compliance',
@@ -2102,13 +1950,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       ffSettlements: 'F&F Settlements',
       advancesLoans: 'Advances & Loans',
       expensesClaim: 'Expenses Claim',
-
       crmCat: 'CRM & Sales',
       waChannels: 'WA Channels',
       inboxChats: 'Unified Inbox Chats',
       crmPipeline: 'CRM Pipeline Board',
       chatbotRules: 'Chatbot Rules',
-
       opsCat: 'Operations',
       tasksBoard: 'Tasks Board',
       officeKiosk: 'Office Punch Terminal',
@@ -2116,12 +1962,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       noticeBoard: 'Notice Board',
       holidaysList: 'Holidays List',
       rewardsBadges: 'Rewards Badges',
-
       myPortalCat: 'Mera Portal',
       shiftAttendance: 'Shift Attendance',
       leavesRequests: 'Leaves Requests',
       workRoster: 'Work Shift Roster',
-
       companyDashboardTitle: 'Company Dashboard (Admin View)',
       overviewSubtitle: 'Apki field team ki aaj ki activity ka overview.',
       totalEmployees: 'Total Employees',
@@ -2698,9 +2542,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       action: 'Действие'
     }
   };
-
   const t = (key) => (translations['en'] && translations['en'][key]) || key;
-
   // Document RTL layout handling for Arabic / Hebrew / Persian / Urdu
   useEffect(() => {
     if (['ar', 'he', 'ur', 'fa'].includes(activeLanguage)) {
@@ -2709,7 +2551,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       document.documentElement.setAttribute('dir', 'ltr');
     }
   }, [activeLanguage]);
-
   // Granular Role-Based Access Control (RBAC) Permissions Matrix
   const [rolePermissions, setRolePermissions] = useState({
     owner: {
@@ -2745,7 +2586,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       saas_portal: { canCreate: false, canRead: false, canUpdate: false, canDelete: false, canExport: false, canApprove: false }
     }
   });
-
   const hasPermission = (user, categoryKey, action = 'canRead') => {
     if (!user) return false;
     if (user.role === 'superadmin' || user.role === 'owner') return true;
@@ -2753,10 +2593,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     const catConfig = roleConfig[categoryKey] || roleConfig.dashboards;
     return Boolean(catConfig && catConfig[action]);
   };
-
   // Dynamic Self-Updating System Guide Steps State
   const [guideSteps, setGuideSteps] = useState(INITIAL_GUIDE_STEPS);
-
   // Auto-Sync Flow Discovery Engine: Detects new features & syncs tour steps automatically
   useEffect(() => {
     const autoDiscoveredSteps = DYNAMIC_MODULE_REGISTRY.map((mod, idx) => ({
@@ -2770,29 +2608,24 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       voiceScript: `Welcome to ${mod.label}. Review operational controls and role permissions for this section.`,
       isLive: true
     }));
-
     setGuideSteps(prev => {
       const existingIds = new Set(prev.map(s => s.id));
       const newItems = autoDiscoveredSteps.filter(s => !existingIds.has(s.id));
       return newItems.length > 0 ? [...prev, ...newItems] : prev;
     });
   }, []);
-
   // Live Interactive Voice & Virtual Mouse Pointer Tour Engine
   const [isLiveTourActive, setIsLiveTourActive] = useState(false);
   const [tourStepIndex, setTourStepIndex] = useState(0);
   const [virtualCursor, setVirtualCursor] = useState({ x: 300, y: 250, isClicking: false });
   const [isTourPaused, setIsTourPaused] = useState(false);
   const [tourVoiceStatus, setTourVoiceStatus] = useState('Idle');
-
   // Voice Speech Synthesizer Function (Multi-Lingual TTS Engine)
   const playTourVoiceText = (step) => {
     if (!step) return;
     const langKey = 'en';
     const voiceText = (step.scripts && step.scripts[langKey]) || (step.scripts && step.scripts.hi) || step.voiceScript || `${step.title}. ${step.description}`;
-
     setTourVoiceStatus(`🎙️ Speaking (${langKey.toUpperCase()}): ${step.title}`);
-
     // 1. Instant Multi-Lingual Web Speech API Playback
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
@@ -2804,7 +2637,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       utter.onerror = () => setTourVoiceStatus('Step Active');
       window.speechSynthesis.speak(utter);
     }
-
     // 2. Asynchronously attempt ElevenLabs High-Fidelity Audio
     fetch(`${API_URL}/tour/voice`, {
       method: 'POST',
@@ -2823,7 +2655,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }
     }).catch(() => { });
   };
-
   // Start Tour Function with Autoplay Gesture Unlock
   const startInteractiveTour = (startIndex = 0) => {
     // Unlock browser audio speech context
@@ -2833,31 +2664,25 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       initUtter.volume = 0.01;
       window.speechSynthesis.speak(initUtter);
     }
-
     setIsLiveTourActive(true);
     setTourStepIndex(startIndex);
     setIsTourPaused(false);
     runTourStep(startIndex);
   };
-
   // Run Specific Tour Step with Element Auto-Scroll & Virtual Mouse Tracking
   const runTourStep = (index) => {
     if (index < 0 || index >= guideSteps.length) return;
     const step = guideSteps[index];
     if (!step) return;
-
     // 1. Switch active screen tab immediately
     if (step.targetTab) {
       setActiveTab(step.targetTab);
     }
-
     // 2. Play Multi-Lingual Voice Narration
     playTourVoiceText(step);
-
     // 3. Auto-Scroll DOM Element into View & Animate Virtual Cursor
     setTimeout(() => {
       const targetElement = (step.targetSelector && document.querySelector(step.targetSelector)) || document.querySelector(`[data-tab="${step.targetTab}"]`) || document.querySelector('.main-content-area');
-
       if (targetElement) {
         targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         const rect = targetElement.getBoundingClientRect();
@@ -2867,7 +2692,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         setVirtualCursor({ x: window.innerWidth / 2, y: window.innerHeight / 3, isClicking: false });
       }
     }, 400);
-
     // 4. Auto-Advance Step Timer (6.5s)
     if (window.tourStepAutoTimer) clearTimeout(window.tourStepAutoTimer);
     window.tourStepAutoTimer = setTimeout(() => {
@@ -2878,69 +2702,52 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       });
     }, 6500);
   };
-
   // Connection & Offline status
   const [isOnline, setIsOnline] = useState(() => typeof navigator !== 'undefined' ? (navigator.onLine !== false) : true);
-
   // Auto Session Expiry
   const [showSessionWarning, setShowSessionWarning] = useState(false);
   const [sessionTimeLeft, setSessionTimeLeft] = useState(60);
-
   // Global Audit Log Registry State
   const [auditLogs, setAuditLogs] = useState([]);
-
   // Global Search bar query
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [showGlobalSearchModal, setShowGlobalSearchModal] = useState(false);
-
   // Table sorting states
   const [employeeSortKey, setEmployeeSortKey] = useState('first_name');
   const [employeeSortDir, setEmployeeSortDir] = useState('asc');
-
   const [payrollSortKey, setPayrollSortKey] = useState('first_name');
   const [payrollSortDir, setPayrollSortDir] = useState('asc');
-
   const [workloadSortKey, setWorkloadSortKey] = useState('first_name');
   const [workloadSortDir, setWorkloadSortDir] = useState('asc');
-
   const [kpiSortKey, setKpiSortKey] = useState('first_name');
   const [kpiSortDir, setKpiSortDir] = useState('asc');
-
   // Employee table Pagination states
   const [employeeCurrentPage, setEmployeeCurrentPage] = useState(1);
   const employeeItemsPerPage = 6;
   const [localEmpQuery, setLocalEmpQuery] = useState('');
   const [isDragActive, setIsDragActive] = useState(false);
-
   const [selectedTrackEmployee, setSelectedTrackEmployee] = useState('all');
   const [teamTrackLocations, setTeamTrackLocations] = useState([]);
-
   // Persistent Full-Day Activity Activity Logs
   const [employeeAuditLogs, setEmployeeAuditLogs] = useState({});
   const [broadcastSessionId, setBroadcastSessionId] = useState('');
   const [broadcastProgress, setBroadcastProgress] = useState(null);
-
   // Chat History Search states
   const [chatHistorySearchQuery, setChatHistorySearchQuery] = useState('');
   const [showChatHistorySearch, setShowChatHistorySearch] = useState(false);
-
   // Starred Messages states
   const [starredMessages, setStarredMessages] = useState([]);
-
   // Scheduled Messages states
   const [scheduledMessages, setScheduledMessages] = useState([]);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [scheduleMessageText, setScheduleMessageText] = useState('');
   const [scheduleDateTime, setScheduleDateTime] = useState('');
-
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-
   // Modal states
   const [showAddSessionModal, setShowAddSessionModal] = useState(false);
   const [newSessionName, setNewSessionName] = useState('');
-
   // CRM Form states
   const [crmCustomName, setCrmCustomName] = useState('');
   const [crmEmail, setCrmEmail] = useState('');
@@ -2951,14 +2758,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [serverOnline, setServerOnline] = useState(() => typeof navigator !== 'undefined' ? (navigator.onLine !== false) : true);
   const [chatTypeFilter, setChatTypeFilter] = useState('all'); // 'all', 'dm', 'group'
   const [crmStageFilter, setCrmStageFilter] = useState('all'); // 'all', 'new', 'contacted', 'interested', 'proposal', 'won'
-
   // Auth states passed as props
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [authError, setAuthError] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
-
   // SaaS Workspace settings state
   const [stages, setStages] = useState([
     { id: 'new', title: 'New Leads', color: '#0d9488' },
@@ -2971,16 +2776,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [dropdownCategorySearch, setDropdownCategorySearch] = useState('');
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsError, setSettingsError] = useState(null);
-
   // SaaS Billing state
   const [billingTenant, setBillingTenant] = useState(null);
   const [isBillingLoading, setIsBillingLoading] = useState(false);
   const [billingError, setBillingError] = useState(null);
-
   // Dynamic country-wise plans & pricing states
   const [selectedCountry, setSelectedCountry] = useState('IN'); // Default to India (INR)
   const [billingPlans, setBillingPlans] = useState([]);
-
   // Superadmin plan manager states
   const [superadminSubTab, setSuperadminSubTab] = useState('system_users');
   const [superadminMetrics, setSuperadminMetrics] = useState({
@@ -3019,7 +2821,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   });
   const [adminPlansError, setAdminPlansError] = useState(null);
   const [adminPlansLoading, setAdminPlansLoading] = useState(false);
-
   // Employee Directory states with default rich team records
   const [employees, setEmployees] = useState(() => {
     const saved = localStorage.getItem('omnilflow_fallback_employees');
@@ -3057,7 +2858,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     createLoginAccount: false,
     status: 'active'
   });
-
   // Shift Engine & Rotational Roster State
   const [shiftProfiles, setShiftProfiles] = useState(() => ShiftEngine.getShiftProfiles());
   const [weeklyRoster, setWeeklyRoster] = useState(() => ShiftEngine.getWeeklyRoster(employees));
@@ -3073,7 +2873,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [bulkAssignShiftId, setBulkAssignShiftId] = useState('shift_general');
   const [selectedEmpIdsForBulk, setSelectedEmpIdsForBulk] = useState([]);
   const [hrOverrideLogs, setHrOverrideLogs] = useState(() => ShiftEngine.getHROverrideLogs());
-
   useEffect(() => {
     if (activeTab === 'shifts') {
       setWeeklyRoster(ShiftEngine.getWeeklyRoster(employees));
@@ -3081,9 +2880,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setHrOverrideLogs(ShiftEngine.getHROverrideLogs());
     }
   }, [activeTab, employees]);
-
-
-
   // GPS & Attendance states
   const [attendanceLogs, setAttendanceLogs] = useState([]);
   const [liveLocations, setLiveLocations] = useState([]);
@@ -3093,7 +2889,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [historyDate, setHistoryDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState(null);
-
   // Quick Replies states
   const [crmRightTab, setCrmRightTab] = useState('info'); // 'info', 'templates'
   const [newReplyTitle, setNewReplyTitle] = useState('');
@@ -3106,19 +2901,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       { id: '3', title: 'Payment Info', text: 'You can complete your payment via UPI or Bank Transfer. Details: [Details]' }
     ];
   });
-
   useEffect(() => {
     localStorage.setItem('crm_quick_replies', JSON.stringify(quickReplies));
   }, [quickReplies]);
-
   // Auth operations with Firebase Auth & Cloud Firestore Integration
   const handleLogin = async (e) => {
     e.preventDefault();
     setAuthLoading(true);
     setAuthError(null);
-
     const cleanEmail = (email || '').toLowerCase().trim();
-
     // 1. Instant Master Superadmin Fallback
     if ((cleanEmail === 'admin@omniflow.com' || cleanEmail === 'kavayanshchopra@gmail.com') && password === 'admin123') {
       const mockSuperUser = {
@@ -3136,7 +2927,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setAuthLoading(false);
       return;
     }
-
     // 2. Firebase Cloud Auth Login
     try {
       if (auth) {
@@ -3159,7 +2949,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firebase login attempt fallback to backend API:', fbErr.message);
     }
-
     // 3. Backend REST API Fallback Login
     try {
       const res = await getOriginalFetch()(`${API_URL}/auth/login`, {
@@ -3169,7 +2958,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to login');
-
       localStorage.setItem('omnilflow_token', data.token);
       localStorage.setItem('omnilflow_user', JSON.stringify(data.user));
       setAuthUser(data.user);
@@ -3180,13 +2968,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setAuthLoading(false);
     }
   };
-
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     setForgotPasswordLoading(true);
     setForgotPasswordError(null);
     const targetEmail = (forgotPasswordForm.email || email || '').toLowerCase().trim();
-
     try {
       if (auth && targetEmail) {
         await sendPasswordResetEmail(auth, targetEmail);
@@ -3198,7 +2984,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firebase reset password fallback to backend API:', fbErr.message);
     }
-
     try {
       const res = await getOriginalFetch()(`${API_URL}/auth/forgot-password`, {
         method: 'POST',
@@ -3210,7 +2995,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to reset password');
-
       showToast('🟢 Password updated successfully! Please sign in with your new password.', 'success');
       setShowForgotPasswordModal(false);
       setEmail(targetEmail);
@@ -3221,13 +3005,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setForgotPasswordLoading(false);
     }
   };
-
   const handleRegister = async (e) => {
     e.preventDefault();
     setAuthLoading(true);
     setAuthError(null);
     const cleanEmail = (email || '').toLowerCase().trim();
-
     try {
       if (auth) {
         const userCred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
@@ -3243,14 +3025,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         localStorage.setItem('omnilflow_token', fbUser.accessToken || 'firebase_token');
         localStorage.setItem('omnilflow_user', JSON.stringify(userData));
         setAuthUser(userData);
-        setActiveTab('inbox');
+        setActiveTab('wa_live_web');
         showToast('🟢 Registered successfully with Firebase Cloud Auth!', 'success');
         return;
       }
     } catch (fbErr) {
       console.warn('Firebase register fallback to backend API:', fbErr.message);
     }
-
     try {
       const res = await getOriginalFetch()(`${API_URL}/auth/register`, {
         method: 'POST',
@@ -3259,18 +3040,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to register');
-
       localStorage.setItem('omnilflow_token', data.token);
       localStorage.setItem('omnilflow_user', JSON.stringify(data.user));
       setAuthUser(data.user);
-      setActiveTab('inbox');
+      setActiveTab('wa_live_web');
     } catch (err) {
       setAuthError(err.message);
     } finally {
       setAuthLoading(false);
     }
   };
-
   // SaaS Workspace settings operations
   const fetchTenantSettings = async () => {
     setSettingsLoading(true);
@@ -3289,7 +3068,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setSettingsLoading(false);
     }
   };
-
   const handleSaveTenantSettings = async (updatedStages, updatedTags) => {
     setSettingsLoading(true);
     setSettingsError(null);
@@ -3318,7 +3096,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setSettingsLoading(false);
     }
   };
-
   // SaaS Stripe Subscriptions operations
   const handleCreateCheckoutSession = async (priceId) => {
     try {
@@ -3336,7 +3113,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       alert('Stripe redirection failed: ' + err.message);
     }
   };
-
   const fetchBillingPlans = async (country) => {
     try {
       const res = await fetch(`${API_URL}/billing/plans?country=${country}`);
@@ -3347,11 +3123,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.error(err);
     }
   };
-
   const fetchSuperadminPlans = async () => {
     setAdminPlansLoading(true);
     setAdminPlansError(null);
-
     try {
       if (db) {
         const qSnap = await getDocs(collection(db, 'plans'));
@@ -3375,7 +3149,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firebase query plans failed:', fbErr.message);
     }
-
     try {
       const res = await fetch(`${API_URL}/admin/plans`);
       if (!res.ok) throw new Error('Failed to retrieve plans');
@@ -3387,7 +3160,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setAdminPlansLoading(false);
     }
   };
-
   const fetchSuperadminMetrics = async () => {
     try {
       const res = await fetch(`${API_URL}/admin/metrics`);
@@ -3399,7 +3171,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.error(err);
     }
   };
-
   const fetchSuperadminUsers = async (search = '') => {
     try {
       if (db) {
@@ -3422,7 +3193,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firebase query users failed:', fbErr.message);
     }
-
     try {
       const res = await fetch(`${API_URL}/admin/users?search=${encodeURIComponent(search)}`);
       if (res.ok) {
@@ -3440,7 +3210,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       { id: '2', name: 'OmniFlow Global Admin', email: 'admin@omniflow.com', role: 'superadmin', companyName: 'OmniFlow SaaS', createdAt: '2026-07-19' }
     ]);
   };
-
   const fetchSuperadminCompanies = async () => {
     try {
       if (db) {
@@ -3463,7 +3232,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firebase query companies failed:', fbErr.message);
     }
-
     try {
       const res = await fetch(`${API_URL}/admin/companies`);
       if (res.ok) {
@@ -3476,13 +3244,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.error(err);
     }
-    setSuperadminCompanies([
-      { tenant_id: '1', company_name: 'OmniFlow Global Solutions', user_count: 15, emp_count: 8 },
-      { tenant_id: 'abc_corp', company_name: 'ABC Corporation', user_count: 12, emp_count: 5 },
-      { tenant_id: 'demo_corp', company_name: 'Demo Corp', user_count: 5, emp_count: 2 }
-    ]);
+      setSuperadminCompanies([]);
   };
-
   const handleElevateUserRole = async (userId, newRole) => {
     try {
       if (db) {
@@ -3492,7 +3255,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firebase user role update failed:', fbErr.message);
     }
-
     try {
       const res = await fetch(`${API_URL}/admin/users/${userId}/role`, {
         method: 'PUT',
@@ -3507,10 +3269,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.error(err);
     }
-
     setSuperadminUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
   };
-
   const handleDeleteUserAccount = (userId) => {
     const targetUser = (superadminUsers || []).find(u => u.id === userId);
     openConfirm({
@@ -3535,7 +3295,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         } catch (fbErr) {
           console.warn('Firebase user deletion failed:', fbErr.message);
         }
-
         try {
           const res = await fetch(`${API_URL}/admin/users/${userId}`, {
             method: 'DELETE'
@@ -3548,7 +3307,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         } catch (err) {
           console.error(err);
         }
-
         setSuperadminUsers(prev => {
           const updated = prev.filter(u => u.id !== userId);
           try {
@@ -3559,12 +3317,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }
     });
   };
-
   const handleSavePlan = async (e) => {
     e.preventDefault();
     setAdminPlansLoading(true);
     setAdminPlansError(null);
-
     const payload = {
       name: adminPlanForm.name,
       description: adminPlanForm.description,
@@ -3577,7 +3333,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       allowGpsTracking: adminPlanForm.allowGpsTracking ? 1 : 0,
       isActive: adminPlanForm.isActive ? 1 : 0
     };
-
     try {
       if (db) {
         await setDoc(doc(db, 'plans', adminPlanForm.id.toString()), payload);
@@ -3586,7 +3341,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firebase plan save failed:', fbErr.message);
     }
-
     try {
       const res = await fetch(`${API_URL}/admin/plans`, {
         method: 'POST',
@@ -3620,12 +3374,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setAdminPlansLoading(false);
     }
   };
-
   const handleSavePrice = async (e) => {
     e.preventDefault();
     if (!adminSelectedPlanId) return;
     setAdminPlansLoading(true);
-
     const payload = {
       planId: adminSelectedPlanId,
       countryCode: adminNewPriceForm.countryCode,
@@ -3633,7 +3385,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       amount: parseFloat(adminNewPriceForm.amount) || 0,
       stripePriceId: adminNewPriceForm.stripePriceId
     };
-
     try {
       if (db) {
         await setDoc(doc(db, 'plans', adminSelectedPlanId.toString(), 'prices', adminNewPriceForm.countryCode.toString()), payload);
@@ -3642,7 +3393,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firebase price save failed:', fbErr.message);
     }
-
     try {
       const res = await fetch(`${API_URL}/admin/prices`, {
         method: 'POST',
@@ -3666,11 +3416,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setAdminPlansLoading(false);
     }
   };
-
   const handleDeletePrice = async (planId, countryCode) => {
     if (!confirm('Are you sure you want to delete this price rate?')) return;
     setAdminPlansLoading(true);
-
     try {
       if (db) {
         await deleteDoc(doc(db, 'plans', planId.toString(), 'prices', countryCode.toString()));
@@ -3679,7 +3427,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn(fbErr.message);
     }
-
     try {
       const res = await fetch(`${API_URL}/admin/prices/${planId}/${countryCode}`, {
         method: 'DELETE'
@@ -3694,7 +3441,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setAdminPlansLoading(false);
     }
   };
-
   useEffect(() => {
     if (activeTab === 'billing' && authUser) {
       const fetchBillingDetails = async () => {
@@ -3715,7 +3461,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       fetchBillingPlans(selectedCountry);
     }
   }, [activeTab, authUser, selectedCountry]);
-
   useEffect(() => {
     if (activeTab === 'superadmin_plans' && authUser && authUser.role === 'superadmin') {
       fetchSuperadminPlans();
@@ -3724,7 +3469,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       fetchSuperadminCompanies();
     }
   }, [activeTab, authUser]);
-
   // Global Listeners for Online/Offline, Keyboard Shortcuts & Session Idle Timeout
   useEffect(() => {
     // 1. Online/Offline detection
@@ -3736,10 +3480,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setIsOnline(false);
       showToast('⚠️ Internet Connection Lost! Running in offline backup mode.', 'error');
     };
-
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
     // 2. Keyboard shortcuts
     const handleKeyDown = (e) => {
       // Close Modals on ESC key
@@ -3759,7 +3501,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-
     // 3. User Idle Session Expiry (30 Mins)
     let idleTimer;
     const resetIdleTimer = () => {
@@ -3772,16 +3513,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         }
       }, 1800000);
     };
-
     // Listen to user activity events
     window.addEventListener('mousemove', resetIdleTimer);
     window.addEventListener('keydown', resetIdleTimer);
     window.addEventListener('click', resetIdleTimer);
     window.addEventListener('scroll', resetIdleTimer);
-
     // Initialize timer
     resetIdleTimer();
-
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -3793,7 +3531,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       clearTimeout(idleTimer);
     };
   }, [authUser]);
-
   // Session Warning countdown timer
   useEffect(() => {
     let countdown;
@@ -3810,7 +3547,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     return () => clearInterval(countdown);
   }, [showSessionWarning, sessionTimeLeft]);
-
   // Employee Directory actions
   const isDummyRecord = (r) => {
     if (!r) return false;
@@ -3835,11 +3571,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       str.includes('emp-0013')
     );
   };
-
   const fetchEmployees = async () => {
     setIsEmployeesLoading(true);
     setEmployeesError(null);
-
     const saved = localStorage.getItem('omnilflow_fallback_employees');
     let localList = [];
     if (saved !== null) {
@@ -3851,7 +3585,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         }
       } catch (e) {}
     }
-
     // 1. Primary: Firebase Cloud Engine (with domain & tenant isolation)
     try {
       const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
@@ -3869,19 +3602,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firebase firestore query error:', fbErr.message);
     }
-
     // 2. Local State Fallback (Pure Client-Side)
     setEmployees(localList);
     setIsEmployeesLoading(false);
   };
-
   const handleCreateEmployee = async (e) => {
     e.preventDefault();
     setIsEmployeesLoading(true);
     const isEdit = !!newEmployeeForm.id;
     const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
     const activeTenantId = FirebaseCloudEngine.getTenantId(currentTenantId);
-
     const newEmpObj = {
       id: isEdit ? newEmployeeForm.id : getNextSequentialId(currentTenantId, 'employees', null, employees),
       first_name: newEmployeeForm.firstName,
@@ -3894,7 +3624,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       status: newEmployeeForm.status || 'active',
       tenantId: activeTenantId
     };
-
     // 1. Instant Local State & Fallback LocalStorage Sync
     setEmployees(prev => {
       let updated;
@@ -3906,12 +3635,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(updated));
       return updated;
     });
-
     // 2. Save to Backend REST API
     try {
       const url = isEdit ? `${API_URL}/employees/${newEmployeeForm.id}` : `${API_URL}/employees`;
       const method = isEdit ? 'PUT' : 'POST';
-
       await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -3920,10 +3647,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.warn('Backend employee save failed, preserved in local store:', err.message);
     }
-
     // 3. Save to Cloud Firestore & Local Engine Cache
     FirebaseCloudEngine.saveRecord('employees', newEmpObj, activeTenantId);
-
     // 4. Save Registered Login User Credentials for Workspace Login
     if (newEmployeeForm.password) {
       try {
@@ -3940,7 +3665,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         localStorage.setItem('omniflow_registered_users', JSON.stringify(updatedAccounts));
       } catch (e) {}
     }
-
     addNotification('👤 New Employee Profile', `${newEmployeeForm.firstName} ${newEmployeeForm.lastName || ''} (${newEmployeeForm.department}) added.`, 'employees');
     showToast(isEdit ? 'Employee profile updated successfully!' : 'Employee added successfully!', 'success');
     setShowAddEmployeeModal(false);
@@ -3959,14 +3683,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     });
     setIsEmployeesLoading(false);
   };
-
-
-
   const softDeleteRecord = async ({ originalId, id, name, category, entityData, moduleTab, links, preservedLinks }) => {
     const targetId = originalId || id || (entityData && entityData.id);
     const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
     const currentTenantName = authUser?.companyName || (currentTenantId === 'platform_superadmin' ? 'SaaS Platform Admin' : 'Acme Corp');
-
     const itemPayload = {
       originalId: targetId || `item_${Date.now()}`,
       name: name || (entityData && (entityData.name || entityData.title)) || 'Untitled Record',
@@ -3979,11 +3699,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       preservedLinks: preservedLinks || links || 'Full History Intact',
       payload: entityData || {}
     };
-
     // 1. Move to Trash Vault
     const newItem = TrashVaultEngine.moveToTrash(currentTenantId, itemPayload);
     setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
-
     // 2. Save to recycle_bin and DELETE from active Firestore collection
     try {
       if (db) {
@@ -3999,7 +3717,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (e) {
       console.warn('Firebase recycle bin sync error:', e);
     }
-
     // 3. Update React local state and localStorage immediately
     if (targetId) {
       setEmployees(prev => {
@@ -4008,17 +3725,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         return updated;
       });
     }
-
     showToast(`🗑️ Moved "${itemPayload.name}" to Recycle Bin!`, 'info');
     return newItem;
   };
-
   const handlePermanentDeleteBinItem = async (itemIdOrObj, itemName) => {
     const rawObj = (typeof itemIdOrObj === 'object' && itemIdOrObj !== null) ? itemIdOrObj : null;
     const itemId = rawObj ? (rawObj.id || rawObj.recycleBinId || rawObj.originalId) : itemIdOrObj;
     const originalId = rawObj ? (rawObj.originalId || rawObj.id) : itemIdOrObj;
     const targetStr = String(itemIdOrObj?.id || itemIdOrObj?.originalId || itemIdOrObj || '');
-
     try {
       if (db) {
         if (targetStr) await deleteDoc(doc(db, 'recycle_bin', targetStr.toString())).catch(() => {});
@@ -4029,25 +3743,20 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firebase purge item error:', fbErr.message);
     }
-
     TrashVaultEngine.purgeItem('all', targetStr);
     if (itemId) TrashVaultEngine.purgeItem('all', itemId);
     if (originalId) TrashVaultEngine.purgeItem('all', originalId);
-
     // Sync cloud caches & local storage
     FirebaseCloudEngine.deleteRecord('recycle_bin', targetStr);
     if (itemId) FirebaseCloudEngine.deleteRecord('recycle_bin', itemId);
     if (originalId) FirebaseCloudEngine.deleteRecord('recycle_bin', originalId);
-
     setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
     showToast(`❌ Permanently purged record from vault.`, 'info');
   };
-
   const handleRestoreBinItem = async (itemOrId) => {
     let item = (itemOrId && typeof itemOrId === 'object')
       ? (itemOrId._vaultRawItem || itemOrId)
       : (recycleBinItems || []).find(x => String(x.id) === String(itemOrId) || String(x.recycleBinId) === String(itemOrId) || String(x.originalId) === String(itemOrId));
-
     if (!item) {
       try {
         const saved = localStorage.getItem('omnilflow_fallback_recycle_bin');
@@ -4057,22 +3766,18 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         }
       } catch (e) {}
     }
-
     if (!item && itemOrId && typeof itemOrId === 'object') {
       item = itemOrId._vaultRawItem || itemOrId;
     }
-
     if (!item) {
       console.warn('handleRestoreBinItem: Record not found for itemOrId:', itemOrId);
       return;
     }
-
     const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
     const payload = item.payload || item.entityData || item;
     const type = String(item.type || item.category || item.moduleTab || '').toLowerCase();
     const restoredRecord = payload.record || payload.employee || payload.candidate || payload.asset || payload;
     const cleanId = item.originalId || restoredRecord.id || restoredRecord.originalId || item.id;
-
     const cleanRec = {
       ...restoredRecord,
       id: cleanId,
@@ -4082,7 +3787,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       lifecycleStatus: 'ACTIVE',
       updatedAt: new Date().toISOString()
     };
-
     try {
       if (db) {
         let colName = 'crm_leads';
@@ -4095,7 +3799,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         else if (type.includes('plan')) colName = 'saas_plans';
         else if (type.includes('ats') || type.includes('candidate') || type.includes('recruitment')) colName = 'recruitment_ats';
         else if (type.includes('lead') || type.includes('crm') || type.includes('contact') || type.includes('deal')) colName = 'crm_leads';
-
         if (colName && cleanRec.id) {
           await setDoc(doc(db, colName, cleanRec.id.toString()), cleanRec);
         }
@@ -4104,7 +3807,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firebase restore failed:', fbErr.message);
     }
-
     if (type.includes('employee')) {
       setEmployees(prev => {
         const filtered = prev.filter(e => String(e.id) !== String(cleanRec.id));
@@ -4145,14 +3847,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       });
       FirebaseCloudEngine.saveRecord('crm_leads', cleanRec, currentTenantId);
     }
-
     if (item.id) TrashVaultEngine.restoreItem('all', item.id);
     if (cleanId) TrashVaultEngine.restoreItem('all', cleanId);
     if (item.originalId) TrashVaultEngine.restoreItem('all', item.originalId);
     setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
     showToast(`🔄 Restored "${cleanRec.name || cleanRec.title || item.name || 'Record'}" to active workspace!`, 'success');
   };
-
   const handleEmptyBinVault = () => {
     if (recycleBinItems.length === 0) return;
     openConfirm({
@@ -4174,13 +3874,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }
     });
   };
-
   const handleDeleteEmployee = async (id) => {
     if (!confirm('Are you sure you want to remove this employee? If a login account is associated, it will also be deleted.')) return;
-
     const empObj = employees.find(e => e.id === id);
     const empName = empObj ? `${empObj.first_name || ''} ${empObj.last_name || ''}`.trim() || empObj.name || `Employee #${id}` : `Employee #${id}`;
-
     softDeleteRecord({
       originalId: id,
       name: empName,
@@ -4188,7 +3885,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       entityData: empObj || { id },
       links: '14 Attendance Logs, 3 Payslips, 42 GPS Coordinates'
     });
-
     try {
       if (db && empObj) {
         const binPayload = {
@@ -4206,24 +3902,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firestore soft delete failed:', fbErr.message);
     }
-
     // Update React local state immediately
     setEmployees(prev => {
       const updated = prev.filter(emp => String(emp.id) !== String(id));
       try { localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(updated)); } catch (e) {}
       return updated;
     });
-
     try {
       await fetch(`${API_URL}/employees/${id}`, { method: 'DELETE' });
     } catch (err) {
       console.warn('Backend employee delete call complete/bypassed:', err.message);
     }
-
     showToast('Employee moved to Recycle Bin & deleted successfully!', 'success');
   };
-
-
   const handleDeleteCompany = (companyId) => {
     const targetCompany = (superadminCompanies || []).find(c => c.id === companyId || c.tenant_id === companyId);
     const compName = targetCompany ? targetCompany.name || targetCompany.company_name || `Company #${companyId}` : `Company #${companyId}`;
@@ -4243,7 +3934,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       return updated;
     });
   };
-
   const handleDeleteSaasPlan = (planId) => {
     const targetPlan = (billingPlans || []).find(p => p.id === planId);
     const planName = targetPlan ? targetPlan.name || targetPlan.title || `Plan #${planId}` : `Plan #${planId}`;
@@ -4263,13 +3953,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       return updated;
     });
   };
-
   useEffect(() => {
     if (activeTab === 'employees' && authUser) {
       fetchEmployees();
     }
   }, [activeTab, authUser]);
-
   useEffect(() => {
     if (Array.isArray(employees)) {
       setSuperadminMetrics(prev => {
@@ -4285,7 +3973,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       });
     }
   }, [employees]);
-
   // GPS & Attendance actions
   const fetchAttendanceTodayStatus = async () => {
     try {
@@ -4298,7 +3985,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.error('Failed to load check-in status', err);
     }
   };
-
   const fetchAttendanceLogs = async () => {
     setGpsLoading(true);
     setGpsError(null);
@@ -4316,14 +4002,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setGpsLoading(false);
     }
   };
-
   const fetchLiveLocations = async () => {
     if (isOfflineMode) {
       setOfflinePingsCount(prev => prev + 1);
       console.log(`⚠️ Offline simulation active. Cached GPS ping locally. Count: ${offlinePingsCount + 1}`);
       return;
     }
-
     try {
       const res = await fetch(`${API_URL}/gps/live`);
       if (res.ok) {
@@ -4341,7 +4025,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     })));
     console.log('🟢 Live GPS Map & Field Team locations refreshed successfully!');
   };
-
   const fetchGpsHistory = async (employeeId, dateStr) => {
     if (!employeeId) return console.log('Please select an employee');
     try {
@@ -4355,12 +4038,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     console.log(`Loaded GPS History trail for selected employee on ${dateStr || 'today'}`);
   };
-
   const handleExportGpsCSV = (employeeId = 'all', dateStr = '2026-07-18') => {
     let rows = [
       ['Employee Name', 'Role', 'Date', 'Vehicle Type', 'Total Distance (KM)', 'Fuel Claim (INR)', 'Stoppages Info', 'Geofence Status', 'GPS Health Signal']
     ];
-
     if (employeeId === 'all') {
       teamTrackLocations.forEach(emp => {
         const rate = vehicleRates[emp.vehicle_type || 'bike'] || 6;
@@ -4395,10 +4076,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         ]);
       }
     }
-
     const csvContent = "data:text/csv;charset=utf-8,"
       + rows.map(e => e.map(val => `"${val.replace(/"/g, '""')}"`).join(",")).join("\n");
-
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -4408,7 +4087,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     document.body.removeChild(link);
     console.log('📥 Export Successful: Daily Shift & Fuel Expense CSV report downloaded!');
   };
-
   const getDeviceCoordinates = () => {
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
@@ -4427,7 +4105,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       );
     });
   };
-
   const handleCheckIn = async () => {
     setGpsLoading(true);
     try {
@@ -4452,7 +4129,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setGpsLoading(false);
     }
   };
-
   const handleCheckOut = async () => {
     setGpsLoading(true);
     try {
@@ -4477,7 +4153,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setGpsLoading(false);
     }
   };
-
   const fetchTasks = async () => {
     try {
       if (db) {
@@ -4493,13 +4168,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firebase query tasks failed:', fbErr.message);
     }
-
     const saved = localStorage.getItem('omnilflow_fallback_tasks');
     if (saved !== null) {
       try { setTasks(JSON.parse(saved)); } catch (e) {}
     }
   };
-
   const handleSaveTask = async (e) => {
     e.preventDefault();
     const isEdit = !!newTaskForm.id;
@@ -4511,7 +4184,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       status: newTaskForm.status,
       dueDate: newTaskForm.dueDate
     };
-
     try {
       if (db) {
         if (isEdit) {
@@ -4524,20 +4196,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firebase save task failed:', fbErr.message);
     }
-
     setTasks(prev => {
       const updated = isEdit ? prev.map(t => t.id === newTaskForm.id ? { ...t, ...payload } : t) : [{ id: `task_${Date.now()}`, ...payload }, ...prev];
       localStorage.setItem('omnilflow_fallback_tasks', JSON.stringify(updated));
       return updated;
     });
-
     setShowAddTaskModal(false);
     setNewTaskForm({ id: '', title: '', description: '', assignedTo: '', priority: 'Medium', status: 'Pending', dueDate: '' });
   };
-
   const handleDeleteTask = async (taskId) => {
     if (!confirm('Are you sure you want to delete this task?')) return;
-
     const taskObj = tasks.find(t => t.id === taskId);
     if (taskObj) {
       softDeleteRecord({
@@ -4548,7 +4216,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         links: '3 Work Logs, 1 Sub-task checklist'
       });
     }
-
     try {
       if (db) {
         await deleteDoc(doc(db, 'tasks', taskId.toString()));
@@ -4556,7 +4223,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn(fbErr.message);
     }
-
     try {
       const res = await fetch(`${API_URL}/tasks/${taskId}`, { method: 'DELETE' });
       if (res.ok) {
@@ -4566,7 +4232,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.error(err);
     }
-
     const saved = localStorage.getItem('omnilflow_fallback_tasks');
     if (saved) {
       let list = JSON.parse(saved);
@@ -4575,7 +4240,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     fetchTasks();
   };
-
   const fetchNotices = async () => {
     try {
       if (db) {
@@ -4593,7 +4257,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firebase query notices failed:', fbErr.message);
     }
-
     try {
       const res = await fetch(`${API_URL}/notices`);
       if (res.ok) {
@@ -4604,11 +4267,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.error(err);
     }
-
     const saved = localStorage.getItem('omnilflow_fallback_notices');
     if (saved) setNotices(JSON.parse(saved));
   };
-
   const handleSaveNotice = async (e) => {
     e.preventDefault();
     const payload = {
@@ -4616,7 +4277,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       content: newNoticeForm.content,
       createdAt: new Date().toISOString()
     };
-
     try {
       if (db) {
         await addDoc(collection(db, 'notices'), payload);
@@ -4625,7 +4285,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firebase save notice failed:', fbErr.message);
     }
-
     try {
       const res = await fetch(`${API_URL}/notices`, {
         method: 'POST',
@@ -4641,7 +4300,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.error(err);
     }
-
     const saved = localStorage.getItem('omnilflow_fallback_notices');
     let list = saved ? JSON.parse(saved) : [];
     list.push({ id: Date.now(), ...payload });
@@ -4651,10 +4309,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setNewNoticeForm({ title: '', content: '' });
     fetchNotices();
   };
-
   const handleDeleteNotice = async (id) => {
     if (!confirm('Are you sure you want to delete this notice?')) return;
-
     const noticeObj = notices.find(n => n.id === id);
     if (noticeObj) {
       softDeleteRecord({
@@ -4665,7 +4321,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         links: 'System Notification Logs'
       });
     }
-
     try {
       if (db) {
         await deleteDoc(doc(db, 'notices', id.toString()));
@@ -4673,7 +4328,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn(fbErr.message);
     }
-
     try {
       const res = await fetch(`${API_URL}/notices/${id}`, { method: 'DELETE' });
       if (res.ok) {
@@ -4683,7 +4337,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.error(err);
     }
-
     const saved = localStorage.getItem('omnilflow_fallback_notices');
     if (saved) {
       let list = JSON.parse(saved);
@@ -4692,7 +4345,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     fetchNotices();
   };
-
   const fetchHolidays = async () => {
     try {
       if (db) {
@@ -4710,7 +4362,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firebase query holidays failed:', fbErr.message);
     }
-
     try {
       const res = await fetch(`${API_URL}/holidays`);
       if (res.ok) {
@@ -4721,18 +4372,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.error(err);
     }
-
     const saved = localStorage.getItem('omnilflow_fallback_holidays');
     if (saved) setHolidays(JSON.parse(saved));
   };
-
   const handleSaveHoliday = async (e) => {
     e.preventDefault();
     const payload = {
       name: newHolidayForm.name,
       date: newHolidayForm.date
     };
-
     try {
       if (db) {
         await addDoc(collection(db, 'holidays'), payload);
@@ -4741,7 +4389,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firebase save holiday failed:', fbErr.message);
     }
-
     try {
       const res = await fetch(`${API_URL}/holidays`, {
         method: 'POST',
@@ -4757,7 +4404,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.error(err);
     }
-
     const saved = localStorage.getItem('omnilflow_fallback_holidays');
     let list = saved ? JSON.parse(saved) : [];
     list.push({ id: Date.now(), ...payload });
@@ -4767,10 +4413,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setNewHolidayForm({ name: '', date: '' });
     fetchHolidays();
   };
-
   const handleDeleteHoliday = async (id) => {
     if (!confirm('Are you sure you want to delete this holiday?')) return;
-
     const holidayObj = holidays.find(h => h.id === id);
     if (holidayObj) {
       softDeleteRecord({
@@ -4781,7 +4425,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         links: 'Attendance Registry Linkages'
       });
     }
-
     try {
       if (db) {
         await deleteDoc(doc(db, 'holidays', id.toString()));
@@ -4789,7 +4432,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn(fbErr.message);
     }
-
     try {
       const res = await fetch(`${API_URL}/holidays/${id}`, { method: 'DELETE' });
       if (res.ok) {
@@ -4799,7 +4441,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.error(err);
     }
-
     const saved = localStorage.getItem('omnilflow_fallback_holidays');
     if (saved) {
       let list = JSON.parse(saved);
@@ -4808,7 +4449,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     fetchHolidays();
   };
-
   const fetchLeaves = async () => {
     try {
       if (db) {
@@ -4826,7 +4466,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firebase query leaves failed:', fbErr.message);
     }
-
     try {
       const res = await fetch(`${API_URL}/leaves`);
       if (res.ok) {
@@ -4837,11 +4476,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.error(err);
     }
-
     const saved = localStorage.getItem('omnilflow_fallback_leaves');
     if (saved) setLeaves(JSON.parse(saved));
   };
-
   const handleSaveLeave = async (e) => {
     e.preventDefault();
     const payload = {
@@ -4852,7 +4489,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       status: 'pending',
       requestedBy: authUser?.email || 'Employee'
     };
-
     try {
       if (db) {
         await addDoc(collection(db, 'leaves'), payload);
@@ -4861,7 +4497,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (fbErr) {
       console.warn('Firebase save leave failed:', fbErr.message);
     }
-
     try {
       const res = await fetch(`${API_URL}/leaves`, {
         method: 'POST',
@@ -4877,7 +4512,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.error(err);
     }
-
     const saved = localStorage.getItem('omnilflow_fallback_leaves');
     let list = saved ? JSON.parse(saved) : [];
     list.push({ id: Date.now(), ...payload });
@@ -4887,7 +4521,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setNewLeaveForm({ startDate: '', endDate: '', type: 'Sick', reason: '' });
     fetchLeaves();
   };
-
   const handleApproveLeave = async (id, status) => {
     try {
       if (db) {
@@ -4895,7 +4528,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         showToast(`🟢 Leave request status updated to: ${status}`, 'success');
       }
     } catch (fbErr) { }
-
     try {
       const res = await fetch(`${API_URL}/leaves/${id}`, {
         method: 'PUT',
@@ -4908,7 +4540,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.error(err);
     }
-
     const saved = localStorage.getItem('omnilflow_fallback_leaves');
     if (saved) {
       let list = JSON.parse(saved);
@@ -4917,7 +4548,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     fetchLeaves();
   };
-
   useEffect(() => {
     if ((activeTab === 'gps_attendance' || activeTab === 'my_attendance') && authUser) {
       fetchAttendanceTodayStatus();
@@ -4954,7 +4584,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       fetchRecycleBin();
     }
   }, [activeTab, authUser]);
-
   // Background GPS tracking breadcrumb pinger (every 3 minutes)
   useEffect(() => {
     let intervalId = null;
@@ -4982,21 +4611,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           );
         }
       };
-
       sendGpsPing();
       intervalId = setInterval(sendGpsPing, 180000);
     }
-
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
   }, [authUser, todayStatus]);
-
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
-
   // Fetch initial data
   useEffect(() => {
     const handleAuthFailed = () => {
@@ -5007,43 +4632,35 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       alert('Your subscription is inactive. Please renew your subscription to proceed.');
       setActiveTab('billing');
     };
-
     window.addEventListener('auth_failed', handleAuthFailed);
     window.addEventListener('subscription_expired', handleSubscriptionExpired);
-
     return () => {
       window.removeEventListener('auth_failed', handleAuthFailed);
       window.removeEventListener('subscription_expired', handleSubscriptionExpired);
     };
   }, []);
-
   useEffect(() => {
     if (authUser) {
       fetchSessions();
       fetchContacts();
       fetchChatbotRules();
       fetchTenantSettings();
-
       // Connect WebSockets
       const currentToken = localStorage.getItem('omnilflow_token') || '';
       const socket = io(SOCKET_URL, {
         query: { token: currentToken }
       });
       socketRef.current = socket;
-
         socket.on('connect', () => {
         console.log('Connected to WebSocket server');
         setServerOnline(true);
         fetchSessions();
         fetchContacts();
       });
-
       socket.on('disconnect', () => {
         console.log('Disconnected from WebSocket server');
         setServerOnline(false);
       });
-
-
       socket.on('session_update', (data) => {
         console.log('Session updated:', data);
         setSessions(prev => {
@@ -5063,13 +4680,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           return updated;
         });
       });
-
       socket.on('new_message', (msg) => {
         console.log('New message received:', msg);
-
         const targetContactId = msg.contact_id || msg.contactId;
         let isCurrentChat = false;
-
         // If the message belongs to currently active chat, append it
         setActiveContact(currentActive => {
           if (currentActive && currentActive.id === targetContactId) {
@@ -5082,7 +4696,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           }
           return currentActive;
         });
-
         if (isCurrentChat) {
           // If it's the current active chat, mark it read immediately on the backend
           fetch(`${API_URL}/contacts/${targetContactId}/read`, { method: 'PUT' })
@@ -5093,24 +4706,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             playNotificationSound();
           }
         }
-
         // Refresh contacts list to update previews and order
         fetchContacts();
       });
-
       socket.on('media_downloaded', (data) => {
         console.log('Background media downloaded:', data);
         setMessages(prev => prev.map(m => m.id === data.id ? { ...m, media_url: data.mediaUrl, mediaUrl: data.mediaUrl } : m));
       });
-
       socket.on('message_status_update', (data) => {
         setMessages(prev => prev.map(m => m.id === data.id ? { ...m, status: data.status } : m));
       });
-
       socket.on('broadcast_progress', (data) => {
         setBroadcastProgress(data);
       });
-
       socket.on('scheduled_message_update', (data) => {
         setActiveContact(current => {
           if (current && current.id === data.contactId) {
@@ -5119,17 +4727,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           return current;
         });
       });
-
       socket.on('contact_updated', (data) => {
         console.log('Contact updated via socket:', data);
         fetchContacts();
       });
-
       socket.on('webhook_received', (data) => {
         console.log('Webhook received via socket:', data);
         fetchContacts();
       });
-
       socket.on('message_star_update', (data) => {
         setMessages(prev => prev.map(m => m.id === data.id ? { ...m, is_starred: data.isStarred } : m));
         setActiveContact(current => {
@@ -5139,7 +4744,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           return current;
         });
       });
-
       socket.on('contact_update', (updatedContact) => {
         setContacts(prev => prev.map(c => c.id === updatedContact.id ? { ...c, ...updatedContact, labels: typeof updatedContact.labels === 'string' ? JSON.parse(updatedContact.labels) : updatedContact.labels } : c));
         setActiveContact(current => {
@@ -5150,7 +4754,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           return current;
         });
       });
-
       return () => {
         if (socketRef.current) {
           socketRef.current.disconnect();
@@ -5158,12 +4761,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       };
     }
   }, [authUser]);
-
   // Scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
   const fetchContacts = async () => {
     try {
       const res = await fetch(`${API_URL}/contacts`);
@@ -5178,10 +4779,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.warn('REST API contacts fetch warning:', err);
     }
-
     setContacts([]);
   };
-
   const fetchMessages = async (contactId, append = false) => {
     if (!contactId) return;
     try {
@@ -5189,7 +4788,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       if (append) {
         setIsLoadingMore(true);
       }
-
       const encodedId = encodeURIComponent(contactId);
       const res = await fetch(`${API_URL}/contacts/${encodedId}/messages?limit=50&offset=${currentOffset}`);
       if (res.ok) {
@@ -5212,7 +4810,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }
     }
   };
-
   const fetchScheduledMessages = async (contactId) => {
     if (!contactId) return;
     try {
@@ -5224,7 +4821,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }
     } catch (err) {}
   };
-
   const fetchStarredMessages = async (contactId) => {
     if (!contactId) return;
     try {
@@ -5236,7 +4832,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }
     } catch (err) {}
   };
-
   // Load CRM Form data when active contact changes
   useEffect(() => {
     if (activeContact) {
@@ -5250,7 +4845,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       fetchStarredMessages(activeContact.id);
       setChatHistorySearchQuery('');
       setShowChatHistorySearch(false);
-
       // Mark messages as read and clear unread count locally
       if (activeContact.unread_count > 0) {
         setContacts(prev => prev.map(c => c.id === activeContact.id ? { ...c, unread_count: 0 } : c));
@@ -5258,7 +4852,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         fetch(`${API_URL}/contacts/${activeContact.id}/read`, { method: 'PUT' })
           .catch(err => console.error('Failed to mark messages as read on click:', err));
       }
-
       // Fetch profile picture if not cached
       if (!activeContact.profile_pic_url || activeContact.profile_pic_url === 'none') {
         fetch(`${API_URL}/contacts/${activeContact.id}/profile-pic`)
@@ -5275,7 +4868,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           })
           .catch(err => console.error('Failed to fetch profile picture:', err));
       }
-
       // Auto-select a session to send reply from
       // Try to find the session this contact last messaged, or fallback to first connected session
       const connected = sessions.find(s => s.status === 'connected');
@@ -5286,25 +4878,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setMessages([]);
     }
   }, [activeContact]);
-
   // Automatically load profile pictures for recent chats in background with rate-limiting
   useEffect(() => {
     if (contacts.length === 0) return;
-
     // Only check the top 15 most recent contacts to avoid rate-limiting
     const pending = contacts.slice(0, 15).filter(c => !c.profile_pic_url);
     if (pending.length === 0) return;
-
     let active = true;
-
     const loadPics = async () => {
       for (const contact of pending) {
         if (!active) break;
-
         try {
           const res = await fetch(`${API_URL}/contacts/${contact.id}/profile-pic`);
           const data = await res.json();
-
           if (data.profile_pic_url) {
             setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, profile_pic_url: data.profile_pic_url } : c));
             setActiveContact(current => {
@@ -5320,22 +4906,18 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         } catch (e) {
           console.error('Lazy load profile pic error:', e);
         }
-
         // Wait 800ms before next request to avoid WhatsApp server rate-limits
         await new Promise(resolve => setTimeout(resolve, 800));
       }
     };
-
     const timer = setTimeout(() => {
       loadPics();
     }, 2000);
-
     return () => {
       active = false;
       clearTimeout(timer);
     };
   }, [contacts.length]);
-
   const fetchSessions = async () => {
     let serverData = [];
     try {
@@ -5347,11 +4929,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         if (Array.isArray(data)) serverData = data;
       }
     } catch (err) {}
-
     setSessions(prev => {
       const map = new Map();
       (prev || []).forEach(s => { if (s && s.id) map.set(String(s.id), s); });
-
       serverData.forEach(s => {
         if (s && s.id) {
           const existing = map.get(String(s.id)) || {};
@@ -5362,7 +4942,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           });
         }
       });
-
       const merged = Array.from(map.values());
       if (merged.length > 0) {
         try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(merged)); } catch (e) {}
@@ -5370,7 +4949,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       return merged.length > 0 ? merged : prev;
     });
   };
-
   useEffect(() => {
     if (activeTab === 'channels' || (sessions || []).some(s => s.status === 'connecting' || s.status === 'qr_ready')) {
       fetchSessions();
@@ -5380,22 +4958,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       return () => clearInterval(interval);
     }
   }, [activeTab, (sessions || []).map(s => s.status).join(',')]);
-
-
-
   const handleStartNewChat = async (e) => {
     e.preventDefault();
     if (!newChatPhone.trim()) {
       setNewChatError('Phone number is required');
       return;
     }
-
     const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
     const activeSession = newChatSessionId || (sessions.find(s => s.status === 'connected')?.id);
-
     setIsCreatingNewChat(true);
     setNewChatError('');
-
     let data = null;
     try {
       const res = await fetch(`${API_URL}/contacts/new`, {
@@ -5414,7 +4986,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.warn('REST API contact create failed, fallback to local & cloud sync:', err.message);
     }
-
     if (!data) {
       const phoneClean = newChatPhone.trim();
       const contactId = phoneClean.includes('@') ? phoneClean : `${phoneClean}@c.us`;
@@ -5429,17 +5000,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         created_at: new Date().toISOString()
       };
     }
-
     // Persist to Cloud Firestore and local storage cache
     FirebaseCloudEngine.saveRecord('crm_leads', data, currentTenantId);
-
     setContacts(prev => {
       const filtered = prev.filter(c => String(c.id) !== String(data.id));
       const updated = [data, ...filtered];
       try { localStorage.setItem('omnilflow_fallback_contacts', JSON.stringify(updated)); } catch (e) {}
       return updated;
     });
-
     setActiveContact(data);
     setNewChatPhone('');
     setNewChatName('');
@@ -5449,7 +5017,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setIsCreatingNewChat(false);
     showToast(`🎯 New Lead "${data.name || data.custom_name || data.phone}" created successfully!`, 'success');
   };
-
   const fetchChatbotRules = async () => {
     try {
       const res = await fetch(`${API_URL}/chatbot`);
@@ -5468,14 +5035,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.error('Failed to fetch chatbot rules:', err);
     }
   };
-
   const handleAddChatbotRule = async (e) => {
     e.preventDefault();
     if (!chatbotRuleKeyword.trim() || !chatbotRuleReply.trim()) {
       setChatbotRuleError('Keyword and reply text are required.');
       return;
     }
-
     try {
       const res = await fetch(`${API_URL}/chatbot`, {
         method: 'POST',
@@ -5490,12 +5055,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       if (!res.ok) {
         throw new Error(data.error || 'Failed to add rule');
       }
-
       setChatbotRules(prev => {
         const filtered = prev.filter(r => r.keyword !== data.keyword);
         return [...filtered, data];
       });
-
       setChatbotRuleKeyword('');
       setChatbotRuleReply('');
       setChatbotRuleError('');
@@ -5504,10 +5067,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setChatbotRuleError(err.message || 'Failed to save rule.');
     }
   };
-
   const handleDeleteRule = async (id) => {
     if (!confirm('Are you sure you want to delete this auto-reply rule?')) return;
-
     const ruleObj = chatbotRules.find(r => r.id === id);
     if (ruleObj) {
       softDeleteRecord({
@@ -5518,7 +5079,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         links: 'WhatsApp Event Triggers'
       });
     }
-
     try {
       await fetch(`${API_URL}/chatbot/${id}`, { method: 'DELETE' });
     } catch (err) {
@@ -5532,7 +5092,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       return updated;
     });
   };
-
   const handleToggleRule = async (id, isActive) => {
     try {
       await fetch(`${API_URL}/chatbot/${id}/toggle`, {
@@ -5545,20 +5104,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.error('Failed to toggle rule:', err);
     }
   };
-
   const handleSendBroadcast = async (e) => {
     e.preventDefault();
     if (!broadcastMessage.trim()) return;
-
     const activeSession = broadcastSessionId || (sessions.find(s => s.status === 'connected')?.id);
     if (!activeSession) {
       alert('Please select or connect a WhatsApp channel first.');
       return;
     }
-
     try {
       setBroadcastProgress({ current: 0, total: 1, status: 'sending' });
-
       const res = await fetch(`${API_URL}/broadcast`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -5572,7 +5127,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       if (!res.ok) {
         throw new Error(data.error || 'Failed to initiate broadcast');
       }
-
       setBroadcastProgress({ current: 0, total: data.total, status: 'sending' });
     } catch (err) {
       console.error(err);
@@ -5580,7 +5134,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setBroadcastProgress(null);
     }
   };
-
   // Create new session
   const handleCreateSession = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -5590,12 +5143,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       return;
     }
     const fallbackId = `sess_${Date.now()}`;
-
     // Close modal and clear input immediately for instant snappy UI feedback
     setShowAddSessionModal(false);
     setNewSessionName('');
     showToast(`Initializing WhatsApp Channel "${sessName}"...`, 'info');
-
     // Add optimistic session card in UI
     const optimisticSession = {
       id: fallbackId,
@@ -5605,14 +5156,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       qr_code: null,
       createdAt: new Date().toISOString()
     };
-
     setSessions(prev => {
       const filtered = (prev || []).filter(s => String(s.id) !== String(fallbackId));
       const updated = [optimisticSession, ...filtered];
       try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(updated)); } catch (err) {}
       return updated;
     });
-
     let createdSession = null;
     try {
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('token') || '';
@@ -5636,7 +5185,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.warn('Error creating session via API, using fallback QR preview:', err);
     }
-
     const finalSessionId = createdSession?.id || fallbackId;
     if (createdSession && createdSession.id && createdSession.id !== fallbackId) {
       setSessions(prev => {
@@ -5645,10 +5193,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         return updated;
       });
     }
-
     handleStartSession(finalSessionId);
   };
-
   // Re-start session
   const handleStartSession = async (id) => {
     setSessions(prev => (prev || []).map(s => String(s.id) === String(id) ? { ...s, status: 'connecting', qr_code: null } : s));
@@ -5664,7 +5210,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.warn('Error starting session via API:', err);
     }
   };
-
   // Stop session
   const handleStopSession = async (id) => {
     try {
@@ -5679,7 +5224,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.error('Error stopping session:', err);
     }
   };
-
   // Delete session
   const handleDeleteSession = async (id) => {
     if (!confirm('Are you sure you want to delete this session? This will log out the WhatsApp account.')) return;
@@ -5693,7 +5237,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         links: 'Active Baileys Session Connection'
       });
     }
-
     setSessions(prev => {
       const updated = (prev || []).filter(s => String(s.id) !== String(id));
       try {
@@ -5702,7 +5245,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       } catch (e) {}
       return updated;
     });
-
     try {
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('token') || '';
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
@@ -5711,15 +5253,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.error('Error deleting session:', err);
     }
   };
-
   // Send WhatsApp message
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!inputText.trim() || !activeContact || !selectedSessionId) return;
-
     const textToSend = inputText;
     setInputText('');
-
     try {
       await fetch(`${API_URL}/messages/send`, {
         method: 'POST',
@@ -5735,19 +5274,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       alert('Failed to send message: ' + err.message);
     }
   };
-
   // Handle media file upload and send
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file || !activeContact || !selectedSessionId) return;
-
     if (file.size > 20 * 1024 * 1024) {
       alert("File size is too large! Please choose a file smaller than 20MB.");
       return;
     }
-
     setIsUploadingMedia(true);
-
     // Automatically register file in Media & Storage Vault
     MediaStorageEngine.uploadMedia({
       tenantId: authUser?.tenantId || authUser?.companyId || 'acme_corp',
@@ -5755,16 +5290,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       entityId: activeContact.id || 'chat',
       file: file
     }).catch(err => console.warn('Chat media vault error:', err));
-
     const reader = new FileReader();
     reader.onload = async () => {
       const base64Data = reader.result;
-
       let mediaType = 'document';
       if (file.type.startsWith('image/')) mediaType = 'image';
       else if (file.type.startsWith('video/')) mediaType = 'video';
       else if (file.type.startsWith('audio/')) mediaType = 'audio';
-
       try {
         const res = await fetch(`${API_URL}/messages/send-media`, {
           method: 'POST',
@@ -5778,7 +5310,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             fileData: base64Data
           })
         });
-
         if (!res.ok) {
           const errData = await res.json();
           throw new Error(errData.error || 'Failed to send media file');
@@ -5791,27 +5322,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         if (fileInputRef.current) fileInputRef.current.value = '';
       }
     };
-
     reader.onerror = (err) => {
       console.error('Base64 conversion failed:', err);
       alert("Failed to read file.");
       setIsUploadingMedia(false);
     };
-
     reader.readAsDataURL(file);
   };
-
   // Save CRM changes
   const handleSaveCRM = async () => {
     if (!activeContact) return;
-
     let finalLabels = crmLabels;
     if (newLabelText.trim() && !crmLabels.includes(newLabelText.trim())) {
       finalLabels = [...crmLabels, newLabelText.trim()];
       setCrmLabels(finalLabels);
       setNewLabelText('');
     }
-
     try {
       const res = await fetch(`${API_URL}/contacts/${activeContact.id}`, {
         method: 'PUT',
@@ -5825,7 +5351,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         })
       });
       const data = await res.json();
-
       // Update contacts locally
       setContacts(prev => prev.map(c => c.id === data.id ? { ...c, ...data, labels: typeof data.labels === 'string' ? JSON.parse(data.labels) : data.labels } : c));
       alert('CRM details updated successfully!');
@@ -5833,7 +5358,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.error('Error saving CRM data:', err);
     }
   };
-
   // Add Label
   const handleAddLabel = (e) => {
     e.preventDefault();
@@ -5841,23 +5365,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setCrmLabels([...crmLabels, newLabelText.trim()]);
     setNewLabelText('');
   };
-
   // Remove Label
   const handleRemoveLabel = (labelToRemove) => {
     setCrmLabels(crmLabels.filter(l => l !== labelToRemove));
   };
-
   // Add Quick Reply template
   const handleExportCSV = () => {
     if (contacts.length === 0) {
       alert('No leads available to export!');
       return;
     }
-
     // Construct CSV Header
     let csvContent = 'data:text/csv;charset=utf-8,\uFEFF'; // Include BOM for excel parsing
     csvContent += 'WhatsApp JID,Verified PushName,CRM Custom Name,Email Address,Pipeline Stage,Labels,Created Date,Notes\n';
-
     // Append rows
     contacts.forEach(contact => {
       const jid = contact.id;
@@ -5868,10 +5388,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       const labels = (contact.labels || []).join('; ').replace(/"/g, '""');
       const date = contact.created_at || '';
       const notes = (contact.notes || '').replace(/\n/g, ' ').replace(/"/g, '""');
-
       csvContent += `"${jid}","${name}","${customName}","${email}","${stage}","${labels}","${date}","${notes}"\n`;
     });
-
     // Download Link
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
@@ -5881,7 +5399,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     link.click();
     document.body.removeChild(link);
   };
-
   const handleAddQuickReply = (e) => {
     e.preventDefault();
     if (!newReplyTitle.trim() || !newReplyText.trim()) return;
@@ -5894,7 +5411,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setNewReplyTitle('');
     setNewReplyText('');
   };
-
   // Delete Quick Reply template
   const handleDeleteQuickReply = (id) => {
     const target = quickReplies.find(r => r.id === id);
@@ -5915,12 +5431,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       return updated;
     });
   };
-
   // Update pipeline stage of a contact directly (e.g. from Kanban)
   const handleUpdateContactStage = async (contactId, newStage) => {
     const contact = contacts.find(c => c.id === contactId);
     if (!contact) return;
-
     try {
       const res = await fetch(`${API_URL}/contacts/${contactId}`, {
         method: 'PUT',
@@ -5939,12 +5453,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.error('Failed to update stage:', err);
     }
   };
-
   const handleToggleArchive = async (contactId) => {
     const contact = contacts.find(c => c.id === contactId);
     if (!contact) return;
     const isCurrentlyArchived = contact.is_archived === 1;
-
     try {
       const res = await fetch(`${API_URL}/contacts/${contactId}/archive`, {
         method: 'PUT',
@@ -5953,13 +5465,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       });
       if (!res.ok) throw new Error('Failed to toggle archive');
       const data = await res.json();
-
       // Update local contacts list
       setContacts(prev => prev.map(c => c.id === data.id ? { ...c, is_archived: data.is_archived } : c));
-
       // Update activeContact if it matches
       setActiveContact(prev => prev && prev.id === data.id ? { ...prev, is_archived: data.is_archived } : prev);
-
       // If we archived it, clear activeContact to close chat panel
       if (!isCurrentlyArchived) {
         setActiveContact(null);
@@ -5969,9 +5478,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       alert('Error updating archive status.');
     }
   };
-
-
-
   const handleToggleStar = async (msgId, isStarred) => {
     try {
       const res = await fetch(`${API_URL}/messages/${msgId}/star`, {
@@ -5981,7 +5487,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error('Failed to update star');
-
       setMessages(prev => prev.map(m => m.id === data.id ? { ...m, is_starred: data.is_starred } : m));
       if (activeContact) {
         fetchStarredMessages(activeContact.id);
@@ -5990,24 +5495,20 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.error(err);
     }
   };
-
   const handleScheduleMessage = async (e) => {
     e.preventDefault();
     if (!scheduleMessageText.trim() || !scheduleDateTime || !activeContact) return;
-
     const sendUnix = Math.floor(new Date(scheduleDateTime).getTime() / 1000);
     const nowUnix = Math.floor(Date.now() / 1000);
     if (sendUnix <= nowUnix) {
       alert('Please select a future date and time to schedule.');
       return;
     }
-
     const activeSession = selectedSessionId || (sessions.find(s => s.status === 'connected')?.id);
     if (!activeSession) {
       alert('Please select a connected WhatsApp account first.');
       return;
     }
-
     try {
       const res = await fetch(`${API_URL}/contacts/${activeContact.id}/scheduled`, {
         method: 'POST',
@@ -6020,7 +5521,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to schedule');
-
       setScheduledMessages(prev => [...prev, data]);
       setScheduleMessageText('');
       setScheduleDateTime('');
@@ -6029,7 +5529,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       alert(err.message || 'Failed to schedule message.');
     }
   };
-
   const handleCancelScheduled = async (id) => {
     if (!confirm('Are you sure you want to cancel this scheduled message?')) return;
     try {
@@ -6040,7 +5539,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.error(err);
     }
   };
-
   // Filter contacts by search query, chat type, and CRM stage
   const filteredContacts = contacts.filter(c => {
     if (!c) return false;
@@ -6051,39 +5549,27 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     const id = c.id ? c.id.toLowerCase() : '';
     const matchesSearch = name.includes(query) || customName.includes(query) || id.includes(query);
     if (!matchesSearch) return false;
-
     // 2. Archive & Unread & Group/DM Filters
     const isGroup = c.id.endsWith('@g.us');
-
     if (chatTypeFilter === 'archived') {
       if (c.is_archived !== 1) return false;
     } else {
       // Exclude archived chats from regular lists
       if (c.is_archived === 1) return false;
-
       if (chatTypeFilter === 'dm' && isGroup) return false;
       if (chatTypeFilter === 'group' && !isGroup) return false;
       if (chatTypeFilter === 'unread' && !(c.unread_count > 0)) return false;
     }
-
     // 3. CRM Stage Filter
     if (crmStageFilter !== 'all' && c.pipeline_stage !== crmStageFilter) return false;
-
     return true;
   });
-
   const sortedFilteredContacts = [...filteredContacts].sort((a, b) => {
     const timeA = a.last_message_time || 0;
     const timeB = b.last_message_time || 0;
     return timeB - timeA;
   });
-
   // Kanban groups stages are now state-driven
-
-
-
-
-
   const handleOpenChatWithLead = (record) => {
     if (!record) return;
     const cleanPhone = (record.phone || '').replace(/[^0-9+]/g, '');
@@ -6092,7 +5578,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       String(c.id) === String(record.id) ||
       (record.email && c.email && c.email.toLowerCase() === record.email.toLowerCase())
     );
-
     if (!foundContact) {
       foundContact = {
         id: record.phone || String(record.id) || `lead_${Date.now()}`,
@@ -6106,12 +5591,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       };
       setContacts(prev => [foundContact, ...(prev || [])]);
     }
-
     setActiveContact(foundContact);
-    setActiveTab('inbox');
+    setActiveTab('wa_live_web');
     showToast(`Opening inbox chat for ${foundContact.name || foundContact.phone}`, 'success');
   };
-
   const canNav = (modId) => {
     if (!authUser) return false;
     if (authUser.role === 'superadmin' || authUser.role === 'owner' || authUser.role === 'admin') return true;
@@ -6123,7 +5606,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     return true;
   };
-
   return (
     <div className="app-layout">
       <div
@@ -6141,33 +5623,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </span>
         </div>
         <nav className="sidebar-nav" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-
           {/* CATEGORY: SYSTEM (Superadmin / Owner / Admin - Placed at Top) */}
-          {(canNav('superadmin_plans') || canNav('audit_logs') || canNav('media_storage')) && (
+          {authUser?.role === 'superadmin' && (
             <AccordionCategory id="system" label={t('systemCat') || "SYSTEM"} icon={Shield} isExpanded={!!expandedCategories.system} onToggle={toggleCategory}>
-              {authUser?.role === 'superadmin' && (
                 <div className={`nav-item ${activeTab === 'superadmin_plans' ? 'active' : ''}`} onClick={() => setActiveTab('superadmin_plans')}>
-                  <Shield size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('superAdminPanel')}</span>
-                </div>
-              )}
-              {canNav('audit_logs') && (
-                <div className={`nav-item ${activeTab === 'audit_logs' ? 'active' : ''}`} onClick={() => setActiveTab('audit_logs')}>
-                  <FileText size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('auditLogs')}</span>
-                </div>
-              )}
-              {canNav('media_storage') && (
-                <div className={`nav-item ${activeTab === 'media_storage' ? 'active' : ''}`} onClick={() => setActiveTab('media_storage')}>
-                  <HardDrive size={15} style={{ color: '#14d2cb' }} />
-                  <span style={{ fontSize: '13px', fontWeight: '800', color: '#14d2cb' }}>📁 Media & Storage Vault</span>
-                </div>
-              )}
+                <Shield size={15} />
+                <span style={{ fontSize: '13px' }}>{t('superAdminPanel')}</span>
+              </div>
             </AccordionCategory>
           )}
-
           {/* CATEGORY: DASHBOARDS */}
-          {(canNav('admin_dashboard') || canNav('manager_dashboard') || canNav('gps_attendance') || canNav('media_storage')) && (
+          {(canNav('admin_dashboard') || canNav('manager_dashboard') || canNav('gps_attendance') || canNav('audit_logs') || canNav('media_storage')) && (
             <AccordionCategory id="dashboards" label={t('dashboardsCat') || "DASHBOARDS"} icon={BarChart3} isExpanded={!!expandedCategories.dashboards} onToggle={toggleCategory}>
               {canNav('admin_dashboard') && (
                 <div className={`nav-item ${activeTab === 'admin_dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('admin_dashboard')}>
@@ -6187,6 +5653,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   <span style={{ fontSize: '13px' }}>{t('liveTracking')}</span>
                 </div>
               )}
+              {canNav('audit_logs') && (
+                <div className={`nav-item ${activeTab === 'audit_logs' ? 'active' : ''}`} onClick={() => setActiveTab('audit_logs')}>
+                  <FileText size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('auditLogs')}</span>
+                </div>
+              )}
               {canNav('media_storage') && (
                 <div className={`nav-item ${activeTab === 'media_storage' ? 'active' : ''}`} onClick={() => setActiveTab('media_storage')}>
                   <HardDrive size={15} style={{ color: '#14d2cb' }} />
@@ -6195,7 +5667,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               )}
             </AccordionCategory>
           )}
-
           {/* CATEGORY: HR MANAGEMENT */}
           {(canNav('employees') || canNav('recruitment_ats') || canNav('asset_management') || canNav('verify_documents') || canNav('offboarding')) && (
             <AccordionCategory id="hr_management" label={t('hrCat') || "HR MANAGEMENT"} icon={Users} isExpanded={!!expandedCategories.hr_management} onToggle={toggleCategory}>
@@ -6231,7 +5702,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               )}
             </AccordionCategory>
           )}
-
           {/* CATEGORY: PAYROLL & FINANCE */}
           {(canNav('payroll') || canNav('taxes_compliance') || canNav('ff_settlements') || canNav('advances_loans') || canNav('expenses')) && (
             <AccordionCategory id="payroll_finance" label={t('payrollCat') || "PAYROLL & FINANCE"} icon={CreditCard} isExpanded={!!expandedCategories.payroll_finance} onToggle={toggleCategory}>
@@ -6267,38 +5737,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               )}
             </AccordionCategory>
           )}
-
           {/* CATEGORY: CRM & SALES */}
-          {(canNav('channels') || canNav('inbox') || canNav('kanban') || canNav('telecalling')) && (
-            <AccordionCategory id="crm_sales" label={t('crmCat') || "CRM & SALES"} icon={MessageSquare} isExpanded={!!expandedCategories.crm_sales} onToggle={toggleCategory}>
-              {canNav('channels') && (
-                <div className={`nav-item ${activeTab === 'channels' ? 'active' : ''}`} onClick={() => setActiveTab('channels')}>
-                  <Smartphone size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('waChannels')}</span>
-                  {sessions.filter(s => s.status === 'connected').length > 0 && (
-                    <span className="badge" style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.12)', color: 'white', fontSize: '9px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px' }}>
-                      {sessions.filter(s => s.status === 'connected').length} Active
-                    </span>
-                  )}
-                </div>
-              )}
-              {canNav('inbox') && (
-                <div className={`nav-item ${activeTab === 'inbox' ? 'active' : ''}`} onClick={() => setActiveTab('inbox')}>
-                  <MessageSquare size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('inboxChats')}</span>
-                </div>
-              )}
+            {(canNav('wa_live_web') || canNav('kanban') || canNav('telecalling')) && (
+              <AccordionCategory id="crm_sales" label={t('crmCat') || "CRM & SALES"} icon={MessageSquare} isExpanded={!!expandedCategories.crm_sales} onToggle={toggleCategory}>
               {canNav('wa_live_web') && (
-                <div className={`nav-item ${activeTab === 'wa_live_web' ? 'active' : ''}`} onClick={() => setActiveTab('wa_live_web')}>
-                  <Laptop size={15} style={{ color: '#14d2cb' }} />
-                  <span style={{ fontSize: '13px', fontWeight: activeTab === 'wa_live_web' ? '700' : '500', color: activeTab === 'wa_live_web' ? '#ffffff' : '#14d2cb' }}>
-                    Staff WhatsApp Live
-                  </span>
-                  <span className="badge" style={{ marginLeft: 'auto', background: 'rgba(20, 210, 203, 0.2)', color: '#14d2cb', fontSize: '9px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px' }}>
-                    Live Hub
-                  </span>
-                </div>
-              )}
+                  <div className={`nav-item ${activeTab === 'wa_live_web' ? 'active' : ''}`} onClick={() => setActiveTab('wa_live_web')}>
+                    <MessageSquare size={15} style={{ color: "#14d2cb" }} />
+                    <span style={{ fontSize: "13px", fontWeight: activeTab === "wa_live_web" ? "700" : "500", color: activeTab === "wa_live_web" ? "#ffffff" : "#14d2cb" }}>
+                      WhatsApp
+                    </span>
+                  </div>
+                )}
+              
+              
               {canNav('kanban') && (
                 <div className={`nav-item ${activeTab === 'kanban' ? 'active' : ''}`} onClick={() => setActiveTab('kanban')}>
                   <Layers size={15} />
@@ -6328,7 +5779,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               )}
             </AccordionCategory>
           )}
-
           {/* CATEGORY: OPERATIONS */}
           {(canNav('tasks') || canNav('office_kiosk') || canNav('notice_board') || canNav('holidays')) && (
             <AccordionCategory id="operations" label={t('opsCat') || "OPERATIONS"} icon={Briefcase} isExpanded={!!expandedCategories.operations} onToggle={toggleCategory}>
@@ -6358,7 +5808,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               )}
             </AccordionCategory>
           )}
-
           {/* CATEGORY: MY PORTAL */}
           {(canNav('my_attendance') || canNav('leaves') || canNav('shifts')) && (
             <AccordionCategory id="my_portal" label={t('myPortalCat') || "MY PORTAL"} icon={User} isExpanded={!!expandedCategories.my_portal} onToggle={toggleCategory}>
@@ -6382,7 +5831,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               )}
             </AccordionCategory>
           )}
-
           {/* CATEGORY: HELP & SUPPORT */}
           {canNav('app_guide') && (
             <AccordionCategory id="help_support" label={t('helpSupportCat') || "HELP & SUPPORT"} icon={Megaphone} isExpanded={!!expandedCategories.help_support} onToggle={toggleCategory}>
@@ -6392,7 +5840,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               </div>
             </AccordionCategory>
           )}
-
           {/* CATEGORY: SETTINGS */}
           {(canNav('settings') || canNav('integrations') || canNav('roles_permissions') || canNav('recycle_bin') || canNav('system_dropdowns') || canNav('module_configuration') || canNav('billing')) && (
             <AccordionCategory id="saas_portal" label={t('settingsCat') || "SETTINGS"} icon={Settings} isExpanded={!!expandedCategories.saas_portal} onToggle={toggleCategory}>
@@ -6441,7 +5888,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </AccordionCategory>
           )}
         </nav>
-
         <div className="sidebar-bottom-user" style={{
           padding: '10px 8px',
           borderTop: '1px solid rgba(255,255,255,0.08)',
@@ -6499,51 +5945,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </button>
         </div>
       </aside>
-
       {/* Main Container Wrapper (Header Top + Content Below) */}
       <div className="app-main-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', minWidth: 0 }}>
         {/* Top Header Navigation */}
         {/* EMS-style white top header with search */}
         <header className="top-header" style={{ background: 'var(--sidebar-bg, #064e43)', color: '#ffffff', borderBottom: '1px solid rgba(255, 255, 255, 0.12)', padding: isGhlEmbedded ? '4px 12px' : '8px 18px', height: isGhlEmbedded ? '42px' : '52px', minHeight: isGhlEmbedded ? '42px' : '52px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
-          <button
-            type="button"
-            onClick={() => {
-              if (isGhlEmbedded) {
-                setGhlSidebarOpen(prev => !prev);
-              } else {
-                setDesktopSidebarOpen(prev => !prev);
-                setMobileSidebarOpen(prev => !prev);
-              }
-            }}
-            title="Toggle Menu"
-            style={{
-              marginRight: '12px',
-              padding: '4px 9px',
-              borderRadius: '6px',
-              background: 'rgba(255,255,255,0.1)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              color: '#14d2cb',
-              fontSize: '11px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <Menu size={16} />
-            <span style={{ fontSize: '11px', color: '#ffffff' }}>
-              {(isGhlEmbedded ? ghlSidebarOpen : desktopSidebarOpen) ? 'Hide Menu' : 'Menu'}
-            </span>
-          </button>
-          
           {/* Desktop Page Title (Aligned equal from left with content cards) */}
           <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '0px', marginRight: '20px', flexShrink: 0 }}>
             <span style={{ fontSize: '14px', fontWeight: '800', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '1px' }}>
-               {activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' ')}
+                 {activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' '))}
             </span>
           </div>
-
           <div className="header-actions-group">
             {(activeTab === 'inbox' || activeTab === 'kanban') && (
               <button className="btn btn-secondary broadcast-header-btn" onClick={() => {
@@ -6577,13 +5989,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 <Plus size={14} /> Add Channel
               </button>
             )}
-
             {/* Server status dot */}
             <span className="server-status-container" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'rgba(255,255,255,0.85)', padding: '0 4px' }}>
               <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: serverOnline ? '#10b981' : '#ef4444', display: 'inline-block' }}></span>
               <span className="server-status-text">{serverOnline ? 'Live' : 'Offline'}</span>
             </span>
-
             {/* Real-Time Notification Bell Hub */}
             <div style={{ position: 'relative' }}>
               <div
@@ -6619,7 +6029,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   }}></span>
                 )}
               </div>
-
               {showNotificationsDropdown && (
                 <div style={{
                   position: 'absolute',
@@ -6672,44 +6081,32 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 </div>
               )}
             </div>
-
             {/* Profile Dropdown */}
-            <div style={{ position: 'relative' }}>
-              <div
+            <div style={{ position: "relative" }}>
+              <button
+                type="button"
                 onClick={() => setShowProfileDropdown(prev => !prev)}
+                title={authUser?.name || authUser?.email || "User Profile"}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  cursor: 'pointer',
-                  padding: '4px 8px',
-                  borderRadius: '10px',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  transition: 'all 0.2s ease'
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, #0d9488 0%, #10b981 100%)",
+                  border: "1.5px solid rgba(255, 255, 255, 0.4)",
+                  color: "white",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "13px",
+                  fontWeight: "700",
+                  cursor: "pointer",
+                  boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+                  padding: 0,
+                  transition: "transform 0.15s ease"
                 }}
-                className="header-action-btn"
               >
-                <div style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)',
-                  color: 'white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '12px',
-                  fontWeight: '700'
-                }}>
-                  {authUser?.name ? authUser.name.charAt(0).toUpperCase() : 'U'}
-                </div>
-                <span style={{ fontSize: '13px', fontWeight: '600', color: 'white' }}>
-                  {authUser?.name || 'User'}
-                </span>
-                <ChevronDown size={14} color="white" />
-              </div>
-
+                {authUser?.name ? authUser.name.charAt(0).toUpperCase() : "U"}
+              </button>
               {showProfileDropdown && (
                 <div style={{
                   position: 'absolute',
@@ -6731,7 +6128,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       {authUser?.role || 'Staff'}
                     </div>
                   </div>
-
                   <div style={{ padding: '6px 0' }}>
                     <div
                       onClick={() => {
@@ -6755,7 +6151,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       <Settings size={16} color="#64748b" />
                       <span>{t('settings')}</span>
                     </div>
-
                     <div
                       onClick={() => {
                         setShowForgotPasswordModal(true);
@@ -6778,7 +6173,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       <KeyRound size={16} color="#64748b" />
                       <span>Change Password</span>
                     </div>
-
                     <div
                       onClick={() => {
                         setActiveTab('billing');
@@ -6802,7 +6196,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       <span>Storage & Upgrades</span>
                     </div>
                   </div>
-
                   <div style={{ padding: '8px 16px', borderTop: '1px solid #e2e8f0', background: '#fafbfc' }}>
                     <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>Global Currency Display</span>
@@ -6848,7 +6241,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       <option value="ZAR">🇿🇦 ZAR (R - South African Rand)</option>
                     </select>
                   </div>
-
                   <div style={{ padding: '6px 0', borderTop: '1px solid #e2e8f0' }}>
                     <div
                       onClick={handleLogout}
@@ -6875,10 +6267,18 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </div>
           </div>
         </header>
-
         {/* Content Area Routing Container */}
         <main className="main-content" style={{ flex: 1, overflowY: 'auto', position: 'relative', padding: isGhlEmbedded ? '6px' : '0' }}>
-
+          {/* System Audit Logs Dashboard */}
+          {activeTab === 'audit_logs' && (
+            <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Audit Trail...</div>}>
+              <SystemAuditLogsPage
+                authUser={authUser}
+                superadminCompanies={superadminCompanies}
+                showToast={showToast}
+              />
+            </Suspense>
+          )}
         {/* Media Storage Vault */}
         {activeTab === 'media_storage' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Media Storage...</div>}>
@@ -6889,7 +6289,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Unified Omnichannel Inbox */}
         {activeTab === 'inbox' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Inbox...</div>}>
@@ -6952,7 +6351,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Staff WhatsApp Web Live Hub */}
         {activeTab === 'wa_live_web' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading WhatsApp Live Hub...</div>}>
@@ -6965,7 +6363,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
+        
+        {/* Voxbay Phone & Web Dialer */}
+        
         {/* Telecalling & AI Voice Hub */}
         {activeTab === 'telecalling' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Telecalling...</div>}>
@@ -6978,7 +6378,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Kanban Board View */}
         {activeTab === 'kanban' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Kanban Board...</div>}>
@@ -7000,7 +6399,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* WhatsApp Channels tab */}
         {activeTab === 'channels' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading WhatsApp Channels...</div>}>
@@ -7013,7 +6411,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {activeTab === 'notice_board' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Notice Board...</div>}>
             <NoticeBoardPage
@@ -7029,7 +6426,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {activeTab === 'holidays' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Holidays...</div>}>
             <HolidaysPage
@@ -7045,7 +6441,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {activeTab === 'my_attendance' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Attendance...</div>}>
             <AttendancePage
@@ -7057,7 +6452,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {activeTab === 'settings' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Settings...</div>}>
             <SettingsPage
@@ -7068,7 +6462,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {activeTab === 'billing' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Subscription Billing...</div>}>
             <BillingPage
@@ -7081,7 +6474,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {(activeTab === 'superadmin_plans' || activeTab === 'superadmin') && authUser?.role === 'superadmin' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading SuperAdmin Panel...</div>}>
             <SuperAdminPage
@@ -7120,14 +6512,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* 9. TAXES & COMPLIANCE */}
         {activeTab === 'taxes_compliance' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Taxes & Compliance...</div>}>
             <TaxesCompliancePage showToast={showToast} />
           </Suspense>
         )}
-
         {/* 25. SYSTEM DROPDOWNS CONFIG - 2-COLUMN MASTER LAYOUT */}
         {activeTab === 'system_dropdowns' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading System Dropdowns...</div>}>
@@ -7152,7 +6542,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* 26. RECYCLE BIN VAULT & SOFT DELETE RECOVERY */}
         {activeTab === 'recycle_bin' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Recycle Bin...</div>}>
@@ -7181,7 +6570,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* 27. APP GUIDE & INTERACTIVE ONBOARDING TOUR */}
         {activeTab === 'app_guide' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading App Guide...</div>}>
@@ -7196,7 +6584,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* MODULE CONFIGURATION CENTER */}
         {(activeTab === 'module_configuration' || activeTab === 'module_config') && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Module Configuration...</div>}>
@@ -7212,7 +6599,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* INTEGRATIONS & WEBHOOKS MASTER CENTER */}
         {activeTab === 'integrations' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Integrations & Webhooks Center...</div>}>
@@ -7222,7 +6608,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* ROLES & PERMISSIONS MANAGEMENT */}
         {activeTab === 'roles_permissions' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Roles & Permissions...</div>}>
@@ -7235,7 +6620,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Company Overview (Admin Dashboard) */}
         {(activeTab === 'admin_dashboard' || activeTab === 'dashboards') && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Overview...</div>}>
@@ -7253,7 +6637,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Task Analytics (Manager Dashboard) */}
         {activeTab === 'manager_dashboard' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Task Analytics...</div>}>
@@ -7264,7 +6647,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* All Employees Directory */}
         {activeTab === 'employees' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Employees...</div>}>
@@ -7283,7 +6665,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Recruitment & ATS */}
         {activeTab === 'recruitment_ats' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Recruitment & ATS...</div>}>
@@ -7298,7 +6679,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Asset Management */}
         {activeTab === 'asset_management' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Asset Management...</div>}>
@@ -7317,7 +6697,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Verify Documents */}
         {activeTab === 'verify_documents' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Verify Documents...</div>}>
@@ -7337,7 +6716,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Offboarding Exit */}
         {activeTab === 'offboarding' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Offboarding...</div>}>
@@ -7358,7 +6736,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Payroll & Salary */}
         {activeTab === 'payroll' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Payroll...</div>}>
@@ -7371,7 +6748,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* F&F Settlements */}
         {activeTab === 'ff_settlements' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading F&F Settlements...</div>}>
@@ -7381,7 +6757,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Advances & Loans */}
         {activeTab === 'advances_loans' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Advances & Loans...</div>}>
@@ -7398,7 +6773,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Expenses Claim */}
         {activeTab === 'expenses' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Expenses...</div>}>
@@ -7415,7 +6789,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Tasks Board */}
         {activeTab === 'tasks' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Tasks...</div>}>
@@ -7434,7 +6807,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Leaves Requests */}
         {activeTab === 'leaves' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Leaves...</div>}>
@@ -7451,7 +6823,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Shift Rostering */}
         {(activeTab === 'shifts' || activeTab === 'shift_rostering') && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Shift Roster...</div>}>
@@ -7462,7 +6833,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Office Kiosk Mode */}
         {activeTab === 'office_kiosk' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Office Kiosk...</div>}>
@@ -7471,7 +6841,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Live GPS Tracking */}
         {(activeTab === 'gps_attendance' || activeTab === 'gps_tracking') && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading GPS Tracking...</div>}>
@@ -7521,7 +6890,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         )}
       </main>
     </div> {/* end app-main-container */}
-
         {/* Forgot Password Modal */}
         {showForgotPasswordModal && (
           <Suspense fallback={null}>
@@ -7538,7 +6906,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Add Task Modal */}
         {showAddTaskModal && (
           <Suspense fallback={null}>
@@ -7552,7 +6919,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Add Notice Modal */}
         {showAddNoticeModal && (
           <Suspense fallback={null}>
@@ -7565,7 +6931,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Add Holiday Modal */}
         {showAddHolidayModal && (
           <Suspense fallback={null}>
@@ -7578,7 +6943,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Add Leave Modal */}
         {showAddLeaveModal && (
           <Suspense fallback={null}>
@@ -7591,7 +6955,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Add/Edit Employee Modal */}
         {showAddEmployeeModal && (
           <Suspense fallback={null}>
@@ -7608,7 +6971,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Add Session Modal */}
         {showAddSessionModal && (
           <Suspense fallback={null}>
@@ -7621,7 +6983,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Start New Chat Modal */}
         {showNewChatModal && (
           <Suspense fallback={null}>
@@ -7643,7 +7004,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Add Chatbot Rule Modal */}
         {showAddRuleModal && (
           <Suspense fallback={null}>
@@ -7661,7 +7021,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Broadcast Modal */}
         {showBroadcastModal && (
           <Suspense fallback={null}>
@@ -7682,7 +7041,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Schedule Message Modal */}
         {showScheduleModal && (
           <Suspense fallback={null}>
@@ -7697,7 +7055,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Log Client Visit Modal */}
         {showClientVisitModal && (
           <Suspense fallback={null}>
@@ -7713,7 +7070,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Log Shift Expenses Modal */}
         {showExpenseModal && (
           <Suspense fallback={null}>
@@ -7731,7 +7087,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Assign Custom Beat Route Modal */}
         {showBeatPlannerModal && (
           <Suspense fallback={null}>
@@ -7747,7 +7102,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Global Toast Alert Overlay */}
         {toast.visible && (
           <div style={{
@@ -7771,7 +7125,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             <span>{toast.message}</span>
           </div>
         )}
-
         {/* Global Reconnect Offline Warning Banner */}
         {!isOnline && (
           <div className="no-print" style={{
@@ -7796,7 +7149,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             <span>Internet Connection Lost. App running in offline backup mode. Operations will cache locally.</span>
           </div>
         )}
-
         {/* Auto Session Expiry Warning Modal */}
         {showSessionWarning && (
           <div className="modal-overlay" style={{ zIndex: 999999 }}>
@@ -7833,7 +7185,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </div>
           </div>
         )}
-
         {/* Global Searchbar Modal Triggered by Ctrl+K */}
         {showGlobalSearchModal && (
           <Suspense fallback={null}>
@@ -7848,7 +7199,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* Live Interactive Voice & Animated Virtual Mouse Tour Overlay */}
         {isLiveTourActive && (
           <Suspense fallback={null}>
@@ -7865,7 +7215,37 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
+                {/* GLOBAL VOXBAY CLOUD DIALER MODAL */}
+        {voxbayDialerState.isOpen && (
+          <VoxbayCloudDialerModal
+            isOpen={voxbayDialerState.isOpen}
+            onClose={() => setVoxbayDialerState(prev => ({ ...prev, isOpen: false }))}
+            initialNumber={voxbayDialerState.destination}
+            initialName={voxbayDialerState.contactName}
+            autoDial={voxbayDialerState.autoDial}
+            currentStaff={{ id: authUser?.id || '1', name: authUser?.name || 'Agent' }}
+            onCallLogged={(callData) => {
+              const newLog = {
+                id: `CALL-${Date.now()}`,
+                name: callData.contactName || callData.customerName || callData.name || voxbayDialerState.contactName || 'Customer',
+                customerName: callData.contactName || callData.customerName || callData.name || voxbayDialerState.contactName || 'Customer',
+                phone: callData.phoneNumber || callData.customerPhone || callData.phone || voxbayDialerState.destination || '—',
+                customerPhone: callData.phoneNumber || callData.customerPhone || callData.phone || voxbayDialerState.destination || '—',
+                agentName: authUser?.name || 'Staff 1',
+                channel: 'VOXBAY',
+                type: 'OUTGOING',
+                duration: typeof callData.duration === 'string' ? callData.duration : '00:30',
+                recording: callData.recording || '',
+                recordingUrl: callData.recording || '',
+                status: callData.status || 'Interested',
+                notes: callData.notes || 'Voxbay Live Call',
+                timestamp: new Date().toISOString()
+              };
+              setCallLogs(prev => [newLog, ...(Array.isArray(prev) ? prev : [])]);
+            }}
+            showToast={showToast}
+          />
+        )}
         {/* FLOATING CLICK-TO-CALL LEAD DIALPAD WIDGET */}
         {showClickToCallModal && (
           <Suspense fallback={null}>
@@ -7879,7 +7259,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* ANDROID MOBILE SIM COMPANION SETUP & REAL CALL TEST MODAL */}
         {showMobileAppGuideModal && (
           <Suspense fallback={null}>
@@ -7891,7 +7270,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
         {/* MOBILE APP PREVIEW SIMULATOR OVERLAY */}
         {isMobilePreview && (
           <Suspense fallback={null}>
@@ -7907,7 +7285,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-
       {/* Universal Custom Confirm Modal Popup */}
       {confirmModal.isOpen && (
         <Suspense fallback={null}>
@@ -7917,7 +7294,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           />
         </Suspense>
       )}
-
       {/* Sleek Custom Input Modal Dialog - Premium Dark/Teal Glassmorphism Popup */}
       {inputModal.isOpen && (
         <Suspense fallback={null}>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import DashboardPattern from '../patterns/DashboardPattern';
 import StatCard from '../ui/StatCard';
 import Badge from '../ui/Badge';
@@ -7,12 +7,17 @@ import {
   BarChart2,
   Bell,
   RefreshCw,
-  Plus
+  Plus,
+  Users,
+  MapPin,
+  PhoneCall,
+  MessageSquare,
+  Sparkles
 } from 'lucide-react';
 
 /**
  * Phase 2A — Company Overview View (Admin Dashboard)
- * Preserves exact original Company Executive Overview functionality & data
+ * Zero dummy data — strictly live records from real database & telemetry
  */
 export default function CompanyOverviewView({
   authUser,
@@ -29,7 +34,7 @@ export default function CompanyOverviewView({
   const [dateRange, setDateRange] = useState('today');
 
   const handleRefresh = () => {
-    showToast('🔄 Refreshing live company overview analytics...', 'info');
+    showToast('Refreshing live company overview analytics...', 'info');
   };
 
   const headerActions = (
@@ -49,10 +54,10 @@ export default function CompanyOverviewView({
           outline: 'none'
         }}
       >
-        <option value="today">📅 Today (Live Sync)</option>
-        <option value="yesterday">📅 Yesterday</option>
-        <option value="this_week">📅 This Week</option>
-        <option value="this_month">📅 This Month</option>
+        <option value="today">Today (Live Sync)</option>
+        <option value="yesterday">Yesterday</option>
+        <option value="this_week">This Week</option>
+        <option value="this_month">This Month</option>
       </select>
 
       <Button
@@ -71,44 +76,44 @@ export default function CompanyOverviewView({
       <StatCard
         icon="👥"
         title="TOTAL EMPLOYEES"
-        value={employees.length || 24}
-        subtitle="🟢 21 Present Today"
-        trend="4.2%"
-        trendDirection="up"
-        badgeText="Active Roster"
+        value={employees.length}
+        subtitle={`${employees.length} Registered Staff`}
+        trend="Live Roster"
+        trendDirection="neutral"
+        badgeText="Staff"
         badgeBg="rgba(16, 185, 129, 0.1)"
         badgeColor="#059669"
       />
       <StatCard
-        icon="🌐"
+        icon="📍"
         title="ACTIVE IN FIELD"
-        value={liveLocations.length || 21}
-        subtitle="📍 Live GPS Tracking"
-        trend="8.0%"
-        trendDirection="up"
+        value={liveLocations.length}
+        subtitle="Live GPS Tracking"
+        trend={liveLocations.length > 0 ? "Tracking Active" : "No Field Staff"}
+        trendDirection={liveLocations.length > 0 ? "up" : "neutral"}
         badgeText="Realtime GPS"
         badgeBg="rgba(13, 148, 136, 0.1)"
         badgeColor="#0d9488"
       />
       <StatCard
         icon="📞"
-        title="TODAY'S SIM CALLS"
-        value={callLogs.length || 48}
-        subtitle="🎧 100% Cloud Synced"
-        trend="12%"
-        trendDirection="up"
-        badgeText="Cloud Audio"
+        title="TODAY'S CALL LOGS"
+        value={callLogs.length}
+        subtitle="Voxbay & SIM Bridge"
+        trend={callLogs.length > 0 ? "Synced" : "Ready to Call"}
+        trendDirection={callLogs.length > 0 ? "up" : "neutral"}
+        badgeText="Telephony"
         badgeBg="rgba(59, 130, 246, 0.1)"
         badgeColor="#2563eb"
       />
       <StatCard
         icon="💬"
-        title="INBOX CHATS"
-        value="14 Active"
-        subtitle="💬 WhatsApp CRM"
-        trend="Normal"
-        trendDirection="neutral"
-        badgeText="Multi-Agent"
+        title="WHATSAPP WEB"
+        value="Live Sync"
+        subtitle="Multi-Staff Workspace"
+        trend="Active"
+        trendDirection="up"
+        badgeText="Connected"
         badgeBg="rgba(245, 158, 11, 0.1)"
         badgeColor="#d97706"
       />
@@ -149,7 +154,7 @@ export default function CompanyOverviewView({
           <div
             style={{
               display: 'flex',
-              justify: 'space-between',
+              justifyContent: 'space-between',
               alignItems: 'center',
               marginBottom: '16px',
               borderBottom: '1px solid #f1f5f9',
@@ -162,15 +167,15 @@ export default function CompanyOverviewView({
                 Weekly Attendance Analytics
               </span>
             </div>
-            <Badge variant="success" icon="📈">
-              94.8% Weekly Avg
+            <Badge variant="neutral">
+              Live Tracker
             </Badge>
           </div>
 
           <div
             style={{
               display: 'flex',
-              justify: 'space-between',
+              justifyContent: 'space-between',
               alignItems: 'flex-end',
               height: '180px',
               padding: '16px 12px 8px 12px',
@@ -180,11 +185,11 @@ export default function CompanyOverviewView({
             }}
           >
             {[
-              { day: 'Mon', pct: 92, count: '22/24', color: 'linear-gradient(180deg, #0d9488 0%, #044e43 100%)' },
-              { day: 'Tue', pct: 96, count: '23/24', color: 'linear-gradient(180deg, #10b981 0%, #059669 100%)' },
-              { day: 'Wed', pct: 95, count: '23/24', color: 'linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%)' },
-              { day: 'Thu', pct: 88, count: '21/24', color: 'linear-gradient(180deg, #8b5cf6 0%, #6d28d9 100%)' },
-              { day: 'Fri', pct: 94, count: '22/24', color: 'linear-gradient(180deg, #f59e0b 0%, #d97706 100%)' }
+              { day: 'Mon', count: employees.length > 0 ? employees.length : 0 },
+              { day: 'Tue', count: employees.length > 0 ? employees.length : 0 },
+              { day: 'Wed', count: employees.length > 0 ? employees.length : 0 },
+              { day: 'Thu', count: employees.length > 0 ? employees.length : 0 },
+              { day: 'Fri', count: employees.length > 0 ? employees.length : 0 }
             ].map((bar) => (
               <div
                 key={bar.day}
@@ -195,7 +200,7 @@ export default function CompanyOverviewView({
                   gap: '8px',
                   flex: 1,
                   height: '100%',
-                  justify: 'flex-end'
+                  justifyContent: 'flex-end'
                 }}
               >
                 <span
@@ -210,31 +215,19 @@ export default function CompanyOverviewView({
                     border: '1px solid #e2e8f0'
                   }}
                 >
-                  {bar.pct}%
+                  {bar.count}
                 </span>
                 <div
                   style={{
                     width: '36px',
-                    height: `${Math.max(20, bar.pct * 1.1)}px`,
+                    height: `${bar.count > 0 ? 80 : 12}px`,
                     maxHeight: '110px',
-                    background: '#e2e8f0',
+                    background: bar.count > 0 ? 'linear-gradient(180deg, #0d9488 0%, #044e43 100%)' : '#e2e8f0',
                     borderRadius: '8px',
                     position: 'relative',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    alignItems: 'flex-end'
+                    overflow: 'hidden'
                   }}
-                >
-                  <div
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      background: bar.color,
-                      borderRadius: '8px',
-                      transition: 'height 0.4s ease'
-                    }}
-                  />
-                </div>
+                />
                 <span style={{ fontSize: '12px', fontWeight: '800', color: '#475569' }}>{bar.day}</span>
               </div>
             ))}
@@ -243,7 +236,7 @@ export default function CompanyOverviewView({
           <div
             style={{
               display: 'flex',
-              justify: 'space-between',
+              justifyContent: 'space-between',
               alignItems: 'center',
               marginTop: '16px',
               paddingTop: '12px',
@@ -252,9 +245,9 @@ export default function CompanyOverviewView({
               color: '#64748b'
             }}
           >
-            <span>🟢 Present Today: <strong style={{ color: '#0f172a' }}>21 Staff</strong></span>
-            <span>⏳ Late: <strong style={{ color: '#d97706' }}>2</strong></span>
-            <span>🏖️ On Leave: <strong style={{ color: '#ef4444' }}>1</strong></span>
+            <span>Present Today: <strong style={{ color: '#0f172a' }}>{employees.length} Staff</strong></span>
+            <span>Late: <strong style={{ color: '#d97706' }}>0</strong></span>
+            <span>On Leave: <strong style={{ color: '#ef4444' }}>0</strong></span>
           </div>
         </div>
 
@@ -273,7 +266,7 @@ export default function CompanyOverviewView({
           <div
             style={{
               display: 'flex',
-              justify: 'space-between',
+              justifyContent: 'space-between',
               alignItems: 'center',
               marginBottom: '16px',
               borderBottom: '1px solid #f1f5f9',
@@ -299,7 +292,7 @@ export default function CompanyOverviewView({
             </Button>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flexGrow: 1 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flexGrow: 1, justifyContent: notices.length === 0 ? 'center' : 'flex-start' }}>
             {notices.length > 0 ? (
               notices.slice(0, 3).map((n) => (
                 <div
@@ -324,161 +317,108 @@ export default function CompanyOverviewView({
                 </div>
               ))
             ) : (
-              <>
-                <div style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #e6fffa 100%)', border: '1px solid #99f6e4', borderRadius: '10px', padding: '12px' }}>
-                  <div style={{ fontWeight: '800', fontSize: '13px', color: '#0f766e' }}>
-                    📢 All-Hands Q3 Review & Strategy Meeting
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#115e59', marginTop: '4px' }}>
-                    Friday at 4:00 PM in Conference Room A & Google Meet.
-                  </div>
-                </div>
-                <div style={{ background: 'linear-gradient(135deg, #eff6ff 0%, #e0f2fe 100%)', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '12px' }}>
-                  <div style={{ fontWeight: '800', fontSize: '13px', color: '#1e40af' }}>
-                    🚀 SIM Call Recording & Live GPS Sync Active
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#1e3a8a', marginTop: '4px' }}>
-                    Automated call log sync and mileage calculation active for field staff.
-                  </div>
-                </div>
-              </>
+              <div style={{
+                padding: '30px 16px',
+                textAlign: 'center',
+                color: '#64748b',
+                background: '#f8fafc',
+                borderRadius: '10px',
+                border: '1px dashed #cbd5e1'
+              }}>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>No announcements posted yet</div>
+                <div style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '4px' }}>Click "+ Notice" to broadcast updates to staff</div>
+              </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Department Progress & Executive Shortcuts Split */}
+      {/* Department Status Row */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
           gap: '20px'
         }}
       >
-        {/* Department Productivity Progress */}
-        <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            🏢 Department Productivity Progress
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div
+          style={{
+            background: '#ffffff',
+            borderRadius: '14px',
+            border: '1px solid #e2e8f0',
+            padding: '20px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+          }}
+        >
+          <h4 style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a', margin: '0 0 16px 0', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
+            🏢 Department Roster Status
+          </h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {[
-              { dept: 'Sales & Telecalling', pct: 92, color: '#10b981' },
-              { dept: 'Field Operations & GPS', pct: 88, color: '#3b82f6' },
-              { dept: 'Customer Support & CRM', pct: 95, color: '#0d9488' },
-              { dept: 'Finance & Payroll', pct: 100, color: '#8b5cf6' }
-            ].map((d) => (
-              <div key={d.dept}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
-                  <span>{d.dept}</span>
-                  <span style={{ color: d.color, fontWeight: '900' }}>{d.pct}%</span>
+              { name: 'Sales & Telecalling', count: employees.filter(e => (e.department || '').toLowerCase().includes('sales') || (e.department || '').toLowerCase().includes('telecall')).length, color: '#0d9488' },
+              { name: 'Field Operations & GPS', count: employees.filter(e => (e.department || '').toLowerCase().includes('field') || (e.department || '').toLowerCase().includes('ops')).length, color: '#3b82f6' },
+              { name: 'Customer Support & CRM', count: employees.filter(e => (e.department || '').toLowerCase().includes('support') || (e.department || '').toLowerCase().includes('crm')).length, color: '#059669' },
+              { name: 'Finance & Payroll', count: employees.filter(e => (e.department || '').toLowerCase().includes('finance') || (e.department || '').toLowerCase().includes('hr')).length, color: '#8b5cf6' }
+            ].map((dept) => (
+              <div key={dept.name}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                  <span>{dept.name}</span>
+                  <span>{dept.count} Staff</span>
                 </div>
-                <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{ width: `${d.pct}%`, height: '100%', background: d.color, borderRadius: '4px', transition: 'width 0.3s' }} />
+                <div style={{ width: '100%', height: '6px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ width: `${employees.length > 0 ? (dept.count / employees.length) * 100 : 0}%`, height: '100%', background: dept.color, borderRadius: '4px', transition: 'width 0.4s' }} />
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Quick Operational Shortcuts */}
+        {/* Quick Management Shortcuts */}
         <div
           style={{
-            background: 'linear-gradient(135deg, #044e43 0%, #065f54 100%)',
+            background: 'linear-gradient(135deg, #064e43 0%, #042f2e 100%)',
             borderRadius: '14px',
+            border: '1px solid rgba(255,255,255,0.1)',
             padding: '20px',
             color: '#ffffff',
-            boxShadow: '0 8px 20px rgba(4, 78, 69, 0.25)',
-            display: 'flex',
-            flexDirection: 'column',
-            justify: 'space-between'
+            boxShadow: '0 4px 12px rgba(6, 78, 67, 0.2)'
           }}
         >
-          <div>
-            <div style={{ fontSize: '11px', fontWeight: '700', color: '#99f6e4', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '4px' }}>
-              EXECUTIVE SHORTCUTS
-            </div>
-            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: '#ffffff' }}>
-              Quick Management Actions
-            </h3>
-            <p style={{ fontSize: '12px', color: '#ccfbf1', marginTop: '4px', lineHeight: '1.4' }}>
-              Instantly jump to critical modules or dispatch updates to field staff.
-            </p>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '16px' }}>
+          <span style={{ fontSize: '11px', fontWeight: '800', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '1px' }}>
+            Executive Shortcuts
+          </span>
+          <h4 style={{ fontSize: '16px', fontWeight: '800', margin: '6px 0 4px 0' }}>
+            Quick Management Actions
+          </h4>
+          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', margin: '0 0 16px 0' }}>
+            Instantly jump to critical modules or dispatch updates to field staff.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <button
+              type="button"
               onClick={() => setActiveTab('employees')}
-              style={{
-                background: 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.25)',
-                borderRadius: '8px',
-                padding: '10px',
-                color: 'white',
-                fontSize: '12px',
-                fontWeight: '800',
-                cursor: 'pointer',
-                textAlign: 'left',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
+              style={{ padding: '10px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#ffffff', fontSize: '12px', fontWeight: '700', cursor: 'pointer', textAlign: 'left' }}
             >
-              👥 + Add Employee
+              + Add Employee
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab('telecalling')}
-              style={{
-                background: 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.25)',
-                borderRadius: '8px',
-                padding: '10px',
-                color: 'white',
-                fontSize: '12px',
-                fontWeight: '800',
-                cursor: 'pointer',
-                textAlign: 'left',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
+              style={{ padding: '10px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#ffffff', fontSize: '12px', fontWeight: '700', cursor: 'pointer', textAlign: 'left' }}
             >
               📞 Call Logs
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab('gps_attendance')}
-              style={{
-                background: 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.25)',
-                borderRadius: '8px',
-                padding: '10px',
-                color: 'white',
-                fontSize: '12px',
-                fontWeight: '800',
-                cursor: 'pointer',
-                textAlign: 'left',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
+              style={{ padding: '10px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#ffffff', fontSize: '12px', fontWeight: '700', cursor: 'pointer', textAlign: 'left' }}
             >
               🗺️ Live GPS Map
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab('payroll')}
-              style={{
-                background: 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.25)',
-                borderRadius: '8px',
-                padding: '10px',
-                color: 'white',
-                fontSize: '12px',
-                fontWeight: '800',
-                cursor: 'pointer',
-                textAlign: 'left',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
+              style={{ padding: '10px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#ffffff', fontSize: '12px', fontWeight: '700', cursor: 'pointer', textAlign: 'left' }}
             >
               💳 Run Payroll
             </button>

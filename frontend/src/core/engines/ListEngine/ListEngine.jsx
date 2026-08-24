@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UNIVERSAL LIST ENGINE COMPONENT (SchemaDataTable)
  * Enterprise CRM Scroll Architecture with Sticky <thead>, Sticky Bottom <Pagination>, & Thin Themed Scrollbars
  */
@@ -356,7 +356,31 @@ export default function ListEngine({
                     <div title={`Email: ${emailStr}`} style={{ color: '#0f172a', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📧 {emailStr}</div>
                   )}
                   {phoneStr && (
-                    <div title={`Phone: ${phoneStr}`} style={{ color: '#475569', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📞 {phoneStr}</div>
+                    <div title={`Phone: ${phoneStr}`} style={{ color: '#475569', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>📞 {phoneStr}</span>
+                      <button
+                        type="button"
+                        title="📞 Call via Softphone"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.openGlobalDialer) {
+                            window.openGlobalDialer(phoneStr, getValString(record.name || record.title), true);
+                          }
+                        }}
+                        style={{
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          background: 'rgba(16, 185, 129, 0.18)',
+                          color: '#059669',
+                          border: '1px solid rgba(16, 185, 129, 0.3)',
+                          cursor: 'pointer',
+                          fontSize: '10px',
+                          fontWeight: '700'
+                        }}
+                      >
+                        Call
+                      </button>
+                    </div>
                   )}
                   {!emailStr && !phoneStr && <span style={{ color: '#94a3b8', fontWeight: '600' }}>—</span>}
                 </div>

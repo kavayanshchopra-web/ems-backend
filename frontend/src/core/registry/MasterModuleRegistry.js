@@ -1,4 +1,4 @@
-/**
+﻿/**
  * GLOBAL EMS MASTER MODULE REGISTRY
  * Singleton Engine & Registry Manager for Platform Modules
  */
@@ -21,6 +21,7 @@ import { HOLIDAYS_MANIFEST } from './manifests/holidays.manifest';
 import { NOTICE_BOARD_MANIFEST } from './manifests/notice_board.manifest';
 import { TASKS_MANIFEST } from './manifests/tasks.manifest';
 import { ADVANCES_LOANS_MANIFEST } from './manifests/advancesLoans.manifest';
+import { WORKSPACE_KYC_MANIFEST } from './manifests/workspaceKyc.manifest';
 import { moduleConfigService } from '../../services/moduleConfigService';
 
 class MasterModuleRegistry {
@@ -54,6 +55,7 @@ class MasterModuleRegistry {
     this.registerModule(NOTICE_BOARD_MANIFEST);
     this.registerModule(TASKS_MANIFEST);
     this.registerModule(ADVANCES_LOANS_MANIFEST);
+    this.registerModule(WORKSPACE_KYC_MANIFEST);
 
     this._initialized = true;
   }

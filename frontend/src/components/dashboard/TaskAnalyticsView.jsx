@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import DashboardPattern from '../patterns/DashboardPattern';
 import StatCard from '../ui/StatCard';
 import Badge from '../ui/Badge';
@@ -46,7 +46,7 @@ export default function TaskAnalyticsView({
       <StatCard
         icon="📋"
         title="TOTAL ACTIVE TASKS"
-        value={tasks.length || 12}
+        value={tasks.length}
         subtitle="Current Active Pipeline"
         trend="Active"
         trendDirection="neutral"
@@ -57,7 +57,7 @@ export default function TaskAnalyticsView({
       <StatCard
         icon="👥"
         title="TEAM MEMBERS"
-        value={employees.length || 24}
+        value={employees.length}
         subtitle="Assigned Staff"
         trend="Roster"
         trendDirection="neutral"

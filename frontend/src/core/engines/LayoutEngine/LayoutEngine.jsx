@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UNIVERSAL LAYOUT ENGINE SHELL
  * Master Page Shell Composing All 15 Master Engines for Any EMS Module
  */
@@ -46,7 +46,8 @@ export default function LayoutEngine({
   onOpenModuleConfig = null,
   onManageStages = () => {},
   onOpenPositionModal = () => {},
-  onOpenChatWithLead = null
+  onOpenChatWithLead = null,
+  customHeaderActions = null
 }) {
   // View Mode state
   const availableViews = moduleConfig.views?.availableViews || ['kanban', 'list'];
@@ -288,6 +289,7 @@ export default function LayoutEngine({
         pageSize={pageSize}
         onPageChange={setCurrentPage}
         onPageSizeChange={setPageSize}
+        customHeaderActions={customHeaderActions}
       />
 
       {/* B. KPI SUMMARY STRIP WIDGETS (REMOVED FROM DIRECTORY — KEPT ON DASHBOARD) */}
@@ -351,6 +353,7 @@ export default function LayoutEngine({
         pageSize={pageSize}
         onPageChange={setCurrentPage}
         onPageSizeChange={setPageSize}
+        customHeaderActions={customHeaderActions}
       />
 
       {/* E. ACTION ENGINE MODALS & DRAWERS */}

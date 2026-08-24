@@ -114,7 +114,7 @@ export default function RolesPage({ authUser, showToast, openInputModal, softDel
     'expenses',
     'expense_claims',
     'channels',
-    'inbox',
+    'wa_live_web',
     'kanban',
     'crm',
     'crm_deals',

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * EMS Global Module Registry
  * Authoritative central registry of configurable EMS modules, capabilities, and entity models.
  */
@@ -219,5 +219,23 @@ export const GLOBAL_MODULE_REGISTRY = {
       kanbanView: true,
       views: true
     }
-  }
+  },
+  workspace_kyc: {
+    id: 'workspace_kyc',
+    label: 'Company KYC & Compliance',
+    category: 'System & Workspace Settings',
+    description: 'Company registration proofs, GST certificates, authorized signatory KYC & telecom compliance',
+    icon: '🛡️',
+    configurable: true,
+    status: 'Configured',
+    primaryEntity: 'kyc_profile',
+    capabilities: {
+      forms: true,
+      summary: true,
+      searchFilters: true,
+      listView: true,
+      kanbanView: false,
+      views: true
+    }
+  },
 };

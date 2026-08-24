@@ -1,3 +1,5 @@
+﻿import SuperAdminKycHub from '../superadmin/SuperAdminKycHub';
+import SuperAdminTelephonyHub from '../superadmin/SuperAdminTelephonyHub';
 import React from 'react';
 import { Briefcase, Globe, UserCheck, Users, Shield, Award, Search, Trash2, Clock } from 'lucide-react';
 import DataTable from '../DataTable';
@@ -133,6 +135,18 @@ export default function SuperAdminPage({
           className={`superadmin-tab-btn ${superadminSubTab === 'audit_logs' ? 'active' : ''}`}
         >
           Audit Logs
+        </button>
+        <button
+          onClick={() => setSuperadminSubTab && setSuperadminSubTab('kyc_compliance')}
+          className={`superadmin-tab-btn ${superadminSubTab === 'kyc_compliance' ? 'active' : ''}`}
+        >
+          📋 KYC & Compliance
+        </button>
+        <button
+          onClick={() => setSuperadminSubTab && setSuperadminSubTab('telephony_pbx')}
+          className={`superadmin-tab-btn ${superadminSubTab === 'telephony_pbx' ? 'active' : ''}`}
+        >
+          📞 Cloud PBX & Telephony
         </button>
         <button
           onClick={() => setSuperadminSubTab && setSuperadminSubTab('system_tools')}
@@ -835,6 +849,20 @@ export default function SuperAdminPage({
             })}
             emptyMessage="No security audit events recorded in this active session."
           />
+        </div>
+      )}
+
+      {/* Sub-Tab 7: KYC & Compliance Hub */}
+      {superadminSubTab === 'kyc_compliance' && (
+        <div className="superadmin-panel-container">
+          <SuperAdminKycHub showToast={showToast} />
+        </div>
+      )}
+
+      {/* Sub-Tab 6: Cloud PBX & Telephony Control */}
+      {superadminSubTab === 'telephony_pbx' && (
+        <div className="superadmin-panel-container">
+          <SuperAdminTelephonyHub showToast={showToast} />
         </div>
       )}
 

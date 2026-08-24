@@ -631,10 +631,6 @@ export default function MobilePreviewSimulatorOverlay({
                             <Smartphone size={15} />
                             <span style={{ fontSize: '13px' }}>WA Channels</span>
                           </div>
-                          <div className={`nav-item ${activeTab === 'inbox' ? 'active' : ''}`} onClick={() => { setActiveTab('inbox'); setMobileSidebarOpen(false); }}>
-                            <MessageSquare size={15} />
-                            <span style={{ fontSize: '13px' }}>Inbox Chats</span>
-                          </div>
                           <div className={`nav-item ${activeTab === 'kanban' ? 'active' : ''}`} onClick={() => { setActiveTab('kanban'); setMobileSidebarOpen(false); }}>
                             <Layers size={15} />
                             <span style={{ fontSize: '13px' }}>CRM Pipeline</span>
@@ -754,44 +750,13 @@ export default function MobilePreviewSimulatorOverlay({
                     <div style={{ background: 'white', borderRadius: '14px', padding: '14px', border: '1px solid #e2e8f0' }}>
                       <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f2b26', marginBottom: '8px' }}>⚡ Quick Operations</div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                        <button onClick={() => setActiveTab('inbox')} style={{ background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', padding: '8px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
-                          💬 WhatsApp Inbox
+                        <button onClick={() => setActiveTab('kanban')} style={{ background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', padding: '8px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
+                          📊 CRM Pipeline
                         </button>
                         <button onClick={() => setActiveTab('telecalling')} style={{ background: '#f0fdfa', color: '#115e59', border: '1px solid #99f6e4', padding: '8px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
                           📞 SIM Call Logs
                         </button>
                       </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'inbox' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <input type="text" placeholder="🔍 Search contacts or messages..." style={{ width: '100%', padding: '10px 12px', fontSize: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', background: 'white' }} />
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {[
-                        { name: 'Rahul Sharma', time: '10:45 AM', msg: 'Sure, please share the invoice link.', unread: 2 },
-                        { name: 'Priya Verma', time: 'Yesterday', msg: 'Call recording synced to CRM', unread: 0 },
-                        { name: 'Amit Kumar', time: '24 Jul', msg: 'Interested in Pro Plan setup', unread: 1 }
-                      ].map((chat, idx) => (
-                        <div key={idx} style={{ background: 'white', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', gap: '12px', alignItems: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                          <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#0d9488', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px' }}>
-                            {chat.name[0]}
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f2b26' }}>{chat.name}</div>
-                              <div style={{ fontSize: '10px', color: '#94a3b8' }}>{chat.time}</div>
-                            </div>
-                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{chat.msg}</div>
-                          </div>
-                          {chat.unread > 0 && (
-                            <span style={{ background: '#10b981', color: 'white', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold' }}>
-                              {chat.unread}
-                            </span>
-                          )}
-                        </div>
-                      ))}
                     </div>
                   </div>
                 )}
@@ -1103,7 +1068,7 @@ export default function MobilePreviewSimulatorOverlay({
                   </div>
                 )}
 
-                {activeTab !== 'inbox' && activeTab !== 'telecalling' && activeTab !== 'admin_dashboard' && activeTab !== 'dashboard' && activeTab !== 'gps_attendance' && activeTab !== 'employees' && activeTab !== 'tasks' && activeTab !== 'superadmin_plans' && activeTab !== 'super_admin' && (
+                {activeTab !== 'telecalling' && activeTab !== 'kanban' && activeTab !== 'admin_dashboard' && activeTab !== 'dashboard' && activeTab !== 'gps_attendance' && activeTab !== 'employees' && activeTab !== 'tasks' && activeTab !== 'superadmin_plans' && activeTab !== 'super_admin' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div style={{ background: 'white', borderRadius: '12px', padding: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
                       <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f2b26', marginBottom: '6px' }}>
@@ -1143,11 +1108,11 @@ export default function MobilePreviewSimulatorOverlay({
                   <span style={{ fontSize: '9px', fontWeight: '700' }}>Staff</span>
                 </button>
                 <button
-                  onClick={() => setActiveTab('inbox')}
-                  style={{ background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', color: activeTab === 'inbox' ? '#0d9488' : '#64748b', cursor: 'pointer' }}
+                  onClick={() => setActiveTab('kanban')}
+                  style={{ background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', color: activeTab === 'kanban' ? '#0d9488' : '#64748b', cursor: 'pointer' }}
                 >
-                  <span style={{ fontSize: '16px' }}>💬</span>
-                  <span style={{ fontSize: '9px', fontWeight: '700' }}>Chats</span>
+                  <span style={{ fontSize: '16px' }}>📊</span>
+                  <span style={{ fontSize: '9px', fontWeight: '700' }}>Pipeline</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('telecalling')}

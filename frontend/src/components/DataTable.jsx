@@ -126,9 +126,40 @@ export default function DataTable({
                     } else if (typeof col.accessor === 'string') {
                       val = row[col.accessor];
                     }
+                    let cellContent = col.render ? col.render(row, rowIndex) : val;
+                    if (!col.render && (col.accessor === 'phone' || col.accessor === 'customerPhone' || col.id === 'phone' || col.id === 'customerPhone' || col.accessor === 'mobile') && val) {
+                      cellContent = (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontFamily: 'monospace' }}>{val}</span>
+                          <button
+                            type="button"
+                            title="📞 Call via Softphone"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.openGlobalDialer) {
+                                window.openGlobalDialer(val, row.name || row.customerName || '');
+                              }
+                            }}
+                            style={{
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              background: 'rgba(16, 185, 129, 0.18)',
+                              color: '#059669',
+                              border: '1px solid rgba(16, 185, 129, 0.3)',
+                              cursor: 'pointer',
+                              fontSize: '11px',
+                              lineHeight: '1.2'
+                            }}
+                          >
+                            📞
+                          </button>
+                        </div>
+                      );
+                    }
+
                     return (
                       <td key={colIndex} style={col.cellStyle || col.style}>
-                        {col.render ? col.render(row, rowIndex) : val}
+                        {cellContent}
                       </td>
                     );
                   })}

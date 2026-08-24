@@ -1,4 +1,4 @@
-/**
+﻿/**
  * COMPACT ENTERPRISE CRM KANBAN CARD COMPONENT
  * Single-Line Ellipsis (Name, Email, Phone, Position), Non-Wrapping ATS ID, 15% Compact Vertical Padding,
  * Fixed-Width Status Dropdown (120px), Formatted Date & "No Resume" Fallback
@@ -158,17 +158,24 @@ export default function KanbanCard({
             <button
               type="button"
               title={`Call ${cleanPhone}`}
-              onClick={(e) => { e.stopPropagation(); window.open(`tel:${cleanPhone}`); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (window.openGlobalDialer) {
+                  window.openGlobalDialer(cleanPhone, cardName || 'Lead', true);
+                } else {
+                  window.open(`tel:${cleanPhone}`);
+                }
+              }}
               style={{ width: '26px', height: '26px', minWidth: '26px', borderRadius: '5px', border: 'none', background: '#dcfce7', color: '#166534', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
             >
               <Phone size={12} />
             </button>
           )}
 
-          {/* Quick Unified Inbox Chat Button */}
+          {/* Quick WhatsApp Chat Button */}
           <button
             type="button"
-            title={`Open Unified Inbox Chat (${cardName})`}
+            title={`Open WhatsApp Chat (${cardName})`}
             onClick={(e) => {
               e.stopPropagation();
               if (onOpenChatWithLead) {
