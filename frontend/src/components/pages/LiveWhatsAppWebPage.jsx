@@ -184,7 +184,7 @@ export default function LiveWhatsAppWebPage({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <a
-            href="https://drive.google.com/file/d/1hvorJYX8dOvsyCgFQ6ahGvBJG08uesbY/view?usp=sharing" target="_blank" rel="noopener noreferrer"
+            href="/OmniFlow-CRM-Setup.exe" download="OmniFlow-CRM-Setup.exe"
             download="OmniFlow-WhatsApp-CRM.exe"
             style={{
               display: 'inline-flex',
@@ -204,7 +204,7 @@ export default function LiveWhatsAppWebPage({
             <span>📥 Download Desktop App (.exe)</span>
           </a>
           <a
-            href="https://drive.google.com/file/d/1hvorJYX8dOvsyCgFQ6ahGvBJG08uesbY/view?usp=sharing" target="_blank" rel="noopener noreferrer"
+            href="/OmniFlow-CRM-Setup.exe" download="OmniFlow-CRM-Setup.exe"
             download="OmniFlow-WhatsApp-Desktop-Suite.zip"
             style={{
               display: 'inline-flex',
