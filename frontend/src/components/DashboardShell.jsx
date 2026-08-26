@@ -1,5 +1,5 @@
 ﻿import VoxbayCloudDialerModal from './telecalling/VoxbayCloudDialerModal';
-// OmniFlow EMS v2.5 — Telecalling + Mobile UI — Build 20260729
+// OmniFlow EMS v2.5 � Telecalling + Mobile UI � Build 20260729
 // CACHE BUSTER: 2026-07-29 03:20 PM - Verified 100% syntactically balanced JSX!
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import io from 'socket.io-client';
@@ -152,26 +152,26 @@ import {
 } from 'lucide-react';
 // Dynamic Registry - Auto-Extensible Module Config for RBAC
 export const DYNAMIC_MODULE_REGISTRY = [
-  { key: 'dashboards', label: '📊 Dashboards & Analytics' },
-  { key: 'hr', label: '👥 HR Management & Employees' },
-  { key: 'payroll', label: '💰 Payroll & Financial Ledger' },
-  { key: 'crm', label: '💬 CRM & WhatsApp Sales' },
-  { key: 'operations', label: '⚙️ Operations & Tasks' },
-  { key: 'saas_portal', label: '🔒 SaaS Portal Settings' }
+  { key: 'dashboards', label: '?? Dashboards & Analytics' },
+  { key: 'hr', label: '?? HR Management & Employees' },
+  { key: 'payroll', label: '?? Payroll & Financial Ledger' },
+  { key: 'crm', label: '?? CRM & WhatsApp Sales' },
+  { key: 'operations', label: '?? Operations & Tasks' },
+  { key: 'saas_portal', label: '?? SaaS Portal Settings' }
 ];
 // Dynamic Self-Updating System Onboarding Guide Steps Engine with Multi-Lingual Voice Scripts
 export const INITIAL_GUIDE_STEPS = [
   {
     id: 'step_1',
     stepNumber: 1,
-    icon: '📱',
+    icon: '??',
     title: 'Pair WhatsApp QR Code',
     category: 'CRM & Sales',
     targetTab: 'channels',
     targetSelector: '.channels-tab-panel',
-    description: 'Navigate to CRM & Sales ➔ WA Channels, click "+ Add Channel", and scan the QR code using WhatsApp Linked Devices on mobile.',
+    description: 'Navigate to CRM & Sales ? WA Channels, click "+ Add Channel", and scan the QR code using WhatsApp Linked Devices on mobile.',
     scripts: {
-      hi: 'व्हाट्सएप क्यूआर कोड स्कैन करें। व्हाट्सएप लिंक्ड डिवाइसेज से क्यूआर कोड स्कैन करके अपना आधिकारिक नंबर कनेक्ट करें।',
+      hi: '????????? ?????? ??? ????? ????? ????????? ?????? ???????? ?? ?????? ??? ????? ???? ???? ???????? ???? ?????? ?????',
       hinglish: 'WhatsApp QR Code scan karein. Official number connect karke multi-agent inbox aur chatbot rules start karein.',
       en: 'Pair WhatsApp QR Code. Scan the dynamic QR code using WhatsApp Linked Devices on mobile.'
     },
@@ -180,31 +180,31 @@ export const INITIAL_GUIDE_STEPS = [
   {
     id: 'step_2',
     stepNumber: 2,
-    icon: '👥',
+    icon: '??',
     title: 'Onboard Staff & Credentials',
     category: 'HR Management',
     targetTab: 'employees',
     targetSelector: '.employees-directory-panel',
-    description: 'Add your employees in HR Management ➔ All Employees. Set work emails, phone numbers, and assign departments.',
+    description: 'Add your employees in HR Management ? All Employees. Set work emails, phone numbers, and assign departments.',
     scripts: {
-      hi: 'कर्मचारी ऑनबोर्डिंग और क्रेडेंशियल्स। नए कर्मचारी का नाम, ईमेल, फोन नंबर और विभाग दर्ज करके लॉगिन आईडी बनाएं।',
+      hi: '???????? ?????????? ?? ?????????????? ?? ???????? ?? ???, ????, ??? ???? ?? ????? ???? ???? ????? ???? ??????',
       hinglish: 'Employee onboarding aur credentials. New staff profile add karke work email aur salary rate set karein.',
-      en: 'Add your employees in HR Management ➔ All Employees. Set work emails, phone numbers, and assign departments.'
+      en: 'Add your employees in HR Management ? All Employees. Set work emails, phone numbers, and assign departments.'
     },
     isLive: true
   },
   {
     id: 'step_3',
     stepNumber: 3,
-    icon: '🔒',
+    icon: '??',
     title: 'Configure Roles & Permissions (RBAC)',
     category: 'SaaS Portal',
     targetTab: 'roles_permissions',
     targetSelector: '.roles-permissions-panel',
-    description: 'Set granular Create, Read, Edit, Delete, Export, and Approve permissions per role in SaaS Portal ➔ Roles & Permissions.',
+    description: 'Set granular Create, Read, Edit, Delete, Export, and Approve permissions per role in SaaS Portal ? Roles & Permissions.',
     isLive: true,
     scripts: {
-      hi: 'भूमिकाएं और अनुमतियां मैट्रिक्स। मैनेजर, अकाउंटेंट और कर्मचारियों के लिए अलग-अलग क्रिएट, एडिट और डिलीट अनुमतियां सेट करें।',
+      hi: '???????? ?? ????????? ?????????? ??????, ????????? ?? ??????????? ?? ??? ???-??? ??????, ???? ?? ????? ????????? ??? ?????',
       hinglish: 'Roles aur Permissions matrix setup. Manager aur staff ke liye Create, Edit, Delete permissions toggle karein.',
       en: 'Set granular Create, Read, Edit, Delete, Export, and Approve permissions per role in Roles & Permissions matrix.'
     }
@@ -212,14 +212,14 @@ export const INITIAL_GUIDE_STEPS = [
   {
     id: 'step_4',
     stepNumber: 4,
-    icon: '📍',
+    icon: '??',
     title: 'Live GPS Field Tracking',
     category: 'Operations',
     targetTab: 'gps_attendance',
     targetSelector: '.live-tracking-panel',
-    description: 'Staff check-in from My Portal ➔ Shift Attendance. View live field worker positions and movement routes in Live Tracking Map.',
+    description: 'Staff check-in from My Portal ? Shift Attendance. View live field worker positions and movement routes in Live Tracking Map.',
     scripts: {
-      hi: 'लाइव जीपीएस फील्ड ट्रैकिंग। फील्ड कर्मचारियों की रियल-टाइम लोकेशन, व्हीकल स्पीड और ट्रेवल रूट मैप पर देखें।',
+      hi: '???? ?????? ????? ????????? ????? ??????????? ?? ????-???? ??????, ?????? ????? ?? ?????? ??? ??? ?? ??????',
       hinglish: 'Live GPS Field Tracking. Staff check-in locations aur real-time route path map par track karein.',
       en: 'View live field worker positions, vehicle speed, and movement routes in Live Tracking Map.'
     },
@@ -228,14 +228,14 @@ export const INITIAL_GUIDE_STEPS = [
   {
     id: 'step_5',
     stepNumber: 5,
-    icon: '💰',
+    icon: '??',
     title: 'Auto Payroll & Payslip Generation',
     category: 'Payroll & Finance',
     targetTab: 'payroll',
     targetSelector: '.payroll-panel',
-    description: 'Calculate net salaries based on monthly attendance days in Payroll & Finance ➔ Payroll & Salary and download payslips.',
+    description: 'Calculate net salaries based on monthly attendance days in Payroll & Finance ? Payroll & Salary and download payslips.',
     scripts: {
-      hi: 'ऑटो पेरोल और वेतन पर्ची। उपस्थिति के आधार पर कर्मचारियों का कुल वेतन ऑटो कैलकुलेट करें और पे-स्लिप डाउनलोड करें।',
+      hi: '??? ????? ?? ???? ?????? ???????? ?? ???? ?? ??????????? ?? ??? ???? ??? ???????? ???? ?? ??-????? ??????? ?????',
       hinglish: 'Auto Payroll aur Salary calculation. Attendance days ke according net salary calculate karke payslip download karein.',
       en: 'Calculate net salaries based on monthly attendance days and download automated payslips.'
     },
@@ -244,14 +244,14 @@ export const INITIAL_GUIDE_STEPS = [
   {
     id: 'step_6',
     stepNumber: 6,
-    icon: '🛡️',
+    icon: '???',
     title: 'Soft Delete Data Recovery',
     category: 'SaaS Portal',
     targetTab: 'recycle_bin',
     targetSelector: '.recycle-bin-panel',
-    description: 'Deleted items are archived in SaaS Portal ➔ Recycle Bin with zero data loss. Restore records anytime with 1 click.',
+    description: 'Deleted items are archived in SaaS Portal ? Recycle Bin with zero data loss. Restore records anytime with 1 click.',
     scripts: {
-      hi: 'सॉफ्ट डिलीट रीसायकल बिन। डिलीट किया गया डेटा रीसायकल बिन में सुरक्षित रहता है। 1-क्लिक में रीस्टोर करें।',
+      hi: '????? ????? ??????? ???? ????? ???? ??? ???? ??????? ??? ??? ???????? ???? ??? 1-????? ??? ??????? ?????',
       hinglish: 'Soft Delete Data Recovery. Deleted profiles Recycle Bin mein archived rehti hain. 1-Click me restore karein.',
       en: 'Deleted items are archived in Recycle Bin with zero data loss. Restore records anytime with 1 click.'
     },
@@ -290,12 +290,12 @@ const getLabelStyles = (label) => {
   };
 };
 const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-const DEFAULT_GATEWAY = 'https://retention-ellen-beijing-motorcycles.trycloudflare.com';
+const DEFAULT_GATEWAY = typeof window !== 'undefined' && window.location.origin && window.location.origin !== 'null' ? window.location.origin : 'https://app.employeemanagementsystems.com';
 const customGateway = typeof window !== 'undefined' ? localStorage.getItem('omniflow_custom_gateway') : null;
 const LIVE_BACKEND = customGateway || DEFAULT_GATEWAY;
 const SOCKET_URL = IS_DEV ? 'http://localhost:5000' : LIVE_BACKEND;
 const API_URL = IS_DEV ? 'http://localhost:5000/api' : `${LIVE_BACKEND}/api`;
-// Safe reference to original fetch — must be captured lazily to avoid Rolldown TDZ in production bundle
+// Safe reference to original fetch � must be captured lazily to avoid Rolldown TDZ in production bundle
 let _originalFetch = null;
 function getOriginalFetch() {
   if (!_originalFetch) {
@@ -567,112 +567,112 @@ function AccordionCategory({ id, label, icon, isExpanded, onToggle, children }) 
   );
 }
 const ALL_WORLD_CURRENCIES = [
-  { code: 'USD', name: 'US Dollar ($)', flag: '🇺🇸' },
-  { code: 'INR', name: 'Indian Rupee (₹)', flag: '🇮🇳' },
-  { code: 'EUR', name: 'Euro (€)', flag: '🇪🇺' },
-  { code: 'AED', name: 'UAE Dirham (د.إ)', flag: '🇦🇪' },
-  { code: 'GBP', name: 'British Pound (£)', flag: '🇬🇧' },
-  { code: 'SAR', name: 'Saudi Riyal (﷼)', flag: '🇸🇦' },
-  { code: 'CAD', name: 'Canadian Dollar ($)', flag: '🇨🇦' },
-  { code: 'AUD', name: 'Australian Dollar ($)', flag: '🇦🇺' },
-  { code: 'KWD', name: 'Kuwaiti Dinar (KD)', flag: '🇰🇼' },
-  { code: 'QAR', name: 'Qatari Riyal (QR)', flag: '🇶🇦' },
-  { code: 'BHD', name: 'Bahraini Dinar (BD)', flag: '🇧🇭' },
-  { code: 'OMR', name: 'Omani Rial (RO)', flag: '🇴🇲' },
-  { code: 'SGD', name: 'Singapore Dollar ($)', flag: '🇸🇬' },
-  { code: 'JPY', name: 'Japanese Yen (¥)', flag: '🇯🇵' },
-  { code: 'CHF', name: 'Swiss Franc (CHF)', flag: '🇨🇭' },
-  { code: 'CNY', name: 'Chinese Yuan (¥)', flag: '🇨🇳' },
-  { code: 'HKD', name: 'Hong Kong Dollar ($)', flag: '🇭🇰' },
-  { code: 'NZD', name: 'New Zealand Dollar ($)', flag: '🇳🇿' },
-  { code: 'SEK', name: 'Swedish Krona (kr)', flag: '🇸🇪' },
-  { code: 'NOK', name: 'Norwegian Krone (kr)', flag: '🇳🇴' },
-  { code: 'DKK', name: 'Danish Krone (kr)', flag: '🇩🇰' },
-  { code: 'PLN', name: 'Polish Zloty (zł)', flag: '🇵🇱' },
-  { code: 'TRY', name: 'Turkish Lira (₺)', flag: '🇹🇷' },
-  { code: 'THB', name: 'Thai Baht (฿)', flag: '🇹🇭' },
-  { code: 'MYR', name: 'Malaysian Ringgit (RM)', flag: '🇲🇾' },
-  { code: 'IDR', name: 'Indonesian Rupiah (Rp)', flag: '🇮🇩' },
-  { code: 'PHP', name: 'Philippine Peso (₱)', flag: '🇵🇭' },
-  { code: 'VND', name: 'Vietnamese Dong (₫)', flag: '🇻🇳' },
-  { code: 'KRW', name: 'South Korean Won (₩)', flag: '🇰🇷' },
-  { code: 'BRL', name: 'Brazilian Real (R$)', flag: '🇧🇷' },
-  { code: 'MXN', name: 'Mexican Peso ($)', flag: '🇲🇽' },
-  { code: 'ZAR', name: 'South African Rand (R)', flag: '🇿🇦' },
-  { code: 'EGP', name: 'Egyptian Pound (E£)', flag: '🇪🇬' },
-  { code: 'NGN', name: 'Nigerian Naira (₦)', flag: '🇳🇬' },
-  { code: 'KES', name: 'Kenyan Shilling (KSh)', flag: '🇰🇪' },
-  { code: 'PKR', name: 'Pakistani Rupee (Rs)', flag: '🇵🇰' },
-  { code: 'BDT', name: 'Bangladeshi Taka (৳)', flag: '🇧🇩' },
-  { code: 'LKR', name: 'Sri Lankan Rupee (Rs)', flag: '🇱🇰' },
-  { code: 'NPR', name: 'Nepalese Rupee (Rs)', flag: '🇳🇵' },
-  { code: 'RUB', name: 'Russian Ruble (₽)', flag: '🇷🇺' },
-  { code: 'ILS', name: 'Israeli New Shekel (₪)', flag: '🇮🇱' },
-  { code: 'COP', name: 'Colombian Peso ($)', flag: '🇨🇴' },
-  { code: 'CLP', name: 'Chilean Peso ($)', flag: '🇨🇱' },
-  { code: 'PEN', name: 'Peruvian Sol (S/)', flag: '🇵🇪' },
-  { code: 'ARS', name: 'Argentine Peso ($)', flag: '🇦🇷' },
-  { code: 'CZK', name: 'Czech Koruna (Kč)', flag: '🇨🇿' },
-  { code: 'HUF', name: 'Hungarian Forint (Ft)', flag: '🇭🇺' },
-  { code: 'RON', name: 'Romanian Leu (lei)', flag: '🇷🇴' },
-  { code: 'BGN', name: 'Bulgarian Lev (лв)', flag: '🇧🇬' },
-  { code: 'HRK', name: 'Croatian Kuna (kn)', flag: '🇭🇷' },
-  { code: 'ISK', name: 'Icelandic Krona (kr)', flag: '🇮🇸' },
-  { code: 'JOD', name: 'Jordanian Dinar (JD)', flag: '🇯🇴' },
-  { code: 'LBP', name: 'Lebanese Pound (L£)', flag: '🇱🇧' },
-  { code: 'IQD', name: 'Iraqi Dinar (IQD)', flag: '🇮🇶' },
-  { code: 'DZD', name: 'Algerian Dinar (DA)', flag: '🇩🇿' },
-  { code: 'MAD', name: 'Moroccan Dirham (MAD)', flag: '🇲🇦' },
-  { code: 'TND', name: 'Tunisian Dinar (DT)', flag: '🇹🇳' },
-  { code: 'GHS', name: 'Ghanaian Cedi (GH₵)', flag: '🇬🇭' },
-  { code: 'ETB', name: 'Ethiopian Birr (Br)', flag: '🇪🇹' },
-  { code: 'TZS', name: 'Tanzanian Shilling (TSh)', flag: '🇹🇿' },
-  { code: 'UGX', name: 'Ugandan Shilling (USh)', flag: '🇺🇬' },
-  { code: 'MUR', name: 'Mauritian Rupee (Rs)', flag: '🇲🇺' }
+  { code: 'USD', name: 'US Dollar ($)', flag: '????' },
+  { code: 'INR', name: 'Indian Rupee (?)', flag: '????' },
+  { code: 'EUR', name: 'Euro (�)', flag: '????' },
+  { code: 'AED', name: 'UAE Dirham (?.?)', flag: '????' },
+  { code: 'GBP', name: 'British Pound (�)', flag: '????' },
+  { code: 'SAR', name: 'Saudi Riyal (?)', flag: '????' },
+  { code: 'CAD', name: 'Canadian Dollar ($)', flag: '????' },
+  { code: 'AUD', name: 'Australian Dollar ($)', flag: '????' },
+  { code: 'KWD', name: 'Kuwaiti Dinar (KD)', flag: '????' },
+  { code: 'QAR', name: 'Qatari Riyal (QR)', flag: '????' },
+  { code: 'BHD', name: 'Bahraini Dinar (BD)', flag: '????' },
+  { code: 'OMR', name: 'Omani Rial (RO)', flag: '????' },
+  { code: 'SGD', name: 'Singapore Dollar ($)', flag: '????' },
+  { code: 'JPY', name: 'Japanese Yen (�)', flag: '????' },
+  { code: 'CHF', name: 'Swiss Franc (CHF)', flag: '????' },
+  { code: 'CNY', name: 'Chinese Yuan (�)', flag: '????' },
+  { code: 'HKD', name: 'Hong Kong Dollar ($)', flag: '????' },
+  { code: 'NZD', name: 'New Zealand Dollar ($)', flag: '????' },
+  { code: 'SEK', name: 'Swedish Krona (kr)', flag: '????' },
+  { code: 'NOK', name: 'Norwegian Krone (kr)', flag: '????' },
+  { code: 'DKK', name: 'Danish Krone (kr)', flag: '????' },
+  { code: 'PLN', name: 'Polish Zloty (zl)', flag: '????' },
+  { code: 'TRY', name: 'Turkish Lira (?)', flag: '????' },
+  { code: 'THB', name: 'Thai Baht (?)', flag: '????' },
+  { code: 'MYR', name: 'Malaysian Ringgit (RM)', flag: '????' },
+  { code: 'IDR', name: 'Indonesian Rupiah (Rp)', flag: '????' },
+  { code: 'PHP', name: 'Philippine Peso (?)', flag: '????' },
+  { code: 'VND', name: 'Vietnamese Dong (?)', flag: '????' },
+  { code: 'KRW', name: 'South Korean Won (?)', flag: '????' },
+  { code: 'BRL', name: 'Brazilian Real (R$)', flag: '????' },
+  { code: 'MXN', name: 'Mexican Peso ($)', flag: '????' },
+  { code: 'ZAR', name: 'South African Rand (R)', flag: '????' },
+  { code: 'EGP', name: 'Egyptian Pound (E�)', flag: '????' },
+  { code: 'NGN', name: 'Nigerian Naira (?)', flag: '????' },
+  { code: 'KES', name: 'Kenyan Shilling (KSh)', flag: '????' },
+  { code: 'PKR', name: 'Pakistani Rupee (Rs)', flag: '????' },
+  { code: 'BDT', name: 'Bangladeshi Taka (?)', flag: '????' },
+  { code: 'LKR', name: 'Sri Lankan Rupee (Rs)', flag: '????' },
+  { code: 'NPR', name: 'Nepalese Rupee (Rs)', flag: '????' },
+  { code: 'RUB', name: 'Russian Ruble (?)', flag: '????' },
+  { code: 'ILS', name: 'Israeli New Shekel (?)', flag: '????' },
+  { code: 'COP', name: 'Colombian Peso ($)', flag: '????' },
+  { code: 'CLP', name: 'Chilean Peso ($)', flag: '????' },
+  { code: 'PEN', name: 'Peruvian Sol (S/)', flag: '????' },
+  { code: 'ARS', name: 'Argentine Peso ($)', flag: '????' },
+  { code: 'CZK', name: 'Czech Koruna (Kc)', flag: '????' },
+  { code: 'HUF', name: 'Hungarian Forint (Ft)', flag: '????' },
+  { code: 'RON', name: 'Romanian Leu (lei)', flag: '????' },
+  { code: 'BGN', name: 'Bulgarian Lev (??)', flag: '????' },
+  { code: 'HRK', name: 'Croatian Kuna (kn)', flag: '????' },
+  { code: 'ISK', name: 'Icelandic Krona (kr)', flag: '????' },
+  { code: 'JOD', name: 'Jordanian Dinar (JD)', flag: '????' },
+  { code: 'LBP', name: 'Lebanese Pound (L�)', flag: '????' },
+  { code: 'IQD', name: 'Iraqi Dinar (IQD)', flag: '????' },
+  { code: 'DZD', name: 'Algerian Dinar (DA)', flag: '????' },
+  { code: 'MAD', name: 'Moroccan Dirham (MAD)', flag: '????' },
+  { code: 'TND', name: 'Tunisian Dinar (DT)', flag: '????' },
+  { code: 'GHS', name: 'Ghanaian Cedi (GH?)', flag: '????' },
+  { code: 'ETB', name: 'Ethiopian Birr (Br)', flag: '????' },
+  { code: 'TZS', name: 'Tanzanian Shilling (TSh)', flag: '????' },
+  { code: 'UGX', name: 'Ugandan Shilling (USh)', flag: '????' },
+  { code: 'MUR', name: 'Mauritian Rupee (Rs)', flag: '????' }
 ];
 export const ALL_WORLD_LANGUAGES = [
-  { code: 'en', name: 'English (Global)', nativeName: 'English', flag: '🇬🇧' },
-  { code: 'hi', name: 'Hindi', nativeName: 'हिंदी', flag: '🇮🇳' },
-  { code: 'ar', name: 'Arabic (RTL)', nativeName: 'العربية', flag: '🇦🇪' },
-  { code: 'es', name: 'Spanish', nativeName: 'Español', flag: '🇪🇸' },
-  { code: 'fr', name: 'French', nativeName: 'Français', flag: '🇫🇷' },
-  { code: 'de', name: 'German', nativeName: 'Deutsch', flag: '🇩🇪' },
-  { code: 'zh', name: 'Chinese (Simplified)', nativeName: '中文(简体)', flag: '🇨🇳' },
-  { code: 'zh-TW', name: 'Chinese (Traditional)', nativeName: '中文(繁體)', flag: '🇹🇼' },
-  { code: 'ja', name: 'Japanese', nativeName: '日本語', flag: '🇯🇵' },
-  { code: 'ko', name: 'Korean', nativeName: '한국어', flag: '🇰🇷' },
-  { code: 'ru', name: 'Russian', nativeName: 'Русский', flag: '🇷🇺' },
-  { code: 'pt', name: 'Portuguese', nativeName: 'Português', flag: '🇵🇹' },
-  { code: 'it', name: 'Italian', nativeName: 'Italiano', flag: '🇮🇹' },
-  { code: 'nl', name: 'Dutch', nativeName: 'Nederlands', flag: '🇳🇱' },
-  { code: 'tr', name: 'Turkish', nativeName: 'Türkçe', flag: '🇹🇷' },
-  { code: 'pl', name: 'Polish', nativeName: 'Polski', flag: '🇵🇱' },
-  { code: 'sv', name: 'Swedish', nativeName: 'Svenska', flag: '🇸🇪' },
-  { code: 'no', name: 'Norwegian', nativeName: 'Norsk', flag: '🇳🇴' },
-  { code: 'da', name: 'Danish', nativeName: 'Dansk', flag: '🇩🇰' },
-  { code: 'fi', name: 'Finnish', nativeName: 'Suomi', flag: '🇫🇮' },
-  { code: 'el', name: 'Greek', nativeName: 'Ελληνικά', flag: '🇬🇷' },
-  { code: 'he', name: 'Hebrew (RTL)', nativeName: 'עברית', flag: '🇮🇱' },
-  { code: 'th', name: 'Thai', nativeName: 'ไทย', flag: '🇹🇭' },
-  { code: 'vi', name: 'Vietnamese', nativeName: 'Tiếng Việt', flag: '🇻🇳' },
-  { code: 'id', name: 'Indonesian', nativeName: 'Bahasa Indonesia', flag: '🇮🇩' },
-  { code: 'ms', name: 'Malay', nativeName: 'Bahasa Melayu', flag: '🇲🇾' },
-  { code: 'uk', name: 'Ukrainian', nativeName: 'Українська', flag: '🇺🇦' },
-  { code: 'cs', name: 'Czech', nativeName: 'Čeština', flag: '🇨🇿' },
-  { code: 'hu', name: 'Hungarian', nativeName: 'Magyar', flag: '🇭🇺' },
-  { code: 'ro', name: 'Romanian', nativeName: 'Română', flag: '🇷🇴' },
-  { code: 'pa', name: 'Punjabi', nativeName: 'ਪੰਜਾਬੀ', flag: '🇮🇳' },
-  { code: 'bn', name: 'Bengali', nativeName: 'বাংলা', flag: '🇮🇳' },
-  { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்', flag: '🇮🇳' },
-  { code: 'te', name: 'Telugu', nativeName: 'తెలుగు', flag: '🇮🇳' },
-  { code: 'mr', name: 'Marathi', nativeName: 'मराठी', flag: '🇮🇳' },
-  { code: 'gu', name: 'Gujarati', nativeName: 'ગુજરાતી', flag: '🇮🇳' },
-  { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ', flag: '🇮🇳' },
-  { code: 'ml', name: 'Malayalam', nativeName: 'മലയാളം', flag: '🇮🇳' },
-  { code: 'ur', name: 'Urdu (RTL)', nativeName: 'اردو', flag: '🇵🇰' },
-  { code: 'fa', name: 'Persian (RTL)', nativeName: 'فارسی', flag: '🇮🇷' },
-  { code: 'sw', name: 'Swahili', nativeName: 'Kiswahili', flag: '🇰🇪' },
-  { code: 'af', name: 'Afrikaans', nativeName: 'Afrikaans', flag: '🇿🇦' }
+  { code: 'en', name: 'English (Global)', nativeName: 'English', flag: '????' },
+  { code: 'hi', name: 'Hindi', nativeName: '?????', flag: '????' },
+  { code: 'ar', name: 'Arabic (RTL)', nativeName: '???????', flag: '????' },
+  { code: 'es', name: 'Spanish', nativeName: 'Espa�ol', flag: '????' },
+  { code: 'fr', name: 'French', nativeName: 'Fran�ais', flag: '????' },
+  { code: 'de', name: 'German', nativeName: 'Deutsch', flag: '????' },
+  { code: 'zh', name: 'Chinese (Simplified)', nativeName: '??(??)', flag: '????' },
+  { code: 'zh-TW', name: 'Chinese (Traditional)', nativeName: '??(??)', flag: '????' },
+  { code: 'ja', name: 'Japanese', nativeName: '???', flag: '????' },
+  { code: 'ko', name: 'Korean', nativeName: '???', flag: '????' },
+  { code: 'ru', name: 'Russian', nativeName: '???????', flag: '????' },
+  { code: 'pt', name: 'Portuguese', nativeName: 'Portugu�s', flag: '????' },
+  { code: 'it', name: 'Italian', nativeName: 'Italiano', flag: '????' },
+  { code: 'nl', name: 'Dutch', nativeName: 'Nederlands', flag: '????' },
+  { code: 'tr', name: 'Turkish', nativeName: 'T�rk�e', flag: '????' },
+  { code: 'pl', name: 'Polish', nativeName: 'Polski', flag: '????' },
+  { code: 'sv', name: 'Swedish', nativeName: 'Svenska', flag: '????' },
+  { code: 'no', name: 'Norwegian', nativeName: 'Norsk', flag: '????' },
+  { code: 'da', name: 'Danish', nativeName: 'Dansk', flag: '????' },
+  { code: 'fi', name: 'Finnish', nativeName: 'Suomi', flag: '????' },
+  { code: 'el', name: 'Greek', nativeName: '????????', flag: '????' },
+  { code: 'he', name: 'Hebrew (RTL)', nativeName: '?????', flag: '????' },
+  { code: 'th', name: 'Thai', nativeName: '???', flag: '????' },
+  { code: 'vi', name: 'Vietnamese', nativeName: 'Ti?ng Vi?t', flag: '????' },
+  { code: 'id', name: 'Indonesian', nativeName: 'Bahasa Indonesia', flag: '????' },
+  { code: 'ms', name: 'Malay', nativeName: 'Bahasa Melayu', flag: '????' },
+  { code: 'uk', name: 'Ukrainian', nativeName: '??????????', flag: '????' },
+  { code: 'cs', name: 'Czech', nativeName: 'Ce�tina', flag: '????' },
+  { code: 'hu', name: 'Hungarian', nativeName: 'Magyar', flag: '????' },
+  { code: 'ro', name: 'Romanian', nativeName: 'Rom�na', flag: '????' },
+  { code: 'pa', name: 'Punjabi', nativeName: '??????', flag: '????' },
+  { code: 'bn', name: 'Bengali', nativeName: '?????', flag: '????' },
+  { code: 'ta', name: 'Tamil', nativeName: '?????', flag: '????' },
+  { code: 'te', name: 'Telugu', nativeName: '??????', flag: '????' },
+  { code: 'mr', name: 'Marathi', nativeName: '?????', flag: '????' },
+  { code: 'gu', name: 'Gujarati', nativeName: '???????', flag: '????' },
+  { code: 'kn', name: 'Kannada', nativeName: '?????', flag: '????' },
+  { code: 'ml', name: 'Malayalam', nativeName: '??????', flag: '????' },
+  { code: 'ur', name: 'Urdu (RTL)', nativeName: '????', flag: '????' },
+  { code: 'fa', name: 'Persian (RTL)', nativeName: '?????', flag: '????' },
+  { code: 'sw', name: 'Swahili', nativeName: 'Kiswahili', flag: '????' },
+  { code: 'af', name: 'Afrikaans', nativeName: 'Afrikaans', flag: '????' }
 ];
 export default function DashboardShell({ authUser, setAuthUser }) {
   // Install fetch interceptor lazily (not at module scope) to avoid Rolldown TDZ in production bundle
@@ -1019,7 +1019,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const timerIntervalRef = useRef(null);
-  // Fetch Call Logs on mount — localStorage first (fastest, has audio), then Firestore merge
+  // Fetch Call Logs on mount � localStorage first (fastest, has audio), then Firestore merge
   useEffect(() => {
     // 1. Load from localStorage immediately (has real audio base64, persists same browser)
     try {
@@ -1080,7 +1080,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const startMicRecording = async () => {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert('⚠️ Microphone access requires HTTPS.\nPlease use https://ems-crm-sandy.vercel.app');
+        alert('?? Microphone access requires HTTPS.\nPlease use https://ems-crm-sandy.vercel.app');
         return;
       }
       // Mobile-optimized audio constraints
@@ -1142,7 +1142,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         : err.name === 'NotFoundError'
         ? 'Microphone not found on this device!'
         : err.message;
-      alert('⚠️ Mic Error: ' + msg);
+      alert('?? Mic Error: ' + msg);
     }
   };
   const stopMicRecording = () => {
@@ -1171,7 +1171,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       };
       // Instant state update
       setCallLogs(prev => [newRecord, ...prev]);
-      alert('🎉 Recording Saved! Check table below.');
+      alert('?? Recording Saved! Check table below.');
       // Save to localStorage as base64 (survives refresh, works on mobile)
       if (audioBlob && audioBlob.size > 100) {
         const reader = new FileReader();
@@ -1182,7 +1182,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             const updated = [recordWithAudio, ...existing.filter(l => l.id !== recordWithAudio.id)].slice(0, 100);
             localStorage.setItem('omniflow_callLogs', JSON.stringify(updated));
             setCallLogs(prev => prev.map(log => log.id === newRecord.id ? recordWithAudio : log));
-            console.log('✅ Recording saved to localStorage! Size:', Math.round(audioBlob.size / 1024) + 'KB');
+            console.log('? Recording saved to localStorage! Size:', Math.round(audioBlob.size / 1024) + 'KB');
           } catch (lsErr) { console.log('Notice: localStorage:', lsErr.message); }
           // Firestore metadata (no audio)
           try { addDoc(collection(db, 'callLogs'), { ...newRecord, recordingUrl: '[on device]' }).catch(() => {}); } catch (e) {}
@@ -1195,7 +1195,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         };
         reader.readAsDataURL(audioBlob);
       } else {
-        // No audio blob — save metadata only
+        // No audio blob � save metadata only
         try {
           const existing = JSON.parse(localStorage.getItem('omniflow_callLogs') || '[]');
           localStorage.setItem('omniflow_callLogs', JSON.stringify([newRecord, ...existing].slice(0, 100)));
@@ -1205,7 +1205,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     };
     const recorder = mediaRecorderRef.current;
     if (recorder && recorder.state !== 'inactive') {
-      // onstop fires AFTER final ondataavailable — safe to build blob here
+      // onstop fires AFTER final ondataavailable � safe to build blob here
       recorder.onstop = () => {
         // Small timeout ensures all ondataavailable events have fired
         setTimeout(() => {
@@ -1223,9 +1223,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         console.error('[Recording] MediaRecorder error:', e);
         processAndSave(null);
       };
-      recorder.stop(); // DO NOT call requestData before stop — causes issues on desktop Chrome
+      recorder.stop(); // DO NOT call requestData before stop � causes issues on desktop Chrome
     } else {
-      // Recorder already inactive — use whatever chunks we have
+      // Recorder already inactive � use whatever chunks we have
       const mime = recorder?.mimeType || 'audio/webm';
       const chunks = audioChunksRef.current;
       const audioBlob = chunks && chunks.length > 0 ? new Blob(chunks, { type: mime }) : null;
@@ -1255,7 +1255,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     // Save to Firebase Firestore so it persists after refresh
     try {
       addDoc(collection(db, 'callLogs'), { ...fallbackLog, _createdAt: Date.now() })
-        .then(() => console.log('✅ Simulated call log saved to Firebase!'))
+        .then(() => console.log('? Simulated call log saved to Firebase!'))
         .catch(err => console.log('Notice: Firebase save:', err.message));
     } catch (fbErr) {}
     try {
@@ -1265,7 +1265,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         body: JSON.stringify(fallbackLog)
       });
     } catch (err) {}
-    alert(`🎉 Real ${callType} SIM Call Synced & Audio Player Ready!`);
+    alert(`?? Real ${callType} SIM Call Synced & Audio Player Ready!`);
   };
   const handleSortTelecalling = (field) => {
     if (telecallingSortField === field) {
@@ -1493,10 +1493,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         const parsed = JSON.parse(saved);
         if (!parsed.atsStages || !Array.isArray(parsed.atsStages)) {
           parsed.atsStages = [
-            { id: 'applied', key: 'APPLIED', name: 'Applied', emoji: '📥', color: '#0d9488', semanticType: 'APPLIED', archived: false, sortOrder: 1 },
-            { id: 'interviewing', key: 'INTERVIEWING', name: 'Interviewing', emoji: '🗣️', color: '#2563eb', semanticType: 'INTERVIEW', archived: false, sortOrder: 2 },
-            { id: 'offered', key: 'OFFERED', name: 'Offered', emoji: '📋', color: '#d97706', semanticType: 'OFFER', archived: false, sortOrder: 3 },
-            { id: 'hired', key: 'HIRED', name: 'Hired', emoji: '✅', color: '#059669', semanticType: 'HIRED', archived: false, sortOrder: 4 }
+            { id: 'applied', key: 'APPLIED', name: 'Applied', emoji: '??', color: '#0d9488', semanticType: 'APPLIED', archived: false, sortOrder: 1 },
+            { id: 'interviewing', key: 'INTERVIEWING', name: 'Interviewing', emoji: '???', color: '#2563eb', semanticType: 'INTERVIEW', archived: false, sortOrder: 2 },
+            { id: 'offered', key: 'OFFERED', name: 'Offered', emoji: '??', color: '#d97706', semanticType: 'OFFER', archived: false, sortOrder: 3 },
+            { id: 'hired', key: 'HIRED', name: 'Hired', emoji: '?', color: '#059669', semanticType: 'HIRED', archived: false, sortOrder: 4 }
           ];
         }
         return parsed;
@@ -1506,10 +1506,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       departments: ['IT & Engineering', 'Sales & Marketing', 'Field Operations', 'HR & Administration', 'Finance & Accounting'],
       designations: ['Software Engineer', 'Sales Representative', 'HR Specialist', 'Field Agent', 'Accountant', 'Team Lead'],
       atsStages: [
-        { id: 'applied', key: 'APPLIED', name: 'Applied', emoji: '📥', color: '#0d9488', semanticType: 'APPLIED', archived: false, sortOrder: 1 },
-        { id: 'interviewing', key: 'INTERVIEWING', name: 'Interviewing', emoji: '🗣️', color: '#2563eb', semanticType: 'INTERVIEW', archived: false, sortOrder: 2 },
-        { id: 'offered', key: 'OFFERED', name: 'Offered', emoji: '📋', color: '#d97706', semanticType: 'OFFER', archived: false, sortOrder: 3 },
-        { id: 'hired', key: 'HIRED', name: 'Hired', emoji: '✅', color: '#059669', semanticType: 'HIRED', archived: false, sortOrder: 4 }
+        { id: 'applied', key: 'APPLIED', name: 'Applied', emoji: '??', color: '#0d9488', semanticType: 'APPLIED', archived: false, sortOrder: 1 },
+        { id: 'interviewing', key: 'INTERVIEWING', name: 'Interviewing', emoji: '???', color: '#2563eb', semanticType: 'INTERVIEW', archived: false, sortOrder: 2 },
+        { id: 'offered', key: 'OFFERED', name: 'Offered', emoji: '??', color: '#d97706', semanticType: 'OFFER', archived: false, sortOrder: 3 },
+        { id: 'hired', key: 'HIRED', name: 'Hired', emoji: '?', color: '#059669', semanticType: 'HIRED', archived: false, sortOrder: 4 }
       ],
       leaveCategories: [
         { id: 'sick', name: 'Sick Leave', quota: 12 },
@@ -1845,89 +1845,89 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       action: 'Action'
     },
     hi: {
-      systemCat: 'सिस्टम प्रशासन',
-      dashboardsCat: 'डैशबोर्ड',
-      hrCat: 'एचआर प्रबंधन',
-      payrollCat: 'पेरोल एवं वित्त',
-      crmCat: 'सीआरएम एवं बिक्री',
-      opsCat: 'संचालन',
-      myPortalCat: 'मेरा पोर्टल',
-      helpSupportCat: 'सहायता एवं समर्थन',
-      settingsCat: 'सेटिंग्स',
-      superAdminPanel: 'सुपर एडमिन पैनल',
-      companyOverview: 'कंपनी अवलोकन',
-      taskAnalytics: 'कार्य विश्लेषण',
-      liveTracking: 'लाइव ट्रैकिंग मानचित्र',
-      auditLogs: 'सिस्टम ऑडिट लॉग',
-      allEmployees: 'सभी कर्मचारी',
-      employeeDirectory: 'कर्मचारी निर्देशिका',
-      recruitmentAts: 'भर्ती एवं एटीएस',
-      performanceKpis: 'प्रदर्शन (केपीआई)',
-      assetManagement: 'संपत्ति प्रबंधन',
-      verifyDocuments: 'दस्तावेज़ सत्यापन',
-      offboardingExit: 'ऑफ़बोर्डिंग एग्जिट',
-      payrollSalary: 'पेरोल और वेतन',
-      taxesCompliance: 'कर एवं अनुपालन',
-      incentivesBonus: 'प्रोत्साहन एवं बोनस',
-      ffSettlements: 'अंतिम निपटान (F&F)',
-      advancesLoans: 'अग्रिम एवं ऋण',
-      expensesClaim: 'व्यय दावा',
-      waChannels: 'व्हाट्सएप चैनल्स',
-      inboxChats: 'एकीकृत इनबॉक्स चैट',
-      crmPipeline: 'सीआरएम पाइपलाइन बोर्ड',
-      callRecordings: 'कॉल रिकॉर्डिंग एवं सिम सिंक',
-      chatbotRules: 'चैटबॉट नियम',
-      tasksBoard: 'कार्य बोर्ड',
-      officeKiosk: 'कार्यालय कियोस्क',
-      workHoursLog: 'कार्य घंटे लॉग',
-      noticeBoard: 'सूचना बोर्ड',
-      holidaysList: 'छुट्टियों की सूची',
-      rewardsBadges: 'पुरस्कार एवं बैज',
-      shiftAttendance: 'शिफ्ट उपस्थिति',
-      leavesRequests: 'छुट्टी के आवेदन',
-      workRoster: 'कार्य शिफ्ट रोस्टर',
-      appGuide: 'ऐप गाइड एवं टूर',
-      generalSettings: 'सामान्य सेटिंग्स',
-      rolesPermissions: 'भूमिकाएं एवं अनुमतियां',
-      recycleBin: 'कचरा पेटी (Bin)',
-      systemDropdowns: 'सिस्टम ड्रॉपडाउन',
-      moduleConfig: 'मॉड्यूल कॉन्फ़िगरेशन',
-      subscriptionBilling: 'सदस्यता बिलिंग',
-      changePassword: 'पासवर्ड बदलें',
-      preferencesRegion: 'प्राथमिकताएं और क्षेत्र',
-      languageLabel: 'भाषा',
-      displayCurrencyLabel: 'प्रदर्शित मुद्रा',
-      signOutAccount: 'साइन आउट करें',
-      companyDashboardTitle: 'कंपनी डैशबोर्ड (सुपर एडमिन व्यू)',
-      overviewSubtitle: 'आज आपकी फ़ील्ड टीम की गतिविधि का अवलोकन।',
-      totalEmployees: 'कुल कर्मचारी',
-      activeInField: 'फ़ील्ड में सक्रिय',
-      recentActivities: 'हाल की गतिविधियां',
-      weeklyAttendanceStats: 'साप्ताहिक उपस्थिति के आंकड़े',
-      workspaceNotices: 'वर्कस्पेस सूचनाएं',
-      workloadTable: 'कार्यभार वितरण तालिका',
-      employee: 'कर्मचारी',
-      role: 'भूमिका',
-      assignedTasks: 'आवंटित कार्य',
-      timelineStatus: 'समयरेखा स्थिति',
-      optimal: 'अनुकूल',
-      kpiTitle: 'केपीआई प्रदर्शन मेट्रिक्स',
-      kpiSubtitle: 'कर्मचारी रेटिंग, मेट्रिक्स अनुपालन और मासिक मूल्यांकन की समीक्षा करें।',
-      qualityRating: 'गुणवत्ता रेटिंग',
-      attendanceScore: 'उपस्थिति स्कोर',
-      overallGrade: 'कुल ग्रेड',
-      assetTitle: 'संपत्ति इन्वेंटरी आवंटन',
-      assetSubtitle: 'कर्मचारियों को सौंपे गए लैपटॉप, फोन और स्क्रीन को ट्रैक करें।',
-      assetTag: 'एसेट टैग',
-      deviceDetails: 'डिवाइस विवरण',
-      assignedTo: 'किसे सौंपा गया',
-      status: 'स्थिति',
-      payrollTitle: 'पेरोल लेजर एवं वेतन',
-      payrollSubtitle: 'कर्मचारी वेतन दरों का प्रबंधन करें, ओवरटाइम की गणना करें और पे-स्लिप डाउनलोड करें।',
-      baseSalary: 'मूल वेतन',
-      workingDays: 'कार्य दिवस (इस माह)',
-      netSalary: 'गणना की गई शुद्ध सैलरी',
-      action: 'कार्रवाई'
+      systemCat: '?????? ???????',
+      dashboardsCat: '????????',
+      hrCat: '???? ???????',
+      payrollCat: '????? ??? ?????',
+      crmCat: '?????? ??? ??????',
+      opsCat: '??????',
+      myPortalCat: '???? ??????',
+      helpSupportCat: '?????? ??? ??????',
+      settingsCat: '????????',
+      superAdminPanel: '???? ????? ????',
+      companyOverview: '????? ??????',
+      taskAnalytics: '????? ????????',
+      liveTracking: '???? ???????? ????????',
+      auditLogs: '?????? ???? ???',
+      allEmployees: '??? ????????',
+      employeeDirectory: '???????? ??????????',
+      recruitmentAts: '????? ??? ?????',
+      performanceKpis: '???????? (??????)',
+      assetManagement: '??????? ???????',
+      verifyDocuments: '????????? ???????',
+      offboardingExit: '??????????? ??????',
+      payrollSalary: '????? ?? ????',
+      taxesCompliance: '?? ??? ???????',
+      incentivesBonus: '?????????? ??? ????',
+      ffSettlements: '????? ?????? (F&F)',
+      advancesLoans: '?????? ??? ??',
+      expensesClaim: '???? ????',
+      waChannels: '????????? ??????',
+      inboxChats: '?????? ??????? ???',
+      crmPipeline: '?????? ???????? ?????',
+      callRecordings: '??? ?????????? ??? ??? ????',
+      chatbotRules: '?????? ????',
+      tasksBoard: '????? ?????',
+      officeKiosk: '???????? ???????',
+      workHoursLog: '????? ???? ???',
+      noticeBoard: '????? ?????',
+      holidaysList: '????????? ?? ????',
+      rewardsBadges: '???????? ??? ???',
+      shiftAttendance: '????? ????????',
+      leavesRequests: '?????? ?? ?????',
+      workRoster: '????? ????? ??????',
+      appGuide: '?? ???? ??? ???',
+      generalSettings: '??????? ????????',
+      rolesPermissions: '???????? ??? ?????????',
+      recycleBin: '???? ???? (Bin)',
+      systemDropdowns: '?????? ?????????',
+      moduleConfig: '??????? ????????????',
+      subscriptionBilling: '??????? ??????',
+      changePassword: '??????? ?????',
+      preferencesRegion: '???????????? ?? ???????',
+      languageLabel: '????',
+      displayCurrencyLabel: '????????? ??????',
+      signOutAccount: '???? ??? ????',
+      companyDashboardTitle: '????? ???????? (???? ????? ????)',
+      overviewSubtitle: '?? ???? ?????? ??? ?? ??????? ?? ???????',
+      totalEmployees: '??? ????????',
+      activeInField: '?????? ??? ??????',
+      recentActivities: '??? ?? ??????????',
+      weeklyAttendanceStats: '????????? ???????? ?? ??????',
+      workspaceNotices: '????????? ???????',
+      workloadTable: '???????? ????? ??????',
+      employee: '????????',
+      role: '??????',
+      assignedTasks: '?????? ?????',
+      timelineStatus: '??????? ??????',
+      optimal: '??????',
+      kpiTitle: '?????? ???????? ?????????',
+      kpiSubtitle: '???????? ??????, ????????? ??????? ?? ????? ????????? ?? ??????? ?????',
+      qualityRating: '???????? ??????',
+      attendanceScore: '???????? ?????',
+      overallGrade: '??? ?????',
+      assetTitle: '??????? ????????? ?????',
+      assetSubtitle: '??????????? ?? ????? ?? ??????, ??? ?? ??????? ?? ????? ?????',
+      assetTag: '???? ???',
+      deviceDetails: '?????? ?????',
+      assignedTo: '???? ????? ???',
+      status: '??????',
+      payrollTitle: '????? ???? ??? ????',
+      payrollSubtitle: '???????? ???? ???? ?? ??????? ????, ??????? ?? ???? ???? ?? ??-????? ??????? ?????',
+      baseSalary: '??? ????',
+      workingDays: '????? ???? (?? ???)',
+      netSalary: '???? ?? ?? ????? ?????',
+      action: '????????'
     },
     hinglish: {
       dashboardsCat: 'Dashboards',
@@ -1999,25 +1999,25 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     },
     es: {
       dashboardsCat: 'Paneles de Control',
-      companyOverview: 'Visión General de la Empresa',
-      taskAnalytics: 'Análisis de Tareas',
+      companyOverview: 'Visi�n General de la Empresa',
+      taskAnalytics: 'An�lisis de Tareas',
       liveTracking: 'Mapa de Seguimiento en Vivo',
-      auditLogs: 'Registros de Auditoría',
-      hrCat: 'Gestión de Recursos Humanos',
+      auditLogs: 'Registros de Auditor�a',
+      hrCat: 'Gesti�n de Recursos Humanos',
       allEmployees: 'Todos los Empleados',
       employeeDirectory: 'Directorio de Empleados',
       recruitmentAts: 'Reclutamiento y ATS',
       performanceKpis: 'Rendimiento (KPIs)',
-      assetManagement: 'Gestión de Activos',
+      assetManagement: 'Gesti�n de Activos',
       verifyDocuments: 'Verificar Documentos',
       offboardingExit: 'Proceso de Salida',
-      payrollCat: 'Nómina y Finanzas',
-      payrollSalary: 'Nómina y Salarios',
+      payrollCat: 'N�mina y Finanzas',
+      payrollSalary: 'N�mina y Salarios',
       taxesCompliance: 'Impuestos y Cumplimiento',
       incentivesBonus: 'Incentivos y Bonificaciones',
       ffSettlements: 'Liquidaciones F&F',
-      advancesLoans: 'Anticipos y Préstamos',
-      expensesClaim: 'Reclamación de Gastos',
+      advancesLoans: 'Anticipos y Pr�stamos',
+      expensesClaim: 'Reclamaci�n de Gastos',
       crmCat: 'CRM y Ventas',
       waChannels: 'Canales de WhatsApp',
       inboxChats: 'Bandeja de Entrada Unificada',
@@ -2027,8 +2027,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       tasksBoard: 'Tablero de Tareas',
       officeKiosk: 'Modo Kiosco de Oficina',
       workHoursLog: 'Registro de Horas de Trabajo',
-      noticeBoard: 'Tablón de Anuncios',
-      holidaysList: 'Lista de Días Festivos',
+      noticeBoard: 'Tabl�n de Anuncios',
+      holidaysList: 'Lista de D�as Festivos',
       rewardsBadges: 'Insignias y Recompensas',
       myPortalCat: 'Mi Portal',
       shiftAttendance: 'Asistencia de Turno',
@@ -2039,103 +2039,103 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       totalEmployees: 'Total de Empleados',
       activeInField: 'Activos en Campo',
       recentActivities: 'Actividades Recientes',
-      weeklyAttendanceStats: 'Estadísticas Semanales de Asistencia',
+      weeklyAttendanceStats: 'Estad�sticas Semanales de Asistencia',
       workspaceNotices: 'Avisos de Trabajo',
-      workloadTable: 'Tabla de Distribución de Carga',
+      workloadTable: 'Tabla de Distribuci�n de Carga',
       employee: 'Empleado',
       role: 'Rol',
       assignedTasks: 'Tareas Asignadas',
       timelineStatus: 'Estado de Cronograma',
-      optimal: 'Óptimo',
-      kpiTitle: 'Métricas de Rendimiento KPI',
+      optimal: '�ptimo',
+      kpiTitle: 'M�tricas de Rendimiento KPI',
       kpiSubtitle: 'Revise las calificaciones de los empleados y las evaluaciones mensuales.',
-      qualityRating: 'Calificación de Calidad',
-      attendanceScore: 'Puntuación de Asistencia',
+      qualityRating: 'Calificaci�n de Calidad',
+      attendanceScore: 'Puntuaci�n de Asistencia',
       overallGrade: 'Nota General',
-      assetTitle: 'Asignación de Inventario de Activos',
-      assetSubtitle: 'Rastree computadoras, teléfonos de prueba y pantallas asignadas.',
+      assetTitle: 'Asignaci�n de Inventario de Activos',
+      assetSubtitle: 'Rastree computadoras, tel�fonos de prueba y pantallas asignadas.',
       assetTag: 'Etiqueta de Activo',
       deviceDetails: 'Detalles del Dispositivo',
       assignedTo: 'Asignado a',
       status: 'Estado',
-      payrollTitle: 'Libro de Nóminas y Salarios',
+      payrollTitle: 'Libro de N�minas y Salarios',
       payrollSubtitle: 'Gestione tarifas base de trabajadores y descargue recibos de sueldo.',
       baseSalary: 'Salario Base',
-      workingDays: 'Días Trabajados (Este Mes)',
+      workingDays: 'D�as Trabajados (Este Mes)',
       netSalary: 'Salario Neto Calculado',
-      action: 'Acción'
+      action: 'Acci�n'
     },
     fr: {
       dashboardsCat: 'Tableaux de Bord',
-      companyOverview: 'Aperçu de l\'Entreprise',
-      taskAnalytics: 'Analyse des Tâches',
+      companyOverview: 'Aper�u de l\'Entreprise',
+      taskAnalytics: 'Analyse des T�ches',
       liveTracking: 'Carte de Suivi en Direct',
-      auditLogs: 'Journaux d\'Audit Système',
+      auditLogs: 'Journaux d\'Audit Syst�me',
       hrCat: 'Gestion des RH',
-      allEmployees: 'Tous les Employés',
-      employeeDirectory: 'Annuaire des Employés',
+      allEmployees: 'Tous les Employ�s',
+      employeeDirectory: 'Annuaire des Employ�s',
       recruitmentAts: 'Recrutement et ATS',
       performanceKpis: 'Performance (KPI)',
       assetManagement: 'Gestion des Actifs',
-      verifyDocuments: 'Vérifier les Documents',
+      verifyDocuments: 'V�rifier les Documents',
       offboardingExit: 'Processus de Sortie',
       payrollCat: 'Paie et Finances',
       payrollSalary: 'Paie et Salaires',
-      taxesCompliance: 'Impôts et Conformité',
+      taxesCompliance: 'Imp�ts et Conformit�',
       incentivesBonus: 'Primes et Incentives',
-      ffSettlements: 'Règlements de Solde',
-      advancesLoans: 'Avances et Prêts',
+      ffSettlements: 'R�glements de Solde',
+      advancesLoans: 'Avances et Pr�ts',
       expensesClaim: 'Notes de Frais',
       crmCat: 'CRM et Ventes',
       waChannels: 'Canaux WhatsApp',
-      inboxChats: 'Boîte de Réception Unifiée',
+      inboxChats: 'Bo�te de R�ception Unifi�e',
       crmPipeline: 'Tableau de Pipeline CRM',
-      chatbotRules: 'Règles du Chatbot',
-      opsCat: 'Opérations',
-      tasksBoard: 'Tableau des Tâches',
+      chatbotRules: 'R�gles du Chatbot',
+      opsCat: 'Op�rations',
+      tasksBoard: 'Tableau des T�ches',
       officeKiosk: 'Mode Kiosque de Bureau',
       workHoursLog: 'Journal des Heures de Travail',
       noticeBoard: 'Tableau d\'Affichage',
-      holidaysList: 'Liste des Jours Fériés',
-      rewardsBadges: 'Badges de Récompense',
+      holidaysList: 'Liste des Jours F�ri�s',
+      rewardsBadges: 'Badges de R�compense',
       myPortalCat: 'Mon Portail',
-      shiftAttendance: 'Présence au Poste',
-      leavesRequests: 'Demandes de Congés',
+      shiftAttendance: 'Pr�sence au Poste',
+      leavesRequests: 'Demandes de Cong�s',
       workRoster: 'Planning de Travail',
       companyDashboardTitle: 'Tableau de Bord de l\'Entreprise',
-      overviewSubtitle: 'Aperçu de l\'activité de l\'équipe terrain aujourd\'hui.',
-      totalEmployees: 'Total des Employés',
+      overviewSubtitle: 'Aper�u de l\'activit� de l\'�quipe terrain aujourd\'hui.',
+      totalEmployees: 'Total des Employ�s',
       activeInField: 'Actifs sur le Terrain',
-      recentActivities: 'Activités Récentes',
-      weeklyAttendanceStats: 'Statistiques de Présence Hebdomadaires',
+      recentActivities: 'Activit�s R�centes',
+      weeklyAttendanceStats: 'Statistiques de Pr�sence Hebdomadaires',
       workspaceNotices: 'Annonces d\'Espace de Travail',
-      workloadTable: 'Tableau de Répartition de la Charge',
-      employee: 'Employé',
-      role: 'Rôle',
-      assignedTasks: 'Tâches Assignées',
+      workloadTable: 'Tableau de R�partition de la Charge',
+      employee: 'Employ�',
+      role: 'R�le',
+      assignedTasks: 'T�ches Assign�es',
       timelineStatus: 'Statut du Chronogramme',
       optimal: 'Optimal',
       kpiTitle: 'Indicateurs de Performance KPI',
-      kpiSubtitle: 'Examinez les évaluations des employés et les bilans mensuels.',
-      qualityRating: 'Note de Qualité',
-      attendanceScore: 'Score de Présence',
+      kpiSubtitle: 'Examinez les �valuations des employ�s et les bilans mensuels.',
+      qualityRating: 'Note de Qualit�',
+      attendanceScore: 'Score de Pr�sence',
       overallGrade: 'Note Globale',
       assetTitle: 'Attribution de l\'Inventaire des Actifs',
-      assetSubtitle: 'Suivez les ordinateurs portables, téléphones et écrans assignés.',
-      assetTag: 'Étiquette d\'Actif',
-      deviceDetails: 'Détails de l\'Appareil',
-      assignedTo: 'Assigné à',
+      assetSubtitle: 'Suivez les ordinateurs portables, t�l�phones et �crans assign�s.',
+      assetTag: '�tiquette d\'Actif',
+      deviceDetails: 'D�tails de l\'Appareil',
+      assignedTo: 'Assign� �',
       status: 'Statut',
       payrollTitle: 'Livre de Paie et Salaires',
-      payrollSubtitle: 'Gérez les taux de base et téléchargez les fiches de paie.',
+      payrollSubtitle: 'G�rez les taux de base et t�l�chargez les fiches de paie.',
       baseSalary: 'Salaire de Base',
-      workingDays: 'Jours Travaillés (Ce Mois)',
-      netSalary: 'Salaire Net Calculé',
+      workingDays: 'Jours Travaill�s (Ce Mois)',
+      netSalary: 'Salaire Net Calcul�',
       action: 'Action'
     },
     de: {
       dashboardsCat: 'Dashboards',
-      companyOverview: 'Unternehmensübersicht',
+      companyOverview: 'Unternehmens�bersicht',
       taskAnalytics: 'Aufgaben-Analytik',
       liveTracking: 'Live-Tracking-Karte',
       auditLogs: 'System-Audit-Protokolle',
@@ -2145,37 +2145,37 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       recruitmentAts: 'Rekrutierung & ATS',
       performanceKpis: 'Leistung (KPIs)',
       assetManagement: 'Anlagenverwaltung',
-      verifyDocuments: 'Dokumente Überprüfen',
+      verifyDocuments: 'Dokumente �berpr�fen',
       offboardingExit: 'Offboarding & Austritt',
       payrollCat: 'Lohnabrechnung & Finanzen',
       payrollSalary: 'Gehaltsabrechnung',
       taxesCompliance: 'Steuern & Compliance',
-      incentivesBonus: 'Prämien & Boni',
+      incentivesBonus: 'Pr�mien & Boni',
       ffSettlements: 'Endabrechnungen',
-      advancesLoans: 'Vorschüsse & Darlehen',
+      advancesLoans: 'Vorsch�sse & Darlehen',
       expensesClaim: 'Spesenabrechnung',
       crmCat: 'CRM & Vertrieb',
-      waChannels: 'WhatsApp Kanäle',
+      waChannels: 'WhatsApp Kan�le',
       inboxChats: 'Zentrales Postfach',
       crmPipeline: 'CRM Pipeline Board',
       chatbotRules: 'Chatbot-Regeln',
       opsCat: 'Betrieb & Operatives',
       tasksBoard: 'Aufgabenboard',
-      officeKiosk: 'Büro-Kiosk-Modus',
+      officeKiosk: 'B�ro-Kiosk-Modus',
       workHoursLog: 'Arbeitsstunden-Protokoll',
       noticeBoard: 'Schwarzes Brett',
       holidaysList: 'Feiertagsliste',
       rewardsBadges: 'Belohnungs-Badges',
       myPortalCat: 'Mein Portal',
       shiftAttendance: 'Schichtanwesenheit',
-      leavesRequests: 'Urlaubsanträge',
+      leavesRequests: 'Urlaubsantr�ge',
       workRoster: 'Dienstplan',
       companyDashboardTitle: 'Unternehmens-Dashboard',
-      overviewSubtitle: 'Übersicht der heutigen Aktivitäten Ihres Außendienstteams.',
+      overviewSubtitle: '�bersicht der heutigen Aktivit�ten Ihres Au�endienstteams.',
       totalEmployees: 'Gesamtzahl Mitarbeiter',
-      activeInField: 'Aktiv im Außendienst',
-      recentActivities: 'Neueste Aktivitäten',
-      weeklyAttendanceStats: 'Wöchentliche Anwesenheitsstatistik',
+      activeInField: 'Aktiv im Au�endienst',
+      recentActivities: 'Neueste Aktivit�ten',
+      weeklyAttendanceStats: 'W�chentliche Anwesenheitsstatistik',
       workspaceNotices: 'Arbeitsbereich-Mitteilungen',
       workloadTable: 'Arbeitslast-Verteilungstabelle',
       employee: 'Mitarbeiter',
@@ -2184,362 +2184,362 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       timelineStatus: 'Zeitleisten-Status',
       optimal: 'Optimal',
       kpiTitle: 'KPI-Leistungskennzahlen',
-      kpiSubtitle: 'Überprüfen Sie Mitarbeiterbewertungen und monatliche Auswertungen.',
-      qualityRating: 'Qualitätsbewertung',
+      kpiSubtitle: '�berpr�fen Sie Mitarbeiterbewertungen und monatliche Auswertungen.',
+      qualityRating: 'Qualit�tsbewertung',
       attendanceScore: 'Anwesenheits-Score',
       overallGrade: 'Gesamtnote',
       assetTitle: 'Betriebsmittel-Zuweisung',
       assetSubtitle: 'Verfolgen Sie Laptops, Mobiltelefone und Monitore.',
-      assetTag: 'Geräte-Tag',
-      deviceDetails: 'Gerätedetails',
+      assetTag: 'Ger�te-Tag',
+      deviceDetails: 'Ger�tedetails',
       assignedTo: 'Zugewiesen an',
       status: 'Status',
-      payrollTitle: 'Lohnbuchhaltung & Gehälter',
-      payrollSubtitle: 'Verwalten Sie Grundgehälter und laden Sie Gehaltsabrechnungen herunter.',
+      payrollTitle: 'Lohnbuchhaltung & Geh�lter',
+      payrollSubtitle: 'Verwalten Sie Grundgeh�lter und laden Sie Gehaltsabrechnungen herunter.',
       baseSalary: 'Grundgehalt',
       workingDays: 'Arbeitstage (Diesen Monat)',
       netSalary: 'Berechnetes Nettogehalt',
       action: 'Aktion'
     },
     ar: {
-      dashboardsCat: 'لوحات التحكم',
-      companyOverview: 'نظرة عامة على الشركة',
-      taskAnalytics: 'تحليلات المهام',
-      liveTracking: 'خريطة التتبع المباشر',
-      auditLogs: 'سجلات تدقيق النظام',
-      hrCat: 'إدارة الموارد البشرية',
-      allEmployees: 'جميع الموظفين',
-      employeeDirectory: 'دليل الموظفين',
-      recruitmentAts: 'التوظيف ونظام ATS',
-      performanceKpis: 'الأداء (مؤشرات KPI)',
-      assetManagement: 'إدارة الأصول',
-      verifyDocuments: 'التحقق من المستندات',
-      offboardingExit: 'إجراءات نهاية الخدمة',
-      payrollCat: 'كشف الراتب والمالية',
-      payrollSalary: 'الرواتب والأجور',
-      taxesCompliance: 'الضرائب والامتثال',
-      incentivesBonus: 'المكافآت والحوافز',
-      ffSettlements: 'المستحقات النهائية',
-      advancesLoans: 'السلف والقروض',
-      expensesClaim: 'مطالبة المصاريف',
-      crmCat: 'إدارة العلاقات والمبيعات',
-      waChannels: 'قنوات الوتساب',
-      inboxChats: 'البريد الوارد الموحد',
-      crmPipeline: 'لوحة متابعة المبيعات',
-      chatbotRules: 'قواعد الرد الآلي',
-      opsCat: 'العمليات التشغيلية',
-      tasksBoard: 'لوحة المهام',
-      officeKiosk: 'وضع كشك المكتب',
-      workHoursLog: 'سجل ساعات العمل',
-      noticeBoard: 'لوحة الإعلانات',
-      holidaysList: 'قائمة العطلات',
-      rewardsBadges: 'شارات المكافآت',
-      myPortalCat: 'بوابتي الشخصية',
-      shiftAttendance: 'حضور وردية العمل',
-      leavesRequests: 'طلبات الإجازات',
-      workRoster: 'جدول ورديات العمل',
-      companyDashboardTitle: 'لوحة تحكم الشركة العام',
-      overviewSubtitle: 'نظرة عامة على نشاط الفريق الميداني اليوم.',
-      totalEmployees: 'إجمالي الموظفين',
-      activeInField: 'نشط في الميدان',
-      recentActivities: 'الأنشطة الأخيرة',
-      weeklyAttendanceStats: 'إحصائيات الحضور الأسبوعية',
-      workspaceNotices: 'إشعارات بيئة العمل',
-      workloadTable: 'جدول توزيع عبء العمل',
-      employee: 'الموظف',
-      role: 'الدور الوظيفي',
-      assignedTasks: 'المهام المعينة',
-      timelineStatus: 'حالة الجدول الزمني',
-      optimal: 'ممتاز',
-      kpiTitle: 'مؤشرات قياس الأداء',
-      kpiSubtitle: 'مراجعة تقييمات الموظفين والتقييم الشهري.',
-      qualityRating: 'تقييم الجودة',
-      attendanceScore: 'درجة الحضور',
-      overallGrade: 'التقدير العام',
-      assetTitle: 'تخصيص أصول الشركة',
-      assetSubtitle: 'متابعة أجهزة الكمبيوتر والهواتف والأجهزة المخصصة.',
-      assetTag: 'رمز الأصل',
-      deviceDetails: 'تفاصيل الجهاز',
-      assignedTo: 'مخصص لـ',
-      status: 'الحالة',
-      payrollTitle: 'دفتر الرواتب والأجور',
-      payrollSubtitle: 'إدارة المعدلات الأساسية وتنزيل قسائم الرواتب.',
-      baseSalary: 'الراتب الأساسي',
-      workingDays: 'أيام العمل (هذا الشهر)',
-      netSalary: 'صافي الراتب المحسوب',
-      action: 'إجراء'
+      dashboardsCat: '????? ??????',
+      companyOverview: '???? ???? ??? ??????',
+      taskAnalytics: '??????? ??????',
+      liveTracking: '????? ?????? ???????',
+      auditLogs: '????? ????? ??????',
+      hrCat: '????? ??????? ???????',
+      allEmployees: '???? ????????',
+      employeeDirectory: '???? ????????',
+      recruitmentAts: '??????? ????? ATS',
+      performanceKpis: '?????? (?????? KPI)',
+      assetManagement: '????? ??????',
+      verifyDocuments: '?????? ?? ?????????',
+      offboardingExit: '??????? ????? ??????',
+      payrollCat: '??? ?????? ????????',
+      payrollSalary: '??????? ???????',
+      taxesCompliance: '??????? ?????????',
+      incentivesBonus: '???????? ????????',
+      ffSettlements: '????????? ????????',
+      advancesLoans: '????? ???????',
+      expensesClaim: '?????? ????????',
+      crmCat: '????? ???????? ?????????',
+      waChannels: '????? ???????',
+      inboxChats: '?????? ?????? ??????',
+      crmPipeline: '???? ?????? ????????',
+      chatbotRules: '????? ???? ?????',
+      opsCat: '???????? ?????????',
+      tasksBoard: '???? ??????',
+      officeKiosk: '??? ??? ??????',
+      workHoursLog: '??? ????? ?????',
+      noticeBoard: '???? ?????????',
+      holidaysList: '????? ???????',
+      rewardsBadges: '????? ????????',
+      myPortalCat: '?????? ???????',
+      shiftAttendance: '???? ????? ?????',
+      leavesRequests: '????? ????????',
+      workRoster: '???? ?????? ?????',
+      companyDashboardTitle: '???? ???? ?????? ?????',
+      overviewSubtitle: '???? ???? ??? ???? ?????? ???????? ?????.',
+      totalEmployees: '?????? ????????',
+      activeInField: '??? ?? ???????',
+      recentActivities: '??????? ???????',
+      weeklyAttendanceStats: '???????? ?????? ?????????',
+      workspaceNotices: '??????? ???? ?????',
+      workloadTable: '???? ????? ??? ?????',
+      employee: '??????',
+      role: '????? ???????',
+      assignedTasks: '?????? ???????',
+      timelineStatus: '???? ?????? ??????',
+      optimal: '?????',
+      kpiTitle: '?????? ???? ??????',
+      kpiSubtitle: '?????? ??????? ???????? ???????? ??????.',
+      qualityRating: '????? ??????',
+      attendanceScore: '???? ??????',
+      overallGrade: '??????? ?????',
+      assetTitle: '????? ???? ??????',
+      assetSubtitle: '?????? ????? ????????? ???????? ???????? ???????.',
+      assetTag: '??? ?????',
+      deviceDetails: '?????? ??????',
+      assignedTo: '???? ??',
+      status: '??????',
+      payrollTitle: '???? ??????? ???????',
+      payrollSubtitle: '????? ???????? ???????? ?????? ????? ???????.',
+      baseSalary: '?????? ???????',
+      workingDays: '???? ????? (??? ?????)',
+      netSalary: '???? ?????? ???????',
+      action: '?????'
     },
     zh: {
-      dashboardsCat: '仪表板',
-      companyOverview: '公司概览',
-      taskAnalytics: '任务分析',
-      liveTracking: '实时追踪地图',
-      auditLogs: '系统审计日志',
-      hrCat: '人力资源管理',
-      allEmployees: '所有员工',
-      employeeDirectory: '员工名录',
-      recruitmentAts: '招聘与 ATS',
-      performanceKpis: '绩效指标 (KPI)',
-      assetManagement: '资产管理',
-      verifyDocuments: '验证文档',
-      offboardingExit: '离职管理',
-      payrollCat: '薪酬与财务',
-      payrollSalary: '薪资与发放',
-      taxesCompliance: '税收与合规',
-      incentivesBonus: '奖金与激励',
-      ffSettlements: '离职结算 (F&F)',
-      advancesLoans: '预付款与贷款',
-      expensesClaim: '报销申请',
-      crmCat: 'CRM 与销售',
-      waChannels: 'WhatsApp 频道',
-      inboxChats: '统一收件箱聊天',
-      crmPipeline: 'CRM 管道看板',
-      chatbotRules: '聊天机器人规则',
-      opsCat: '运营管理',
-      tasksBoard: '任务看板',
-      officeKiosk: '办公室打卡模式',
-      workHoursLog: '工时记录日志',
-      noticeBoard: '公告栏',
-      holidaysList: '假期列表',
-      rewardsBadges: '奖励徽章',
-      myPortalCat: '我的门户',
-      shiftAttendance: '班次考勤',
-      leavesRequests: '请假申请',
-      workRoster: '排班表',
-      companyDashboardTitle: '公司仪表板',
-      overviewSubtitle: '今日外勤团队活动概览。',
-      totalEmployees: '员工总数',
-      activeInField: '外勤活跃',
-      recentActivities: '近期活动',
-      weeklyAttendanceStats: '周考勤统计',
-      workspaceNotices: '工作区公告',
-      workloadTable: '工作量分配表',
-      employee: '员工',
-      role: '角色',
-      assignedTasks: '已分配任务',
-      timelineStatus: '时间线状态',
-      optimal: '最佳',
-      kpiTitle: 'KPI 绩效指标',
-      kpiSubtitle: '审查员工评分、指标合规性和月度评估。',
-      qualityRating: '质量评级',
-      attendanceScore: '考勤得分',
-      overallGrade: '综合等级',
-      assetTitle: '资产库存分配',
-      assetSubtitle: '跟踪分配给员工的笔记本电脑、测试机和显示器。',
-      assetTag: '资产标签',
-      deviceDetails: '设备详情',
-      assignedTo: '分配给',
-      status: '状态',
-      payrollTitle: '薪酬总账与工资',
-      payrollSubtitle: '管理员工基本工资率并下载工资单。',
-      baseSalary: '基本工资',
-      workingDays: '出勤天数 (本月)',
-      netSalary: '计算后净工资',
-      action: '操作'
+      dashboardsCat: '???',
+      companyOverview: '????',
+      taskAnalytics: '????',
+      liveTracking: '??????',
+      auditLogs: '??????',
+      hrCat: '??????',
+      allEmployees: '????',
+      employeeDirectory: '????',
+      recruitmentAts: '??? ATS',
+      performanceKpis: '???? (KPI)',
+      assetManagement: '????',
+      verifyDocuments: '????',
+      offboardingExit: '????',
+      payrollCat: '?????',
+      payrollSalary: '?????',
+      taxesCompliance: '?????',
+      incentivesBonus: '?????',
+      ffSettlements: '???? (F&F)',
+      advancesLoans: '??????',
+      expensesClaim: '????',
+      crmCat: 'CRM ???',
+      waChannels: 'WhatsApp ??',
+      inboxChats: '???????',
+      crmPipeline: 'CRM ????',
+      chatbotRules: '???????',
+      opsCat: '????',
+      tasksBoard: '????',
+      officeKiosk: '???????',
+      workHoursLog: '??????',
+      noticeBoard: '???',
+      holidaysList: '????',
+      rewardsBadges: '????',
+      myPortalCat: '????',
+      shiftAttendance: '????',
+      leavesRequests: '????',
+      workRoster: '???',
+      companyDashboardTitle: '?????',
+      overviewSubtitle: '???????????',
+      totalEmployees: '????',
+      activeInField: '????',
+      recentActivities: '????',
+      weeklyAttendanceStats: '?????',
+      workspaceNotices: '?????',
+      workloadTable: '??????',
+      employee: '??',
+      role: '??',
+      assignedTasks: '?????',
+      timelineStatus: '?????',
+      optimal: '??',
+      kpiTitle: 'KPI ????',
+      kpiSubtitle: '??????????????????',
+      qualityRating: '????',
+      attendanceScore: '????',
+      overallGrade: '????',
+      assetTitle: '??????',
+      assetSubtitle: '??????????????????????',
+      assetTag: '????',
+      deviceDetails: '????',
+      assignedTo: '???',
+      status: '??',
+      payrollTitle: '???????',
+      payrollSubtitle: '????????????????',
+      baseSalary: '????',
+      workingDays: '???? (??)',
+      netSalary: '??????',
+      action: '??'
     },
     ja: {
-      dashboardsCat: 'ダッシュボード',
-      companyOverview: '会社概要',
-      taskAnalytics: 'タスク分析',
-      liveTracking: 'リアルタイム追跡マップ',
-      auditLogs: 'システム監査ログ',
-      hrCat: '人事管理 (HR)',
-      allEmployees: '全従業員',
-      employeeDirectory: '従業員名簿',
-      recruitmentAts: '採用 & ATS',
-      performanceKpis: 'パフォーマンス (KPI)',
-      assetManagement: '資産管理',
-      verifyDocuments: '書類の確認',
-      offboardingExit: '退職手続き',
-      payrollCat: '給与 & 財務',
-      payrollSalary: '給与計算',
-      taxesCompliance: '税金 & コンプライアンス',
-      incentivesBonus: 'インセンティブ & ボーナス',
-      ffSettlements: '退職清算',
-      advancesLoans: '前払い & 融資',
-      expensesClaim: '経費精算',
-      crmCat: 'CRM & 営業',
-      waChannels: 'WhatsApp チャンネル',
-      inboxChats: '統合受信トレイ',
-      crmPipeline: 'CRM パイプラインボード',
-      chatbotRules: 'チャットボットルール',
-      opsCat: '業務運用',
-      tasksBoard: 'タスクボード',
-      officeKiosk: 'オフィス打刻モード',
-      workHoursLog: '労働時間ログ',
-      noticeBoard: '掲示板',
-      holidaysList: '休日一覧',
-      rewardsBadges: '報酬バッジ',
-      myPortalCat: 'マイポータル',
-      shiftAttendance: 'シフト出勤',
-      leavesRequests: '休暇申請',
-      workRoster: 'シフト表',
-      companyDashboardTitle: '会社ダッシュボード',
-      overviewSubtitle: '本日のフィールドチームのアクティビティ概要。',
-      totalEmployees: '総従業員数',
-      activeInField: 'フィールド活動中',
-      recentActivities: '最近のアクティビティ',
-      weeklyAttendanceStats: '週間出勤統計',
-      workspaceNotices: 'ワークスペースお知らせ',
-      workloadTable: '業務負荷分配表',
-      employee: '従業員',
-      role: '役職',
-      assignedTasks: '割り当てタスク',
-      timelineStatus: 'タイムライン状態',
-      optimal: '最適',
-      kpiTitle: 'KPI パフォーマンス指標',
-      kpiSubtitle: '従業員の評価と月次レビューを確認します。',
-      qualityRating: '品質評価',
-      attendanceScore: '出勤スコア',
-      overallGrade: '総合評価',
-      assetTitle: '資産在庫割り当て',
-      assetSubtitle: '貸与ノートPCやテスト端末の管理。',
-      assetTag: '資産タグ',
-      deviceDetails: 'デバイス詳細',
-      assignedTo: '割り当て先',
-      status: 'ステータス',
-      payrollTitle: '給与台帳 & 支給',
-      payrollSubtitle: '基本給管理と給与明細のダウンロード。',
-      baseSalary: '基本給',
-      workingDays: '出勤日数 (今月)',
-      netSalary: '計算後の手取り額',
-      action: '操作'
+      dashboardsCat: '???????',
+      companyOverview: '????',
+      taskAnalytics: '?????',
+      liveTracking: '???????????',
+      auditLogs: '????????',
+      hrCat: '???? (HR)',
+      allEmployees: '????',
+      employeeDirectory: '?????',
+      recruitmentAts: '?? & ATS',
+      performanceKpis: '??????? (KPI)',
+      assetManagement: '????',
+      verifyDocuments: '?????',
+      offboardingExit: '?????',
+      payrollCat: '?? & ??',
+      payrollSalary: '????',
+      taxesCompliance: '?? & ????????',
+      incentivesBonus: '??????? & ????',
+      ffSettlements: '????',
+      advancesLoans: '??? & ??',
+      expensesClaim: '????',
+      crmCat: 'CRM & ??',
+      waChannels: 'WhatsApp ?????',
+      inboxChats: '???????',
+      crmPipeline: 'CRM ?????????',
+      chatbotRules: '??????????',
+      opsCat: '????',
+      tasksBoard: '??????',
+      officeKiosk: '?????????',
+      workHoursLog: '??????',
+      noticeBoard: '???',
+      holidaysList: '????',
+      rewardsBadges: '?????',
+      myPortalCat: '??????',
+      shiftAttendance: '?????',
+      leavesRequests: '????',
+      workRoster: '????',
+      companyDashboardTitle: '?????????',
+      overviewSubtitle: '??????????????????????',
+      totalEmployees: '?????',
+      activeInField: '????????',
+      recentActivities: '??????????',
+      weeklyAttendanceStats: '??????',
+      workspaceNotices: '???????????',
+      workloadTable: '???????',
+      employee: '???',
+      role: '??',
+      assignedTasks: '???????',
+      timelineStatus: '????????',
+      optimal: '??',
+      kpiTitle: 'KPI ?????????',
+      kpiSubtitle: '????????????????????',
+      qualityRating: '????',
+      attendanceScore: '?????',
+      overallGrade: '????',
+      assetTitle: '????????',
+      assetSubtitle: '?????PC??????????',
+      assetTag: '????',
+      deviceDetails: '??????',
+      assignedTo: '?????',
+      status: '?????',
+      payrollTitle: '???? & ??',
+      payrollSubtitle: '??????????????????',
+      baseSalary: '???',
+      workingDays: '???? (??)',
+      netSalary: '????????',
+      action: '??'
     },
     pt: {
-      dashboardsCat: 'Painéis de Controle',
-      companyOverview: 'Visão Geral da Empresa',
-      taskAnalytics: 'Análise de Tarefas',
+      dashboardsCat: 'Pain�is de Controle',
+      companyOverview: 'Vis�o Geral da Empresa',
+      taskAnalytics: 'An�lise de Tarefas',
       liveTracking: 'Mapa de Rastreamento ao Vivo',
       auditLogs: 'Registros de Auditoria',
-      hrCat: 'Gestão de RH',
-      allEmployees: 'Todos os Funcionários',
-      employeeDirectory: 'Diretório de Funcionários',
+      hrCat: 'Gest�o de RH',
+      allEmployees: 'Todos os Funcion�rios',
+      employeeDirectory: 'Diret�rio de Funcion�rios',
       recruitmentAts: 'Recrutamento e ATS',
       performanceKpis: 'Desempenho (KPIs)',
-      assetManagement: 'Gestão de Ativos',
+      assetManagement: 'Gest�o de Ativos',
       verifyDocuments: 'Verificar Documentos',
-      offboardingExit: 'Desligamento e Saída',
-      payrollCat: 'Folha e Finanças',
+      offboardingExit: 'Desligamento e Sa�da',
+      payrollCat: 'Folha e Finan�as',
       payrollSalary: 'Folha de Pagamento',
       taxesCompliance: 'Impostos e Conformidade',
-      incentivesBonus: 'Incentivos e Bônus',
-      ffSettlements: 'Rescisões de Contrato',
-      advancesLoans: 'Adiantamentos e Empréstimos',
+      incentivesBonus: 'Incentivos e B�nus',
+      ffSettlements: 'Rescis�es de Contrato',
+      advancesLoans: 'Adiantamentos e Empr�stimos',
       expensesClaim: 'Reembolso de Despesas',
       crmCat: 'CRM e Vendas',
       waChannels: 'Canais de WhatsApp',
       inboxChats: 'Caixa de Entrada Unificada',
       crmPipeline: 'Quadro de Funil CRM',
       chatbotRules: 'Regras do Chatbot',
-      opsCat: 'Operações',
+      opsCat: 'Opera��es',
       tasksBoard: 'Quadro de Tarefas',
-      officeKiosk: 'Modo Quiosque de Escritório',
+      officeKiosk: 'Modo Quiosque de Escrit�rio',
       workHoursLog: 'Registro de Horas de Trabalho',
       noticeBoard: 'Mural de Avisos',
       holidaysList: 'Lista de Feriados',
-      rewardsBadges: 'Insígnias e Recompensas',
+      rewardsBadges: 'Ins�gnias e Recompensas',
       myPortalCat: 'Meu Portal',
-      shiftAttendance: 'Presença no Turno',
+      shiftAttendance: 'Presen�a no Turno',
       leavesRequests: 'Pedidos de Folga',
       workRoster: 'Escala de Trabalho',
       companyDashboardTitle: 'Painel da Empresa',
       overviewSubtitle: 'Resumo das atividades da equipe de campo hoje.',
-      totalEmployees: 'Total de Funcionários',
+      totalEmployees: 'Total de Funcion�rios',
       activeInField: 'Ativos em Campo',
       recentActivities: 'Atividades Recentes',
-      weeklyAttendanceStats: 'Estatísticas Semanais de Presença',
+      weeklyAttendanceStats: 'Estat�sticas Semanais de Presen�a',
       workspaceNotices: 'Avisos da Empresa',
-      workloadTable: 'Tabela de Distribuição de Carga',
-      employee: 'Funcionário',
+      workloadTable: 'Tabela de Distribui��o de Carga',
+      employee: 'Funcion�rio',
       role: 'Cargo',
-      assignedTasks: 'Tarefas Atribuídas',
+      assignedTasks: 'Tarefas Atribu�das',
       timelineStatus: 'Status do Cronograma',
       optimal: 'Ideal',
-      kpiTitle: 'Métricas de Desempenho KPI',
-      kpiSubtitle: 'Avalie as pontuações e relatórios mensais.',
-      qualityRating: 'Avaliação de Qualidade',
-      attendanceScore: 'Pontuação de Presença',
+      kpiTitle: 'M�tricas de Desempenho KPI',
+      kpiSubtitle: 'Avalie as pontua��es e relat�rios mensais.',
+      qualityRating: 'Avalia��o de Qualidade',
+      attendanceScore: 'Pontua��o de Presen�a',
       overallGrade: 'Nota Geral',
-      assetTitle: 'Alocação de Ativos e Equipamentos',
-      assetSubtitle: 'Rastreie notebooks, telefones e telas atribuídos.',
+      assetTitle: 'Aloca��o de Ativos e Equipamentos',
+      assetSubtitle: 'Rastreie notebooks, telefones e telas atribu�dos.',
       assetTag: 'Etiqueta de Ativo',
       deviceDetails: 'Detalhes do Dispositivo',
-      assignedTo: 'Atribuído a',
+      assignedTo: 'Atribu�do a',
       status: 'Status',
-      payrollTitle: 'Folha de Pagamento e Salários',
-      payrollSubtitle: 'Gerencie salários base e baixe holerites.',
-      baseSalary: 'Salário Base',
-      workingDays: 'Dias Trabalhados (Este Mês)',
-      netSalary: 'Salário Líquido Calculado',
-      action: 'Ação'
+      payrollTitle: 'Folha de Pagamento e Sal�rios',
+      payrollSubtitle: 'Gerencie sal�rios base e baixe holerites.',
+      baseSalary: 'Sal�rio Base',
+      workingDays: 'Dias Trabalhados (Este M�s)',
+      netSalary: 'Sal�rio L�quido Calculado',
+      action: 'A��o'
     },
     ru: {
-      dashboardsCat: 'Панели Управления',
-      companyOverview: 'Обзор Компании',
-      taskAnalytics: 'Аналитика Задач',
-      liveTracking: 'Карта Отслеживания в Реальном Времени',
-      auditLogs: 'Журнал Аудита Системы',
-      hrCat: 'Управление Персоналом (HR)',
-      allEmployees: 'Все Сотрудники',
-      employeeDirectory: 'Справочник Сотрудников',
-      recruitmentAts: 'Рекрутинг и ATS',
-      performanceKpis: 'Эффективность (KPI)',
-      assetManagement: 'Управление Активами',
-      verifyDocuments: 'Проверка Документов',
-      offboardingExit: 'Увольнение и Офбординг',
-      payrollCat: 'Расчет Зарплаты и Финансы',
-      payrollSalary: 'Зарплата и Ведомости',
-      taxesCompliance: 'Налоги и Соответствие Требованиям',
-      incentivesBonus: 'Премии и Бонусы',
-      ffSettlements: 'Окончательный Расчет',
-      advancesLoans: 'Aвансы и Займы',
-      expensesClaim: 'Авансовые Отчеты',
-      crmCat: 'CRM и Продажи',
-      waChannels: 'Каналы WhatsApp',
-      inboxChats: 'Единый Входящий Чат',
-      crmPipeline: 'Воронка Продаж CRM',
-      chatbotRules: 'Правила Чат-бота',
-      opsCat: 'Операционная Деятельность',
-      tasksBoard: 'Доска Задач',
-      officeKiosk: 'Режим Офисного Терминала',
-      workHoursLog: 'Журнал Рабочего Времени',
-      noticeBoard: 'Доска Объявлений',
-      holidaysList: 'Список Праздников',
-      rewardsBadges: 'Награды и Значки',
-      myPortalCat: 'Мой Портал',
-      shiftAttendance: 'Посещаемость Смены',
-      leavesRequests: 'Заявки на Отпуск',
-      workRoster: 'График Смен',
-      companyDashboardTitle: 'Панель Управления Компанией',
-      overviewSubtitle: 'Обзор активности выездной команды на сегодня.',
-      totalEmployees: 'Всего Сотрудников',
-      activeInField: 'Активны на Выезде',
-      recentActivities: 'Последние Действия',
-      weeklyAttendanceStats: 'Еженедельная Статистика Посещаемости',
-      workspaceNotices: 'Объявления Рабочей Зоны',
-      workloadTable: 'Распределение Рабочей Нагрузки',
-      employee: 'Сотрудник',
-      role: 'Должность',
-      assignedTasks: 'Назначенные Задачи',
-      timelineStatus: 'Статус Графика',
-      optimal: 'Оптимально',
-      kpiTitle: 'Показатели Эффективности KPI',
-      kpiSubtitle: 'Просмотр рейтингов и ежемесячных оценок сотрудников.',
-      qualityRating: 'Оценка Качества',
-      attendanceScore: 'Балл Посещаемости',
-      overallGrade: 'Общая Оценка',
-      assetTitle: 'Распределение Активов и Оборудования',
-      assetSubtitle: 'Отслеживание ноутбуков, телефонов и мониторов.',
-      assetTag: 'Тег Актива',
-      deviceDetails: 'Детали Устройства',
-      assignedTo: 'Закреплено За',
-      status: 'Статус',
-      payrollTitle: 'Ведомость Заработной Платы',
-      payrollSubtitle: 'Управление окладами и скачивание расчетных листков.',
-      baseSalary: 'Базовый Оклад',
-      workingDays: 'Отработано Дней (В Этом Месяце)',
-      netSalary: 'Рассчитанная Чистая Зарплата',
-      action: 'Действие'
+      dashboardsCat: '?????? ??????????',
+      companyOverview: '????? ????????',
+      taskAnalytics: '????????? ?????',
+      liveTracking: '????? ???????????? ? ???????? ???????',
+      auditLogs: '?????? ?????? ???????',
+      hrCat: '?????????? ?????????? (HR)',
+      allEmployees: '??? ??????????',
+      employeeDirectory: '?????????? ???????????',
+      recruitmentAts: '????????? ? ATS',
+      performanceKpis: '????????????? (KPI)',
+      assetManagement: '?????????? ????????',
+      verifyDocuments: '???????? ??????????',
+      offboardingExit: '?????????? ? ?????????',
+      payrollCat: '?????? ???????? ? ???????',
+      payrollSalary: '???????? ? ?????????',
+      taxesCompliance: '?????? ? ???????????? ???????????',
+      incentivesBonus: '?????? ? ??????',
+      ffSettlements: '????????????? ??????',
+      advancesLoans: 'A????? ? ?????',
+      expensesClaim: '????????? ??????',
+      crmCat: 'CRM ? ???????',
+      waChannels: '?????? WhatsApp',
+      inboxChats: '?????? ???????? ???',
+      crmPipeline: '??????? ?????? CRM',
+      chatbotRules: '??????? ???-????',
+      opsCat: '???????????? ????????????',
+      tasksBoard: '????? ?????',
+      officeKiosk: '????? ???????? ?????????',
+      workHoursLog: '?????? ???????? ???????',
+      noticeBoard: '????? ??????????',
+      holidaysList: '?????? ??????????',
+      rewardsBadges: '??????? ? ??????',
+      myPortalCat: '??? ??????',
+      shiftAttendance: '???????????? ?????',
+      leavesRequests: '?????? ?? ??????',
+      workRoster: '?????? ????',
+      companyDashboardTitle: '?????? ?????????? ?????????',
+      overviewSubtitle: '????? ?????????? ???????? ??????? ?? ???????.',
+      totalEmployees: '????? ???????????',
+      activeInField: '??????? ?? ??????',
+      recentActivities: '????????? ????????',
+      weeklyAttendanceStats: '???????????? ?????????? ????????????',
+      workspaceNotices: '?????????? ??????? ????',
+      workloadTable: '????????????? ??????? ????????',
+      employee: '?????????',
+      role: '?????????',
+      assignedTasks: '??????????? ??????',
+      timelineStatus: '?????? ???????',
+      optimal: '??????????',
+      kpiTitle: '?????????? ????????????? KPI',
+      kpiSubtitle: '???????? ????????? ? ??????????? ?????? ???????????.',
+      qualityRating: '?????? ????????',
+      attendanceScore: '???? ????????????',
+      overallGrade: '????? ??????',
+      assetTitle: '????????????? ??????? ? ????????????',
+      assetSubtitle: '???????????? ?????????, ????????? ? ?????????.',
+      assetTag: '??? ??????',
+      deviceDetails: '?????? ??????????',
+      assignedTo: '?????????? ??',
+      status: '??????',
+      payrollTitle: '????????? ?????????? ?????',
+      payrollSubtitle: '?????????? ???????? ? ?????????? ????????? ???????.',
+      baseSalary: '??????? ?????',
+      workingDays: '?????????? ???? (? ???? ??????)',
+      netSalary: '???????????? ?????? ????????',
+      action: '????????'
     }
   };
   const t = (key) => (translations['en'] && translations['en'][key]) || key;
@@ -2600,7 +2600,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     const autoDiscoveredSteps = DYNAMIC_MODULE_REGISTRY.map((mod, idx) => ({
       id: `auto_${mod.key}`,
       stepNumber: idx + 1,
-      icon: mod.label.split(' ')[0] || '⚡',
+      icon: mod.label.split(' ')[0] || '?',
       title: mod.label.substring(3),
       category: mod.label,
       targetTab: mod.key === 'saas_portal' ? 'roles_permissions' : (mod.key === 'hr' ? 'employees' : (mod.key === 'crm' ? 'sessions' : 'admin_dashboard')),
@@ -2625,7 +2625,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     if (!step) return;
     const langKey = 'en';
     const voiceText = (step.scripts && step.scripts[langKey]) || (step.scripts && step.scripts.hi) || step.voiceScript || `${step.title}. ${step.description}`;
-    setTourVoiceStatus(`🎙️ Speaking (${langKey.toUpperCase()}): ${step.title}`);
+    setTourVoiceStatus(`??? Speaking (${langKey.toUpperCase()}): ${step.title}`);
     // 1. Instant Multi-Lingual Web Speech API Playback
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
@@ -2923,7 +2923,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       localStorage.setItem('omnilflow_user', JSON.stringify(mockSuperUser));
       setAuthUser(mockSuperUser);
       setActiveTab('superadmin_plans');
-      showToast('🛡️ Welcome Superadmin! Master Access Granted.', 'success');
+      showToast('??? Welcome Superadmin! Master Access Granted.', 'success');
       setAuthLoading(false);
       return;
     }
@@ -2943,7 +2943,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         localStorage.setItem('omnilflow_user', JSON.stringify(userData));
         setAuthUser(userData);
         setActiveTab(userData.role === 'superadmin' ? 'superadmin_plans' : 'inbox');
-        showToast('🟢 Signed in with Firebase Cloud Auth!', 'success');
+        showToast('?? Signed in with Firebase Cloud Auth!', 'success');
         return;
       }
     } catch (fbErr) {
@@ -2976,7 +2976,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     try {
       if (auth && targetEmail) {
         await sendPasswordResetEmail(auth, targetEmail);
-        showToast(`📧 Password reset email sent to ${targetEmail}!`, 'success');
+        showToast(`?? Password reset email sent to ${targetEmail}!`, 'success');
         setShowForgotPasswordModal(false);
         setForgotPasswordLoading(false);
         return;
@@ -2995,7 +2995,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to reset password');
-      showToast('🟢 Password updated successfully! Please sign in with your new password.', 'success');
+      showToast('?? Password updated successfully! Please sign in with your new password.', 'success');
       setShowForgotPasswordModal(false);
       setEmail(targetEmail);
       setPassword(forgotPasswordForm.newPassword);
@@ -3026,7 +3026,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         localStorage.setItem('omnilflow_user', JSON.stringify(userData));
         setAuthUser(userData);
         setActiveTab('wa_live_web');
-        showToast('🟢 Registered successfully with Firebase Cloud Auth!', 'success');
+        showToast('?? Registered successfully with Firebase Cloud Auth!', 'success');
         return;
       }
     } catch (fbErr) {
@@ -3250,7 +3250,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     try {
       if (db) {
         await setDoc(doc(db, 'users', userId.toString()), { role: newRole }, { merge: true });
-        showToast('🟢 User role updated in Cloud Firestore!', 'success');
+        showToast('?? User role updated in Cloud Firestore!', 'success');
       }
     } catch (fbErr) {
       console.warn('Firebase user role update failed:', fbErr.message);
@@ -3336,7 +3336,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     try {
       if (db) {
         await setDoc(doc(db, 'plans', adminPlanForm.id.toString()), payload);
-        showToast('🟢 Sync: Plan details saved to Cloud Firestore!', 'success');
+        showToast('?? Sync: Plan details saved to Cloud Firestore!', 'success');
       }
     } catch (fbErr) {
       console.warn('Firebase plan save failed:', fbErr.message);
@@ -3388,7 +3388,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     try {
       if (db) {
         await setDoc(doc(db, 'plans', adminSelectedPlanId.toString(), 'prices', adminNewPriceForm.countryCode.toString()), payload);
-        showToast('🟢 Sync: Plan pricing rate saved to Cloud Firestore!', 'success');
+        showToast('?? Sync: Plan pricing rate saved to Cloud Firestore!', 'success');
       }
     } catch (fbErr) {
       console.warn('Firebase price save failed:', fbErr.message);
@@ -3422,7 +3422,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     try {
       if (db) {
         await deleteDoc(doc(db, 'plans', planId.toString(), 'prices', countryCode.toString()));
-        showToast('🗑️ Price rate deleted from Cloud Firestore!', 'success');
+        showToast('??? Price rate deleted from Cloud Firestore!', 'success');
       }
     } catch (fbErr) {
       console.warn(fbErr.message);
@@ -3474,11 +3474,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     // 1. Online/Offline detection
     const handleOnline = () => {
       setIsOnline(true);
-      showToast('🟢 Internet Connection Restored! Reconnected to OmniFlow CRM.', 'success');
+      showToast('?? Internet Connection Restored! Reconnected to OmniFlow CRM.', 'success');
     };
     const handleOffline = () => {
       setIsOnline(false);
-      showToast('⚠️ Internet Connection Lost! Running in offline backup mode.', 'error');
+      showToast('?? Internet Connection Lost! Running in offline backup mode.', 'error');
     };
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -3543,7 +3543,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setAuthUser(null);
       localStorage.removeItem('omnilflow_user');
       setShowSessionWarning(false);
-      showToast('🔴 Session expired due to inactivity. Please login again.', 'error');
+      showToast('?? Session expired due to inactivity. Please login again.', 'error');
     }
     return () => clearInterval(countdown);
   }, [showSessionWarning, sessionTimeLeft]);
@@ -3665,7 +3665,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         localStorage.setItem('omniflow_registered_users', JSON.stringify(updatedAccounts));
       } catch (e) {}
     }
-    addNotification('👤 New Employee Profile', `${newEmployeeForm.firstName} ${newEmployeeForm.lastName || ''} (${newEmployeeForm.department}) added.`, 'employees');
+    addNotification('?? New Employee Profile', `${newEmployeeForm.firstName} ${newEmployeeForm.lastName || ''} (${newEmployeeForm.department}) added.`, 'employees');
     showToast(isEdit ? 'Employee profile updated successfully!' : 'Employee added successfully!', 'success');
     setShowAddEmployeeModal(false);
     setNewEmployeeForm({
@@ -3725,7 +3725,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         return updated;
       });
     }
-    showToast(`🗑️ Moved "${itemPayload.name}" to Recycle Bin!`, 'info');
+    showToast(`??? Moved "${itemPayload.name}" to Recycle Bin!`, 'info');
     return newItem;
   };
   const handlePermanentDeleteBinItem = async (itemIdOrObj, itemName) => {
@@ -3751,7 +3751,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     if (itemId) FirebaseCloudEngine.deleteRecord('recycle_bin', itemId);
     if (originalId) FirebaseCloudEngine.deleteRecord('recycle_bin', originalId);
     setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
-    showToast(`❌ Permanently purged record from vault.`, 'info');
+    showToast(`? Permanently purged record from vault.`, 'info');
   };
   const handleRestoreBinItem = async (itemOrId) => {
     let item = (itemOrId && typeof itemOrId === 'object')
@@ -3851,12 +3851,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     if (cleanId) TrashVaultEngine.restoreItem('all', cleanId);
     if (item.originalId) TrashVaultEngine.restoreItem('all', item.originalId);
     setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
-    showToast(`🔄 Restored "${cleanRec.name || cleanRec.title || item.name || 'Record'}" to active workspace!`, 'success');
+    showToast(`?? Restored "${cleanRec.name || cleanRec.title || item.name || 'Record'}" to active workspace!`, 'success');
   };
   const handleEmptyBinVault = () => {
     if (recycleBinItems.length === 0) return;
     openConfirm({
-      title: '🔥 Empty Entire Bin Vault',
+      title: '?? Empty Entire Bin Vault',
       message: `Are you sure you want to PERMANENTLY DELETE all ${recycleBinItems.length} records in the Bin Vault? This action cannot be undone.`,
       confirmText: 'Purge All Items',
       danger: true,
@@ -3870,7 +3870,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         } catch (e) {}
         TrashVaultEngine.emptyVault(selectedBinTenant);
         setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
-        showToast(`🔥 Emptied all records from Bin Vault!`, 'info');
+        showToast(`?? Emptied all records from Bin Vault!`, 'info');
       }
     });
   };
@@ -3897,7 +3897,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         };
         await setDoc(doc(db, 'recycle_bin', 'employee_' + id), binPayload);
         await deleteDoc(doc(db, 'employees', id.toString()));
-        showToast('🗑️ Moved to Recycle Bin & Cloud Vault!', 'success');
+        showToast('??? Moved to Recycle Bin & Cloud Vault!', 'success');
       }
     } catch (fbErr) {
       console.warn('Firestore soft delete failed:', fbErr.message);
@@ -3924,7 +3924,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       name: compName,
       category: 'Company',
       entityData: { company: targetCompany },
-      moduleTab: 'Super Admin ➔ Manage Companies'
+      moduleTab: 'Super Admin ? Manage Companies'
     });
     setSuperadminCompanies(prev => {
       const updated = (prev || []).filter(c => c.id !== companyId && c.tenant_id !== companyId);
@@ -3943,7 +3943,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       name: planName,
       category: 'SaaS Plan',
       entityData: { plan: targetPlan },
-      moduleTab: 'Super Admin ➔ Manage Plans'
+      moduleTab: 'Super Admin ? Manage Plans'
     });
     setBillingPlans(prev => {
       const updated = (prev || []).filter(p => p.id !== planId);
@@ -4005,7 +4005,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const fetchLiveLocations = async () => {
     if (isOfflineMode) {
       setOfflinePingsCount(prev => prev + 1);
-      console.log(`⚠️ Offline simulation active. Cached GPS ping locally. Count: ${offlinePingsCount + 1}`);
+      console.log(`?? Offline simulation active. Cached GPS ping locally. Count: ${offlinePingsCount + 1}`);
       return;
     }
     try {
@@ -4023,7 +4023,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       battery: `${Math.floor(70 + Math.random() * 25)}%`,
       speed: item.status === 'moving' ? `${Math.floor(20 + Math.random() * 30)} km/h` : '0 km/h'
     })));
-    console.log('🟢 Live GPS Map & Field Team locations refreshed successfully!');
+    console.log('?? Live GPS Map & Field Team locations refreshed successfully!');
   };
   const fetchGpsHistory = async (employeeId, dateStr) => {
     if (!employeeId) return console.log('Please select an employee');
@@ -4085,7 +4085,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    console.log('📥 Export Successful: Daily Shift & Fuel Expense CSV report downloaded!');
+    console.log('?? Export Successful: Daily Shift & Fuel Expense CSV report downloaded!');
   };
   const getDeviceCoordinates = () => {
     return new Promise((resolve) => {
@@ -4118,7 +4118,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       if (!res.ok) throw new Error(data.error || 'Failed to check in');
       // Immediately update UI state so button flips without waiting for refetch
       setTodayStatus({ status: 'checked_in', check_in_time: new Date().toISOString(), ...data });
-      alert('✅ Successfully Checked In!');
+      alert('? Successfully Checked In!');
       // Re-fetch in background to get accurate server data
       fetchAttendanceTodayStatus();
       fetchAttendanceLogs();
@@ -4142,7 +4142,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       if (!res.ok) throw new Error(data.error || 'Failed to check out');
       // Immediately update UI state so button flips without waiting for refetch
       setTodayStatus({ status: 'checked_out', check_out_time: new Date().toISOString(), ...data });
-      alert('✅ Successfully Checked Out!');
+      alert('? Successfully Checked Out!');
       // Re-fetch in background to get accurate server data
       fetchAttendanceTodayStatus();
       fetchAttendanceLogs();
@@ -4191,7 +4191,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         } else {
           await addDoc(collection(db, 'tasks'), payload);
         }
-        showToast('🟢 Sync: Task added to Cloud Firestore!', 'success');
+        showToast('?? Sync: Task added to Cloud Firestore!', 'success');
       }
     } catch (fbErr) {
       console.warn('Firebase save task failed:', fbErr.message);
@@ -4280,7 +4280,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     try {
       if (db) {
         await addDoc(collection(db, 'notices'), payload);
-        showToast('🟢 Sync: Notice added to Cloud Firestore!', 'success');
+        showToast('?? Sync: Notice added to Cloud Firestore!', 'success');
       }
     } catch (fbErr) {
       console.warn('Firebase save notice failed:', fbErr.message);
@@ -4384,7 +4384,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     try {
       if (db) {
         await addDoc(collection(db, 'holidays'), payload);
-        showToast('🟢 Sync: Holiday added to Cloud Firestore!', 'success');
+        showToast('?? Sync: Holiday added to Cloud Firestore!', 'success');
       }
     } catch (fbErr) {
       console.warn('Firebase save holiday failed:', fbErr.message);
@@ -4492,7 +4492,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     try {
       if (db) {
         await addDoc(collection(db, 'leaves'), payload);
-        showToast('🟢 Sync: Leave submitted to Cloud Firestore!', 'success');
+        showToast('?? Sync: Leave submitted to Cloud Firestore!', 'success');
       }
     } catch (fbErr) {
       console.warn('Firebase save leave failed:', fbErr.message);
@@ -4525,7 +4525,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     try {
       if (db) {
         await setDoc(doc(db, 'leaves', id.toString()), { status }, { merge: true });
-        showToast(`🟢 Leave request status updated to: ${status}`, 'success');
+        showToast(`?? Leave request status updated to: ${status}`, 'success');
       }
     } catch (fbErr) { }
     try {
@@ -5015,7 +5015,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setNewChatError('');
     setShowNewChatModal(false);
     setIsCreatingNewChat(false);
-    showToast(`🎯 New Lead "${data.name || data.custom_name || data.phone}" created successfully!`, 'success');
+    showToast(`?? New Lead "${data.name || data.custom_name || data.phone}" created successfully!`, 'success');
   };
   const fetchChatbotRules = async () => {
     try {
@@ -5662,7 +5662,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               {canNav('media_storage') && (
                 <div className={`nav-item ${activeTab === 'media_storage' ? 'active' : ''}`} onClick={() => setActiveTab('media_storage')}>
                   <HardDrive size={15} style={{ color: '#14d2cb' }} />
-                  <span style={{ fontSize: '13px', fontWeight: '800', color: '#14d2cb' }}>📁 Media & Storage Vault</span>
+                  <span style={{ fontSize: '13px', fontWeight: '800', color: '#14d2cb' }}>?? Media & Storage Vault</span>
                 </div>
               )}
             </AccordionCategory>
@@ -5773,7 +5773,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     transition: 'background 0.2s'
                   }}
                 >
-                  <span style={{ fontSize: '14px' }}>📞</span>
+                  <span style={{ fontSize: '14px' }}>??</span>
                   <span>{t('callRecordings')}</span>
                 </div>
               )}
@@ -5852,7 +5852,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               {canNav('integrations') && (
                 <div className={`nav-item ${activeTab === 'integrations' ? 'active' : ''}`} onClick={() => setActiveTab('integrations')}>
                   <Share2 size={15} style={{ color: '#0d9488' }} />
-                  <span style={{ fontSize: '13px', fontWeight: '800', color: '#0d9488' }}>🔌 Integrations & Webhooks</span>
+                  <span style={{ fontSize: '13px', fontWeight: '800', color: '#0d9488' }}>?? Integrations & Webhooks</span>
                 </div>
               )}
               {canNav('roles_permissions') && (
@@ -6223,22 +6223,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         cursor: 'pointer'
                       }}
                     >
-                      <option value="INR">🇮🇳 INR (₹ - Indian Rupee)</option>
-                      <option value="USD">🇺🇸 USD ($ - US Dollar)</option>
-                      <option value="EUR">🇪🇺 EUR (€ - Euro)</option>
-                      <option value="GBP">🇬🇧 GBP (£ - British Pound)</option>
-                      <option value="AED">🇦🇪 AED (د.إ - UAE Dirham)</option>
-                      <option value="SAR">🇸🇦 SAR (﷼ - Saudi Riyal)</option>
-                      <option value="CAD">🇨🇦 CAD (CA$ - Canadian Dollar)</option>
-                      <option value="AUD">🇦🇺 AUD (A$ - Australian Dollar)</option>
-                      <option value="SGD">🇸🇬 SGD (S$ - Singapore Dollar)</option>
-                      <option value="JPY">🇯🇵 JPY (¥ - Japanese Yen)</option>
-                      <option value="CNY">🇨🇳 CNY (¥ - Chinese Yuan)</option>
-                      <option value="QAR">🇶🇦 QAR (QR - Qatari Riyal)</option>
-                      <option value="KWD">🇰🇼 KWD (KD - Kuwaiti Dinar)</option>
-                      <option value="BHD">🇧🇭 BHD (BD - Bahraini Dinar)</option>
-                      <option value="NZD">🇳🇿 NZD (NZ$ - New Zealand Dollar)</option>
-                      <option value="ZAR">🇿🇦 ZAR (R - South African Rand)</option>
+                      <option value="INR">???? INR (? - Indian Rupee)</option>
+                      <option value="USD">???? USD ($ - US Dollar)</option>
+                      <option value="EUR">???? EUR (� - Euro)</option>
+                      <option value="GBP">???? GBP (� - British Pound)</option>
+                      <option value="AED">???? AED (?.? - UAE Dirham)</option>
+                      <option value="SAR">???? SAR (? - Saudi Riyal)</option>
+                      <option value="CAD">???? CAD (CA$ - Canadian Dollar)</option>
+                      <option value="AUD">???? AUD (A$ - Australian Dollar)</option>
+                      <option value="SGD">???? SGD (S$ - Singapore Dollar)</option>
+                      <option value="JPY">???? JPY (� - Japanese Yen)</option>
+                      <option value="CNY">???? CNY (� - Chinese Yuan)</option>
+                      <option value="QAR">???? QAR (QR - Qatari Riyal)</option>
+                      <option value="KWD">???? KWD (KD - Kuwaiti Dinar)</option>
+                      <option value="BHD">???? BHD (BD - Bahraini Dinar)</option>
+                      <option value="NZD">???? NZD (NZ$ - New Zealand Dollar)</option>
+                      <option value="ZAR">???? ZAR (R - South African Rand)</option>
                     </select>
                   </div>
                   <div style={{ padding: '6px 0', borderTop: '1px solid #e2e8f0' }}>
@@ -6514,13 +6514,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         )}
         {/* 9. TAXES & COMPLIANCE */}
         {activeTab === 'taxes_compliance' && (
-          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Taxes & Compliance...</div>}>
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>? Loading Taxes & Compliance...</div>}>
             <TaxesCompliancePage showToast={showToast} />
           </Suspense>
         )}
         {/* 25. SYSTEM DROPDOWNS CONFIG - 2-COLUMN MASTER LAYOUT */}
         {activeTab === 'system_dropdowns' && (
-          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading System Dropdowns...</div>}>
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>? Loading System Dropdowns...</div>}>
             <DropdownsPage
               handleSaveMasterDropdowns={handleSaveMasterDropdowns}
               dropdownCategorySearch={dropdownCategorySearch}
@@ -6544,7 +6544,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         )}
         {/* 26. RECYCLE BIN VAULT & SOFT DELETE RECOVERY */}
         {activeTab === 'recycle_bin' && (
-          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Recycle Bin...</div>}>
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>? Loading Recycle Bin...</div>}>
             <RecycleBinPage
               authUser={authUser}
               recycleBinItems={recycleBinItems}
@@ -6572,7 +6572,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         )}
         {/* 27. APP GUIDE & INTERACTIVE ONBOARDING TOUR */}
         {activeTab === 'app_guide' && (
-          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading App Guide...</div>}>
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>? Loading App Guide...</div>}>
             <AppGuidePage
               authUser={authUser}
               guideSteps={guideSteps}
@@ -6586,7 +6586,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         )}
         {/* MODULE CONFIGURATION CENTER */}
         {(activeTab === 'module_configuration' || activeTab === 'module_config') && (
-          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Module Configuration...</div>}>
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>? Loading Module Configuration...</div>}>
             <ModuleConfigCenter
               companyId={authUser?.companyId || 'default_tenant'}
               preselectedModuleId={preselectedConfigModuleId}
@@ -6601,7 +6601,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         )}
         {/* INTEGRATIONS & WEBHOOKS MASTER CENTER */}
         {activeTab === 'integrations' && (
-          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Integrations & Webhooks Center...</div>}>
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>? Loading Integrations & Webhooks Center...</div>}>
             <IntegrationsPage
               companyId={authUser?.companyId || 'default_tenant'}
               showToast={showToast}
@@ -6610,7 +6610,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         )}
         {/* ROLES & PERMISSIONS MANAGEMENT */}
         {activeTab === 'roles_permissions' && (
-          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>⏳ Loading Roles & Permissions...</div>}>
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>? Loading Roles & Permissions...</div>}>
             <RolesPage
               authUser={authUser}
               showToast={showToast}
@@ -7121,7 +7121,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             fontWeight: '700',
             animation: 'slideIn 0.3s ease-out'
           }}>
-            <span>{toast.type === 'error' ? '🛑' : toast.type === 'warning' ? '⚠️' : '🟢'}</span>
+            <span>{toast.type === 'error' ? '??' : toast.type === 'warning' ? '??' : '??'}</span>
             <span>{toast.message}</span>
           </div>
         )}
@@ -7145,7 +7145,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             gap: '8px',
             boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
           }}>
-            <span>⚠️</span>
+            <span>??</span>
             <span>Internet Connection Lost. App running in offline backup mode. Operations will cache locally.</span>
           </div>
         )}
@@ -7153,7 +7153,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {showSessionWarning && (
           <div className="modal-overlay" style={{ zIndex: 999999 }}>
             <div className="modal-content glass-panel" style={{ maxWidth: '380px', textAlign: 'center', color: '#0f2b26' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '8px', color: '#ef4444' }}>🕒 Idle Session Timeout Warning</h3>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '8px', color: '#ef4444' }}>?? Idle Session Timeout Warning</h3>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
                 You have been inactive for 30 minutes. Your session will automatically logout in <strong>{sessionTimeLeft} seconds</strong>.
               </p>
@@ -7168,7 +7168,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     showToast('Session extended successfully!', 'success');
                   }}
                 >
-                  🔄 Keep Session Active
+                  ?? Keep Session Active
                 </button>
                 <button
                   type="button"
@@ -7179,7 +7179,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                     setShowSessionWarning(false);
                   }}
                 >
-                  🚪 Logout Now
+                  ?? Logout Now
                 </button>
               </div>
             </div>
@@ -7229,8 +7229,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 id: `CALL-${Date.now()}`,
                 name: callData.contactName || callData.customerName || callData.name || voxbayDialerState.contactName || 'Customer',
                 customerName: callData.contactName || callData.customerName || callData.name || voxbayDialerState.contactName || 'Customer',
-                phone: callData.phoneNumber || callData.customerPhone || callData.phone || voxbayDialerState.destination || '—',
-                customerPhone: callData.phoneNumber || callData.customerPhone || callData.phone || voxbayDialerState.destination || '—',
+                phone: callData.phoneNumber || callData.customerPhone || callData.phone || voxbayDialerState.destination || '�',
+                customerPhone: callData.phoneNumber || callData.customerPhone || callData.phone || voxbayDialerState.destination || '�',
                 agentName: authUser?.name || 'Staff 1',
                 channel: 'VOXBAY',
                 type: 'OUTGOING',
