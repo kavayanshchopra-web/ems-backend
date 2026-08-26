@@ -5,7 +5,7 @@
   let dockMounted = false;
   let currentContactData = {};
 
-  const DEFAULT_API = 'https://retention-ellen-beijing-motorcycles.trycloudflare.com';
+  const DEFAULT_API = 'https://app.employeemanagementsystems.com';
 
   console.log('[OmniFlow] WhatsApp Web CRM Injected & Ready.');
 

@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
@@ -54,15 +54,23 @@ app.get('/api/health', (req, res) => {
 // Setup API routes
 app.use('/api', setupRoutes(io));
 
-// Serve built frontend in production if dist exists
-const frontendDistDir = path.join(__dirname, '../frontend/dist');
-if (fs.existsSync(frontendDistDir)) {
-  app.use(express.static(frontendDistDir));
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api') || req.path.startsWith('/media')) return next();
-    res.sendFile(path.join(frontendDistDir, 'index.html'));
-  });
-}
+// Voxbay standard webhook endpoint (/callcenterbridging)
+const handleVoxbayWebhook = async (req, res) => {
+  try {
+    const payload = { ...req.query, ...req.body };
+    console.log('[Global Voxbay Webhook Received]', JSON.stringify(payload));
+    res.setHeader('Content-Type', 'text/plain');
+    res.status(200).send('success');
+  } catch (err) {
+    console.error('[Voxbay Webhook Global Handler Error]', err);
+    res.setHeader('Content-Type', 'text/plain');
+    res.status(200).send('success');
+  }
+};
+app.post('/callcenterbridging', handleVoxbayWebhook);
+app.get('/callcenterbridging', handleVoxbayWebhook);
+app.post('/voxbay', handleVoxbayWebhook);
+app.get('/voxbay', handleVoxbayWebhook);
 
 const PORT = process.env.PORT || 5000;
 

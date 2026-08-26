@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   saveBtn.addEventListener('click', () => {
-    const gateway = gatewayInput.value.trim() || 'https://retention-ellen-beijing-motorcycles.trycloudflare.com';
+    const gateway = gatewayInput.value.trim() || 'https://app.employeemanagementsystems.com';
     const staffName = staffInput.value.trim() || 'Sales Staff';
 
     chrome.storage.local.set({

@@ -4,7 +4,7 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.get(['omniflow_gateway', 'omniflow_token'], (res) => {
     if (!res.omniflow_gateway) {
       chrome.storage.local.set({
-        omniflow_gateway: 'https://retention-ellen-beijing-motorcycles.trycloudflare.com',
+        omniflow_gateway: 'https://app.employeemanagementsystems.com',
         omniflow_user: { name: 'Staff User', role: 'staff' }
       });
     }

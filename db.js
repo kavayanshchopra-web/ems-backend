@@ -1,4 +1,4 @@
-import { open } from 'sqlite';
+﻿import { open } from 'sqlite';
 import sqlite3 from 'sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -350,6 +350,107 @@ export async function initDb() {
   try {
     await db.exec(`ALTER TABLE sim_bridge_devices ADD COLUMN pin TEXT DEFAULT '1234'`);
   } catch (e) {}
+
+  
+  
+  // Create company_kyc_profiles table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS company_kyc_profiles (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER UNIQUE NOT NULL,
+      company_name TEXT,
+      country TEXT DEFAULT 'India',
+      state TEXT,
+      pincode TEXT,
+      address TEXT,
+      gst_number TEXT,
+      company_proof_type TEXT DEFAULT 'GST Registration Certificate',
+      company_proof_url TEXT,
+      auth_person_name TEXT,
+      auth_person_email TEXT,
+      auth_person_phone TEXT,
+      auth_person_country TEXT DEFAULT 'India',
+      auth_person_address TEXT,
+      auth_person_pincode TEXT,
+      id_proof_type TEXT DEFAULT 'Aadhaar Card',
+      id_proof_url TEXT,
+      profile_photo_url TEXT,
+      status TEXT DEFAULT 'not_submitted', -- not_submitted, pending, verified, rejected
+      admin_remarks TEXT,
+      submitted_at DATETIME,
+      verified_at DATETIME,
+      verified_by TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  // Create tenant_telephony_settings table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS tenant_telephony_settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER UNIQUE NOT NULL,
+      provider TEXT DEFAULT 'voxbay',
+      voxbay_uid TEXT,
+      voxbay_upin TEXT,
+      voxbay_did TEXT,
+      allowed_extensions TEXT DEFAULT '101,102,103,104,105',
+      calling_mode TEXT DEFAULT 'mobile_to_mobile',
+      default_agent_mobile TEXT,
+      default_extension TEXT DEFAULT '111',
+      is_enabled INTEGER DEFAULT 1,
+      monthly_quota_minutes INTEGER DEFAULT 500,
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // Create telephony_settings table for persistent credentials
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS telephony_settings (
+      tenant_id INTEGER PRIMARY KEY DEFAULT 1,
+      provider TEXT DEFAULT 'voxbay',
+      uid TEXT,
+      upin TEXT,
+      caller_id TEXT DEFAULT '91487110000',
+      extension TEXT DEFAULT '101',
+      mode TEXT DEFAULT 'extension_to_mobile',
+      source_number TEXT,
+      dept_id TEXT DEFAULT '0',
+      recording_base_url TEXT DEFAULT 'https://x.voxbay.com:81/callcenter/',
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Create calls table for Cloud Telephony (Voxbay, etc.)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS calls (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER NOT NULL DEFAULT 1,
+      user_id INTEGER,
+      contact_id TEXT,
+      phone_number TEXT NOT NULL,
+      caller_id TEXT,
+      agent_extension TEXT,
+      provider TEXT DEFAULT 'voxbay',
+      provider_call_id TEXT UNIQUE,
+      direction TEXT DEFAULT 'outbound',
+      status TEXT DEFAULT 'initiated',
+      duration INTEGER DEFAULT 0,
+      conversation_duration INTEGER DEFAULT 0,
+      recording_url TEXT,
+      dtmf TEXT,
+      notes TEXT,
+      metadata TEXT,
+      started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      answered_at DATETIME,
+      ended_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    )
+  `);
 
   // Create call_logs table for Telecalling and Auto-Recordings
   await db.exec(`
@@ -1219,7 +1320,392 @@ export async function createCallLog(tenantId = 1, logData) {
   return await db.get(`SELECT * FROM call_logs WHERE id = ?`, [result.lastID]);
 }
 
+
+// ==========================================
+// 📞 CLOUD TELEPHONY (VOXBAY) HELPERS
+// ==========================================
+
+export async function createCallRecord(tenantId = 1, callData = {}) {
+  const {
+    user_id,
+    contact_id,
+    phone_number,
+    caller_id,
+    agent_extension,
+    provider = 'voxbay',
+    provider_call_id,
+    direction = 'outbound',
+    status = 'initiated',
+    duration = 0,
+    conversation_duration = 0,
+    recording_url = '',
+    dtmf = '',
+    notes = '',
+    metadata = ''
+  } = callData;
+
+  const result = await db.run(
+    `INSERT INTO calls (
+      tenant_id, user_id, contact_id, phone_number, caller_id, agent_extension,
+      provider, provider_call_id, direction, status, duration, conversation_duration,
+      recording_url, dtmf, notes, metadata
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      tenantId,
+      user_id || null,
+      contact_id || null,
+      phone_number,
+      caller_id || '',
+      agent_extension || '101',
+      provider,
+      provider_call_id,
+      direction,
+      status,
+      duration,
+      conversation_duration,
+      recording_url,
+      dtmf,
+      notes,
+      metadata
+    ]
+  );
+
+  return await db.get(`SELECT * FROM calls WHERE id = ?`, [result.lastID]);
+}
+
+export async function updateCallRecord(providerCallId, updates = {}) {
+  if (!providerCallId) return null;
+
+  const existing = await db.get(`SELECT * FROM calls WHERE provider_call_id = ? OR id = ?`, [providerCallId, providerCallId]);
+  if (!existing) return null;
+
+  const fields = [];
+  const values = [];
+
+  const allowedFields = [
+    'status', 'duration', 'conversation_duration', 'recording_url',
+    'dtmf', 'notes', 'metadata', 'answered_at', 'ended_at'
+  ];
+
+  for (const field of allowedFields) {
+    if (updates[field] !== undefined) {
+      fields.push(`${field} = ?`);
+      values.push(updates[field]);
+    }
+  }
+
+  fields.push(`updated_at = CURRENT_TIMESTAMP`);
+  values.push(existing.id);
+
+  await db.run(
+    `UPDATE calls SET ${fields.join(', ')} WHERE id = ?`,
+    values
+  );
+
+  return await db.get(`SELECT * FROM calls WHERE id = ?`, [existing.id]);
+}
+
+export async function getCallByProviderId(providerCallId) {
+  return await db.get(
+    `SELECT * FROM calls WHERE provider_call_id = ? OR id = ?`,
+    [providerCallId, providerCallId]
+  );
+}
+
+export async function getTenantCalls(tenantId = 1, options = {}) {
+  const { status, search, limit = 100, offset = 0 } = options;
+  let query = `SELECT * FROM calls WHERE tenant_id = ?`;
+  const params = [tenantId];
+
+  if (status && status !== 'all' && status !== 'ALL') {
+    query += ` AND status = ?`;
+    params.push(status.toLowerCase());
+  }
+
+  if (search) {
+    query += ` AND (phone_number LIKE ? OR caller_id LIKE ? OR notes LIKE ? OR provider_call_id LIKE ?)`;
+    const term = `%${search}%`;
+    params.push(term, term, term, term);
+  }
+
+  query += ` ORDER BY id DESC LIMIT ? OFFSET ?`;
+  params.push(limit, offset);
+
+  return await db.all(query, params);
+}
+
+export async function getCallingStats(tenantId = 1) {
+  const totalRow = await db.get(`SELECT COUNT(*) as total FROM calls WHERE tenant_id = ?`, [tenantId]);
+  const answeredRow = await db.get(`SELECT COUNT(*) as answered FROM calls WHERE tenant_id = ? AND (status = 'answered' OR status = 'completed')`, [tenantId]);
+  const durationRow = await db.get(`SELECT SUM(duration) as totalDuration, SUM(conversation_duration) as totalTalkTime FROM calls WHERE tenant_id = ?`, [tenantId]);
+  const missedRow = await db.get(`SELECT COUNT(*) as missed FROM calls WHERE tenant_id = ? AND (status = 'no_answer' OR status = 'cancelled' OR status = 'rejected')`, [tenantId]);
+  const busyRow = await db.get(`SELECT COUNT(*) as busy FROM calls WHERE tenant_id = ? AND status = 'busy'`, [tenantId]);
+
+  const total = totalRow?.total || 0;
+  const answered = answeredRow?.answered || 0;
+  const totalTalkTime = durationRow?.totalTalkTime || durationRow?.totalDuration || 0;
+  const avgDuration = total > 0 ? Math.round(totalTalkTime / total) : 0;
+  const answerRate = total > 0 ? Math.round((answered / total) * 100) : 0;
+
+  return {
+    totalCalls: total,
+    answeredCalls: answered,
+    missedCalls: missedRow?.missed || 0,
+    busyCalls: busyRow?.busy || 0,
+    totalTalkTime,
+    avgDuration,
+    answerRate
+  };
+}
+
+
+export async function getTelephonySettings(tenantId = 1) {
+  let settings = await db.get(`SELECT * FROM telephony_settings WHERE tenant_id = ?`, [tenantId]);
+  if (!settings) {
+    settings = {
+      tenant_id: tenantId,
+      provider: 'voxbay',
+      uid: process.env.VOXBAY_UID || '',
+      upin: process.env.VOXBAY_UPIN || '',
+      caller_id: process.env.VOXBAY_CALLER_ID || '91487110000',
+      extension: process.env.VOXBAY_EXTENSION || '101',
+      mode: process.env.VOXBAY_MODE || 'extension_to_mobile',
+      dept_id: process.env.VOXBAY_DEPT_ID || '0',
+      recording_base_url: process.env.VOXBAY_RECORDING_BASE_URL || 'https://x.voxbay.com:81/callcenter/'
+    };
+    try {
+      await db.run(
+        `INSERT OR IGNORE INTO telephony_settings (tenant_id, provider, uid, upin, caller_id, extension, mode, dept_id, recording_base_url)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [tenantId, settings.provider, settings.uid, settings.upin, settings.caller_id, settings.extension, settings.mode, settings.dept_id, settings.recording_base_url]
+      );
+    } catch(e) {}
+  }
+  return settings;
+}
+
+export async function saveTelephonySettings(tenantId = 1, data = {}) {
+  const { uid, upin, callerId, extension, mode, sourceNumber, deptId } = data;
+  const existing = await db.get(`SELECT * FROM telephony_settings WHERE tenant_id = ?`, [tenantId]);
+  
+  if (existing) {
+    await db.run(
+      `UPDATE telephony_settings 
+       SET uid = COALESCE(?, uid),
+           upin = COALESCE(?, upin),
+           caller_id = COALESCE(?, caller_id),
+           extension = COALESCE(?, extension),
+           mode = COALESCE(?, mode),
+           source_number = COALESCE(?, source_number),
+           dept_id = COALESCE(?, dept_id),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE tenant_id = ?`,
+      [uid !== undefined ? uid : existing.uid,
+       upin !== undefined && upin !== '' ? upin : existing.upin,
+       callerId !== undefined ? callerId : existing.caller_id,
+       extension !== undefined ? extension : existing.extension,
+       mode !== undefined ? mode : existing.mode,
+       sourceNumber !== undefined ? sourceNumber : existing.source_number,
+       deptId !== undefined ? deptId : existing.dept_id,
+       tenantId]
+    );
+  } else {
+    await db.run(
+      `INSERT INTO telephony_settings (tenant_id, uid, upin, caller_id, extension, mode, source_number, dept_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [tenantId, uid || '', upin || '', callerId || '91487110000', extension || '101', mode || 'extension_to_mobile', sourceNumber || '', deptId || '0']
+    );
+  }
+  return await db.get(`SELECT * FROM telephony_settings WHERE tenant_id = ?`, [tenantId]);
+}
+
 // Export database connection instance for transactions
+export async function getAllTenantTelephonyConfigs() {
+  const tenants = await db.all(`SELECT id, company_name, subscription_status FROM tenants ORDER BY id ASC`);
+  const configs = await db.all(`SELECT * FROM tenant_telephony_settings`);
+  const configMap = new Map();
+  configs.forEach(c => configMap.set(c.tenant_id, c));
+
+  return tenants.map(t => {
+    const existing = configMap.get(t.id);
+    return {
+      tenant_id: t.id,
+      company_name: t.name || `Company #${t.id}`,
+      email: t.email,
+      plan_id: t.plan_id,
+      provider: existing?.provider || 'voxbay',
+      voxbay_uid: existing?.voxbay_uid || 'x97x4zzfz1',
+      voxbay_upin: existing?.voxbay_upin || '8uqctamkgf',
+      voxbay_did: existing?.voxbay_did || '918031496345',
+      allowed_extensions: existing?.allowed_extensions || '101,102,103,104,105',
+      calling_mode: existing?.calling_mode || 'mobile_to_mobile',
+      default_agent_mobile: existing?.default_agent_mobile || '6283513686',
+      default_extension: existing?.default_extension || '111',
+      is_enabled: existing ? existing.is_enabled : 1,
+      monthly_quota_minutes: existing?.monthly_quota_minutes || 500,
+      notes: existing?.notes || ''
+    };
+  });
+}
+
+export async function saveTenantTelephonyConfig(tenantId, data = {}) {
+  const {
+    provider = 'voxbay',
+    voxbay_uid = 'x97x4zzfz1',
+    voxbay_upin = '8uqctamkgf',
+    voxbay_did = '918031496345',
+    allowed_extensions = '101,102,103,104,105',
+    calling_mode = 'mobile_to_mobile',
+    default_agent_mobile = '6283513686',
+    default_extension = '111',
+    is_enabled = 1,
+    monthly_quota_minutes = 500,
+    notes = ''
+  } = data;
+
+  const existing = await db.get(`SELECT * FROM tenant_telephony_settings WHERE tenant_id = ?`, [tenantId]);
+
+  if (existing) {
+    await db.run(
+      `UPDATE tenant_telephony_settings
+       SET provider = ?,
+           voxbay_uid = ?,
+           voxbay_upin = ?,
+           voxbay_did = ?,
+           allowed_extensions = ?,
+           calling_mode = ?,
+           default_agent_mobile = ?,
+           default_extension = ?,
+           is_enabled = ?,
+           monthly_quota_minutes = ?,
+           notes = ?,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE tenant_id = ?`,
+      [provider, voxbay_uid, voxbay_upin, voxbay_did, allowed_extensions, calling_mode, default_agent_mobile, default_extension, is_enabled, monthly_quota_minutes, notes, tenantId]
+    );
+  } else {
+    await db.run(
+      `INSERT INTO tenant_telephony_settings
+       (tenant_id, provider, voxbay_uid, voxbay_upin, voxbay_did, allowed_extensions, calling_mode, default_agent_mobile, default_extension, is_enabled, monthly_quota_minutes, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [tenantId, provider, voxbay_uid, voxbay_upin, voxbay_did, allowed_extensions, calling_mode, default_agent_mobile, default_extension, is_enabled, monthly_quota_minutes, notes]
+    );
+  }
+
+  return await db.get(`SELECT * FROM tenant_telephony_settings WHERE tenant_id = ?`, [tenantId]);
+}
+
+export async function getCompanyKyc(tenantId = 1) {
+  let kyc = await db.get(`SELECT * FROM company_kyc_profiles WHERE tenant_id = ?`, [tenantId]);
+  if (!kyc) {
+    // Check if tenant exists to pull basic company name
+    const tenant = await db.get(`SELECT company_name FROM tenants WHERE id = ?`, [tenantId]);
+    kyc = {
+      tenant_id: tenantId,
+      company_name: tenant?.company_name || 'My Company',
+      country: 'India',
+      state: 'Punjab',
+      pincode: '141001',
+      address: '',
+      gst_number: '',
+      company_proof_type: 'GST Registration Certificate',
+      company_proof_url: '',
+      auth_person_name: 'Company Owner',
+      auth_person_email: tenant?.email || '',
+      auth_person_phone: '',
+      auth_person_country: 'India',
+      auth_person_address: '',
+      auth_person_pincode: '141001',
+      id_proof_type: 'Aadhaar Card',
+      id_proof_url: '',
+      profile_photo_url: '',
+      status: 'not_submitted',
+      admin_remarks: ''
+    };
+  }
+  return kyc;
+}
+
+export async function saveCompanyKyc(tenantId, data = {}) {
+  const existing = await db.get(`SELECT * FROM company_kyc_profiles WHERE tenant_id = ?`, [tenantId]);
+  const now = new Date().toISOString();
+
+  if (existing) {
+    await db.run(
+      `UPDATE company_kyc_profiles
+       SET company_name = COALESCE(?, company_name),
+           country = COALESCE(?, country),
+           state = COALESCE(?, state),
+           pincode = COALESCE(?, pincode),
+           address = COALESCE(?, address),
+           gst_number = COALESCE(?, gst_number),
+           company_proof_type = COALESCE(?, company_proof_type),
+           company_proof_url = COALESCE(?, company_proof_url),
+           auth_person_name = COALESCE(?, auth_person_name),
+           auth_person_email = COALESCE(?, auth_person_email),
+           auth_person_phone = COALESCE(?, auth_person_phone),
+           auth_person_country = COALESCE(?, auth_person_country),
+           auth_person_address = COALESCE(?, auth_person_address),
+           auth_person_pincode = COALESCE(?, auth_person_pincode),
+           id_proof_type = COALESCE(?, id_proof_type),
+           id_proof_url = COALESCE(?, id_proof_url),
+           profile_photo_url = COALESCE(?, profile_photo_url),
+           status = 'pending',
+           submitted_at = ?,
+           updated_at = ?
+       WHERE tenant_id = ?`,
+      [
+        data.company_name, data.country, data.state, data.pincode, data.address, data.gst_number,
+        data.company_proof_type, data.company_proof_url, data.auth_person_name, data.auth_person_email,
+        data.auth_person_phone, data.auth_person_country, data.auth_person_address, data.auth_person_pincode,
+        data.id_proof_type, data.id_proof_url, data.profile_photo_url, now, now, tenantId
+      ]
+    );
+  } else {
+    await db.run(
+      `INSERT INTO company_kyc_profiles
+       (tenant_id, company_name, country, state, pincode, address, gst_number, company_proof_type, company_proof_url,
+        auth_person_name, auth_person_email, auth_person_phone, auth_person_country, auth_person_address, auth_person_pincode,
+        id_proof_type, id_proof_url, profile_photo_url, status, submitted_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+      [
+        tenantId, data.company_name || '', data.country || 'India', data.state || '', data.pincode || '',
+        data.address || '', data.gst_number || '', data.company_proof_type || 'GST Registration Certificate',
+        data.company_proof_url || '', data.auth_person_name || '', data.auth_person_email || '',
+        data.auth_person_phone || '', data.auth_person_country || 'India', data.auth_person_address || '',
+        data.auth_person_pincode || '', data.id_proof_type || 'Aadhaar Card', data.id_proof_url || '',
+        data.profile_photo_url || '', now, now
+      ]
+    );
+  }
+  return await db.get(`SELECT * FROM company_kyc_profiles WHERE tenant_id = ?`, [tenantId]);
+}
+
+export async function getAllKycSubmissions() {
+  const list = await db.all(`
+    SELECT k.*, t.company_name as tenant_company_name, t.subscription_status
+    FROM company_kyc_profiles k
+    LEFT JOIN tenants t ON k.tenant_id = t.id
+    ORDER BY k.updated_at DESC
+  `);
+  return list;
+}
+
+export async function updateKycStatus(tenantId, status, remarks = '', adminName = 'SuperAdmin') {
+  const now = new Date().toISOString();
+  await db.run(
+    `UPDATE company_kyc_profiles
+     SET status = ?,
+         admin_remarks = ?,
+         verified_by = ?,
+         verified_at = ?,
+         updated_at = ?
+     WHERE tenant_id = ?`,
+    [status, remarks, adminName, status === 'verified' ? now : null, now, tenantId]
+  );
+  return await db.get(`SELECT * FROM company_kyc_profiles WHERE tenant_id = ?`, [tenantId]);
+}
+
 export function getDb() {
   return db;
 }

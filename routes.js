@@ -1,3 +1,21 @@
+﻿import callingService from './services/calling/CallingService.js';
+
+import { 
+  createCallRecord, 
+  updateCallRecord, 
+  getCallByProviderId, 
+  getTenantCalls, 
+  getCallingStats,
+  getTelephonySettings,
+  saveTelephonySettings,
+  getAllTenantTelephonyConfigs,
+  saveTenantTelephonyConfig,
+  getCompanyKyc,
+  saveCompanyKyc,
+  getAllKycSubmissions,
+  updateKycStatus
+} from './db.js';
+
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
@@ -98,7 +116,7 @@ const globalWebhookLogs = [];
 
 export async function authMiddleware(req, res, next) {
   // Allow login, signup, and webhook testing routes without token
-  if (req.path.startsWith('/auth/') || req.path === '/billing/webhook' || req.path.includes('/integrations/webhook/') || req.path.includes('/integrations/oauth/')) {
+  if (req.path.startsWith('/auth/') || req.path === '/billing/webhook' || req.path.includes('/integrations/webhook/') || req.path.includes('/integrations/oauth/') || req.path.includes('/webhooks/') || req.path.includes('callcenterbridging') || req.path.includes('/calls/webhook')) {
     return next();
   }
 
@@ -1345,6 +1363,108 @@ export default function setupRoutes(io) {
     }
   });
 
+  // ==========================================
+  // ==========================================
+  // COMPANY KYC & COMPLIANCE ENDPOINTS
+  // ==========================================
+  router.get('/kyc/profile', async (req, res) => {
+    try {
+      const tenantId = req.user?.tenant_id || 1;
+      const kyc = await getCompanyKyc(tenantId);
+      res.json({ success: true, kyc });
+    } catch (err) {
+      console.error('[KYC Profile Get Error]', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/kyc/submit', async (req, res) => {
+    try {
+      const tenantId = req.user?.tenant_id || 1;
+      const kycData = req.body;
+      const saved = await saveCompanyKyc(tenantId, kycData);
+      res.json({ success: true, kyc: saved, message: 'KYC submission received and marked for review.' });
+    } catch (err) {
+      console.error('[KYC Submit Error]', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/kyc/upload-doc', async (req, res) => {
+    try {
+      const { docName, base64Data, fileType } = req.body;
+      if (!base64Data) {
+        return res.status(400).json({ error: 'No document data provided' });
+      }
+      // Return data URI directly for instant reliable storage
+      const dataUri = base64Data.startsWith('data:') ? base64Data : `data:${fileType || 'image/jpeg'};base64,${base64Data}`;
+      res.json({ success: true, url: dataUri, docName });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.get('/superadmin/kyc/all', checkSuperadmin, async (req, res) => {
+    try {
+      const submissions = await getAllKycSubmissions();
+      res.json({ success: true, submissions });
+    } catch (err) {
+      console.error('[SuperAdmin KYC All Error]', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/superadmin/kyc/review', checkSuperadmin, async (req, res) => {
+    try {
+      const { tenantId, status, remarks } = req.body;
+      if (!tenantId || !status) {
+        return res.status(400).json({ error: 'tenantId and status are required' });
+      }
+      const adminName = req.user?.email || 'SuperAdmin';
+      const updated = await updateKycStatus(tenantId, status, remarks, adminName);
+      res.json({ success: true, kyc: updated, message: `KYC status updated to ${status}.` });
+    } catch (err) {
+      console.error('[SuperAdmin KYC Review Error]', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // SUPERADMIN MULTI-TENANT TELEPHONY CONTROL
+  // ==========================================
+  router.get('/superadmin/telephony/tenants', checkSuperadmin, async (req, res) => {
+    try {
+      const tenants = await getAllTenantTelephonyConfigs();
+      res.json({ success: true, tenants });
+    } catch (err) {
+      console.error('[SuperAdmin Telephony Get Error]', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/superadmin/telephony/save', checkSuperadmin, async (req, res) => {
+    try {
+      const { tenantId, config } = req.body;
+      if (!tenantId) return res.status(400).json({ error: 'tenantId is required' });
+      const saved = await saveTenantTelephonyConfig(tenantId, config);
+      res.json({ success: true, config: saved, message: 'Telephony configuration saved successfully.' });
+    } catch (err) {
+      console.error('[SuperAdmin Telephony Save Error]', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/superadmin/telephony/test', checkSuperadmin, async (req, res) => {
+    try {
+      const { uid, upin, did, testNumber = '9056035625' } = req.body;
+      const targetUrl = `https://x.voxbay.com/api/click_to_call?id_dept=0&uid=${uid}&upin=${upin}&user_no=111&destination=${testNumber}&callerid=${did}&`;
+      const response = await fetch(targetUrl);
+      const text = await response.text();
+      res.json({ success: response.status === 200, status: response.status, responseText: text });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // 2. Get all plans details for admin dashboard (Superadmin only)
   router.get('/admin/plans', checkSuperadmin, async (req, res) => {
     try {
@@ -1742,380 +1862,71 @@ export default function setupRoutes(io) {
     }
   });
 
-  const pendingSimCalls = new Map(); // extension/staffId -> call data
-
-  // Poll for pending call command (Mobile App)
-  router.get('/sim-bridge/poll-call', (req, res) => {
-    const key1 = String(req.query.extension || '');
-    const key2 = String(req.query.staffId || '');
-    const ext = key1 || key2 || '101';
-    
-    // Check both extension key and staffId key
-    let pending = pendingSimCalls.get(ext);
-    if (!pending && key2) pending = pendingSimCalls.get(key2);
-    if (!pending && key1) pending = pendingSimCalls.get(key1);
-
-    if (pending && (Date.now() - pending.timestamp < 45000)) {
-      pendingSimCalls.delete(ext);
-      if (key1) pendingSimCalls.delete(key1);
-      if (key2) pendingSimCalls.delete(key2);
-      console.log(`⚡ [SIM BRIDGE] Mobile Fetched Call Command -> Dialing ${pending.customerPhone} (Ext: ${ext})`);
-      return res.json({ hasCall: true, ...pending });
-    }
-    res.json({ hasCall: false });
-  });
-
-  // REST Trigger Call (Desktop -> Server -> Mobile)
-  router.post('/sim-bridge/trigger-call', async (req, res) => {
-    try {
-      const { staffId, extension, customerPhone, customerName } = req.body;
-      if (!customerPhone) {
-        return res.status(400).json({ error: 'customerPhone is required' });
-      }
-
-      const targetExt = String(extension || staffId || '101');
-      console.log(`📞 [SIM BRIDGE] Call Queued from Laptop CRM -> Target Ext: ${targetExt} -> Customer Phone: ${customerPhone}`);
-
-      // Add to pending poll queue for mobile device
-      const callData = {
-        extension: targetExt,
-        staffId: String(staffId || targetExt),
-        customerPhone,
-        customerName: customerName || 'Customer',
-        timestamp: Date.now()
-      };
-
-      pendingSimCalls.set(targetExt, callData);
-      if (staffId && String(staffId) !== targetExt) {
-        pendingSimCalls.set(String(staffId), callData);
-      }
-
-      if (io) {
-        io.to(`staff_${targetExt}`).emit('sim_bridge:incoming_trigger', callData);
-        io.emit(`sim_bridge:status_${targetExt}`, { status: 'DIALING', customerPhone, timestamp: Date.now() });
-      }
-      res.json({ success: true, message: `Call queued for extension ${targetExt}` });
-    } catch (err) {
-      console.error('Error triggering sim call:', err);
-      res.status(500).json({ error: 'Failed to trigger call' });
-    }
-  });
-
-  // Telecalling Logs List
-  router.get('/telecalling/logs', async (req, res) => {
-    try {
-      const logs = await getCallLogs(1, 200);
-      res.json({ success: true, logs });
-    } catch (err) {
-      console.error('Error fetching call logs:', err);
-      res.status(500).json({ error: 'Failed to fetch call logs' });
-    }
-  });
-
-  // Save new Call Log
-  router.post('/telecalling/logs', async (req, res) => {
-    try {
-      const log = await createCallLog(1, req.body);
-      if (io) {
-        io.emit('telecalling:new_log', log);
-      }
-      res.json({ success: true, log });
-    } catch (err) {
-      console.error('Error saving call log:', err);
-      res.status(500).json({ error: 'Failed to save call log' });
-    }
-  });
-
-  // Upload Call Audio Recording (.mp3 / base64)
-  router.post('/telecalling/upload-recording', async (req, res) => {
-    try {
-      const { audioBase64, customerPhone, customerName, staffId, staffName, durationSeconds, disposition, notes } = req.body;
-      if (!audioBase64) {
-        return res.status(400).json({ error: 'audioBase64 payload required' });
-      }
-      const filename = `call_rec_${staffId || 'staff'}_${Date.now()}.mp3`;
-      const filePath = path.join(recordingsDir, filename);
-      const cleanBase64 = audioBase64.replace(/^data:audio\/\w+;base64,/, '');
-      fs.writeFileSync(filePath, Buffer.from(cleanBase64, 'base64'));
-
-      const recordingUrl = `/media/recordings/${filename}`;
-      const log = await createCallLog(1, {
-        staffId: staffId || '1',
-        staffName: staffName || 'Telecaller',
-        customerName: customerName || 'Customer',
-        customerPhone: customerPhone || 'Unknown',
-        channel: 'SIM',
-        type: 'OUTGOING',
-        durationSeconds: durationSeconds || 0,
-        recordingUrl,
-        disposition: disposition || 'Interested',
-        notes: notes || 'Auto-recorded via OmniFlow SIM Bridge'
-      });
-
-      if (io) {
-        io.emit('telecalling:new_log', log);
-      }
-      res.json({ success: true, recordingUrl, log });
-    } catch (err) {
-      console.error('Error uploading call recording:', err);
-      res.status(500).json({ error: 'Failed to upload call recording' });
-    }
-  });
-
   // ==========================================
-  // 📱 SIM BRIDGE & TELECALLING ENDPOINTS
+  // 📞 VOXBAY CLOUD TELEPHONY ENDPOINTS
   // ==========================================
 
-  // Socket.io handlers for SIM Bridge
-  if (io) {
-    io.on('connection', (socket) => {
-      // Mobile app joins its staff room
-      socket.on('sim_bridge:register_device', async (data) => {
-        const { staffId, deviceId, deviceName, simCarrier, simNumber, deviceIp, batteryLevel } = data || {};
-        if (staffId) {
-          socket.join(`staff_${staffId}`);
-          socket.join(`device_${deviceId}`);
-          await registerOrUpdateSimDevice(1, {
-            staffId,
-            staffName: data.staffName || `Staff ${staffId}`,
-            deviceId: deviceId || socket.id,
-            deviceName: deviceName || 'Android Phone',
-            simCarrier: simCarrier || 'Jio 4G',
-            simNumber: simNumber || '',
-            deviceIp: deviceIp || socket.handshake.address,
-            batteryLevel: batteryLevel || 100,
-            status: 'online'
-          });
-          io.emit('sim_bridge:device_updated', { staffId, status: 'online', deviceName, simCarrier });
-        }
-      });
-
-      // Desktop triggers call to mobile phone
-      socket.on('sim_bridge:trigger_call', (data) => {
-        const { staffId, customerPhone, customerName } = data || {};
-        if (staffId) {
-          io.to(`staff_${staffId}`).emit('sim_bridge:incoming_trigger', {
-            customerPhone,
-            customerName: customerName || 'Customer',
-            timestamp: Date.now()
-          });
-        }
-      });
-
-      // Mobile reports call state back to desktop
-      socket.on('sim_bridge:call_status', (data) => {
-        const { staffId, status, duration, customerPhone } = data || {};
-        if (staffId) {
-          io.emit(`sim_bridge:status_${staffId}`, { status, duration, customerPhone, timestamp: Date.now() });
-        }
-      });
-
-      // Desktop or mobile requests hangup
-      socket.on('sim_bridge:hangup', (data) => {
-        const { staffId } = data || {};
-        if (staffId) {
-          io.to(`staff_${staffId}`).emit('sim_bridge:hangup_command');
-        }
-      });
-    });
-  }
-
-  // Get list of all paired SIM Bridge Devices
-  router.get('/sim-bridge/devices', async (req, res) => {
+  // 1. Initiate Click-to-Call
+  router.post(['/calls/initiate', '/telecalling/initiate'], async (req, res) => {
     try {
-      const devices = await getSimBridgeDevices(1);
-      const now = Date.now();
-      const enriched = devices.map(d => {
-        const lastSeenMs = d.last_seen ? new Date(d.last_seen).getTime() : 0;
-        const isOnline = (now - lastSeenMs) < 30000;
-        return {
-          ...d,
-          isOnline,
-          status: isOnline ? (d.status || 'online') : 'offline'
-        };
-      });
-      res.json({ success: true, devices: enriched });
-    } catch (err) {
-      console.error('Error fetching sim bridge devices:', err);
-      res.status(500).json({ error: 'Failed to fetch devices' });
-    }
-  });
-
-  // Get status of specific staff / extension
-  router.get('/sim-bridge/device-status', async (req, res) => {
-    try {
-      const { staffId, extension } = req.query;
-      const device = await getSimBridgeDeviceByStaff(1, extension || staffId || '101');
-      if (!device) {
-        return res.json({ success: true, isPaired: false, status: 'offline' });
-      }
-      const lastSeenMs = device.last_seen ? new Date(device.last_seen).getTime() : 0;
-      const isOnline = (Date.now() - lastSeenMs) < 30000;
-      res.json({
-        success: true,
-        isPaired: true,
-        isOnline,
-        device: {
-          ...device,
-          status: isOnline ? (device.status || 'online') : 'offline'
-        }
-      });
-    } catch (err) {
-      res.status(500).json({ error: 'Failed to fetch device status' });
-    }
-  });
-
-  // Pair or update mobile SIM device (from Mobile App)
-  router.post('/sim-bridge/pair', async (req, res) => {
-    try {
-      const device = await registerOrUpdateSimDevice(1, req.body);
-      console.log(`📱 [SIM BRIDGE] Staff Device Paired: Ext ${device.extension || device.staff_id} (${device.device_name}) - SIM: ${device.sim_carrier}`);
-      if (io) {
-        io.emit('sim_bridge:device_paired', device);
-      }
-      res.json({ success: true, device });
-    } catch (err) {
-      console.error('Error pairing sim device:', err);
-      res.status(500).json({ error: 'Failed to pair device' });
-    }
-  });
-
-  // Mobile App Heartbeat (keeps device status ONLINE)
-  router.post('/sim-bridge/heartbeat', async (req, res) => {
-    try {
-      const { extension, staffId, batteryLevel, status } = req.body;
-      const key = String(extension || staffId || '101');
-      await registerOrUpdateSimDevice(1, {
-        staffId: key,
-        extension: key,
-        batteryLevel: batteryLevel || 100,
-        status: status || 'online'
-      });
-      res.json({ success: true, timestamp: Date.now() });
-    } catch (err) {
-      res.status(500).json({ error: 'Heartbeat failed' });
-    }
-  });
-
-  const pendingSimCalls = new Map(); // extension/staffId -> call data
-
-  // Poll for pending call command (Mobile App)
-  router.get('/sim-bridge/poll-call', (req, res) => {
-    const key1 = String(req.query.extension || '');
-    const key2 = String(req.query.staffId || '');
-    const ext = key1 || key2 || '101';
-    
-    // Check both extension key and staffId key
-    let pending = pendingSimCalls.get(ext);
-    if (!pending && key2) pending = pendingSimCalls.get(key2);
-    if (!pending && key1) pending = pendingSimCalls.get(key1);
-
-    if (pending && (Date.now() - pending.timestamp < 45000)) {
-      pendingSimCalls.delete(ext);
-      if (key1) pendingSimCalls.delete(key1);
-      if (key2) pendingSimCalls.delete(key2);
-      console.log(`⚡ [SIM BRIDGE] Mobile Fetched Call Command -> Dialing ${pending.customerPhone} (Ext: ${ext})`);
-      return res.json({ hasCall: true, ...pending });
-    }
-    res.json({ hasCall: false });
-  });
-
-  // REST Trigger Call (Desktop -> Server -> Mobile)
-  router.post('/sim-bridge/trigger-call', async (req, res) => {
-    try {
-      const { staffId, extension, customerPhone, customerName } = req.body;
-      if (!customerPhone) {
-        return res.status(400).json({ error: 'customerPhone is required' });
+      const { phoneNumber, destination, phone, customerPhone, contactName, customerName, agentExtension, customUid, customUpin, customDid } = req.body;
+      const targetNumber = phoneNumber || destination || phone || customerPhone;
+      if (!targetNumber) {
+        return res.status(400).json({ success: false, error: 'Phone number is required.' });
       }
 
-      const targetExt = String(extension || staffId || '101');
-      console.log(`📞 [SIM BRIDGE] Call Queued from Laptop CRM -> Target Ext: ${targetExt} -> Customer Phone: ${customerPhone}`);
-
-      // Add to pending poll queue for mobile device
-      const callData = {
-        extension: targetExt,
-        staffId: String(staffId || targetExt),
-        customerPhone,
-        customerName: customerName || 'Customer',
-        timestamp: Date.now()
-      };
-
-      pendingSimCalls.set(targetExt, callData);
-      if (staffId && String(staffId) !== targetExt) {
-        pendingSimCalls.set(String(staffId), callData);
-      }
-
-      if (io) {
-        io.to(`staff_${targetExt}`).emit('sim_bridge:incoming_trigger', callData);
-        io.emit(`sim_bridge:status_${targetExt}`, { status: 'DIALING', customerPhone, timestamp: Date.now() });
-      }
-      res.json({ success: true, message: `Call queued for extension ${targetExt}` });
-    } catch (err) {
-      console.error('Error triggering sim call:', err);
-      res.status(500).json({ error: 'Failed to trigger call' });
-    }
-  });
-
-  // Telecalling Logs List
-  router.get('/telecalling/logs', async (req, res) => {
-    try {
-      const logs = await getCallLogs(1, 200);
-      res.json({ success: true, logs });
-    } catch (err) {
-      console.error('Error fetching call logs:', err);
-      res.status(500).json({ error: 'Failed to fetch call logs' });
-    }
-  });
-
-  // Save new Call Log
-  router.post('/telecalling/logs', async (req, res) => {
-    try {
-      const log = await createCallLog(1, req.body);
-      if (io) {
-        io.emit('telecalling:new_log', log);
-      }
-      res.json({ success: true, log });
-    } catch (err) {
-      console.error('Error saving call log:', err);
-      res.status(500).json({ error: 'Failed to save call log' });
-    }
-  });
-
-  // Upload Call Audio Recording (.mp3 / base64)
-  router.post('/telecalling/upload-recording', async (req, res) => {
-    try {
-      const { audioBase64, customerPhone, customerName, staffId, staffName, durationSeconds, disposition, notes } = req.body;
-      if (!audioBase64) {
-        return res.status(400).json({ error: 'audioBase64 payload required' });
-      }
-      const filename = `call_rec_${staffId || 'staff'}_${Date.now()}.mp3`;
-      const filePath = path.join(recordingsDir, filename);
-      const cleanBase64 = audioBase64.replace(/^data:audio\/\w+;base64,/, '');
-      fs.writeFileSync(filePath, Buffer.from(cleanBase64, 'base64'));
-
-      const recordingUrl = `/media/recordings/${filename}`;
-      const log = await createCallLog(1, {
-        staffId: staffId || '1',
-        staffName: staffName || 'Telecaller',
-        customerName: customerName || 'Customer',
-        customerPhone: customerPhone || 'Unknown',
-        channel: 'SIM',
-        type: 'OUTGOING',
-        durationSeconds: durationSeconds || 0,
-        recordingUrl,
-        disposition: disposition || 'Interested',
-        notes: notes || 'Auto-recorded via OmniFlow SIM Bridge'
+      const tenantId = req.user?.tenantId || req.user?.tenant_id || 1;
+      const result = await callingService.initiateCall({
+        tenantId,
+        phoneNumber: targetNumber,
+        contactName: contactName || customerName || 'Customer',
+        agentExtension,
+        customUid,
+        customUpin,
+        customDid,
+        io
       });
 
-      if (io) {
-        io.emit('telecalling:new_log', log);
-      }
-      res.json({ success: true, recordingUrl, log });
+      return res.status(result.success ? 200 : 400).json(result);
     } catch (err) {
-      console.error('Error uploading call recording:', err);
-      res.status(500).json({ error: 'Failed to upload call recording' });
+      console.error('[Calls API Error] Initiate Call Failed:', err);
+      return res.status(500).json({ success: false, error: err.message || 'Failed to initiate call' });
     }
   });
+
+  // 2. Hangup Call
+  router.post(['/calls/hangup', '/telecalling/hangup'], async (req, res) => {
+    try {
+      const { callId, callUuid } = req.body;
+      const result = await callingService.endCall({ callId, callUuid, io });
+      return res.json(result);
+    } catch (err) {
+      console.error('[Calls API Error] Hangup Failed:', err);
+      return res.status(500).json({ success: false, error: err.message || 'Failed to hangup call' });
+    }
+  });
+
+  // 3. Webhook Receiver
+  const handleVoxbayWebhook = async (req, res) => {
+    try {
+      const payload = { ...req.query, ...req.body };
+      console.log('[Voxbay Webhook Received]', JSON.stringify(payload));
+      await callingService.handleWebhook(payload, io);
+      res.setHeader('Content-Type', 'text/plain');
+      return res.status(200).send('success');
+    } catch (err) {
+      console.error('[Voxbay Webhook Error]', err);
+      res.setHeader('Content-Type', 'text/plain');
+      return res.status(200).send('success');
+    }
+  };
+
+  router.post('/webhooks/voxbay', handleVoxbayWebhook);
+  router.get('/webhooks/voxbay', handleVoxbayWebhook);
+  router.post('/callcenterbridging', handleVoxbayWebhook);
+  router.get('/callcenterbridging', handleVoxbayWebhook);
+  router.post('/voxbay', handleVoxbayWebhook);
+  router.get('/voxbay', handleVoxbayWebhook);
 
   return router;
 }
