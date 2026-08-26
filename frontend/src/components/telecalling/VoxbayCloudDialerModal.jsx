@@ -185,6 +185,14 @@ export default function VoxbayCloudDialerModal({
   };
 
   const handleHangup = async () => {
+    // 1. Instant Local Desktop Bridge Disconnect
+    try {
+      fetch('http://127.0.0.1:9876/hangup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'hangup' })
+      }).catch(() => {});
+    } catch (err) {}
     try {
       if (callingMode === 'extension_to_mobile') {
       }
