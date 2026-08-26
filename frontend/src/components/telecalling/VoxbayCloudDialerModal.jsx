@@ -126,7 +126,6 @@ export default function VoxbayCloudDialerModal({
     const rawName = (typeof overrideName === 'string' && overrideName) ? overrideName : contactName;
     const activeMode = overrideMode || callingMode;
     const cleanNumber = String(rawNum).replace(/[^\d+]/g, '');
-    if (activeMode === 'extension_to_mobile') { try { window.location.href = `tel:${cleanNumber}`; } catch(e) {} }
 
     if (!cleanNumber || cleanNumber.length < 5) {
       if (showToast) showToast('Please enter a valid phone number', 'error');
