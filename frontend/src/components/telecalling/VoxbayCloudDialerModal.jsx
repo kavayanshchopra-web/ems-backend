@@ -187,11 +187,6 @@ export default function VoxbayCloudDialerModal({
   const handleHangup = async () => {
     try {
       if (callingMode === 'extension_to_mobile') {
-        const hFrame = document.createElement('iframe');
-        hFrame.style.display = 'none';
-        hFrame.src = 'tel:hangup';
-        document.body.appendChild(hFrame);
-        setTimeout(() => { if (hFrame.parentNode) document.body.removeChild(hFrame); }, 1000);
       }
     } catch (e) {}
     
