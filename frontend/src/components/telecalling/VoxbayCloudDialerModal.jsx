@@ -184,6 +184,26 @@ export default function VoxbayCloudDialerModal({
     }
   };
 
+    const handleCloseModal = async () => {
+    if (callState !== 'IDLE' && callState !== 'ENDED') {
+      try {
+        fetch('http://127.0.0.1:9876/hangup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'hangup' })
+        }).catch(() => {});
+        fetch(`${API_BASE}/api/calls/hangup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ callId: activeCallId })
+        }).catch(() => {});
+      } catch (e) {}
+    }
+    setCallState('IDLE');
+    setCallDuration(0);
+    if (onClose) onClose();
+  };
+
   const handleHangup = async () => {
     // 1. Instant Local Desktop Bridge Disconnect
     try {
@@ -320,7 +340,7 @@ export default function VoxbayCloudDialerModal({
             </button>
             <button
               type="button"
-              onClick={handleHangup}
+              onClick={handleCloseModal}
               style={{
                 background: 'rgba(255, 255, 255, 0.15)',
                 border: 'none',
@@ -333,7 +353,7 @@ export default function VoxbayCloudDialerModal({
                 alignItems: 'center',
                 justifyContent: 'center'
               }}
-              title="Close"
+              title="Close Dialer"
             >
               <X size={16} />
             </button>
