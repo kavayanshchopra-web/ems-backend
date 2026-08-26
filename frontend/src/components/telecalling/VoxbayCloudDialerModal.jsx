@@ -187,17 +187,14 @@ export default function VoxbayCloudDialerModal({
   const handleHangup = async () => {
     // 1. Instant Local Desktop Bridge Disconnect
     try {
-      fetch('http://127.0.0.1:9876/hangup', {
+      await fetch('http://127.0.0.1:9876/hangup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'hangup' })
-      }).catch(() => {});
+      });
     } catch (err) {}
-    try {
-      if (callingMode === 'extension_to_mobile') {
-      }
-    } catch (e) {}
-    
+
+    // 2. Cloud Server Hangup Sync
     try {
       await fetch(`${API_BASE}/api/calls/hangup`, {
         method: 'POST',
@@ -214,21 +211,22 @@ export default function VoxbayCloudDialerModal({
         contactName: contactName || 'Customer',
         phoneNumber: phoneNumber,
         duration: formatDuration(callDuration),
-        recording: syncedRecording,
-        type: 'OUTGOING',
-        status: callDuration > 0 ? 'Interested' : 'Missed',
-        notes: `Voxbay Cloud Recording Synced (${formatDuration(callDuration)})`,
-        timestamp: new Date().toISOString()
+        callStatus: callDuration > 0 ? 'ANSWERED' : 'MISSED',
+        callStartTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        recordingUrl: syncedRecording,
+        notes: notes || 'Call completed via Voxbay Cloud Web Dialer',
+        agentExtension: extension || '2MaqwezO',
+        agentMobile: agentMobile || '6283513686'
       });
     }
 
-    if (showToast) showToast('🛑 Call ended & recording synced to Directory', 'info');
+    if (showToast) showToast('Call disconnected & synced successfully.', 'info');
 
     setTimeout(() => {
       setCallState('IDLE');
       setCallDuration(0);
       onClose();
-    }, 1200);
+    }, 2000);
   };
 
   const formatDuration = (sec) => {
