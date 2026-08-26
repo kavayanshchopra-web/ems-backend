@@ -158,7 +158,8 @@ export default function VoxbayCloudDialerModal({
           agentExtension: extension || '2MaqwezO',
           agentMobile: agentMobile || '6283513686',
           staffId: currentStaff?.id || '1',
-          staffName: currentStaff?.name || 'Agent'
+          staffName: currentStaff?.name || 'Agent',
+          isDirectSoftphone: activeMode === 'extension_to_mobile'
         })
       });
 
