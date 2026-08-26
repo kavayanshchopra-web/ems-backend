@@ -1,6 +1,9 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { Phone, PhoneCall, PhoneOff, X, User, Hash, Clock, Volume2, ShieldCheck, Activity, Smartphone, Laptop, Settings, Disc, Mic, CheckCircle2, RefreshCw, AlertCircle } from 'lucide-react';
 
+const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const API_BASE = IS_DEV ? 'http://localhost:5000' : 'https://api.employeemanagementsystems.com';
+
 export default function VoxbayCloudDialerModal({
   isOpen,
   onClose,
@@ -123,6 +126,7 @@ export default function VoxbayCloudDialerModal({
     const rawName = (typeof overrideName === 'string' && overrideName) ? overrideName : contactName;
     const activeMode = overrideMode || callingMode;
     const cleanNumber = String(rawNum).replace(/[^\d+]/g, '');
+    if (activeMode === 'extension_to_mobile') { try { window.location.href = `tel:${cleanNumber}`; } catch(e) {} }
 
     if (!cleanNumber || cleanNumber.length < 5) {
       if (showToast) showToast('Please enter a valid phone number', 'error');
@@ -133,7 +137,7 @@ export default function VoxbayCloudDialerModal({
     setCallDuration(0);
 
     try {
-      const response = await fetch('/api/calls/initiate', {
+      const response = await fetch(`${API_BASE}/api/calls/initiate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -171,7 +175,7 @@ export default function VoxbayCloudDialerModal({
 
   const handleHangup = async () => {
     try {
-      await fetch('/api/calls/hangup', {
+      await fetch(`${API_BASE}/api/calls/hangup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ callId: activeCallId })

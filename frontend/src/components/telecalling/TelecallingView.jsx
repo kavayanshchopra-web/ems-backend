@@ -5,6 +5,9 @@ import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import VoxbayCloudDialerModal from './VoxbayCloudDialerModal';
 import { Smartphone, PhoneCall, QrCode, Wifi, CheckCircle2, PhoneOutgoing } from 'lucide-react';
 
+const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const API_BASE = IS_DEV ? 'http://localhost:5000' : 'https://api.employeemanagementsystems.com';
+
 export default function TelecallingView({
   authUser,
   callLogs = [],
@@ -48,7 +51,7 @@ export default function TelecallingView({
 
   // Auto-sync real desktop recordings from /api/recordings/local-list
   useEffect(() => {
-    fetch('/api/recordings/local-list')
+    fetch(`${API_BASE}/api/recordings/local-list`)
       .then(res => res.json())
       .then(data => {
         if (data.success && Array.isArray(data.recordings) && data.recordings.length > 0) {
