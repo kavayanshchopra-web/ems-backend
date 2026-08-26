@@ -290,7 +290,7 @@ const getLabelStyles = (label) => {
   };
 };
 const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-const DEFAULT_GATEWAY = typeof window !== 'undefined' && window.location.origin && window.location.origin !== 'null' ? window.location.origin : 'https://app.employeemanagementsystems.com';
+const DEFAULT_GATEWAY = 'https://api.employeemanagementsystems.com';
 const customGateway = typeof window !== 'undefined' ? localStorage.getItem('omniflow_custom_gateway') : null;
 const LIVE_BACKEND = customGateway || DEFAULT_GATEWAY;
 const SOCKET_URL = IS_DEV ? 'http://localhost:5000' : LIVE_BACKEND;
