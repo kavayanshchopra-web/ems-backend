@@ -121,21 +121,11 @@ export default function VoxbayCloudDialerModal({
     setPhoneNumber(prev => prev + digit);
   };
 
-  const handleInitiateCall = async (overrideNumber = null, overrideName = null, overrideMode = null) => {
+    const handleInitiateCall = async (overrideNumber = null, overrideName = null, overrideMode = null) => {
     const rawNum = (typeof overrideNumber === 'string' && overrideNumber) ? overrideNumber : phoneNumber;
     const rawName = (typeof overrideName === 'string' && overrideName) ? overrideName : contactName;
     const activeMode = overrideMode || callingMode;
     const cleanNumber = String(rawNum).replace(/[^\d+]/g, '');
-    if (activeMode === 'extension_to_mobile') {
-      try {
-        const telFrame = document.createElement('iframe');
-        telFrame.style.display = 'none';
-        telFrame.src = 'tel:' + cleanNumber;
-        document.body.appendChild(telFrame);
-        setTimeout(() => { if (telFrame.parentNode) document.body.removeChild(telFrame); }, 1500);
-      } catch (err) {}
-    }
-    
 
     if (!cleanNumber || cleanNumber.length < 5) {
       if (showToast) showToast('Please enter a valid phone number', 'error');
@@ -145,6 +135,18 @@ export default function VoxbayCloudDialerModal({
     setCallState('DIALING');
     setCallDuration(0);
 
+    // 1. Silent Local Desktop Bridge for Softphone Mode (Zero Popups, Background Execution)
+    if (activeMode === 'extension_to_mobile') {
+      try {
+        fetch('http://127.0.0.1:9876/dial', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ number: cleanNumber })
+        }).catch(() => {});
+      } catch (err) {}
+    }
+
+    // 2. Cloud Server Sync & Call Logging
     try {
       const response = await fetch(`${API_BASE}/api/calls/initiate`, {
         method: 'POST',
@@ -166,7 +168,7 @@ export default function VoxbayCloudDialerModal({
         setCallState('RINGING');
         if (showToast) {
           const targetDevice = activeMode === 'mobile_to_mobile' ? `Agent Mobile (${agentMobile})` : `Softphone (${extension})`;
-          showToast(`📞 Dispatched to Voxbay! Ringing ${targetDevice}...`, 'success');
+          showToast(`?? Calling ${cleanNumber} via ${targetDevice}...`, 'success');
         }
 
         setTimeout(() => {
