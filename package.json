@@ -2,12 +2,16 @@
   "name": "whatsapp-crm-backend",
   "version": "1.0.0",
   "type": "module",
-  "main": "server.js",
+  "main": "electron/main.cjs",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
     "build": "cd frontend && npm install && npm run build",
-    "vercel-build": "cd frontend && npm install && npm run build"
+    "vercel-build": "cd frontend && npm install && npm run build",
+    "electron:start": "electron electron/main.cjs",
+    "electron:pack": "npx -y @electron/packager . \"OmniFlow CRM\" --platform=win32 --arch=x64 --out=dist_electron --overwrite --prune=true",
+    "electron:build": "cd frontend && npm run build && cd .. && electron-builder --win",
+    "dist": "cd frontend && npm run build && cd .. && electron-builder --win"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc13",
@@ -24,6 +28,45 @@
     "stripe": "^22.3.2"
   },
   "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3",
     "nodemon": "^3.1.2"
+  },
+  "build": {
+    "appId": "com.omniflow.desktop",
+    "productName": "OmniFlow CRM",
+    "copyright": "Copyright © 2026 OmniFlow",
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
+    "directories": {
+      "output": "dist_electron"
+    },
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OmniFlow CRM"
+    }
   }
 }
