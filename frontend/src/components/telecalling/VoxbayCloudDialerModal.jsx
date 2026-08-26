@@ -126,15 +126,7 @@ export default function VoxbayCloudDialerModal({
     const rawName = (typeof overrideName === 'string' && overrideName) ? overrideName : contactName;
     const activeMode = overrideMode || callingMode;
     const cleanNumber = String(rawNum).replace(/[^\d+]/g, '');
-    if (activeMode === 'extension_to_mobile') {
-      try {
-        const telFrame = document.createElement('iframe');
-        telFrame.style.display = 'none';
-        telFrame.src = `tel:${cleanNumber}`;
-        document.body.appendChild(telFrame);
-        setTimeout(() => { if (telFrame.parentNode) document.body.removeChild(telFrame); }, 1500);
-      } catch (err) {}
-    }
+    
 
     if (!cleanNumber || cleanNumber.length < 5) {
       if (showToast) showToast('Please enter a valid phone number', 'error');
@@ -182,15 +174,7 @@ export default function VoxbayCloudDialerModal({
   };
 
   const handleHangup = async () => {
-    try {
-      if (callingMode === 'extension_to_mobile') {
-        const hFrame = document.createElement('iframe');
-        hFrame.style.display = 'none';
-        hFrame.src = 'tel:hangup';
-        document.body.appendChild(hFrame);
-        setTimeout(() => { if (hFrame.parentNode) document.body.removeChild(hFrame); }, 1000);
-      }
-    } catch (e) {}
+    
     try {
       await fetch(`${API_BASE}/api/calls/hangup`, {
         method: 'POST',
