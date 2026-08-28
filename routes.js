@@ -1,3 +1,4 @@
+import setupGhlRoutes, { handleOAuthCallback } from './services/ghl/ghlRoutes.js';
 ﻿import callingService from './services/calling/CallingService.js';
 
 import { 
@@ -108,34 +109,52 @@ if (!fs.existsSync(recordingsDir)) {
 }
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'omniflow_super_secret_jwt_key';
+const getJwtSecret = () => process.env.JWT_SECRET || 'omniflow_super_secret_jwt_key';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock_secret_key');
 
 // JWT Token authentication middleware
 const globalWebhookLogs = [];
 
 export async function authMiddleware(req, res, next) {
-  // Allow login, signup, and webhook testing routes without token
-  if (req.path.startsWith('/auth/') || req.path === '/billing/webhook' || req.path.includes('/integrations/webhook/') || req.path.includes('/integrations/oauth/') || req.path.includes('/webhooks/') || req.path.includes('callcenterbridging') || req.path.includes('/calls/webhook')) {
+  // Allow login, signup, public billing endpoints, and webhook / callback routes without token
+  const isPublicRoute = 
+    req.path.startsWith('/auth/') || 
+    req.path === '/billing/webhook' || 
+    req.path === '/billing/plans' ||
+    req.path.includes('/integrations/webhook') || 
+    req.path.includes('/integrations/oauth/') || 
+    req.path.includes('/integrations/ghl/oauth/callback') ||
+    req.path.includes('/integrations/ghl/webhook') ||
+    req.path.includes('/webhooks/') || 
+    req.path.includes('callcenterbridging') || 
+    req.path.includes('/calls/webhook') ||
+    req.path.includes('/health');
+
+  if (isPublicRoute) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader ? authHeader.split(' ')[1] : null;
+    if (token) {
+      try {
+        req.user = jwt.verify(token, getJwtSecret());
+      } catch (err) {}
+    }
     return next();
   }
 
   const authHeader = req.headers['authorization'];
   const token = authHeader ? authHeader.split(' ')[1] : null;
 
-  if (token) {
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      req.user = decoded; // { id, email, role, tenant_id }
-      return next();
-    } catch (err) {
-      console.warn('JWT verify notice:', err.message);
-    }
+  if (!token) {
+    return res.status(401).json({ error: 'Authentication required. No token provided.' });
   }
 
-  // Fallback default superadmin user for local dev/testing
-  req.user = { id: 1, email: 'admin@omniflow.com', role: 'superadmin', tenant_id: 1 };
-  next();
+  try {
+    const decoded = jwt.verify(token, getJwtSecret());
+    req.user = decoded; // { id, email, role, tenant_id }
+    return next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid or expired authentication token.' });
+  }
 }
 
 // Helper to check user roles
@@ -152,8 +171,21 @@ function checkRole(allowedRoles) {
 }
 
 export default function setupRoutes(io) {
+
+  // Public Health check endpoints
+  router.get(['/health', '/v1/health'], (req, res) => {
+    res.json({
+      status: 'ok',
+      environment: process.env.NODE_ENV || (process.env.STAGING === 'true' ? 'staging' : 'development'),
+      timestamp: new Date().toISOString()
+    });
+  });
+
   // Register Auth Middleware globally
   router.use(authMiddleware);
+
+  // Mount GoHighLevel (GHL) Integration Sub-Router
+  router.use('/v1/integrations/ghl', setupGhlRoutes());
 
   // ==========================================
   // AUTHENTICATION ROUTES (Public)
@@ -188,7 +220,7 @@ export default function setupRoutes(io) {
       // 3. Generate token
       const token = jwt.sign(
         { id: user.id, email: user.email, role: user.role, tenant_id: tenant.id },
-        JWT_SECRET,
+        getJwtSecret(),
         { expiresIn: '7d' }
       );
 
@@ -225,7 +257,7 @@ export default function setupRoutes(io) {
 
       const token = jwt.sign(
         { id: user.id, email: user.email, role: user.role, tenant_id: user.tenant_id },
-        JWT_SECRET,
+        getJwtSecret(),
         { expiresIn: '7d' }
       );
 
@@ -1694,96 +1726,8 @@ export default function setupRoutes(io) {
     }
   });
 
-  // GHL OAuth Callback Redirect Page
-  router.get('/v1/integrations/oauth/callback', (req, res) => {
-    const { code } = req.query;
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>GHL Integration Connected</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #0f172a; color: white; text-align: center; }
-          .card { background: #1e293b; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #334155; max-width: 420px; }
-          .icon { font-size: 48px; margin-bottom: 16px; }
-          h2 { margin: 0 0 12px 0; color: #14d2cb; font-size: 22px; }
-          p { color: #94a3b8; font-size: 14px; line-height: 1.5; }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <div class="icon">⚡</div>
-          <h2>HighLevel Connected Successfully!</h2>
-          <p>Authorization code received. You can close this window and return to OmniFlow EMS.</p>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({ type: 'GHL_OAUTH_SUCCESS', code: '${code}' }, '*');
-            }
-            setTimeout(() => window.close(), 3000);
-          </script>
-        </div>
-      </body>
-      </html>
-    `);
-  });
-
-  // ==========================================
-  // 📱 SIM BRIDGE & TELECALLING ENDPOINTS
-  // ==========================================
-
-  // Socket.io handlers for SIM Bridge
-  if (io) {
-    io.on('connection', (socket) => {
-      // Mobile app joins its staff room
-      socket.on('sim_bridge:register_device', async (data) => {
-        const { staffId, deviceId, deviceName, simCarrier, simNumber, deviceIp, batteryLevel } = data || {};
-        if (staffId) {
-          socket.join(`staff_${staffId}`);
-          socket.join(`device_${deviceId}`);
-          await registerOrUpdateSimDevice(1, {
-            staffId,
-            staffName: data.staffName || `Staff ${staffId}`,
-            deviceId: deviceId || socket.id,
-            deviceName: deviceName || 'Android Phone',
-            simCarrier: simCarrier || 'Jio 4G',
-            simNumber: simNumber || '',
-            deviceIp: deviceIp || socket.handshake.address,
-            batteryLevel: batteryLevel || 100,
-            status: 'online'
-          });
-          io.emit('sim_bridge:device_updated', { staffId, status: 'online', deviceName, simCarrier });
-        }
-      });
-
-      // Desktop triggers call to mobile phone
-      socket.on('sim_bridge:trigger_call', (data) => {
-        const { staffId, customerPhone, customerName } = data || {};
-        if (staffId) {
-          io.to(`staff_${staffId}`).emit('sim_bridge:incoming_trigger', {
-            customerPhone,
-            customerName: customerName || 'Customer',
-            timestamp: Date.now()
-          });
-        }
-      });
-
-      // Mobile reports call state back to desktop
-      socket.on('sim_bridge:call_status', (data) => {
-        const { staffId, status, duration, customerPhone } = data || {};
-        if (staffId) {
-          io.emit(`sim_bridge:status_${staffId}`, { status, duration, customerPhone, timestamp: Date.now() });
-        }
-      });
-
-      // Desktop or mobile requests hangup
-      socket.on('sim_bridge:hangup', (data) => {
-        const { staffId } = data || {};
-        if (staffId) {
-          io.to(`staff_${staffId}`).emit('sim_bridge:hangup_command');
-        }
-      });
-    });
-  }
+  // Generic GHL Marketplace OAuth Callback (Shared with /api/v1/integrations/ghl/oauth/callback)
+  router.get('/v1/integrations/oauth/callback', handleOAuthCallback);
 
   // Get list of all paired SIM Bridge Devices
   router.get('/sim-bridge/devices', async (req, res) => {

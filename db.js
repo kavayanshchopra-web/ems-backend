@@ -4,13 +4,19 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = path.join(__dirname, 'database.sqlite');
+const dbPath = process.env.DB_PATH 
+  ? (path.isAbsolute(process.env.DB_PATH) ? process.env.DB_PATH : path.join(__dirname, process.env.DB_PATH)) 
+  : path.join(__dirname, 'database.sqlite');
 
 let db;
 
-export async function initDb() {
+export async function initDb(customDbPath = null) {
+  const resolvedDbPath = customDbPath || (process.env.DB_PATH 
+    ? (path.isAbsolute(process.env.DB_PATH) ? process.env.DB_PATH : path.join(__dirname, process.env.DB_PATH)) 
+    : path.join(__dirname, 'database.sqlite'));
+
   db = await open({
-    filename: dbPath,
+    filename: resolvedDbPath,
     driver: sqlite3.Database
   });
 
@@ -574,7 +580,134 @@ export async function initDb() {
     console.error('Failed to run database cleanup:', err);
   }
 
-  console.log('Database initialized successfully at:', dbPath);
+  
+  // Create GHL Integrations Table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS ghl_integrations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER UNIQUE NOT NULL,
+      ghl_location_id TEXT NOT NULL,
+      status TEXT DEFAULT 'connected', -- 'connected', 'disconnected', 'reauth_required', 'error'
+      access_token_encrypted TEXT,
+      refresh_token_encrypted TEXT,
+      token_expires_at INTEGER,
+      scopes TEXT,
+      user_type TEXT,
+      ghl_user_id TEXT,
+      company_id TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_connected_at DATETIME,
+      last_sync_at DATETIME,
+      metadata TEXT,
+      FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    )
+  `);
+
+  await db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_ghl_location ON ghl_integrations(ghl_location_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_ghl_tenant ON ghl_integrations(tenant_id);
+  `);
+
+  // Create GHL OAuth States Table (for CSRF Protection & Temporary State Storage)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS ghl_oauth_states (
+      state TEXT PRIMARY KEY,
+      tenant_id INTEGER NOT NULL,
+      user_id INTEGER,
+      redirect_uri TEXT,
+      expires_at INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    )
+  `);
+
+  
+  // Create GHL Entity Mappings Table (Strict Tenant Scoped)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS ghl_entity_mappings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER NOT NULL,
+      entity_type TEXT NOT NULL, -- 'contact', 'pipeline', 'stage', 'custom_field', 'opportunity'
+      ems_id TEXT NOT NULL,
+      ghl_id TEXT NOT NULL,
+      ghl_location_id TEXT NOT NULL,
+      sync_hash TEXT,
+      last_synced_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      metadata TEXT,
+      FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+      UNIQUE(tenant_id, entity_type, ems_id),
+      UNIQUE(tenant_id, entity_type, ghl_id)
+    )
+  `);
+
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_ghl_mappings_lookup ON ghl_entity_mappings(tenant_id, entity_type, ghl_id);
+    CREATE INDEX IF NOT EXISTS idx_ghl_mappings_ems ON ghl_entity_mappings(tenant_id, entity_type, ems_id);
+  `);
+
+  // Create GHL Sync Jobs Table (Concurrency Lock & Progress Tracker)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS ghl_sync_jobs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER NOT NULL,
+      job_type TEXT DEFAULT 'full',
+      direction TEXT DEFAULT 'bidirectional',
+      status TEXT DEFAULT 'running', -- 'running', 'completed', 'partial_success', 'failed'
+      progress_stage TEXT DEFAULT 'initializing',
+      records_processed INTEGER DEFAULT 0,
+      records_created INTEGER DEFAULT 0,
+      records_updated INTEGER DEFAULT 0,
+      records_failed INTEGER DEFAULT 0,
+      summary TEXT,
+      error_message TEXT,
+      started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      completed_at DATETIME,
+      FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    )
+  `);
+
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_ghl_sync_jobs_tenant ON ghl_sync_jobs(tenant_id, status);
+  `);
+
+  // Create GHL Sync Logs Table (Detailed Operation & Error Audit)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS ghl_sync_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER NOT NULL,
+      job_id INTEGER,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT,
+      ghl_id TEXT,
+      direction TEXT NOT NULL, -- 'ghl_to_ems' | 'ems_to_ghl'
+      operation TEXT NOT NULL, -- 'create', 'update', 'delete', 'skip'
+      status TEXT NOT NULL, -- 'success', 'failed', 'conflict'
+      error_code TEXT,
+      error_message TEXT,
+      retry_count INTEGER DEFAULT 0,
+      source TEXT DEFAULT 'sync_engine',
+      idempotency_key TEXT,
+      payload_snippet TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      completed_at DATETIME,
+      FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    )
+  `);
+
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_ghl_sync_logs_tenant ON ghl_sync_logs(tenant_id, entity_type, status);
+    CREATE INDEX IF NOT EXISTS idx_ghl_sync_logs_idem ON ghl_sync_logs(tenant_id, idempotency_key);
+  `);
+
+  // Auto-migrate contacts table to add custom_fields, phone_normalized, email_normalized
+  try { await db.exec(`ALTER TABLE contacts ADD COLUMN custom_fields TEXT DEFAULT '{}'`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE contacts ADD COLUMN phone_normalized TEXT`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE contacts ADD COLUMN email_normalized TEXT`); } catch (e) {}
+
+  console.log('Database initialized successfully at:', resolvedDbPath);
   return db;
 }
 
@@ -1708,4 +1841,387 @@ export async function updateKycStatus(tenantId, status, remarks = '', adminName 
 
 export function getDb() {
   return db;
+}
+
+
+// ==========================================
+// GHL (GoHighLevel) DATABASE HELPERS
+// ==========================================
+
+export async function saveGhlOAuthState(state, tenantId, userId, redirectUri, expiresAt) {
+  await db.run(
+    `INSERT OR REPLACE INTO ghl_oauth_states (state, tenant_id, user_id, redirect_uri, expires_at, created_at)
+     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+    [state, tenantId, userId || null, redirectUri || null, expiresAt]
+  );
+}
+
+export async function getGhlOAuthState(state) {
+  return await db.get(`SELECT * FROM ghl_oauth_states WHERE state = ?`, [state]);
+}
+
+export async function deleteGhlOAuthState(state) {
+  await db.run(`DELETE FROM ghl_oauth_states WHERE state = ?`, [state]);
+}
+
+export async function cleanupExpiredGhlStates() {
+  const now = Date.now();
+  await db.run(`DELETE FROM ghl_oauth_states WHERE expires_at < ?`, [now]);
+}
+
+export async function upsertGhlIntegration(tenantId, data) {
+  const {
+    ghl_location_id,
+    status = 'connected',
+    access_token_encrypted,
+    refresh_token_encrypted,
+    token_expires_at,
+    scopes = '',
+    user_type = 'Location',
+    ghl_user_id = '',
+    company_id = '',
+    last_connected_at = new Date().toISOString(),
+    metadata = '{}'
+  } = data;
+
+  const existing = await db.get(`SELECT * FROM ghl_integrations WHERE tenant_id = ?`, [tenantId]);
+  const now = new Date().toISOString();
+
+  if (existing) {
+    await db.run(
+      `UPDATE ghl_integrations
+       SET ghl_location_id = ?,
+           status = ?,
+           access_token_encrypted = COALESCE(?, access_token_encrypted),
+           refresh_token_encrypted = COALESCE(?, refresh_token_encrypted),
+           token_expires_at = COALESCE(?, token_expires_at),
+           scopes = ?,
+           user_type = ?,
+           ghl_user_id = ?,
+           company_id = ?,
+           last_connected_at = ?,
+           metadata = ?,
+           updated_at = ?
+       WHERE tenant_id = ?`,
+      [
+        ghl_location_id, status, access_token_encrypted, refresh_token_encrypted,
+        token_expires_at, scopes, user_type, ghl_user_id, company_id,
+        last_connected_at, metadata, now, tenantId
+      ]
+    );
+  } else {
+    await db.run(
+      `INSERT INTO ghl_integrations
+       (tenant_id, ghl_location_id, status, access_token_encrypted, refresh_token_encrypted,
+        token_expires_at, scopes, user_type, ghl_user_id, company_id, last_connected_at, metadata, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        tenantId, ghl_location_id, status, access_token_encrypted, refresh_token_encrypted,
+        token_expires_at, scopes, user_type, ghl_user_id, company_id, last_connected_at, metadata, now, now
+      ]
+    );
+  }
+
+  return await getGhlIntegrationByTenant(tenantId);
+}
+
+export async function getGhlIntegrationByTenant(tenantId) {
+  return await db.get(`SELECT * FROM ghl_integrations WHERE tenant_id = ?`, [tenantId]);
+}
+
+export async function getGhlIntegrationByLocation(locationId) {
+  return await db.get(`SELECT * FROM ghl_integrations WHERE ghl_location_id = ?`, [locationId]);
+}
+
+export async function disconnectGhlIntegration(tenantId) {
+  const now = new Date().toISOString();
+  await db.run(
+    `UPDATE ghl_integrations
+     SET status = 'disconnected',
+         access_token_encrypted = NULL,
+         refresh_token_encrypted = NULL,
+         updated_at = ?
+     WHERE tenant_id = ?`,
+    [now, tenantId]
+  );
+  return await getGhlIntegrationByTenant(tenantId);
+}
+
+export async function updateGhlTokens(tenantId, { access_token_encrypted, refresh_token_encrypted, token_expires_at, status = 'connected' }) {
+  const now = new Date().toISOString();
+  await db.run(
+    `UPDATE ghl_integrations
+     SET access_token_encrypted = ?,
+         refresh_token_encrypted = ?,
+         token_expires_at = ?,
+         status = ?,
+         updated_at = ?
+     WHERE tenant_id = ?`,
+    [access_token_encrypted, refresh_token_encrypted, token_expires_at, status, now, tenantId]
+  );
+  return await getGhlIntegrationByTenant(tenantId);
+}
+
+export async function updateGhlStatus(tenantId, status) {
+  const now = new Date().toISOString();
+  await db.run(
+    `UPDATE ghl_integrations
+     SET status = ?,
+         updated_at = ?
+     WHERE tenant_id = ?`,
+    [status, now, tenantId]
+  );
+  return await getGhlIntegrationByTenant(tenantId);
+}
+
+
+// ==========================================
+// PHASE 2: GHL ENTITY MAPPINGS HELPERS
+// ==========================================
+
+export async function setGhlEntityMapping(tenantId, { entityType, emsId, ghlId, locationId, syncHash = null, metadata = '{}' }) {
+  const now = new Date().toISOString();
+  await db.run(
+    `INSERT INTO ghl_entity_mappings 
+     (tenant_id, entity_type, ems_id, ghl_id, ghl_location_id, sync_hash, metadata, last_synced_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(tenant_id, entity_type, ems_id) DO UPDATE SET
+       ghl_id = excluded.ghl_id,
+       ghl_location_id = excluded.ghl_location_id,
+       sync_hash = excluded.sync_hash,
+       metadata = excluded.metadata,
+       last_synced_at = excluded.last_synced_at,
+       updated_at = excluded.updated_at`,
+    [tenantId, entityType, String(emsId), String(ghlId), String(locationId), syncHash, typeof metadata === 'object' ? JSON.stringify(metadata) : metadata, now, now, now]
+  );
+  return await getGhlMappingByEmsId(tenantId, entityType, emsId);
+}
+
+export async function getGhlMappingByEmsId(tenantId, entityType, emsId) {
+  return await db.get(
+    `SELECT * FROM ghl_entity_mappings WHERE tenant_id = ? AND entity_type = ? AND ems_id = ?`,
+    [tenantId, entityType, String(emsId)]
+  );
+}
+
+export async function getGhlMappingByGhlId(tenantId, entityType, ghlId) {
+  return await db.get(
+    `SELECT * FROM ghl_entity_mappings WHERE tenant_id = ? AND entity_type = ? AND ghl_id = ?`,
+    [tenantId, entityType, String(ghlId)]
+  );
+}
+
+export async function deleteGhlEntityMapping(tenantId, entityType, emsId) {
+  await db.run(
+    `DELETE FROM ghl_entity_mappings WHERE tenant_id = ? AND entity_type = ? AND ems_id = ?`,
+    [tenantId, entityType, String(emsId)]
+  );
+}
+
+export async function getAllGhlMappings(tenantId, entityType = null) {
+  if (entityType) {
+    return await db.all(
+      `SELECT * FROM ghl_entity_mappings WHERE tenant_id = ? AND entity_type = ? ORDER BY id DESC`,
+      [tenantId, entityType]
+    );
+  }
+  return await db.all(
+    `SELECT * FROM ghl_entity_mappings WHERE tenant_id = ? ORDER BY id DESC`,
+    [tenantId]
+  );
+}
+
+// ==========================================
+// PHASE 2: GHL SYNC JOBS & LOCKS HELPERS
+// ==========================================
+
+export async function createGhlSyncJob(tenantId, { jobType = 'full', direction = 'bidirectional' } = {}) {
+  // Check if a sync job is already active for this tenant
+  const activeJob = await db.get(
+    `SELECT * FROM ghl_sync_jobs WHERE tenant_id = ? AND status = 'running'`,
+    [tenantId]
+  );
+
+  if (activeJob) {
+    // Check if active job has timed out (> 15 minutes old) with safe UTC ISO parsing
+    const rawStarted = activeJob.started_at || '';
+    const startedAtStr = rawStarted.includes('Z') || rawStarted.includes('+') 
+      ? rawStarted 
+      : (rawStarted.replace(' ', 'T') + 'Z');
+    const jobStartTime = new Date(startedAtStr).getTime();
+    if (!isNaN(jobStartTime) && (Date.now() - jobStartTime > 15 * 60 * 1000)) {
+      await db.run(
+        `UPDATE ghl_sync_jobs SET status = 'failed', error_message = 'Job timed out after 15 minutes', completed_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        [activeJob.id]
+      );
+    } else {
+      const err = new Error('A synchronization job is already running for this tenant.');
+      err.status = 409;
+      err.activeJobId = activeJob.id;
+      throw err;
+    }
+  }
+
+  const initialSummary = JSON.stringify({
+    pipelines: { created: 0, updated: 0, failed: 0 },
+    stages: { created: 0, updated: 0, failed: 0 },
+    customFields: { created: 0, updated: 0, failed: 0 },
+    contacts: { created: 0, updated: 0, failed: 0 },
+    opportunities: { created: 0, updated: 0, failed: 0 }
+  });
+
+  const res = await db.run(
+    `INSERT INTO ghl_sync_jobs 
+     (tenant_id, job_type, direction, status, progress_stage, records_processed, records_created, records_updated, records_failed, summary, started_at)
+     VALUES (?, ?, ?, 'running', 'initializing', 0, 0, 0, 0, ?, datetime('now'))`,
+    [tenantId, jobType, direction, initialSummary]
+  );
+
+  return await getGhlSyncJob(tenantId, res.lastID);
+}
+
+export async function getGhlSyncJob(tenantId, jobId) {
+  const job = await db.get(
+    `SELECT * FROM ghl_sync_jobs WHERE tenant_id = ? AND id = ?`,
+    [tenantId, jobId]
+  );
+  if (job && job.summary) {
+    try { job.summary = JSON.parse(job.summary); } catch (e) {}
+  }
+  return job;
+}
+
+export async function getLatestGhlSyncJob(tenantId) {
+  const job = await db.get(
+    `SELECT * FROM ghl_sync_jobs WHERE tenant_id = ? ORDER BY id DESC LIMIT 1`,
+    [tenantId]
+  );
+  if (job && job.summary) {
+    try { job.summary = JSON.parse(job.summary); } catch (e) {}
+  }
+  return job;
+}
+
+export async function updateGhlSyncJobProgress(tenantId, jobId, progressData) {
+  const {
+    status,
+    progress_stage,
+    records_processed,
+    records_created,
+    records_updated,
+    records_failed,
+    summary,
+    error_message
+  } = progressData;
+
+  const now = new Date().toISOString();
+  const isComplete = status === 'completed' || status === 'partial_success' || status === 'failed';
+
+  await db.run(
+    `UPDATE ghl_sync_jobs
+     SET status = COALESCE(?, status),
+         progress_stage = COALESCE(?, progress_stage),
+         records_processed = COALESCE(?, records_processed),
+         records_created = COALESCE(?, records_created),
+         records_updated = COALESCE(?, records_updated),
+         records_failed = COALESCE(?, records_failed),
+         summary = COALESCE(?, summary),
+         error_message = COALESCE(?, error_message),
+         completed_at = ?
+     WHERE tenant_id = ? AND id = ?`,
+    [
+      status, progress_stage, records_processed, records_created,
+      records_updated, records_failed,
+      typeof summary === 'object' ? JSON.stringify(summary) : summary,
+      error_message,
+      isComplete ? now : null,
+      tenantId, jobId
+    ]
+  );
+
+  return await getGhlSyncJob(tenantId, jobId);
+}
+
+// ==========================================
+// PHASE 2: GHL SYNC AUDIT LOGS HELPERS
+// ==========================================
+
+export async function createGhlSyncLog(tenantId, logData) {
+  const {
+    job_id = null,
+    entity_type,
+    entity_id = null,
+    ghl_id = null,
+    direction = 'ghl_to_ems',
+    operation = 'create',
+    status = 'success',
+    error_code = null,
+    error_message = null,
+    retry_count = 0,
+    source = 'sync_engine',
+    idempotency_key = null,
+    payload_snippet = null
+  } = logData;
+
+  const now = new Date().toISOString();
+
+  await db.run(
+    `INSERT INTO ghl_sync_logs
+     (tenant_id, job_id, entity_type, entity_id, ghl_id, direction, operation, status,
+      error_code, error_message, retry_count, source, idempotency_key, payload_snippet, created_at, completed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      tenantId, job_id, entity_type, entity_id ? String(entity_id) : null,
+      ghl_id ? String(ghl_id) : null, direction, operation, status,
+      error_code, error_message, retry_count, source, idempotency_key,
+      payload_snippet ? (typeof payload_snippet === 'object' ? JSON.stringify(payload_snippet).substring(0, 500) : String(payload_snippet).substring(0, 500)) : null,
+      now, now
+    ]
+  );
+}
+
+export async function getGhlSyncLogs(tenantId, { entityType = null, status = null, limit = 50, offset = 0 } = {}) {
+  let query = `SELECT * FROM ghl_sync_logs WHERE tenant_id = ?`;
+  const params = [tenantId];
+
+  if (entityType) {
+    query += ` AND entity_type = ?`;
+    params.push(entityType);
+  }
+  if (status) {
+    query += ` AND status = ?`;
+    params.push(status);
+  }
+
+  query += ` ORDER BY id DESC LIMIT ? OFFSET ?`;
+  params.push(limit, offset);
+
+  return await db.all(query, params);
+}
+
+export async function getFailedGhlSyncLogs(tenantId, limit = 100) {
+  return await db.all(
+    `SELECT * FROM ghl_sync_logs WHERE tenant_id = ? AND status = 'failed' ORDER BY id DESC LIMIT ?`,
+    [tenantId, limit]
+  );
+}
+
+export async function findContactByNormalizedPhoneOrEmail(tenantId, phoneNormalized, emailNormalized) {
+  if (phoneNormalized && emailNormalized) {
+    return await db.get(
+      `SELECT * FROM contacts WHERE tenant_id = ? AND (phone_normalized = ? OR email_normalized = ? OR id LIKE ? OR email = ?) LIMIT 1`,
+      [tenantId, phoneNormalized, emailNormalized, `%${phoneNormalized}%`, emailNormalized]
+    );
+  } else if (phoneNormalized) {
+    return await db.get(
+      `SELECT * FROM contacts WHERE tenant_id = ? AND (phone_normalized = ? OR id LIKE ?) LIMIT 1`,
+      [tenantId, phoneNormalized, `%${phoneNormalized}%`]
+    );
+  } else if (emailNormalized) {
+    return await db.get(
+      `SELECT * FROM contacts WHERE tenant_id = ? AND (email_normalized = ? OR email = ?) LIMIT 1`,
+      [tenantId, emailNormalized, emailNormalized]
+    );
+  }
+  return null;
 }
