@@ -685,9 +685,17 @@ export default function setupRoutes(io) {
         pipelineStage: stage,
         labels,
         dealValue
-      }, req.user.tenant_id);
+      }, req.user?.tenant_id || 1);
 
       io.emit('contact_update', updated);
+
+      // Automatically trigger 2-way sync to GoHighLevel in background
+      if (ghlSyncEngine) {
+        ghlSyncEngine.syncContactToGhl(req.user?.tenant_id || 1, contactId)
+          .then(res => console.log('[Auto GHL Sync Contact Success]', contactId, res?.status))
+          .catch(e => console.warn('[Auto GHL Sync Error]', e.message));
+      }
+
       res.json({ success: true, contact: updated });
     } catch (err) {
       console.error('[CRM-Sync Error]', err);
@@ -707,9 +715,17 @@ export default function setupRoutes(io) {
         pipelineStage,
         labels,
         dealValue
-      }, req.user.tenant_id);
+      }, req.user?.tenant_id || 1);
       
       io.emit('contact_update', updated);
+
+      // Automatically trigger 2-way sync to GoHighLevel in background
+      if (ghlSyncEngine) {
+        ghlSyncEngine.syncContactToGhl(req.user?.tenant_id || 1, id)
+          .then(res => console.log('[Auto GHL Sync Contact Success]', id, res?.status))
+          .catch(e => console.warn('[Auto GHL Sync Error]', e.message));
+      }
+
       res.json(updated);
     } catch (err) {
       console.error(err);

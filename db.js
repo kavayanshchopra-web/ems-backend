@@ -2109,24 +2109,26 @@ export async function getGhlFieldMappings(tenantId, locationId, emsModuleId = 'c
 export async function saveGhlEntityLink(tenantId, linkData = {}) {
   const { locationId, entityType, emsEntityId, ghlEntityId, lastSyncedHash = '' } = linkData;
   const existing = await db.get(
-    `SELECT id FROM ghl_entity_links WHERE location_id = ? AND entity_type = ? AND ems_entity_id = ?`,
-    [locationId, entityType, String(emsEntityId)]
+    `SELECT id FROM ghl_entity_links 
+     WHERE location_id = ? AND entity_type = ? AND (ems_entity_id = ? OR ghl_entity_id = ?)`,
+    [locationId, entityType, String(emsEntityId), String(ghlEntityId)]
   );
 
   if (existing) {
     await db.run(
       `UPDATE ghl_entity_links
-       SET ghl_entity_id = ?,
+       SET ems_entity_id = ?,
+           ghl_entity_id = ?,
            last_synced_hash = ?,
            last_synced_at = CURRENT_TIMESTAMP,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
-      [String(ghlEntityId), lastSyncedHash, existing.id]
+      [String(emsEntityId), String(ghlEntityId), lastSyncedHash, existing.id]
     );
     return await db.get(`SELECT * FROM ghl_entity_links WHERE id = ?`, [existing.id]);
   } else {
     const result = await db.run(
-      `INSERT INTO ghl_entity_links (tenant_id, location_id, entity_type, ems_entity_id, ghl_entity_id, last_synced_hash)
+      `INSERT OR REPLACE INTO ghl_entity_links (tenant_id, location_id, entity_type, ems_entity_id, ghl_entity_id, last_synced_hash)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [tenantId, locationId, entityType, String(emsEntityId), String(ghlEntityId), lastSyncedHash]
     );
