@@ -3,7 +3,7 @@ title Voxbay Local Desktop Telephony Bridge
 color 0A
 echo ========================================================
 echo  VOXBAY LOCAL DESKTOP TELEPHONY BRIDGE
-echo  Relaying Calls from GoHighLevel & Web to Softphone App
+echo  Relaying Calls from GoHighLevel and Web to Softphone
 echo ========================================================
 echo.
 
