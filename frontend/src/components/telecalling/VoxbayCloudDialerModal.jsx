@@ -144,6 +144,23 @@ export default function VoxbayCloudDialerModal({
           body: JSON.stringify({ number: cleanNumber })
         }).catch(() => {});
       } catch (err) {}
+
+      // Fallback A: Send message to parent window if running inside GoHighLevel iframe
+      try {
+        if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: 'VOXBAY_DIAL', number: cleanNumber }, '*');
+        }
+      } catch (e) {}
+
+      // Fallback B: Native OS Softphone Protocol Dispatch (tel: / sip:)
+      try {
+        const telLink = document.createElement('a');
+        telLink.href = `tel:${cleanNumber}`;
+        telLink.style.display = 'none';
+        document.body.appendChild(telLink);
+        telLink.click();
+        setTimeout(() => telLink.remove(), 1000);
+      } catch (e) {}
     }
 
     // 2. Cloud Server Sync & Call Logging
