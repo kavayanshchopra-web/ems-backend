@@ -2383,6 +2383,16 @@ export default function setupRoutes(io) {
         io
       });
 
+      // Broadcast real-time softphone dial event for desktop bridge clients
+      if (io) {
+        io.emit('softphone_dial', {
+          number: targetNumber,
+          destination: targetNumber,
+          contactName: contactName || customerName || 'Customer',
+          tenantId
+        });
+      }
+
       return res.status(result.success ? 200 : 400).json(result);
     } catch (err) {
       console.error('[Calls API Error] Initiate Call Failed:', err);
@@ -2395,6 +2405,12 @@ export default function setupRoutes(io) {
     try {
       const { callId, callUuid } = req.body;
       const result = await callingService.endCall({ callId, callUuid, io });
+
+      // Broadcast real-time softphone hangup event for desktop bridge clients
+      if (io) {
+        io.emit('softphone_hangup', { callId, callUuid });
+      }
+
       return res.json(result);
     } catch (err) {
       console.error('[Calls API Error] Hangup Failed:', err);
