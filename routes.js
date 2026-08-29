@@ -2058,6 +2058,11 @@ export default function setupRoutes(io) {
         headers: req.headers,
         payload: req.body
       });
+      if (io && result.emsContactId) {
+        getContact(result.emsContactId, 1).then(c => {
+          if (c) io.emit('contact_update', c);
+        }).catch(() => {});
+      }
       res.status(200).json({ success: true, ...result });
     } catch (err) {
       console.error('[GHL Webhook Error]', err.message);
