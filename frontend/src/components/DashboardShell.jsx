@@ -3726,13 +3726,28 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     // 3. Update React local state and localStorage immediately
     if (targetId) {
+      // Sync with backend SQLite contacts if applicable
+      try {
+        const token = localStorage.getItem('omnilflow_token');
+        fetch(`${API_URL}/contacts/${encodeURIComponent(targetId)}/archive`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ isArchived: true })
+        }).catch(() => {});
+      } catch (e) {}
+
+      setContacts(prev => prev.map(c => String(c.id) === String(targetId) ? { ...c, is_archived: 1 } : c));
+
       setEmployees(prev => {
         const updated = prev.filter(emp => String(emp.id) !== String(targetId));
         try { localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(updated)); } catch (err) {}
         return updated;
       });
     }
-    showToast(`??? Moved "${itemPayload.name}" to Recycle Bin!`, 'info');
+    showToast(`Moved "${itemPayload.name}" to Recycle Bin!`, 'info');
     return newItem;
   };
   const handlePermanentDeleteBinItem = async (itemIdOrObj, itemName) => {
@@ -3740,12 +3755,35 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     const itemId = rawObj ? (rawObj.id || rawObj.recycleBinId || rawObj.originalId) : itemIdOrObj;
     const originalId = rawObj ? (rawObj.originalId || rawObj.id) : itemIdOrObj;
     const targetStr = String(itemIdOrObj?.id || itemIdOrObj?.originalId || itemIdOrObj || '');
+    const cleanId = originalId || itemId || targetStr;
+
+    // 1. Permanently delete from SQLite Backend DB for CRM Contacts & Deals
+    try {
+      const token = localStorage.getItem('omnilflow_token');
+      if (cleanId) {
+        await fetch(`${API_URL}/contacts/${encodeURIComponent(cleanId)}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        }).catch(err => console.warn('SQLite purge contact error:', err.message));
+      }
+    } catch (e) {}
+
+    // 2. Remove immediately from local state
+    setContacts(prev => prev.filter(c => String(c.id) !== String(cleanId) && String(c.id) !== String(targetStr) && String(c.id) !== String(itemId)));
+    if (activeContact && (String(activeContact.id) === String(cleanId) || String(activeContact.id) === String(targetStr))) {
+      setActiveContact(null);
+    }
+
     try {
       if (db) {
         if (targetStr) await deleteDoc(doc(db, 'recycle_bin', targetStr.toString())).catch(() => {});
         if (itemId) await deleteDoc(doc(db, 'recycle_bin', itemId.toString())).catch(() => {});
         if (originalId) await deleteDoc(doc(db, 'recycle_bin', originalId.toString())).catch(() => {});
         if (originalId) await deleteDoc(doc(db, 'employees', originalId.toString())).catch(() => {});
+        if (cleanId) await deleteDoc(doc(db, 'crm_leads', cleanId.toString())).catch(() => {});
       }
     } catch (fbErr) {
       console.warn('Firebase purge item error:', fbErr.message);
@@ -3753,12 +3791,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     TrashVaultEngine.purgeItem('all', targetStr);
     if (itemId) TrashVaultEngine.purgeItem('all', itemId);
     if (originalId) TrashVaultEngine.purgeItem('all', originalId);
+    if (cleanId) TrashVaultEngine.purgeItem('all', cleanId);
     // Sync cloud caches & local storage
     FirebaseCloudEngine.deleteRecord('recycle_bin', targetStr);
     if (itemId) FirebaseCloudEngine.deleteRecord('recycle_bin', itemId);
     if (originalId) FirebaseCloudEngine.deleteRecord('recycle_bin', originalId);
+    if (cleanId) FirebaseCloudEngine.deleteRecord('recycle_bin', cleanId);
+    if (cleanId) FirebaseCloudEngine.deleteRecord('crm_leads', cleanId);
     setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
-    showToast(`? Permanently purged record from vault.`, 'info');
+    showToast(`Permanently purged record from vault.`, 'info');
   };
   const handleRestoreBinItem = async (itemOrId) => {
     let item = (itemOrId && typeof itemOrId === 'object')
@@ -3794,6 +3835,24 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       lifecycleStatus: 'ACTIVE',
       updatedAt: new Date().toISOString()
     };
+
+    // Unarchive on backend SQLite
+    try {
+      const token = localStorage.getItem('omnilflow_token');
+      if (cleanId) {
+        fetch(`${API_URL}/contacts/${encodeURIComponent(cleanId)}/archive`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ isArchived: false })
+        }).catch(() => {});
+      }
+    } catch (e) {}
+
+    setContacts(prev => prev.map(c => String(c.id) === String(cleanId) ? { ...c, is_archived: 0 } : c));
+
     try {
       if (db) {
         let colName = 'crm_leads';

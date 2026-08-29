@@ -48,6 +48,7 @@ import {
   saveWebhookLog,
   getWebhookLogs,
   getContact,
+  deleteContact,
   getChatbotRules,
   addChatbotRule,
   deleteChatbotRule,
@@ -700,6 +701,19 @@ export default function setupRoutes(io) {
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'Failed to update archive status' });
+    }
+  });
+
+  // Permanently delete a contact & associated history
+  router.delete('/contacts/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+      await deleteContact(id, req.user.tenant_id);
+      io.emit('contact_delete', { id });
+      res.json({ success: true, message: 'Contact permanently deleted' });
+    } catch (err) {
+      console.error('[Delete Contact Error]', err);
+      res.status(500).json({ error: 'Failed to delete contact' });
     }
   });
 

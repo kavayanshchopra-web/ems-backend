@@ -983,6 +983,18 @@ export async function getContact(id, tenantId = 1) {
   return contact;
 }
 
+export async function deleteContact(id, tenantId = 1) {
+  try {
+    await db.run(`DELETE FROM messages WHERE contact_id = ? AND tenant_id = ?`, [id, tenantId]);
+    await db.run(`DELETE FROM scheduled_messages WHERE contact_id = ? AND tenant_id = ?`, [id, tenantId]);
+    await db.run(`DELETE FROM ghl_entity_links WHERE ems_entity_id = ? AND tenant_id = ?`, [id, tenantId]);
+    await db.run(`DELETE FROM contacts WHERE id = ? AND tenant_id = ?`, [id, tenantId]);
+  } catch (err) {
+    console.error('[db] deleteContact error:', err.message);
+    throw err;
+  }
+}
+
 export async function getAllContacts(tenantId = 1) {
   const contacts = await db.all(`SELECT * FROM contacts WHERE tenant_id = ? ORDER BY created_at DESC`, [tenantId]);
   return contacts.map(c => {
