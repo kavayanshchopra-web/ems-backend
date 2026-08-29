@@ -1,4 +1,4 @@
-﻿import VoxbayCloudDialerModal from './telecalling/VoxbayCloudDialerModal';
+import VoxbayCloudDialerModal from './telecalling/VoxbayCloudDialerModal';
 // OmniFlow EMS v2.5 � Telecalling + Mobile UI � Build 20260729
 // CACHE BUSTER: 2026-07-29 03:20 PM - Verified 100% syntactically balanced JSX!
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
@@ -683,7 +683,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     if (setAuthUser) setAuthUser(null);
     window.location.reload();
   };
-  const [activeTab, setActiveTab] = useState('inbox'); // 'inbox', 'kanban', 'channels'
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      if (tabParam) return tabParam;
+    }
+    return 'admin_dashboard';
+  });
   const [isMobilePreview, setIsMobilePreview] = useState(false);
   const [globalVoxbayOpen, setGlobalVoxbayOpen] = useState(false);
   const [simViewMode, setSimViewMode] = useState('app'); // 'app' or 'permissions'
@@ -5950,6 +5957,40 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {/* Top Header Navigation */}
         {/* EMS-style white top header with search */}
         <header className="top-header" style={{ background: 'var(--sidebar-bg, #064e43)', color: '#ffffff', borderBottom: '1px solid rgba(255, 255, 255, 0.12)', padding: isGhlEmbedded ? '4px 12px' : '8px 18px', height: isGhlEmbedded ? '42px' : '52px', minHeight: isGhlEmbedded ? '42px' : '52px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
+          <button
+            type="button"
+            onClick={() => {
+              if (isGhlEmbedded) {
+                setGhlSidebarOpen(prev => !prev);
+              } else {
+                setDesktopSidebarOpen(prev => !prev);
+                setMobileSidebarOpen(prev => !prev);
+              }
+            }}
+            title="Toggle Navigation Menu"
+            style={{
+              marginRight: '14px',
+              padding: '5px 12px',
+              borderRadius: '7px',
+              background: (isGhlEmbedded ? ghlSidebarOpen : desktopSidebarOpen) ? '#0d9488' : 'rgba(255,255,255,0.15)',
+              border: '1px solid rgba(255,255,255,0.25)',
+              color: '#14d2cb',
+              fontSize: '12px',
+              fontWeight: '800',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+              flexShrink: 0
+            }}
+          >
+            <Menu size={16} style={{ color: '#14d2cb' }} />
+            <span style={{ fontSize: '12px', color: '#ffffff', fontWeight: '800' }}>
+              {(isGhlEmbedded ? ghlSidebarOpen : desktopSidebarOpen) ? 'Hide Menu' : 'Menu'}
+            </span>
+          </button>
+
           {/* Desktop Page Title (Aligned equal from left with content cards) */}
           <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '0px', marginRight: '20px', flexShrink: 0 }}>
             <span style={{ fontSize: '14px', fontWeight: '800', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '1px' }}>
@@ -6289,70 +6330,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-        {/* Unified Omnichannel Inbox */}
-        {activeTab === 'inbox' && (
-          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Inbox...</div>}>
-            <InboxPage
-              activeContact={activeContact}
-              setActiveContact={setActiveContact}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              setNewChatError={setNewChatError}
-              sessions={sessions}
-              setNewChatSessionId={setNewChatSessionId}
-              setShowNewChatModal={setShowNewChatModal}
-              chatTypeFilter={chatTypeFilter}
-              setChatTypeFilter={setChatTypeFilter}
-              crmStageFilter={crmStageFilter}
-              setCrmStageFilter={setCrmStageFilter}
-              contacts={contacts}
-              filteredContacts={sortedFilteredContacts.length > 0 ? sortedFilteredContacts : filteredContacts}
-              messages={messages}
-              inputText={inputText}
-              setInputText={setInputText}
-              isUploadingMedia={isUploadingMedia}
-              t={t}
-              handleSendMessage={handleSendMessage}
-              handleMediaUpload={handleFileChange}
-              crmRightTab={crmRightTab}
-              setCrmRightTab={setCrmRightTab}
-              crmCustomName={crmCustomName}
-              setCrmCustomName={setCrmCustomName}
-              crmEmail={crmEmail}
-              setCrmEmail={setCrmEmail}
-              crmStage={crmStage}
-              setCrmStage={setCrmStage}
-              crmLabels={crmLabels}
-              newLabelText={newLabelText}
-              setNewLabelText={setNewLabelText}
-              handleAddLabel={handleAddLabel}
-              handleRemoveLabel={handleRemoveLabel}
-              getLabelStyles={getLabelStyles}
-              crmNotes={crmNotes}
-              setCrmNotes={setCrmNotes}
-              handleSaveCRM={handleSaveCRM}
-              quickReplies={quickReplies}
-              handleDeleteQuickReply={handleDeleteQuickReply}
-              handleAddQuickReply={handleAddQuickReply}
-              newReplyTitle={newReplyTitle}
-              setNewReplyTitle={setNewReplyTitle}
-              newReplyText={newReplyText}
-              setNewReplyText={setNewReplyText}
-              scheduledMessages={scheduledMessages}
-              setScheduleMessageText={setScheduleMessageText}
-              setScheduleDateTime={setScheduleDateTime}
-              setShowScheduleModal={setShowScheduleModal}
-              handleCancelScheduled={handleCancelScheduled}
-              starredMessages={starredMessages}
-              callLogs={callLogs}
-              hasMoreMessages={hasMoreMessages}
-              isLoadingMore={isLoadingMore}
-              onLoadMoreMessages={() => activeContact && activeContact.id && fetchMessages(activeContact.id, true)}
-            />
-          </Suspense>
-        )}
-        {/* Staff WhatsApp Web Live Hub */}
-        {activeTab === 'wa_live_web' && (
+        {/* Unified Omnichannel Inbox & Staff WhatsApp Web Live Hub */}
+        {(activeTab === 'inbox' || activeTab === 'wa_live_web') && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading WhatsApp Live Hub...</div>}>
             <LiveWhatsAppWebPage
               sessions={sessions}

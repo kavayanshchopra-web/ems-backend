@@ -68,6 +68,10 @@ export default function IntegrationsPage({
   const [logs, setLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
 
+  // GHL Sync Engine State
+  const [isSyncingGhl, setIsSyncingGhl] = useState(false);
+  const [ghlSyncLogs, setGhlSyncLogs] = useState([]);
+
   const cleanCompanyId = companyId || 'default_tenant';
   const baseUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/v1/integrations/webhook/receive/${cleanCompanyId}` : `https://api.omniflow.com/v1/integrations/webhook/receive/${cleanCompanyId}`;
 
@@ -79,19 +83,64 @@ export default function IntegrationsPage({
     loadActivityLogs();
   }, [cleanCompanyId]);
 
+  const fetchGhlSyncLogs = async () => {
+    try {
+      const token = localStorage.getItem('omnilflow_token');
+      const res = await fetch('/api/v1/integrations/ghl/logs?limit=10', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGhlSyncLogs(data.logs || []);
+      }
+    } catch (e) {
+      console.warn('Failed to load GHL sync logs:', e.message);
+    }
+  };
+
   const loadGhlOAuthData = async () => {
     try {
-      let locs = await GhlOAuthService.getInstalledLocations(cleanCompanyId);
-      const savedKeys = JSON.parse(localStorage.getItem(`omnilflow_ghl_app_keys_${cleanCompanyId}`) || '{}');
-      setGhlClientId(savedKeys.clientId || '');
-      setGhlClientSecret(savedKeys.clientSecret || '');
-
-      setGhlLocations(locs || []);
+      const token = localStorage.getItem('omnilflow_token');
+      const res = await fetch('/api/v1/integrations/ghl/status', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.connected && data.locationId) {
+          setGhlLocations([{
+            id: `ghl_${data.locationId}`,
+            locationId: data.locationId,
+            companyId: data.companyId,
+            locationName: `Active Sub-Account (${data.locationId})`,
+            scope: data.scope,
+            installedAt: data.installedAt || new Date().toISOString(),
+            status: 'connected'
+          }]);
+          fetchGhlSyncLogs();
+        } else {
+          setGhlLocations([]);
+        }
+      } else {
+        setGhlLocations([]);
+      }
     } catch (e) {
-      console.warn('GHL data load warning:', e);
+      console.warn('GHL status load error:', e);
       setGhlLocations([]);
     }
   };
+
+  useEffect(() => {
+    const handleOAuthMessage = (event) => {
+      if (event.data?.type === 'GHL_OAUTH_SUCCESS') {
+        showToast('⚡ GoHighLevel Sub-Account Connected Successfully!', 'success');
+        loadGhlOAuthData();
+      } else if (event.data?.type === 'GHL_OAUTH_ERROR') {
+        showToast(`❌ GHL Connection Error: ${event.data.error}`, 'error');
+      }
+    };
+    window.addEventListener('message', handleOAuthMessage);
+    return () => window.removeEventListener('message', handleOAuthMessage);
+  }, []);
 
   // Pre-configured Inbound Targets
   const inboundTargets = [
@@ -381,46 +430,92 @@ export default function IntegrationsPage({
     }
   };
 
-  const handleSaveGhlAppKeys = (e) => {
-    e.preventDefault();
+  const handleLaunchGhlInstall = async () => {
     setIsSavingGhlAuth(true);
-    const keys = { clientId: ghlClientId.trim(), clientSecret: ghlClientSecret.trim() };
-    localStorage.setItem(`omnilflow_ghl_app_keys_${cleanCompanyId}`, JSON.stringify(keys));
-
-    const activeLoc = [{
-      id: `loc_ghl_${cleanCompanyId}`,
-      companyId: cleanCompanyId,
-      locationId: 'loc_webgearz_subaccount',
-      locationName: 'Active Sub-Account (Ludhiana, PB)',
-      scope: 'contacts.readonly contacts.write conversations.readonly conversations.write workflows.readonly',
-      installedAt: new Date().toLocaleDateString(),
-      status: 'connected'
-    }];
-    setGhlLocations(activeLoc);
-    localStorage.setItem(`omnilflow_ghl_installed_${cleanCompanyId}`, JSON.stringify(activeLoc));
-
-    showToast('✅ Saved GHL App Credentials & Linked Active Location!', 'success');
-    setIsSavingGhlAuth(false);
-  };
-
-  const handleLaunchGhlInstall = () => {
-    if (!ghlClientId.trim()) {
-      showToast('Please enter your GHL Marketplace App Client ID first', 'error');
-      return;
+    try {
+      const token = localStorage.getItem('omnilflow_token');
+      const res = await fetch('/api/v1/integrations/ghl/oauth/authorize', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      const data = await res.json();
+      if (data.authUrl) {
+        window.open(data.authUrl, '_blank', 'width=650,height=750');
+        showToast('🚀 Launching GoHighLevel 1-Click Installation OAuth window...', 'info');
+      } else {
+        showToast(data.error || 'Failed to start GHL OAuth process', 'error');
+      }
+    } catch (e) {
+      showToast('OAuth Error: ' + e.message, 'error');
+    } finally {
+      setIsSavingGhlAuth(false);
     }
-    const authUrl = GhlOAuthService.getAuthorizationUrl({
-      clientId: ghlClientId.trim(),
-      redirectUri: `${window.location.origin}/api/v1/integrations/oauth/callback`
-    });
-    window.open(authUrl, '_blank');
-    showToast('🚀 Launching GHL Marketplace 1-Click Installation OAuth window...', 'info');
   };
 
-  const handleDisconnectGhlLocation = async (docId) => {
-    if (!confirm('Disconnect this GHL Sub-Account Location?')) return;
-    await GhlOAuthService.disconnectLocation(docId);
-    setGhlLocations(prev => prev.filter(l => l.id !== docId));
-    showToast('GHL Location disconnected', 'info');
+  const handleDisconnectGhlLocation = async () => {
+    if (!confirm('Disconnect this GoHighLevel Sub-Account Location?')) return;
+    try {
+      const token = localStorage.getItem('omnilflow_token');
+      const res = await fetch('/api/v1/integrations/ghl/oauth/disconnect', {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      if (res.ok) {
+        setGhlLocations([]);
+        showToast('GoHighLevel Sub-Account disconnected successfully', 'info');
+      } else {
+        const data = await res.json();
+        showToast(data.error || 'Failed to disconnect', 'error');
+      }
+    } catch (e) {
+      showToast('Disconnect error: ' + e.message, 'error');
+    }
+  };
+
+  const handleSyncAllGhlContacts = async () => {
+    setIsSyncingGhl(true);
+    showToast('🚀 Synchronizing EMS contacts to HighLevel...', 'info');
+    try {
+      const token = localStorage.getItem('omnilflow_token');
+      const res = await fetch('/api/v1/integrations/ghl/contacts/sync-all', {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`✅ Contact Sync Completed! Synced: ${data.synced}, Skipped: ${data.skipped}, Failed: ${data.failed}`, 'success');
+        fetchGhlSyncLogs();
+      } else {
+        showToast(data.error || 'Contact sync failed', 'error');
+      }
+    } catch (e) {
+      showToast('Sync error: ' + e.message, 'error');
+    } finally {
+      setIsSyncingGhl(false);
+    }
+  };
+
+  const handleSyncAllGhlDeals = async () => {
+    setIsSyncingGhl(true);
+    showToast('💼 Synchronizing CRM Deals & Opportunities to HighLevel...', 'info');
+    try {
+      const token = localStorage.getItem('omnilflow_token');
+      const res = await fetch('/api/v1/integrations/ghl/opportunities/sync-all', {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const s = data.summary || data;
+        showToast(`✅ Opportunities Sync Completed! Total: ${s.total || 0}, Synced: ${s.synced || 0}, Skipped: ${s.skipped || 0}`, 'success');
+        fetchGhlSyncLogs();
+      } else {
+        showToast(data.error || 'Opportunities sync failed', 'error');
+      }
+    } catch (e) {
+      showToast('Sync error: ' + e.message, 'error');
+    } finally {
+      setIsSyncingGhl(false);
+    }
   };
 
   return (
@@ -738,102 +833,167 @@ export default function IntegrationsPage({
 
       {/* TAB: GHL MARKETPLACE OAUTH */}
       {activeTab === 'ghl_marketplace' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '420px 1fr', gap: '20px' }}>
-          {/* GHL Marketplace App Setup Form */}
-          <form onSubmit={handleSaveGhlAppKeys} style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', height: 'fit-content' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Zap size={20} style={{ color: '#ff6b00' }} />
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>GHL Marketplace App Credentials</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(350px, 420px) 1fr', gap: '20px' }}>
+          {/* Connection Control Card */}
+          <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', height: 'fit-content' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(255, 107, 0, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Zap size={22} style={{ color: '#ff6b00' }} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>GoHighLevel Integration</h3>
+                <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>HighLevel Marketplace v2 Official OAuth</p>
+              </div>
             </div>
-            <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>
-              Register your app on <a href="https://developers.gohighlevel.com" target="_blank" rel="noreferrer" style={{ color: '#0d9488', fontWeight: 'bold' }}>developers.gohighlevel.com</a> and enter your Client ID & Secret below.
+
+            <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: '1.5' }}>
+              Connect your HighLevel Sub-Account location in 1-click. Automatically sync leads, WhatsApp conversations, and telephony call recordings into your HighLevel contact timelines.
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155' }}>GHL App Client ID *</label>
-              <input
-                type="text"
-                placeholder="e.g. 648f938201ac..."
-                value={ghlClientId}
-                onChange={(e) => setGhlClientId(e.target.value)}
-                required
-                style={{ padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', outline: 'none' }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155' }}>GHL App Client Secret *</label>
-              <input
-                type="password"
-                placeholder="••••••••••••••••"
-                value={ghlClientSecret}
-                onChange={(e) => setGhlClientSecret(e.target.value)}
-                required
-                style={{ padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', outline: 'none' }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>GHL OAuth Redirect URI</label>
+            <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>OAuth Redirect URI</span>
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                 <input
                   type="text"
                   readOnly
-                  value={`${typeof window !== 'undefined' ? window.location.origin : ''}/api/v1/integrations/oauth/callback`}
-                  style={{ flex: 1, padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '10px', background: '#f8fafc', fontFamily: 'monospace' }}
+                  value={`${typeof window !== 'undefined' ? window.location.origin : ''}/api/v1/integrations/marketplace/oauth/callback`}
+                  style={{ flex: 1, padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '10px', background: '#ffffff', fontFamily: 'monospace' }}
                 />
                 <Button
                   type="button"
                   variant="secondary"
                   size="sm"
-                  onClick={() => handleCopyUrl(`${window.location.origin}/api/v1/integrations/oauth/callback`, 'ghl_redirect')}
+                  onClick={() => handleCopyUrl(`${window.location.origin}/api/v1/integrations/marketplace/oauth/callback`, 'ghl_redirect')}
                 >
                   Copy
                 </Button>
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-              <Button variant="primary" type="submit" style={{ flex: 1, justifyContent: 'center' }}>
-                Save Credentials
+            {ghlLocations.length === 0 ? (
+              <Button
+                variant="primary"
+                type="button"
+                icon={<ExternalLink size={15} />}
+                onClick={handleLaunchGhlInstall}
+                disabled={isSavingGhlAuth}
+                style={{ width: '100%', justifyContent: 'center', background: '#ff6b00', borderColor: '#ff6b00', padding: '10px', fontWeight: '700' }}
+              >
+                {isSavingGhlAuth ? 'Connecting...' : 'Connect GoHighLevel'}
               </Button>
-              <Button variant="secondary" type="button" icon={<ExternalLink size={14} />} onClick={handleLaunchGhlInstall}>
-                Install App
+            ) : (
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={handleDisconnectGhlLocation}
+                style={{ width: '100%', justifyContent: 'center', borderColor: '#fca5a5', color: '#ef4444', background: '#fef2f2', fontWeight: '700' }}
+              >
+                Disconnect Sub-Account
               </Button>
-            </div>
-          </form>
+            )}
+          </div>
 
           {/* Installed GHL Sub-Account Locations Table */}
-          <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
-              Connected GHL Agency Sub-Account Locations ({ghlLocations.length})
-            </h3>
+          <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+                Connected HighLevel Sub-Account
+              </h3>
+              {ghlLocations.length > 0 && (
+                <Badge variant="success" style={{ fontSize: '11px', padding: '4px 10px' }}>
+                  🟢 Connected & Active
+                </Badge>
+              )}
+            </div>
 
             {ghlLocations.length === 0 ? (
-              <div style={{ padding: '32px', textAlign: 'center', color: '#94a3b8', fontSize: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
-                No GHL Sub-Account Locations installed yet. Enter your GHL Client ID above and click "Install App" to connect a GHL location via 1-Click OAuth.
+              <div style={{ padding: '40px 20px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                <Zap size={32} style={{ color: '#cbd5e1' }} />
+                <div style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>No GoHighLevel Sub-Account Connected</div>
+                <p style={{ margin: 0, fontSize: '11px', maxWidth: '360px', color: '#94a3b8' }}>
+                  Click "Connect GoHighLevel" to link your agency location via secure OAuth 2.0. No access keys or manual credentials required.
+                </p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {ghlLocations.map(loc => (
-                  <div key={loc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <div key={loc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '16px 20px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a' }}>Location ID: {loc.locationId}</span>
-                        <Badge variant="success" style={{ fontSize: '10px' }}>Connected 🟢</Badge>
+                        <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>Location ID: {loc.locationId}</span>
                       </div>
-                      <div style={{ fontSize: '11px', color: '#64748b' }}>Scope: {loc.scope || 'contacts, conversations, workflows'}</div>
-                      <div style={{ fontSize: '10px', color: '#94a3b8' }}>Installed: {new Date(loc.installedAt).toLocaleString()}</div>
+                      <div style={{ fontSize: '12px', color: '#475569' }}>
+                        <strong>Permissions:</strong> {loc.scope || 'contacts, conversations, workflows, locations'}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                        Connected on: {loc.installedAt ? new Date(loc.installedAt).toLocaleString() : 'Active'}
+                      </div>
                     </div>
 
-                    <button
-                      onClick={() => handleDisconnectGhlLocation(loc.id)}
-                      style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #fca5a5', background: '#fef2f2', color: '#ef4444', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
-                    >
-                      Disconnect
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        icon={<RefreshCw size={13} className={isSyncingGhl ? 'animate-spin' : ''} />}
+                        onClick={handleSyncAllGhlContacts}
+                        disabled={isSyncingGhl}
+                      >
+                        {isSyncingGhl ? 'Syncing...' : 'Sync Contacts'}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        icon={<Zap size={13} className={isSyncingGhl ? 'animate-spin' : ''} />}
+                        onClick={handleSyncAllGhlDeals}
+                        disabled={isSyncingGhl}
+                      >
+                        {isSyncingGhl ? 'Syncing Deals...' : 'Sync Deals'}
+                      </Button>
+                      <button
+                        onClick={handleDisconnectGhlLocation}
+                        style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #fca5a5', background: '#ffffff', color: '#ef4444', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+                      >
+                        Disconnect
+                      </button>
+                    </div>
                   </div>
                 ))}
+
+                {/* Recent GHL Sync Audit Logs */}
+                <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: '#334155' }}>
+                      Recent Sync Audit Activity ({ghlSyncLogs.length})
+                    </h4>
+                    <button
+                      onClick={fetchGhlSyncLogs}
+                      style={{ background: 'none', border: 'none', color: '#0d9488', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
+                    >
+                      Refresh Logs
+                    </button>
+                  </div>
+
+                  {ghlSyncLogs.length === 0 ? (
+                    <div style={{ padding: '16px', textAlign: 'center', color: '#94a3b8', fontSize: '11px', background: '#f8fafc', borderRadius: '6px' }}>
+                      No synchronization events recorded yet. Click "Sync Contacts" to begin.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '250px', overflowY: 'auto' }}>
+                      {ghlSyncLogs.map(log => (
+                        <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '11px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Badge variant={log.status === 'SUCCESS' ? 'success' : (log.status === 'CONFLICT' ? 'warning' : 'danger')} style={{ fontSize: '10px' }}>
+                              {log.status}
+                            </Badge>
+                            <span style={{ fontWeight: '700', color: '#0f172a' }}>{log.event_type || log.eventType}</span>
+                            <span style={{ color: '#64748b' }}>EMS: {log.ems_entity_id || '—'} &rarr; GHL: {log.ghl_entity_id || '—'}</span>
+                          </div>
+                          <span style={{ color: '#94a3b8', fontSize: '10px' }}>{new Date(log.created_at || log.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
