@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Phone, PhoneCall, PhoneOff, X, User, Hash, Clock, Volume2, ShieldCheck, Activity, Smartphone, Laptop, Settings, Disc, Mic, CheckCircle2, RefreshCw, AlertCircle } from 'lucide-react';
 
 const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
@@ -148,9 +148,13 @@ export default function VoxbayCloudDialerModal({
 
     // 2. Cloud Server Sync & Call Logging
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('omnilflow_token') : null;
       const response = await fetch(`${API_BASE}/api/calls/initiate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           phoneNumber: cleanNumber,
           contactName: rawName || 'Customer',
