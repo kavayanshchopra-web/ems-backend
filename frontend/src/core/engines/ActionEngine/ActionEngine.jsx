@@ -1,4 +1,4 @@
-﻿/**
+/**
  * UNIVERSAL ACTION ENGINE ORCHESTRATOR
  * Core Action Handler Managing Add, Edit, View, Archive & Restore Workflows
  */
@@ -53,6 +53,12 @@ export default function ActionEngine({
       name: formData.name || formData.fullName || formData.employeeName || formData.candidateName || formData.title || ''
     };
 
+    const isCrmModule = moduleConfig.moduleId === 'crm_deals' || moduleConfig.moduleId === 'crm_leads' || moduleConfig.moduleId === 'crm';
+    const API_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+      ? 'http://localhost:5000/api'
+      : 'https://api.employeemanagementsystems.com/api';
+    const token = typeof window !== 'undefined' ? localStorage.getItem('omnilflow_token') : null;
+
     if (showEditModal && selectedRecord && selectedRecord.id) {
       // EDIT WORKFLOW
       const updatedList = records.map(r => {
@@ -72,6 +78,33 @@ export default function ActionEngine({
         FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, editedRec, 'acme_corp');
       }
 
+      // Sync CRM update with SQLite backend & GHL
+      if (isCrmModule) {
+        const crmEditPayload = {
+          customName: normalizedData.contact || normalizedData.name || selectedRecord.customName,
+          email: normalizedData.email,
+          notes: normalizedData.notes,
+          pipelineStage: normalizedData.status || normalizedData.stage,
+          dealValue: parseFloat(normalizedData.amount || normalizedData.dealValue || 0)
+        };
+        fetch(`${API_URL}/contacts/${encodeURIComponent(selectedRecord.id)}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify(crmEditPayload)
+        }).then(() => {
+          fetch(`${API_URL}/v1/integrations/ghl/contacts/${encodeURIComponent(selectedRecord.id)}/sync`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            }
+          }).catch(() => {});
+        }).catch(e => console.warn('[CRM Update Error]', e));
+      }
+
       AuditEngine.logRecordUpdated(
         moduleConfig.moduleId || 'module',
         normalizedData.name || selectedRecord.name || selectedRecord.title || String(selectedRecord.id),
@@ -83,7 +116,11 @@ export default function ActionEngine({
       setShowEditModal(false);
     } else {
       // CREATE WORKFLOW WITH SEQUENTIAL IDs (e.g. EMP-001, ATS-001)
-      const nextSeqId = getNextSequentialId('default_tenant', moduleConfig.moduleId || 'recruitment_ats', moduleConfig, records);
+      const cleanPhone = (normalizedData.phone || '').replace(/[^0-9]/g, '');
+      const nextSeqId = isCrmModule && cleanPhone 
+        ? `${cleanPhone}@s.whatsapp.net` 
+        : getNextSequentialId('default_tenant', moduleConfig.moduleId || 'recruitment_ats', moduleConfig, records);
+
       const newRec = {
         id: nextSeqId,
         ...normalizedData,
@@ -96,6 +133,38 @@ export default function ActionEngine({
 
       if (moduleConfig.moduleId) {
         FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, newRec, 'acme_corp');
+      }
+
+      // Sync new CRM Deal to SQLite backend & GHL
+      if (isCrmModule) {
+        const crmPayload = {
+          name: normalizedData.name || normalizedData.deal || normalizedData.title || 'New Deal',
+          phone: cleanPhone || normalizedData.phone || '',
+          stage: normalizedData.status || normalizedData.stage || 'lead',
+          notes: normalizedData.notes || '',
+          dealValue: parseFloat(normalizedData.amount || normalizedData.dealValue || 0),
+          email: normalizedData.email || '',
+          customName: normalizedData.contact || normalizedData.name || ''
+        };
+
+        fetch(`${API_URL}/contacts/crm-sync`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify(crmPayload)
+        }).then(res => res.json()).then(data => {
+          if (data.contact?.id) {
+            fetch(`${API_URL}/v1/integrations/ghl/contacts/${encodeURIComponent(data.contact.id)}/sync`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+              }
+            }).catch(() => {});
+          }
+        }).catch(err => console.warn('[CRM Sync Error]', err));
       }
 
       AuditEngine.logRecordCreated(
