@@ -42,22 +42,15 @@ export class GhlAuthService {
       throw new Error('[GhlAuthService] GHL Client ID is required to generate Authorization URL');
     }
 
-    const defaultScopes = [
-      'contacts.readonly',
-      'contacts.write',
-      'conversations.readonly',
-      'conversations.write',
-      'conversations/message.readonly',
-      'conversations/message.write',
-      'locations.readonly',
-      'locations/customFields.readonly',
-      'locations/customFields.write',
-      'opportunities.readonly',
-      'opportunities.write',
-      'workflows.readonly'
-    ];
+    let cleanScopes = '';
+    if (scopes && scopes.length > 0) {
+      cleanScopes = scopes.join(' ');
+    } else if (process.env.GHL_SCOPES) {
+      cleanScopes = process.env.GHL_SCOPES.replace(/,/g, ' ').trim();
+    } else {
+      cleanScopes = 'contacts.readonly contacts.write';
+    }
 
-    const cleanScopes = (scopes.length > 0 ? scopes : defaultScopes).join(' ');
     const cleanRedirect = (redirectUri || process.env.GHL_REDIRECT_URI || 'https://api.employeemanagementsystems.com/api/v1/integrations/marketplace/oauth/callback').trim();
 
     const query = new URLSearchParams({
