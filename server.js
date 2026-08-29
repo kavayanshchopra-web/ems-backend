@@ -1,4 +1,4 @@
-﻿import express from 'express';
+import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { initDb } from './db.js';
 import setupRoutes from './routes.js';
 import { initAllSessions } from './sessionManager.js';
+import { ghlAuthService } from './services/ghl/index.js';
 
 dotenv.config();
 
@@ -82,7 +83,10 @@ async function start() {
     // 2. Start all active sessions in the background
     await initAllSessions(io);
 
-    // 3. Socket.io handling
+    // 3. Start GHL Token Expiry Background Refresh Daemon
+    ghlAuthService.startBackgroundRefreshWorker();
+
+    // 4. Socket.io handling
     io.on('connection', (socket) => {
       console.log('Socket client connected:', socket.id);
       
@@ -91,7 +95,7 @@ async function start() {
       });
     });
 
-    // 4. Start listening on the port
+    // 5. Start listening on the port
     server.listen(PORT, () => {
       console.log(`=============================================`);
       console.log(`WhatsApp CRM Backend running on port ${PORT}`);

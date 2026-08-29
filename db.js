@@ -1,7 +1,8 @@
-﻿import { open } from 'sqlite';
+import { open } from 'sqlite';
 import sqlite3 from 'sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = path.join(__dirname, 'database.sqlite');
@@ -14,8 +15,14 @@ export async function initDb() {
     driver: sqlite3.Database
   });
 
-  // Enable foreign keys
+  // Enable foreign keys and WAL mode for high concurrency
   await db.run('PRAGMA foreign_keys = ON');
+  try {
+    await db.run('PRAGMA journal_mode = WAL');
+    await db.run('PRAGMA synchronous = NORMAL');
+  } catch (e) {
+    console.warn('[SQLite WAL Warning]', e.message);
+  }
 
   // Create tenants table
   await db.exec(`
@@ -472,6 +479,131 @@ export async function initDb() {
     )
   `);
 
+  // ==============================================================================
+  // ⚡ GOHIGHLEVEL (GHL) RELATIONAL INTEGRATION TABLES
+  // ==============================================================================
+  // 1. ghl_integrations: Multi-tenant Location bindings & Encrypted OAuth credentials
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS ghl_integrations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER NOT NULL,
+      location_id TEXT NOT NULL,
+      company_id TEXT,
+      user_id TEXT,
+      user_type TEXT DEFAULT 'Location',
+      access_token TEXT NOT NULL,
+      refresh_token TEXT NOT NULL,
+      token_type TEXT DEFAULT 'Bearer',
+      expires_in INTEGER DEFAULT 86400,
+      expires_at DATETIME NOT NULL,
+      scope TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1,
+      sync_contacts INTEGER DEFAULT 1,
+      sync_conversations INTEGER DEFAULT 1,
+      sync_calls INTEGER DEFAULT 1,
+      sync_opportunities INTEGER DEFAULT 1,
+      last_sync_at DATETIME,
+      metadata TEXT,
+      installed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    )
+  `);
+
+  // 2. ghl_field_mappings: Dynamic schema field dictionary
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS ghl_field_mappings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER NOT NULL,
+      location_id TEXT NOT NULL,
+      ems_module_id TEXT NOT NULL,
+      ems_field_key TEXT NOT NULL,
+      ghl_field_id TEXT NOT NULL,
+      ghl_field_name TEXT NOT NULL,
+      ghl_data_type TEXT NOT NULL,
+      sync_direction TEXT DEFAULT 'bidirectional',
+      is_active INTEGER DEFAULT 1,
+      metadata TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+      UNIQUE(location_id, ems_module_id, ems_field_key)
+    )
+  `);
+
+  // 3. ghl_entity_links: Cross-reference & loop-suppression hash table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS ghl_entity_links (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER NOT NULL,
+      location_id TEXT NOT NULL,
+      entity_type TEXT NOT NULL,
+      ems_entity_id TEXT NOT NULL,
+      ghl_entity_id TEXT NOT NULL,
+      last_synced_hash TEXT,
+      last_synced_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+      UNIQUE(location_id, entity_type, ems_entity_id),
+      UNIQUE(location_id, entity_type, ghl_entity_id)
+    )
+  `);
+
+  // 4. ghl_sync_logs: Synchronization audit trail & retry queue log
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS ghl_sync_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER NOT NULL,
+      location_id TEXT NOT NULL,
+      direction TEXT NOT NULL,
+      entity_type TEXT,
+      ems_entity_id TEXT,
+      ghl_entity_id TEXT,
+      event_type TEXT NOT NULL,
+      status TEXT NOT NULL,
+      http_status INTEGER,
+      payload TEXT,
+      error_message TEXT,
+      retry_count INTEGER DEFAULT 0,
+      idempotency_key TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    )
+  `);
+
+  // 5. ghl_oauth_states: Cryptographic single-use CSRF tokens
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS ghl_oauth_states (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      state_token TEXT NOT NULL,
+      tenant_id INTEGER NOT NULL,
+      user_id INTEGER,
+      expires_at DATETIME NOT NULL,
+      is_used INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    )
+  `);
+
+  // 6. ghl_trigger_subscriptions: Marketplace Custom Workflow Trigger Subscriptions
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS ghl_trigger_subscriptions (
+      id TEXT PRIMARY KEY,
+      tenant_id INTEGER NOT NULL,
+      location_id TEXT NOT NULL,
+      trigger_type TEXT NOT NULL,
+      target_url TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1,
+      filters TEXT,
+      metadata TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+      UNIQUE(location_id, trigger_type, target_url)
+    )
+  `);
+
   // Seed default plans if empty
   const planCount = await db.get(`SELECT COUNT(*) as count FROM plans`);
   if (planCount && planCount.count === 0) {
@@ -497,21 +629,89 @@ export async function initDb() {
     await db.run(`INSERT INTO plan_prices (plan_id, country_code, currency, amount, stripe_price_id) VALUES ('basic', 'DEFAULT', 'USD', 9.00, 'price_basic_mock')`);
     await db.run(`INSERT INTO plan_prices (plan_id, country_code, currency, amount, stripe_price_id) VALUES ('basic', 'US', 'USD', 9.00, 'price_basic_mock')`);
     await db.run(`INSERT INTO plan_prices (plan_id, country_code, currency, amount, stripe_price_id) VALUES ('basic', 'IN', 'INR', 699.00, 'price_basic_mock_in')`);
-
     await db.run(`INSERT INTO plan_prices (plan_id, country_code, currency, amount, stripe_price_id) VALUES ('pro', 'DEFAULT', 'USD', 29.00, 'price_pro_mock')`);
     await db.run(`INSERT INTO plan_prices (plan_id, country_code, currency, amount, stripe_price_id) VALUES ('pro', 'US', 'USD', 29.00, 'price_pro_mock')`);
     await db.run(`INSERT INTO plan_prices (plan_id, country_code, currency, amount, stripe_price_id) VALUES ('pro', 'IN', 'INR', 2199.00, 'price_pro_mock_in')`);
   }
 
-  // Run dynamic schema migrations to add tenant_id columns if database already exists
+  // Run dynamic schema migrations to add tenant_id, custom_fields, and GHL columns if database already exists
   const migrateColumns = [
     { table: 'whatsapp_sessions', column: 'tenant_id', type: 'INTEGER DEFAULT 1' },
     { table: 'contacts', column: 'tenant_id', type: 'INTEGER DEFAULT 1' },
     { table: 'contacts', column: 'deal_value', type: 'TEXT DEFAULT ""' },
+    { table: 'contacts', column: 'custom_fields', type: "TEXT DEFAULT '{}'" },
+    { table: 'employees', column: 'custom_fields', type: "TEXT DEFAULT '{}'" },
     { table: 'messages', column: 'tenant_id', type: 'INTEGER DEFAULT 1' },
     { table: 'chatbot_rules', column: 'tenant_id', type: 'INTEGER DEFAULT 1' },
-    { table: 'scheduled_messages', column: 'tenant_id', type: 'INTEGER DEFAULT 1' }
+    { table: 'scheduled_messages', column: 'tenant_id', type: 'INTEGER DEFAULT 1' },
+    // ghl_integrations migrations
+    { table: 'ghl_integrations', column: 'tenant_id', type: 'INTEGER NOT NULL DEFAULT 1' },
+    { table: 'ghl_integrations', column: 'location_id', type: 'TEXT' },
+    { table: 'ghl_integrations', column: 'company_id', type: 'TEXT' },
+    { table: 'ghl_integrations', column: 'user_id', type: 'TEXT' },
+    { table: 'ghl_integrations', column: 'user_type', type: "TEXT DEFAULT 'Location'" },
+    { table: 'ghl_integrations', column: 'access_token', type: "TEXT DEFAULT ''" },
+    { table: 'ghl_integrations', column: 'refresh_token', type: "TEXT DEFAULT ''" },
+    { table: 'ghl_integrations', column: 'token_type', type: "TEXT DEFAULT 'Bearer'" },
+    { table: 'ghl_integrations', column: 'expires_in', type: 'INTEGER DEFAULT 86400' },
+    { table: 'ghl_integrations', column: 'expires_at', type: "DATETIME DEFAULT CURRENT_TIMESTAMP" },
+    { table: 'ghl_integrations', column: 'scope', type: "TEXT DEFAULT ''" },
+    { table: 'ghl_integrations', column: 'is_active', type: 'INTEGER DEFAULT 1' },
+    { table: 'ghl_integrations', column: 'sync_contacts', type: 'INTEGER DEFAULT 1' },
+    { table: 'ghl_integrations', column: 'sync_conversations', type: 'INTEGER DEFAULT 1' },
+    { table: 'ghl_integrations', column: 'sync_calls', type: 'INTEGER DEFAULT 1' },
+    { table: 'ghl_integrations', column: 'sync_opportunities', type: 'INTEGER DEFAULT 1' },
+    { table: 'ghl_integrations', column: 'last_sync_at', type: 'DATETIME' },
+    { table: 'ghl_integrations', column: 'metadata', type: 'TEXT' },
+    // ghl_sync_logs migrations
+    { table: 'ghl_sync_logs', column: 'tenant_id', type: 'INTEGER NOT NULL DEFAULT 1' },
+    { table: 'ghl_sync_logs', column: 'location_id', type: 'TEXT' },
+    { table: 'ghl_sync_logs', column: 'direction', type: "TEXT DEFAULT 'INBOUND'" },
+    { table: 'ghl_sync_logs', column: 'entity_type', type: 'TEXT' },
+    { table: 'ghl_sync_logs', column: 'ems_entity_id', type: 'TEXT' },
+    { table: 'ghl_sync_logs', column: 'ghl_entity_id', type: 'TEXT' },
+    { table: 'ghl_sync_logs', column: 'event_type', type: "TEXT DEFAULT 'GenericEvent'" },
+    { table: 'ghl_sync_logs', column: 'status', type: "TEXT DEFAULT 'SUCCESS'" },
+    { table: 'ghl_sync_logs', column: 'http_status', type: 'INTEGER DEFAULT 200' },
+    { table: 'ghl_sync_logs', column: 'payload', type: 'TEXT' },
+    { table: 'ghl_sync_logs', column: 'error_message', type: 'TEXT' },
+    { table: 'ghl_sync_logs', column: 'retry_count', type: 'INTEGER DEFAULT 0' },
+    { table: 'ghl_sync_logs', column: 'idempotency_key', type: 'TEXT' },
+    // ghl_oauth_states migrations
+    { table: 'ghl_oauth_states', column: 'state_token', type: 'TEXT' },
+    { table: 'ghl_oauth_states', column: 'tenant_id', type: 'INTEGER NOT NULL DEFAULT 1' },
+    { table: 'ghl_oauth_states', column: 'user_id', type: 'INTEGER' },
+    { table: 'ghl_oauth_states', column: 'expires_at', type: 'DATETIME' },
+    { table: 'ghl_oauth_states', column: 'is_used', type: 'INTEGER DEFAULT 0' }
   ];
+
+  for (const m of migrateColumns) {
+    try {
+      await db.exec(`ALTER TABLE ${m.table} ADD COLUMN ${m.column} ${m.type}`);
+    } catch (err) {
+      // Column already exists
+    }
+  }
+
+  // Create GHL indexes safely after column migrations
+  const ghlIndexes = [
+    `CREATE INDEX IF NOT EXISTS idx_ghl_integrations_tenant ON ghl_integrations(tenant_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_ghl_integrations_location ON ghl_integrations(location_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_ghl_field_mappings_loc ON ghl_field_mappings(location_id, ems_module_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_ghl_links_lookup ON ghl_entity_links(location_id, entity_type, ghl_entity_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_ghl_sync_logs_tenant ON ghl_sync_logs(tenant_id, created_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_ghl_sync_logs_idempotency ON ghl_sync_logs(idempotency_key)`,
+    `CREATE INDEX IF NOT EXISTS idx_ghl_oauth_states_token ON ghl_oauth_states(state_token)`
+  ];
+
+  for (const idx of ghlIndexes) {
+    try {
+      await db.exec(idx);
+    } catch (e) {
+      // Index exists or non-critical
+    }
+  }
+
 
   for (const m of migrateColumns) {
     try {
@@ -793,6 +993,47 @@ export async function getAllContacts(tenantId = 1) {
     }
     return c;
   });
+}
+
+export async function findContactByPhoneOrEmail(tenantId = 1, phone = null, email = null) {
+  if (!phone && !email) return null;
+
+  if (email && email.trim()) {
+    const byEmail = await db.all(
+      `SELECT * FROM contacts WHERE tenant_id = ? AND LOWER(email) = LOWER(?)`,
+      [tenantId, email.trim()]
+    );
+    if (byEmail.length === 1) {
+      try { byEmail[0].labels = JSON.parse(byEmail[0].labels || '[]'); } catch { byEmail[0].labels = []; }
+      return byEmail[0];
+    }
+    if (byEmail.length > 1) return { matchConflict: true, matches: byEmail };
+  }
+
+  if (phone) {
+    const rawDigits = String(phone).replace(/\D/g, '');
+    const last10 = rawDigits.slice(-10);
+    if (last10.length === 10) {
+      const byPhone = await db.all(
+        `SELECT * FROM contacts 
+         WHERE tenant_id = ? AND (
+           id LIKE ? OR id LIKE ?
+         )`,
+        [
+          tenantId,
+          `%${last10}%`,
+          `%${rawDigits}%`
+        ]
+      );
+      if (byPhone.length === 1) {
+        try { byPhone[0].labels = JSON.parse(byPhone[0].labels || '[]'); } catch { byPhone[0].labels = []; }
+        return byPhone[0];
+      }
+      if (byPhone.length > 1) return { matchConflict: true, matches: byPhone };
+    }
+  }
+
+  return null;
 }
 
 // Message Helpers
@@ -1704,6 +1945,486 @@ export async function updateKycStatus(tenantId, status, remarks = '', adminName 
     [status, remarks, adminName, status === 'verified' ? now : null, now, tenantId]
   );
   return await db.get(`SELECT * FROM company_kyc_profiles WHERE tenant_id = ?`, [tenantId]);
+}
+
+// ==========================================
+// ⚡ GOHIGHLEVEL (GHL) DATABASE HELPER FUNCTIONS
+// ==========================================
+
+export async function saveGhlIntegration(tenantId, data = {}) {
+  const {
+    locationId,
+    companyId = '',
+    userId = '',
+    userType = 'Location',
+    accessToken,
+    refreshToken,
+    tokenType = 'Bearer',
+    expiresIn = 86400,
+    expiresAt,
+    scope = '',
+    isActive = 1,
+    syncContacts = 1,
+    syncConversations = 1,
+    syncCalls = 1,
+    syncOpportunities = 1,
+    metadata = '{}'
+  } = data;
+
+  if (!locationId) throw new Error('[db] locationId is required for GHL integration');
+
+  const existing = await db.get(
+    `SELECT id FROM ghl_integrations WHERE location_id = ? OR (ghl_location_id IS NOT NULL AND ghl_location_id = ?) OR tenant_id = ?`,
+    [locationId, locationId, tenantId]
+  );
+
+  if (existing) {
+    await db.run(
+      `UPDATE ghl_integrations
+       SET tenant_id = ?,
+           location_id = COALESCE(?, location_id),
+           company_id = COALESCE(?, company_id),
+           user_id = COALESCE(?, user_id),
+           user_type = COALESCE(?, user_type),
+           access_token = COALESCE(?, access_token),
+           refresh_token = COALESCE(?, refresh_token),
+           token_type = COALESCE(?, token_type),
+           expires_in = COALESCE(?, expires_in),
+           expires_at = COALESCE(?, expires_at),
+           scope = COALESCE(?, scope),
+           is_active = COALESCE(?, is_active),
+           sync_contacts = COALESCE(?, sync_contacts),
+           sync_conversations = COALESCE(?, sync_conversations),
+           sync_calls = COALESCE(?, sync_calls),
+           sync_opportunities = COALESCE(?, sync_opportunities),
+           metadata = COALESCE(?, metadata),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [
+        tenantId, locationId, companyId, userId, userType, accessToken, refreshToken, tokenType,
+        expiresIn, expiresAt, scope, isActive, syncContacts, syncConversations,
+        syncCalls, syncOpportunities, typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
+        existing.id
+      ]
+    );
+    return await db.get(`SELECT * FROM ghl_integrations WHERE id = ?`, [existing.id]);
+  } else {
+    const cols = await db.all("PRAGMA table_info(ghl_integrations)");
+    const colNames = new Set(cols.map(c => c.name));
+
+    if (colNames.has('ghl_location_id')) {
+      const result = await db.run(
+        `INSERT INTO ghl_integrations (
+          tenant_id, location_id, ghl_location_id, company_id, user_id, user_type, access_token, refresh_token,
+          token_type, expires_in, expires_at, scope, is_active, sync_contacts, sync_conversations,
+          sync_calls, sync_opportunities, metadata
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          tenantId, locationId, locationId, companyId, userId, userType, accessToken, refreshToken,
+          tokenType, expiresIn, expiresAt, scope, isActive, syncContacts, syncConversations,
+          syncCalls, syncOpportunities, typeof metadata === 'string' ? metadata : JSON.stringify(metadata)
+        ]
+      );
+      return await db.get(`SELECT * FROM ghl_integrations WHERE id = ?`, [result.lastID]);
+    } else {
+      const result = await db.run(
+        `INSERT INTO ghl_integrations (
+          tenant_id, location_id, company_id, user_id, user_type, access_token, refresh_token,
+          token_type, expires_in, expires_at, scope, is_active, sync_contacts, sync_conversations,
+          sync_calls, sync_opportunities, metadata
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          tenantId, locationId, companyId, userId, userType, accessToken, refreshToken,
+          tokenType, expiresIn, expiresAt, scope, isActive, syncContacts, syncConversations,
+          syncCalls, syncOpportunities, typeof metadata === 'string' ? metadata : JSON.stringify(metadata)
+        ]
+      );
+      return await db.get(`SELECT * FROM ghl_integrations WHERE id = ?`, [result.lastID]);
+    }
+  }
+}
+
+export async function getGhlIntegrationByLocation(locationId) {
+  return await db.get(
+    `SELECT * FROM ghl_integrations WHERE location_id = ? OR (ghl_location_id IS NOT NULL AND ghl_location_id = ?)`,
+    [locationId, locationId]
+  );
+}
+
+export async function getGhlIntegrationByTenant(tenantId) {
+  return await db.get(`SELECT * FROM ghl_integrations WHERE tenant_id = ? AND is_active = 1 ORDER BY updated_at DESC LIMIT 1`, [tenantId]);
+}
+
+export async function getAllActiveGhlIntegrations() {
+  return await db.all(`SELECT * FROM ghl_integrations WHERE is_active = 1 ORDER BY id ASC`);
+}
+
+export async function saveGhlFieldMapping(tenantId, mappingData = {}) {
+  const {
+    locationId,
+    emsModuleId = 'contacts',
+    emsFieldKey,
+    ghlFieldId,
+    ghlFieldName,
+    ghlDataType = 'TEXT',
+    syncDirection = 'bidirectional',
+    isActive = 1,
+    metadata = '{}'
+  } = mappingData;
+
+  const existing = await db.get(
+    `SELECT id FROM ghl_field_mappings WHERE location_id = ? AND ems_module_id = ? AND ems_field_key = ?`,
+    [locationId, emsModuleId, emsFieldKey]
+  );
+
+  if (existing) {
+    await db.run(
+      `UPDATE ghl_field_mappings
+       SET ghl_field_id = ?,
+           ghl_field_name = ?,
+           ghl_data_type = ?,
+           sync_direction = ?,
+           is_active = ?,
+           metadata = ?,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [ghlFieldId, ghlFieldName, ghlDataType, syncDirection, isActive, typeof metadata === 'string' ? metadata : JSON.stringify(metadata), existing.id]
+    );
+    return await db.get(`SELECT * FROM ghl_field_mappings WHERE id = ?`, [existing.id]);
+  } else {
+    const result = await db.run(
+      `INSERT INTO ghl_field_mappings (
+        tenant_id, location_id, ems_module_id, ems_field_key, ghl_field_id, ghl_field_name,
+        ghl_data_type, sync_direction, is_active, metadata
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        tenantId, locationId, emsModuleId, emsFieldKey, ghlFieldId, ghlFieldName,
+        ghlDataType, syncDirection, isActive, typeof metadata === 'string' ? metadata : JSON.stringify(metadata)
+      ]
+    );
+    return await db.get(`SELECT * FROM ghl_field_mappings WHERE id = ?`, [result.lastID]);
+  }
+}
+
+export async function getGhlFieldMappings(tenantId, locationId, emsModuleId = 'contacts') {
+  return await db.all(
+    `SELECT * FROM ghl_field_mappings WHERE tenant_id = ? AND location_id = ? AND ems_module_id = ? AND is_active = 1`,
+    [tenantId, locationId, emsModuleId]
+  );
+}
+
+export async function saveGhlEntityLink(tenantId, linkData = {}) {
+  const { locationId, entityType, emsEntityId, ghlEntityId, lastSyncedHash = '' } = linkData;
+  const existing = await db.get(
+    `SELECT id FROM ghl_entity_links WHERE location_id = ? AND entity_type = ? AND ems_entity_id = ?`,
+    [locationId, entityType, String(emsEntityId)]
+  );
+
+  if (existing) {
+    await db.run(
+      `UPDATE ghl_entity_links
+       SET ghl_entity_id = ?,
+           last_synced_hash = ?,
+           last_synced_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [String(ghlEntityId), lastSyncedHash, existing.id]
+    );
+    return await db.get(`SELECT * FROM ghl_entity_links WHERE id = ?`, [existing.id]);
+  } else {
+    const result = await db.run(
+      `INSERT INTO ghl_entity_links (tenant_id, location_id, entity_type, ems_entity_id, ghl_entity_id, last_synced_hash)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [tenantId, locationId, entityType, String(emsEntityId), String(ghlEntityId), lastSyncedHash]
+    );
+    return await db.get(`SELECT * FROM ghl_entity_links WHERE id = ?`, [result.lastID]);
+  }
+}
+
+export async function getGhlEntityLink(tenantId, locationId, entityType, emsEntityId) {
+  return await db.get(
+    `SELECT * FROM ghl_entity_links WHERE tenant_id = ? AND location_id = ? AND entity_type = ? AND ems_entity_id = ?`,
+    [tenantId, locationId, entityType, String(emsEntityId)]
+  );
+}
+
+export async function getEmsEntityByGhlId(tenantId, locationId, entityType, ghlEntityId) {
+  return await db.get(
+    `SELECT * FROM ghl_entity_links WHERE tenant_id = ? AND location_id = ? AND entity_type = ? AND ghl_entity_id = ?`,
+    [tenantId, locationId, entityType, String(ghlEntityId)]
+  );
+}
+
+export async function createGhlSyncLog(tenantId, logData = {}) {
+  const {
+    locationId,
+    direction = 'INBOUND',
+    entityType = 'generic',
+    emsEntityId = null,
+    ghlEntityId = null,
+    eventType = 'GenericEvent',
+    status = 'SUCCESS',
+    httpStatus = 200,
+    payload = null,
+    errorMessage = null,
+    retryCount = 0,
+    idempotencyKey = null
+  } = logData;
+
+  const cols = await db.all("PRAGMA table_info(ghl_sync_logs)");
+  const colNames = new Set(cols.map(c => c.name));
+
+  if (colNames.has('operation')) {
+    const result = await db.run(
+      `INSERT INTO ghl_sync_logs (
+        tenant_id, location_id, direction, operation, entity_type, ems_entity_id, ghl_entity_id,
+        event_type, status, http_status, payload, error_message, retry_count, idempotency_key
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        tenantId, locationId, direction, eventType, entityType, emsEntityId ? String(emsEntityId) : null,
+        ghlEntityId ? String(ghlEntityId) : null, eventType, status, httpStatus,
+        typeof payload === 'string' ? payload : (payload ? JSON.stringify(payload) : null),
+        errorMessage, retryCount, idempotencyKey
+      ]
+    );
+    return await db.get(`SELECT * FROM ghl_sync_logs WHERE id = ?`, [result.lastID]);
+  } else {
+    const result = await db.run(
+      `INSERT INTO ghl_sync_logs (
+        tenant_id, location_id, direction, entity_type, ems_entity_id, ghl_entity_id,
+        event_type, status, http_status, payload, error_message, retry_count, idempotency_key
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        tenantId, locationId, direction, entityType, emsEntityId ? String(emsEntityId) : null,
+        ghlEntityId ? String(ghlEntityId) : null, eventType, status, httpStatus,
+        typeof payload === 'string' ? payload : (payload ? JSON.stringify(payload) : null),
+        errorMessage, retryCount, idempotencyKey
+      ]
+    );
+    return await db.get(`SELECT * FROM ghl_sync_logs WHERE id = ?`, [result.lastID]);
+  }
+}
+
+export async function getGhlSyncLogs(tenantId, locationId = null, limit = 100) {
+  if (locationId) {
+    return await db.all(
+      `SELECT * FROM ghl_sync_logs WHERE tenant_id = ? AND location_id = ? ORDER BY id DESC LIMIT ?`,
+      [tenantId, locationId, limit]
+    );
+  }
+  return await db.all(
+    `SELECT * FROM ghl_sync_logs WHERE tenant_id = ? ORDER BY id DESC LIMIT ?`,
+    [tenantId, limit]
+  );
+}
+
+export async function getGhlSyncLogByIdempotencyKey(tenantId, idempotencyKey) {
+  if (!idempotencyKey) return null;
+  return await db.get(
+    `SELECT * FROM ghl_sync_logs WHERE tenant_id = ? AND idempotency_key = ? ORDER BY id DESC LIMIT 1`,
+    [tenantId, idempotencyKey]
+  );
+}
+
+export async function archiveContact(contactId, tenantId = 1) {
+  await db.run(
+    `UPDATE contacts SET is_archived = 1 WHERE id = ? AND tenant_id = ?`,
+    [contactId, tenantId]
+  );
+  return await db.get(`SELECT * FROM contacts WHERE id = ? AND tenant_id = ?`, [contactId, tenantId]);
+}
+
+export async function deleteGhlEntityLink(tenantId, locationId, entityType, emsEntityId) {
+  return await db.run(
+    `DELETE FROM ghl_entity_links WHERE tenant_id = ? AND location_id = ? AND entity_type = ? AND ems_entity_id = ?`,
+    [tenantId, locationId, entityType, String(emsEntityId)]
+  );
+}
+
+export async function createGhlOAuthState(tenantId, userId = null, ttlMinutes = 10) {
+  const stateToken = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000).toISOString();
+
+  const cols = await db.all("PRAGMA table_info(ghl_oauth_states)");
+  const colNames = new Set(cols.map(c => c.name));
+
+  if (colNames.has('state') && !colNames.has('state_token')) {
+    await db.run(
+      `INSERT INTO ghl_oauth_states (state, tenant_id, user_id, expires_at, is_used)
+       VALUES (?, ?, ?, ?, 0)`,
+      [stateToken, tenantId, userId, expiresAt]
+    );
+  } else if (colNames.has('state') && colNames.has('state_token')) {
+    await db.run(
+      `INSERT INTO ghl_oauth_states (state_token, state, tenant_id, user_id, expires_at, is_used)
+       VALUES (?, ?, ?, ?, ?, 0)`,
+      [stateToken, stateToken, tenantId, userId, expiresAt]
+    );
+  } else {
+    await db.run(
+      `INSERT INTO ghl_oauth_states (state_token, tenant_id, user_id, expires_at, is_used)
+       VALUES (?, ?, ?, ?, 0)`,
+      [stateToken, tenantId, userId, expiresAt]
+    );
+  }
+
+  return stateToken;
+}
+
+export async function validateAndConsumeGhlOAuthState(stateToken) {
+  if (!stateToken || typeof stateToken !== 'string') return null;
+
+  const now = new Date().toISOString();
+  const cols = await db.all("PRAGMA table_info(ghl_oauth_states)");
+  const colNames = new Set(cols.map(c => c.name));
+
+  let record = null;
+  if (colNames.has('state') && !colNames.has('state_token')) {
+    record = await db.get(
+      `SELECT rowid as _rowid, * FROM ghl_oauth_states
+       WHERE state = ? AND is_used = 0 AND expires_at > ?`,
+      [stateToken, now]
+    );
+    if (!record) return null;
+    await db.run(`UPDATE ghl_oauth_states SET is_used = 1 WHERE rowid = ?`, [record._rowid]);
+  } else if (colNames.has('state') && colNames.has('state_token')) {
+    record = await db.get(
+      `SELECT rowid as _rowid, * FROM ghl_oauth_states
+       WHERE (state_token = ? OR state = ?) AND is_used = 0 AND expires_at > ?`,
+      [stateToken, stateToken, now]
+    );
+    if (!record) return null;
+    await db.run(`UPDATE ghl_oauth_states SET is_used = 1 WHERE rowid = ?`, [record._rowid]);
+  } else {
+    record = await db.get(
+      `SELECT rowid as _rowid, * FROM ghl_oauth_states
+       WHERE state_token = ? AND is_used = 0 AND expires_at > ?`,
+      [stateToken, now]
+    );
+    if (!record) return null;
+    await db.run(`UPDATE ghl_oauth_states SET is_used = 1 WHERE rowid = ?`, [record._rowid]);
+  }
+
+  return record;
+}
+
+export async function disconnectGhlIntegration(tenantId, locationId = null) {
+  if (locationId) {
+    await db.run(
+      `UPDATE ghl_integrations
+       SET is_active = 0,
+           access_token = '',
+           refresh_token = '',
+           updated_at = CURRENT_TIMESTAMP
+       WHERE tenant_id = ? AND location_id = ?`,
+      [tenantId, locationId]
+    );
+  } else {
+    await db.run(
+      `UPDATE ghl_integrations
+       SET is_active = 0,
+           access_token = '',
+           refresh_token = '',
+           updated_at = CURRENT_TIMESTAMP
+       WHERE tenant_id = ?`,
+      [tenantId]
+    );
+  }
+  return { success: true };
+}
+
+export async function getExpiringGhlIntegrations(withinMinutes = 15) {
+  const threshold = new Date(Date.now() + withinMinutes * 60 * 1000).toISOString();
+  return await db.all(
+    `SELECT * FROM ghl_integrations
+     WHERE is_active = 1 AND access_token != '' AND expires_at <= ?
+     ORDER BY expires_at ASC`,
+    [threshold]
+  );
+}
+
+export async function saveGhlTriggerSubscription(tenantId, data) {
+  const { id, locationId, triggerType, targetUrl, isActive = 1, filters = {}, metadata = {} } = data;
+  const subId = id || `sub_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+  await db.run(
+    `INSERT INTO ghl_trigger_subscriptions (id, tenant_id, location_id, trigger_type, target_url, is_active, filters, metadata, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+     ON CONFLICT(id) DO UPDATE SET
+       target_url = excluded.target_url,
+       is_active = excluded.is_active,
+       filters = excluded.filters,
+       metadata = excluded.metadata,
+       updated_at = CURRENT_TIMESTAMP`,
+    [
+      subId,
+      tenantId,
+      locationId,
+      triggerType,
+      targetUrl,
+      isActive ? 1 : 0,
+      typeof filters === 'object' ? JSON.stringify(filters) : (filters || '{}'),
+      typeof metadata === 'object' ? JSON.stringify(metadata) : (metadata || '{}')
+    ]
+  );
+  return await getGhlTriggerSubscriptionById(subId, tenantId);
+}
+
+export async function getGhlTriggerSubscriptions(tenantId, locationId = null) {
+  if (locationId) {
+    return await db.all(
+      `SELECT * FROM ghl_trigger_subscriptions WHERE tenant_id = ? AND location_id = ? ORDER BY created_at DESC`,
+      [tenantId, locationId]
+    );
+  }
+  return await db.all(
+    `SELECT * FROM ghl_trigger_subscriptions WHERE tenant_id = ? ORDER BY created_at DESC`,
+    [tenantId]
+  );
+}
+
+export async function getGhlTriggerSubscriptionById(id, tenantId = null) {
+  if (tenantId) {
+    return await db.get(
+      `SELECT * FROM ghl_trigger_subscriptions WHERE id = ? AND tenant_id = ?`,
+      [id, tenantId]
+    );
+  }
+  return await db.get(
+    `SELECT * FROM ghl_trigger_subscriptions WHERE id = ?`,
+    [id]
+  );
+}
+
+export async function updateGhlTriggerSubscription(id, tenantId, updates = {}) {
+  const existing = await getGhlTriggerSubscriptionById(id, tenantId);
+  if (!existing) return null;
+
+  const targetUrl = updates.targetUrl !== undefined ? updates.targetUrl : existing.target_url;
+  const isActive = updates.isActive !== undefined ? (updates.isActive ? 1 : 0) : existing.is_active;
+  const filters = updates.filters !== undefined ? (typeof updates.filters === 'object' ? JSON.stringify(updates.filters) : updates.filters) : existing.filters;
+  const metadata = updates.metadata !== undefined ? (typeof updates.metadata === 'object' ? JSON.stringify(updates.metadata) : updates.metadata) : existing.metadata;
+
+  await db.run(
+    `UPDATE ghl_trigger_subscriptions
+     SET target_url = ?, is_active = ?, filters = ?, metadata = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ? AND tenant_id = ?`,
+    [targetUrl, isActive, filters, metadata, id, tenantId]
+  );
+  return await getGhlTriggerSubscriptionById(id, tenantId);
+}
+
+export async function deleteGhlTriggerSubscription(id, tenantId) {
+  return await db.run(
+    `DELETE FROM ghl_trigger_subscriptions WHERE id = ? AND tenant_id = ?`,
+    [id, tenantId]
+  );
+}
+
+export async function getActiveSubscriptionsForTrigger(locationId, triggerType) {
+  return await db.all(
+    `SELECT * FROM ghl_trigger_subscriptions WHERE location_id = ? AND trigger_type = ? AND is_active = 1`,
+    [locationId, triggerType]
+  );
 }
 
 export function getDb() {

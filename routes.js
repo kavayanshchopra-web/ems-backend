@@ -1,4 +1,4 @@
-﻿import callingService from './services/calling/CallingService.js';
+import callingService from './services/calling/CallingService.js';
 
 import { 
   createCallRecord, 
@@ -13,8 +13,20 @@ import {
   getCompanyKyc,
   saveCompanyKyc,
   getAllKycSubmissions,
-  updateKycStatus
+  updateKycStatus,
+  createGhlOAuthState,
+  validateAndConsumeGhlOAuthState,
+  getGhlIntegrationByTenant,
+  getGhlSyncLogs
 } from './db.js';
+import { 
+  ghlAuthService, 
+  ghlApiClient, 
+  ghlSyncEngine, 
+  ghlWebhookService,
+  ghlWorkflowActionService,
+  ghlWorkflowTriggerService
+} from './services/ghl/index.js';
 
 import express from 'express';
 import jwt from 'jsonwebtoken';
@@ -115,8 +127,20 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock_secret_
 const globalWebhookLogs = [];
 
 export async function authMiddleware(req, res, next) {
-  // Allow login, signup, and webhook testing routes without token
-  if (req.path.startsWith('/auth/') || req.path === '/billing/webhook' || req.path.includes('/integrations/webhook/') || req.path.includes('/integrations/oauth/') || req.path.includes('/webhooks/') || req.path.includes('callcenterbridging') || req.path.includes('/calls/webhook')) {
+  // Allow login, signup, health check, and public webhook routes without token
+  if (
+    req.path.startsWith('/auth/') ||
+    req.path === '/health' ||
+    req.path === '/billing/webhook' ||
+    req.path.includes('/integrations/marketplace/') ||
+    req.path.includes('/integrations/ghl/webhook') ||
+    req.path.includes('/integrations/ghl/actions/') ||
+    req.path.includes('/integrations/webhook/') ||
+    req.path.includes('/integrations/oauth/') ||
+    req.path.includes('/webhooks/') ||
+    req.path.includes('callcenterbridging') ||
+    req.path.includes('/calls/webhook')
+  ) {
     return next();
   }
 
@@ -129,13 +153,17 @@ export async function authMiddleware(req, res, next) {
       req.user = decoded; // { id, email, role, tenant_id }
       return next();
     } catch (err) {
-      console.warn('JWT verify notice:', err.message);
+      return res.status(401).json({ error: 'Invalid or expired authentication token', details: err.message });
     }
   }
 
-  // Fallback default superadmin user for local dev/testing
-  req.user = { id: 1, email: 'admin@omniflow.com', role: 'superadmin', tenant_id: 1 };
-  next();
+  // Explicit local development fallback only when explicitly enabled in development environment
+  if (process.env.NODE_ENV === 'development' && process.env.ALLOW_DEV_SUPERADMIN_FALLBACK === 'true') {
+    req.user = { id: 1, email: 'admin@omniflow.com', role: 'superadmin', tenant_id: 1 };
+    return next();
+  }
+
+  return res.status(401).json({ error: 'Access denied: Valid authentication token required' });
 }
 
 // Helper to check user roles
@@ -1694,37 +1722,435 @@ export default function setupRoutes(io) {
     }
   });
 
-  // GHL OAuth Callback Redirect Page
-  router.get('/v1/integrations/oauth/callback', (req, res) => {
-    const { code } = req.query;
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>GHL Integration Connected</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #0f172a; color: white; text-align: center; }
-          .card { background: #1e293b; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #334155; max-width: 420px; }
-          .icon { font-size: 48px; margin-bottom: 16px; }
-          h2 { margin: 0 0 12px 0; color: #14d2cb; font-size: 22px; }
-          p { color: #94a3b8; font-size: 14px; line-height: 1.5; }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <div class="icon">⚡</div>
-          <h2>HighLevel Connected Successfully!</h2>
-          <p>Authorization code received. You can close this window and return to OmniFlow EMS.</p>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({ type: 'GHL_OAUTH_SUCCESS', code: '${code}' }, '*');
-            }
-            setTimeout(() => window.close(), 3000);
-          </script>
-        </div>
-      </body>
-      </html>
-    `);
+  // ==========================================
+  // ⚡ GOHIGHLEVEL (GHL) OAUTH 2.0 & INTEGRATION ROUTES
+  // ==========================================
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function escapeJs(str) {
+    if (!str) return '';
+    return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
+  }
+
+  // 1. Generate GHL 1-Click Installation Authorization URL with Cryptographic State
+  router.get('/v1/integrations/ghl/oauth/authorize', async (req, res) => {
+    try {
+      const tenantId = req.user?.tenant_id || 1;
+      const userId = req.user?.id || null;
+      const stateToken = await createGhlOAuthState(tenantId, userId);
+      const authUrl = ghlAuthService.getAuthorizationUrl({ state: stateToken });
+
+      res.json({
+        success: true,
+        authUrl,
+        state: stateToken
+      });
+    } catch (err) {
+      console.error('[GHL Authorize Error]', err.message);
+      res.status(500).json({ error: err.message || 'Failed to generate GHL authorization URL' });
+    }
+  });
+
+  // 2. Safe Connection Status (Never exposes secrets or tokens)
+  router.get('/v1/integrations/ghl/status', async (req, res) => {
+    try {
+      const tenantId = req.user?.tenant_id || 1;
+      const status = await ghlAuthService.getTenantConnectionStatus(tenantId);
+      res.json({ success: true, ...status });
+    } catch (err) {
+      console.error('[GHL Status Error]', err.message);
+      res.status(500).json({ error: err.message || 'Failed to retrieve connection status' });
+    }
+  });
+
+  // 3. Disconnect GHL Sub-Account
+  router.post('/v1/integrations/ghl/oauth/disconnect', async (req, res) => {
+    try {
+      const tenantId = req.user?.tenant_id || 1;
+      const result = await ghlAuthService.disconnectTenant(tenantId);
+      res.json(result);
+    } catch (err) {
+      console.error('[GHL Disconnect Error]', err.message);
+      res.status(500).json({ error: err.message || 'Failed to disconnect GoHighLevel' });
+    }
+  });
+
+  // 4. Server-Side OAuth Callback Handler
+  const handleGhlOAuthCallback = async (req, res) => {
+    const { code, state, error, error_description } = req.query;
+
+    // Handle user canceled or denied consent
+    if (error || error_description) {
+      const errorMsg = error_description || error || 'Access was denied or canceled';
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>GHL Connection Error</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #0f172a; color: white; text-align: center; }
+            .card { background: #1e293b; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #ef4444; max-width: 440px; }
+            .icon { font-size: 48px; margin-bottom: 16px; }
+            h2 { margin: 0 0 12px 0; color: #f87171; font-size: 22px; }
+            p { color: #94a3b8; font-size: 14px; line-height: 1.5; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="icon">⚠️</div>
+            <h2>Connection Canceled</h2>
+            <p>${escapeHtml(errorMsg)}</p>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({ type: 'GHL_OAUTH_ERROR', error: '${escapeJs(errorMsg)}' }, '*');
+              }
+              setTimeout(() => window.close(), 3000);
+            </script>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+
+    if (!state) {
+      return res.status(400).send('OAuth state parameter is required.');
+    }
+
+    // Validate single-use cryptographic state token
+    const stateRecord = await validateAndConsumeGhlOAuthState(state);
+    if (!stateRecord) {
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Invalid OAuth State</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #0f172a; color: white; text-align: center; }
+            .card { background: #1e293b; padding: 40px; border-radius: 16px; border: 1px solid #f59e0b; max-width: 440px; }
+            .icon { font-size: 48px; margin-bottom: 16px; }
+            h2 { margin: 0 0 12px 0; color: #fbbf24; font-size: 22px; }
+            p { color: #94a3b8; font-size: 14px; line-height: 1.5; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="icon">🔒</div>
+            <h2>Verification Expired</h2>
+            <p>The authorization request expired or has already been used. Please return to OmniFlow and try again.</p>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({ type: 'GHL_OAUTH_ERROR', error: 'State verification expired' }, '*');
+              }
+              setTimeout(() => window.close(), 4000);
+            </script>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+
+    try {
+      const tenantId = stateRecord.tenant_id;
+      const result = await ghlAuthService.exchangeCodeForToken({ tenantId, code });
+
+      if (io) {
+        io.emit('ghl_connected', { tenantId, locationId: result.locationId });
+      }
+
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>GHL Integration Connected</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #0f172a; color: white; text-align: center; }
+            .card { background: #1e293b; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #14b8a6; max-width: 440px; }
+            .icon { font-size: 48px; margin-bottom: 16px; color: #14b8a6; }
+            h2 { margin: 0 0 12px 0; color: #2dd4bf; font-size: 22px; }
+            p { color: #94a3b8; font-size: 14px; line-height: 1.5; }
+            .loc { display: inline-block; margin-top: 10px; background: rgba(20, 184, 166, 0.15); border: 1px solid rgba(20, 184, 166, 0.3); color: #2dd4bf; padding: 4px 12px; border-radius: 8px; font-size: 13px; font-family: monospace; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="icon">⚡</div>
+            <h2>HighLevel Connected Successfully!</h2>
+            <p>Your GoHighLevel sub-account has been connected securely.</p>
+            <div class="loc">Location: ${escapeHtml(result.locationId)}</div>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({ 
+                  type: 'GHL_OAUTH_SUCCESS', 
+                  locationId: '${escapeJs(result.locationId)}', 
+                  status: 'connected' 
+                }, '*');
+              }
+              setTimeout(() => window.close(), 2000);
+            </script>
+          </div>
+        </body>
+        </html>
+      `);
+    } catch (exchangeErr) {
+      console.error('[GHL OAuth Callback Exchange Error]', exchangeErr.message);
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Token Exchange Failed</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #0f172a; color: white; text-align: center; }
+            .card { background: #1e293b; padding: 40px; border-radius: 16px; border: 1px solid #ef4444; max-width: 440px; }
+            .icon { font-size: 48px; margin-bottom: 16px; }
+            h2 { margin: 0 0 12px 0; color: #f87171; font-size: 22px; }
+            p { color: #94a3b8; font-size: 14px; line-height: 1.5; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="icon">❌</div>
+            <h2>Connection Failed</h2>
+            <p>${escapeHtml(exchangeErr.message || 'Failed to exchange token with GoHighLevel')}</p>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({ type: 'GHL_OAUTH_ERROR', error: '${escapeJs(exchangeErr.message)}' }, '*');
+              }
+              setTimeout(() => window.close(), 4000);
+            </script>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+  };
+
+  // 4. Server-Side OAuth Callback Handler (Public Marketplace Route)
+  router.get('/v1/integrations/marketplace/oauth/callback', handleGhlOAuthCallback);
+  router.get('/v1/integrations/ghl/oauth/callback', handleGhlOAuthCallback);
+  router.get('/v1/integrations/oauth/callback', handleGhlOAuthCallback);
+
+  // 5. Get GHL Contact by GHL ID
+  router.get('/v1/integrations/ghl/contacts/:id', async (req, res) => {
+    try {
+      const tenantId = req.user?.tenant_id || 1;
+      const integration = await getGhlIntegrationByTenant(tenantId);
+      if (!integration || !integration.location_id) {
+        return res.status(400).json({ error: 'GoHighLevel is not connected for this tenant', code: 'GHL_NOT_CONNECTED' });
+      }
+      const data = await ghlApiClient.getContact(integration.location_id, req.params.id);
+      res.json({ success: true, ...data });
+    } catch (err) {
+      console.error('[GHL Get Contact Error]', err.message);
+      res.status(err.status || 500).json({ error: err.message, code: err.code || 'GHL_SYNC_ERROR' });
+    }
+  });
+
+  // 6. Sync Single EMS Contact to GHL
+  router.post('/v1/integrations/ghl/contacts/:id/sync', async (req, res) => {
+    try {
+      const tenantId = req.user?.tenant_id || 1;
+      const emsContactId = req.params.id;
+      const result = await ghlSyncEngine.syncContactToGhl(tenantId, emsContactId);
+      res.json({ success: true, ...result });
+    } catch (err) {
+      console.error('[GHL Sync Contact Error]', err.message);
+      res.status(err.status || 500).json({ error: err.message, code: err.code || 'GHL_SYNC_ERROR' });
+    }
+  });
+
+  // 7. Batch Sync All EMS Contacts to GHL
+  router.post('/v1/integrations/ghl/contacts/sync-all', async (req, res) => {
+    try {
+      const tenantId = req.user?.tenant_id || 1;
+      const summary = await ghlSyncEngine.syncAllContactsToGhl(tenantId);
+      res.json({ success: true, ...summary });
+    } catch (err) {
+      console.error('[GHL Batch Sync Error]', err.message);
+      res.status(err.status || 500).json({ error: err.message, code: err.code || 'GHL_SYNC_ERROR' });
+    }
+  });
+
+  // 8. Import GHL Contact to EMS
+  router.post('/v1/integrations/ghl/contacts/import', async (req, res) => {
+    try {
+      const tenantId = req.user?.tenant_id || 1;
+      const { ghlContactId, contactData } = req.body;
+      if (!ghlContactId) {
+        return res.status(400).json({ error: 'ghlContactId is required', code: 'GHL_VALIDATION_ERROR' });
+      }
+      const result = await ghlSyncEngine.importGhlContact(tenantId, ghlContactId, contactData);
+      res.json({ success: true, ...result });
+    } catch (err) {
+      console.error('[GHL Import Contact Error]', err.message);
+      res.status(err.status || 500).json({ error: err.message, code: err.code || 'GHL_SYNC_ERROR' });
+    }
+  });
+
+  // 9. Get GHL Sync Logs for Tenant
+  router.get('/v1/integrations/ghl/logs', async (req, res) => {
+    try {
+      const tenantId = req.user?.tenant_id || 1;
+      const limit = parseInt(req.query.limit, 10) || 50;
+      const logs = await getGhlSyncLogs(tenantId, null, limit);
+      res.json({ success: true, logs });
+    } catch (err) {
+      console.error('[GHL Get Logs Error]', err.message);
+      res.status(500).json({ error: err.message || 'Failed to retrieve sync logs' });
+    }
+  });
+
+  // 10. HighLevel Inbound Webhook Endpoint (Public Marketplace Route)
+  const handleGhlWebhook = async (req, res) => {
+    try {
+      const rawBody = req.rawBody || JSON.stringify(req.body || {});
+      const result = await ghlWebhookService.processWebhookEvent({
+        rawBody,
+        headers: req.headers,
+        payload: req.body
+      });
+      res.status(200).json({ success: true, ...result });
+    } catch (err) {
+      console.error('[GHL Webhook Error]', err.message);
+      res.status(err.status || 500).json({ error: err.message, code: err.code || 'WEBHOOK_ERROR' });
+    }
+  };
+
+  router.post('/v1/integrations/marketplace/webhook', handleGhlWebhook);
+  router.post('/v1/integrations/ghl/webhook', handleGhlWebhook);
+  router.post('/v1/integrations/webhook/ghl', handleGhlWebhook);
+
+  // 11. Get GHL Pipelines & Stages for Tenant
+  router.get('/v1/integrations/ghl/pipelines', async (req, res) => {
+    try {
+      const tenantId = req.user?.tenant_id || 1;
+      const integration = await getGhlIntegrationByTenant(tenantId);
+      if (!integration || !integration.location_id) {
+        return res.status(400).json({ error: 'GoHighLevel is not connected for this tenant' });
+      }
+      const data = await ghlApiClient.getPipelines(integration.location_id);
+      res.json({ success: true, pipelines: data.pipelines || [] });
+    } catch (err) {
+      console.error('[GHL Get Pipelines Error]', err.message);
+      res.status(err.status || 500).json({ error: err.message, code: err.code || 'GHL_PIPELINES_ERROR' });
+    }
+  });
+
+  // 12. Sync Single EMS Contact Opportunity to GHL
+  router.post('/v1/integrations/ghl/opportunities/:id/sync', async (req, res) => {
+    try {
+      const tenantId = req.user?.tenant_id || 1;
+      const emsContactId = req.params.id;
+      const result = await ghlSyncEngine.syncOpportunityToGhl(tenantId, emsContactId);
+      res.json({ success: true, ...result });
+    } catch (err) {
+      console.error('[GHL Sync Opportunity Error]', err.message);
+      res.status(err.status || 500).json({ error: err.message, code: err.code || 'GHL_OPPORTUNITY_SYNC_ERROR' });
+    }
+  });
+
+  // 13. Batch Sync All Opportunities to GHL
+  router.post('/v1/integrations/ghl/opportunities/sync-all', async (req, res) => {
+    try {
+      const tenantId = req.user?.tenant_id || 1;
+      const summary = await ghlSyncEngine.syncAllOpportunitiesToGhl(tenantId);
+      res.json({ success: true, summary });
+    } catch (err) {
+      console.error('[GHL Batch Sync Opportunities Error]', err.message);
+      res.status(err.status || 500).json({ error: err.message, code: err.code || 'GHL_BATCH_OPPORTUNITIES_ERROR' });
+    }
+  });
+
+  // 14. Execute Marketplace Workflow Action
+  router.post('/v1/integrations/ghl/actions/execute', async (req, res) => {
+    try {
+      const rawBody = req.rawBody || JSON.stringify(req.body || {});
+      const result = await ghlWorkflowActionService.executeAction({
+        rawBody,
+        headers: req.headers,
+        payload: req.body
+      });
+      res.status(200).json(result);
+    } catch (err) {
+      console.error('[GHL Action Execute Error]', err.message);
+      res.status(err.status || 500).json({ error: err.message, code: err.code || 'ACTION_EXECUTION_ERROR' });
+    }
+  });
+
+  // 15. Discover Available Marketplace Workflow Triggers
+  router.get('/v1/integrations/ghl/triggers', (req, res) => {
+    try {
+      const triggers = ghlWorkflowTriggerService.getAvailableTriggers();
+      res.json({ success: true, triggers });
+    } catch (err) {
+      console.error('[GHL Triggers Discovery Error]', err.message);
+      res.status(500).json({ error: err.message, code: 'TRIGGER_DISCOVERY_ERROR' });
+    }
+  });
+
+  // 16. Subscribe to Marketplace Workflow Trigger
+  router.post('/v1/integrations/ghl/triggers/subscribe', async (req, res) => {
+    try {
+      const tenantId = req.user?.tenant_id || 1;
+      const { locationId, triggerType, targetUrl, filters, metadata } = req.body || {};
+      const integration = await getGhlIntegrationByTenant(tenantId);
+      const activeLocationId = locationId || integration?.location_id;
+
+      if (!activeLocationId) {
+        return res.status(400).json({ error: 'Active locationId is required for trigger subscription' });
+      }
+
+      const subscription = await ghlWorkflowTriggerService.createSubscription(tenantId, activeLocationId, {
+        triggerType,
+        targetUrl,
+        filters,
+        metadata
+      });
+      res.status(201).json({ success: true, subscription });
+    } catch (err) {
+      console.error('[GHL Trigger Subscribe Error]', err.message);
+      res.status(err.status || 500).json({ error: err.message, code: err.code || 'TRIGGER_SUBSCRIBE_ERROR' });
+    }
+  });
+
+  // 17. List Tenant Workflow Trigger Subscriptions
+  router.get('/v1/integrations/ghl/triggers/subscriptions', async (req, res) => {
+    try {
+      const tenantId = req.user?.tenant_id || 1;
+      const locationId = req.query.locationId || null;
+      const subscriptions = await ghlWorkflowTriggerService.listSubscriptions(tenantId, locationId);
+      res.json({ success: true, subscriptions });
+    } catch (err) {
+      console.error('[GHL List Subscriptions Error]', err.message);
+      res.status(500).json({ error: err.message, code: 'TRIGGER_SUBSCRIPTIONS_ERROR' });
+    }
+  });
+
+  // 18. Update Workflow Trigger Subscription
+  router.put('/v1/integrations/ghl/triggers/subscriptions/:id', async (req, res) => {
+    try {
+      const tenantId = req.user?.tenant_id || 1;
+      const updated = await ghlWorkflowTriggerService.updateSubscription(req.params.id, tenantId, req.body || {});
+      res.json({ success: true, subscription: updated });
+    } catch (err) {
+      console.error('[GHL Update Subscription Error]', err.message);
+      res.status(err.status || 500).json({ error: err.message, code: err.code || 'TRIGGER_UPDATE_ERROR' });
+    }
+  });
+
+  // 19. Delete Workflow Trigger Subscription
+  router.delete('/v1/integrations/ghl/triggers/subscriptions/:id', async (req, res) => {
+    try {
+      const tenantId = req.user?.tenant_id || 1;
+      const result = await ghlWorkflowTriggerService.deleteSubscription(req.params.id, tenantId);
+      res.json(result);
+    } catch (err) {
+      console.error('[GHL Delete Subscription Error]', err.message);
+      res.status(err.status || 500).json({ error: err.message, code: err.code || 'TRIGGER_DELETE_ERROR' });
+    }
   });
 
   // ==========================================
