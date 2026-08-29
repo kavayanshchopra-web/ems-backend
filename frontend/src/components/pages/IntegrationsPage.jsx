@@ -29,6 +29,10 @@ import {
 
 import GhlOAuthService from '../../core/services/ghlOAuthService.js';
 
+const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const LIVE_BACKEND = 'https://api.employeemanagementsystems.com';
+const API_URL = IS_DEV ? 'http://localhost:5000/api' : `${LIVE_BACKEND}/api`;
+
 export default function IntegrationsPage({
   companyId = 'default_tenant',
   showToast = () => {}
@@ -73,7 +77,7 @@ export default function IntegrationsPage({
   const [ghlSyncLogs, setGhlSyncLogs] = useState([]);
 
   const cleanCompanyId = companyId || 'default_tenant';
-  const baseUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/v1/integrations/webhook/receive/${cleanCompanyId}` : `https://api.omniflow.com/v1/integrations/webhook/receive/${cleanCompanyId}`;
+  const baseUrl = `${API_URL}/v1/integrations/webhook/receive/${cleanCompanyId}`;
 
   useEffect(() => {
     loadOutboundHooks();
@@ -86,7 +90,7 @@ export default function IntegrationsPage({
   const fetchGhlSyncLogs = async () => {
     try {
       const token = localStorage.getItem('omnilflow_token');
-      const res = await fetch('/api/v1/integrations/ghl/logs?limit=10', {
+      const res = await fetch(`${API_URL}/v1/integrations/ghl/logs?limit=10`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
       if (res.ok) {
@@ -101,7 +105,7 @@ export default function IntegrationsPage({
   const loadGhlOAuthData = async () => {
     try {
       const token = localStorage.getItem('omnilflow_token');
-      const res = await fetch('/api/v1/integrations/ghl/status', {
+      const res = await fetch(`${API_URL}/v1/integrations/ghl/status`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
       if (res.ok) {
@@ -250,7 +254,7 @@ export default function IntegrationsPage({
 
     // Fetch live logs 100% from backend API
     try {
-      const res = await fetch(`/api/v1/integrations/logs?companyId=${cleanCompanyId}`);
+      const res = await fetch(`${API_URL}/v1/integrations/logs?companyId=${cleanCompanyId}`);
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.logs)) {
@@ -280,7 +284,7 @@ export default function IntegrationsPage({
         { name: 'Ems Test 3', email: 'ems@gmail.com', phone: '0416 475 4006', locationId: 'loc_webgearz_subaccount' }
       ];
 
-      const res = await fetch('/api/v1/integrations/ghl/sync-live-contacts', {
+      const res = await fetch(`${API_URL}/v1/integrations/ghl/sync-live-contacts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ companyId: cleanCompanyId, contacts: activeContacts })
@@ -432,19 +436,30 @@ export default function IntegrationsPage({
 
   const handleLaunchGhlInstall = async () => {
     setIsSavingGhlAuth(true);
+    let popup = null;
+    try {
+      popup = window.open('about:blank', '_blank', 'width=650,height=750');
+    } catch (e) {}
+
     try {
       const token = localStorage.getItem('omnilflow_token');
-      const res = await fetch('/api/v1/integrations/ghl/oauth/authorize', {
+      const res = await fetch(`${API_URL}/v1/integrations/ghl/oauth/authorize`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
       const data = await res.json();
       if (data.authUrl) {
-        window.open(data.authUrl, '_blank', 'width=650,height=750');
+        if (popup && !popup.closed) {
+          popup.location.href = data.authUrl;
+        } else {
+          window.open(data.authUrl, '_blank', 'width=650,height=750') || (window.location.href = data.authUrl);
+        }
         showToast('🚀 Launching GoHighLevel 1-Click Installation OAuth window...', 'info');
       } else {
+        if (popup && !popup.closed) popup.close();
         showToast(data.error || 'Failed to start GHL OAuth process', 'error');
       }
     } catch (e) {
+      if (popup && !popup.closed) popup.close();
       showToast('OAuth Error: ' + e.message, 'error');
     } finally {
       setIsSavingGhlAuth(false);
@@ -455,7 +470,7 @@ export default function IntegrationsPage({
     if (!confirm('Disconnect this GoHighLevel Sub-Account Location?')) return;
     try {
       const token = localStorage.getItem('omnilflow_token');
-      const res = await fetch('/api/v1/integrations/ghl/oauth/disconnect', {
+      const res = await fetch(`${API_URL}/v1/integrations/ghl/oauth/disconnect`, {
         method: 'POST',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
@@ -476,7 +491,7 @@ export default function IntegrationsPage({
     showToast('🚀 Synchronizing EMS contacts to HighLevel...', 'info');
     try {
       const token = localStorage.getItem('omnilflow_token');
-      const res = await fetch('/api/v1/integrations/ghl/contacts/sync-all', {
+      const res = await fetch(`${API_URL}/v1/integrations/ghl/contacts/sync-all`, {
         method: 'POST',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
@@ -499,7 +514,7 @@ export default function IntegrationsPage({
     showToast('💼 Synchronizing CRM Deals & Opportunities to HighLevel...', 'info');
     try {
       const token = localStorage.getItem('omnilflow_token');
-      const res = await fetch('/api/v1/integrations/ghl/opportunities/sync-all', {
+      const res = await fetch(`${API_URL}/v1/integrations/ghl/opportunities/sync-all`, {
         method: 'POST',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
@@ -856,14 +871,14 @@ export default function IntegrationsPage({
                 <input
                   type="text"
                   readOnly
-                  value={`${typeof window !== 'undefined' ? window.location.origin : ''}/api/v1/integrations/marketplace/oauth/callback`}
+                  value="https://api.employeemanagementsystems.com/api/v1/integrations/marketplace/oauth/callback"
                   style={{ flex: 1, padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '10px', background: '#ffffff', fontFamily: 'monospace' }}
                 />
                 <Button
                   type="button"
                   variant="secondary"
                   size="sm"
-                  onClick={() => handleCopyUrl(`${window.location.origin}/api/v1/integrations/marketplace/oauth/callback`, 'ghl_redirect')}
+                  onClick={() => handleCopyUrl("https://api.employeemanagementsystems.com/api/v1/integrations/marketplace/oauth/callback", 'ghl_redirect')}
                 >
                   Copy
                 </Button>
