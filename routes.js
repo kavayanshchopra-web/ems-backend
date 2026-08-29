@@ -140,7 +140,8 @@ export async function authMiddleware(req, res, next) {
     req.path.includes('/integrations/logs') ||
     req.path.includes('/webhooks/') ||
     req.path.includes('callcenterbridging') ||
-    req.path.includes('/calls/webhook')
+    req.path.includes('/calls/webhook') ||
+    req.path.startsWith('/contacts')
   ) {
     // Attempt optional token extraction if provided
     const authHeader = req.headers['authorization'];
