@@ -1,8 +1,10 @@
-﻿import SuperAdminKycHub from '../superadmin/SuperAdminKycHub';
+import SuperAdminKycHub from '../superadmin/SuperAdminKycHub';
 import SuperAdminTelephonyHub from '../superadmin/SuperAdminTelephonyHub';
-import React from 'react';
-import { Briefcase, Globe, UserCheck, Users, Shield, Award, Search, Trash2, Clock } from 'lucide-react';
+import SuperAdminModuleProvisioningHub from '../superadmin/SuperAdminModuleProvisioningHub';
+import React, { useState, useMemo } from 'react';
+import { Briefcase, Globe, UserCheck, Users, Shield, Award, Search, Trash2, Clock, Sliders, Sparkles, Layers } from 'lucide-react';
 import DataTable from '../DataTable';
+import { dynamicDashboardEngine } from '../../core/engines/DynamicDashboardEngine';
 
 export default function SuperAdminPage({
   superadminMetrics = {},
@@ -17,6 +19,8 @@ export default function SuperAdminPage({
   superadminCompanies = [],
   superadminCompaniesQuery,
   setSuperadminCompaniesQuery,
+  handleDeleteCompany,
+  handleEnterCompany,
   adminPlansError,
   adminPlanForm,
   setAdminPlanForm,
@@ -34,15 +38,19 @@ export default function SuperAdminPage({
   setAuditLogs,
   showToast
 }) {
+  const superAdminStats = useMemo(() => {
+    return dynamicDashboardEngine.getSuperAdminDashboardMetrics(superadminCompanies, superadminUsers);
+  }, [superadminCompanies, superadminUsers]);
+
   return (
     <div className="superadmin-plans-panel glass-panel">
 
-      {/* Metric KPI Cards Row (7 Vibrant Metric Cards) */}
+      {/* Metric KPI Cards Row (Vibrant Metric Cards with Dynamic Module Metrics) */}
       <div className="superadmin-metrics-row">
         <div className="superadmin-metric-card metric-companies">
           <div className="superadmin-metric-info">
             <span className="superadmin-metric-title">Companies</span>
-            <span className="superadmin-metric-value">{superadminMetrics.companies}</span>
+            <span className="superadmin-metric-value">{superadminMetrics.companies || superadminCompanies.length}</span>
           </div>
           <div className="superadmin-metric-icon-box">
             <Briefcase size={20} />
@@ -91,18 +99,18 @@ export default function SuperAdminPage({
 
         <div className="superadmin-metric-card metric-superadmins">
           <div className="superadmin-metric-info">
-            <span className="superadmin-metric-title">Super Admins</span>
-            <span className="superadmin-metric-value">{superadminMetrics.superAdmins}</span>
+            <span className="superadmin-metric-title">Platform Modules</span>
+            <span className="superadmin-metric-value">{superAdminStats.totalModules}</span>
           </div>
-          <div className="superadmin-metric-icon-box">
-            <Award size={20} />
+          <div className="superadmin-metric-icon-box" style={{ background: 'rgba(13, 148, 136, 0.15)', color: '#0d9488' }}>
+            <Layers size={20} />
           </div>
         </div>
 
         <div className="superadmin-metric-card metric-totalusers">
           <div className="superadmin-metric-info">
             <span className="superadmin-metric-title">Total Users</span>
-            <span className="superadmin-metric-value">{superadminMetrics.totalUsers}</span>
+            <span className="superadmin-metric-value">{superadminMetrics.totalUsers || superadminUsers.length}</span>
           </div>
           <div className="superadmin-metric-icon-box">
             <Users size={20} />
@@ -123,6 +131,13 @@ export default function SuperAdminPage({
           className={`superadmin-tab-btn ${superadminSubTab === 'manage_companies' ? 'active' : ''}`}
         >
           Manage Companies
+        </button>
+        <button
+          onClick={() => setSuperadminSubTab && setSuperadminSubTab('module_provisioning')}
+          className={`superadmin-tab-btn ${superadminSubTab === 'module_provisioning' ? 'active' : ''}`}
+          style={superadminSubTab === 'module_provisioning' ? { background: '#0d9488', color: '#ffffff', fontWeight: '800' } : {}}
+        >
+          🎛️ Module Provisioning
         </button>
         <button
           onClick={() => setSuperadminSubTab && setSuperadminSubTab('manage_plans')}
@@ -393,6 +408,85 @@ export default function SuperAdminPage({
                     <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }}></span>
                     Active Tenant
                   </span>
+                )
+              },
+              {
+                header: 'Actions ⇅',
+                accessor: 'actions',
+                render: (c) => (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setSuperadminSubTab && setSuperadminSubTab('module_provisioning')}
+                      title={`Provision Modules for ${c.company_name || c.tenant_id}`}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        padding: '5px 10px',
+                        borderRadius: '6px',
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        border: '1px solid rgba(59, 130, 246, 0.25)',
+                        color: '#2563eb',
+                        fontSize: '11.5px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseOver={(e) => { e.currentTarget.style.background = '#2563eb'; e.currentTarget.style.color = '#ffffff'; }}
+                      onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)'; e.currentTarget.style.color = '#2563eb'; }}
+                    >
+                      <Sliders size={12} />
+                      <span>🎛️ Modules</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleEnterCompany && handleEnterCompany(c)}
+                      title={`Switch to ${c.company_name || c.tenant_id} Workspace (GHL Impersonation)`}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '5px 12px',
+                        borderRadius: '6px',
+                        background: 'linear-gradient(135deg, rgba(20, 210, 203, 0.15) 0%, rgba(13, 148, 136, 0.2) 100%)',
+                        border: '1px solid #14d2cb',
+                        color: '#0d9488',
+                        fontSize: '11.5px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseOver={(e) => { e.currentTarget.style.background = '#0d9488'; e.currentTarget.style.color = '#ffffff'; }}
+                      onMouseOut={(e) => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(20, 210, 203, 0.15) 0%, rgba(13, 148, 136, 0.2) 100%)'; e.currentTarget.style.color = '#0d9488'; }}
+                    >
+                      <span>🚀 Enter Workspace</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCompany && handleDeleteCompany(c.tenant_id || c.id)}
+                      title="Delete Company & Move to Recycle Bin"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '30px',
+                        height: '30px',
+                        borderRadius: '6px',
+                        background: 'rgba(239, 68, 68, 0.08)',
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        color: '#ef4444',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseOver={(e) => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = '#ffffff'; }}
+                      onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'; e.currentTarget.style.color = '#ef4444'; }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 )
               }
             ]}
@@ -850,6 +944,14 @@ export default function SuperAdminPage({
             emptyMessage="No security audit events recorded in this active session."
           />
         </div>
+      )}
+
+      {/* Sub-Tab: Module Provisioning Hub */}
+      {superadminSubTab === 'module_provisioning' && (
+        <SuperAdminModuleProvisioningHub
+          superadminCompanies={superadminCompanies}
+          showToast={showToast}
+        />
       )}
 
       {/* Sub-Tab 7: KYC & Compliance Hub */}

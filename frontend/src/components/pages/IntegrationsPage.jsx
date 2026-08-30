@@ -35,6 +35,7 @@ const API_URL = IS_DEV ? 'http://localhost:5000/api' : `${LIVE_BACKEND}/api`;
 
 export default function IntegrationsPage({
   companyId = 'default_tenant',
+  authUser = null,
   showToast = () => {}
 }) {
   const [activeTab, setActiveTab] = useState('inbound'); // 'inbound' | 'outbound' | 'odoo' | 'ghl_marketplace' | 'apikeys' | 'logs'
@@ -76,7 +77,8 @@ export default function IntegrationsPage({
   const [isSyncingGhl, setIsSyncingGhl] = useState(false);
   const [ghlSyncLogs, setGhlSyncLogs] = useState([]);
 
-  const cleanCompanyId = companyId || 'default_tenant';
+  const cleanCompanyId = companyId || authUser?.companyId || authUser?.tenant_id || 'default_tenant';
+  const isSuperAdmin = authUser?.role === 'superadmin' || authUser?.role === 'super_admin' || authUser?.isSuperAdmin;
   const baseUrl = `${API_URL}/v1/integrations/webhook/receive/${cleanCompanyId}`;
 
   useEffect(() => {
@@ -89,9 +91,12 @@ export default function IntegrationsPage({
 
   const fetchGhlSyncLogs = async () => {
     try {
-      const token = localStorage.getItem('omnilflow_token');
-      const res = await fetch(`${API_URL}/v1/integrations/ghl/logs?limit=10`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
+      const res = await fetch(`${API_URL}/v1/integrations/ghl/logs?limit=10&companyId=${encodeURIComponent(cleanCompanyId)}`, {
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'X-Tenant-Id': String(cleanCompanyId)
+        }
       });
       if (res.ok) {
         const data = await res.json();
@@ -104,9 +109,12 @@ export default function IntegrationsPage({
 
   const loadGhlOAuthData = async () => {
     try {
-      const token = localStorage.getItem('omnilflow_token');
-      const res = await fetch(`${API_URL}/v1/integrations/ghl/status`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
+      const res = await fetch(`${API_URL}/v1/integrations/ghl/status?companyId=${encodeURIComponent(cleanCompanyId)}`, {
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'X-Tenant-Id': String(cleanCompanyId)
+        }
       });
       if (res.ok) {
         const data = await res.json();
@@ -123,13 +131,16 @@ export default function IntegrationsPage({
           fetchGhlSyncLogs();
         } else {
           setGhlLocations([]);
+          setGhlSyncLogs([]);
         }
       } else {
         setGhlLocations([]);
+        setGhlSyncLogs([]);
       }
     } catch (e) {
       console.warn('GHL status load error:', e);
       setGhlLocations([]);
+      setGhlSyncLogs([]);
     }
   };
 
@@ -469,13 +480,19 @@ export default function IntegrationsPage({
   const handleDisconnectGhlLocation = async () => {
     if (!confirm('Disconnect this GoHighLevel Sub-Account Location?')) return;
     try {
-      const token = localStorage.getItem('omnilflow_token');
+      const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
       const res = await fetch(`${API_URL}/v1/integrations/ghl/oauth/disconnect`, {
         method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'X-Tenant-Id': String(cleanCompanyId)
+        },
+        body: JSON.stringify({ companyId: cleanCompanyId })
       });
       if (res.ok) {
         setGhlLocations([]);
+        setGhlSyncLogs([]);
         showToast('GoHighLevel Sub-Account disconnected successfully', 'info');
       } else {
         const data = await res.json();
@@ -490,10 +507,15 @@ export default function IntegrationsPage({
     setIsSyncingGhl(true);
     showToast('🚀 Synchronizing EMS contacts to HighLevel...', 'info');
     try {
-      const token = localStorage.getItem('omnilflow_token');
+      const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
       const res = await fetch(`${API_URL}/v1/integrations/ghl/contacts/sync-all`, {
         method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'X-Tenant-Id': String(cleanCompanyId)
+        },
+        body: JSON.stringify({ companyId: cleanCompanyId })
       });
       const data = await res.json();
       if (res.ok) {
@@ -513,10 +535,15 @@ export default function IntegrationsPage({
     setIsSyncingGhl(true);
     showToast('💼 Synchronizing CRM Deals & Opportunities to HighLevel...', 'info');
     try {
-      const token = localStorage.getItem('omnilflow_token');
+      const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
       const res = await fetch(`${API_URL}/v1/integrations/ghl/opportunities/sync-all`, {
         method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'X-Tenant-Id': String(cleanCompanyId)
+        },
+        body: JSON.stringify({ companyId: cleanCompanyId })
       });
       const data = await res.json();
       if (res.ok) {
@@ -865,25 +892,27 @@ export default function IntegrationsPage({
               Connect your HighLevel Sub-Account location in 1-click. Automatically sync leads, WhatsApp conversations, and telephony call recordings into your HighLevel contact timelines.
             </p>
 
-            <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>OAuth Redirect URI</span>
-              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                <input
-                  type="text"
-                  readOnly
-                  value="https://api.employeemanagementsystems.com/api/v1/integrations/marketplace/oauth/callback"
-                  style={{ flex: 1, padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '10px', background: '#ffffff', fontFamily: 'monospace' }}
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => handleCopyUrl("https://api.employeemanagementsystems.com/api/v1/integrations/marketplace/oauth/callback", 'ghl_redirect')}
-                >
-                  Copy
-                </Button>
+            {isSuperAdmin && (
+              <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>OAuth Redirect URI (SuperAdmin Setup)</span>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    readOnly
+                    value="https://api.employeemanagementsystems.com/api/v1/integrations/marketplace/oauth/callback"
+                    style={{ flex: 1, padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '10px', background: '#ffffff', fontFamily: 'monospace' }}
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleCopyUrl("https://api.employeemanagementsystems.com/api/v1/integrations/marketplace/oauth/callback", 'ghl_redirect')}
+                  >
+                    Copy
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
 
             {ghlLocations.length === 0 ? (
               <Button

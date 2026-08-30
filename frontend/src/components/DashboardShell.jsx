@@ -74,6 +74,8 @@ import TrashVaultEngine from '../core/engines/TrashVaultEngine';
 import ShiftEngine from '../core/engines/ShiftEngine';
 import { LabelEngine } from '../core/engines/LabelEngine';
 import FirebaseCloudEngine from '../core/engines/FirebaseCloudEngine';
+import FeatureProvisioningEngine from '../core/engines/FeatureProvisioningEngine';
+import { moduleConfigService } from '../services/moduleConfigService';
 import { atsStorageService, getNextSequentialId } from '../services/atsStorageService';
 import {
   auth,
@@ -92,7 +94,8 @@ import {
   getDocs,
   ref,
   uploadBytes,
-  getDownloadURL
+  getDownloadURL,
+  createEmployeeAuthAccount
 } from '../firebase.js';
 import {
   Laptop,
@@ -152,12 +155,12 @@ import {
 } from 'lucide-react';
 // Dynamic Registry - Auto-Extensible Module Config for RBAC
 export const DYNAMIC_MODULE_REGISTRY = [
-  { key: 'dashboards', label: '?? Dashboards & Analytics' },
-  { key: 'hr', label: '?? HR Management & Employees' },
-  { key: 'payroll', label: '?? Payroll & Financial Ledger' },
-  { key: 'crm', label: '?? CRM & WhatsApp Sales' },
-  { key: 'operations', label: '?? Operations & Tasks' },
-  { key: 'saas_portal', label: '?? SaaS Portal Settings' }
+  { key: 'dashboards', label: '📊 Dashboards & Analytics' },
+  { key: 'hr', label: '👥 HR Management & Employees' },
+  { key: 'payroll', label: '💰 Payroll & Financial Ledger' },
+  { key: 'crm', label: '💬 CRM & WhatsApp Sales' },
+  { key: 'operations', label: '📋 Operations & Tasks' },
+  { key: 'saas_portal', label: '⚙️ SaaS Portal Settings' }
 ];
 // Dynamic Self-Updating System Onboarding Guide Steps Engine with Multi-Lingual Voice Scripts
 export const INITIAL_GUIDE_STEPS = [
@@ -567,113 +570,100 @@ function AccordionCategory({ id, label, icon, isExpanded, onToggle, children }) 
   );
 }
 const ALL_WORLD_CURRENCIES = [
-  { code: 'USD', name: 'US Dollar ($)', flag: '????' },
-  { code: 'INR', name: 'Indian Rupee (?)', flag: '????' },
-  { code: 'EUR', name: 'Euro (�)', flag: '????' },
-  { code: 'AED', name: 'UAE Dirham (?.?)', flag: '????' },
-  { code: 'GBP', name: 'British Pound (�)', flag: '????' },
-  { code: 'SAR', name: 'Saudi Riyal (?)', flag: '????' },
-  { code: 'CAD', name: 'Canadian Dollar ($)', flag: '????' },
-  { code: 'AUD', name: 'Australian Dollar ($)', flag: '????' },
-  { code: 'KWD', name: 'Kuwaiti Dinar (KD)', flag: '????' },
-  { code: 'QAR', name: 'Qatari Riyal (QR)', flag: '????' },
-  { code: 'BHD', name: 'Bahraini Dinar (BD)', flag: '????' },
-  { code: 'OMR', name: 'Omani Rial (RO)', flag: '????' },
-  { code: 'SGD', name: 'Singapore Dollar ($)', flag: '????' },
-  { code: 'JPY', name: 'Japanese Yen (�)', flag: '????' },
-  { code: 'CHF', name: 'Swiss Franc (CHF)', flag: '????' },
-  { code: 'CNY', name: 'Chinese Yuan (�)', flag: '????' },
-  { code: 'HKD', name: 'Hong Kong Dollar ($)', flag: '????' },
-  { code: 'NZD', name: 'New Zealand Dollar ($)', flag: '????' },
-  { code: 'SEK', name: 'Swedish Krona (kr)', flag: '????' },
-  { code: 'NOK', name: 'Norwegian Krone (kr)', flag: '????' },
-  { code: 'DKK', name: 'Danish Krone (kr)', flag: '????' },
-  { code: 'PLN', name: 'Polish Zloty (zl)', flag: '????' },
-  { code: 'TRY', name: 'Turkish Lira (?)', flag: '????' },
-  { code: 'THB', name: 'Thai Baht (?)', flag: '????' },
-  { code: 'MYR', name: 'Malaysian Ringgit (RM)', flag: '????' },
-  { code: 'IDR', name: 'Indonesian Rupiah (Rp)', flag: '????' },
-  { code: 'PHP', name: 'Philippine Peso (?)', flag: '????' },
-  { code: 'VND', name: 'Vietnamese Dong (?)', flag: '????' },
-  { code: 'KRW', name: 'South Korean Won (?)', flag: '????' },
-  { code: 'BRL', name: 'Brazilian Real (R$)', flag: '????' },
-  { code: 'MXN', name: 'Mexican Peso ($)', flag: '????' },
-  { code: 'ZAR', name: 'South African Rand (R)', flag: '????' },
-  { code: 'EGP', name: 'Egyptian Pound (E�)', flag: '????' },
-  { code: 'NGN', name: 'Nigerian Naira (?)', flag: '????' },
-  { code: 'KES', name: 'Kenyan Shilling (KSh)', flag: '????' },
-  { code: 'PKR', name: 'Pakistani Rupee (Rs)', flag: '????' },
-  { code: 'BDT', name: 'Bangladeshi Taka (?)', flag: '????' },
-  { code: 'LKR', name: 'Sri Lankan Rupee (Rs)', flag: '????' },
-  { code: 'NPR', name: 'Nepalese Rupee (Rs)', flag: '????' },
-  { code: 'RUB', name: 'Russian Ruble (?)', flag: '????' },
-  { code: 'ILS', name: 'Israeli New Shekel (?)', flag: '????' },
-  { code: 'COP', name: 'Colombian Peso ($)', flag: '????' },
-  { code: 'CLP', name: 'Chilean Peso ($)', flag: '????' },
-  { code: 'PEN', name: 'Peruvian Sol (S/)', flag: '????' },
-  { code: 'ARS', name: 'Argentine Peso ($)', flag: '????' },
-  { code: 'CZK', name: 'Czech Koruna (Kc)', flag: '????' },
-  { code: 'HUF', name: 'Hungarian Forint (Ft)', flag: '????' },
-  { code: 'RON', name: 'Romanian Leu (lei)', flag: '????' },
-  { code: 'BGN', name: 'Bulgarian Lev (??)', flag: '????' },
-  { code: 'HRK', name: 'Croatian Kuna (kn)', flag: '????' },
-  { code: 'ISK', name: 'Icelandic Krona (kr)', flag: '????' },
-  { code: 'JOD', name: 'Jordanian Dinar (JD)', flag: '????' },
-  { code: 'LBP', name: 'Lebanese Pound (L�)', flag: '????' },
-  { code: 'IQD', name: 'Iraqi Dinar (IQD)', flag: '????' },
-  { code: 'DZD', name: 'Algerian Dinar (DA)', flag: '????' },
-  { code: 'MAD', name: 'Moroccan Dirham (MAD)', flag: '????' },
-  { code: 'TND', name: 'Tunisian Dinar (DT)', flag: '????' },
-  { code: 'GHS', name: 'Ghanaian Cedi (GH?)', flag: '????' },
-  { code: 'ETB', name: 'Ethiopian Birr (Br)', flag: '????' },
-  { code: 'TZS', name: 'Tanzanian Shilling (TSh)', flag: '????' },
-  { code: 'UGX', name: 'Ugandan Shilling (USh)', flag: '????' },
-  { code: 'MUR', name: 'Mauritian Rupee (Rs)', flag: '????' }
+  { code: 'INR', name: 'Indian Rupee (₹)', country: 'in', flag: '🇮🇳' },
+  { code: 'USD', name: 'US Dollar ($)', country: 'us', flag: '🇺🇸' },
+  { code: 'EUR', name: 'Euro (€)', country: 'eu', flag: '🇪🇺' },
+  { code: 'AED', name: 'UAE Dirham (د.إ)', country: 'ae', flag: '🇦🇪' },
+  { code: 'GBP', name: 'British Pound (£)', country: 'gb', flag: '🇬🇧' },
+  { code: 'SAR', name: 'Saudi Riyal (﷼)', country: 'sa', flag: '🇸🇦' },
+  { code: 'CAD', name: 'Canadian Dollar ($)', country: 'ca', flag: '🇨🇦' },
+  { code: 'AUD', name: 'Australian Dollar ($)', country: 'au', flag: '🇦🇺' },
+  { code: 'KWD', name: 'Kuwaiti Dinar (KD)', country: 'kw', flag: '🇰🇼' },
+  { code: 'QAR', name: 'Qatari Riyal (QR)', country: 'qa', flag: '🇶🇦' },
+  { code: 'BHD', name: 'Bahraini Dinar (BD)', country: 'bh', flag: '🇧🇭' },
+  { code: 'OMR', name: 'Omani Rial (RO)', country: 'om', flag: '🇴🇲' },
+  { code: 'SGD', name: 'Singapore Dollar ($)', country: 'sg', flag: '🇸🇬' },
+  { code: 'JPY', name: 'Japanese Yen (¥)', country: 'jp', flag: '🇯🇵' },
+  { code: 'CHF', name: 'Swiss Franc (CHF)', country: 'ch', flag: '🇨🇭' },
+  { code: 'CNY', name: 'Chinese Yuan (¥)', country: 'cn', flag: '🇨🇳' },
+  { code: 'HKD', name: 'Hong Kong Dollar ($)', country: 'hk', flag: '🇭🇰' },
+  { code: 'NZD', name: 'New Zealand Dollar ($)', country: 'nz', flag: '🇳🇿' },
+  { code: 'SEK', name: 'Swedish Krona (kr)', country: 'se', flag: '🇸🇪' },
+  { code: 'NOK', name: 'Norwegian Krone (kr)', country: 'no', flag: '🇳🇴' },
+  { code: 'DKK', name: 'Danish Krone (kr)', country: 'dk', flag: '🇩🇰' },
+  { code: 'PLN', name: 'Polish Zloty (zł)', country: 'pl', flag: '🇵🇱' },
+  { code: 'TRY', name: 'Turkish Lira (₺)', country: 'tr', flag: '🇹🇷' },
+  { code: 'THB', name: 'Thai Baht (฿)', country: 'th', flag: '🇹🇭' },
+  { code: 'MYR', name: 'Malaysian Ringgit (RM)', country: 'my', flag: '🇲🇾' },
+  { code: 'IDR', name: 'Indonesian Rupiah (Rp)', country: 'id', flag: '🇮🇩' },
+  { code: 'PHP', name: 'Philippine Peso (₱)', country: 'ph', flag: '🇵🇭' },
+  { code: 'VND', name: 'Vietnamese Dong (₫)', country: 'vn', flag: '🇻🇳' },
+  { code: 'KRW', name: 'South Korean Won (₩)', country: 'kr', flag: '🇰🇷' },
+  { code: 'BRL', name: 'Brazilian Real (R$)', country: 'br', flag: '🇧🇷' },
+  { code: 'MXN', name: 'Mexican Peso ($)', country: 'mx', flag: '🇲🇽' },
+  { code: 'ZAR', name: 'South African Rand (R)', country: 'za', flag: '🇿🇦' },
+  { code: 'EGP', name: 'Egyptian Pound (E£)', country: 'eg', flag: '🇪🇬' },
+  { code: 'NGN', name: 'Nigerian Naira (₦)', country: 'ng', flag: '🇳🇬' },
+  { code: 'KES', name: 'Kenyan Shilling (KSh)', country: 'ke', flag: '🇰🇪' },
+  { code: 'PKR', name: 'Pakistani Rupee (Rs)', country: 'pk', flag: '🇵🇰' },
+  { code: 'BDT', name: 'Bangladeshi Taka (৳)', country: 'bd', flag: '🇧🇩' },
+  { code: 'LKR', name: 'Sri Lankan Rupee (Rs)', country: 'lk', flag: '🇱🇰' },
+  { code: 'NPR', name: 'Nepalese Rupee (Rs)', country: 'np', flag: '🇳🇵' },
+  { code: 'RUB', name: 'Russian Ruble (₽)', country: 'ru', flag: '🇷🇺' }
 ];
+
 export const ALL_WORLD_LANGUAGES = [
-  { code: 'en', name: 'English (Global)', nativeName: 'English', flag: '????' },
-  { code: 'hi', name: 'Hindi', nativeName: '?????', flag: '????' },
-  { code: 'ar', name: 'Arabic (RTL)', nativeName: '???????', flag: '????' },
-  { code: 'es', name: 'Spanish', nativeName: 'Espa�ol', flag: '????' },
-  { code: 'fr', name: 'French', nativeName: 'Fran�ais', flag: '????' },
-  { code: 'de', name: 'German', nativeName: 'Deutsch', flag: '????' },
-  { code: 'zh', name: 'Chinese (Simplified)', nativeName: '??(??)', flag: '????' },
-  { code: 'zh-TW', name: 'Chinese (Traditional)', nativeName: '??(??)', flag: '????' },
-  { code: 'ja', name: 'Japanese', nativeName: '???', flag: '????' },
-  { code: 'ko', name: 'Korean', nativeName: '???', flag: '????' },
-  { code: 'ru', name: 'Russian', nativeName: '???????', flag: '????' },
-  { code: 'pt', name: 'Portuguese', nativeName: 'Portugu�s', flag: '????' },
-  { code: 'it', name: 'Italian', nativeName: 'Italiano', flag: '????' },
-  { code: 'nl', name: 'Dutch', nativeName: 'Nederlands', flag: '????' },
-  { code: 'tr', name: 'Turkish', nativeName: 'T�rk�e', flag: '????' },
-  { code: 'pl', name: 'Polish', nativeName: 'Polski', flag: '????' },
-  { code: 'sv', name: 'Swedish', nativeName: 'Svenska', flag: '????' },
-  { code: 'no', name: 'Norwegian', nativeName: 'Norsk', flag: '????' },
-  { code: 'da', name: 'Danish', nativeName: 'Dansk', flag: '????' },
-  { code: 'fi', name: 'Finnish', nativeName: 'Suomi', flag: '????' },
-  { code: 'el', name: 'Greek', nativeName: '????????', flag: '????' },
-  { code: 'he', name: 'Hebrew (RTL)', nativeName: '?????', flag: '????' },
-  { code: 'th', name: 'Thai', nativeName: '???', flag: '????' },
-  { code: 'vi', name: 'Vietnamese', nativeName: 'Ti?ng Vi?t', flag: '????' },
-  { code: 'id', name: 'Indonesian', nativeName: 'Bahasa Indonesia', flag: '????' },
-  { code: 'ms', name: 'Malay', nativeName: 'Bahasa Melayu', flag: '????' },
-  { code: 'uk', name: 'Ukrainian', nativeName: '??????????', flag: '????' },
-  { code: 'cs', name: 'Czech', nativeName: 'Ce�tina', flag: '????' },
-  { code: 'hu', name: 'Hungarian', nativeName: 'Magyar', flag: '????' },
-  { code: 'ro', name: 'Romanian', nativeName: 'Rom�na', flag: '????' },
-  { code: 'pa', name: 'Punjabi', nativeName: '??????', flag: '????' },
-  { code: 'bn', name: 'Bengali', nativeName: '?????', flag: '????' },
-  { code: 'ta', name: 'Tamil', nativeName: '?????', flag: '????' },
-  { code: 'te', name: 'Telugu', nativeName: '??????', flag: '????' },
-  { code: 'mr', name: 'Marathi', nativeName: '?????', flag: '????' },
-  { code: 'gu', name: 'Gujarati', nativeName: '???????', flag: '????' },
-  { code: 'kn', name: 'Kannada', nativeName: '?????', flag: '????' },
-  { code: 'ml', name: 'Malayalam', nativeName: '??????', flag: '????' },
-  { code: 'ur', name: 'Urdu (RTL)', nativeName: '????', flag: '????' },
-  { code: 'fa', name: 'Persian (RTL)', nativeName: '?????', flag: '????' },
-  { code: 'sw', name: 'Swahili', nativeName: 'Kiswahili', flag: '????' },
-  { code: 'af', name: 'Afrikaans', nativeName: 'Afrikaans', flag: '????' }
+  { code: 'en', name: 'English (Global)', nativeName: 'English', flag: '🇬🇧' },
+  { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी', flag: '🇮🇳' },
+  { code: 'ar', name: 'Arabic (RTL)', nativeName: 'العربية', flag: '🇦🇪' },
+  { code: 'es', name: 'Spanish', nativeName: 'Español', flag: '🇪🇸' },
+  { code: 'fr', name: 'French', nativeName: 'Français', flag: '🇫🇷' },
+  { code: 'de', name: 'German', nativeName: 'Deutsch', flag: '🇩🇪' },
+  { code: 'zh', name: 'Chinese (Simplified)', nativeName: '中文', flag: '🇨🇳' },
+  { code: 'ja', name: 'Japanese', nativeName: '日本語', flag: '🇯🇵' },
+  { code: 'ko', name: 'Korean', nativeName: '한국어', flag: '🇰🇷' },
+  { code: 'ru', name: 'Russian', nativeName: 'Русский', flag: '🇷🇺' },
+  { code: 'pt', name: 'Portuguese', nativeName: 'Português', flag: '🇵🇹' },
+  { code: 'it', name: 'Italian', nativeName: 'Italiano', flag: '🇮🇹' },
+  { code: 'nl', name: 'Dutch', nativeName: 'Nederlands', flag: '🇳🇱' },
+  { code: 'tr', name: 'Turkish', nativeName: 'Türkçe', flag: '🇹🇷' },
+  { code: 'pa', name: 'Punjabi', nativeName: 'ਪੰਜਾਬੀ', flag: '🇮🇳' },
+  { code: 'bn', name: 'Bengali', nativeName: 'বাংলা', flag: '🇧🇩' },
+  { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்', flag: '🇮🇳' },
+  { code: 'te', name: 'Telugu', nativeName: 'తెలుగు', flag: '🇮🇳' },
+  { code: 'mr', name: 'Marathi', nativeName: 'मराठी', flag: '🇮🇳' },
+  { code: 'gu', name: 'Gujarati', nativeName: 'ગુજરાતી', flag: '🇮🇳' },
+  { code: 'ur', name: 'Urdu (RTL)', nativeName: 'اردو', flag: '🇵🇰' }
 ];
+
+export const getUserDisplayName = (user) => {
+  if (!user) return 'User';
+  if (user.name && typeof user.name === 'string' && user.name.trim()) return user.name.trim();
+  if (user.fullName && typeof user.fullName === 'string' && user.fullName.trim()) return user.fullName.trim();
+  if (user.displayName && typeof user.displayName === 'string' && user.displayName.trim()) return user.displayName.trim();
+  if (user.customName && typeof user.customName === 'string' && user.customName.trim()) return user.customName.trim();
+  if (user.employeeName && typeof user.employeeName === 'string' && user.employeeName.trim()) return user.employeeName.trim();
+  if (user.email && typeof user.email === 'string' && user.email.includes('@')) {
+    const prefix = user.email.split('@')[0];
+    const cleaned = prefix.replace(/[._-]+/g, ' ');
+    return cleaned.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+  return 'User';
+};
+
+export const formatUserRole = (role) => {
+  if (!role) return 'Standard Employee';
+  const r = String(role).toLowerCase().trim();
+  if (r === 'superadmin' || r === 'super_admin') return 'Super Admin';
+  if (r === 'admin' || r === 'company_admin') return 'Company Admin';
+  if (r === 'owner' || r === 'company_owner') return 'Company Owner';
+  if (r === 'manager' || r === 'operations_manager') return 'Operations Manager';
+  if (r === 'hr_accountant' || r === 'hr' || r === 'accountant') return 'HR & Accountant Lead';
+  if (r === 'agent' || r === 'sales_agent' || r === 'sales') return 'Sales & Support Agent';
+  if (r === 'employee') return 'Standard Employee';
+  return r.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+};
+
 export default function DashboardShell({ authUser, setAuthUser }) {
   // Install fetch interceptor lazily (not at module scope) to avoid Rolldown TDZ in production bundle
   installFetchInterceptor();
@@ -722,7 +712,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
   const [forgotPasswordError, setForgotPasswordError] = useState(null);
   const [activeLanguage, setActiveLanguage] = useState('en');
-  const [activeCurrency, setActiveCurrency] = useState(() => localStorage.getItem('appCurrency') || 'USD');
+  const [activeCurrency, setActiveCurrency] = useState(() => localStorage.getItem('appCurrency') || 'INR');
+  const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   useEffect(() => {
     localStorage.setItem('appLanguage', 'en');
   }, []);
@@ -1034,49 +1025,28 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const timerIntervalRef = useRef(null);
-  // Fetch Call Logs on mount � localStorage first (fastest, has audio), then Firestore merge
+
+  // Fetch Call Logs on mount via tenant-scoped FirebaseCloudEngine
   useEffect(() => {
-    // 1. Load from localStorage immediately (has real audio base64, persists same browser)
-    try {
-      const localLogs = JSON.parse(localStorage.getItem('omniflow_callLogs') || '[]');
-      if (Array.isArray(localLogs) && localLogs.length > 0) {
-        setCallLogs(localLogs);
-      }
-    } catch (e) {}
-    // 2. Also load from Backend API (/api/telecalling/logs) for Mobile APK synced calls
-    try {
-      fetch('/api/telecalling/logs')
-        .then(res => res.json())
-        .then(apiLogs => {
-          if (Array.isArray(apiLogs) && apiLogs.length > 0) {
-            setCallLogs(prev => {
-              const prevIds = new Set(prev.map(l => l.id));
-              const newFromApi = apiLogs.filter(a => !prevIds.has(a.id));
-              return [...newFromApi, ...prev];
-            });
-          }
-        })
-        .catch(() => {});
-    } catch (err) {}
-    // 3. Also load from Firestore (for cross-device sync fallback)
-    try {
-      getDocs(collection(db, 'callLogs'))
-        .then(snapshot => {
-          if (!snapshot.empty) {
-            const firestoreLogs = snapshot.docs
-              .map(d => ({ id: d.id, ...d.data() }))
-              .sort((a, b) => (b._createdAt || 0) - (a._createdAt || 0));
-            setCallLogs(prev => {
-              const localIds = new Set(prev.map(l => l.id));
-              const onlyFirestore = firestoreLogs.filter(f => !localIds.has(f.id));
-              const merged = [...prev, ...onlyFirestore]
-                .sort((a, b) => (b._createdAt || 0) - (a._createdAt || 0));
-              return merged.length > 0 ? merged : prev;
-            });
-          }
-        })
-        .catch(() => {});
-    } catch (err) {}
+    const activeTenant = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 'org_default';
+    if (!activeTenant || activeTenant === 'org_default') {
+      setCallLogs([]);
+      return;
+    }
+    FirebaseCloudEngine.fetchRecords('call_logs', activeTenant)
+      .then(records => {
+        if (Array.isArray(records)) {
+          setCallLogs(records);
+        } else {
+          setCallLogs([]);
+        }
+      })
+      .catch(() => {
+        setCallLogs([]);
+      });
+  }, [authUser]);
+
+  useEffect(() => {
     try {
       const socketInstance = io(SOCKET_URL);
       const handleCallSynced = (newLog) => {
@@ -1368,24 +1338,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     type: 'Sick',
     reason: ''
   });
-  const [atsCandidates, setAtsCandidates] = useState(() => {
-    const saved = localStorage.getItem('omnilflow_ats_candidates');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((c, idx) => ({
-            position: c.position || 'Sales Representative',
-            email: c.email || 'kavayanshchopra@gmail.com',
-            phone: c.phone || '8566883642',
-            resume: c.resume || 'Resume.pdf',
-            ...c
-          }));
-        }
-      } catch (e) { console.error(e); }
-    }
-    return [];
-  });
+  const [atsCandidates, setAtsCandidates] = useState([]);
   const [preselectedConfigModuleId, setPreselectedConfigModuleId] = useState(null);
   const handleOpenModuleConfig = (moduleId) => {
     if (moduleId) {
@@ -1393,67 +1346,40 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     setActiveTab('module_configuration');
   };
-  useEffect(() => {
-    localStorage.setItem('omnilflow_ats_candidates', JSON.stringify(atsCandidates));
-  }, [atsCandidates]);
-  const [assets, setAssets] = useState(() => {
-    const saved = localStorage.getItem('omnilflow_fallback_assets');
-    if (saved !== null) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.filter(a => !isDummyRecord(a));
-        }
-      } catch (e) {}
-    }
-    return [];
-  });
-  const [kycDocuments, setKycDocuments] = useState(() => {
-    const saved = localStorage.getItem('omnilflow_fallback_kyc_documents');
-    if (saved !== null) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.filter(k => !isDummyRecord(k));
-        }
-      } catch (e) {}
-    }
-    return [];
-  });
-  const [offboardingCases, setOffboardingCases] = useState(() => {
-    const saved = localStorage.getItem('omnilflow_fallback_offboarding_cases');
-    if (saved !== null) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.filter(o => !isDummyRecord(o));
-        }
-      } catch (e) {}
-    }
-    return [];
-  });
-  const [sessions, setSessions] = useState(() => {
-    try {
-      const saved = localStorage.getItem('omnilflow_fallback_sessions');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch (e) {}
-    return [];
-  });
-  const [contacts, setContacts] = useState(() => {
-    const saved = localStorage.getItem('omnilflow_fallback_contacts');
-    if (saved !== null) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.filter(c => c && !isDummyRecord(c));
-        }
-      } catch (e) {}
-    }
-    return [];
-  });
+
+  const [impersonatedCompany, setImpersonatedCompany] = useState(null);
+
+  const effectiveAuthUser = useMemo(() => {
+    if (!impersonatedCompany) return authUser;
+    return {
+      ...authUser,
+      tenantId: impersonatedCompany.tenant_id || impersonatedCompany.id,
+      companyId: impersonatedCompany.tenant_id || impersonatedCompany.id,
+      tenant_id: impersonatedCompany.tenant_id || impersonatedCompany.id,
+      companyName: impersonatedCompany.company_name || impersonatedCompany.name || impersonatedCompany.tenant_id,
+      isImpersonating: true,
+      realRole: authUser?.role
+    };
+  }, [authUser, impersonatedCompany]);
+
+  const handleEnterCompany = (company) => {
+    if (!company) return;
+    setImpersonatedCompany(company);
+    setActiveTab('employees');
+    showToast(`🚀 Switched to "${company.company_name || company.tenant_id}" workspace!`, 'success');
+  };
+
+  const handleExitImpersonation = () => {
+    setImpersonatedCompany(null);
+    setActiveTab('superadmin');
+    showToast('↩️ Returned to Super Admin HQ', 'info');
+  };
+
+  const [assets, setAssets] = useState([]);
+  const [kycDocuments, setKycDocuments] = useState([]);
+  const [offboardingCases, setOffboardingCases] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [contacts, setContacts] = useState([]);
   const [activeContact, setActiveContact] = useState(null);
   const [messages, setMessages] = useState([]);
   const [messagesOffset, setMessagesOffset] = useState(0);
@@ -1620,16 +1546,84 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     };
   });
   const handleSaveMasterDropdowns = () => {
+    const currentTenantId = authUser?.tenantId || authUser?.companyId || 'default_tenant';
+    const activeTenantId = FirebaseCloudEngine.getTenantId(currentTenantId);
     try {
       localStorage.setItem('omnilflow_system_dropdowns', JSON.stringify(systemDropdowns));
       localStorage.setItem('tenant_crm_stages', JSON.stringify(stages));
       localStorage.setItem('tenant_crm_allowed_tags', JSON.stringify(allowedTags));
-      showToast('All System Dropdowns & CRM Stages saved successfully!', 'success');
+
+      FirebaseCloudEngine.saveRecord('system_dropdowns', {
+        id: `dropdowns_${activeTenantId}`,
+        tenantId: activeTenantId,
+        systemDropdowns: systemDropdowns,
+        stages: stages,
+        allowedTags: allowedTags,
+        updatedAt: new Date().toISOString()
+      }, activeTenantId).catch(() => {});
+
+      showToast('All System Dropdowns & CRM Stages saved to Cloud & Local!', 'success');
     } catch (err) {
       console.error("Save master dropdowns error:", err);
       showToast('Saved successfully!', 'success');
     }
   };
+
+  // Cloud Synchronizer for Feature Provisioning, Module Configs, Permissions & System Dropdowns
+  useEffect(() => {
+    const currentTenantId = authUser?.tenantId || authUser?.companyId || 'default_tenant';
+    const activeTenant = FirebaseCloudEngine.getTenantId(currentTenantId);
+
+    // 1. Sync & Subscribe Feature Provisioning (Global & Tenant Module Visibility)
+    FeatureProvisioningEngine.syncFromCloud();
+    const unsubProvisioning = FeatureProvisioningEngine.subscribeToCloudProvisioning();
+
+    // 2. Sync & Subscribe Module Configurations (Custom fields, columns, forms)
+    moduleConfigService.syncFromCloud(activeTenant);
+    const unsubConfigs = moduleConfigService.subscribeToCloudConfigs(activeTenant);
+
+    // 3. Sync & Subscribe Permission Matrix
+    PermissionEngine.syncFromCloud(activeTenant);
+    const unsubPerms = PermissionEngine.subscribeToCloudMatrix(activeTenant);
+
+    // 4. Sync & Subscribe System Dropdowns & CRM Stages
+    FirebaseCloudEngine.fetchRecords('system_dropdowns', activeTenant).then(records => {
+      if (Array.isArray(records) && records.length > 0) {
+        const latest = records[0];
+        if (latest.systemDropdowns && typeof latest.systemDropdowns === 'object') {
+          setSystemDropdowns(prev => ({ ...prev, ...latest.systemDropdowns }));
+        }
+        if (latest.stages && Array.isArray(latest.stages)) {
+          setStages(latest.stages);
+        }
+        if (latest.allowedTags && Array.isArray(latest.allowedTags)) {
+          setAllowedTags(latest.allowedTags);
+        }
+      }
+    }).catch(() => {});
+
+    const unsubDropdowns = FirebaseCloudEngine.subscribeToCollection('system_dropdowns', activeTenant, (records) => {
+      if (Array.isArray(records) && records.length > 0) {
+        const latest = records[0];
+        if (latest.systemDropdowns && typeof latest.systemDropdowns === 'object') {
+          setSystemDropdowns(prev => ({ ...prev, ...latest.systemDropdowns }));
+        }
+        if (latest.stages && Array.isArray(latest.stages)) {
+          setStages(latest.stages);
+        }
+        if (latest.allowedTags && Array.isArray(latest.allowedTags)) {
+          setAllowedTags(latest.allowedTags);
+        }
+      }
+    });
+
+    return () => {
+      if (typeof unsubProvisioning === 'function') unsubProvisioning();
+      if (typeof unsubConfigs === 'function') unsubConfigs();
+      if (typeof unsubPerms === 'function') unsubPerms();
+      if (typeof unsubDropdowns === 'function') unsubDropdowns();
+    };
+  }, [authUser]);
   const handleMoveOption = (categoryKey, index, direction) => {
     const targetIndex = index + direction;
     if (categoryKey === 'crm_stages') {
@@ -2624,9 +2618,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       isLive: true
     }));
     setGuideSteps(prev => {
-      const existingIds = new Set(prev.map(s => s.id));
-      const newItems = autoDiscoveredSteps.filter(s => !existingIds.has(s.id));
-      return newItems.length > 0 ? [...prev, ...newItems] : prev;
+      const existingIds = new Set((prev || []).filter(s => !!s && s.id !== undefined).map(s => s.id));
+      const newItems = autoDiscoveredSteps.filter(s => s && !existingIds.has(s.id));
+      return newItems.length > 0 ? [...(prev || []).filter(s => !!s), ...newItems] : prev;
     });
   }, []);
   // Live Interactive Voice & Virtual Mouse Pointer Tour Engine
@@ -3010,18 +3004,37 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         const userCred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
         const fbUser = userCred.user;
         const userRole = (cleanEmail === 'admin@omniflow.com' || cleanEmail === 'kavayanshchopra@gmail.com') ? 'superadmin' : 'owner';
+        const companySlug = (companyName || 'workspace').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
+        const uniqueTenantId = `org_${companySlug || 'tenant'}_${fbUser.uid.slice(0, 8)}`;
         const userData = {
           id: fbUser.uid,
           email: fbUser.email,
           role: userRole,
           companyName: companyName || 'My Workspace',
-          tenantId: 1
+          tenantId: uniqueTenantId,
+          companyId: uniqueTenantId,
+          tenant_id: uniqueTenantId
         };
+        if (db) {
+          try {
+            await setDoc(doc(db, 'companies', uniqueTenantId), {
+              tenant_id: uniqueTenantId,
+              company_name: companyName || 'My Workspace',
+              name: companyName || 'My Workspace',
+              owner_email: cleanEmail,
+              owner_id: fbUser.uid,
+              user_count: 1,
+              emp_count: 0,
+              createdAt: new Date().toISOString(),
+              status: 'active'
+            }, { merge: true });
+          } catch (e) {}
+        }
         localStorage.setItem('omnilflow_token', fbUser.accessToken || 'firebase_token');
         localStorage.setItem('omnilflow_user', JSON.stringify(userData));
         setAuthUser(userData);
         setActiveTab('wa_live_web');
-        showToast('?? Registered successfully with Firebase Cloud Auth!', 'success');
+        showToast('Registered successfully!', 'success');
         return;
       }
     } catch (fbErr) {
@@ -3156,14 +3169,67 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   };
   const fetchSuperadminMetrics = async () => {
+    let companyCount = 0;
+    let superAdminCount = 0;
+    let adminCount = 0;
+    let managerCount = 0;
+    let employeeCount = 0;
+    let totalUserCount = 0;
+
+    try {
+      if (db) {
+        const cSnap = await getDocs(collection(db, 'companies'));
+        cSnap.forEach(docDoc => {
+          if (docDoc.id !== 'platform_superadmin') {
+            companyCount++;
+          }
+        });
+
+        const uSnap = await getDocs(collection(db, 'users'));
+        uSnap.forEach(docDoc => {
+          totalUserCount++;
+          const u = docDoc.data();
+          const role = (u.role || '').toLowerCase();
+          if (role === 'superadmin') superAdminCount++;
+          else if (role === 'admin' || role === 'owner') adminCount++;
+          else if (role === 'manager') managerCount++;
+          else if (role === 'employee') employeeCount++;
+        });
+
+        if (superAdminCount === 0 && authUser?.role === 'superadmin') {
+          superAdminCount = 1;
+          totalUserCount = Math.max(totalUserCount, 1);
+        }
+
+        setSuperadminMetrics(prev => ({
+          ...prev,
+          companies: companyCount,
+          superAdmins: superAdminCount,
+          admins: adminCount,
+          managers: managerCount,
+          employees: employeeCount,
+          totalUsers: totalUserCount
+        }));
+        return;
+      }
+    } catch (e) {
+      console.warn('Firestore superadmin metrics note:', e.message);
+    }
+
     try {
       const res = await fetch(`${API_URL}/admin/metrics`);
       if (res.ok) {
         const data = await res.json();
-        setSuperadminMetrics(data);
+        setSuperadminMetrics(prev => ({
+          ...prev,
+          ...data,
+          companies: companyCount || data.companies || 0,
+          superAdmins: superAdminCount || data.superAdmins || (authUser?.role === 'superadmin' ? 1 : 0),
+          totalUsers: totalUserCount || data.totalUsers || 1
+        }));
       }
     } catch (err) {
-      console.error(err);
+      console.warn('Backend metrics note:', err.message);
     }
   };
   const fetchSuperadminUsers = async (search = '') => {
@@ -3211,18 +3277,21 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         const qSnap = await getDocs(collection(db, 'companies'));
         const fbList = [];
         qSnap.forEach(docDoc => {
+          if (docDoc.id === 'platform_superadmin') return;
           const c = docDoc.data();
           fbList.push({
             tenant_id: docDoc.id,
             company_name: c.company_name || c.name || docDoc.id,
             user_count: c.user_count || c.userCount || 1,
-            emp_count: c.emp_count || 1
+            emp_count: c.emp_count || 0,
+            owner_email: c.owner_email || c.email || '—',
+            createdAt: c.createdAt || '—',
+            status: c.status || 'active'
           });
         });
-        if (fbList.length > 0) {
-          setSuperadminCompanies(fbList);
-          return;
-        }
+        setSuperadminCompanies(fbList);
+        setSuperadminMetrics(prev => ({ ...prev, companies: fbList.length }));
+        return;
       }
     } catch (fbErr) {
       console.warn('Firebase query companies failed:', fbErr.message);
@@ -3239,7 +3308,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.error(err);
     }
-      setSuperadminCompanies([]);
+    setSuperadminCompanies([]);
   };
   const handleElevateUserRole = async (userId, newRole) => {
     try {
@@ -3570,7 +3639,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setIsEmployeesLoading(true);
     setEmployeesError(null);
     try {
-      const currentTenantId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id;
+      const currentTenantId = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id;
       const cloudRecords = await FirebaseCloudEngine.fetchRecords('employees', currentTenantId);
       if (Array.isArray(cloudRecords)) {
         const cleaned = cloudRecords.filter(e => !isDummyRecord(e));
@@ -3627,22 +3696,70 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     await FirebaseCloudEngine.saveRecord('employees', newEmpObj, activeTenantId);
     // 4. Save Registered Login User Credentials for Workspace Login
     if (newEmployeeForm.password) {
+      const cleanEmpEmail = (newEmployeeForm.email || '').toLowerCase().trim();
+      const empFullName = `${newEmployeeForm.firstName} ${newEmployeeForm.lastName || ''}`.trim();
+      const empRole = newEmployeeForm.role || 'employee';
+      const empDept = newEmployeeForm.department || 'Operations';
+
       try {
+        // A. Create Firebase Auth user account via Secondary App (keeping admin logged in)
+        let createdUid = null;
+        try {
+          const authUserRes = await createEmployeeAuthAccount(cleanEmpEmail, newEmployeeForm.password);
+          if (authUserRes && authUserRes.uid) {
+            createdUid = authUserRes.uid;
+          }
+        } catch (authErr) {
+          console.warn('Firebase auth employee create note (user might exist):', authErr.message);
+        }
+
+        const targetUid = createdUid || `emp_user_${Date.now()}`;
+
+        // B. Save to user_profiles and users collections for Firestore role & tenant resolution
+        if (db) {
+          try {
+            await setDoc(doc(db, 'user_profiles', targetUid), {
+              uid: targetUid,
+              email: cleanEmpEmail,
+              name: empFullName,
+              role: empRole,
+              department: empDept,
+              tenantId: activeTenantId,
+              companyId: activeTenantId,
+              createdAt: new Date().toISOString()
+            }, { merge: true });
+
+            await setDoc(doc(db, 'users', targetUid), {
+              id: targetUid,
+              email: cleanEmpEmail,
+              name: empFullName,
+              role: empRole,
+              department: empDept,
+              tenantId: activeTenantId,
+              companyId: activeTenantId,
+              createdAt: new Date().toISOString()
+            }, { merge: true });
+          } catch (dbErr) {
+            console.warn('Firestore employee profile sync error:', dbErr.message);
+          }
+        }
+
+        // C. Also backup locally
         const userAccountObj = {
-          email: (newEmployeeForm.email || '').toLowerCase().trim(),
+          email: cleanEmpEmail,
           password: newEmployeeForm.password,
-          name: `${newEmployeeForm.firstName} ${newEmployeeForm.lastName || ''}`.trim(),
-          role: newEmployeeForm.role || 'staff',
-          department: newEmployeeForm.department || 'Operations',
+          name: empFullName,
+          role: empRole,
+          department: empDept,
           tenantId: activeTenantId
         };
         const savedAccounts = JSON.parse(localStorage.getItem('omniflow_registered_users') || '[]');
-        const updatedAccounts = [userAccountObj, ...savedAccounts.filter(a => a.email !== userAccountObj.email)];
+        const updatedAccounts = [userAccountObj, ...savedAccounts.filter(a => a.email !== cleanEmpEmail)];
         localStorage.setItem('omniflow_registered_users', JSON.stringify(updatedAccounts));
-      } catch (e) {}
+      } catch (e) {
+        console.warn('Employee user account creation error:', e);
+      }
     }
-    addNotification('?? New Employee Profile', `${newEmployeeForm.firstName} ${newEmployeeForm.lastName || ''} (${newEmployeeForm.department}) added.`, 'employees');
-    showToast(isEdit ? 'Employee profile updated successfully!' : 'Employee added successfully!', 'success');
     setShowAddEmployeeModal(false);
     setNewEmployeeForm({
       id: '',
@@ -3659,7 +3776,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     });
     setIsEmployeesLoading(false);
   };
-  const softDeleteRecord = async ({ originalId, id, name, category, entityData, moduleTab, links, preservedLinks }) => {
+  const softDeleteRecord = async (arg) => {
+    if (!arg) return null;
+    let originalId, id, name, category, entityData, moduleTab, links, preservedLinks;
+    if (typeof arg === 'object' && arg !== null) {
+      ({ originalId, id, name, category, entityData, moduleTab, links, preservedLinks } = arg);
+    } else {
+      originalId = arg;
+      id = arg;
+    }
     const targetId = originalId || id || (entityData && entityData.id);
     const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
     const currentTenantName = authUser?.companyName || (currentTenantId === 'platform_superadmin' ? 'SaaS Platform Admin' : 'Acme Corp');
@@ -3681,7 +3806,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     // 2. Save to recycle_bin and DELETE from active Firestore collection
     try {
       if (db) {
-        if (newItem) {
+        if (newItem && newItem.id) {
           await setDoc(doc(db, 'recycle_bin', newItem.id), newItem);
         }
         if (targetId) {
@@ -3708,10 +3833,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         }).catch(() => {});
       } catch (e) {}
 
-      setContacts(prev => prev.map(c => String(c.id) === String(targetId) ? { ...c, is_archived: 1 } : c));
+      setContacts(prev => (prev || []).filter(c => !!c).map(c => String(c?.id) === String(targetId) ? { ...c, is_archived: 1 } : c));
 
       setEmployees(prev => {
-        const updated = prev.filter(emp => String(emp.id) !== String(targetId));
+        const updated = (prev || []).filter(emp => emp && String(emp.id) !== String(targetId));
         try { localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(updated)); } catch (err) {}
         return updated;
       });
@@ -3720,6 +3845,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     return newItem;
   };
   const handlePermanentDeleteBinItem = async (itemIdOrObj, itemName) => {
+    if (!itemIdOrObj) return;
     const rawObj = (typeof itemIdOrObj === 'object' && itemIdOrObj !== null) ? itemIdOrObj : null;
     const itemId = rawObj ? (rawObj.id || rawObj.recycleBinId || rawObj.originalId) : itemIdOrObj;
     const originalId = rawObj ? (rawObj.originalId || rawObj.id) : itemIdOrObj;
@@ -3741,8 +3867,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (e) {}
 
     // 2. Remove immediately from local state
-    setContacts(prev => prev.filter(c => String(c.id) !== String(cleanId) && String(c.id) !== String(targetStr) && String(c.id) !== String(itemId)));
-    if (activeContact && (String(activeContact.id) === String(cleanId) || String(activeContact.id) === String(targetStr))) {
+    setContacts(prev => (prev || []).filter(c => c && String(c.id) !== String(cleanId) && String(c.id) !== String(targetStr) && String(c.id) !== String(itemId)));
+    if (activeContact && (String(activeContact?.id) === String(cleanId) || String(activeContact?.id) === String(targetStr))) {
       setActiveContact(null);
     }
 
@@ -3771,15 +3897,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     showToast(`Permanently purged record from vault.`, 'info');
   };
   const handleRestoreBinItem = async (itemOrId) => {
+    if (!itemOrId) return;
     let item = (itemOrId && typeof itemOrId === 'object')
       ? (itemOrId._vaultRawItem || itemOrId)
-      : (recycleBinItems || []).find(x => String(x.id) === String(itemOrId) || String(x.recycleBinId) === String(itemOrId) || String(x.originalId) === String(itemOrId));
+      : (recycleBinItems || []).find(x => x && (String(x.id) === String(itemOrId) || String(x.recycleBinId) === String(itemOrId) || String(x.originalId) === String(itemOrId)));
     if (!item) {
       try {
         const saved = localStorage.getItem('omnilflow_fallback_recycle_bin');
         if (saved) {
           const list = JSON.parse(saved);
-          item = list.find(x => String(x.id) === String(itemOrId) || String(x.recycleBinId) === String(itemOrId) || String(x.originalId) === String(itemOrId));
+          item = (list || []).find(x => x && (String(x.id) === String(itemOrId) || String(x.recycleBinId) === String(itemOrId) || String(x.originalId) === String(itemOrId)));
         }
       } catch (e) {}
     }
@@ -3791,10 +3918,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       return;
     }
     const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
-    const payload = item.payload || item.entityData || item;
+    const payload = item.payload || item.entityData || item || {};
     const type = String(item.type || item.category || item.moduleTab || '').toLowerCase();
-    const restoredRecord = payload.record || payload.employee || payload.candidate || payload.asset || payload;
-    const cleanId = item.originalId || restoredRecord.id || restoredRecord.originalId || item.id;
+    const restoredRecord = payload.record || payload.employee || payload.candidate || payload.asset || payload || {};
+    const cleanId = item.originalId || restoredRecord.id || restoredRecord.originalId || item.id || `rec_${Date.now()}`;
     const cleanRec = {
       ...restoredRecord,
       id: cleanId,
@@ -3820,7 +3947,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }
     } catch (e) {}
 
-    setContacts(prev => prev.map(c => String(c.id) === String(cleanId) ? { ...c, is_archived: 0 } : c));
+    setContacts(prev => (prev || []).filter(c => !!c).map(c => String(c.id) === String(cleanId) ? { ...c, is_archived: 0 } : c));
 
     try {
       if (db) {
@@ -3844,7 +3971,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     if (type.includes('employee')) {
       setEmployees(prev => {
-        const filtered = prev.filter(e => String(e.id) !== String(cleanRec.id));
+        const filtered = (prev || []).filter(e => e && String(e.id) !== String(cleanRec.id));
         const updated = [cleanRec, ...filtered];
         try { localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(updated)); } catch (e) {}
         return updated;
@@ -3853,7 +3980,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       fetchEmployees();
     } else if (type.includes('task')) {
       setTasks(prev => {
-        const updated = [cleanRec, ...prev.filter(t => String(t.id) !== String(cleanRec.id))];
+        const updated = [cleanRec, ...(prev || []).filter(t => t && String(t.id) !== String(cleanRec.id))];
         try { localStorage.setItem('omnilflow_fallback_tasks', JSON.stringify(updated)); } catch (e) {}
         return updated;
       });
@@ -3861,14 +3988,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       fetchTasks();
     } else if (type.includes('ats') || type.includes('candidate') || type.includes('recruitment')) {
       setAtsCandidates(prev => {
-        const updated = [cleanRec, ...prev.filter(c => String(c.id) !== String(cleanRec.id))];
+        const updated = [cleanRec, ...(prev || []).filter(c => c && String(c.id) !== String(cleanRec.id))];
         atsStorageService.saveCandidates(currentTenantId, updated);
         return updated;
       });
       FirebaseCloudEngine.saveRecord('recruitment_ats', cleanRec, currentTenantId);
     } else if (type.includes('asset') || type.includes('device')) {
       setAssets(prev => {
-        const updated = [cleanRec, ...prev.filter(a => String(a.id) !== String(cleanRec.id))];
+        const updated = [cleanRec, ...(prev || []).filter(a => a && String(a.id) !== String(cleanRec.id))];
         try { localStorage.setItem('omnilflow_fallback_assets', JSON.stringify(updated)); } catch (e) {}
         return updated;
       });
@@ -3876,7 +4003,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } else {
       // Default: Restore as CRM Lead / Contact
       setContacts(prev => {
-        const updated = [cleanRec, ...prev.filter(c => String(c.id) !== String(cleanRec.id))];
+        const updated = [cleanRec, ...(prev || []).filter(c => c && String(c.id) !== String(cleanRec.id))];
         try { localStorage.setItem('omnilflow_fallback_contacts', JSON.stringify(updated)); } catch (e) {}
         return updated;
       });
@@ -3886,7 +4013,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     if (cleanId) TrashVaultEngine.restoreItem('all', cleanId);
     if (item.originalId) TrashVaultEngine.restoreItem('all', item.originalId);
     setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
-    showToast(`?? Restored "${cleanRec.name || cleanRec.title || item.name || 'Record'}" to active workspace!`, 'success');
+    showToast(`Restored "${cleanRec.name || cleanRec.title || item.name || 'Record'}" to active workspace!`, 'success');
   };
   const handleEmptyBinVault = () => {
     if (recycleBinItems.length === 0) return;
@@ -3950,7 +4077,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     showToast('Employee moved to Recycle Bin & deleted successfully!', 'success');
   };
-  const handleDeleteCompany = (companyId) => {
+  const handleDeleteCompany = async (companyId) => {
     const targetCompany = (superadminCompanies || []).find(c => c.id === companyId || c.tenant_id === companyId);
     const compName = targetCompany ? targetCompany.name || targetCompany.company_name || `Company #${companyId}` : `Company #${companyId}`;
     if (!confirm(`Are you sure you want to delete company "${compName}"?`)) return;
@@ -3963,11 +4090,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     });
     setSuperadminCompanies(prev => {
       const updated = (prev || []).filter(c => c.id !== companyId && c.tenant_id !== companyId);
-      try {
-        localStorage.setItem('omnilflow_fallback_companies', JSON.stringify(updated));
-      } catch (e) {}
       return updated;
     });
+    try {
+      if (db) {
+        await deleteDoc(doc(db, 'companies', String(companyId)));
+      }
+    } catch (e) {
+      console.warn('Firestore company delete complete/bypassed:', e.message);
+    }
   };
   const handleDeleteSaasPlan = (planId) => {
     const targetPlan = (billingPlans || []).find(p => p.id === planId);
@@ -3989,16 +4120,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     });
   };
   useEffect(() => {
-    if (activeTab === 'employees' && authUser) {
+    if (activeTab === 'employees' && effectiveAuthUser) {
       fetchEmployees();
     }
-  }, [activeTab, authUser]);
+  }, [activeTab, effectiveAuthUser?.tenantId, effectiveAuthUser?.companyId]);
   useEffect(() => {
     if (Array.isArray(employees)) {
       setSuperadminMetrics(prev => {
-        const managersCount = employees.filter(e => e.role === 'manager').length;
-        const employeesCount = employees.filter(e => e.role === 'employee' || e.role === 'agent').length;
-        const total = prev.companies + prev.branches + managersCount + employeesCount + prev.admins + prev.superAdmins;
+        const managersCount = (employees || []).filter(e => e && e.role === 'manager').length;
+        const employeesCount = (employees || []).filter(e => e && (e.role === 'employee' || e.role === 'agent')).length;
+        const total = (prev?.companies || 0) + (prev?.branches || 0) + managersCount + employeesCount + (prev?.admins || 0) + (prev?.superAdmins || 0);
         return {
           ...prev,
           managers: managersCount,
@@ -4746,15 +4877,18 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       });
       socket.on('media_downloaded', (data) => {
         console.log('Background media downloaded:', data);
-        setMessages(prev => prev.map(m => m.id === data.id ? { ...m, media_url: data.mediaUrl, mediaUrl: data.mediaUrl } : m));
+        if (!data) return;
+        setMessages(prev => (prev || []).filter(m => !!m).map(m => m.id === data.id ? { ...m, media_url: data.mediaUrl, mediaUrl: data.mediaUrl } : m));
       });
       socket.on('message_status_update', (data) => {
-        setMessages(prev => prev.map(m => m.id === data.id ? { ...m, status: data.status } : m));
+        if (!data) return;
+        setMessages(prev => (prev || []).filter(m => !!m).map(m => m.id === data.id ? { ...m, status: data.status } : m));
       });
       socket.on('broadcast_progress', (data) => {
         setBroadcastProgress(data);
       });
       socket.on('scheduled_message_update', (data) => {
+        if (!data) return;
         setActiveContact(current => {
           if (current && current.id === data.contactId) {
             fetchScheduledMessages(data.contactId);
@@ -4771,16 +4905,18 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         fetchContacts();
       });
       socket.on('message_star_update', (data) => {
-        setMessages(prev => prev.map(m => m.id === data.id ? { ...m, is_starred: data.isStarred } : m));
+        if (!data) return;
+        setMessages(prev => (prev || []).filter(m => !!m).map(m => m.id === data.id ? { ...m, is_starred: data.isStarred } : m));
         setActiveContact(current => {
-          if (current) {
+          if (current && current.id) {
             fetchStarredMessages(current.id);
           }
           return current;
         });
       });
       socket.on('contact_update', (updatedContact) => {
-        setContacts(prev => prev.map(c => c.id === updatedContact.id ? { ...c, ...updatedContact, labels: typeof updatedContact.labels === 'string' ? JSON.parse(updatedContact.labels) : updatedContact.labels } : c));
+        if (!updatedContact) return;
+        setContacts(prev => (prev || []).filter(c => !!c).map(c => c.id === updatedContact.id ? { ...c, ...updatedContact, labels: typeof updatedContact.labels === 'string' ? JSON.parse(updatedContact.labels) : updatedContact.labels } : c));
         setActiveContact(current => {
           if (current && current.id === updatedContact.id) {
             const parsedLabels = typeof updatedContact.labels === 'string' ? JSON.parse(updatedContact.labels) : updatedContact.labels;
@@ -4801,13 +4937,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
   const fetchContacts = async () => {
+    const activeTenant = authUser?.tenantId || authUser?.companyId || 'default_tenant';
+    const token = localStorage.getItem('omnilflow_token');
     try {
-      const res = await fetch(`${API_URL}/contacts`);
+      const res = await fetch(`${API_URL}/contacts`, {
+        headers: {
+          'Authorization': `Bearer ${token || ''}`,
+          'x-tenant-id': String(activeTenant)
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
           setContacts(data);
-          try { localStorage.setItem('omnilflow_fallback_contacts', JSON.stringify(data)); } catch (e) {}
           return;
         }
       }
@@ -4882,7 +5024,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setShowChatHistorySearch(false);
       // Mark messages as read and clear unread count locally
       if (activeContact.unread_count > 0) {
-        setContacts(prev => prev.map(c => c.id === activeContact.id ? { ...c, unread_count: 0 } : c));
+        setContacts(prev => (prev || []).filter(c => !!c).map(c => c.id === activeContact.id ? { ...c, unread_count: 0 } : c));
         setActiveContact(prev => prev && prev.id === activeContact.id ? { ...prev, unread_count: 0 } : prev);
         fetch(`${API_URL}/contacts/${activeContact.id}/read`, { method: 'PUT' })
           .catch(err => console.error('Failed to mark messages as read on click:', err));
@@ -4894,18 +5036,18 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           .then(data => {
             if (data.profile_pic_url) {
               setActiveContact(prev => prev && prev.id === activeContact.id ? { ...prev, profile_pic_url: data.profile_pic_url } : prev);
-              setContacts(prev => prev.map(c => c.id === activeContact.id ? { ...c, profile_pic_url: data.profile_pic_url } : c));
+              setContacts(prev => (prev || []).filter(c => !!c).map(c => c.id === activeContact.id ? { ...c, profile_pic_url: data.profile_pic_url } : c));
             } else {
               // Cache 'none' locally in react state so we don't spam fetch it
               setActiveContact(prev => prev && prev.id === activeContact.id ? { ...prev, profile_pic_url: 'none' } : prev);
-              setContacts(prev => prev.map(c => c.id === activeContact.id ? { ...c, profile_pic_url: 'none' } : c));
+              setContacts(prev => (prev || []).filter(c => !!c).map(c => c.id === activeContact.id ? { ...c, profile_pic_url: 'none' } : c));
             }
           })
           .catch(err => console.error('Failed to fetch profile picture:', err));
       }
       // Auto-select a session to send reply from
       // Try to find the session this contact last messaged, or fallback to first connected session
-      const connected = sessions.find(s => s.status === 'connected');
+      const connected = (sessions || []).find(s => s && s.status === 'connected');
       if (connected) {
         setSelectedSessionId(connected.id);
       }
@@ -4915,19 +5057,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   }, [activeContact]);
   // Automatically load profile pictures for recent chats in background with rate-limiting
   useEffect(() => {
-    if (contacts.length === 0) return;
+    if (!contacts || contacts.length === 0) return;
     // Only check the top 15 most recent contacts to avoid rate-limiting
-    const pending = contacts.slice(0, 15).filter(c => !c.profile_pic_url);
+    const pending = (contacts || []).filter(c => !!c).slice(0, 15).filter(c => !c.profile_pic_url);
     if (pending.length === 0) return;
     let active = true;
     const loadPics = async () => {
       for (const contact of pending) {
-        if (!active) break;
+        if (!active || !contact) break;
         try {
           const res = await fetch(`${API_URL}/contacts/${contact.id}/profile-pic`);
           const data = await res.json();
           if (data.profile_pic_url) {
-            setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, profile_pic_url: data.profile_pic_url } : c));
+            setContacts(prev => (prev || []).filter(c => !!c).map(c => c.id === contact.id ? { ...c, profile_pic_url: data.profile_pic_url } : c));
             setActiveContact(current => {
               if (current && current.id === contact.id) {
                 return { ...current, profile_pic_url: data.profile_pic_url };
@@ -4936,7 +5078,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             });
           } else {
             // Set 'none' in local memory state only, preventing DB locks
-            setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, profile_pic_url: 'none' } : c));
+            setContacts(prev => (prev || []).filter(c => !!c).map(c => c.id === contact.id ? { ...c, profile_pic_url: 'none' } : c));
           }
         } catch (e) {
           console.error('Lazy load profile pic error:', e);
@@ -4955,34 +5097,30 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   }, [contacts.length]);
   const fetchSessions = async () => {
     let serverData = [];
+    const activeTenant = String(authUser?.tenantId || authUser?.companyId || 'default_tenant');
+    const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('token') || '';
     try {
-      const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('token') || '';
-      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const headers = {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        'x-tenant-id': activeTenant
+      };
       const res = await fetch(`${API_URL}/sessions`, { headers });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) serverData = data;
       }
     } catch (err) {}
-    setSessions(prev => {
-      const map = new Map();
-      (prev || []).forEach(s => { if (s && s.id) map.set(String(s.id), s); });
-      serverData.forEach(s => {
-        if (s && s.id) {
-          const existing = map.get(String(s.id)) || {};
-          map.set(String(s.id), {
-            ...existing,
-            ...s,
-            qr_code: s.qr_code || s.qr || existing.qr_code
-          });
-        }
-      });
-      const merged = Array.from(map.values());
-      if (merged.length > 0) {
-        try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(merged)); } catch (e) {}
+    
+    // Strict client-side tenant isolation: only accept sessions matching activeTenant
+    const filtered = (serverData || []).filter(s => {
+      if (!s) return false;
+      if (activeTenant !== '1' && activeTenant !== 'default_tenant') {
+        const sTenant = String(s.tenant_id || s.tenantId || '');
+        return sTenant === activeTenant;
       }
-      return merged.length > 0 ? merged : prev;
+      return true;
     });
+    setSessions(filtered);
   };
   useEffect(() => {
     if (activeTab === 'channels' || (sessions || []).some(s => s.status === 'connecting' || s.status === 'qr_ready')) {
@@ -4992,7 +5130,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }, 2500);
       return () => clearInterval(interval);
     }
-  }, [activeTab, (sessions || []).map(s => s.status).join(',')]);
+  }, [activeTab, (sessions || []).filter(s => !!s).map(s => s.status || '').join(',')]);
   const handleStartNewChat = async (e) => {
     e.preventDefault();
     if (!newChatPhone.trim()) {
@@ -5222,11 +5360,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     const finalSessionId = createdSession?.id || fallbackId;
     if (createdSession && createdSession.id && createdSession.id !== fallbackId) {
-      setSessions(prev => {
-        const updated = (prev || []).map(s => String(s.id) === String(fallbackId) ? { ...s, ...createdSession, status: 'connecting' } : s);
-        try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(updated)); } catch (err) {}
-        return updated;
-      });
+      setSessions(prev => (prev || []).map(s => String(s.id) === String(fallbackId) ? { ...s, ...createdSession, status: 'connecting' } : s));
     }
     handleStartSession(finalSessionId);
   };
@@ -5272,14 +5406,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         links: 'Active Baileys Session Connection'
       });
     }
-    setSessions(prev => {
-      const updated = (prev || []).filter(s => String(s.id) !== String(id));
-      try {
-        localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(updated));
-        localStorage.setItem('omnilflow_sessions', JSON.stringify(updated));
-      } catch (e) {}
-      return updated;
-    });
+    setSessions(prev => (prev || []).filter(s => String(s.id) !== String(id)));
     try {
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('token') || '';
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
@@ -5630,9 +5757,32 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setActiveTab('wa_live_web');
     showToast(`Opening inbox chat for ${foundContact.name || foundContact.phone}`, 'success');
   };
+  const [permissionsVersion, setPermissionsVersion] = useState(0);
+  useEffect(() => {
+    const handlePermissionsUpdated = () => {
+      setPermissionsVersion(v => v + 1);
+    };
+    window.addEventListener('omnilflow_permissions_updated', handlePermissionsUpdated);
+    window.addEventListener('omnilflow_provisioning_updated', handlePermissionsUpdated);
+    return () => {
+      window.removeEventListener('omnilflow_permissions_updated', handlePermissionsUpdated);
+      window.removeEventListener('omnilflow_provisioning_updated', handlePermissionsUpdated);
+    };
+  }, []);
+
   const canNav = (modId) => {
     if (!authUser) return false;
-    if (authUser.role === 'superadmin' || authUser.role === 'owner' || authUser.role === 'admin') return true;
+    if (authUser.role === 'superadmin' || authUser.role === 'super_admin' || authUser.isSuperAdmin) return true;
+
+    const currentTenantId = authUser?.tenantId || authUser?.companyId || 'default_tenant';
+    const activeTenant = FirebaseCloudEngine.getTenantId(currentTenantId);
+
+    // 1. Check SuperAdmin Feature Provisioning (Global & Company-Specific)
+    if (!FeatureProvisioningEngine.isModuleEnabledForTenant(modId, activeTenant, authUser)) {
+      return false;
+    }
+
+    // 2. Check Role-based Permission Matrix
     if (PermissionEngine && typeof PermissionEngine.canAccess === 'function') {
       return PermissionEngine.canAccess(authUser, modId, 'view');
     }
@@ -5697,7 +5847,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               {canNav('media_storage') && (
                 <div className={`nav-item ${activeTab === 'media_storage' ? 'active' : ''}`} onClick={() => setActiveTab('media_storage')}>
                   <HardDrive size={15} style={{ color: '#14d2cb' }} />
-                  <span style={{ fontSize: '13px', fontWeight: '800', color: '#14d2cb' }}>?? Media & Storage Vault</span>
+                  <span style={{ fontSize: '13px' }}>Media & Storage Vault</span>
                 </div>
               )}
             </AccordionCategory>
@@ -5792,24 +5942,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 </div>
               )}
               {canNav('telecalling') && (
-                <div
-                  onClick={() => setActiveTab('telecalling')}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 12px',
-                    cursor: 'pointer',
-                    borderRadius: '8px',
-                    background: activeTab === 'telecalling' ? 'rgba(20,210,203,0.15)' : 'transparent',
-                    color: activeTab === 'telecalling' ? '#14d2cb' : 'rgba(255,255,255,0.7)',
-                    fontSize: '13px',
-                    fontWeight: '500',
-                    transition: 'background 0.2s'
-                  }}
-                >
-                  <span style={{ fontSize: '14px' }}>??</span>
-                  <span>{t('callRecordings')}</span>
+                <div className={`nav-item ${activeTab === 'telecalling' ? 'active' : ''}`} onClick={() => setActiveTab('telecalling')}>
+                  <PhoneCall size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('callRecordings')}</span>
                 </div>
               )}
             </AccordionCategory>
@@ -5886,8 +6021,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               )}
               {canNav('integrations') && (
                 <div className={`nav-item ${activeTab === 'integrations' ? 'active' : ''}`} onClick={() => setActiveTab('integrations')}>
-                  <Share2 size={15} style={{ color: '#0d9488' }} />
-                  <span style={{ fontSize: '13px', fontWeight: '800', color: '#0d9488' }}>?? Integrations & Webhooks</span>
+                  <Share2 size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('integrationsWebhooks') || 'Integrations & Webhooks'}</span>
                 </div>
               )}
               {canNav('roles_permissions') && (
@@ -5933,8 +6068,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden', padding: '2px 4px' }}>
             <div style={{
-              background: 'rgba(20, 210, 203, 0.16)',
-              border: '1px solid rgba(20, 210, 203, 0.3)',
+              background: 'linear-gradient(135deg, rgba(20, 210, 203, 0.25) 0%, rgba(13, 148, 136, 0.4) 100%)',
+              border: '1px solid rgba(20, 210, 203, 0.4)',
               borderRadius: '10px',
               minWidth: '36px',
               width: '36px',
@@ -5942,13 +6077,26 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              flexShrink: 0
+              flexShrink: 0,
+              color: '#ffffff',
+              fontSize: '12px',
+              fontWeight: '800',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
             }}>
-              <User size={18} style={{ color: '#14d2cb' }} />
+              {(() => {
+                const name = getUserDisplayName(authUser);
+                const parts = name.split(' ').filter(Boolean);
+                if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+                return name.substring(0, 2).toUpperCase() || <User size={18} style={{ color: '#14d2cb' }} />;
+              })()}
             </div>
             <div className="user-profile-text" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-              <div style={{ fontSize: '11.5px', fontWeight: 'bold', color: 'white', overflow: 'hidden', textOverflow: 'ellipsis' }}>{authUser?.email}</div>
-              <div style={{ fontSize: '9.5px', color: '#14d2cb', textTransform: 'uppercase', fontWeight: '700' }}>{authUser?.role}</div>
+              <div style={{ fontSize: '12px', fontWeight: '800', color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '0.2px' }} title={getUserDisplayName(authUser)}>
+                {getUserDisplayName(authUser)}
+              </div>
+              <div style={{ fontSize: '9.5px', color: '#14d2cb', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.5px' }}>
+                {formatUserRole(authUser?.role)}
+              </div>
             </div>
           </div>
           <button
@@ -6174,7 +6322,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   transition: "transform 0.15s ease"
                 }}
               >
-                {authUser?.name ? authUser.name.charAt(0).toUpperCase() : "U"}
+                {(() => {
+                  const name = getUserDisplayName(authUser);
+                  return name ? name.charAt(0).toUpperCase() : "U";
+                })()}
               </button>
               {showProfileDropdown && (
                 <div style={{
@@ -6191,10 +6342,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   overflow: 'hidden'
                 }}>
                   <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0' }}>
-                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f2b26' }}>{authUser?.name || 'User'}</div>
-                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{authUser?.email || ''}</div>
-                    <div style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '4px', background: '#f0fdf4', color: '#0d9488', fontSize: '11px', fontWeight: '700', marginTop: '6px' }}>
-                      {authUser?.role || 'Staff'}
+                    <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f2b26' }}>{getUserDisplayName(authUser)}</div>
+                    {authUser?.email && (
+                      <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px', wordBreak: 'break-all' }}>{authUser.email}</div>
+                    )}
+                    <div style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '4px', background: '#f0fdf4', color: '#0d9488', fontSize: '11px', fontWeight: '800', marginTop: '6px' }}>
+                      {formatUserRole(authUser?.role)}
                     </div>
                   </div>
                   <div style={{ padding: '6px 0' }}>
@@ -6267,48 +6420,111 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   </div>
                   <div style={{ padding: '8px 16px', borderTop: '1px solid #e2e8f0', background: '#fafbfc' }}>
                     <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>Global Currency Display</span>
-                      <span style={{ fontSize: '10px', color: '#0d9488', fontWeight: '800' }}>
-                        {LabelEngine.getCurrencySymbol ? LabelEngine.getCurrencySymbol(activeCurrency) : '$'} ({activeCurrency})
+                      <span>Global Currency</span>
+                      <span style={{ fontSize: '10px', color: '#0d9488', fontWeight: '800', background: '#ecfdf5', padding: '1px 6px', borderRadius: '4px', border: '1px solid #a7f3d0' }}>
+                        {LabelEngine.getCurrencySymbol ? LabelEngine.getCurrencySymbol(activeCurrency) : (activeCurrency === 'INR' ? '₹' : '$')} {activeCurrency}
                       </span>
                     </div>
-                    <select
-                      value={activeCurrency}
-                      onChange={(e) => {
-                        const newCurr = e.target.value;
-                        setActiveCurrency(newCurr);
-                        try { localStorage.setItem('appCurrency', newCurr); } catch (err) {}
-                        window.dispatchEvent(new CustomEvent('app_currency_changed', { detail: newCurr }));
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '6px 10px',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        borderRadius: '6px',
-                        border: '1px solid #cbd5e1',
-                        background: '#ffffff',
-                        color: '#0f2b26',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <option value="INR">???? INR (? - Indian Rupee)</option>
-                      <option value="USD">???? USD ($ - US Dollar)</option>
-                      <option value="EUR">???? EUR (� - Euro)</option>
-                      <option value="GBP">???? GBP (� - British Pound)</option>
-                      <option value="AED">???? AED (?.? - UAE Dirham)</option>
-                      <option value="SAR">???? SAR (? - Saudi Riyal)</option>
-                      <option value="CAD">???? CAD (CA$ - Canadian Dollar)</option>
-                      <option value="AUD">???? AUD (A$ - Australian Dollar)</option>
-                      <option value="SGD">???? SGD (S$ - Singapore Dollar)</option>
-                      <option value="JPY">???? JPY (� - Japanese Yen)</option>
-                      <option value="CNY">???? CNY (� - Chinese Yuan)</option>
-                      <option value="QAR">???? QAR (QR - Qatari Riyal)</option>
-                      <option value="KWD">???? KWD (KD - Kuwaiti Dinar)</option>
-                      <option value="BHD">???? BHD (BD - Bahraini Dinar)</option>
-                      <option value="NZD">???? NZD (NZ$ - New Zealand Dollar)</option>
-                      <option value="ZAR">???? ZAR (R - South African Rand)</option>
-                    </select>
+
+                    {/* Custom Currency Trigger Button (Downward Opening) */}
+                    {(() => {
+                      const selectedObj = ALL_WORLD_CURRENCIES.find(c => c.code === activeCurrency) || ALL_WORLD_CURRENCIES[0];
+                      return (
+                        <div style={{ position: 'relative' }}>
+                          <button
+                            type="button"
+                            onClick={() => setShowCurrencyPicker(prev => !prev)}
+                            style={{
+                              width: '100%',
+                              padding: '7px 10px',
+                              borderRadius: '7px',
+                              border: showCurrencyPicker ? '1.5px solid #0d9488' : '1px solid #cbd5e1',
+                              background: '#ffffff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              cursor: 'pointer',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                              <img
+                                src={`https://flagcdn.com/w40/${selectedObj.country}.png`}
+                                alt={selectedObj.code}
+                                style={{ width: '18px', height: '13px', borderRadius: '2px', objectFit: 'cover', flexShrink: 0, boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
+                                onError={(e) => { e.target.style.display = 'none'; }}
+                              />
+                              <span style={{ fontSize: '12px', fontWeight: '800', color: '#0f2b26', whiteSpace: 'nowrap' }}>
+                                {selectedObj.code}
+                              </span>
+                              <span style={{ fontSize: '11px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                ({selectedObj.name})
+                              </span>
+                            </div>
+                            <ChevronDown size={14} style={{ color: '#64748b', transform: showCurrencyPicker ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease', flexShrink: 0 }} />
+                          </button>
+
+                          {/* Custom Dropdown Menu with Flags (Opens Downwards) */}
+                          {showCurrencyPicker && (
+                            <div style={{
+                              marginTop: '6px',
+                              background: '#ffffff',
+                              borderRadius: '8px',
+                              border: '1px solid #cbd5e1',
+                              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2)',
+                              maxHeight: '180px',
+                              overflowY: 'auto',
+                              position: 'relative',
+                              zIndex: 10000
+                            }}>
+                              {ALL_WORLD_CURRENCIES.map(curr => {
+                                const isSelected = curr.code === activeCurrency;
+                                return (
+                                  <div
+                                    key={curr.code}
+                                    onClick={() => {
+                                      setActiveCurrency(curr.code);
+                                      try { localStorage.setItem('appCurrency', curr.code); } catch (err) {}
+                                      window.dispatchEvent(new CustomEvent('app_currency_changed', { detail: curr.code }));
+                                      setShowCurrencyPicker(false);
+                                    }}
+                                    style={{
+                                      padding: '7px 10px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      cursor: 'pointer',
+                                      background: isSelected ? '#f0fdf4' : 'transparent',
+                                      borderBottom: '1px solid #f8fafc',
+                                      transition: 'background 0.15s ease'
+                                    }}
+                                    onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }}
+                                    onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
+                                  >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <img
+                                        src={`https://flagcdn.com/w40/${curr.country}.png`}
+                                        alt={curr.code}
+                                        style={{ width: '18px', height: '13px', borderRadius: '2px', objectFit: 'cover', flexShrink: 0, boxShadow: '0 1px 2px rgba(0,0,0,0.15)' }}
+                                        onError={(e) => { e.target.style.display = 'none'; }}
+                                      />
+                                      <span style={{ fontSize: '12px', fontWeight: isSelected ? '800' : '600', color: isSelected ? '#0d9488' : '#0f2b26' }}>
+                                        {curr.code}
+                                      </span>
+                                      <span style={{ fontSize: '11px', color: '#64748b' }}>
+                                        - {curr.name}
+                                      </span>
+                                    </div>
+                                    {isSelected && <span style={{ color: '#0d9488', fontSize: '12px', fontWeight: '900' }}>✓</span>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div style={{ padding: '6px 0', borderTop: '1px solid #e2e8f0' }}>
                     <div
@@ -6336,6 +6552,62 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </div>
           </div>
         </header>
+        {/* GoHighLevel SuperAdmin Workspace Impersonation Banner */}
+        {impersonatedCompany && (
+          <div style={{
+            background: 'linear-gradient(90deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%)',
+            borderBottom: '1.5px solid #6366f1',
+            padding: '8px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            color: '#e0e7ff',
+            zIndex: 99999,
+            fontSize: '13px',
+            boxShadow: '0 4px 15px rgba(0, 0, 0, 0.4)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '16px' }}>🏢</span>
+              <span>Viewing Tenant Workspace: <strong style={{ color: '#ffffff', fontSize: '13.5px' }}>{impersonatedCompany.company_name || impersonatedCompany.name || impersonatedCompany.tenant_id}</strong> (#{impersonatedCompany.tenant_id || impersonatedCompany.id})</span>
+              <span style={{
+                background: 'rgba(99, 102, 241, 0.25)',
+                border: '1px solid #818cf8',
+                color: '#c7d2fe',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontSize: '10.5px',
+                fontWeight: '800',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                GHL Master SuperAdmin Mode
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleExitImpersonation}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: '#ef4444',
+                color: '#ffffff',
+                border: 'none',
+                padding: '5px 14px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: '800',
+                cursor: 'pointer',
+                boxShadow: '0 2px 10px rgba(239, 68, 68, 0.4)',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = '#dc2626'}
+              onMouseOut={(e) => e.currentTarget.style.background = '#ef4444'}
+            >
+              <span>↩️ Exit to Super Admin HQ</span>
+            </button>
+          </div>
+        )}
         {/* Content Area Routing Container */}
         <main className="main-content" style={{ flex: 1, overflowY: 'auto', position: 'relative', padding: isGhlEmbedded ? '6px' : '0' }}>
           {/* System Audit Logs Dashboard */}
@@ -6362,6 +6634,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {(activeTab === 'inbox' || activeTab === 'wa_live_web') && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading WhatsApp Live Hub...</div>}>
             <LiveWhatsAppWebPage
+              authUser={authUser}
               sessions={sessions}
               contacts={contacts}
               activeContact={activeContact}
@@ -6496,6 +6769,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               superadminCompanies={superadminCompanies}
               superadminCompaniesQuery={superadminCompaniesQuery}
               setSuperadminCompaniesQuery={setSuperadminCompaniesQuery}
+              handleDeleteCompany={handleDeleteCompany}
+              handleEnterCompany={handleEnterCompany}
               adminPlansError={adminPlansError}
               adminPlanForm={adminPlanForm}
               setAdminPlanForm={setAdminPlanForm}
@@ -6610,7 +6885,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {activeTab === 'integrations' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>? Loading Integrations & Webhooks Center...</div>}>
             <IntegrationsPage
-              companyId={authUser?.companyId || 'default_tenant'}
+              companyId={authUser?.companyId || authUser?.tenant_id || 'default_tenant'}
+              authUser={authUser}
               showToast={showToast}
             />
           </Suspense>
@@ -6633,9 +6909,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             <CompanyOverviewView
               authUser={authUser}
               employees={employees}
-              liveLocations={[]}
+              atsCandidates={atsCandidates}
+              tasks={tasks}
+              leaves={leaves}
               callLogs={callLogs}
               notices={notices}
+              holidays={holidays}
+              assets={assets}
+              kycDocuments={kycDocuments}
+              offboardingCases={offboardingCases}
+              clientVisits={clientVisits}
+              attendanceLogs={attendanceLogs}
+              liveLocations={liveLocations}
+              activeCurrency={activeCurrency}
               t={t}
               showToast={showToast}
               setActiveTab={setActiveTab}

@@ -3,6 +3,8 @@
  * Tenant-scoped schema definitions for fields, widgets, columns, kanban cards, and views.
  */
 
+import FirebaseCloudEngine from '../core/engines/FirebaseCloudEngine';
+
 export const SCHEMA_VERSION = '1.1';
 
 export const DEFAULT_ATS_FIELDS = [
@@ -260,10 +262,13 @@ export function loadAtsModuleConfig(companyId) {
 }
 
 export function saveAtsModuleConfig(companyId, config) {
+  const tenantKey = companyId ? String(companyId).replace(/[^a-zA-Z0-9_-]/g, '_') : 'default_tenant';
   const key = getStorageKey(companyId);
   try {
     const payload = {
       ...config,
+      moduleId: 'recruitment_ats',
+      tenantId: tenantKey,
       schemaVersion: SCHEMA_VERSION,
       updatedAt: new Date().toISOString()
     };
@@ -274,9 +279,16 @@ export function saveAtsModuleConfig(companyId, config) {
     localStorage.setItem('omnilflow_config_default_ats', jsonStr);
     localStorage.setItem('omnilflow_config_ats', jsonStr);
 
+    try {
+      FirebaseCloudEngine.saveRecord('module_configs', {
+        id: `${tenantKey}_recruitment_ats`,
+        ...payload
+      }, tenantKey).catch(() => {});
+    } catch (err) {}
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('omnilflow_config_updated', {
-        detail: { moduleId: 'recruitment_ats', companyId }
+        detail: { moduleId: 'recruitment_ats', companyId: tenantKey }
       }));
     }
   } catch (e) {

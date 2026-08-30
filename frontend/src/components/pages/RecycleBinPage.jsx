@@ -57,7 +57,8 @@ const RecycleBinPage = ({
     window.addEventListener('mouseup', handleMouseUp);
   };
 
-  const filteredBinItems = recycleBinItems.filter(item => {
+  const filteredBinItems = (recycleBinItems || []).filter(item => {
+    if (!item) return false;
     const matchesCategory = binCategoryFilter === 'all' || (item.category || '').toLowerCase() === binCategoryFilter.toLowerCase();
     const matchesTenant = selectedBinTenant === 'all' || item.tenantId === selectedBinTenant;
     const matchesQuery = !binSearchQuery || 
@@ -72,8 +73,8 @@ const RecycleBinPage = ({
   });
 
   // Sorting logic
-  const sortedBinItems = [...filteredBinItems].sort((a, b) => {
-    if (!binSortConfig.key) return 0;
+  const sortedBinItems = [...filteredBinItems].filter(i => !!i).sort((a, b) => {
+    if (!a || !b || !binSortConfig.key) return 0;
     let valA = a[binSortConfig.key] || '';
     let valB = b[binSortConfig.key] || '';
     if (typeof valA === 'string') valA = valA.toLowerCase();
@@ -153,7 +154,7 @@ const RecycleBinPage = ({
             <span>📋</span> Archived Leads &amp; Tasks
           </div>
           <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#0d9488', marginTop: '6px' }}>
-            {recycleBinItems.filter(i => ['crm lead', 'task', 'system dropdown'].includes((i.category || '').toLowerCase())).length}
+            {(recycleBinItems || []).filter(i => i && ['crm lead', 'task', 'system dropdown'].includes((i.category || '').toLowerCase())).length}
           </div>
         </div>
         <div className="glass-card" style={{ padding: '16px 20px', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
@@ -380,7 +381,7 @@ const RecycleBinPage = ({
               </tr>
             </thead>
             <tbody>
-              {paginatedBinItems.length === 0 ? (
+              {(!paginatedBinItems || paginatedBinItems.filter(i => !!i).length === 0) ? (
                 <tr>
                   <td colSpan="6" style={{ padding: '48px 20px', textAlign: 'center', color: '#94a3b8' }}>
                     <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🗑️</div>
@@ -388,10 +389,10 @@ const RecycleBinPage = ({
                   </td>
                 </tr>
               ) : (
-                paginatedBinItems.map(item => (
-                  <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                paginatedBinItems.filter(item => !!item).map(item => (
+                  <tr key={item.id || item.originalId || Math.random()} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td style={{ padding: '12px 16px', fontWeight: '700', color: '#0f2b26', width: `${binColumnWidths.name}px`, maxWidth: `${binColumnWidths.name}px`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      <div>{item.name}</div>
+                      <div>{item.name || 'Untitled Item'}</div>
                       {isSuperAdmin && item.tenantName && (
                         <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>Company: {item.tenantName}</span>
                       )}

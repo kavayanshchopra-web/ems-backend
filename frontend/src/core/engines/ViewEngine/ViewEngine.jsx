@@ -91,12 +91,13 @@ export default function ViewEngine({
   }
 
   const entityName = LabelEngine.getEntityName(moduleConfig);
+  const safeRecords = (records || []).filter(r => !!r);
 
   // A. KANBAN BOARD VIEW
   if (activeView === 'kanban') {
     return (
       <KanbanEngine
-        records={records}
+        records={safeRecords}
         moduleConfig={moduleConfig}
         activeCurrency={moduleConfig?.activeCurrency}
         activePipelineStages={activePipelineStages}
@@ -120,7 +121,7 @@ export default function ViewEngine({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <CalendarIcon size={20} color="#0d9488" />
             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
-              {moduleConfig.moduleTitle || entityName} Calendar Schedule ({records.length} Events)
+              {moduleConfig.moduleTitle || entityName} Calendar Schedule ({safeRecords.length} Events)
             </h3>
           </div>
           <Badge variant="info" style={{ fontSize: '11px', padding: '4px 10px' }}>
@@ -128,21 +129,21 @@ export default function ViewEngine({
           </Badge>
         </div>
 
-        {records.length === 0 ? (
+        {safeRecords.length === 0 ? (
           <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
             No records found for calendar schedule display.
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
-            {records.map((rec) => {
-              const nameStr = getValString(rec.name || rec.title || rec.id, 'Record');
-              const roleStr = getValString(rec.role || rec.designation || rec.type || 'Staff');
-              const deptStr = getValString(rec.department || rec.category || 'General');
-              const dateStr = formatDateStr(rec.createdAt || rec.joiningDate || rec.appliedDate);
+            {safeRecords.map((rec) => {
+              const nameStr = getValString(rec?.name || rec?.title || rec?.id, 'Record');
+              const roleStr = getValString(rec?.role || rec?.designation || rec?.type || 'Staff');
+              const deptStr = getValString(rec?.department || rec?.category || 'General');
+              const dateStr = formatDateStr(rec?.createdAt || rec?.joiningDate || rec?.appliedDate);
 
               return (
                 <div
-                  key={rec.id}
+                  key={rec?.id || Math.random()}
                   onClick={() => onViewRecord(rec)}
                   style={{
                     background: '#f8fafc',
@@ -192,24 +193,24 @@ export default function ViewEngine({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
           <Clock size={20} color="#0d9488" />
           <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
-            {moduleConfig.moduleTitle || entityName} Chronological Event Timeline ({records.length})
+            {moduleConfig.moduleTitle || entityName} Chronological Event Timeline ({safeRecords.length})
           </h3>
         </div>
 
-        {records.length === 0 ? (
+        {safeRecords.length === 0 ? (
           <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
             No records to display on timeline.
           </div>
         ) : (
           <div style={{ position: 'relative', paddingLeft: '28px', borderLeft: '2px solid #0d9488' }}>
-            {records.map((rec) => {
-              const nameStr = getValString(rec.name || rec.title || rec.id, 'Record');
-              const roleStr = getValString(rec.role || rec.designation || rec.type || 'Staff');
-              const deptStr = getValString(rec.department || rec.category || 'General');
-              const dateStr = formatDateStr(rec.createdAt || rec.joiningDate || rec.appliedDate);
+            {safeRecords.map((rec) => {
+              const nameStr = getValString(rec?.name || rec?.title || rec?.id, 'Record');
+              const roleStr = getValString(rec?.role || rec?.designation || rec?.type || 'Staff');
+              const deptStr = getValString(rec?.department || rec?.category || 'General');
+              const dateStr = formatDateStr(rec?.createdAt || rec?.joiningDate || rec?.appliedDate);
 
               return (
-                <div key={rec.id} style={{ position: 'relative', marginBottom: '20px' }}>
+                <div key={rec?.id || Math.random()} style={{ position: 'relative', marginBottom: '20px' }}>
                   <div style={{ position: 'absolute', left: '-36px', top: '4px', width: '14px', height: '14px', borderRadius: '50%', background: '#0d9488', border: '3px solid #ffffff', boxShadow: '0 0 0 2px #0d9488' }} />
                   <div
                     onClick={() => onViewRecord(rec)}
@@ -237,7 +238,7 @@ export default function ViewEngine({
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#0d9488' }}>⏱️ {dateStr}</span>
-                      <Badge variant="info" style={{ fontSize: '10.5px' }}>{getValString(rec.status || rec.stage || 'Active')}</Badge>
+                      <Badge variant="info" style={{ fontSize: '10.5px' }}>{getValString(rec?.status || rec?.stage || 'Active')}</Badge>
                     </div>
                   </div>
                 </div>
@@ -256,26 +257,26 @@ export default function ViewEngine({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
           <GalleryIcon size={20} color="#0d9488" />
           <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
-            {moduleConfig.moduleTitle || entityName} Gallery Directory ({records.length})
+            {moduleConfig.moduleTitle || entityName} Gallery Directory ({safeRecords.length})
           </h3>
         </div>
 
-        {records.length === 0 ? (
+        {safeRecords.length === 0 ? (
           <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
             No records found for gallery layout.
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
-            {records.map((rec) => {
-              const nameStr = getValString(rec.name || rec.title || rec.id, 'Record');
-              const roleStr = getValString(rec.role || rec.designation || rec.type || 'Staff');
-              const deptStr = getValString(rec.department || rec.category || 'General');
-              const emailStr = getValString(rec.email);
-              const phoneStr = getValString(rec.phone);
+            {safeRecords.map((rec) => {
+              const nameStr = getValString(rec?.name || rec?.title || rec?.id, 'Record');
+              const roleStr = getValString(rec?.role || rec?.designation || rec?.type || 'Staff');
+              const deptStr = getValString(rec?.department || rec?.category || 'General');
+              const emailStr = getValString(rec?.email);
+              const phoneStr = getValString(rec?.phone);
 
               return (
                 <div
-                  key={rec.id}
+                  key={rec?.id || Math.random()}
                   style={{
                     background: '#ffffff',
                     borderRadius: '12px',
@@ -294,7 +295,7 @@ export default function ViewEngine({
                         {(nameStr[0] || 'R').toUpperCase()}
                       </div>
                       <Badge variant="info" style={{ fontSize: '10px', padding: '2px 8px' }}>
-                        {getValString(rec.status || 'Active')}
+                        {getValString(rec?.status || 'Active')}
                       </Badge>
                     </div>
 
@@ -334,7 +335,8 @@ export default function ViewEngine({
   // E. TREE / ORG VIEW ENGINE
   if (activeView === 'tree' || activeView === 'org') {
     const groupedDepts = {};
-    records.forEach(r => {
+    safeRecords.forEach(r => {
+      if (!r) return;
       const dept = getValString(r.department || r.category || 'General Workspace');
       if (!groupedDepts[dept]) groupedDepts[dept] = [];
       groupedDepts[dept].push(r);
@@ -360,18 +362,18 @@ export default function ViewEngine({
               </div>
 
               <div style={{ padding: '14px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px' }}>
-                {groupedDepts[dept].map(rec => (
+                {(groupedDepts[dept] || []).filter(r => !!r).map(rec => (
                   <div
-                    key={rec.id}
+                    key={rec?.id || Math.random()}
                     onClick={() => onViewRecord(rec)}
                     style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
                   >
                     <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#0d9488', color: '#fff', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>
-                      {(getValString(rec.name)[0] || 'R').toUpperCase()}
+                      {(getValString(rec?.name)[0] || 'R').toUpperCase()}
                     </div>
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a' }}>{getValString(rec.name || rec.title)}</div>
-                      <div style={{ fontSize: '11px', color: '#64748b' }}>{getValString(rec.role || rec.designation || 'Staff')}</div>
+                      <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a' }}>{getValString(rec?.name || rec?.title)}</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>{getValString(rec?.role || rec?.designation || 'Staff')}</div>
                     </div>
                   </div>
                 ))}
@@ -390,18 +392,18 @@ export default function ViewEngine({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
           <BarChartHorizontal size={20} color="#0d9488" />
           <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
-            {moduleConfig.moduleTitle || entityName} Gantt Progress Timeline ({records.length})
+            {moduleConfig.moduleTitle || entityName} Gantt Progress Timeline ({safeRecords.length})
           </h3>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {records.map((rec, idx) => {
-            const nameStr = getValString(rec.name || rec.title || rec.id, 'Record');
-            const roleStr = getValString(rec.role || rec.designation || 'Staff');
+          {safeRecords.map((rec, idx) => {
+            const nameStr = getValString(rec?.name || rec?.title || rec?.id, 'Record');
+            const roleStr = getValString(rec?.role || rec?.designation || 'Staff');
             const progressPct = Math.min(100, Math.max(30, (idx + 1) * 25 % 100));
 
             return (
-              <div key={rec.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <div key={rec?.id || Math.random()} style={{ display: 'flex', alignItems: 'center', gap: '14px', background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                 <div style={{ width: '180px', flexShrink: 0 }}>
                   <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nameStr}</div>
                   <div style={{ fontSize: '11px', color: '#64748b' }}>{roleStr}</div>
@@ -426,18 +428,18 @@ export default function ViewEngine({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
           <MapPin size={20} color="#0d9488" />
           <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
-            {moduleConfig.moduleTitle || entityName} Location & City Pins Directory ({records.length})
+            {moduleConfig.moduleTitle || entityName} Location & City Pins Directory ({safeRecords.length})
           </h3>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '14px' }}>
-          {records.map(rec => (
-            <div key={rec.id} style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '10px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {safeRecords.map(rec => (
+            <div key={rec?.id || Math.random()} style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '10px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#0d9488', fontWeight: '800' }}>
-                <MapPin size={14} /> {getValString(rec.location || rec.city || rec.department || 'HQ Office')}
+                <MapPin size={14} /> {getValString(rec?.location || rec?.city || rec?.department || 'HQ Office')}
               </div>
-              <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>{getValString(rec.name || rec.title)}</div>
-              <div style={{ fontSize: '11.5px', color: '#64748b' }}>{getValString(rec.role || rec.email)}</div>
+              <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>{getValString(rec?.name || rec?.title)}</div>
+              <div style={{ fontSize: '11.5px', color: '#64748b' }}>{getValString(rec?.role || rec?.email)}</div>
             </div>
           ))}
         </div>
@@ -448,7 +450,7 @@ export default function ViewEngine({
   // Default to List View Engine
   return (
     <ListEngine
-      records={records}
+      records={safeRecords}
       setRecords={setRecords}
       moduleConfig={moduleConfig}
       totalCount={totalCount}

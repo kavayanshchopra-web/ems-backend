@@ -47,12 +47,12 @@ export default function BulkActionEngine({
 
   const entityName = LabelEngine.getEntityName(moduleConfig);
   const entityNamePlural = LabelEngine.getEntityNamePlural(moduleConfig);
-  const selectedCount = selectedIds.length;
+  const selectedCount = (selectedIds || []).length;
 
   // 1. SELECT ALL (Visible Records Only)
   const handleSelectAllVisible = () => {
-    const visibleIds = visibleRecords.map(r => r.id);
-    const combined = Array.from(new Set([...selectedIds, ...visibleIds]));
+    const visibleIds = (visibleRecords || []).filter(r => !!r && r.id !== undefined).map(r => r.id);
+    const combined = Array.from(new Set([...(selectedIds || []), ...visibleIds]));
     setSelectedIds(combined);
     showToast(`Selected ${combined.length} visible ${entityNamePlural.toLowerCase()}`, 'info');
   };
@@ -64,10 +64,10 @@ export default function BulkActionEngine({
 
   // 3. ARCHIVE SELECTED
   const handleBulkArchive = () => {
-    const idsSet = new Set(selectedIds);
+    const idsSet = new Set(selectedIds || []);
     const now = new Date().toISOString();
 
-    records.forEach(r => {
+    (records || []).filter(r => !!r).forEach(r => {
       if (idsSet.has(r.id)) {
         const archivedRec = {
           ...r,
@@ -88,7 +88,7 @@ export default function BulkActionEngine({
       }
     });
 
-    const remaining = records.filter(r => !idsSet.has(r.id));
+    const remaining = (records || []).filter(r => r && !idsSet.has(r.id));
     setRecords(remaining);
     setSelectedIds([]);
 
@@ -104,8 +104,8 @@ export default function BulkActionEngine({
   // 4. RESTORE SELECTED (For Archived View)
   const handleBulkRestore = () => {
     if (typeof handleRestoreBinItem === 'function') {
-      selectedIds.forEach(id => {
-        const rec = records.find(r => r.id === id || r.recycleBinId === id);
+      (selectedIds || []).forEach(id => {
+        const rec = (records || []).find(r => r && (r.id === id || r.recycleBinId === id));
         const restoreId = rec?.recycleBinId || rec?.id || id;
         handleRestoreBinItem(restoreId);
       });
@@ -123,9 +123,9 @@ export default function BulkActionEngine({
   const handleBulkPermanentDelete = () => {
     if (!window.confirm(`Permanently delete ${selectedCount} archived records? This action cannot be undone.`)) return;
 
-    const idsSet = new Set(selectedIds);
-    selectedIds.forEach(id => {
-      const rec = records.find(r => String(r.id) === String(id) || String(r.recycleBinId) === String(id) || String(r.originalId) === String(id));
+    const idsSet = new Set(selectedIds || []);
+    (selectedIds || []).forEach(id => {
+      const rec = (records || []).find(r => r && (String(r.id) === String(id) || String(r.recycleBinId) === String(id) || String(r.originalId) === String(id)));
       const purgeTarget = rec?._vaultRawItem || rec?.recycleBinId || rec?.originalId || rec?.id || id;
       if (typeof softDeleteRecord === 'function') {
         softDeleteRecord(purgeTarget);
@@ -135,7 +135,7 @@ export default function BulkActionEngine({
       if (rec?.originalId) FirebaseCloudEngine.deleteRecord(moduleConfig.moduleId || 'employees', rec.originalId);
     });
 
-    const remaining = records.filter(r => !idsSet.has(r.id) && !idsSet.has(r.recycleBinId) && !idsSet.has(r.originalId));
+    const remaining = (records || []).filter(r => r && !idsSet.has(r.id) && !idsSet.has(r.recycleBinId) && !idsSet.has(r.originalId));
     setRecords(remaining);
     setSelectedIds([]);
 
@@ -148,7 +148,6 @@ export default function BulkActionEngine({
   };
 
   // 6. DUPLICATE SELECTED WITH SMART VERSION NAMING (e.g. John Copy 1, John Copy 2)
-  // 6. DUPLICATE SELECTED WITH SMART VERSION NAMING (e.g. John (Copy 1), John (Copy 2)) & NEW SEQUENTIAL IDs
   const handleBulkDuplicate = () => {
     const now = new Date().toISOString();
     const duplicates = [];
@@ -156,7 +155,7 @@ export default function BulkActionEngine({
     const getDuplicateName = (baseName, existingRecordsList) => {
       if (!baseName) return 'Untitled (Copy 1)';
       const cleanBase = String(baseName).replace(/\s*\(Copy\s*\d*\)\s*/gi, '').replace(/\s*Copy\s*\d*\s*/gi, '').trim();
-      const existingNames = new Set(existingRecordsList.map(r => (r.name || r.title || '').trim().toLowerCase()));
+      const existingNames = new Set((existingRecordsList || []).filter(r => !!r).map(r => (r?.name || r?.title || '').trim().toLowerCase()));
 
       let count = 1;
       let candidate = `${cleanBase} (Copy ${count})`;
@@ -167,10 +166,10 @@ export default function BulkActionEngine({
       return candidate;
     };
 
-    let currentRecordsList = [...records];
+    let currentRecordsList = [...(records || []).filter(r => !!r)];
 
-    selectedIds.forEach((id, idx) => {
-      const orig = currentRecordsList.find(r => r.id === id);
+    (selectedIds || []).forEach((id, idx) => {
+      const orig = currentRecordsList.find(r => r && r.id === id);
       if (orig) {
         const nextSeqId = getNextSequentialId('default_tenant', moduleConfig.moduleId || 'employees', moduleConfig);
         const dupName = orig.name ? getDuplicateName(orig.name, currentRecordsList) : undefined;
@@ -194,7 +193,7 @@ export default function BulkActionEngine({
       }
     });
 
-    setRecords([...duplicates, ...records]);
+    setRecords([...duplicates, ...(records || []).filter(r => !!r)]);
     setSelectedIds([]); // Auto-clear selection after duplicate
 
     if (typeof window !== 'undefined') {

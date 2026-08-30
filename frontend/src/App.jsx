@@ -80,17 +80,32 @@ export default function App() {
     // 1. Primary Master Superadmin Account Override
     if (
       cleanEmail === 'admin@omniflow.com' ||
-      cleanEmail === 'superadmin@omniflow.com'
+      cleanEmail === 'superadmin@omniflow.com' ||
+      cleanEmail === 'kavayanshchopra@gmail.com'
     ) {
       const masterUser = {
         id: 'superadmin_master',
-        name: 'Super Admin',
+        name: cleanEmail === 'kavayanshchopra@gmail.com' ? 'Kavayansh Chopra' : 'Super Admin',
         email: cleanEmail,
         role: 'superadmin',
+        companyName: 'Master Control HQ',
         tenantId: 'platform_superadmin',
         companyId: 'platform_superadmin',
         tenant_id: 'platform_superadmin'
       };
+
+      // Ensure Superadmin user exists in Firestore users
+      if (db) {
+        try {
+          await setDoc(doc(db, 'users', 'superadmin_master'), {
+            ...masterUser,
+            createdAt: new Date().toISOString()
+          }, { merge: true });
+        } catch (fbSyncErr) {
+          console.warn('Superadmin Firestore master sync notice:', fbSyncErr.message);
+        }
+      }
+
       const mockToken = 'superadmin_master_token_override';
       localStorage.setItem('omnilflow_token', mockToken);
       localStorage.setItem('omnilflow_user', JSON.stringify(masterUser));
@@ -101,18 +116,104 @@ export default function App() {
       return;
     }
 
-    // 2. Firebase Cloud Auth Login
+    // 2. Firebase Cloud Auth Login with Multi-Tier Employee Resolution
     try {
-      if (auth) {
-        const userCred = await signInWithEmailAndPassword(auth, cleanEmail, password);
-        const fbUser = userCred.user;
-        
-        let tenantId = `org_${fbUser.uid.slice(0, 10)}`;
-        let storedRole = (cleanEmail === 'admin@omniflow.com' || cleanEmail === 'kavayanshchopra@gmail.com') ? 'superadmin' : 'owner';
-        let storedCompanyName = 'My Workspace';
+      let fbUser = null;
+      let usedDirectProfile = null;
 
-        // Check if organization profile exists in Firestore
-        if (db) {
+      if (auth) {
+        try {
+          const userCred = await signInWithEmailAndPassword(auth, cleanEmail, password);
+          fbUser = userCred.user;
+        } catch (signInErr) {
+          console.warn('Firebase direct signIn note:', signInErr.code, signInErr.message);
+
+          // Check if this is a company employee in Firestore
+          if (db && (signInErr.code === 'auth/user-not-found' || signInErr.code === 'auth/invalid-credential')) {
+            try {
+              let foundProfile = null;
+              // Check user_profiles
+              const qProf = query(collection(db, 'user_profiles'), where('email', '==', cleanEmail));
+              const snapProf = await getDocs(qProf);
+              if (!snapProf.empty) {
+                foundProfile = snapProf.docs[0].data();
+              } else {
+                // Check users collection
+                const qUsers = query(collection(db, 'users'), where('email', '==', cleanEmail));
+                const snapUsers = await getDocs(qUsers);
+                if (!snapUsers.empty) {
+                  foundProfile = snapUsers.docs[0].data();
+                } else {
+                  // Check employees collection
+                  const qEmps = query(collection(db, 'employees'), where('email', '==', cleanEmail));
+                  const snapEmps = await getDocs(qEmps);
+                  if (!snapEmps.empty) {
+                    foundProfile = snapEmps.docs[0].data();
+                  }
+                }
+              }
+
+              if (foundProfile) {
+                usedDirectProfile = foundProfile;
+                // Auto-create in Firebase Auth so future logins work with native Auth
+                try {
+                  const newCred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+                  fbUser = newCred.user;
+                } catch (createErr) {
+                  console.warn('Employee auto-create in Firebase Auth note:', createErr.message);
+                }
+              }
+            } catch (queryErr) {
+              console.warn('Firestore employee lookup error:', queryErr.message);
+            }
+          }
+
+          // Check local registry fallback
+          if (!fbUser && !usedDirectProfile) {
+            try {
+              const regUsers = JSON.parse(localStorage.getItem('omniflow_registered_users') || '[]');
+              const matched = regUsers.find(u => u && u.email && u.email.toLowerCase() === cleanEmail && u.password === password);
+              if (matched) {
+                usedDirectProfile = matched;
+              }
+            } catch (e) {}
+          }
+
+          // Check Backend API login fallback
+          if (!fbUser && !usedDirectProfile) {
+            try {
+              const res = await fetch(`${API_URL}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: cleanEmail, password })
+              });
+              if (res.ok) {
+                const apiData = await res.json();
+                if (apiData?.user) {
+                  usedDirectProfile = {
+                    ...apiData.user,
+                    tenantId: apiData.user.tenantId || apiData.user.tenant_id,
+                    companyName: apiData.tenant?.company_name || 'My Workspace'
+                  };
+                }
+              }
+            } catch (apiErr) {}
+          }
+
+          if (!fbUser && !usedDirectProfile) {
+            throw signInErr;
+          }
+        }
+      }
+
+      if (fbUser || usedDirectProfile) {
+        let tenantId = usedDirectProfile?.tenantId || usedDirectProfile?.companyId || (fbUser ? `org_${fbUser.uid.slice(0, 10)}` : 'org_default');
+        let storedRole = usedDirectProfile?.role || (cleanEmail === 'admin@omniflow.com' || cleanEmail === 'kavayanshchopra@gmail.com' ? 'superadmin' : 'owner');
+        let storedCompanyName = usedDirectProfile?.companyName || 'My Workspace';
+        let storedName = usedDirectProfile?.name || (usedDirectProfile?.first_name ? `${usedDirectProfile.first_name} ${usedDirectProfile.last_name || ''}`.trim() : (cleanEmail.split('@')[0]));
+
+        // Check if organization profile exists in Firestore if we have fbUser
+        if (db && fbUser && !usedDirectProfile) {
           try {
             const orgDoc = await getDoc(doc(db, 'user_profiles', fbUser.uid));
             if (orgDoc.exists()) {
@@ -120,14 +221,15 @@ export default function App() {
               if (data.tenantId) tenantId = data.tenantId;
               if (data.role) storedRole = data.role;
               if (data.companyName) storedCompanyName = data.companyName;
+              if (data.name) storedName = data.name;
             }
           } catch (e) {}
         }
 
         const userData = {
-          id: fbUser.uid,
-          email: fbUser.email,
-          name: storedCompanyName ? `${storedCompanyName} Admin` : fbUser.email.split('@')[0],
+          id: fbUser?.uid || usedDirectProfile?.id || usedDirectProfile?.uid || `user_${Date.now()}`,
+          email: cleanEmail,
+          name: storedName,
           role: storedRole,
           companyName: storedCompanyName,
           tenantId: tenantId,
@@ -136,7 +238,7 @@ export default function App() {
         };
 
         FirebaseCloudEngine.purgeAllLocalCaches();
-        localStorage.setItem('omnilflow_token', fbUser.accessToken || 'firebase_token');
+        localStorage.setItem('omnilflow_token', fbUser?.accessToken || 'firebase_token');
         localStorage.setItem('omnilflow_user', JSON.stringify(userData));
         setAuthUser(userData);
         if (typeof window !== 'undefined') window.__omniflow_tenant = tenantId;
@@ -145,34 +247,14 @@ export default function App() {
         return;
       }
     } catch (fbErr) {
-      console.warn('Firebase login fallback attempt:', fbErr.message);
-    }
-
-    // 3. Backend REST API Fallback Login
-    try {
-      const res = await fetch(`${API_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, password })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to login');
-
-      const backendTenant = data.user?.tenantId || data.user?.companyId || data.user?.tenant_id || `org_${cleanEmail.replace(/[^a-z0-9]/g, '')}`;
-      const normalizedUser = {
-        ...data.user,
-        tenantId: backendTenant,
-        companyId: backendTenant,
-        tenant_id: backendTenant
-      };
-
-      FirebaseCloudEngine.purgeAllLocalCaches();
-      localStorage.setItem('omnilflow_token', data.token);
-      localStorage.setItem('omnilflow_user', JSON.stringify(normalizedUser));
-      setAuthUser(normalizedUser);
-      if (typeof window !== 'undefined') window.__omniflow_tenant = backendTenant;
-    } catch (err) {
-      setAuthError(err.message);
+      console.error('Firebase login error:', fbErr);
+      let errMsg = fbErr.message || 'Login failed';
+      if (fbErr.code === 'auth/user-not-found' || fbErr.code === 'auth/invalid-credential' || fbErr.code === 'auth/wrong-password') {
+        errMsg = 'Invalid email or password. Please check your credentials.';
+      } else if (fbErr.code === 'auth/too-many-requests') {
+        errMsg = 'Too many failed login attempts. Please try again later or reset password.';
+      }
+      setAuthError(errMsg);
     } finally {
       setAuthLoading(false);
     }
@@ -246,10 +328,27 @@ export default function App() {
           tenant_id: uniqueTenantId
         };
 
-        // Save profile to Firestore
+        // Save profile, company and user doc to Firestore
         if (db) {
           try {
             await setDoc(doc(db, 'user_profiles', fbUser.uid), {
+              ...userData,
+              createdAt: new Date().toISOString()
+            }, { merge: true });
+
+            await setDoc(doc(db, 'companies', uniqueTenantId), {
+              tenant_id: uniqueTenantId,
+              company_name: companyName || 'My Workspace',
+              name: companyName || 'My Workspace',
+              owner_email: cleanEmail,
+              owner_id: fbUser.uid,
+              user_count: 1,
+              emp_count: 0,
+              createdAt: new Date().toISOString(),
+              status: 'active'
+            }, { merge: true });
+
+            await setDoc(doc(db, 'users', fbUser.uid), {
               ...userData,
               createdAt: new Date().toISOString()
             }, { merge: true });
@@ -268,33 +367,12 @@ export default function App() {
         return;
       }
     } catch (fbErr) {
-      console.warn('Firebase register fallback to backend API:', fbErr.message);
-    }
-
-    try {
-      const res = await fetch(`${API_URL}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, password, companyName })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to register');
-
-      const backendTenant = data.user?.tenantId || data.user?.companyId || data.user?.tenant_id || `org_${cleanEmail.replace(/[^a-z0-9]/g, '')}`;
-      const normalizedUser = {
-        ...data.user,
-        tenantId: backendTenant,
-        companyId: backendTenant,
-        tenant_id: backendTenant
-      };
-
-      FirebaseCloudEngine.purgeAllLocalCaches();
-      localStorage.setItem('omnilflow_token', data.token);
-      localStorage.setItem('omnilflow_user', JSON.stringify(normalizedUser));
-      setAuthUser(normalizedUser);
-      if (typeof window !== 'undefined') window.__omniflow_tenant = backendTenant;
-    } catch (err) {
-      setAuthError(err.message);
+      console.error('Firebase Cloud register error:', fbErr);
+      let errMsg = fbErr.message || 'Registration failed';
+      if (fbErr.code === 'auth/email-already-in-use') errMsg = 'This email is already registered. Please Sign In.';
+      else if (fbErr.code === 'auth/weak-password') errMsg = 'Password should be at least 6 characters.';
+      else if (fbErr.code === 'auth/operation-not-allowed') errMsg = 'Email/Password sign-in is not enabled in Firebase Console. Please enable it in Authentication settings.';
+      setAuthError(errMsg);
     } finally {
       setAuthLoading(false);
     }

@@ -201,28 +201,7 @@ export default function MediaStorageView({ authUser, showToast }) {
         return fileExts.some(ext => lower.endsWith(ext));
       };
 
-      // Also pull local storage fallback employee documents (including custom field filenames like TEST)
-      const localEmps = JSON.parse(localStorage.getItem('omnilflow_fallback_employees') || '[]');
-      localEmps.forEach((emp) => {
-        if (emp && typeof emp === 'object') {
-          Object.values(emp).forEach((val) => {
-            if (isMediaFileVal(val)) {
-              const exists = list.some(m => m.downloadUrl === val || m.fileName === val);
-              if (!exists) {
-                list.push({
-                  id: `emp_doc_${emp.id || Math.random()}_${Math.random().toString(36).substring(2, 6)}`,
-                  tenantId: cleanTenant,
-                  category: 'employee_documents',
-                  fileName: val,
-                  fileSize: val.length || 120000,
-                  downloadUrl: val,
-                  createdAt: emp.createdAt || new Date().toISOString()
-                });
-              }
-            }
-          });
-        }
-      });
+      // Only tenant-scoped media records from Firestore are listed
 
       // Sort newest first
       list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
@@ -382,18 +361,7 @@ export default function MediaStorageView({ authUser, showToast }) {
         if (!item.isExternal && item.storagePath) {
           await MediaStorageEngine.deleteMedia(cleanTenant, item.storagePath, item.fileSize || 0);
         }
-        if (!item.id.startsWith('emp_doc_')) {
-          await deleteDoc(doc(db, 'media_vault', item.id));
-        } else {
-          const localEmps = JSON.parse(localStorage.getItem('omnilflow_fallback_employees') || '[]');
-          const updatedEmps = localEmps.map(emp => {
-            if (emp.media === item.fileName || emp.documents === item.fileName) {
-              return { ...emp, media: '', documents: '' };
-            }
-            return emp;
-          });
-          localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(updatedEmps));
-        }
+        await deleteDoc(doc(db, 'media_vault', item.id));
         reclaimedBytes += item.fileSize || 0;
         deletedCount++;
       }

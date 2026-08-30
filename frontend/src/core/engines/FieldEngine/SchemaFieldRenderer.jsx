@@ -1,4 +1,4 @@
-﻿/**
+/**
  * UNIVERSAL SCHEMA FIELD RENDERER
  * 100% Schema-Driven UI Renderer for All 23 Enterprise Field Types
  */
@@ -108,14 +108,7 @@ export default function SchemaFieldRenderer({
       if (Array.isArray(systemDropdowns?.employees) && systemDropdowns.employees.length > 0) {
         rawEmpList.push(...systemDropdowns.employees);
       }
-      if (typeof window !== 'undefined') {
-        try {
-          const fall = JSON.parse(localStorage.getItem('omnilflow_fallback_employees') || '[]');
-          const empLoc = JSON.parse(localStorage.getItem('employees') || '[]');
-          const reg = JSON.parse(localStorage.getItem('omniflow_registered_users') || '[]');
-          rawEmpList.push(...fall, ...empLoc, ...reg);
-        } catch (e) {}
-      }
+      // Only use actively passed dropdowns/employees without un-isolated global localStorage reads
 
       const uniqueNames = new Set();
       (rawEmpList || []).forEach(e => {

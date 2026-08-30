@@ -1,12 +1,9 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
-// SimBridge removed
+import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
 import VoxbayCloudDialerModal from './VoxbayCloudDialerModal';
-import { Smartphone, PhoneCall, QrCode, Wifi, CheckCircle2, PhoneOutgoing } from 'lucide-react';
-
-const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-const API_BASE = IS_DEV ? 'http://localhost:5000' : 'https://api.employeemanagementsystems.com';
+import { PhoneCall } from 'lucide-react';
 
 export default function TelecallingView({
   authUser,
@@ -23,16 +20,14 @@ export default function TelecallingView({
   onManageStages = () => {},
   onOpenPositionModal = () => {}
 }) {
-  const companyId = authUser?.companyId || 'default_tenant';
+  const companyId = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 'org_default';
   const { config } = useModuleRegistry(companyId, 'telecalling');
   
   const [isVoxbayOpen, setIsVoxbayOpen] = useState(false);
 
-  // Clean zero-dummy initial call records
-  const defaultRecords = useMemo(() => [], []);
   // Format callLogs to match standard fields if passed from parent
   const activeRecords = useMemo(() => {
-    if (callLogs && callLogs.length > 0) {
+    if (Array.isArray(callLogs) && callLogs.length > 0) {
       return callLogs.map((log, index) => ({
         id: log.id || `CALL-${String(index + 1).padStart(4, '0')}`,
         name: log.customerName || log.contactName || log.name || 'Customer',
@@ -46,49 +41,18 @@ export default function TelecallingView({
         notes: log.notes || 'Voxbay Live Call'
       }));
     }
-    return defaultRecords;
-  }, [callLogs, defaultRecords, authUser]);
-
-  // Auto-sync real desktop recordings from /api/recordings/local-list
-  useEffect(() => {
-    fetch(`${API_BASE}/api/recordings/local-list`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && Array.isArray(data.recordings) && data.recordings.length > 0) {
-          const syncedRecords = data.recordings.map((rec, idx) => {
-            const parts = rec.fileName.split('-');
-            const phone = parts.length >= 3 ? parts[2] : 'Customer Call';
-            return {
-              id: 'REC-' + String(idx + 1).padStart(4, '0'),
-              name: 'Customer (' + phone + ')',
-              agentName: authUser?.name || 'Staff 1',
-              phone: phone,
-              channel: 'VOXBAY',
-              type: 'OUTGOING',
-              duration: rec.size ? (Math.round(rec.size / 32000) + 's') : '00:30',
-              recording: rec.url,
-              status: 'Completed',
-              notes: 'Voxbay Phone Recording (' + rec.fileName + ')',
-              timestamp: rec.createdAt
-            };
-          });
-
-          setCallLogs(prev => {
-            const existing = Array.isArray(prev) ? prev : [];
-            const existingUrls = new Set(existing.map(r => r.recording || r.recordingUrl));
-            const newToAdd = syncedRecords.filter(r => !existingUrls.has(r.recording));
-            return newToAdd.length > 0 ? [...newToAdd, ...existing] : existing;
-          });
-        }
-      })
-      .catch(() => {});
-  }, [authUser]);
+    return [];
+  }, [callLogs, authUser]);
 
   const handleUpdateRecords = (newRecords) => {
     setCallLogs(newRecords);
-    try {
-      localStorage.setItem('omniflow_callLogs', JSON.stringify(newRecords));
-    } catch (e) {}
+    if (Array.isArray(newRecords)) {
+      newRecords.forEach(rec => {
+        if (rec && rec.id) {
+          FirebaseCloudEngine.saveRecord('call_logs', rec, companyId);
+        }
+      });
+    }
   };
 
   const handleCallLogged = (newCall) => {
@@ -140,7 +104,6 @@ export default function TelecallingView({
               <span>Dial via Voxbay Cloud</span>
             </button>
           }
-
           moduleConfig={config}
           records={activeRecords}
           setRecords={handleUpdateRecords}
@@ -158,16 +121,14 @@ export default function TelecallingView({
         />
       </div>
 
-
-
-      {/* Voxbay Cloud Dialer Modal */}
+      {/* Voxbay Cloud Click-To-Call Modal */}
       {isVoxbayOpen && (
         <VoxbayCloudDialerModal
           isOpen={isVoxbayOpen}
           onClose={() => setIsVoxbayOpen(false)}
-          currentStaff={{ id: authUser?.id || '1', name: authUser?.name || 'Agent' }}
           onCallLogged={handleCallLogged}
           showToast={showToast}
+          authUser={authUser}
         />
       )}
     </div>

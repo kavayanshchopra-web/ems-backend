@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Laptop, 
   Users, 
@@ -18,35 +18,35 @@ import {
 // SimBridge removed
 
 export default function LiveWhatsAppWebPage({
+  authUser,
   sessions = [],
   contacts = [],
   activeContact,
   setActiveContact,
   setActiveTab
 }) {
-  // Load saved custom staff list from localStorage
+  const activeTenant = String(authUser?.tenantId || authUser?.companyId || (typeof window !== 'undefined' && window.__omniflow_tenant) || 'default_tenant');
+
+  // Load saved custom staff list from tenant-scoped storage
   const [customStaffList, setCustomStaffList] = useState(() => {
     try {
-      const saved = localStorage.getItem('omniflow_custom_staff_accounts');
+      const saved = localStorage.getItem(`omniflow_custom_staff_${activeTenant}`);
       if (saved) return JSON.parse(saved);
     } catch (e) {}
-    return [
-      { id: 'staff_1', name: 'Staff 1', phone: 'Primary WhatsApp', status: 'connected' },
-      { id: 'staff_2', name: 'Staff 2', phone: 'Sales WhatsApp', status: 'idle' }
-    ];
+    return [];
   });
 
   const [selectedStaffId, setSelectedStaffId] = useState(() => {
-    return localStorage.getItem('omniflow_selected_staff_id') || 'staff_1';
+    return localStorage.getItem(`omniflow_selected_staff_id_${activeTenant}`) || '';
   });
 
   // Track live unread message counts per staff account
   const [unreadCounts, setUnreadCounts] = useState(() => {
     try {
-      const saved = localStorage.getItem('omniflow_staff_unreads');
+      const saved = localStorage.getItem(`omniflow_staff_unreads_${activeTenant}`);
       if (saved) return JSON.parse(saved);
     } catch (e) {}
-    return { staff_1: 26, staff_2: 4 };
+    return {};
   });
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -58,9 +58,19 @@ export default function LiveWhatsAppWebPage({
   const iframeRef = useRef(null);
   const dropdownRef = useRef(null);
 
+  // Filter backend sessions strictly to active tenant
+  const validTenantSessions = (sessions || []).filter(s => {
+    if (!s) return false;
+    if (activeTenant !== '1' && activeTenant !== 'default_tenant') {
+      const sTenant = String(s.tenant_id || s.tenantId || '');
+      return sTenant === activeTenant;
+    }
+    return true;
+  });
+
   // Combine backend sessions with local custom staff list
-  const staffAccounts = sessions && sessions.length > 0
-    ? sessions.map((s, idx) => ({
+  const staffAccounts = validTenantSessions.length > 0
+    ? validTenantSessions.map((s, idx) => ({
         id: s.id || `staff_${idx + 1}`,
         name: s.name || `Staff ${idx + 1}`,
         phone: s.phone_number || s.phone || `Account ${idx + 1}`,
@@ -68,7 +78,7 @@ export default function LiveWhatsAppWebPage({
       }))
     : customStaffList;
 
-  const currentStaff = staffAccounts.find(s => s.id === selectedStaffId) || staffAccounts[0] || { id: 'staff_1', name: 'Staff 1', status: 'connected' };
+  const currentStaff = (staffAccounts || []).find(s => s && s.id === selectedStaffId) || (staffAccounts && staffAccounts[0]) || null;
 
   // Listen to webview title change to capture live WhatsApp unread count e.g. "(26) WhatsApp"
   useEffect(() => {
@@ -154,7 +164,7 @@ export default function LiveWhatsAppWebPage({
     }
   };
 
-  const currentUnread = unreadCounts[currentStaff.id] || 0;
+  const currentUnread = currentStaff?.id ? (unreadCounts[currentStaff.id] || 0) : 0;
   const totalUnreadsAllStaff = Object.values(unreadCounts).reduce((acc, val) => acc + (typeof val === 'number' ? val : 0), 0);
 
   return (
@@ -266,11 +276,11 @@ export default function LiveWhatsAppWebPage({
               width: '7px',
               height: '7px',
               borderRadius: '50%',
-              background: currentStaff.status === 'connected' ? '#10b981' : '#f59e0b',
-              boxShadow: currentStaff.status === 'connected' ? '0 0 6px #10b981' : 'none'
+              background: currentStaff ? (currentStaff.status === 'connected' ? '#10b981' : '#f59e0b') : '#94a3b8',
+              boxShadow: currentStaff?.status === 'connected' ? '0 0 6px #10b981' : 'none'
             }}></span>
             <span style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {currentStaff.name}
+              {currentStaff ? currentStaff.name : 'WhatsApp Accounts'}
             </span>
 
             {/* Live Unread Badge on Trigger Button */}
@@ -333,9 +343,14 @@ export default function LiveWhatsAppWebPage({
 
               {/* Staff List Items with Unread Badges */}
               <div style={{ maxHeight: '240px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                {staffAccounts.map((staff) => {
-                  const isSelected = staff.id === selectedStaffId;
-                  const unread = unreadCounts[staff.id] || 0;
+                {staffAccounts.length === 0 ? (
+                  <div style={{ padding: '12px 10px', fontSize: '11px', color: '#94a3b8', textAlign: 'center' }}>
+                    No WhatsApp accounts connected yet. Click below to add an account.
+                  </div>
+                ) : (
+                  staffAccounts.map((staff) => {
+                    const isSelected = staff.id === selectedStaffId;
+                    const unread = unreadCounts[staff.id] || 0;
 
                   return (
                     <div
@@ -395,7 +410,8 @@ export default function LiveWhatsAppWebPage({
                       </div>
                     </div>
                   );
-                })}
+                })
+              )}
               </div>
 
               {/* Bottom: Add Staff Section inside Dropdown */}

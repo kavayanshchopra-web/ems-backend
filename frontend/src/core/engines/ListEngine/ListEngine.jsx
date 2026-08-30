@@ -1,4 +1,4 @@
-﻿/**
+/**
  * UNIVERSAL LIST ENGINE COMPONENT (SchemaDataTable)
  * Enterprise CRM Scroll Architecture with Sticky <thead>, Sticky Bottom <Pagination>, & Thin Themed Scrollbars
  */
@@ -212,28 +212,31 @@ export default function ListEngine({
     };
   }, []);
 
-  const totalPages = Math.ceil(records.length / pageSize) || 1;
+  const safeRecords = (records || []).filter(r => !!r);
+  const totalPages = Math.ceil(safeRecords.length / pageSize) || 1;
   const validCurrentPage = Math.min(currentPage, totalPages);
   const startIdx = (validCurrentPage - 1) * pageSize;
-  const paginatedRecords = records.slice(startIdx, startIdx + pageSize);
+  const paginatedRecords = safeRecords.slice(startIdx, startIdx + pageSize);
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedIds(paginatedRecords.map(r => r.id));
+      setSelectedIds(paginatedRecords.filter(r => !!r && r.id !== undefined).map(r => r.id));
     } else {
       setSelectedIds([]);
     }
   };
 
   const handleToggleSelectRow = (recId) => {
+    if (recId === undefined || recId === null) return;
     setSelectedIds(prev =>
-      prev.includes(recId) ? prev.filter(id => id !== recId) : [...prev, recId]
+      (prev || []).includes(recId) ? (prev || []).filter(id => id !== recId) : [...(prev || []), recId]
     );
   };
   const handleSelectRow = handleToggleSelectRow;
 
   const renderRow = (record, idx) => {
-    const isSelected = selectedIds.includes(record.id);
+    if (!record) return null;
+    const isSelected = (selectedIds || []).includes(record.id);
     let recordName = getValString(
       record.name || record.fullName || record.employeeName || record.candidateName || record.title,
       ''
@@ -257,7 +260,7 @@ export default function ListEngine({
 
     return (
       <tr
-        key={record.id || idx}
+        key={record.id || idx || Math.random()}
         className="ems-row-hover"
         onClick={() => onViewRecord(record)}
         style={{
@@ -680,7 +683,7 @@ export default function ListEngine({
               </tr>
             </thead>
             <tbody>
-              {paginatedRecords.length === 0 ? (
+              {paginatedRecords.filter(r => !!r).length === 0 ? (
                 <tr>
                   <td colSpan={visibleCols.length + (isArchivedView && canManage ? 2 : 1)} style={{ padding: '32px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
                     <EmptyState
@@ -691,7 +694,7 @@ export default function ListEngine({
                   </td>
                 </tr>
               ) : (
-                paginatedRecords.map((record, idx) => renderRow(record, idx))
+                paginatedRecords.filter(r => !!r).map((record, idx) => renderRow(record, idx))
               )}
             </tbody>
           </table>

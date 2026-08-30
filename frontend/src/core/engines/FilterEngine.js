@@ -48,11 +48,13 @@ export class FilterEngine {
    */
   static filterRecords(records = [], filterValues = {}, moduleConfig = {}) {
     if (!Array.isArray(records) || records.length === 0) return [];
-    if (!this.isFilterActive(filterValues)) return records;
+    const safeRecords = records.filter(r => !!r);
+    if (!this.isFilterActive(filterValues)) return safeRecords;
 
     const filterableFields = this.getFilterableFields(moduleConfig);
 
-    return records.filter(record => {
+    return safeRecords.filter(record => {
+      if (!record) return false;
       return filterableFields.every(field => {
         const filterVal = filterValues[field.id];
         if (!filterVal || filterVal === 'all') return true;

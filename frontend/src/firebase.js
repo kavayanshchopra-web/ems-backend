@@ -55,15 +55,19 @@ const sandboxFirebaseConfig = {
 };
 
 export function getActiveFirebaseConfig() {
-  // Firebase Storage is NOT used (base64+Firestore instead) — both sandbox & live work fine
   if (typeof window !== 'undefined') {
     const host = (window.location.hostname || '').toLowerCase();
-    const isProduction = host.includes('employeemanagementsystems.com') || host === 'ems-crm-sandy.vercel.app';
+    const isProduction = 
+      host === 'app.employeemanagementsystems.com' || 
+      host === 'employeemanagementsystems.com' || 
+      host.endsWith('.employeemanagementsystems.com') ||
+      host === 'ems-crm-sandy.vercel.app';
+
     if (!isProduction) {
-      return sandboxFirebaseConfig; // Sandbox for localhost & dev Vercel previews
+      return sandboxFirebaseConfig; // Sandbox Project: [ems-sandbox-60598] for localhost & Vercel Sandbox Previews
     }
   }
-  return liveFirebaseConfig; // Live for production domain
+  return liveFirebaseConfig; // Live Project: [ems-ag] strictly for Official Live Production Domains
 }
 
 const firebaseConfig = getActiveFirebaseConfig();
@@ -111,5 +115,21 @@ export {
   uploadBytes,
   getDownloadURL
 };
+
+export async function createEmployeeAuthAccount(email, password) {
+  const config = getActiveFirebaseConfig();
+  let secondaryApp;
+  const appName = 'SecondaryEmployeeAuthApp';
+  if (getApps().some(a => a.name === appName)) {
+    secondaryApp = getApp(appName);
+  } else {
+    secondaryApp = initializeApp(config, appName);
+  }
+  const secondaryAuth = getAuth(secondaryApp);
+  const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+  const newUser = userCredential.user;
+  await signOut(secondaryAuth);
+  return newUser;
+}
 
 export default firebaseConfig;

@@ -23,23 +23,26 @@ export class SearchEngine {
 
   static search(records = [], searchQuery = '', moduleConfig = {}, options = {}) {
     if (!Array.isArray(records) || records.length === 0) return [];
+    const safeRecords = records.filter(r => !!r);
+    if (safeRecords.length === 0) return [];
     
     const q = searchQuery ? String(searchQuery).toLowerCase().trim() : '';
     const minChars = options.minChars || moduleConfig.searchConfig?.minChars || 1;
 
-    if (!q || q.length < minChars) return records;
+    if (!q || q.length < minChars) return safeRecords;
 
     const searchableFields = this.getSearchableFields(moduleConfig);
     const matchMode = options.matchMode || moduleConfig.searchConfig?.matchMode || 'CONTAINS';
 
     const scoredResults = [];
 
-    records.forEach(record => {
+    safeRecords.forEach(record => {
+      if (!record) return;
       let maxScore = 0;
       const matchedFieldIds = [];
 
       // Check Candidate ID directly (e.g. ATS-001)
-      const recIdStr = getValString(record.id).toLowerCase();
+      const recIdStr = getValString(record?.id).toLowerCase();
       if (recIdStr && recIdStr.includes(q)) {
         maxScore = 100;
         matchedFieldIds.push('id');

@@ -1,7 +1,9 @@
 // OmniFlow EMS v2.5 — Dynamic Engine-Driven Permission Engine (PermissionEngine)
 // Auto-discovers modules from MasterModuleRegistry and enforces granular 11-action role permissions.
+// Backed by Firebase Firestore for persistent multi-tenant cloud storage.
 
-import { masterModuleRegistry, MasterModuleRegistry } from '../../registry/MasterModuleRegistry';
+import FirebaseCloudEngine from '../FirebaseCloudEngine';
+import FeatureProvisioningEngine from '../FeatureProvisioningEngine';
 
 export const STANDARD_ACTIONS = [
   { id: 'view', label: 'View / Read', icon: '👁️' },
@@ -24,27 +26,57 @@ export const ACCESS_SCOPES = [
 ];
 
 export const DEFAULT_ROLES = [
-  { id: 'super_admin', label: '👑 Super Admin (God Mode)', isSystem: true },
-  { id: 'company_admin', label: '🏢 System / Company Admin', isSystem: true },
-  { id: 'manager', label: '👔 Department Manager / Lead', isSystem: true },
-  { id: 'sales_agent', label: '💼 Sales & Support Agent', isSystem: true },
+  { id: 'admin', label: '🏢 Company Admin / Owner', isSystem: true },
+  { id: 'manager', label: '👔 Operations / Dept Manager', isSystem: true },
+  { id: 'hr_accountant', label: '📋 HR & Accountant Lead', isSystem: true },
+  { id: 'agent', label: '💼 Sales & Support Agent', isSystem: true },
   { id: 'employee', label: '👤 Standard Employee', isSystem: true }
 ];
+
+export function normalizeRole(role) {
+  if (!role) return 'employee';
+  const r = String(role).toLowerCase().trim();
+  if (r === 'superadmin' || r === 'super_admin') return 'superadmin';
+  if (r === 'admin' || r === 'company_admin' || r === 'owner' || r === 'company_owner') return 'admin';
+  if (r === 'manager' || r === 'operations_manager' || r === 'dept_manager') return 'manager';
+  if (r === 'hr_accountant' || r === 'hr' || r === 'accountant' || r === 'hr_manager') return 'hr_accountant';
+  if (r === 'agent' || r === 'sales_agent' || r === 'sales' || r === 'support_agent') return 'agent';
+  return r;
+}
+
+export function getTenantKey(tenantId) {
+  if (tenantId && tenantId !== 'default' && tenantId !== 'default_tenant' && tenantId !== 'acme_corp') {
+    return String(tenantId).trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('omnilflow_user') || 'null');
+      const candidate = storedUser?.tenantId || storedUser?.companyId || storedUser?.tenant_id;
+      if (candidate && candidate !== 'default' && candidate !== 'default_tenant' && candidate !== 'acme_corp') {
+        return String(candidate).trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+      }
+    } catch (e) {}
+  }
+  return tenantId ? String(tenantId).replace(/[^a-zA-Z0-9_-]/g, '_') : 'default_tenant';
+}
 
 const LOCAL_STORAGE_KEY_PREFIX = 'omnilflow_permission_matrix_';
 
 class PermissionEngineService {
+  getTenantKey(tenantId) {
+    return getTenantKey(tenantId);
+  }
+
+  normalizeRole(role) {
+    return normalizeRole(role);
+  }
+
   /**
-   * Auto-discover all active modules from MasterModuleRegistry
+   * Auto-discover all active modules from MasterModuleRegistry filtered by SuperAdmin Feature Provisioning
    */
-  getDiscoveredModules() {
+  getDiscoveredModules(tenantId = null, authUser = null) {
     // 100% Canonical Sidebar Module Definitions (Matched 1:1 with DashboardShell.jsx nav items)
     const CANONICAL_SIDEBAR_MODULES = [
-      // SYSTEM
-      { id: 'superadmin_plans', label: 'Super Admin Panel', icon: '👑', category: 'SYSTEM' },
-      { id: 'audit_logs', label: 'System Audit Logs', icon: '📋', category: 'SYSTEM' },
-      { id: 'media_storage', label: 'Media & Storage Vault', icon: '📁', category: 'SYSTEM' },
-
       // DASHBOARDS
       { id: 'admin_dashboard', label: 'Company Overview', icon: '📊', category: 'DASHBOARDS' },
       { id: 'manager_dashboard', label: 'Task Analytics', icon: '📈', category: 'DASHBOARDS' },
@@ -94,7 +126,17 @@ class PermissionEngineService {
       { id: 'billing', label: 'Subscription Billing', icon: '💳', category: 'SETTINGS' }
     ];
 
-    return CANONICAL_SIDEBAR_MODULES;
+    let targetTenant = tenantId;
+    if (!targetTenant && typeof window !== 'undefined') {
+      try {
+        const storedUser = JSON.parse(localStorage.getItem('omnilflow_user') || 'null');
+        targetTenant = storedUser?.tenantId || storedUser?.companyId || storedUser?.tenant_id;
+      } catch (e) {}
+    }
+
+    return CANONICAL_SIDEBAR_MODULES.filter(mod =>
+      FeatureProvisioningEngine.isModuleEnabledForTenant(mod.id, targetTenant, authUser)
+    );
   }
 
   /**
@@ -113,7 +155,7 @@ class PermissionEngineService {
         let defaultActions = {};
         let defaultScope = 'all';
 
-        if (role.id === 'super_admin' || role.id === 'company_admin') {
+        if (role.id === 'admin') {
           STANDARD_ACTIONS.forEach(act => { defaultActions[act.id] = true; });
           defaultScope = 'all';
         } else if (role.id === 'manager') {
@@ -121,15 +163,23 @@ class PermissionEngineService {
             defaultActions[act.id] = ['view', 'create', 'edit', 'duplicate', 'archive', 'export', 'approve'].includes(act.id);
           });
           defaultScope = 'team';
-        } else if (role.id === 'sales_agent') {
+        } else if (role.id === 'hr_accountant') {
+          const hrAllowed = ['employees', 'recruitment_ats', 'verify_documents', 'offboarding', 'payroll', 'taxes_compliance', 'ff_settlements', 'advances_loans', 'expenses', 'leaves', 'notice_board', 'holidays', 'app_guide', 'settings'];
           STANDARD_ACTIONS.forEach(act => {
-            defaultActions[act.id] = ['view', 'create', 'edit'].includes(act.id);
+            defaultActions[act.id] = hrAllowed.includes(mod.id);
+          });
+          defaultScope = 'all';
+        } else if (role.id === 'agent') {
+          const agentAllowed = ['channels', 'wa_live_web', 'kanban', 'telecalling', 'tasks', 'my_attendance', 'leaves', 'shifts', 'notice_board', 'holidays', 'app_guide'];
+          STANDARD_ACTIONS.forEach(act => {
+            defaultActions[act.id] = agentAllowed.includes(mod.id) && ['view', 'create', 'edit'].includes(act.id);
           });
           defaultScope = 'team';
         } else {
-          // Standard employee
+          // Standard employee — strictly scoped to self-portal & notice/holidays/employees directory
+          const empAllowed = ['employees', 'my_attendance', 'leaves', 'shifts', 'notice_board', 'holidays', 'app_guide', 'settings'];
           STANDARD_ACTIONS.forEach(act => {
-            defaultActions[act.id] = act.id === 'view';
+            defaultActions[act.id] = empAllowed.includes(mod.id) && act.id === 'view';
           });
           defaultScope = 'own';
         }
@@ -148,8 +198,11 @@ class PermissionEngineService {
    * Fetch current tenant permission matrix from storage
    */
   getPermissionMatrix(tenantId = 'default_tenant') {
+    const tenantKey = getTenantKey(tenantId);
     try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_KEY_PREFIX + tenantId);
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY_PREFIX + tenantKey) ||
+                    localStorage.getItem(LOCAL_STORAGE_KEY_PREFIX + 'default_tenant') ||
+                    localStorage.getItem(LOCAL_STORAGE_KEY_PREFIX + 'default');
       if (saved) {
         const parsed = JSON.parse(saved);
         // Ensure new modules are automatically added
@@ -164,11 +217,11 @@ class PermissionEngineService {
           }
           modules.forEach(mod => {
             if (!parsed.permissions[role.id][mod.id]) {
-              const isSuper = role.id === 'super_admin' || role.id === 'company_admin';
+              const isAdmin = role.id === 'admin';
               const actions = {};
-              STANDARD_ACTIONS.forEach(act => { actions[act.id] = isSuper; });
+              STANDARD_ACTIONS.forEach(act => { actions[act.id] = isAdmin; });
               parsed.permissions[role.id][mod.id] = {
-                scope: isSuper ? 'all' : 'own',
+                scope: isAdmin ? 'all' : 'own',
                 actions
               };
               updated = true;
@@ -177,7 +230,7 @@ class PermissionEngineService {
         });
 
         if (updated) {
-          this.savePermissionMatrix(tenantId, parsed);
+          this.savePermissionMatrix(tenantKey, parsed);
         }
         return parsed;
       }
@@ -186,7 +239,7 @@ class PermissionEngineService {
     }
 
     const defaultMatrix = this.generateDefaultMatrix();
-    this.savePermissionMatrix(tenantId, defaultMatrix);
+    this.savePermissionMatrix(tenantKey, defaultMatrix);
     return defaultMatrix;
   }
 
@@ -194,31 +247,117 @@ class PermissionEngineService {
    * Save permission matrix for a tenant
    */
   savePermissionMatrix(tenantId = 'default_tenant', matrix) {
+    const tenantKey = getTenantKey(tenantId);
     try {
-      localStorage.setItem(LOCAL_STORAGE_KEY_PREFIX + tenantId, JSON.stringify(matrix));
+      const jsonStr = JSON.stringify(matrix);
+      localStorage.setItem(LOCAL_STORAGE_KEY_PREFIX + tenantKey, jsonStr);
+      localStorage.setItem(LOCAL_STORAGE_KEY_PREFIX + 'default_tenant', jsonStr);
+      localStorage.setItem(LOCAL_STORAGE_KEY_PREFIX + 'default', jsonStr);
+
+      // Firebase Firestore Sync
+      FirebaseCloudEngine.saveRecord('permission_matrix', {
+        id: `matrix_${tenantKey}`,
+        tenantId: tenantKey,
+        matrix: matrix,
+        updatedAt: new Date().toISOString()
+      }, tenantKey).catch(err => console.warn('Firebase permission_matrix save warning:', err));
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('omnilflow_permissions_updated', {
+          detail: { tenantId: tenantKey }
+        }));
+      }
     } catch (e) {
       console.error('Failed to persist permission matrix', e);
     }
   }
 
   /**
+   * Sync permission matrix from Firebase Firestore
+   */
+  async syncFromCloud(tenantId = 'default_tenant') {
+    const tenantKey = getTenantKey(tenantId);
+    try {
+      const cloudRecords = await FirebaseCloudEngine.fetchRecords('permission_matrix', tenantKey);
+      if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
+        const latest = cloudRecords[0];
+        if (latest && latest.matrix) {
+          const jsonStr = JSON.stringify(latest.matrix);
+          localStorage.setItem(LOCAL_STORAGE_KEY_PREFIX + tenantKey, jsonStr);
+          localStorage.setItem(LOCAL_STORAGE_KEY_PREFIX + 'default_tenant', jsonStr);
+          localStorage.setItem(LOCAL_STORAGE_KEY_PREFIX + 'default', jsonStr);
+
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('omnilflow_permissions_updated', {
+              detail: { tenantId: tenantKey }
+            }));
+          }
+          console.log(`☁️ Synced Permission Matrix from Firebase Firestore for tenant: ${tenantKey}`);
+          return latest.matrix;
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to sync permission matrix from cloud:', err);
+    }
+    return null;
+  }
+
+  /**
+   * Real-time Firestore subscription
+   */
+  subscribeToCloudMatrix(tenantId = 'default_tenant', callback) {
+    const tenantKey = getTenantKey(tenantId);
+    return FirebaseCloudEngine.subscribeToCollection('permission_matrix', tenantKey, (records) => {
+      if (Array.isArray(records) && records.length > 0) {
+        const latest = records[0];
+        if (latest && latest.matrix) {
+          const jsonStr = JSON.stringify(latest.matrix);
+          localStorage.setItem(LOCAL_STORAGE_KEY_PREFIX + tenantKey, jsonStr);
+          localStorage.setItem(LOCAL_STORAGE_KEY_PREFIX + 'default_tenant', jsonStr);
+          localStorage.setItem(LOCAL_STORAGE_KEY_PREFIX + 'default', jsonStr);
+
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('omnilflow_permissions_updated', {
+              detail: { tenantId: tenantKey }
+            }));
+          }
+          if (typeof callback === 'function') callback(latest.matrix);
+        }
+      }
+    });
+  }
+
+  /**
    * Check if active user has permission for a specific action on a module
    */
-  can(userObj, moduleId, actionId) {
-    if (!userObj) return true; // Default fallback to allow if auth state unpopulated
-    const role = userObj.role || 'employee';
-
-    // Super Admin & Company Admin always have 100% full access
-    if (role === 'super_admin' || role === 'admin' || userObj.isSuperAdmin) {
+  can(userObj, moduleId, actionId = 'view') {
+    if (!userObj) return false;
+    
+    // SuperAdmin has platform god-mode
+    if (userObj.role === 'superadmin' || userObj.role === 'super_admin' || userObj.isSuperAdmin) {
       return true;
     }
 
-    const tenantId = userObj.tenantId || userObj.companyId || userObj.tenant_id || 'org_default';
-    const matrix = this.getPermissionMatrix(tenantId);
+    const tenantKey = getTenantKey(userObj.tenantId || userObj.companyId || userObj.tenant_id);
+
+    // 1. Check Feature Provisioning: if disabled by SuperAdmin globally or for this company -> return false immediately!
+    if (!FeatureProvisioningEngine.isModuleEnabledForTenant(moduleId, tenantKey, userObj)) {
+      return false;
+    }
+
+    const role = normalizeRole(userObj.role);
+    const matrix = this.getPermissionMatrix(tenantKey);
     const rolePerms = matrix.permissions?.[role];
 
     if (!rolePerms || !rolePerms[moduleId]) {
-      return true; // Fallback grant
+      // If Admin and not explicitly restricted, allow default access
+      if (role === 'admin') return true;
+      // Standard employee defaults
+      if (role === 'employee') {
+        const empAllowed = ['employees', 'my_attendance', 'leaves', 'shifts', 'notice_board', 'holidays', 'app_guide', 'settings'];
+        return empAllowed.includes(moduleId) && actionId === 'view';
+      }
+      return false;
     }
 
     const modPerm = rolePerms[moduleId];
@@ -237,13 +376,14 @@ class PermissionEngineService {
    */
   getRecordScope(userObj, moduleId) {
     if (!userObj) return 'all';
-    const role = userObj.role || 'employee';
-    if (role === 'super_admin' || role === 'admin' || userObj.isSuperAdmin) return 'all';
+    if (userObj.role === 'superadmin' || userObj.role === 'super_admin' || userObj.isSuperAdmin) return 'all';
 
-    const tenantId = userObj.tenantId || userObj.companyId || userObj.tenant_id || 'org_default';
-    const matrix = this.getPermissionMatrix(tenantId);
-    return matrix.permissions?.[role]?.[moduleId]?.scope || 'all';
+    const role = normalizeRole(userObj.role);
+    const tenantKey = getTenantKey(userObj.tenantId || userObj.companyId || userObj.tenant_id);
+    const matrix = this.getPermissionMatrix(tenantKey);
+    return matrix.permissions?.[role]?.[moduleId]?.scope || (role === 'admin' ? 'all' : 'own');
   }
 }
 
 export const PermissionEngine = new PermissionEngineService();
+export default PermissionEngine;

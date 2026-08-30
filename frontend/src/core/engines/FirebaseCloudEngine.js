@@ -75,7 +75,7 @@ class FirebaseCloudEngine {
     if (db) {
       try {
         const colRef = collection(db, collectionName);
-        const q = (activeTenantId === 'all' || activeTenantId === 'platform_superadmin')
+        const q = (activeTenantId === 'all')
           ? colRef
           : query(colRef, where('tenantId', '==', activeTenantId));
         const snap = await getDocs(q);
@@ -146,7 +146,14 @@ class FirebaseCloudEngine {
             key.startsWith('storage_config_') ||
             key.startsWith('whatsapp_crm_') ||
             key.startsWith('custom_columns_')
-          ) && key !== 'omnilflow_token' && key !== 'omnilflow_user'
+          ) && 
+          key !== 'omnilflow_token' && 
+          key !== 'omnilflow_user' &&
+          !key.startsWith('omnilflow_master_module_configs_') &&
+          !key.startsWith('omnilflow_config_') &&
+          !key.startsWith('omnilflow_system_dropdowns') &&
+          !key.startsWith('omnilflow_permission_matrix_') &&
+          !key.startsWith('omnilflow_feature_provisioning')
         ) {
           keysToRemove.push(key);
         }

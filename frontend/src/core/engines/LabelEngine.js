@@ -231,8 +231,8 @@ export class LabelEngine {
    * @param {string} code 
    * @returns {string}
    */
-  static getCurrencySymbol(code = 'USD') {
-    if (!code) return '$';
+  static getCurrencySymbol(code = 'INR') {
+    if (!code) return '₹';
     const upperCode = String(code).toUpperCase().trim();
     if (this.CURRENCY_SYMBOLS[upperCode]) return this.CURRENCY_SYMBOLS[upperCode];
     try {
@@ -259,9 +259,9 @@ export class LabelEngine {
 
     let activeCurr = targetCurrency;
     if (!activeCurr && typeof window !== 'undefined') {
-      activeCurr = localStorage.getItem('appCurrency') || 'USD';
+      activeCurr = localStorage.getItem('appCurrency') || 'INR';
     }
-    if (!activeCurr) activeCurr = 'USD';
+    if (!activeCurr) activeCurr = 'INR';
 
     let convertedNum = num;
     if (sourceCurrency && sourceCurrency !== activeCurr) {

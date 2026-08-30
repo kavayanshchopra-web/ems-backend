@@ -50,10 +50,17 @@ export class DefaultValueEngine {
    * @returns {Object}
    */
   static initializeFormState(fields = [], existingData = {}) {
-    const initialState = {};
-    fields.forEach(field => {
+    const initialState = { ...(existingData || {}) };
+    (fields || []).forEach(field => {
+      if (!field) return;
       if (existingData[field.id] !== undefined && existingData[field.id] !== null) {
         initialState[field.id] = existingData[field.id];
+      } else if (field.key && existingData[field.key] !== undefined && existingData[field.key] !== null) {
+        initialState[field.id] = existingData[field.key];
+      } else if (existingData.customFields && existingData.customFields[field.id] !== undefined) {
+        initialState[field.id] = existingData.customFields[field.id];
+      } else if (field.key && existingData.customFields && existingData.customFields[field.key] !== undefined) {
+        initialState[field.id] = existingData.customFields[field.key];
       } else {
         initialState[field.id] = this.getDefaultValue(field);
       }

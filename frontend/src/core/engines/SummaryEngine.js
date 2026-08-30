@@ -25,20 +25,22 @@ export class SummaryEngine {
    */
   static computeWidgetValue(widget, records = [], activePipelineStages = []) {
     if (!widget || !Array.isArray(records)) return 0;
+    const safeRecords = records.filter(r => !!r);
 
     // 1. TOTAL COUNT
     if (widget.metricType === 'TOTAL') {
-      return records.length;
+      return safeRecords.length;
     }
 
     // 2. SEMANTIC METRIC (e.g. INTERVIEW, OFFER, HIRED, WON, LOST)
     if (widget.metricType === 'SEMANTIC' && widget.semanticGroup) {
       const targetSemantic = String(widget.semanticGroup).toLowerCase();
 
-      return records.filter(r => {
+      return safeRecords.filter(r => {
+        if (!r) return false;
         const recStatus = getValString(r.status || r.stage).toLowerCase();
 
-        return activePipelineStages.some(s => {
+        return (activePipelineStages || []).filter(s => !!s).some(s => {
           const sName = getValString(s.name).toLowerCase();
           const sType = getValString(s.semanticType).toLowerCase();
           const sId = getValString(s.id).toLowerCase();
@@ -54,12 +56,13 @@ export class SummaryEngine {
     // 3. STAGE COUNT BY NAME
     if (widget.metricType === 'STAGE_COUNT' && widget.stageName) {
       const targetStage = String(widget.stageName).toLowerCase();
-      return records.filter(r => {
+      return safeRecords.filter(r => {
+        if (!r) return false;
         const recStatus = getValString(r.status || r.stage).toLowerCase();
         return recStatus === targetStage;
       }).length;
     }
 
-    return records.length;
+    return safeRecords.length;
   }
 }

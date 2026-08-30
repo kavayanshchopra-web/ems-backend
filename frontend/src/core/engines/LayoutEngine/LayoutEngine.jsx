@@ -1,4 +1,4 @@
-﻿/**
+/**
  * UNIVERSAL LAYOUT ENGINE SHELL
  * Master Page Shell Composing All 15 Master Engines for Any EMS Module
  */
@@ -126,15 +126,16 @@ export default function LayoutEngine({
   });
 
   const unwrapArchivedRecord = (item) => {
+    if (!item) return null;
     const payloadRec = item.payload?.record || item.entityData?.record || item.payload?.employee || item.payload?.candidate || item.payload?.asset || item.payload || {};
-    const trueId = item.originalId || payloadRec.id || payloadRec.originalId || item.id;
+    const trueId = item.originalId || payloadRec.id || payloadRec.originalId || item.id || `arch_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
     return {
       ...payloadRec,
       id: trueId,
       originalId: trueId,
       recycleBinId: item.id || trueId,
-      name: payloadRec.name || payloadRec.title || (payloadRec.first_name ? `${payloadRec.first_name || ''} ${payloadRec.last_name || ''}`.trim() : null) || item.name || item.title,
-      title: payloadRec.title || payloadRec.name || item.title || item.name,
+      name: payloadRec.name || payloadRec.title || (payloadRec.first_name ? `${payloadRec.first_name || ''} ${payloadRec.last_name || ''}`.trim() : null) || item.name || item.title || 'Archived Item',
+      title: payloadRec.title || payloadRec.name || item.title || item.name || 'Archived Item',
       createdAt: item.deletedAt || item.archivedAt || item.timestamp || payloadRec.createdAt,
       archivedBy: item.deletedBy || item.archivedBy || item.user || 'System Administrator',
       _vaultRawItem: item
@@ -143,8 +144,8 @@ export default function LayoutEngine({
 
   const isArchivedView = viewMode === 'archived';
   let initialModuleRecords = isArchivedView
-    ? archivedModuleItems.map(unwrapArchivedRecord)
-    : records;
+    ? (archivedModuleItems || []).map(unwrapArchivedRecord).filter(r => !!r)
+    : (records || []).filter(r => !!r);
 
   // Personal Data Scope Filtering for Employees on Tasks & Expenses Modules
   if (isUserScopedModule && isEmployeeRole && !isArchivedView) {
@@ -157,14 +158,6 @@ export default function LayoutEngine({
     const fullName = normalize(`${firstName} ${lastName}`);
 
     let empDirectory = [];
-    if (typeof window !== 'undefined') {
-      try {
-        const fall = JSON.parse(localStorage.getItem('omnilflow_fallback_employees') || '[]');
-        const reg = JSON.parse(localStorage.getItem('omniflow_registered_users') || '[]');
-        const empLoc = JSON.parse(localStorage.getItem('employees') || '[]');
-        empDirectory = [...fall, ...reg, ...empLoc];
-      } catch (e) {}
-    }
 
     const myExactIdentifiers = new Set();
     if (userEmail) myExactIdentifiers.add(userEmail);
@@ -211,20 +204,21 @@ export default function LayoutEngine({
     });
   }
 
-  const activeModuleRecords = initialModuleRecords;
+  const activeModuleRecords = (initialModuleRecords || []).filter(r => !!r);
 
   // 1. FILTERING ENGINE PIPELINE
   const searchMatchedRecords = SearchEngine.search(activeModuleRecords, searchQuery, moduleConfig);
   const filteredRecords = FilterEngine.filterRecords(searchMatchedRecords, filterValues, moduleConfig);
 
   // 2. SORTING ENGINE PIPELINE
-  const sortedRecords = [...filteredRecords].sort((a, b) => {
+  const sortedRecords = [...(filteredRecords || []).filter(r => !!r)].sort((a, b) => {
+    if (!a || !b) return 0;
     let valA = a[sortKey];
     let valB = b[sortKey];
 
     if (sortKey === 'createdAt') {
-      valA = new Date(a.createdAt || 0).getTime();
-      valB = new Date(b.createdAt || 0).getTime();
+      valA = new Date(a?.createdAt || 0).getTime();
+      valB = new Date(b?.createdAt || 0).getTime();
       return sortDir === 'asc' ? valA - valB : valB - valA;
     }
 
@@ -384,6 +378,7 @@ export default function LayoutEngine({
         handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
         softDeleteRecord={softDeleteRecord}
         showToast={showToast}
+        authUser={authUser}
       />
 
       {/* F. UNIVERSAL CUSTOM EXPORT WIZARD MODAL */}

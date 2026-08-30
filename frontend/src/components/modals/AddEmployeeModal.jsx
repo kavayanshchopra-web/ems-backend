@@ -103,10 +103,7 @@ export default function AddEmployeeModal({
                 <option value="agent">Field Agent / Support Staff</option>
                 <option value="manager">Operations Manager</option>
                 <option value="hr_accountant">HR & Accountant Lead</option>
-                <option value="owner">Company Owner Admin</option>
-                {authUser?.role === 'superadmin' && (
-                  <option value="superadmin">👑 Master Super Admin</option>
-                )}
+                <option value="admin">Company Owner / Admin</option>
               </select>
             </div>
             <div>

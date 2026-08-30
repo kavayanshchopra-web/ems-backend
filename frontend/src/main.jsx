@@ -17,6 +17,7 @@ class ErrorBoundary extends Component {
 
   componentDidCatch(error, errorInfo) {
     console.error("App Crash Caught:", error, errorInfo);
+    this.setState({ errorInfo });
   }
 
   render() {
@@ -48,18 +49,32 @@ class ErrorBoundary extends Component {
 
           {this.state.error && (
             <div style={{
-              background: 'rgba(0,0,0,0.3)',
-              padding: '12px',
+              background: 'rgba(0,0,0,0.5)',
+              padding: '16px',
               borderRadius: '8px',
-              border: '1px solid rgba(255,255,255,0.1)',
-              fontSize: '11px',
+              border: '1px solid rgba(255,255,255,0.2)',
+              fontSize: '12px',
               color: '#f87171',
-              maxWidth: '500px',
+              maxWidth: '800px',
+              maxHeight: '300px',
+              overflowY: 'auto',
+              textAlign: 'left',
               wordBreak: 'break-word',
               marginBottom: '20px',
-              fontFamily: 'monospace'
+              fontFamily: 'monospace',
+              whiteSpace: 'pre-wrap'
             }}>
-              {this.state.error.toString()}
+              <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>{this.state.error.toString()}</div>
+              {this.state.error?.stack && (
+                <div style={{ color: '#cbd5e1', fontSize: '10px', marginTop: '6px' }}>
+                  {this.state.error.stack}
+                </div>
+              )}
+              {this.state.errorInfo?.componentStack && (
+                <div style={{ color: '#93c5fd', fontSize: '10px', marginTop: '6px' }}>
+                  Component Stack:{this.state.errorInfo.componentStack}
+                </div>
+              )}
             </div>
           )}
 

@@ -13,6 +13,7 @@ import { getNextSequentialId } from '../../../services/atsStorageService';
 
 import FirebaseCloudEngine from '../FirebaseCloudEngine';
 import { AuditEngine } from '../AuditEngine/AuditEngine';
+import { db, doc, setDoc, createEmployeeAuthAccount } from '../../../firebase.js';
 
 export default function ActionEngine({
   moduleConfig = {},
@@ -40,17 +41,20 @@ export default function ActionEngine({
   handleRestoreBinItem = () => {},
   handlePermanentDeleteBinItem = () => {},
   softDeleteRecord = () => {},
-  showToast = () => {}
+  showToast = () => {},
+  authUser = null
 }) {
   const [internalRecordToArchive, setInternalRecordToArchive] = useState(null);
 
   const handleSaveRecord = (formData) => {
     const now = new Date().toISOString();
     const entityName = LabelEngine.getEntityName(moduleConfig);
+    const activeTenantId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id || FirebaseCloudEngine.getTenantId();
 
     const normalizedData = {
       ...formData,
-      name: formData.name || formData.fullName || formData.employeeName || formData.candidateName || formData.title || ''
+      name: formData.name || formData.fullName || formData.employeeName || formData.candidateName || formData.title || '',
+      tenantId: activeTenantId
     };
 
     const isCrmModule = moduleConfig.moduleId === 'crm_deals' || moduleConfig.moduleId === 'crm_leads' || moduleConfig.moduleId === 'crm';
@@ -75,7 +79,7 @@ export default function ActionEngine({
 
       const editedRec = updatedList.find(r => r.id === selectedRecord.id);
       if (editedRec && moduleConfig.moduleId) {
-        FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, editedRec, 'acme_corp');
+        FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, editedRec, activeTenantId);
       }
 
       // Sync CRM update with SQLite backend & GHL
@@ -119,7 +123,7 @@ export default function ActionEngine({
       const cleanPhone = (normalizedData.phone || '').replace(/[^0-9]/g, '');
       const nextSeqId = isCrmModule && cleanPhone 
         ? `${cleanPhone}@s.whatsapp.net` 
-        : getNextSequentialId('default_tenant', moduleConfig.moduleId || 'recruitment_ats', moduleConfig, records);
+        : getNextSequentialId(activeTenantId, moduleConfig.moduleId || 'recruitment_ats', moduleConfig, records);
 
       const newRec = {
         id: nextSeqId,
@@ -127,12 +131,13 @@ export default function ActionEngine({
         createdAt: now,
         updatedAt: now,
         archived: false,
-        lifecycleStatus: 'ACTIVE'
+        lifecycleStatus: 'ACTIVE',
+        tenantId: activeTenantId
       };
       setRecords([newRec, ...records]);
 
       if (moduleConfig.moduleId) {
-        FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, newRec, 'acme_corp');
+        FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, newRec, activeTenantId);
       }
 
       // Sync new CRM Deal to SQLite backend & GHL
@@ -175,17 +180,66 @@ export default function ActionEngine({
 
       // Save user credentials for workspace login if password is provided
       if (normalizedData.password) {
+        const cleanEmpEmail = (normalizedData.email || '').toLowerCase().trim();
+        const empFullName = normalizedData.name || normalizedData.title || 'Staff User';
+        const empRole = normalizedData.role || 'employee';
+        const empDept = normalizedData.department || 'Operations';
+
+        // 1. Create real Firebase Auth Account
+        (async () => {
+          let createdUid = null;
+          try {
+            const authUserRes = await createEmployeeAuthAccount(cleanEmpEmail, normalizedData.password);
+            if (authUserRes && authUserRes.uid) {
+              createdUid = authUserRes.uid;
+            }
+          } catch (authErr) {
+            console.warn('Firebase Auth create note:', authErr.message);
+          }
+
+          const targetUid = createdUid || `emp_user_${Date.now()}`;
+
+          // 2. Save profile in Firestore
+          if (db) {
+            try {
+              await setDoc(doc(db, 'user_profiles', targetUid), {
+                uid: targetUid,
+                email: cleanEmpEmail,
+                name: empFullName,
+                role: empRole,
+                department: empDept,
+                tenantId: activeTenantId,
+                companyId: activeTenantId,
+                createdAt: now
+              }, { merge: true });
+
+              await setDoc(doc(db, 'users', targetUid), {
+                id: targetUid,
+                email: cleanEmpEmail,
+                name: empFullName,
+                role: empRole,
+                department: empDept,
+                tenantId: activeTenantId,
+                companyId: activeTenantId,
+                createdAt: now
+              }, { merge: true });
+            } catch (dbErr) {
+              console.warn('Firestore profile sync error:', dbErr.message);
+            }
+          }
+        })();
+
         try {
           const userAccountObj = {
-            email: (normalizedData.email || '').toLowerCase().trim(),
+            email: cleanEmpEmail,
             password: normalizedData.password,
-            name: normalizedData.name || normalizedData.title || 'Staff User',
-            role: normalizedData.role || 'staff',
-            department: normalizedData.department || 'Operations',
-            tenantId: 'acme_corp'
+            name: empFullName,
+            role: empRole,
+            department: empDept,
+            tenantId: activeTenantId
           };
           const savedAccounts = JSON.parse(localStorage.getItem('omniflow_registered_users') || '[]');
-          const updatedAccounts = [userAccountObj, ...savedAccounts.filter(a => a.email !== userAccountObj.email)];
+          const updatedAccounts = [userAccountObj, ...savedAccounts.filter(a => a.email !== cleanEmpEmail)];
           localStorage.setItem('omniflow_registered_users', JSON.stringify(updatedAccounts));
         } catch (e) {}
       }
@@ -254,7 +308,7 @@ export default function ActionEngine({
       });
     }
 
-    const updatedList = records.filter(r => r.id !== record.id);
+    const updatedList = (records || []).filter(r => r && r.id !== record?.id);
     setRecords(updatedList);
 
     // Broadcast config/data update event
@@ -274,6 +328,7 @@ export default function ActionEngine({
   };
 
   const handleRestoreArchivedRecord = (item) => {
+    if (!item) return;
     const payloadRec = item.payload?.record || item.entityData?.record || item.payload?.candidate || item.payload || {};
     const entityName = LabelEngine.getEntityName(moduleConfig);
 
@@ -286,7 +341,7 @@ export default function ActionEngine({
       updatedAt: new Date().toISOString()
     };
 
-    setRecords([restoredRecord, ...records.filter(r => r.id !== restoredRecord.id)]);
+    setRecords([restoredRecord, ...(records || []).filter(r => r && r.id !== restoredRecord.id)]);
 
     if (moduleConfig.moduleId) {
       FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, restoredRecord, 'acme_corp');
