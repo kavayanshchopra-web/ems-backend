@@ -119,6 +119,14 @@ export default function IntegrationsPage({
       if (res.ok) {
         const data = await res.json();
         if (data.connected && data.locationId) {
+          // Strict Tenant Verification Shield
+          const recordTenant = data.companyId || data.tenantId || data.tenant_id;
+          if (recordTenant && !isSuperAdmin && String(recordTenant) !== String(cleanCompanyId) && cleanCompanyId !== 'default_tenant') {
+            setGhlLocations([]);
+            setGhlSyncLogs([]);
+            return;
+          }
+
           setGhlLocations([{
             id: `ghl_${data.locationId}`,
             locationId: data.locationId,

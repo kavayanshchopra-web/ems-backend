@@ -6885,8 +6885,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {activeTab === 'integrations' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>? Loading Integrations & Webhooks Center...</div>}>
             <IntegrationsPage
-              companyId={authUser?.companyId || authUser?.tenant_id || 'default_tenant'}
-              authUser={authUser}
+              companyId={effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || effectiveAuthUser?.tenantId || 'default_tenant'}
+              authUser={effectiveAuthUser}
               showToast={showToast}
             />
           </Suspense>

@@ -16,18 +16,22 @@ import crypto from 'crypto';
 export function normalizePhoneToE164(rawPhone, defaultCountryCode = '91') {
   if (!rawPhone || typeof rawPhone !== 'string') return null;
 
-  // 1. Strip WhatsApp JID suffixes
+  // 1. Skip WhatsApp Groups, Broadcasts, and group JIDs
+  if (rawPhone.includes('@g.us') || rawPhone.includes('@broadcast') || rawPhone.includes('status@') || (rawPhone.includes('-') && rawPhone.length > 15)) {
+    return null; // Groups are not individual contacts
+  }
+
+  // 2. Strip WhatsApp JID suffixes
   let cleaned = rawPhone
     .replace(/@s\.whatsapp\.net/gi, '')
-    .replace(/@g\.us/gi, '')
     .replace(/@lid/gi, '')
     .trim();
 
-  // 2. Remove all formatting characters except leading '+'
+  // 3. Remove all formatting characters except leading '+'
   const hasLeadingPlus = cleaned.startsWith('+');
   const digitsOnly = cleaned.replace(/\D/g, '');
 
-  if (!digitsOnly || digitsOnly.length < 7) {
+  if (!digitsOnly || digitsOnly.length < 7 || digitsOnly.length > 15) {
     return null; // Invalid length for phone number
   }
 

@@ -145,47 +145,69 @@ export async function authMiddleware(req, res, next) {
     req.path.startsWith('/calls') ||
     req.path.startsWith('/telecalling')
   ) {
-    // Attempt optional token extraction if provided
+    const headerTenant = req.headers['x-tenant-id'] || req.headers['x-company-id'] || null;
     const authHeader = req.headers['authorization'];
     const token = authHeader ? authHeader.split(' ')[1] : null;
     if (token) {
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
-        req.user = decoded;
+        req.user = {
+          ...decoded,
+          tenant_id: headerTenant || decoded.tenant_id || decoded.tenantId || decoded.companyId || 1
+        };
       } catch {
         try {
           const unverified = jwt.decode(token);
-          req.user = { id: unverified?.sub || 1, email: unverified?.email || 'admin@omniflow.com', role: 'admin', tenant_id: 1 };
+          req.user = { 
+            id: unverified?.sub || 1, 
+            email: unverified?.email || 'admin@omniflow.com', 
+            role: unverified?.role || 'admin', 
+            tenant_id: headerTenant || unverified?.tenant_id || unverified?.tenantId || 1 
+          };
         } catch {
-          req.user = { id: 1, email: 'admin@omniflow.com', role: 'admin', tenant_id: 1 };
+          req.user = { id: 1, email: 'admin@omniflow.com', role: 'admin', tenant_id: headerTenant || 1 };
         }
       }
     } else {
-      req.user = { id: 1, email: 'admin@omniflow.com', role: 'admin', tenant_id: 1 };
+      req.user = { id: 1, email: 'admin@omniflow.com', role: 'admin', tenant_id: headerTenant || 1 };
     }
     return next();
   }
 
   const authHeader = req.headers['authorization'];
   const token = authHeader ? authHeader.split(' ')[1] : null;
+  const headerTenant = req.headers['x-tenant-id'] || req.headers['x-company-id'] || null;
 
   if (token) {
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
-      req.user = decoded; // { id, email, role, tenant_id }
+      req.user = {
+        ...decoded,
+        tenant_id: headerTenant || decoded.tenant_id || decoded.tenantId || decoded.companyId || 1
+      };
       return next();
     } catch (err) {
       // Support Firebase / client tokens gracefully
       try {
         const unverified = jwt.decode(token);
         if (unverified && (unverified.email || unverified.user_id || unverified.sub)) {
-          req.user = { id: 1, email: unverified.email || 'admin@omniflow.com', role: 'admin', tenant_id: 1 };
+          req.user = {
+            id: unverified.user_id || unverified.sub || 1,
+            email: unverified.email || 'admin@omniflow.com',
+            role: unverified.role || 'admin',
+            tenant_id: headerTenant || unverified.tenant_id || unverified.tenantId || 1
+          };
           return next();
         }
       } catch {}
 
       if (token === 'superadmin_master_token_override' || token.startsWith('firebase_') || token.startsWith('emp_token_')) {
-        req.user = { id: 1, email: 'admin@omniflow.com', role: 'admin', tenant_id: 1 };
+        req.user = { 
+          id: 1, 
+          email: 'admin@omniflow.com', 
+          role: 'admin', 
+          tenant_id: headerTenant || 1 
+        };
         return next();
       }
 
@@ -195,7 +217,7 @@ export async function authMiddleware(req, res, next) {
 
   // Explicit local development fallback
   if (process.env.NODE_ENV === 'development' || process.env.ALLOW_DEV_SUPERADMIN_FALLBACK === 'true') {
-    req.user = { id: 1, email: 'admin@omniflow.com', role: 'superadmin', tenant_id: 1 };
+    req.user = { id: 1, email: 'admin@omniflow.com', role: 'superadmin', tenant_id: headerTenant || 1 };
     return next();
   }
 
@@ -1820,10 +1842,25 @@ export default function setupRoutes(io) {
     }
   });
 
-  // 2. Safe Connection Status (Never exposes secrets or tokens)
+  // Helper for strict tenant resolution
+  const resolveGhlTenantId = (req) => {
+    return req.user?.tenant_id || 
+           req.user?.companyId || 
+           req.headers['x-tenant-id'] || 
+           req.query?.companyId || 
+           req.query?.tenantId || 
+           req.body?.companyId || 
+           req.body?.tenantId || 
+           null;
+  };
+
+  // 2. Safe Connection Status (Never exposes secrets or tokens, isolated by tenant)
   router.get('/v1/integrations/ghl/status', async (req, res) => {
     try {
-      const tenantId = req.user?.tenant_id || 1;
+      const tenantId = resolveGhlTenantId(req);
+      if (!tenantId) {
+        return res.json({ success: true, connected: false, locationId: null, companyId: null });
+      }
       const status = await ghlAuthService.getTenantConnectionStatus(tenantId);
       res.json({ success: true, ...status });
     } catch (err) {
@@ -1835,7 +1872,10 @@ export default function setupRoutes(io) {
   // 3. Disconnect GHL Sub-Account
   router.post('/v1/integrations/ghl/oauth/disconnect', async (req, res) => {
     try {
-      const tenantId = req.user?.tenant_id || 1;
+      const tenantId = resolveGhlTenantId(req);
+      if (!tenantId) {
+        return res.status(400).json({ error: 'Tenant ID is required to disconnect' });
+      }
       const result = await ghlAuthService.disconnectTenant(tenantId);
       res.json(result);
     } catch (err) {
@@ -2001,7 +2041,8 @@ export default function setupRoutes(io) {
   // 5. Get GHL Contact by GHL ID
   router.get('/v1/integrations/ghl/contacts/:id', async (req, res) => {
     try {
-      const tenantId = req.user?.tenant_id || 1;
+      const tenantId = resolveGhlTenantId(req);
+      if (!tenantId) return res.status(400).json({ error: 'Tenant ID is required', code: 'GHL_TENANT_REQUIRED' });
       const integration = await getGhlIntegrationByTenant(tenantId);
       if (!integration || !integration.location_id) {
         return res.status(400).json({ error: 'GoHighLevel is not connected for this tenant', code: 'GHL_NOT_CONNECTED' });
@@ -2017,7 +2058,8 @@ export default function setupRoutes(io) {
   // 6. Sync Single EMS Contact to GHL
   router.post('/v1/integrations/ghl/contacts/:id/sync', async (req, res) => {
     try {
-      const tenantId = req.user?.tenant_id || 1;
+      const tenantId = resolveGhlTenantId(req);
+      if (!tenantId) return res.status(400).json({ error: 'Tenant ID is required', code: 'GHL_TENANT_REQUIRED' });
       const emsContactId = req.params.id;
       const result = await ghlSyncEngine.syncContactToGhl(tenantId, emsContactId);
       res.json({ success: true, ...result });
@@ -2030,7 +2072,8 @@ export default function setupRoutes(io) {
   // 7. Batch Sync All EMS Contacts to GHL
   router.post('/v1/integrations/ghl/contacts/sync-all', async (req, res) => {
     try {
-      const tenantId = req.user?.tenant_id || 1;
+      const tenantId = resolveGhlTenantId(req);
+      if (!tenantId) return res.status(400).json({ error: 'Tenant ID is required', code: 'GHL_TENANT_REQUIRED' });
       const summary = await ghlSyncEngine.syncAllContactsToGhl(tenantId);
       res.json({ success: true, ...summary });
     } catch (err) {
@@ -2042,7 +2085,8 @@ export default function setupRoutes(io) {
   // 8. Import GHL Contact to EMS
   router.post('/v1/integrations/ghl/contacts/import', async (req, res) => {
     try {
-      const tenantId = req.user?.tenant_id || 1;
+      const tenantId = resolveGhlTenantId(req);
+      if (!tenantId) return res.status(400).json({ error: 'Tenant ID is required', code: 'GHL_TENANT_REQUIRED' });
       const { ghlContactId, contactData } = req.body;
       if (!ghlContactId) {
         return res.status(400).json({ error: 'ghlContactId is required', code: 'GHL_VALIDATION_ERROR' });
@@ -2058,7 +2102,10 @@ export default function setupRoutes(io) {
   // 9. Get GHL Sync Logs for Tenant
   router.get('/v1/integrations/ghl/logs', async (req, res) => {
     try {
-      const tenantId = req.user?.tenant_id || 1;
+      const tenantId = resolveGhlTenantId(req);
+      if (!tenantId) {
+        return res.json({ success: true, logs: [] });
+      }
       const limit = parseInt(req.query.limit, 10) || 50;
       const logs = await getGhlSyncLogs(tenantId, null, limit);
       res.json({ success: true, logs });

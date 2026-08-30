@@ -225,7 +225,10 @@ export class GhlApiClient {
       locationId,
       method: 'PUT',
       path: `/contacts/${ghlContactId}`,
-      body: contactPayload
+      body: {
+        locationId,
+        ...contactPayload
+      }
     });
   }
 

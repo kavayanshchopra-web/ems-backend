@@ -24,17 +24,20 @@ if %errorlevel% neq 0 (
   exit /b %errorlevel%
 )
 
-echo.
-echo [2/3] Staging and pushing frontend updates to Git...
+echo [2/3] Staging and pushing frontend & backend updates to Git...
 cd /d "%~dp0"
 git add -f frontend/dist/
 git add frontend/
+git add routes.js
+git add services/
+git add db.js
+git add server.js
 git add vercel.json
 git add package.json
 git add .gitignore
 git add DEPLOY_TO_PRODUCTION_LIVE.bat
 set GIT_EDITOR=true
-git commit -m "Production Deploy: Verified feature updates to Live Domain"
+git commit -m "Production Deploy: Dynamic Dashboard Engine, Multi-Tenant GHL Isolation, Currency and RBAC fixes"
 git push origin main
 
 echo.

@@ -47,6 +47,16 @@ export class GhlSyncEngine {
     if (!tenantId) throw new GhlApiError('tenantId is required for contact sync', 'GHL_VALIDATION_ERROR', 400);
     if (!emsContactId) throw new GhlApiError('emsContactId is required for contact sync', 'GHL_VALIDATION_ERROR', 400);
 
+    // Skip WhatsApp Groups & Broadcasts
+    const idStr = String(emsContactId);
+    if (idStr.includes('@g.us') || idStr.includes('@broadcast') || idStr.includes('status@') || (idStr.includes('-') && idStr.length > 15)) {
+      return {
+        status: 'skipped',
+        reason: 'whatsapp_group_or_broadcast',
+        emsContactId
+      };
+    }
+
     // 1. Verify tenant has an active GHL integration
     const integration = await getGhlIntegrationByTenant(tenantId);
     if (!integration || !integration.is_active || !integration.location_id) {
@@ -58,6 +68,15 @@ export class GhlSyncEngine {
     const emsContact = await getContact(emsContactId, tenantId);
     if (!emsContact) {
       throw new GhlApiError(`EMS Contact "${emsContactId}" not found in tenant ${tenantId}`, 'GHL_NOT_FOUND', 404);
+    }
+
+    // Skip groups if phone or name is invalid
+    if (String(emsContact.phone || '').includes('@g.us') || String(emsContact.phone || '').includes('-')) {
+      return {
+        status: 'skipped',
+        reason: 'whatsapp_group_or_broadcast',
+        emsContactId
+      };
     }
 
     // 3. Compute deterministic payload hash for loop suppression
