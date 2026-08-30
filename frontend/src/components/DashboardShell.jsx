@@ -677,11 +677,19 @@ export const ALL_WORLD_LANGUAGES = [
 export default function DashboardShell({ authUser, setAuthUser }) {
   // Install fetch interceptor lazily (not at module scope) to avoid Rolldown TDZ in production bundle
   installFetchInterceptor();
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      if (auth) await signOut(auth);
+    } catch (e) {}
+    FirebaseCloudEngine.purgeAllLocalCaches();
     localStorage.removeItem('omnilflow_token');
     localStorage.removeItem('omnilflow_user');
-    if (setAuthUser) setAuthUser(null);
-    window.location.reload();
+    sessionStorage.clear();
+    if (typeof setAuthUser === 'function') {
+      setAuthUser(null);
+    } else {
+      window.location.reload();
+    }
   };
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -2828,28 +2836,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   });
   const [adminPlansError, setAdminPlansError] = useState(null);
   const [adminPlansLoading, setAdminPlansLoading] = useState(false);
-  // Employee Directory states with default rich team records
-  const [employees, setEmployees] = useState(() => {
-    const saved = localStorage.getItem('omnilflow_fallback_employees');
-    if (saved !== null) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          // Clean out legacy dummy seed records & old test records (emp_001, emp_002, emp_003, emp_004, EMP-0271, EMP-0012, EMP-0013)
-          const cleaned = parsed.filter(e => !!e);
-          localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(cleaned));
-          try { localStorage.setItem('omnilflow_cloud_cache_employees', JSON.stringify(cleaned)); } catch (e) {}
-          return cleaned;
-        }
-      } catch (e) {}
-    }
-    const defaultRoster = [];
-    try {
-      localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(defaultRoster));
-      localStorage.setItem('omnilflow_cloud_cache_employees', JSON.stringify(defaultRoster));
-    } catch (e) {}
-    return defaultRoster;
-  });
+  // Employee Directory state (100% Cloud-Isolated & Private per Tenant)
+  const [employees, setEmployees] = useState([]);
   const [isEmployeesLoading, setIsEmployeesLoading] = useState(false);
   const [employeesError, setEmployeesError] = useState(null);
   const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
@@ -3581,43 +3569,27 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const fetchEmployees = async () => {
     setIsEmployeesLoading(true);
     setEmployeesError(null);
-    const saved = localStorage.getItem('omnilflow_fallback_employees');
-    let localList = [];
-    if (saved !== null) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          localList = parsed.filter(e => !isDummyRecord(e));
-          localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(localList));
-        }
-      } catch (e) {}
-    }
-    // 1. Primary: Firebase Cloud Engine (with domain & tenant isolation)
     try {
-      const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
+      const currentTenantId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id;
       const cloudRecords = await FirebaseCloudEngine.fetchRecords('employees', currentTenantId);
       if (Array.isArray(cloudRecords)) {
-        const map = new Map();
-        localList.forEach(e => { if (e && e.id) map.set(String(e.id), e); });
-        cloudRecords.forEach(e => { if (e && e.id) map.set(String(e.id), e); });
-        const cleaned = Array.from(map.values()).filter(e => !isDummyRecord(e));
+        const cleaned = cloudRecords.filter(e => !isDummyRecord(e));
         setEmployees(cleaned);
-        localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(cleaned));
-        setIsEmployeesLoading(false);
-        return;
+      } else {
+        setEmployees([]);
       }
     } catch (fbErr) {
       console.warn('Firebase firestore query error:', fbErr.message);
+      setEmployees([]);
+    } finally {
+      setIsEmployeesLoading(false);
     }
-    // 2. Local State Fallback (Pure Client-Side)
-    setEmployees(localList);
-    setIsEmployeesLoading(false);
   };
   const handleCreateEmployee = async (e) => {
     e.preventDefault();
     setIsEmployeesLoading(true);
     const isEdit = !!newEmployeeForm.id;
-    const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
+    const currentTenantId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id;
     const activeTenantId = FirebaseCloudEngine.getTenantId(currentTenantId);
     const newEmpObj = {
       id: isEdit ? newEmployeeForm.id : getNextSequentialId(currentTenantId, 'employees', null, employees),
@@ -3631,16 +3603,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       status: newEmployeeForm.status || 'active',
       tenantId: activeTenantId
     };
-    // 1. Instant Local State & Fallback LocalStorage Sync
+    // 1. Instant Local State
     setEmployees(prev => {
-      let updated;
       if (isEdit) {
-        updated = prev.map(emp => emp.id === newEmployeeForm.id ? { ...emp, ...newEmpObj } : emp);
+        return prev.map(emp => emp.id === newEmployeeForm.id ? { ...emp, ...newEmpObj } : emp);
       } else {
-        updated = [newEmpObj, ...prev.filter(e => e.id !== newEmpObj.id)];
+        return [newEmpObj, ...prev.filter(e => e.id !== newEmpObj.id)];
       }
-      localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(updated));
-      return updated;
     });
     // 2. Save to Backend REST API
     try {
@@ -3649,13 +3618,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newEmployeeForm)
+        body: JSON.stringify({ ...newEmployeeForm, tenantId: activeTenantId })
       });
     } catch (err) {
-      console.warn('Backend employee save failed, preserved in local store:', err.message);
+      console.warn('Backend employee save notice:', err.message);
     }
-    // 3. Save to Cloud Firestore & Local Engine Cache
-    FirebaseCloudEngine.saveRecord('employees', newEmpObj, activeTenantId);
+    // 3. Save to Cloud Firestore
+    await FirebaseCloudEngine.saveRecord('employees', newEmpObj, activeTenantId);
     // 4. Save Registered Login User Credentials for Workspace Login
     if (newEmployeeForm.password) {
       try {

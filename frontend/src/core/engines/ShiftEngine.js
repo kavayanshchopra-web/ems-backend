@@ -8,9 +8,9 @@
 import TrashVaultEngine from './TrashVaultEngine';
 import FirebaseCloudEngine from './FirebaseCloudEngine';
 
-const PROFILES_STORAGE_KEY = 'whatsapp_crm_shift_profiles';
-const ROSTER_STORAGE_KEY = 'whatsapp_crm_shift_rosters';
-const OVERRIDES_STORAGE_KEY = 'whatsapp_crm_shift_overrides';
+const getProfilesKey = (tenantId = 'org_default') => `whatsapp_crm_shift_profiles_${tenantId || 'org_default'}`;
+const getRosterKey = (tenantId = 'org_default') => `whatsapp_crm_shift_rosters_${tenantId || 'org_default'}`;
+const getOverridesKey = (tenantId = 'org_default') => `whatsapp_crm_shift_overrides_${tenantId || 'org_default'}`;
 
 const DEFAULT_SHIFT_PROFILES = [
   {
@@ -78,9 +78,10 @@ class ShiftEngine {
   /**
    * Get all active Shift Profiles
    */
-  static getShiftProfiles() {
+  static getShiftProfiles(tenantId = 'org_default') {
+    const key = getProfilesKey(tenantId);
     try {
-      const saved = localStorage.getItem(PROFILES_STORAGE_KEY);
+      const saved = localStorage.getItem(key);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -89,15 +90,17 @@ class ShiftEngine {
       console.error('Error fetching shift profiles:', e);
     }
     // Seed default profiles
-    localStorage.setItem(PROFILES_STORAGE_KEY, JSON.stringify(DEFAULT_SHIFT_PROFILES));
+    localStorage.setItem(key, JSON.stringify(DEFAULT_SHIFT_PROFILES));
     return DEFAULT_SHIFT_PROFILES;
   }
 
   /**
    * Save / Update a Shift Profile
    */
-  static saveShiftProfile(profileData) {
-    const profiles = this.getShiftProfiles();
+  static saveShiftProfile(profileData, tenantId = 'org_default') {
+    const activeTenant = tenantId || profileData.tenantId || 'org_default';
+    const key = getProfilesKey(activeTenant);
+    const profiles = this.getShiftProfiles(activeTenant);
     let updated;
     if (profileData.id) {
       updated = profiles.map(p => p.id === profileData.id ? { ...p, ...profileData } : p);
@@ -110,21 +113,23 @@ class ShiftEngine {
       };
       updated = [...profiles, newProfile];
     }
-    localStorage.setItem(PROFILES_STORAGE_KEY, JSON.stringify(updated));
-    FirebaseCloudEngine.saveRecord('shift_profiles', profileData, profileData.tenantId || 'acme_corp');
+    localStorage.setItem(key, JSON.stringify(updated));
+    FirebaseCloudEngine.saveRecord('shift_profiles', profileData, activeTenant);
     return updated;
   }
 
   /**
    * Soft Delete Shift Profile (moves to TrashVaultEngine)
    */
-  static deleteShiftProfile(profileId, actorEmail = 'admin@company.com', tenantId = 'acme_corp') {
-    const profiles = this.getShiftProfiles();
+  static deleteShiftProfile(profileId, actorEmail = 'admin@company.com', tenantId = 'org_default') {
+    const activeTenant = tenantId || 'org_default';
+    const key = getProfilesKey(activeTenant);
+    const profiles = this.getShiftProfiles(activeTenant);
     const target = profiles.find(p => p.id === profileId);
     if (!target) return profiles;
 
     // Archive via TrashVaultEngine
-    TrashVaultEngine.moveToTrash({
+    TrashVaultEngine.moveToTrash(activeTenant, {
       originalId: profileId,
       name: `Shift Profile: "${target.name}" (${target.startTime} - ${target.endTime})`,
       category: 'Shift Profile',
@@ -132,11 +137,11 @@ class ShiftEngine {
       links: 'Attendance Grace Calculator & Monthly Roster Rules',
       deletedBy: 'HR Manager',
       deletedByEmail: actorEmail,
-      tenantId
+      tenantId: activeTenant
     });
 
     const updated = profiles.filter(p => p.id !== profileId);
-    localStorage.setItem(PROFILES_STORAGE_KEY, JSON.stringify(updated));
+    localStorage.setItem(key, JSON.stringify(updated));
     return updated;
   }
 
@@ -144,9 +149,11 @@ class ShiftEngine {
    * Get 7-Day Weekly Roster Matrix
    */
   static getWeeklyRoster(employeesList = [], authUser = null) {
+    const activeTenant = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 'org_default';
+    const key = getRosterKey(activeTenant);
     let roster = [];
     try {
-      const saved = localStorage.getItem(ROSTER_STORAGE_KEY);
+      const saved = localStorage.getItem(key);
       if (saved) {
         let rosterMap = JSON.parse(saved);
         if (Array.isArray(rosterMap) && rosterMap.length > 0) {
@@ -157,19 +164,10 @@ class ShiftEngine {
       console.error('Error fetching roster:', e);
     }
 
-    const effectiveEmployees = Array.isArray(employeesList) && employeesList.length > 0
-      ? employeesList
-      : (authUser ? [{
-          id: authUser.id || 'emp_current',
-          name: authUser.name || 'Admin User',
-          first_name: authUser.first_name || (authUser.name ? authUser.name.split(' ')[0] : 'Admin'),
-          last_name: authUser.last_name || (authUser.name && authUser.name.split(' ').length > 1 ? authUser.name.split(' ').slice(1).join(' ') : 'User'),
-          role: authUser.role || 'HR Admin',
-          department: authUser.department || 'Management'
-        }] : []);
+    const effectiveEmployees = Array.isArray(employeesList) ? employeesList : [];
 
     effectiveEmployees.forEach(emp => {
-      if (!roster.some(r => String(r.empId) === String(emp.id))) {
+      if (emp && emp.id && !roster.some(r => String(r.empId) === String(emp.id))) {
         const empName = `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.name || `Employee #${emp.id}`;
         roster.push({
           empId: emp.id,
@@ -189,15 +187,16 @@ class ShiftEngine {
       }
     });
 
-    localStorage.setItem(ROSTER_STORAGE_KEY, JSON.stringify(roster));
+    localStorage.setItem(key, JSON.stringify(roster));
     return roster;
   }
 
   /**
    * Assign / Update Employee Shift for specific days or bulk
    */
-  static updateEmployeeRoster(empId, dayKey, shiftId) {
-    const roster = this.getWeeklyRoster();
+  static updateEmployeeRoster(empId, dayKey, shiftId, tenantId = 'org_default') {
+    const key = getRosterKey(tenantId);
+    const roster = this.getWeeklyRoster([], { tenantId });
     const updated = roster.map(item => {
       if (item.empId === empId) {
         return {
@@ -210,15 +209,16 @@ class ShiftEngine {
       }
       return item;
     });
-    localStorage.setItem(ROSTER_STORAGE_KEY, JSON.stringify(updated));
+    localStorage.setItem(key, JSON.stringify(updated));
     return updated;
   }
 
   /**
    * Bulk Assign Shift to multiple employees
    */
-  static bulkAssignShift(empIds = [], shiftId, days = ['mon', 'tue', 'wed', 'thu', 'fri']) {
-    const roster = this.getWeeklyRoster();
+  static bulkAssignShift(empIds = [], shiftId, days = ['mon', 'tue', 'wed', 'thu', 'fri'], tenantId = 'org_default') {
+    const key = getRosterKey(tenantId);
+    const roster = this.getWeeklyRoster([], { tenantId });
     const updated = roster.map(item => {
       if (empIds.includes(item.empId)) {
         const newSched = { ...item.schedule };
@@ -227,7 +227,7 @@ class ShiftEngine {
       }
       return item;
     });
-    localStorage.setItem(ROSTER_STORAGE_KEY, JSON.stringify(updated));
+    localStorage.setItem(key, JSON.stringify(updated));
     return updated;
   }
 

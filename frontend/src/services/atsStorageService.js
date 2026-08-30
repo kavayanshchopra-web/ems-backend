@@ -165,20 +165,15 @@ export const atsStorageService = {
     }
   },
 
-  // Candidate Data Entity Storage (Local Storage Persistence & Defensive Field Normalization)
+  // Candidate Data Entity Storage (Tenant-Isolated Persistence)
   getCandidates(companyId) {
-    const tenantKey = companyId ? String(companyId).replace(/[^a-zA-Z0-9_-]/g, '_') : 'default';
+    const tenantKey = companyId && companyId !== 'default_tenant' ? String(companyId).replace(/[^a-zA-Z0-9_-]/g, '_') : 'org_default';
     const key = `${CANDIDATES_STORAGE_KEY_PREFIX}${tenantKey}`;
     try {
       const saved = localStorage.getItem(key);
       if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-      const fallbackSaved = localStorage.getItem('omnilflow_ats_candidates');
-      if (fallbackSaved !== null) {
-        const parsed = JSON.parse(fallbackSaved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {
       console.error('Error reading candidates:', e);
@@ -187,11 +182,10 @@ export const atsStorageService = {
   },
 
   saveCandidates(companyId, candidates) {
-    const tenantKey = companyId ? String(companyId).replace(/[^a-zA-Z0-9_-]/g, '_') : 'default';
+    const tenantKey = companyId && companyId !== 'default_tenant' ? String(companyId).replace(/[^a-zA-Z0-9_-]/g, '_') : 'org_default';
     const key = `${CANDIDATES_STORAGE_KEY_PREFIX}${tenantKey}`;
     try {
       localStorage.setItem(key, JSON.stringify(candidates));
-      localStorage.setItem('omnilflow_ats_candidates', JSON.stringify(candidates));
     } catch (e) {
       console.error('Error saving candidates:', e);
     }

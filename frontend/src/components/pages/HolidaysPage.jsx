@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
+import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
 
 export default function HolidaysPage({
   API_URL,
@@ -13,60 +14,50 @@ export default function HolidaysPage({
   openModuleConfigModal = null,
   systemDropdowns = null
 }) {
-  const companyId = authUser?.companyId || authUser?.tenantId || 'default_tenant';
+  const companyId = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 'org_default';
   const { config } = useModuleRegistry(companyId, 'holidays');
-  const [holidays, setHolidays] = useState(() => {
-    try {
-      const saved = localStorage.getItem('omnilflow_fallback_holidays');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch (e) {}
-    return [];
-  });
+  const [holidays, setHolidays] = useState([]);
 
   useEffect(() => {
     fetchHolidays();
-  }, []);
+  }, [companyId]);
 
   const fetchHolidays = async () => {
-    let serverList = [];
+    let cloudList = [];
+    try {
+      cloudList = await FirebaseCloudEngine.fetchRecords('holidays', companyId);
+      if (Array.isArray(cloudList)) {
+        setHolidays(cloudList);
+        return;
+      }
+    } catch (e) {}
+
     try {
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('token') || '';
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       const res = await fetch(`${API_URL}/holidays`, { headers });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data)) serverList = data;
+        if (Array.isArray(data)) {
+          setHolidays(data);
+          return;
+        }
       }
     } catch (err) {
-      console.warn('Fetch holidays error:', err);
+      console.warn('Fetch holidays notice:', err);
     }
-
-    let localList = [];
-    try {
-      const saved = localStorage.getItem('omnilflow_fallback_holidays');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) localList = parsed;
-      }
-    } catch (e) {}
-
-    const map = new Map();
-    localList.forEach(h => { if (h && h.id) map.set(String(h.id), h); });
-    serverList.forEach(h => { if (h && h.id) map.set(String(h.id), h); });
-
-    const merged = Array.from(map.values());
-    setHolidays(merged);
-    try { localStorage.setItem('omnilflow_fallback_holidays', JSON.stringify(merged)); } catch (e) {}
+    setHolidays([]);
   };
 
   const handleUpdateHolidays = (newHolidays) => {
     setHolidays(newHolidays);
-    try {
-      localStorage.setItem('omnilflow_fallback_holidays', JSON.stringify(newHolidays));
-    } catch (e) {}
+    if (Array.isArray(newHolidays)) {
+      newHolidays.forEach(h => {
+        if (h && h.id) {
+          FirebaseCloudEngine.saveRecord('holidays', h, companyId);
+        }
+      });
+    }
   };
 
   return (

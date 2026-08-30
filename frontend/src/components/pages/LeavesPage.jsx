@@ -27,9 +27,13 @@ export default function LeavesPage({
 }) {
   const isHR = ['superadmin', 'owner', 'admin', 'hr', 'manager'].includes((authUser?.role || 'superadmin').toLowerCase());
 
+  const currentTenantId = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 'org_default';
+  const leavesStorageKey = `omniflow_${currentTenantId}_leaves`;
+  const quotasStorageKey = `omniflow_${currentTenantId}_leave_quotas`;
+
   const [localLeaves, setLocalLeaves] = useState(() => {
     try {
-      const saved = localStorage.getItem('omniflow_leave_applications_v2');
+      const saved = localStorage.getItem(leavesStorageKey);
       if (saved) return JSON.parse(saved).filter(l => !l.id?.startsWith('lv_10'));
     } catch (e) {
       console.error(e);
@@ -58,7 +62,7 @@ export default function LeavesPage({
 
   const [customQuotasMap, setCustomQuotasMap] = useState(() => {
     try {
-      const saved = localStorage.getItem('omniflow_custom_staff_leave_quotas');
+      const saved = localStorage.getItem(quotasStorageKey);
       if (saved) return JSON.parse(saved);
     } catch (e) {}
     return {};
@@ -66,11 +70,10 @@ export default function LeavesPage({
 
   useEffect(() => {
     const cleanLogs = localLeaves.filter(l => !l.id?.startsWith('lv_10'));
-    localStorage.setItem('omniflow_leave_applications_v2', JSON.stringify(cleanLogs));
-    // Sync approved leaves to localStorage for Attendance Page sync!
+    localStorage.setItem(leavesStorageKey, JSON.stringify(cleanLogs));
     const approved = cleanLogs.filter(l => l.status === 'Approved');
-    localStorage.setItem('omniflow_approved_leaves_dates', JSON.stringify(approved));
-  }, [localLeaves]);
+    localStorage.setItem(`omniflow_${currentTenantId}_approved_leaves`, JSON.stringify(approved));
+  }, [localLeaves, currentTenantId, leavesStorageKey]);
 
   const handleUpdateStatus = (id, newStatus) => {
     const updated = localLeaves.map(l => l.id === id ? { ...l, status: newStatus } : l);
@@ -177,7 +180,7 @@ export default function LeavesPage({
     };
     setCustomQuotasMap(updated);
     try {
-      localStorage.setItem('omniflow_custom_staff_leave_quotas', JSON.stringify(updated));
+      localStorage.setItem(quotasStorageKey, JSON.stringify(updated));
     } catch (err) {}
     setShowQuotaModal(false);
     showToast?.(`✅ Custom Leave Quotas assigned to "${key}"!`, 'success');

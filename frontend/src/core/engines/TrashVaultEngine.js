@@ -17,44 +17,16 @@ class TrashVaultEngine {
    */
   static getVaultItems(tenantId = 'all') {
     try {
-      const storageKey = `${STORAGE_PREFIX}all`;
+      const activeTenant = (tenantId && tenantId !== 'all') ? String(tenantId).trim() : 'all';
+      const storageKey = `${STORAGE_PREFIX}${activeTenant}`;
       const saved = localStorage.getItem(storageKey);
-      let items = saved ? JSON.parse(saved) : null;
+      let items = saved ? JSON.parse(saved) : [];
 
-      // Migrate from fallback storage if empty/null
-      if (!items || items.length === 0) {
-        try {
-          const fallbackSaved = localStorage.getItem('omnilflow_fallback_recycle_bin');
-          if (fallbackSaved) {
-            const fallbackItems = JSON.parse(fallbackSaved);
-            if (Array.isArray(fallbackItems) && fallbackItems.length > 0) {
-              items = fallbackItems.map(fb => ({
-                id: fb.id || `trash_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-                tenantId: fb.tenantId || 'acme_corp',
-                tenantName: fb.tenantName || 'Acme Corp',
-                name: fb.name || fb.title || 'Archived Record',
-                category: fb.category || fb.type || 'General Item',
-                deletedBy: fb.deletedBy || 'System User',
-                deletedByEmail: fb.deletedByEmail || 'user@company.com',
-                deletedAt: fb.deletedAt || new Date().toLocaleDateString('en-GB'),
-                preservedLinks: fb.links || fb.preservedLinks || 'Full History Intact',
-                payload: fb.payload || fb.entityData || fb
-              }));
-            }
-          }
-        } catch (err) {}
-      }
-
-      if (!items) items = [];
-
-      // Filter out legacy dummy demo seed & old test items (e.g. emp_001, EMP-0271, EMP-0012, EMP-0013, kavayansh)
+      if (!Array.isArray(items)) items = [];
       items = items.filter(i => !!i);
 
-      localStorage.setItem(storageKey, JSON.stringify(items));
-      try { localStorage.setItem('omnilflow_fallback_recycle_bin', JSON.stringify(items)); } catch (e) {}
-
-      if (tenantId === 'all') return items;
-      return items.filter(i => i.tenantId === tenantId);
+      if (tenantId === 'all' || tenantId === 'platform_superadmin') return items;
+      return items.filter(i => i.tenantId === activeTenant);
     } catch (e) {
       console.error('TrashVaultEngine.getVaultItems error:', e);
       return [];
@@ -66,15 +38,16 @@ class TrashVaultEngine {
    */
   static moveToTrash(tenantId, itemPayload) {
     try {
-      const items = this.getVaultItems('all');
+      const activeTenant = tenantId || itemPayload.tenantId || 'org_default';
+      const items = this.getVaultItems(activeTenant);
       const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
       const origId = itemPayload.id || itemPayload.originalId || itemPayload.payload?.id || '';
 
       const newItem = {
         id: 'trash_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
         originalId: origId,
-        tenantId: tenantId || itemPayload.tenantId || 'acme_corp',
-        tenantName: itemPayload.tenantName || (tenantId === 'platform_superadmin' ? 'SaaS Platform Admin' : 'Acme Corp'),
+        tenantId: activeTenant,
+        tenantName: itemPayload.tenantName || 'Workspace Organization',
         name: itemPayload.name || itemPayload.title || itemPayload.label || 'Archived Item',
         category: itemPayload.category || 'General',
         deletedBy: itemPayload.deletedBy || 'Admin User',
@@ -85,11 +58,10 @@ class TrashVaultEngine {
       };
 
       const updated = [newItem, ...items];
-      localStorage.setItem(`${STORAGE_PREFIX}all`, JSON.stringify(updated));
-      try { localStorage.setItem('omnilflow_fallback_recycle_bin', JSON.stringify(updated)); } catch (e) {}
+      localStorage.setItem(`${STORAGE_PREFIX}${activeTenant}`, JSON.stringify(updated));
 
       // Sync to Firebase Firestore live collection: recycle_bin
-      FirebaseCloudEngine.saveRecord('recycle_bin', newItem, newItem.tenantId);
+      FirebaseCloudEngine.saveRecord('recycle_bin', newItem, activeTenant);
 
       return newItem;
     } catch (e) {
@@ -103,7 +75,8 @@ class TrashVaultEngine {
    */
   static restoreItem(tenantId, itemId) {
     try {
-      const items = this.getVaultItems('all');
+      const activeTenant = tenantId || 'org_default';
+      const items = this.getVaultItems(activeTenant);
       const targetStr = String(itemId || '').trim().toLowerCase();
 
       const itemToRestore = items.find(i => {
@@ -120,8 +93,7 @@ class TrashVaultEngine {
         return iId !== targetStr && origId !== targetStr && recId !== targetStr;
       });
 
-      localStorage.setItem(`${STORAGE_PREFIX}all`, JSON.stringify(updated));
-      try { localStorage.setItem('omnilflow_fallback_recycle_bin', JSON.stringify(updated)); } catch (e) {}
+      localStorage.setItem(`${STORAGE_PREFIX}${activeTenant}`, JSON.stringify(updated));
 
       if (itemToRestore && itemToRestore.id) {
         FirebaseCloudEngine.deleteRecord('recycle_bin', itemToRestore.id);
@@ -138,7 +110,8 @@ class TrashVaultEngine {
    */
   static purgeItem(tenantId, itemId) {
     try {
-      const items = this.getVaultItems('all');
+      const activeTenant = tenantId || 'org_default';
+      const items = this.getVaultItems(activeTenant);
       const targetStr = String(itemId || '').trim().toLowerCase();
       const updated = items.filter(i => {
         const iId = String(i.id || '').trim().toLowerCase();
@@ -147,8 +120,7 @@ class TrashVaultEngine {
         if (iId === targetStr || origId === targetStr || recId === targetStr) return false;
         return true;
       });
-      localStorage.setItem(`${STORAGE_PREFIX}all`, JSON.stringify(updated));
-      try { localStorage.setItem('omnilflow_fallback_recycle_bin', JSON.stringify(updated)); } catch (e) {}
+      localStorage.setItem(`${STORAGE_PREFIX}${activeTenant}`, JSON.stringify(updated));
       return true;
     } catch (e) {
       console.error('TrashVaultEngine.purgeItem error:', e);

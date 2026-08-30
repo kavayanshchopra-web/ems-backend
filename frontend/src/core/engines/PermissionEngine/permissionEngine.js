@@ -213,7 +213,7 @@ class PermissionEngineService {
       return true;
     }
 
-    const tenantId = userObj.companyId || 'default_tenant';
+    const tenantId = userObj.tenantId || userObj.companyId || userObj.tenant_id || 'org_default';
     const matrix = this.getPermissionMatrix(tenantId);
     const rolePerms = matrix.permissions?.[role];
 
@@ -240,7 +240,7 @@ class PermissionEngineService {
     const role = userObj.role || 'employee';
     if (role === 'super_admin' || role === 'admin' || userObj.isSuperAdmin) return 'all';
 
-    const tenantId = userObj.companyId || 'default_tenant';
+    const tenantId = userObj.tenantId || userObj.companyId || userObj.tenant_id || 'org_default';
     const matrix = this.getPermissionMatrix(tenantId);
     return matrix.permissions?.[role]?.[moduleId]?.scope || 'all';
   }

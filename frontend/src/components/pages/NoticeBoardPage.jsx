@@ -14,77 +14,50 @@ export default function NoticeBoardPage({
   openModuleConfigModal = null,
   systemDropdowns = null
 }) {
-  const companyId = authUser?.companyId || authUser?.tenantId || 'default_tenant';
+  const companyId = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 'org_default';
   const { config } = useModuleRegistry(companyId, 'notice_board');
-  const [notices, setNotices] = useState(() => {
-    try {
-      const saved = localStorage.getItem('omnilflow_fallback_notices');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch (e) {}
-    return [];
-  });
+  const [notices, setNotices] = useState([]);
 
   useEffect(() => {
     fetchNotices();
-  }, []);
+  }, [companyId]);
 
   const fetchNotices = async () => {
     let cloudList = [];
     try {
       cloudList = await FirebaseCloudEngine.fetchRecords('notice_board', companyId);
-      if (!Array.isArray(cloudList)) cloudList = [];
+      if (Array.isArray(cloudList)) {
+        setNotices(cloudList);
+        return;
+      }
     } catch (e) {}
 
-    let serverList = [];
     try {
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('token') || '';
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       const res = await fetch(`${API_URL}/notices`, { headers });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data)) serverList = data;
+        if (Array.isArray(data)) {
+          setNotices(data);
+          return;
+        }
       }
     } catch (err) {
-      console.warn('Fetch notices error:', err);
+      console.warn('Fetch notices notice:', err);
     }
-
-    let localList = [];
-    try {
-      const saved = localStorage.getItem('omnilflow_fallback_notices');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) localList = parsed;
-      }
-    } catch (e) {}
-
-    const map = new Map();
-    [...localList, ...cloudList, ...serverList].forEach((n, idx) => {
-      if (n) {
-        const idKey = String(n.id || n._id || n.title || `notice_${idx}`);
-        map.set(idKey, { ...n, id: idKey, title: n.title || n.name || 'Notice' });
-      }
-    });
-
-    const merged = Array.from(map.values());
-    setNotices(merged);
-    try { localStorage.setItem('omnilflow_fallback_notices', JSON.stringify(merged)); } catch (e) {}
+    setNotices([]);
   };
 
   const handleUpdateNotices = (newNotices) => {
     setNotices(newNotices);
-    try {
-      localStorage.setItem('omnilflow_fallback_notices', JSON.stringify(newNotices));
-      if (Array.isArray(newNotices)) {
-        newNotices.forEach(n => {
-          if (n && n.id) {
-            FirebaseCloudEngine.saveRecord('notice_board', n, companyId);
-          }
-        });
-      }
-    } catch (e) {}
+    if (Array.isArray(newNotices)) {
+      newNotices.forEach(n => {
+        if (n && n.id) {
+          FirebaseCloudEngine.saveRecord('notice_board', n, companyId);
+        }
+      });
+    }
   };
 
   return (

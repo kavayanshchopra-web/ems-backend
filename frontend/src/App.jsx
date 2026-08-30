@@ -1,10 +1,15 @@
-﻿import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import {
   auth,
+  db,
+  doc,
+  getDoc,
+  setDoc,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail
 } from './firebase.js';
+import FirebaseCloudEngine from './core/engines/FirebaseCloudEngine';
 
 import {
   Mail,
@@ -45,15 +50,19 @@ export default function App() {
     }, 3000);
   };
 
+  // Run on mount to clear legacy un-isolated caches
+  useEffect(() => {
+    FirebaseCloudEngine.purgeAllLocalCaches();
+  }, []);
+
   // Auth state
   const [authUser, setAuthUser] = useState(() => {
     try {
       const saved = localStorage.getItem('omnilflow_user');
       const user = saved ? JSON.parse(saved) : null;
-      // Set global tenant on app load so SchemaFieldRenderer can use correct tenantId
       if (user && typeof window !== 'undefined') {
-        const tId = user.tenantId || user.companyId;
-        window.__omniflow_tenant = tId ? String(tId) : 'acme_corp';
+        const tId = user.tenantId || user.companyId || user.tenant_id;
+        window.__omniflow_tenant = tId ? String(tId) : 'org_default';
       }
       return user;
     } catch (err) {
@@ -68,94 +77,75 @@ export default function App() {
 
     const cleanEmail = (email || '').toLowerCase().trim();
 
-    // 1. Primary Master Superadmin Account Override (kavayanshchopra@gmail.com & admin@omniflow.com)
+    // 1. Primary Master Superadmin Account Override
     if (
-      cleanEmail === 'kavayanshchopra@gmail.com' ||
       cleanEmail === 'admin@omniflow.com' ||
       cleanEmail === 'superadmin@omniflow.com'
     ) {
       const masterUser = {
-        id: 1,
-        name: cleanEmail === 'kavayanshchopra@gmail.com' ? 'Kavayansh Chopra' : 'Super Admin',
+        id: 'superadmin_master',
+        name: 'Super Admin',
         email: cleanEmail,
         role: 'superadmin',
-        tenantId: 1
+        tenantId: 'platform_superadmin',
+        companyId: 'platform_superadmin',
+        tenant_id: 'platform_superadmin'
       };
       const mockToken = 'superadmin_master_token_override';
       localStorage.setItem('omnilflow_token', mockToken);
       localStorage.setItem('omnilflow_user', JSON.stringify(masterUser));
       setAuthUser(masterUser);
-      if (typeof window !== 'undefined') window.__omniflow_tenant = String(masterUser.tenantId || 'acme_corp');
+      if (typeof window !== 'undefined') window.__omniflow_tenant = 'platform_superadmin';
       showToast('Welcome Superadmin! Master Access Granted.', 'success');
       setAuthLoading(false);
       return;
     }
 
-    // 2. Check Local Registered Employee & User Accounts
-    try {
-      const registeredUsers = JSON.parse(localStorage.getItem('omniflow_registered_users') || '[]');
-      const matchingRegUser = registeredUsers.find(u => (u.email || '').toLowerCase().trim() === cleanEmail && (u.password === password || password === 'admin123' || password === '123456'));
-      if (matchingRegUser) {
-        const empUser = {
-          id: matchingRegUser.id || `emp_usr_${Date.now()}`,
-          name: matchingRegUser.name || cleanEmail,
-          email: cleanEmail,
-          role: (matchingRegUser.role || 'employee').toLowerCase(),
-          department: matchingRegUser.department || 'Operations',
-          tenantId: matchingRegUser.tenantId || 1
-        };
-        localStorage.setItem('omnilflow_token', `emp_token_${Date.now()}`);
-        localStorage.setItem('omnilflow_user', JSON.stringify(empUser));
-        setAuthUser(empUser);
-        if (typeof window !== 'undefined') window.__omniflow_tenant = String(empUser.tenantId || 'acme_corp');
-        showToast(`Welcome back, ${empUser.name}! Signed in as ${empUser.role.toUpperCase()}.`, 'success');
-        setAuthLoading(false);
-        return;
-      }
-
-      // Also check fallback employees list
-      const fallbackEmployees = JSON.parse(localStorage.getItem('omnilflow_fallback_employees') || '[]');
-      const matchingEmp = fallbackEmployees.find(e => (e.email || '').toLowerCase().trim() === cleanEmail && (e.password === password || password === 'admin123' || password === '123456'));
-      if (matchingEmp) {
-        const empUser = {
-          id: matchingEmp.id || `emp_${Date.now()}`,
-          name: `${matchingEmp.first_name || matchingEmp.firstName || ''} ${matchingEmp.last_name || matchingEmp.lastName || ''}`.trim() || cleanEmail,
-          email: cleanEmail,
-          role: (matchingEmp.role || 'employee').toLowerCase(),
-          department: matchingEmp.department || 'Operations',
-          tenantId: matchingEmp.tenantId || 1
-        };
-        localStorage.setItem('omnilflow_token', `emp_token_${Date.now()}`);
-        localStorage.setItem('omnilflow_user', JSON.stringify(empUser));
-        setAuthUser(empUser);
-        if (typeof window !== 'undefined') window.__omniflow_tenant = String(empUser.tenantId || 'acme_corp');
-        showToast(`Welcome back, ${empUser.name}! Signed in as ${empUser.role.toUpperCase()}.`, 'success');
-        setAuthLoading(false);
-        return;
-      }
-    } catch (e) {}
-
-    // 3. Firebase Cloud Auth Login
+    // 2. Firebase Cloud Auth Login
     try {
       if (auth) {
         const userCred = await signInWithEmailAndPassword(auth, cleanEmail, password);
         const fbUser = userCred.user;
-        const userRole = (cleanEmail === 'admin@omniflow.com' || cleanEmail === 'kavayanshchopra@gmail.com') ? 'superadmin' : 'owner';
+        
+        let tenantId = `org_${fbUser.uid.slice(0, 10)}`;
+        let storedRole = (cleanEmail === 'admin@omniflow.com' || cleanEmail === 'kavayanshchopra@gmail.com') ? 'superadmin' : 'owner';
+        let storedCompanyName = 'My Workspace';
+
+        // Check if organization profile exists in Firestore
+        if (db) {
+          try {
+            const orgDoc = await getDoc(doc(db, 'user_profiles', fbUser.uid));
+            if (orgDoc.exists()) {
+              const data = orgDoc.data();
+              if (data.tenantId) tenantId = data.tenantId;
+              if (data.role) storedRole = data.role;
+              if (data.companyName) storedCompanyName = data.companyName;
+            }
+          } catch (e) {}
+        }
+
         const userData = {
           id: fbUser.uid,
           email: fbUser.email,
-          role: userRole,
-          tenantId: 1
+          name: storedCompanyName ? `${storedCompanyName} Admin` : fbUser.email.split('@')[0],
+          role: storedRole,
+          companyName: storedCompanyName,
+          tenantId: tenantId,
+          companyId: tenantId,
+          tenant_id: tenantId
         };
+
+        FirebaseCloudEngine.purgeAllLocalCaches();
         localStorage.setItem('omnilflow_token', fbUser.accessToken || 'firebase_token');
         localStorage.setItem('omnilflow_user', JSON.stringify(userData));
         setAuthUser(userData);
-        if (typeof window !== 'undefined') window.__omniflow_tenant = String(userData.tenantId || 'acme_corp');
-        showToast('Signed in with Firebase Cloud Auth!', 'success');
+        if (typeof window !== 'undefined') window.__omniflow_tenant = tenantId;
+        showToast('Signed in successfully!', 'success');
+        setAuthLoading(false);
         return;
       }
     } catch (fbErr) {
-      console.warn('Firebase login attempt fallback to backend API:', fbErr.message);
+      console.warn('Firebase login fallback attempt:', fbErr.message);
     }
 
     // 3. Backend REST API Fallback Login
@@ -168,9 +158,19 @@ export default function App() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to login');
 
+      const backendTenant = data.user?.tenantId || data.user?.companyId || data.user?.tenant_id || `org_${cleanEmail.replace(/[^a-z0-9]/g, '')}`;
+      const normalizedUser = {
+        ...data.user,
+        tenantId: backendTenant,
+        companyId: backendTenant,
+        tenant_id: backendTenant
+      };
+
+      FirebaseCloudEngine.purgeAllLocalCaches();
       localStorage.setItem('omnilflow_token', data.token);
-      localStorage.setItem('omnilflow_user', JSON.stringify(data.user));
-      setAuthUser(data.user);
+      localStorage.setItem('omnilflow_user', JSON.stringify(normalizedUser));
+      setAuthUser(normalizedUser);
+      if (typeof window !== 'undefined') window.__omniflow_tenant = backendTenant;
     } catch (err) {
       setAuthError(err.message);
     } finally {
@@ -230,17 +230,41 @@ export default function App() {
         const userCred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
         const fbUser = userCred.user;
         const userRole = (cleanEmail === 'admin@omniflow.com' || cleanEmail === 'kavayanshchopra@gmail.com') ? 'superadmin' : 'owner';
+        
+        // Deterministic unique tenant ID for every new company registration
+        const companySlug = (companyName || 'workspace').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
+        const uniqueTenantId = `org_${companySlug || 'tenant'}_${fbUser.uid.slice(0, 8)}`;
+
         const userData = {
           id: fbUser.uid,
           email: fbUser.email,
+          name: companyName ? `${companyName} Owner` : fbUser.email.split('@')[0],
           role: userRole,
           companyName: companyName || 'My Workspace',
-          tenantId: 1
+          tenantId: uniqueTenantId,
+          companyId: uniqueTenantId,
+          tenant_id: uniqueTenantId
         };
+
+        // Save profile to Firestore
+        if (db) {
+          try {
+            await setDoc(doc(db, 'user_profiles', fbUser.uid), {
+              ...userData,
+              createdAt: new Date().toISOString()
+            }, { merge: true });
+          } catch (docErr) {
+            console.warn('Could not save user profile doc:', docErr);
+          }
+        }
+
+        // Purge any stale caches from previous sessions
+        FirebaseCloudEngine.purgeAllLocalCaches();
         localStorage.setItem('omnilflow_token', fbUser.accessToken || 'firebase_token');
         localStorage.setItem('omnilflow_user', JSON.stringify(userData));
         setAuthUser(userData);
-        showToast('Registered successfully with Firebase Cloud Auth!', 'success');
+        if (typeof window !== 'undefined') window.__omniflow_tenant = uniqueTenantId;
+        showToast('Registered successfully! Your private workspace is ready.', 'success');
         return;
       }
     } catch (fbErr) {
@@ -256,9 +280,19 @@ export default function App() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to register');
 
+      const backendTenant = data.user?.tenantId || data.user?.companyId || data.user?.tenant_id || `org_${cleanEmail.replace(/[^a-z0-9]/g, '')}`;
+      const normalizedUser = {
+        ...data.user,
+        tenantId: backendTenant,
+        companyId: backendTenant,
+        tenant_id: backendTenant
+      };
+
+      FirebaseCloudEngine.purgeAllLocalCaches();
       localStorage.setItem('omnilflow_token', data.token);
-      localStorage.setItem('omnilflow_user', JSON.stringify(data.user));
-      setAuthUser(data.user);
+      localStorage.setItem('omnilflow_user', JSON.stringify(normalizedUser));
+      setAuthUser(normalizedUser);
+      if (typeof window !== 'undefined') window.__omniflow_tenant = backendTenant;
     } catch (err) {
       setAuthError(err.message);
     } finally {
