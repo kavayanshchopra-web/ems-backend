@@ -1854,6 +1854,19 @@ export default function setupRoutes(io) {
            null;
   };
 
+  // 1. Initiate 1-Click OAuth Authorize
+  router.get('/v1/integrations/ghl/oauth/authorize', async (req, res) => {
+    try {
+      const tenantId = resolveGhlTenantId(req) || '1';
+      const stateToken = await createGhlOAuthState(tenantId, req.user?.id || 1);
+      const authUrl = ghlAuthService.getAuthorizationUrl({ state: stateToken });
+      res.json({ success: true, authUrl, state: stateToken });
+    } catch (err) {
+      console.error('[GHL Authorize Error]', err.message);
+      res.status(500).json({ error: err.message || 'Failed to generate authorization URL' });
+    }
+  });
+
   // 2. Safe Connection Status (Never exposes secrets or tokens, isolated by tenant)
   router.get('/v1/integrations/ghl/status', async (req, res) => {
     try {

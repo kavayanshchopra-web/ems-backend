@@ -507,9 +507,12 @@ export default function IntegrationsPage({
     } catch (e) {}
 
     try {
-      const token = localStorage.getItem('omnilflow_token');
-      const res = await fetch(`${API_URL}/v1/integrations/ghl/oauth/authorize`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
+      const res = await fetch(`${API_URL}/v1/integrations/ghl/oauth/authorize?companyId=${encodeURIComponent(cleanCompanyId)}`, {
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'X-Tenant-Id': String(cleanCompanyId)
+        }
       });
       const data = await res.json();
       if (data.authUrl) {
@@ -1210,14 +1213,22 @@ export default function IntegrationsPage({
             </div>
 
             {ghlLocations.length === 0 ? (
-              <div style={{ padding: '40px 20px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                <Zap size={32} style={{ color: '#cbd5e1' }} />
-                <div style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>No HighLevel Sub-Account Connected</div>
-                <p style={{ margin: 0, fontSize: '11px', maxWidth: '440px', color: '#94a3b8', lineHeight: '1.5' }}>
-                  {isSuperAdmin 
-                    ? 'Click "Connect GoHighLevel Master" on the left to link your agency location via secure OAuth 2.0.'
-                    : 'When your agency installs the Employee Management & CRM Automation app in your HighLevel sub-account, it will automatically connect and sync here.'}
+              <div style={{ padding: '40px 20px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                <Zap size={36} style={{ color: '#ff6b00' }} />
+                <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>Link Your HighLevel Sub-Account</div>
+                <p style={{ margin: 0, fontSize: '12px', maxWidth: '440px', color: '#64748b', lineHeight: '1.5' }}>
+                  Click below to connect your GoHighLevel sub-account in 1-click. This will securely link your contacts, CRM deals, and 2-way real-time data sync to this company workspace.
                 </p>
+                <Button
+                  variant="primary"
+                  type="button"
+                  icon={<ExternalLink size={15} />}
+                  onClick={handleLaunchGhlInstall}
+                  disabled={isSavingGhlAuth}
+                  style={{ background: '#ff6b00', borderColor: '#ff6b00', padding: '10px 24px', fontWeight: '700', marginTop: '6px' }}
+                >
+                  {isSavingGhlAuth ? 'Connecting...' : '⚡ Connect HighLevel Sub-Account'}
+                </Button>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
