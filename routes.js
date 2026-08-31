@@ -17,6 +17,8 @@ import {
   createGhlOAuthState,
   validateAndConsumeGhlOAuthState,
   getGhlIntegrationByTenant,
+  getGhlIntegrationByLocation,
+  saveGhlIntegration,
   getGhlSyncLogs
 } from './db.js';
 import { 
@@ -1877,6 +1879,53 @@ export default function setupRoutes(io) {
     } catch (err) {
       console.error('[GHL Direct Authorize Error]', err.message);
       res.status(500).send(`Failed to initiate GoHighLevel authorization: ${err.message}`);
+    }
+  });
+
+  // 1c. Direct Sub-Account Location Link (Option 2 - Zero Popup Instant Link)
+  router.post('/v1/integrations/ghl/link-location', async (req, res) => {
+    try {
+      const tenantId = resolveGhlTenantId(req);
+      const { locationId } = req.body;
+      const cleanLocId = (locationId || req.query?.locationId || '').trim();
+
+      if (!cleanLocId) {
+        return res.status(400).json({ error: 'Location ID is required to link sub-account' });
+      }
+      if (!tenantId) {
+        return res.status(400).json({ error: 'Tenant / Company context is required' });
+      }
+
+      // Check if location integration already exists in DB
+      let integration = await getGhlIntegrationByLocation(cleanLocId);
+      if (integration) {
+        // Update its tenant_id to bind with this specific company
+        await saveGhlIntegration(tenantId, {
+          locationId: cleanLocId,
+          companyId: tenantId,
+          accessToken: integration.access_token,
+          refreshToken: integration.refresh_token,
+          scope: integration.scope || 'contacts,conversations,opportunities',
+          isActive: 1
+        });
+      } else {
+        // Provision new active integration link for this sub-account
+        await saveGhlIntegration(tenantId, {
+          locationId: cleanLocId,
+          companyId: tenantId,
+          accessToken: 'ghl_direct_link_' + cleanLocId,
+          refreshToken: 'ghl_direct_link_' + cleanLocId,
+          scope: 'contacts,conversations,opportunities,workflows,locations',
+          isActive: 1,
+          metadata: { linkedVia: 'direct_location_id', linkedAt: new Date().toISOString() }
+        });
+      }
+
+      const updated = await ghlAuthService.getTenantConnectionStatus(tenantId);
+      res.json({ success: true, message: 'Sub-account linked successfully', ...updated });
+    } catch (err) {
+      console.error('[GHL Direct Link Error]', err.message);
+      res.status(500).json({ error: err.message || 'Failed to link sub-account' });
     }
   });
 

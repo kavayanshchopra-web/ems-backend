@@ -1,7 +1,7 @@
 // OmniFlow EMS v2.5 — Universal 100% Free Direct Integrations & Webhooks Manager
 // Single-page Master Control Panel for Inbound/Outbound Webhooks, Odoo Direct API, Facebook Ads, GHL, Zomato, Swiggy, & API Keys
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../../firebase.js';
 import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
 import Button from '../ui/Button.jsx';
@@ -47,6 +47,21 @@ export default function IntegrationsPage({
   const [ghlClientSecret, setGhlClientSecret] = useState('');
   const [ghlLocations, setGhlLocations] = useState([]);
   const [isSavingGhlAuth, setIsSavingGhlAuth] = useState(false);
+  const [manualLocationId, setManualLocationId] = useState('');
+  const [isLinkingLocation, setIsLinkingLocation] = useState(false);
+
+  // Auto-detect Location ID from URL query parameters or referrer
+  const detectedLocationId = useMemo(() => {
+    if (typeof window === 'undefined') return '';
+    const urlParams = new URLSearchParams(window.location.search);
+    const locFromUrl = urlParams.get('location_id') || urlParams.get('locationId') || urlParams.get('loc_id') || urlParams.get('location');
+    if (locFromUrl) return locFromUrl;
+    if (typeof document !== 'undefined' && document.referrer) {
+      const match = document.referrer.match(/\/location\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1] && match[1] !== 'undefined') return match[1];
+    }
+    return '';
+  }, []);
 
   // Outbound Webhooks State
   const [outboundHooks, setOutboundHooks] = useState([]);
@@ -496,6 +511,38 @@ export default function IntegrationsPage({
       localStorage.setItem(`omnilflow_apikeys_${cleanCompanyId}`, JSON.stringify(updated));
       setApiKeys(updated);
       showToast('API Key revoked', 'info');
+    }
+  };
+
+  const handleDirectLinkLocation = async (targetLocId) => {
+    const locIdToLink = (targetLocId || manualLocationId || detectedLocationId || '').trim();
+    if (!locIdToLink) {
+      showToast('Please enter or select a Location ID to link', 'error');
+      return;
+    }
+    setIsLinkingLocation(true);
+    try {
+      const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
+      const res = await fetch(`${API_URL}/v1/integrations/ghl/link-location`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'X-Tenant-Id': String(cleanCompanyId)
+        },
+        body: JSON.stringify({ locationId: locIdToLink, companyId: cleanCompanyId })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`✅ Sub-Account (${locIdToLink}) Connected Successfully!`, 'success');
+        loadGhlOAuthData();
+      } else {
+        showToast(data.error || 'Failed to link sub-account', 'error');
+      }
+    } catch (e) {
+      showToast('Link error: ' + e.message, 'error');
+    } finally {
+      setIsLinkingLocation(false);
     }
   };
 
@@ -1219,34 +1266,69 @@ export default function IntegrationsPage({
             </div>
 
             {ghlLocations.length === 0 ? (
-              <div style={{ padding: '40px 20px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                <Zap size={36} style={{ color: '#ff6b00' }} />
-                <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>Link Your HighLevel Sub-Account</div>
-                <p style={{ margin: 0, fontSize: '12px', maxWidth: '440px', color: '#64748b', lineHeight: '1.5' }}>
-                  Click below to connect your GoHighLevel sub-account in 1-click. This will securely link your contacts, CRM deals, and 2-way real-time data sync to this company workspace.
-                </p>
-                <a
-                  href={`${API_URL}/v1/integrations/ghl/oauth/direct-authorize?companyId=${encodeURIComponent(cleanCompanyId)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    background: '#ff6b00',
-                    color: '#ffffff',
-                    padding: '10px 24px',
-                    borderRadius: '8px',
-                    fontWeight: '700',
-                    fontSize: '13px',
-                    textDecoration: 'none',
-                    boxShadow: '0 2px 6px rgba(255, 107, 0, 0.3)',
-                    marginTop: '6px'
-                  }}
-                >
-                  <ExternalLink size={15} />
-                  ⚡ Connect HighLevel Sub-Account
-                </a>
+              <div style={{ padding: '28px 24px', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Zap size={22} style={{ color: '#ea580c' }} />
+                  </div>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+                      Link HighLevel Sub-Account Location
+                    </h4>
+                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>
+                      Connect your sub-account in 1-click to activate 2-way real-time contact, deal, and conversation sync.
+                    </p>
+                  </div>
+                </div>
+
+                {detectedLocationId ? (
+                  <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '10px', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#166534' }}>
+                        🎯 Auto-Detected HighLevel Sub-Account
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#15803d', marginTop: '2px' }}>
+                        Location ID: <strong style={{ fontFamily: 'monospace' }}>{detectedLocationId}</strong>
+                      </div>
+                    </div>
+                    <Button
+                      variant="primary"
+                      type="button"
+                      disabled={isLinkingLocation}
+                      onClick={() => handleDirectLinkLocation(detectedLocationId)}
+                      style={{ background: '#16a34a', borderColor: '#16a34a', fontWeight: '700', padding: '10px 20px', whiteSpace: 'nowrap' }}
+                    >
+                      {isLinkingLocation ? 'Linking...' : '⚡ 1-Click Link Sub-Account'}
+                    </Button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      placeholder="Enter HighLevel Location ID (e.g. 6e823wQIhDkCodRRVteu)"
+                      value={manualLocationId}
+                      onChange={(e) => setManualLocationId(e.target.value)}
+                      style={{
+                        flex: 1,
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '13px',
+                        fontFamily: 'monospace',
+                        outline: 'none'
+                      }}
+                    />
+                    <Button
+                      variant="primary"
+                      type="button"
+                      disabled={isLinkingLocation || !manualLocationId.trim()}
+                      onClick={() => handleDirectLinkLocation(manualLocationId)}
+                      style={{ background: '#ff6b00', borderColor: '#ff6b00', fontWeight: '700', padding: '10px 20px', whiteSpace: 'nowrap' }}
+                    >
+                      {isLinkingLocation ? 'Linking...' : '⚡ Link Sub-Account'}
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
