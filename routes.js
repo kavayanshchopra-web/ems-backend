@@ -1854,7 +1854,7 @@ export default function setupRoutes(io) {
            null;
   };
 
-  // 1. Initiate 1-Click OAuth Authorize
+  // 1. Initiate 1-Click OAuth Authorize (JSON)
   router.get('/v1/integrations/ghl/oauth/authorize', async (req, res) => {
     try {
       const tenantId = resolveGhlTenantId(req) || '1';
@@ -1864,6 +1864,19 @@ export default function setupRoutes(io) {
     } catch (err) {
       console.error('[GHL Authorize Error]', err.message);
       res.status(500).json({ error: err.message || 'Failed to generate authorization URL' });
+    }
+  });
+
+  // 1b. Direct Synchronous OAuth Redirect (Bypasses all iframe & browser popup blockers)
+  router.get('/v1/integrations/ghl/oauth/direct-authorize', async (req, res) => {
+    try {
+      const tenantId = resolveGhlTenantId(req) || '1';
+      const stateToken = await createGhlOAuthState(tenantId, req.user?.id || 1);
+      const authUrl = ghlAuthService.getAuthorizationUrl({ state: stateToken });
+      return res.redirect(authUrl);
+    } catch (err) {
+      console.error('[GHL Direct Authorize Error]', err.message);
+      res.status(500).send(`Failed to initiate GoHighLevel authorization: ${err.message}`);
     }
   });
 

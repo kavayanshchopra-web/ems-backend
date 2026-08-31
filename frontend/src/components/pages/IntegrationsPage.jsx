@@ -1158,16 +1158,30 @@ export default function IntegrationsPage({
               </div>
 
               {ghlLocations.length === 0 ? (
-                <Button
-                  variant="primary"
-                  type="button"
-                  icon={<ExternalLink size={15} />}
-                  onClick={handleLaunchGhlInstall}
-                  disabled={isSavingGhlAuth}
-                  style={{ width: '100%', justifyContent: 'center', background: '#ff6b00', borderColor: '#ff6b00', padding: '10px', fontWeight: '700' }}
+                <a
+                  href={`${API_URL}/v1/integrations/ghl/oauth/direct-authorize?companyId=${encodeURIComponent(cleanCompanyId)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    width: '100%',
+                    background: '#ff6b00',
+                    color: '#ffffff',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    textDecoration: 'none',
+                    boxShadow: '0 2px 6px rgba(255, 107, 0, 0.3)',
+                    boxSizing: 'border-box'
+                  }}
                 >
-                  {isSavingGhlAuth ? 'Connecting...' : 'Connect GoHighLevel Master'}
-                </Button>
+                  <ExternalLink size={15} />
+                  Connect GoHighLevel Master
+                </a>
               ) : (
                 <Button
                   variant="secondary"
@@ -1211,16 +1225,28 @@ export default function IntegrationsPage({
                 <p style={{ margin: 0, fontSize: '12px', maxWidth: '440px', color: '#64748b', lineHeight: '1.5' }}>
                   Click below to connect your GoHighLevel sub-account in 1-click. This will securely link your contacts, CRM deals, and 2-way real-time data sync to this company workspace.
                 </p>
-                <Button
-                  variant="primary"
-                  type="button"
-                  icon={<ExternalLink size={15} />}
-                  onClick={handleLaunchGhlInstall}
-                  disabled={isSavingGhlAuth}
-                  style={{ background: '#ff6b00', borderColor: '#ff6b00', padding: '10px 24px', fontWeight: '700', marginTop: '6px' }}
+                <a
+                  href={`${API_URL}/v1/integrations/ghl/oauth/direct-authorize?companyId=${encodeURIComponent(cleanCompanyId)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: '#ff6b00',
+                    color: '#ffffff',
+                    padding: '10px 24px',
+                    borderRadius: '8px',
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    textDecoration: 'none',
+                    boxShadow: '0 2px 6px rgba(255, 107, 0, 0.3)',
+                    marginTop: '6px'
+                  }}
                 >
-                  {isSavingGhlAuth ? 'Connecting...' : '⚡ Connect HighLevel Sub-Account'}
-                </Button>
+                  <ExternalLink size={15} />
+                  ⚡ Connect HighLevel Sub-Account
+                </a>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
