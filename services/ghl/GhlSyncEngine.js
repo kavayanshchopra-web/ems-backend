@@ -694,6 +694,164 @@ export class GhlSyncEngine {
 
     return summary;
   }
+
+  /**
+   * Bulk Inbound Import: Fetches all Contacts from HighLevel into EMS.
+   * Uses cursor pagination to import all contacts (up to 10,000+).
+   * 
+   * @param {string|number} tenantId 
+   * @param {Object} [options]
+   * @returns {Promise<Object>}
+   */
+  async importAllContactsFromGhl(tenantId, { limit = 100, maxTotal = 10000 } = {}) {
+    if (!tenantId) throw new GhlApiError('tenantId is required', 'GHL_VALIDATION_ERROR', 400);
+
+    const integration = await getGhlIntegrationByTenant(tenantId);
+    if (!integration || !integration.location_id || integration.is_active !== 1) {
+      throw new GhlApiError('GoHighLevel is not connected for this tenant', 'GHL_NOT_CONNECTED', 400);
+    }
+    const locationId = integration.location_id;
+
+    const summary = {
+      totalFound: 0,
+      imported: 0,
+      updated: 0,
+      skipped: 0,
+      errors: [],
+      contacts: []
+    };
+
+    let startAfter = null;
+    let hasMore = true;
+    let pagesProcessed = 0;
+
+    while (hasMore && (summary.imported + summary.updated + summary.skipped) < maxTotal && pagesProcessed < 150) {
+      pagesProcessed++;
+      const response = await ghlApiClient.searchContacts(locationId, {
+        limit: Math.min(limit, 100),
+        startAfter: startAfter || undefined
+      });
+
+      const contacts = response.contacts || [];
+      if (!contacts.length) {
+        hasMore = false;
+        break;
+      }
+
+      summary.totalFound = response.total || (summary.totalFound + contacts.length);
+
+      for (const ghlContact of contacts) {
+        try {
+          const importResult = await this.importGhlContact(tenantId, ghlContact.id, ghlContact);
+          const fullName = ghlContact.name || `${ghlContact.firstName || ''} ${ghlContact.lastName || ''}`.trim() || 'GHL Contact';
+          
+          if (importResult.status === 'success') {
+            if (importResult.operation === 'CREATE') {
+              summary.imported++;
+            } else {
+              summary.updated++;
+            }
+            summary.contacts.push({
+              id: importResult.emsContactId,
+              ghlId: ghlContact.id,
+              name: fullName,
+              phone: ghlContact.phone || '',
+              email: ghlContact.email || '',
+              pipelineStage: 'lead',
+              tags: Array.isArray(ghlContact.tags) ? ghlContact.tags : []
+            });
+          } else if (importResult.status === 'skipped') {
+            summary.skipped++;
+          }
+        } catch (err) {
+          summary.errors.push({ id: ghlContact.id, error: err.message });
+        }
+      }
+
+      // Check cursor pagination
+      if (response.meta && (response.meta.startAfter || response.meta.nextPageUrl)) {
+        startAfter = response.meta.startAfter || response.meta.startAfterId;
+        if (!startAfter) hasMore = false;
+      } else if (contacts.length < limit) {
+        hasMore = false;
+      } else {
+        startAfter = contacts[contacts.length - 1].dateAdded || contacts[contacts.length - 1].id;
+      }
+    }
+
+    return summary;
+  }
+
+  /**
+   * Bulk Inbound Import: Fetches all Opportunities and Pipeline Stages from HighLevel into EMS.
+   * 
+   * @param {string|number} tenantId 
+   * @param {Object} [options]
+   * @returns {Promise<Object>}
+   */
+  async importAllOpportunitiesFromGhl(tenantId, { limit = 100 } = {}) {
+    if (!tenantId) throw new GhlApiError('tenantId is required', 'GHL_VALIDATION_ERROR', 400);
+
+    const integration = await getGhlIntegrationByTenant(tenantId);
+    if (!integration || !integration.location_id || integration.is_active !== 1) {
+      throw new GhlApiError('GoHighLevel is not connected for this tenant', 'GHL_NOT_CONNECTED', 400);
+    }
+    const locationId = integration.location_id;
+
+    // 1. Fetch all pipelines and stages
+    const pipelinesRes = await ghlApiClient.getPipelines(locationId);
+    const pipelines = pipelinesRes.pipelines || [];
+
+    const summary = {
+      totalFound: 0,
+      imported: 0,
+      updated: 0,
+      skipped: 0,
+      errors: [],
+      opportunities: [],
+      pipelines: pipelines.map(p => ({ id: p.id, name: p.name, stages: p.stages || [] }))
+    };
+
+    for (const pipeline of pipelines) {
+      try {
+        const oppsRes = await ghlApiClient.searchOpportunities(locationId, {
+          pipelineId: pipeline.id,
+          limit
+        });
+        const opps = oppsRes.opportunities || [];
+        summary.totalFound += opps.length;
+
+        for (const opp of opps) {
+          try {
+            const importResult = await this.importGhlOpportunity(tenantId, opp.id, opp);
+            if (importResult.status === 'success') {
+              if (importResult.operation === 'CREATE') {
+                summary.imported++;
+              } else {
+                summary.updated++;
+              }
+              summary.opportunities.push({
+                id: importResult.emsContactId,
+                ghlId: opp.id,
+                name: opp.name,
+                status: opp.status,
+                monetaryValue: opp.monetaryValue || 0,
+                pipelineName: pipeline.name
+              });
+            } else if (importResult.status === 'skipped') {
+              summary.skipped++;
+            }
+          } catch (err) {
+            summary.errors.push({ id: opp.id, error: err.message });
+          }
+        }
+      } catch (pipeErr) {
+        summary.errors.push({ pipelineId: pipeline.id, error: pipeErr.message });
+      }
+    }
+
+    return summary;
+  }
 }
 
 export default new GhlSyncEngine();

@@ -2069,7 +2069,7 @@ export default function setupRoutes(io) {
     }
   });
 
-  // 7. Batch Sync All EMS Contacts to GHL
+  // 7. Batch Outbound Sync: EMS Contacts to GHL
   router.post('/v1/integrations/ghl/contacts/sync-all', async (req, res) => {
     try {
       const tenantId = resolveGhlTenantId(req);
@@ -2082,7 +2082,21 @@ export default function setupRoutes(io) {
     }
   });
 
-  // 8. Import GHL Contact to EMS
+  // 7b. Bulk Inbound Import: All GHL Contacts to EMS
+  router.post('/v1/integrations/ghl/contacts/import-all', async (req, res) => {
+    try {
+      const tenantId = resolveGhlTenantId(req);
+      if (!tenantId) return res.status(400).json({ error: 'Tenant ID is required', code: 'GHL_TENANT_REQUIRED' });
+      const { limit, maxTotal } = req.body || {};
+      const summary = await ghlSyncEngine.importAllContactsFromGhl(tenantId, { limit, maxTotal });
+      res.json({ success: true, ...summary });
+    } catch (err) {
+      console.error('[GHL Bulk Import Contacts Error]', err.message);
+      res.status(err.status || 500).json({ error: err.message, code: err.code || 'GHL_IMPORT_ERROR' });
+    }
+  });
+
+  // 8. Import Single GHL Contact to EMS
   router.post('/v1/integrations/ghl/contacts/import', async (req, res) => {
     try {
       const tenantId = resolveGhlTenantId(req);
@@ -2140,13 +2154,14 @@ export default function setupRoutes(io) {
   router.post('/v1/integrations/ghl/webhook', handleGhlWebhook);
   router.post('/v1/integrations/webhook/ghl', handleGhlWebhook);
 
-  // 11. Get GHL Pipelines & Stages for Tenant
+  // 11. Discover Location Pipelines & Stages
   router.get('/v1/integrations/ghl/pipelines', async (req, res) => {
     try {
-      const tenantId = req.user?.tenant_id || 1;
+      const tenantId = resolveGhlTenantId(req);
+      if (!tenantId) return res.status(400).json({ error: 'Tenant ID is required', code: 'GHL_TENANT_REQUIRED' });
       const integration = await getGhlIntegrationByTenant(tenantId);
       if (!integration || !integration.location_id) {
-        return res.status(400).json({ error: 'GoHighLevel is not connected for this tenant' });
+        return res.status(400).json({ error: 'GoHighLevel is not connected for this tenant', code: 'GHL_NOT_CONNECTED' });
       }
       const data = await ghlApiClient.getPipelines(integration.location_id);
       res.json({ success: true, pipelines: data.pipelines || [] });
@@ -2159,7 +2174,8 @@ export default function setupRoutes(io) {
   // 12. Sync Single EMS Contact Opportunity to GHL
   router.post('/v1/integrations/ghl/opportunities/:id/sync', async (req, res) => {
     try {
-      const tenantId = req.user?.tenant_id || 1;
+      const tenantId = resolveGhlTenantId(req);
+      if (!tenantId) return res.status(400).json({ error: 'Tenant ID is required', code: 'GHL_TENANT_REQUIRED' });
       const emsContactId = req.params.id;
       const result = await ghlSyncEngine.syncOpportunityToGhl(tenantId, emsContactId);
       res.json({ success: true, ...result });
@@ -2169,15 +2185,29 @@ export default function setupRoutes(io) {
     }
   });
 
-  // 13. Batch Sync All Opportunities to GHL
+  // 13. Batch Outbound Sync: All Opportunities to GHL
   router.post('/v1/integrations/ghl/opportunities/sync-all', async (req, res) => {
     try {
-      const tenantId = req.user?.tenant_id || 1;
+      const tenantId = resolveGhlTenantId(req);
+      if (!tenantId) return res.status(400).json({ error: 'Tenant ID is required', code: 'GHL_TENANT_REQUIRED' });
       const summary = await ghlSyncEngine.syncAllOpportunitiesToGhl(tenantId);
       res.json({ success: true, summary });
     } catch (err) {
       console.error('[GHL Batch Sync Opportunities Error]', err.message);
       res.status(err.status || 500).json({ error: err.message, code: err.code || 'GHL_BATCH_OPPORTUNITIES_ERROR' });
+    }
+  });
+
+  // 13b. Bulk Inbound Import: All GHL Opportunities to EMS
+  router.post('/v1/integrations/ghl/opportunities/import-all', async (req, res) => {
+    try {
+      const tenantId = resolveGhlTenantId(req);
+      if (!tenantId) return res.status(400).json({ error: 'Tenant ID is required', code: 'GHL_TENANT_REQUIRED' });
+      const summary = await ghlSyncEngine.importAllOpportunitiesFromGhl(tenantId);
+      res.json({ success: true, ...summary });
+    } catch (err) {
+      console.error('[GHL Bulk Import Opportunities Error]', err.message);
+      res.status(err.status || 500).json({ error: err.message, code: err.code || 'GHL_IMPORT_ERROR' });
     }
   });
 

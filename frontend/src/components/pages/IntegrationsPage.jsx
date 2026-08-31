@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 
 import GhlOAuthService from '../../core/services/ghlOAuthService.js';
+import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine.js';
 
 const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 const LIVE_BACKEND = 'https://api.employeemanagementsystems.com';
@@ -583,6 +584,112 @@ export default function IntegrationsPage({
     }
   };
 
+  const handleImportAllGhlContacts = async () => {
+    setIsSyncingGhl(true);
+    showToast('📥 Fetching & Importing all contacts from HighLevel into EMS...', 'info');
+    try {
+      const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
+      const res = await fetch(`${API_URL}/v1/integrations/ghl/contacts/import-all`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'X-Tenant-Id': String(cleanCompanyId)
+        },
+        body: JSON.stringify({ companyId: cleanCompanyId, maxTotal: 10000 })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const importedList = data.contacts || [];
+        // Auto-populate into Firestore CRM Deals so Kanban immediately displays them
+        for (const contact of importedList) {
+          const dealId = `deal_${contact.id || contact.ghlId}`;
+          const dealPayload = {
+            id: dealId,
+            title: `${contact.name || 'HighLevel Lead'} - Deal`,
+            customer_name: contact.name || 'HighLevel Lead',
+            phone: contact.phone || '',
+            email: contact.email || '',
+            deal_stage: 'New Lead',
+            pipeline_stage: 'lead',
+            amount: 0,
+            deal_value: 0,
+            notes: `Imported from GoHighLevel (Contact ID: ${contact.ghlId || ''})`,
+            tags: contact.tags || ['HighLevel'],
+            source: 'GoHighLevel',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          await FirebaseCloudEngine.saveRecord('crm_deals', dealPayload, cleanCompanyId);
+          await FirebaseCloudEngine.saveRecord('contacts', {
+            id: contact.id || `ghl_${contact.ghlId}`,
+            name: contact.name,
+            phone: contact.phone,
+            email: contact.email,
+            pipeline_stage: 'lead',
+            labels: contact.tags || ['HighLevel']
+          }, cleanCompanyId);
+        }
+
+        showToast(`🎉 HighLevel Import Complete! Total in GHL: ${data.totalFound || importedList.length}, Imported: ${data.imported || 0}, Updated: ${data.updated || 0}`, 'success');
+        fetchGhlSyncLogs();
+      } else {
+        showToast(data.error || 'HighLevel contact import failed', 'error');
+      }
+    } catch (e) {
+      showToast('Import error: ' + e.message, 'error');
+    } finally {
+      setIsSyncingGhl(false);
+    }
+  };
+
+  const handleImportAllGhlDeals = async () => {
+    setIsSyncingGhl(true);
+    showToast('📥 Fetching & Importing all Pipelines & Deals from HighLevel...', 'info');
+    try {
+      const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
+      const res = await fetch(`${API_URL}/v1/integrations/ghl/opportunities/import-all`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'X-Tenant-Id': String(cleanCompanyId)
+        },
+        body: JSON.stringify({ companyId: cleanCompanyId })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const oppsList = data.opportunities || [];
+        for (const opp of oppsList) {
+          const dealId = `deal_${opp.id || opp.ghlId}`;
+          const stageMap = String(opp.status || 'open').toLowerCase() === 'won' ? 'Won' : (String(opp.status || 'open').toLowerCase() === 'lost' ? 'Lost' : 'New Lead');
+          const dealPayload = {
+            id: dealId,
+            title: opp.name || 'HighLevel Opportunity',
+            customer_name: opp.name || 'Opportunity Contact',
+            deal_stage: stageMap,
+            pipeline_stage: stageMap.toLowerCase(),
+            amount: opp.monetaryValue || 0,
+            deal_value: opp.monetaryValue || 0,
+            notes: `HighLevel Opportunity (${opp.pipelineName || 'Pipeline'})`,
+            source: 'GoHighLevel',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          await FirebaseCloudEngine.saveRecord('crm_deals', dealPayload, cleanCompanyId);
+        }
+        showToast(`🎉 Opportunities Import Complete! Total: ${data.totalFound || oppsList.length}, Imported: ${data.imported || 0}, Updated: ${data.updated || 0}`, 'success');
+        fetchGhlSyncLogs();
+      } else {
+        showToast(data.error || 'HighLevel opportunities import failed', 'error');
+      }
+    } catch (e) {
+      showToast('Import error: ' + e.message, 'error');
+    } finally {
+      setIsSyncingGhl(false);
+    }
+  };
+
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Header */}
@@ -997,31 +1104,56 @@ export default function IntegrationsPage({
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        icon={<RefreshCw size={13} className={isSyncingGhl ? 'animate-spin' : ''} />}
-                        onClick={handleSyncAllGhlContacts}
-                        disabled={isSyncingGhl}
-                      >
-                        {isSyncingGhl ? 'Syncing...' : 'Sync Contacts'}
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        icon={<Zap size={13} className={isSyncingGhl ? 'animate-spin' : ''} />}
-                        onClick={handleSyncAllGhlDeals}
-                        disabled={isSyncingGhl}
-                      >
-                        {isSyncingGhl ? 'Syncing Deals...' : 'Sync Deals'}
-                      </Button>
-                      <button
-                        onClick={handleDisconnectGhlLocation}
-                        style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #fca5a5', background: '#ffffff', color: '#ef4444', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
-                      >
-                        Disconnect
-                      </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          icon={<RefreshCw size={13} className={isSyncingGhl ? 'animate-spin' : ''} />}
+                          onClick={handleImportAllGhlContacts}
+                          disabled={isSyncingGhl}
+                          style={{ background: '#059669', borderColor: '#059669', fontWeight: '700' }}
+                        >
+                          {isSyncingGhl ? 'Importing...' : '📥 Import All Contacts (GHL ➔ EMS)'}
+                        </Button>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          icon={<Zap size={13} className={isSyncingGhl ? 'animate-spin' : ''} />}
+                          onClick={handleImportAllGhlDeals}
+                          disabled={isSyncingGhl}
+                          style={{ background: '#0d9488', borderColor: '#0d9488', fontWeight: '700' }}
+                        >
+                          {isSyncingGhl ? 'Importing Deals...' : '📥 Import Deals & Pipelines'}
+                        </Button>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          icon={<Send size={12} />}
+                          onClick={handleSyncAllGhlContacts}
+                          disabled={isSyncingGhl}
+                        >
+                          📤 Push Contacts (EMS ➔ GHL)
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          icon={<Send size={12} />}
+                          onClick={handleSyncAllGhlDeals}
+                          disabled={isSyncingGhl}
+                        >
+                          📤 Push Deals (EMS ➔ GHL)
+                        </Button>
+                        <button
+                          onClick={handleDisconnectGhlLocation}
+                          style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #fca5a5', background: '#ffffff', color: '#ef4444', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
+                        >
+                          Disconnect
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
