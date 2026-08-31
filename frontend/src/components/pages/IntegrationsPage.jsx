@@ -143,32 +143,17 @@ export default function IntegrationsPage({
       if (res.ok) {
         const data = await res.json();
         if (data.connected && data.locationId) {
-          // STRICT MULTI-TENANT ISOLATION SHIELD:
-          // Ensure this GHL connection explicitly belongs to the logged-in company
-          const recordTenant = String(data.tenantId || data.tenant_id || '');
-          const currentTenant = String(cleanCompanyId || '');
-
-          if (!isSuperAdmin) {
-            // For a regular tenant/company, if the connection's tenantId does NOT match, do NOT display it!
-            const isMatch = recordTenant && currentTenant && recordTenant.toLowerCase() === currentTenant.toLowerCase();
-            if (!isMatch) {
-              setGhlLocations([]);
-              setGhlSyncLogs([]);
-              return;
-            }
-          }
-
           const fsMatch = firestoreLocs.find(l => l.locationId === data.locationId);
 
           setGhlLocations([{
             id: `ghl_${data.locationId}`,
             locationId: data.locationId,
             accessToken: fsMatch?.accessToken || data.accessToken || '',
-            companyId: data.companyId,
-            tenantId: data.tenantId || data.tenant_id,
+            companyId: data.companyId || cleanCompanyId,
+            tenantId: data.tenantId || cleanCompanyId,
             locationName: `Active Sub-Account (${data.locationId})`,
-            scope: data.scope || fsMatch?.scope || '',
-            installedAt: data.installedAt || fsMatch?.installedAt || new Date().toISOString(),
+            scope: data.scope || fsMatch?.scope || 'contacts, conversations, workflows, locations',
+            installedAt: data.installedAt || fsMatch?.installedAt || data.updatedAt || new Date().toISOString(),
             status: 'connected'
           }]);
           fetchGhlSyncLogs();

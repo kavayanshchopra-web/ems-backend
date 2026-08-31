@@ -2073,8 +2073,11 @@ export async function getGhlIntegrationByTenant(tenantId) {
   if (!tenantId || tenantId === 'undefined' || tenantId === 'null') return null;
   const safeTenantId = await ensureTenantRowExists(tenantId);
   return await db.get(
-    `SELECT * FROM ghl_integrations WHERE (tenant_id = ? OR CAST(tenant_id AS TEXT) = CAST(? AS TEXT)) AND is_active = 1 ORDER BY updated_at DESC LIMIT 1`,
-    [safeTenantId, String(tenantId)]
+    `SELECT * FROM ghl_integrations 
+     WHERE (tenant_id = ? OR CAST(tenant_id AS TEXT) = CAST(? AS TEXT) OR company_id = ? OR CAST(company_id AS TEXT) = CAST(? AS TEXT)) 
+       AND is_active = 1 
+     ORDER BY updated_at DESC LIMIT 1`,
+    [safeTenantId, String(tenantId), String(tenantId), String(tenantId)]
   );
 }
 
