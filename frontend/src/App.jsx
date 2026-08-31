@@ -58,6 +58,27 @@ export default function App() {
   // Auth state
   const [authUser, setAuthUser] = useState(() => {
     try {
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const locationId = urlParams.get('location_id') || urlParams.get('locationId');
+        if (locationId) {
+          const ghlTenant = `org_${locationId}`;
+          window.__omniflow_tenant = ghlTenant;
+          const subAccountUser = {
+            id: `ghl_${locationId}`,
+            name: `GHL Sub-Account (${locationId.slice(0, 8)})`,
+            email: `subaccount_${locationId.slice(0, 6)}@ghl.ems`,
+            role: 'owner',
+            companyName: `HighLevel Workspace (${locationId.slice(0, 8)})`,
+            tenantId: ghlTenant,
+            companyId: ghlTenant,
+            tenant_id: ghlTenant
+          };
+          localStorage.setItem('omnilflow_user', JSON.stringify(subAccountUser));
+          localStorage.setItem('omnilflow_token', `ghl_session_${locationId}`);
+          return subAccountUser;
+        }
+      }
       const saved = localStorage.getItem('omnilflow_user');
       const user = saved ? JSON.parse(saved) : null;
       if (user && typeof window !== 'undefined') {
