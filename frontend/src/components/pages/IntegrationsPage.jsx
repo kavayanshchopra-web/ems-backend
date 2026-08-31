@@ -501,11 +501,6 @@ export default function IntegrationsPage({
 
   const handleLaunchGhlInstall = async () => {
     setIsSavingGhlAuth(true);
-    let popup = null;
-    try {
-      popup = window.open('about:blank', '_blank', 'width=650,height=750');
-    } catch (e) {}
-
     try {
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
       const res = await fetch(`${API_URL}/v1/integrations/ghl/oauth/authorize?companyId=${encodeURIComponent(cleanCompanyId)}`, {
@@ -516,18 +511,15 @@ export default function IntegrationsPage({
       });
       const data = await res.json();
       if (data.authUrl) {
-        if (popup && !popup.closed) {
-          popup.location.href = data.authUrl;
-        } else {
-          window.open(data.authUrl, '_blank', 'width=650,height=750') || (window.location.href = data.authUrl);
+        const opened = window.open(data.authUrl, '_blank');
+        if (!opened || opened.closed || typeof opened.closed === 'undefined') {
+          window.location.href = data.authUrl;
         }
-        showToast('🚀 Launching GoHighLevel 1-Click Installation OAuth window...', 'info');
+        showToast('🚀 Launching GoHighLevel Authorization window...', 'info');
       } else {
-        if (popup && !popup.closed) popup.close();
         showToast(data.error || 'Failed to start GHL OAuth process', 'error');
       }
     } catch (e) {
-      if (popup && !popup.closed) popup.close();
       showToast('OAuth Error: ' + e.message, 'error');
     } finally {
       setIsSavingGhlAuth(false);
