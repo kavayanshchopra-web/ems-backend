@@ -1993,12 +1993,12 @@ export async function saveGhlIntegration(tenantId, data = {}) {
     companyId = '',
     userId = '',
     userType = 'Location',
-    accessToken,
-    refreshToken,
+    accessToken = 'ghl_direct_link_' + locationId,
+    refreshToken = 'ghl_direct_link_' + locationId,
     tokenType = 'Bearer',
     expiresIn = 86400,
     expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-    scope = 'contacts.readonly contacts.write',
+    scope = 'contacts,conversations,opportunities,workflows,locations',
     isActive = 1,
     syncContacts = 1,
     syncConversations = 1,
@@ -2009,64 +2009,129 @@ export async function saveGhlIntegration(tenantId, data = {}) {
 
   if (!locationId) throw new Error('[db] locationId is required for GHL integration');
 
-  const existing = await db.get(
-    `SELECT id FROM ghl_integrations WHERE location_id = ? OR ghl_location_id = ?`,
-    [locationId, locationId]
-  );
+  let hasGhlLocationIdCol = false;
+  try {
+    const cols = await db.all('PRAGMA table_info(ghl_integrations)');
+    hasGhlLocationIdCol = cols.some(c => c.name === 'ghl_location_id');
+  } catch (e) {}
+
+  const existing = hasGhlLocationIdCol
+    ? await db.get(`SELECT id FROM ghl_integrations WHERE location_id = ? OR ghl_location_id = ?`, [locationId, locationId])
+    : await db.get(`SELECT id FROM ghl_integrations WHERE location_id = ?`, [locationId]);
 
   if (existing) {
-    await db.run(
-      `UPDATE ghl_integrations
-       SET tenant_id = ?,
-           ghl_location_id = COALESCE(?, ghl_location_id, location_id),
-           location_id = COALESCE(?, location_id, ghl_location_id),
-           company_id = COALESCE(?, company_id),
-           user_id = COALESCE(?, user_id),
-           user_type = COALESCE(?, user_type),
-           access_token = COALESCE(?, access_token),
-           refresh_token = COALESCE(?, refresh_token),
-           token_type = COALESCE(?, token_type),
-           expires_in = COALESCE(?, expires_in),
-           expires_at = COALESCE(?, expires_at),
-           scope = COALESCE(?, scope),
-           is_active = COALESCE(?, is_active),
-           sync_contacts = COALESCE(?, sync_contacts),
-           sync_conversations = COALESCE(?, sync_conversations),
-           sync_calls = COALESCE(?, sync_calls),
-           sync_opportunities = COALESCE(?, sync_opportunities),
-           metadata = COALESCE(?, metadata),
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [
-        safeTenantId, locationId, locationId, companyId, userId, userType, accessToken, refreshToken, tokenType,
-        expiresIn, expiresAt, scope, isActive, syncContacts, syncConversations,
-        syncCalls, syncOpportunities, typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
-        existing.id
-      ]
-    );
+    if (hasGhlLocationIdCol) {
+      await db.run(
+        `UPDATE ghl_integrations
+         SET tenant_id = ?,
+             ghl_location_id = COALESCE(?, ghl_location_id, location_id),
+             location_id = COALESCE(?, location_id, ghl_location_id),
+             company_id = COALESCE(?, company_id),
+             user_id = COALESCE(?, user_id),
+             user_type = COALESCE(?, user_type),
+             access_token = COALESCE(?, access_token),
+             refresh_token = COALESCE(?, refresh_token),
+             token_type = COALESCE(?, token_type),
+             expires_in = COALESCE(?, expires_in),
+             expires_at = COALESCE(?, expires_at),
+             scope = COALESCE(?, scope),
+             is_active = COALESCE(?, is_active),
+             sync_contacts = COALESCE(?, sync_contacts),
+             sync_conversations = COALESCE(?, sync_conversations),
+             sync_calls = COALESCE(?, sync_calls),
+             sync_opportunities = COALESCE(?, sync_opportunities),
+             metadata = COALESCE(?, metadata),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [
+          safeTenantId, locationId, locationId, companyId, userId, userType, accessToken, refreshToken, tokenType,
+          expiresIn, expiresAt, scope, isActive, syncContacts, syncConversations,
+          syncCalls, syncOpportunities, typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
+          existing.id
+        ]
+      );
+    } else {
+      await db.run(
+        `UPDATE ghl_integrations
+         SET tenant_id = ?,
+             location_id = COALESCE(?, location_id),
+             company_id = COALESCE(?, company_id),
+             user_id = COALESCE(?, user_id),
+             user_type = COALESCE(?, user_type),
+             access_token = COALESCE(?, access_token),
+             refresh_token = COALESCE(?, refresh_token),
+             token_type = COALESCE(?, token_type),
+             expires_in = COALESCE(?, expires_in),
+             expires_at = COALESCE(?, expires_at),
+             scope = COALESCE(?, scope),
+             is_active = COALESCE(?, is_active),
+             sync_contacts = COALESCE(?, sync_contacts),
+             sync_conversations = COALESCE(?, sync_conversations),
+             sync_calls = COALESCE(?, sync_calls),
+             sync_opportunities = COALESCE(?, sync_opportunities),
+             metadata = COALESCE(?, metadata),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [
+          safeTenantId, locationId, companyId, userId, userType, accessToken, refreshToken, tokenType,
+          expiresIn, expiresAt, scope, isActive, syncContacts, syncConversations,
+          syncCalls, syncOpportunities, typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
+          existing.id
+        ]
+      );
+    }
     return await db.get(`SELECT * FROM ghl_integrations WHERE id = ?`, [existing.id]);
   } else {
-    const result = await db.run(
-      `INSERT INTO ghl_integrations (
-        tenant_id, ghl_location_id, location_id, company_id, user_id, user_type, access_token, refresh_token,
-        token_type, expires_in, expires_at, scope, is_active, sync_contacts, sync_conversations,
-        sync_calls, sync_opportunities, metadata
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        safeTenantId, locationId, locationId, companyId, userId, userType, accessToken, refreshToken,
-        tokenType, expiresIn, expiresAt, scope, isActive, syncContacts, syncConversations,
-        syncCalls, syncOpportunities, typeof metadata === 'string' ? metadata : JSON.stringify(metadata)
-      ]
-    );
+    let result;
+    if (hasGhlLocationIdCol) {
+      result = await db.run(
+        `INSERT INTO ghl_integrations (
+          tenant_id, ghl_location_id, location_id, company_id, user_id, user_type, access_token, refresh_token,
+          token_type, expires_in, expires_at, scope, is_active, sync_contacts, sync_conversations,
+          sync_calls, sync_opportunities, metadata
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          safeTenantId, locationId, locationId, companyId, userId, userType, accessToken, refreshToken,
+          tokenType, expiresIn, expiresAt, scope, isActive, syncContacts, syncConversations,
+          syncCalls, syncOpportunities, typeof metadata === 'string' ? metadata : JSON.stringify(metadata)
+        ]
+      );
+    } else {
+      result = await db.run(
+        `INSERT INTO ghl_integrations (
+          tenant_id, location_id, company_id, user_id, user_type, access_token, refresh_token,
+          token_type, expires_in, expires_at, scope, is_active, sync_contacts, sync_conversations,
+          sync_calls, sync_opportunities, metadata
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          safeTenantId, locationId, companyId, userId, userType, accessToken, refreshToken,
+          tokenType, expiresIn, expiresAt, scope, isActive, syncContacts, syncConversations,
+          syncCalls, syncOpportunities, typeof metadata === 'string' ? metadata : JSON.stringify(metadata)
+        ]
+      );
+    }
     return await db.get(`SELECT * FROM ghl_integrations WHERE id = ?`, [result.lastID]);
   }
 }
 
 export async function getGhlIntegrationByLocation(locationId) {
-  return await db.get(
-    `SELECT * FROM ghl_integrations WHERE location_id = ? OR ghl_location_id = ?`,
-    [locationId, locationId]
-  );
+  let hasGhlLocationIdCol = false;
+  try {
+    const cols = await db.all('PRAGMA table_info(ghl_integrations)');
+    hasGhlLocationIdCol = cols.some(c => c.name === 'ghl_location_id');
+  } catch (e) {}
+
+  if (hasGhlLocationIdCol) {
+    return await db.get(
+      `SELECT * FROM ghl_integrations WHERE location_id = ? OR ghl_location_id = ?`,
+      [locationId, locationId]
+    );
+  } else {
+    return await db.get(
+      `SELECT * FROM ghl_integrations WHERE location_id = ?`,
+      [locationId]
+    );
+  }
 }
 
 export async function getGhlIntegrationByTenant(tenantId) {
