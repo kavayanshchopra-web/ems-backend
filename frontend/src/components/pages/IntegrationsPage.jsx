@@ -535,6 +535,17 @@ export default function IntegrationsPage({
       const data = await res.json();
       if (res.ok && data.success) {
         showToast(`✅ Sub-Account (${locIdToLink}) Connected Successfully!`, 'success');
+        setGhlLocations([{
+          id: `ghl_${locIdToLink}`,
+          locationId: locIdToLink,
+          accessToken: data.accessToken || '',
+          companyId: cleanCompanyId,
+          tenantId: cleanCompanyId,
+          locationName: `Active Sub-Account (${locIdToLink})`,
+          scope: 'contacts, conversations, workflows, locations',
+          installedAt: new Date().toISOString(),
+          status: 'connected'
+        }]);
         loadGhlOAuthData();
       } else {
         showToast(data.error || 'Failed to link sub-account', 'error');
