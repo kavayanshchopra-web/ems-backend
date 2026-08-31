@@ -60,7 +60,13 @@ export default function App() {
     try {
       if (typeof window !== 'undefined') {
         const urlParams = new URLSearchParams(window.location.search);
-        const locationId = urlParams.get('location_id') || urlParams.get('locationId');
+        let locationId = urlParams.get('location_id') || urlParams.get('locationId') || urlParams.get('loc_id') || urlParams.get('location');
+        if (!locationId && typeof document !== 'undefined' && document.referrer) {
+          const match = document.referrer.match(/\/location\/([a-zA-Z0-9_-]+)/);
+          if (match && match[1] && match[1] !== 'undefined') {
+            locationId = match[1];
+          }
+        }
         if (locationId) {
           const ghlTenant = `org_${locationId}`;
           window.__omniflow_tenant = ghlTenant;

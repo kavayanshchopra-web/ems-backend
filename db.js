@@ -1963,7 +1963,31 @@ export async function updateKycStatus(tenantId, status, remarks = '', adminName 
 // ⚡ GOHIGHLEVEL (GHL) DATABASE HELPER FUNCTIONS
 // ==========================================
 
+export async function ensureTenantRowExists(tenantId, companyName = '') {
+  if (!tenantId || tenantId === 'undefined' || tenantId === 'null') return 1;
+  // If numeric
+  if (typeof tenantId === 'number' || (/^\d+$/.test(String(tenantId).trim()))) {
+    const num = parseInt(tenantId, 10);
+    const row = await db.get(`SELECT id FROM tenants WHERE id = ?`, [num]);
+    if (!row) {
+      await db.run(`INSERT OR IGNORE INTO tenants (id, company_name) VALUES (?, ?)`, [num, companyName || `Company ${num}`]);
+    }
+    return num;
+  }
+
+  // If string (e.g. 'org_6e625WqmbKCdRrvted' or locationId)
+  const strId = String(tenantId).trim();
+  const existing = await db.get(`SELECT id FROM tenants WHERE company_name = ?`, [strId]);
+  if (existing) {
+    return existing.id;
+  }
+  const ins = await db.run(`INSERT INTO tenants (company_name) VALUES (?)`, [strId]);
+  return ins.lastID;
+}
+
 export async function saveGhlIntegration(tenantId, data = {}) {
+  const safeTenantId = await ensureTenantRowExists(tenantId, data?.companyId || tenantId);
+
   const {
     locationId,
     companyId = '',
@@ -1986,8 +2010,8 @@ export async function saveGhlIntegration(tenantId, data = {}) {
   if (!locationId) throw new Error('[db] locationId is required for GHL integration');
 
   const existing = await db.get(
-    `SELECT id FROM ghl_integrations WHERE location_id = ? AND (CAST(tenant_id AS TEXT) = CAST(? AS TEXT) OR tenant_id = ?)`,
-    [locationId, String(tenantId), String(tenantId)]
+    `SELECT id FROM ghl_integrations WHERE location_id = ?`,
+    [locationId]
   );
 
   if (existing) {
@@ -2013,7 +2037,7 @@ export async function saveGhlIntegration(tenantId, data = {}) {
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
       [
-        tenantId, locationId, companyId, userId, userType, accessToken, refreshToken, tokenType,
+        safeTenantId, locationId, companyId, userId, userType, accessToken, refreshToken, tokenType,
         expiresIn, expiresAt, scope, isActive, syncContacts, syncConversations,
         syncCalls, syncOpportunities, typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
         existing.id
@@ -2028,7 +2052,7 @@ export async function saveGhlIntegration(tenantId, data = {}) {
         sync_calls, sync_opportunities, metadata
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        tenantId, locationId, companyId, userId, userType, accessToken, refreshToken,
+        safeTenantId, locationId, companyId, userId, userType, accessToken, refreshToken,
         tokenType, expiresIn, expiresAt, scope, isActive, syncContacts, syncConversations,
         syncCalls, syncOpportunities, typeof metadata === 'string' ? metadata : JSON.stringify(metadata)
       ]
@@ -2046,9 +2070,10 @@ export async function getGhlIntegrationByLocation(locationId) {
 
 export async function getGhlIntegrationByTenant(tenantId) {
   if (!tenantId || tenantId === 'undefined' || tenantId === 'null') return null;
+  const safeTenantId = await ensureTenantRowExists(tenantId);
   return await db.get(
-    `SELECT * FROM ghl_integrations WHERE (CAST(tenant_id AS TEXT) = CAST(? AS TEXT) OR tenant_id = ?) AND is_active = 1 ORDER BY updated_at DESC LIMIT 1`,
-    [String(tenantId), String(tenantId)]
+    `SELECT * FROM ghl_integrations WHERE (tenant_id = ? OR CAST(tenant_id AS TEXT) = CAST(? AS TEXT)) AND is_active = 1 ORDER BY updated_at DESC LIMIT 1`,
+    [safeTenantId, String(tenantId)]
   );
 }
 
@@ -2057,6 +2082,7 @@ export async function getAllActiveGhlIntegrations() {
 }
 
 export async function saveGhlFieldMapping(tenantId, mappingData = {}) {
+  const safeTenantId = await ensureTenantRowExists(tenantId);
   const {
     locationId,
     emsModuleId = 'contacts',
@@ -2095,7 +2121,7 @@ export async function saveGhlFieldMapping(tenantId, mappingData = {}) {
         ghl_data_type, sync_direction, is_active, metadata
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        tenantId, locationId, emsModuleId, emsFieldKey, ghlFieldId, ghlFieldName,
+        safeTenantId, locationId, emsModuleId, emsFieldKey, ghlFieldId, ghlFieldName,
         ghlDataType, syncDirection, isActive, typeof metadata === 'string' ? metadata : JSON.stringify(metadata)
       ]
     );
@@ -2104,13 +2130,15 @@ export async function saveGhlFieldMapping(tenantId, mappingData = {}) {
 }
 
 export async function getGhlFieldMappings(tenantId, locationId, emsModuleId = 'contacts') {
+  const safeTenantId = await ensureTenantRowExists(tenantId);
   return await db.all(
-    `SELECT * FROM ghl_field_mappings WHERE tenant_id = ? AND location_id = ? AND ems_module_id = ? AND is_active = 1`,
-    [tenantId, locationId, emsModuleId]
+    `SELECT * FROM ghl_field_mappings WHERE (tenant_id = ? OR tenant_id = 1) AND location_id = ? AND ems_module_id = ? AND is_active = 1`,
+    [safeTenantId, locationId, emsModuleId]
   );
 }
 
 export async function saveGhlEntityLink(tenantId, linkData = {}) {
+  const safeTenantId = await ensureTenantRowExists(tenantId);
   const { locationId, entityType, emsEntityId, ghlEntityId, lastSyncedHash = '' } = linkData;
   const existing = await db.get(
     `SELECT id FROM ghl_entity_links 
@@ -2134,27 +2162,30 @@ export async function saveGhlEntityLink(tenantId, linkData = {}) {
     const result = await db.run(
       `INSERT OR REPLACE INTO ghl_entity_links (tenant_id, location_id, entity_type, ems_entity_id, ghl_entity_id, last_synced_hash)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [tenantId, locationId, entityType, String(emsEntityId), String(ghlEntityId), lastSyncedHash]
+      [safeTenantId, locationId, entityType, String(emsEntityId), String(ghlEntityId), lastSyncedHash]
     );
     return await db.get(`SELECT * FROM ghl_entity_links WHERE id = ?`, [result.lastID]);
   }
 }
 
 export async function getGhlEntityLink(tenantId, locationId, entityType, emsEntityId) {
+  const safeTenantId = await ensureTenantRowExists(tenantId);
   return await db.get(
-    `SELECT * FROM ghl_entity_links WHERE tenant_id = ? AND location_id = ? AND entity_type = ? AND ems_entity_id = ?`,
-    [tenantId, locationId, entityType, String(emsEntityId)]
+    `SELECT * FROM ghl_entity_links WHERE (tenant_id = ? OR tenant_id = 1) AND location_id = ? AND entity_type = ? AND ems_entity_id = ?`,
+    [safeTenantId, locationId, entityType, String(emsEntityId)]
   );
 }
 
 export async function getEmsEntityByGhlId(tenantId, locationId, entityType, ghlEntityId) {
+  const safeTenantId = await ensureTenantRowExists(tenantId);
   return await db.get(
-    `SELECT * FROM ghl_entity_links WHERE tenant_id = ? AND location_id = ? AND entity_type = ? AND ghl_entity_id = ?`,
-    [tenantId, locationId, entityType, String(ghlEntityId)]
+    `SELECT * FROM ghl_entity_links WHERE (tenant_id = ? OR tenant_id = 1) AND location_id = ? AND entity_type = ? AND ghl_entity_id = ?`,
+    [safeTenantId, locationId, entityType, String(ghlEntityId)]
   );
 }
 
 export async function createGhlSyncLog(tenantId, logData = {}) {
+  const safeTenantId = await ensureTenantRowExists(tenantId);
   const {
     locationId,
     direction = 'INBOUND',
@@ -2180,7 +2211,7 @@ export async function createGhlSyncLog(tenantId, logData = {}) {
         event_type, status, http_status, payload, error_message, retry_count, idempotency_key
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        tenantId, locationId, direction, eventType, entityType, emsEntityId ? String(emsEntityId) : null,
+        safeTenantId, locationId, direction, eventType, entityType, emsEntityId ? String(emsEntityId) : null,
         ghlEntityId ? String(ghlEntityId) : null, eventType, status, httpStatus,
         typeof payload === 'string' ? payload : (payload ? JSON.stringify(payload) : null),
         errorMessage, retryCount, idempotencyKey
@@ -2194,7 +2225,7 @@ export async function createGhlSyncLog(tenantId, logData = {}) {
         event_type, status, http_status, payload, error_message, retry_count, idempotency_key
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        tenantId, locationId, direction, entityType, emsEntityId ? String(emsEntityId) : null,
+        safeTenantId, locationId, direction, entityType, emsEntityId ? String(emsEntityId) : null,
         ghlEntityId ? String(ghlEntityId) : null, eventType, status, httpStatus,
         typeof payload === 'string' ? payload : (payload ? JSON.stringify(payload) : null),
         errorMessage, retryCount, idempotencyKey
