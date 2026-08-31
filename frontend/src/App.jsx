@@ -58,35 +58,15 @@ export default function App() {
   // Auth state
   const [authUser, setAuthUser] = useState(() => {
     try {
-      if (typeof window !== 'undefined') {
-        const urlParams = new URLSearchParams(window.location.search);
-        let locationId = urlParams.get('location_id') || urlParams.get('locationId') || urlParams.get('loc_id') || urlParams.get('location');
-        if (!locationId && typeof document !== 'undefined' && document.referrer) {
-          const match = document.referrer.match(/\/location\/([a-zA-Z0-9_-]+)/);
-          if (match && match[1] && match[1] !== 'undefined') {
-            locationId = match[1];
-          }
-        }
-        if (locationId) {
-          const ghlTenant = `org_${locationId}`;
-          window.__omniflow_tenant = ghlTenant;
-          const subAccountUser = {
-            id: `ghl_${locationId}`,
-            name: `GHL Sub-Account (${locationId.slice(0, 8)})`,
-            email: `subaccount_${locationId.slice(0, 6)}@ghl.ems`,
-            role: 'owner',
-            companyName: `HighLevel Workspace (${locationId.slice(0, 8)})`,
-            tenantId: ghlTenant,
-            companyId: ghlTenant,
-            tenant_id: ghlTenant
-          };
-          localStorage.setItem('omnilflow_user', JSON.stringify(subAccountUser));
-          localStorage.setItem('omnilflow_token', `ghl_session_${locationId}`);
-          return subAccountUser;
-        }
-      }
+      const isEmbedded = typeof window !== 'undefined' && (window.self !== window.top || window.location.search.includes('iframe') || window.location.search.includes('location'));
       const saved = localStorage.getItem('omnilflow_user');
       const user = saved ? JSON.parse(saved) : null;
+
+      // When embedded inside GHL iframe, do NOT auto-restore SuperAdmin session
+      if (isEmbedded && user?.role === 'superadmin') {
+        return null; // Force Login / Sign Up screen
+      }
+
       if (user && typeof window !== 'undefined') {
         const tId = user.tenantId || user.companyId || user.tenant_id;
         window.__omniflow_tenant = tId ? String(tId) : 'org_default';
