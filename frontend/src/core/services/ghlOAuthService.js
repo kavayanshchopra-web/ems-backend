@@ -94,6 +94,122 @@ export class GhlOAuthService {
   }
 
   /**
+   * Directly fetch all contacts from HighLevel Cloud API with cursor pagination
+   */
+  static async fetchContactsDirectly({ locationId, accessToken, limit = 100, maxTotal = 10000, onPageFetched }) {
+    if (!locationId) throw new Error('HighLevel Location ID is required');
+    if (!accessToken) throw new Error('HighLevel Access Token is required');
+
+    let startAfter = null;
+    let hasMore = true;
+    let allContacts = [];
+    let page = 0;
+    let totalInGhl = 0;
+
+    while (hasMore && allContacts.length < maxTotal && page < 150) {
+      page++;
+      const url = new URL('https://services.leadconnectorhq.com/contacts/');
+      url.searchParams.append('locationId', locationId);
+      url.searchParams.append('limit', String(Math.min(limit, 100)));
+      if (startAfter) {
+        url.searchParams.append('startAfter', startAfter);
+      }
+
+      const res = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Version': '2021-07-28',
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || `HighLevel API responded with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      const contacts = data.contacts || [];
+      totalInGhl = data.total || (totalInGhl + contacts.length);
+
+      if (!contacts.length) {
+        hasMore = false;
+        break;
+      }
+
+      allContacts.push(...contacts);
+      if (onPageFetched) {
+        onPageFetched(contacts, allContacts.length, totalInGhl);
+      }
+
+      if (data.meta && (data.meta.startAfter || data.meta.startAfterId)) {
+        startAfter = data.meta.startAfter || data.meta.startAfterId;
+      } else if (contacts.length < limit) {
+        hasMore = false;
+      } else {
+        startAfter = contacts[contacts.length - 1].dateAdded || contacts[contacts.length - 1].id;
+      }
+    }
+
+    return { contacts: allContacts, total: totalInGhl };
+  }
+
+  /**
+   * Directly fetch all Pipelines and Opportunities from HighLevel Cloud API
+   */
+  static async fetchOpportunitiesDirectly({ locationId, accessToken }) {
+    if (!locationId) throw new Error('HighLevel Location ID is required');
+    if (!accessToken) throw new Error('HighLevel Access Token is required');
+
+    // 1. Fetch Pipelines
+    const pipeRes = await fetch(`https://services.leadconnectorhq.com/opportunities/pipelines?locationId=${encodeURIComponent(locationId)}`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Version': '2021-07-28',
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!pipeRes.ok) {
+      const errJson = await pipeRes.json().catch(() => ({}));
+      throw new Error(errJson.message || `Failed to fetch pipelines (${pipeRes.status})`);
+    }
+
+    const pipeData = await pipeRes.json();
+    const pipelines = pipeData.pipelines || [];
+    const allOpportunities = [];
+
+    // 2. Fetch Opportunities for each pipeline
+    for (const pipeline of pipelines) {
+      try {
+        const oppRes = await fetch(`https://services.leadconnectorhq.com/opportunities/search?locationId=${encodeURIComponent(locationId)}&pipelineId=${encodeURIComponent(pipeline.id)}&limit=100`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Version': '2021-07-28',
+            'Accept': 'application/json'
+          }
+        });
+        if (oppRes.ok) {
+          const oppData = await oppRes.json();
+          const opps = oppData.opportunities || [];
+          for (const opp of opps) {
+            allOpportunities.push({
+              ...opp,
+              pipelineName: pipeline.name,
+              stages: pipeline.stages || []
+            });
+          }
+        }
+      } catch (err) {
+        console.warn(`Error fetching opps for pipeline ${pipeline.id}:`, err);
+      }
+    }
+
+    return { pipelines, opportunities: allOpportunities };
+  }
+
+  /**
    * Revoke & Disconnect a GHL sub-account location
    */
   static async disconnectLocation(docId) {

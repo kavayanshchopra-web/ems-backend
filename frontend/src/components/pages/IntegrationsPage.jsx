@@ -117,6 +117,7 @@ export default function IntegrationsPage({
 
   const loadGhlOAuthData = async () => {
     try {
+      const firestoreLocs = await GhlOAuthService.getInstalledLocations(cleanCompanyId);
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
       const res = await fetch(`${API_URL}/v1/integrations/ghl/status?companyId=${encodeURIComponent(cleanCompanyId)}`, {
         headers: {
@@ -142,21 +143,50 @@ export default function IntegrationsPage({
             }
           }
 
+          const fsMatch = firestoreLocs.find(l => l.locationId === data.locationId);
+
           setGhlLocations([{
             id: `ghl_${data.locationId}`,
             locationId: data.locationId,
+            accessToken: fsMatch?.accessToken || data.accessToken || '',
             companyId: data.companyId,
             tenantId: data.tenantId || data.tenant_id,
             locationName: `Active Sub-Account (${data.locationId})`,
-            scope: data.scope,
-            installedAt: data.installedAt || new Date().toISOString(),
+            scope: data.scope || fsMatch?.scope || '',
+            installedAt: data.installedAt || fsMatch?.installedAt || new Date().toISOString(),
             status: 'connected'
           }]);
+          fetchGhlSyncLogs();
+        } else if (firestoreLocs.length > 0) {
+          setGhlLocations(firestoreLocs.map(l => ({
+            id: `ghl_${l.locationId}`,
+            locationId: l.locationId,
+            accessToken: l.accessToken,
+            companyId: l.companyId,
+            tenantId: l.companyId,
+            locationName: `Active Sub-Account (${l.locationId})`,
+            scope: l.scope,
+            installedAt: l.installedAt || new Date().toISOString(),
+            status: 'connected'
+          })));
           fetchGhlSyncLogs();
         } else {
           setGhlLocations([]);
           setGhlSyncLogs([]);
         }
+      } else if (firestoreLocs.length > 0) {
+        setGhlLocations(firestoreLocs.map(l => ({
+          id: `ghl_${l.locationId}`,
+          locationId: l.locationId,
+          accessToken: l.accessToken,
+          companyId: l.companyId,
+          tenantId: l.companyId,
+          locationName: `Active Sub-Account (${l.locationId})`,
+          scope: l.scope,
+          installedAt: l.installedAt || new Date().toISOString(),
+          status: 'connected'
+        })));
+        fetchGhlSyncLogs();
       } else {
         setGhlLocations([]);
         setGhlSyncLogs([]);
@@ -586,56 +616,122 @@ export default function IntegrationsPage({
 
   const handleImportAllGhlContacts = async () => {
     setIsSyncingGhl(true);
-    showToast('📥 Fetching & Importing all contacts from HighLevel into EMS...', 'info');
+    showToast('📥 Connecting to HighLevel API to import contacts...', 'info');
     try {
-      const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
-      const res = await fetch(`${API_URL}/v1/integrations/ghl/contacts/import-all`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-          'X-Tenant-Id': String(cleanCompanyId)
-        },
-        body: JSON.stringify({ companyId: cleanCompanyId, maxTotal: 10000 })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        const importedList = data.contacts || [];
-        // Auto-populate into Firestore CRM Deals so Kanban immediately displays them
-        for (const contact of importedList) {
-          const dealId = `deal_${contact.id || contact.ghlId}`;
-          const dealPayload = {
-            id: dealId,
-            title: `${contact.name || 'HighLevel Lead'} - Deal`,
-            customer_name: contact.name || 'HighLevel Lead',
-            phone: contact.phone || '',
-            email: contact.email || '',
-            deal_stage: 'New Lead',
-            pipeline_stage: 'lead',
-            amount: 0,
-            deal_value: 0,
-            notes: `Imported from GoHighLevel (Contact ID: ${contact.ghlId || ''})`,
-            tags: contact.tags || ['HighLevel'],
-            source: 'GoHighLevel',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
-          await FirebaseCloudEngine.saveRecord('crm_deals', dealPayload, cleanCompanyId);
-          await FirebaseCloudEngine.saveRecord('contacts', {
-            id: contact.id || `ghl_${contact.ghlId}`,
-            name: contact.name,
-            phone: contact.phone,
-            email: contact.email,
-            pipeline_stage: 'lead',
-            labels: contact.tags || ['HighLevel']
-          }, cleanCompanyId);
+      const loc = ghlLocations[0];
+      let importedList = [];
+      let totalFound = 0;
+
+      // 1. Try Direct HighLevel Cloud API first (Instant, streaming progress)
+      if (loc && loc.locationId && loc.accessToken) {
+        showToast('⚡ Streaming contacts directly from HighLevel Cloud...', 'info');
+        const res = await GhlOAuthService.fetchContactsDirectly({
+          locationId: loc.locationId,
+          accessToken: loc.accessToken,
+          limit: 100,
+          maxTotal: 10000,
+          onPageFetched: async (pageContacts, runningCount, totalGhl) => {
+            showToast(`📥 Imported ${runningCount} of ${totalGhl || '7,154+'} HighLevel contacts...`, 'info');
+            // Write each batch into Firestore CRM Deals immediately
+            for (const c of pageContacts) {
+              const fullName = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.phone || 'GHL Lead';
+              const dealPayload = {
+                id: `deal_${c.id}`,
+                title: `${fullName} - Deal`,
+                customer_name: fullName,
+                phone: c.phone || '',
+                email: c.email || '',
+                deal_stage: 'New Lead',
+                pipeline_stage: 'lead',
+                amount: 0,
+                deal_value: 0,
+                notes: `Imported from GoHighLevel (Contact ID: ${c.id})`,
+                tags: Array.isArray(c.tags) ? c.tags : ['HighLevel'],
+                source: 'GoHighLevel',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              };
+              await FirebaseCloudEngine.saveRecord('crm_deals', dealPayload, cleanCompanyId);
+              await FirebaseCloudEngine.saveRecord('contacts', {
+                id: `ghl_${c.id}`,
+                name: fullName,
+                phone: c.phone || '',
+                email: c.email || '',
+                pipeline_stage: 'lead',
+                labels: Array.isArray(c.tags) ? c.tags : ['HighLevel']
+              }, cleanCompanyId);
+            }
+          }
+        });
+        importedList = res.contacts || [];
+        totalFound = res.total || importedList.length;
+      } else {
+        // 2. Fallback to backend proxy endpoint
+        const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
+        const res = await fetch(`${API_URL}/v1/integrations/ghl/contacts/import-all`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            'X-Tenant-Id': String(cleanCompanyId)
+          },
+          body: JSON.stringify({ companyId: cleanCompanyId, maxTotal: 10000 })
+        });
+        const rawText = await res.text();
+        let data = {};
+        try {
+          data = rawText ? JSON.parse(rawText) : {};
+        } catch {
+          data = { error: rawText.includes('Cannot POST') ? 'Backend server updating... Please ensure VPS backend is restarted.' : (rawText.slice(0, 100) || 'Invalid server response') };
         }
 
-        showToast(`🎉 HighLevel Import Complete! Total in GHL: ${data.totalFound || importedList.length}, Imported: ${data.imported || 0}, Updated: ${data.updated || 0}`, 'success');
-        fetchGhlSyncLogs();
-      } else {
-        showToast(data.error || 'HighLevel contact import failed', 'error');
+        if (res.ok && data.success) {
+          importedList = data.contacts || [];
+          totalFound = data.totalFound || importedList.length;
+          for (const contact of importedList) {
+            const dealId = `deal_${contact.id || contact.ghlId}`;
+            const dealPayload = {
+              id: dealId,
+              title: `${contact.name || 'HighLevel Lead'} - Deal`,
+              customer_name: contact.name || 'HighLevel Lead',
+              phone: contact.phone || '',
+              email: contact.email || '',
+              deal_stage: 'New Lead',
+              pipeline_stage: 'lead',
+              amount: 0,
+              deal_value: 0,
+              notes: `Imported from GoHighLevel (Contact ID: ${contact.ghlId || ''})`,
+              tags: contact.tags || ['HighLevel'],
+              source: 'GoHighLevel',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+            await FirebaseCloudEngine.saveRecord('crm_deals', dealPayload, cleanCompanyId);
+            await FirebaseCloudEngine.saveRecord('contacts', {
+              id: contact.id || `ghl_${contact.ghlId}`,
+              name: contact.name,
+              phone: contact.phone,
+              email: contact.email,
+              pipeline_stage: 'lead',
+              labels: contact.tags || ['HighLevel']
+            }, cleanCompanyId);
+          }
+        } else {
+          throw new Error(data.error || 'Failed to import contacts from HighLevel');
+        }
       }
+
+      // Sync sample with backend for live logs
+      try {
+        await fetch(`${API_URL}/v1/integrations/ghl/sync-live-contacts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ companyId: cleanCompanyId, contacts: importedList.slice(0, 50) })
+        });
+      } catch {}
+
+      showToast(`🎉 HighLevel Import Complete! Total in GHL: ${totalFound}, Imported: ${importedList.length} leads into CRM Kanban!`, 'success');
+      fetchGhlSyncLogs();
     } catch (e) {
       showToast('Import error: ' + e.message, 'error');
     } finally {
@@ -647,42 +743,65 @@ export default function IntegrationsPage({
     setIsSyncingGhl(true);
     showToast('📥 Fetching & Importing all Pipelines & Deals from HighLevel...', 'info');
     try {
-      const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
-      const res = await fetch(`${API_URL}/v1/integrations/ghl/opportunities/import-all`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-          'X-Tenant-Id': String(cleanCompanyId)
-        },
-        body: JSON.stringify({ companyId: cleanCompanyId })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        const oppsList = data.opportunities || [];
-        for (const opp of oppsList) {
-          const dealId = `deal_${opp.id || opp.ghlId}`;
-          const stageMap = String(opp.status || 'open').toLowerCase() === 'won' ? 'Won' : (String(opp.status || 'open').toLowerCase() === 'lost' ? 'Lost' : 'New Lead');
-          const dealPayload = {
-            id: dealId,
-            title: opp.name || 'HighLevel Opportunity',
-            customer_name: opp.name || 'Opportunity Contact',
-            deal_stage: stageMap,
-            pipeline_stage: stageMap.toLowerCase(),
-            amount: opp.monetaryValue || 0,
-            deal_value: opp.monetaryValue || 0,
-            notes: `HighLevel Opportunity (${opp.pipelineName || 'Pipeline'})`,
-            source: 'GoHighLevel',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
-          await FirebaseCloudEngine.saveRecord('crm_deals', dealPayload, cleanCompanyId);
-        }
-        showToast(`🎉 Opportunities Import Complete! Total: ${data.totalFound || oppsList.length}, Imported: ${data.imported || 0}, Updated: ${data.updated || 0}`, 'success');
-        fetchGhlSyncLogs();
+      const loc = ghlLocations[0];
+      let oppsList = [];
+      let totalFound = 0;
+
+      if (loc && loc.locationId && loc.accessToken) {
+        const res = await GhlOAuthService.fetchOpportunitiesDirectly({
+          locationId: loc.locationId,
+          accessToken: loc.accessToken
+        });
+        oppsList = res.opportunities || [];
+        totalFound = oppsList.length;
       } else {
-        showToast(data.error || 'HighLevel opportunities import failed', 'error');
+        const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
+        const res = await fetch(`${API_URL}/v1/integrations/ghl/opportunities/import-all`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            'X-Tenant-Id': String(cleanCompanyId)
+          },
+          body: JSON.stringify({ companyId: cleanCompanyId })
+        });
+        const rawText = await res.text();
+        let data = {};
+        try {
+          data = rawText ? JSON.parse(rawText) : {};
+        } catch {
+          data = { error: rawText.includes('Cannot POST') ? 'Backend server updating... Please ensure VPS backend is restarted.' : (rawText.slice(0, 100) || 'Invalid server response') };
+        }
+
+        if (res.ok && data.success) {
+          oppsList = data.opportunities || [];
+          totalFound = data.totalFound || oppsList.length;
+        } else {
+          throw new Error(data.error || 'HighLevel opportunities import failed');
+        }
       }
+
+      for (const opp of oppsList) {
+        const dealId = `deal_${opp.id || opp.ghlId}`;
+        const stageMap = String(opp.status || 'open').toLowerCase() === 'won' ? 'Won' : (String(opp.status || 'open').toLowerCase() === 'lost' ? 'Lost' : 'New Lead');
+        const dealPayload = {
+          id: dealId,
+          title: opp.name || 'HighLevel Opportunity',
+          customer_name: opp.name || 'Opportunity Contact',
+          deal_stage: stageMap,
+          pipeline_stage: stageMap.toLowerCase(),
+          amount: opp.monetaryValue || 0,
+          deal_value: opp.monetaryValue || 0,
+          notes: `HighLevel Opportunity (${opp.pipelineName || 'Pipeline'})`,
+          source: 'GoHighLevel',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        await FirebaseCloudEngine.saveRecord('crm_deals', dealPayload, cleanCompanyId);
+      }
+
+      showToast(`🎉 Opportunities Import Complete! Total: ${totalFound}, Imported: ${oppsList.length} Deals into Kanban!`, 'success');
+      fetchGhlSyncLogs();
     } catch (e) {
       showToast('Import error: ' + e.message, 'error');
     } finally {
