@@ -78,7 +78,6 @@ export class GhlAuthService {
    * @returns {Promise<Object>} Safe connection summary (no tokens exposed)
    */
   async exchangeCodeForToken({ tenantId, code, redirectUri }) {
-    if (!tenantId) throw new Error('[GhlAuthService] tenantId is required for token exchange');
     if (!code) throw new Error('[GhlAuthService] Authorization code is required');
 
     const clientId = (process.env.GHL_CLIENT_ID || '').trim();
@@ -120,7 +119,7 @@ export class GhlAuthService {
       const isTimeout = fetchErr.name === 'AbortError';
       const msg = isTimeout ? 'HighLevel token endpoint timed out after 10s' : fetchErr.message;
       
-      await createGhlSyncLog(tenantId, {
+      await createGhlSyncLog(tenantId || 'system', {
         locationId: 'unknown',
         direction: 'INBOUND',
         eventType: 'OAuthTokenExchangeFailed',
@@ -137,7 +136,7 @@ export class GhlAuthService {
     if (!response.ok || !data.access_token) {
       const errorMsg = data.error_description || data.message || data.error || `HTTP ${response.status}`;
       
-      await createGhlSyncLog(tenantId, {
+      await createGhlSyncLog(tenantId || 'system', {
         locationId: data.locationId || 'unknown',
         direction: 'INBOUND',
         eventType: 'OAuthTokenExchangeFailed',
@@ -150,7 +149,8 @@ export class GhlAuthService {
     }
 
     // HighLevel returns locationId (or sub-account ID)
-    const locationId = data.locationId || data.location_id || `loc_${tenantId}_${Date.now()}`;
+    const locationId = data.locationId || data.location_id || `loc_${Date.now()}`;
+    const effectiveTenantId = tenantId && tenantId !== 'undefined' && tenantId !== 'null' ? tenantId : `org_${locationId}`;
     const companyId = data.companyId || data.company_id || '';
     const userId = data.userId || data.user_id || '';
     const userType = data.userType || 'Location';
@@ -165,7 +165,7 @@ export class GhlAuthService {
     const encryptedRefreshToken = data.refresh_token ? encryptToken(data.refresh_token) : '';
 
     // Persist securely into SQLite ghl_integrations
-    await saveGhlIntegration(tenantId, {
+    await saveGhlIntegration(effectiveTenantId, {
       locationId,
       companyId,
       userId,
@@ -184,10 +184,10 @@ export class GhlAuthService {
     });
 
     // Record audit log
-    await createGhlSyncLog(tenantId, {
+    await createGhlSyncLog(effectiveTenantId, {
       locationId,
       direction: 'INBOUND',
-      eventType: 'OAuthTokenExchangeSuccess',
+      eventType: 'OAuthInstalled',
       status: 'SUCCESS',
       httpStatus: 200,
       payload: { locationId, companyId, scope, expiresIn }
@@ -195,6 +195,7 @@ export class GhlAuthService {
 
     return {
       success: true,
+      tenantId: effectiveTenantId,
       locationId,
       companyId,
       scope,

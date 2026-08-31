@@ -79,7 +79,7 @@ export default function IntegrationsPage({
   const [ghlSyncLogs, setGhlSyncLogs] = useState([]);
 
   const cleanCompanyId = companyId || authUser?.companyId || authUser?.tenant_id || 'default_tenant';
-  const isSuperAdmin = authUser?.role === 'superadmin' || authUser?.role === 'super_admin' || authUser?.isSuperAdmin;
+  const isSuperAdmin = (authUser?.role === 'superadmin' || authUser?.role === 'super_admin' || authUser?.isSuperAdmin === true) && (authUser?.tenantId === 'platform_superadmin' || !authUser?.companyId);
   const baseUrl = `${API_URL}/v1/integrations/webhook/receive/${cleanCompanyId}`;
 
   useEffect(() => {
@@ -1124,24 +1124,24 @@ export default function IntegrationsPage({
 
       {/* TAB: GHL MARKETPLACE OAUTH */}
       {activeTab === 'ghl_marketplace' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(350px, 420px) 1fr', gap: '20px' }}>
-          {/* Connection Control Card */}
-          <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', height: 'fit-content' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(255, 107, 0, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Zap size={22} style={{ color: '#ff6b00' }} />
+        <div style={{ display: 'grid', gridTemplateColumns: isSuperAdmin ? 'minmax(350px, 420px) 1fr' : '1fr', gap: '20px' }}>
+          {/* Connection Control Card (SUPER ADMIN ONLY) */}
+          {isSuperAdmin && (
+            <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', height: 'fit-content' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(255, 107, 0, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Zap size={22} style={{ color: '#ff6b00' }} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>GoHighLevel Integration</h3>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>SuperAdmin Marketplace Master Setup</p>
+                </div>
               </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>GoHighLevel Integration</h3>
-                <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>HighLevel Marketplace v2 Official OAuth</p>
-              </div>
-            </div>
 
-            <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: '1.5' }}>
-              Connect your HighLevel Sub-Account location in 1-click. Automatically sync leads, WhatsApp conversations, and telephony call recordings into your HighLevel contact timelines.
-            </p>
+              <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: '1.5' }}>
+                Master GoHighLevel Marketplace v2 OAuth connection. When agencies install the EMS app in their HighLevel sub-accounts, they will link and provision automatically.
+              </p>
 
-            {isSuperAdmin && (
               <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>OAuth Redirect URI (SuperAdmin Setup)</span>
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -1161,37 +1161,47 @@ export default function IntegrationsPage({
                   </Button>
                 </div>
               </div>
-            )}
 
-            {ghlLocations.length === 0 ? (
-              <Button
-                variant="primary"
-                type="button"
-                icon={<ExternalLink size={15} />}
-                onClick={handleLaunchGhlInstall}
-                disabled={isSavingGhlAuth}
-                style={{ width: '100%', justifyContent: 'center', background: '#ff6b00', borderColor: '#ff6b00', padding: '10px', fontWeight: '700' }}
-              >
-                {isSavingGhlAuth ? 'Connecting...' : 'Connect GoHighLevel'}
-              </Button>
-            ) : (
-              <Button
-                variant="secondary"
-                type="button"
-                onClick={handleDisconnectGhlLocation}
-                style={{ width: '100%', justifyContent: 'center', borderColor: '#fca5a5', color: '#ef4444', background: '#fef2f2', fontWeight: '700' }}
-              >
-                Disconnect Sub-Account
-              </Button>
-            )}
-          </div>
+              {ghlLocations.length === 0 ? (
+                <Button
+                  variant="primary"
+                  type="button"
+                  icon={<ExternalLink size={15} />}
+                  onClick={handleLaunchGhlInstall}
+                  disabled={isSavingGhlAuth}
+                  style={{ width: '100%', justifyContent: 'center', background: '#ff6b00', borderColor: '#ff6b00', padding: '10px', fontWeight: '700' }}
+                >
+                  {isSavingGhlAuth ? 'Connecting...' : 'Connect GoHighLevel Master'}
+                </Button>
+              ) : (
+                <Button
+                  variant="secondary"
+                  type="button"
+                  onClick={handleDisconnectGhlLocation}
+                  style={{ width: '100%', justifyContent: 'center', borderColor: '#fca5a5', color: '#ef4444', background: '#fef2f2', fontWeight: '700' }}
+                >
+                  Disconnect Sub-Account
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* Installed GHL Sub-Account Locations Table */}
           <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
-                Connected HighLevel Sub-Account
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(255, 107, 0, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Zap size={18} style={{ color: '#ff6b00' }} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+                    Connected HighLevel Sub-Account
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>
+                    {isSuperAdmin ? 'Master agency location & sync engine controls' : 'Your linked GoHighLevel sub-account & 2-way real-time data sync'}
+                  </p>
+                </div>
+              </div>
               {ghlLocations.length > 0 && (
                 <Badge variant="success" style={{ fontSize: '11px', padding: '4px 10px' }}>
                   🟢 Connected & Active
@@ -1202,9 +1212,11 @@ export default function IntegrationsPage({
             {ghlLocations.length === 0 ? (
               <div style={{ padding: '40px 20px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
                 <Zap size={32} style={{ color: '#cbd5e1' }} />
-                <div style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>No GoHighLevel Sub-Account Connected</div>
-                <p style={{ margin: 0, fontSize: '11px', maxWidth: '360px', color: '#94a3b8' }}>
-                  Click "Connect GoHighLevel" to link your agency location via secure OAuth 2.0. No access keys or manual credentials required.
+                <div style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>No HighLevel Sub-Account Connected</div>
+                <p style={{ margin: 0, fontSize: '11px', maxWidth: '440px', color: '#94a3b8', lineHeight: '1.5' }}>
+                  {isSuperAdmin 
+                    ? 'Click "Connect GoHighLevel Master" on the left to link your agency location via secure OAuth 2.0.'
+                    : 'When your agency installs the Employee Management & CRM Automation app in your HighLevel sub-account, it will automatically connect and sync here.'}
                 </p>
               </div>
             ) : (

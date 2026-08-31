@@ -1921,56 +1921,29 @@ export default function setupRoutes(io) {
       `);
     }
 
-    if (!state) {
-      return res.status(400).send('OAuth state parameter is required.');
-    }
+    let tenantId = null;
 
-    // Validate single-use cryptographic state token
-    const stateRecord = await validateAndConsumeGhlOAuthState(state);
-    if (!stateRecord) {
-      return res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Invalid OAuth State</title>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #0f172a; color: white; text-align: center; }
-            .card { background: #1e293b; padding: 40px; border-radius: 16px; border: 1px solid #f59e0b; max-width: 440px; }
-            .icon { font-size: 48px; margin-bottom: 16px; }
-            h2 { margin: 0 0 12px 0; color: #fbbf24; font-size: 22px; }
-            p { color: #94a3b8; font-size: 14px; line-height: 1.5; }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <div class="icon">🔒</div>
-            <h2>Verification Expired</h2>
-            <p>The authorization request expired or has already been used. Please return to OmniFlow and try again.</p>
-            <script>
-              if (window.opener) {
-                window.opener.postMessage({ type: 'GHL_OAUTH_ERROR', error: 'State verification expired' }, '*');
-              }
-              setTimeout(() => window.close(), 4000);
-            </script>
-          </div>
-        </body>
-        </html>
-      `);
+    if (state) {
+      // Validate single-use cryptographic state token if initiated from EMS
+      const stateRecord = await validateAndConsumeGhlOAuthState(state);
+      if (stateRecord) {
+        tenantId = stateRecord.tenant_id;
+      }
     }
 
     try {
-      const tenantId = stateRecord.tenant_id;
       const result = await ghlAuthService.exchangeCodeForToken({ tenantId, code });
+      const finalTenantId = result.tenantId || tenantId || `org_${result.locationId}`;
 
       if (io) {
-        io.emit('ghl_connected', { tenantId, locationId: result.locationId });
+        io.emit('ghl_connected', { tenantId: finalTenantId, locationId: result.locationId });
       }
 
       return res.send(`
         <!DOCTYPE html>
         <html>
         <head>
-          <title>GHL Integration Connected</title>
+          <title>HighLevel App Installed</title>
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #0f172a; color: white; text-align: center; }
             .card { background: #1e293b; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #14b8a6; max-width: 440px; }
@@ -1984,13 +1957,14 @@ export default function setupRoutes(io) {
           <div class="card">
             <div class="icon">⚡</div>
             <h2>HighLevel Connected Successfully!</h2>
-            <p>Your GoHighLevel sub-account has been connected securely.</p>
+            <p>Your GoHighLevel sub-account has been connected and linked to EMS automatically.</p>
             <div class="loc">Location: ${escapeHtml(result.locationId)}</div>
             <script>
               if (window.opener) {
                 window.opener.postMessage({ 
                   type: 'GHL_OAUTH_SUCCESS', 
                   locationId: '${escapeJs(result.locationId)}', 
+                  tenantId: '${escapeJs(String(finalTenantId))}',
                   status: 'connected' 
                 }, '*');
               }
