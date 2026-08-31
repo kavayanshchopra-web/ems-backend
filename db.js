@@ -1986,8 +1986,8 @@ export async function saveGhlIntegration(tenantId, data = {}) {
   if (!locationId) throw new Error('[db] locationId is required for GHL integration');
 
   const existing = await db.get(
-    `SELECT id FROM ghl_integrations WHERE location_id = ? OR tenant_id = ?`,
-    [locationId, tenantId]
+    `SELECT id FROM ghl_integrations WHERE location_id = ? AND (CAST(tenant_id AS TEXT) = CAST(? AS TEXT) OR tenant_id = ?)`,
+    [locationId, String(tenantId), String(tenantId)]
   );
 
   if (existing) {
@@ -2045,7 +2045,11 @@ export async function getGhlIntegrationByLocation(locationId) {
 }
 
 export async function getGhlIntegrationByTenant(tenantId) {
-  return await db.get(`SELECT * FROM ghl_integrations WHERE tenant_id = ? AND is_active = 1 ORDER BY updated_at DESC LIMIT 1`, [tenantId]);
+  if (!tenantId || tenantId === 'undefined' || tenantId === 'null') return null;
+  return await db.get(
+    `SELECT * FROM ghl_integrations WHERE (CAST(tenant_id AS TEXT) = CAST(? AS TEXT) OR tenant_id = ?) AND is_active = 1 ORDER BY updated_at DESC LIMIT 1`,
+    [String(tenantId), String(tenantId)]
+  );
 }
 
 export async function getAllActiveGhlIntegrations() {

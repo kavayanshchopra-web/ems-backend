@@ -2921,18 +2921,36 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       if (auth) {
         const userCred = await signInWithEmailAndPassword(auth, cleanEmail, password);
         const fbUser = userCred.user;
-        const userRole = (cleanEmail === 'admin@omniflow.com' || cleanEmail === 'kavayanshchopra@gmail.com') ? 'superadmin' : 'owner';
+        const isSuperAdminUser = (cleanEmail === 'admin@omniflow.com' || cleanEmail === 'kavayanshchopra@gmail.com');
+        const userRole = isSuperAdminUser ? 'superadmin' : 'owner';
+        let tenantId = isSuperAdminUser ? 'platform_superadmin' : `org_${cleanEmail.split('@')[0].replace(/[^a-z0-9]/g, '').slice(0, 10)}_${fbUser.uid.slice(0, 8)}`;
+        let companyName = isSuperAdminUser ? 'Master Control HQ' : 'My Workspace';
+
+        if (db && !isSuperAdminUser) {
+          try {
+            const orgDoc = await getDoc(doc(db, 'user_profiles', fbUser.uid));
+            if (orgDoc.exists()) {
+              const data = orgDoc.data();
+              if (data.tenantId) tenantId = data.tenantId;
+              if (data.companyName) companyName = data.companyName;
+            }
+          } catch (e) {}
+        }
+
         const userData = {
           id: fbUser.uid,
           email: fbUser.email,
           role: userRole,
-          tenantId: 1
+          companyName: companyName,
+          tenantId: tenantId,
+          companyId: tenantId,
+          tenant_id: tenantId
         };
         localStorage.setItem('omnilflow_token', fbUser.accessToken || 'firebase_token');
         localStorage.setItem('omnilflow_user', JSON.stringify(userData));
         setAuthUser(userData);
         setActiveTab(userData.role === 'superadmin' ? 'superadmin_plans' : 'inbox');
-        showToast('?? Signed in with Firebase Cloud Auth!', 'success');
+        showToast('⚡ Signed in successfully!', 'success');
         return;
       }
     } catch (fbErr) {

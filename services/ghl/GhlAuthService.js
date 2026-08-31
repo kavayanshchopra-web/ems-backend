@@ -443,15 +443,19 @@ export class GhlAuthService {
    * @param {number} tenantId
    */
   async getTenantConnectionStatus(tenantId) {
+    if (!tenantId) {
+      return { connected: false, locationId: null, companyId: null, tenantId: null };
+    }
     const integration = await getGhlIntegrationByTenant(tenantId);
     if (!integration || integration.is_active !== 1) {
-      return { connected: false, locationId: null, companyId: null };
+      return { connected: false, locationId: null, companyId: null, tenantId: String(tenantId) };
     }
 
     return {
       connected: true,
       locationId: integration.location_id,
       companyId: integration.company_id,
+      tenantId: String(integration.tenant_id),
       scope: integration.scope,
       installedAt: integration.installed_at,
       updatedAt: integration.updated_at,

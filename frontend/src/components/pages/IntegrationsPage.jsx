@@ -88,11 +88,10 @@ export default function IntegrationsPage({
     loadApiKeys();
     loadActivityLogs();
   }, [cleanCompanyId]);
-
   const fetchGhlSyncLogs = async () => {
     try {
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
-      const res = await fetch(`${API_URL}/v1/integrations/ghl/logs?limit=10&companyId=${encodeURIComponent(cleanCompanyId)}`, {
+      const res = await fetch(`${API_URL}/v1/integrations/ghl/logs?limit=25&companyId=${encodeURIComponent(cleanCompanyId)}`, {
         headers: {
           ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
           'X-Tenant-Id': String(cleanCompanyId)
@@ -100,7 +99,15 @@ export default function IntegrationsPage({
       });
       if (res.ok) {
         const data = await res.json();
-        setGhlSyncLogs(data.logs || []);
+        // Client-side isolation filter: Only show logs matching cleanCompanyId
+        const allLogs = data.logs || [];
+        const filteredLogs = allLogs.filter(log => {
+          if (isSuperAdmin) return true;
+          const logTenant = String(log.tenant_id || log.tenantId || '');
+          const currentTenant = String(cleanCompanyId || '');
+          return logTenant && currentTenant && logTenant.toLowerCase() === currentTenant.toLowerCase();
+        });
+        setGhlSyncLogs(filteredLogs);
       }
     } catch (e) {
       console.warn('Failed to load GHL sync logs:', e.message);
@@ -119,18 +126,26 @@ export default function IntegrationsPage({
       if (res.ok) {
         const data = await res.json();
         if (data.connected && data.locationId) {
-          // Strict Tenant Verification Shield
-          const recordTenant = data.companyId || data.tenantId || data.tenant_id;
-          if (recordTenant && !isSuperAdmin && String(recordTenant) !== String(cleanCompanyId) && cleanCompanyId !== 'default_tenant') {
-            setGhlLocations([]);
-            setGhlSyncLogs([]);
-            return;
+          // STRICT MULTI-TENANT ISOLATION SHIELD:
+          // Ensure this GHL connection explicitly belongs to the logged-in company
+          const recordTenant = String(data.tenantId || data.tenant_id || '');
+          const currentTenant = String(cleanCompanyId || '');
+
+          if (!isSuperAdmin) {
+            // For a regular tenant/company, if the connection's tenantId does NOT match, do NOT display it!
+            const isMatch = recordTenant && currentTenant && recordTenant.toLowerCase() === currentTenant.toLowerCase();
+            if (!isMatch) {
+              setGhlLocations([]);
+              setGhlSyncLogs([]);
+              return;
+            }
           }
 
           setGhlLocations([{
             id: `ghl_${data.locationId}`,
             locationId: data.locationId,
             companyId: data.companyId,
+            tenantId: data.tenantId || data.tenant_id,
             locationName: `Active Sub-Account (${data.locationId})`,
             scope: data.scope,
             installedAt: data.installedAt || new Date().toISOString(),
