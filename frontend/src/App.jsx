@@ -73,27 +73,42 @@ export default function App() {
     FirebaseCloudEngine.purgeAllLocalCaches();
   }, []);
 
-  // Auth state with strict Sub-Account location isolation
+  // Auth state with strict Sub-Account location and iframe isolation
   const [authUser, setAuthUser] = useState(() => {
     try {
       const ghlCtx = getGhlContext();
 
-      // If inside a specific GHL Sub-Account Location:
-      if (ghlCtx.locationId) {
-        const savedLocUser = localStorage.getItem(`omnilflow_user_ghl_${ghlCtx.locationId}`);
-        if (savedLocUser) {
-          const user = JSON.parse(savedLocUser);
+      // CASE 1: Running inside an iframe (GHL / WebGearz Custom Menu Link or App)
+      if (ghlCtx.isEmbedded) {
+        // If a specific locationId is known:
+        if (ghlCtx.locationId) {
+          const savedLocUser = localStorage.getItem(`omnilflow_user_ghl_${ghlCtx.locationId}`);
+          if (savedLocUser) {
+            const user = JSON.parse(savedLocUser);
+            if (user && typeof window !== 'undefined') {
+              const tId = user.tenantId || user.companyId || user.tenant_id;
+              window.__omniflow_tenant = tId ? String(tId) : 'org_default';
+            }
+            return user;
+          }
+        }
+
+        // Check per-tab/per-iframe session storage
+        const savedIframeUser = sessionStorage.getItem('omnilflow_iframe_user');
+        if (savedIframeUser) {
+          const user = JSON.parse(savedIframeUser);
           if (user && typeof window !== 'undefined') {
             const tId = user.tenantId || user.companyId || user.tenant_id;
             window.__omniflow_tenant = tId ? String(tId) : 'org_default';
           }
           return user;
         }
-        // If this sub-account has never been registered/logged in on this browser, show Login / Sign Up!
+
+        // Inside an iframe, NEVER fall back to global localStorage (prevents old account leakage across sub-accounts!)
         return null;
       }
 
-      // Standalone browser access
+      // CASE 2: Standalone browser access (outside iframe)
       const saved = localStorage.getItem('omnilflow_user');
       const user = saved ? JSON.parse(saved) : null;
       if (user && typeof window !== 'undefined') {
@@ -105,6 +120,27 @@ export default function App() {
       return null;
     }
   });
+
+  // Listen for dynamic HighLevel context messages
+  useEffect(() => {
+    const handleGhlMessage = (event) => {
+      try {
+        const data = event.data;
+        if (data && typeof data === 'object') {
+          const locId = data.locationId || data.location_id || (data.location && data.location.id);
+          const locName = data.locationName || data.location_name || (data.location && data.location.name);
+          if (locName && !companyName) setCompanyName(locName);
+        }
+      } catch (e) {}
+    };
+    window.addEventListener('message', handleGhlMessage);
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'REQUEST_USER_DATA' }, '*');
+      }
+    } catch (e) {}
+    return () => window.removeEventListener('message', handleGhlMessage);
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -282,7 +318,12 @@ export default function App() {
         localStorage.setItem('omnilflow_user', JSON.stringify(userData));
         localStorage.setItem('omnilflow_current_company', finalTenantId);
 
-        // If inside a GHL sub-account, save location-specific session & bind to sub-account
+        // If inside an iframe / GHL sub-account, save iframe-specific session & bind to sub-account
+        if (ghlCtx.isEmbedded) {
+          sessionStorage.setItem('omnilflow_iframe_user', JSON.stringify(userData));
+          sessionStorage.setItem('omnilflow_iframe_token', userToken);
+        }
+
         if (ghlCtx.locationId) {
           localStorage.setItem(`omnilflow_user_ghl_${ghlCtx.locationId}`, JSON.stringify(userData));
           localStorage.setItem(`omnilflow_token_ghl_${ghlCtx.locationId}`, userToken);
@@ -440,6 +481,11 @@ export default function App() {
         localStorage.setItem('omnilflow_token', userToken);
         localStorage.setItem('omnilflow_user', JSON.stringify(userData));
         localStorage.setItem('omnilflow_current_company', uniqueTenantId);
+
+        if (ghlCtx.isEmbedded) {
+          sessionStorage.setItem('omnilflow_iframe_user', JSON.stringify(userData));
+          sessionStorage.setItem('omnilflow_iframe_token', userToken);
+        }
 
         if (ghlCtx.locationId) {
           localStorage.setItem(`omnilflow_user_ghl_${ghlCtx.locationId}`, JSON.stringify(userData));
