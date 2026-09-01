@@ -2283,6 +2283,7 @@ export default function setupRoutes(io) {
         rawBody,
         headers: req.headers,
         payload: req.body
+      });
       if (io) {
         io.emit('ghl_inbound_contact', {
           locationId: result.locationId,

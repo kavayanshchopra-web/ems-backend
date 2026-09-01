@@ -24,24 +24,16 @@ export default function KanbanPage({
   const [deals, setDeals] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Load tenant-isolated CRM deals strictly from Firestore
+  // Load & subscribe to tenant-isolated CRM deals strictly from Firestore in real-time
   useEffect(() => {
-    let isMounted = true;
     setLoading(true);
-    FirebaseCloudEngine.fetchRecords('crm_deals', companyId)
-      .then(records => {
-        if (isMounted) {
-          setDeals(Array.isArray(records) ? records : []);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setDeals([]);
-          setLoading(false);
-        }
-      });
-    return () => { isMounted = false; };
+    const unsubscribe = FirebaseCloudEngine.subscribeToCollection('crm_deals', companyId, (records) => {
+      setDeals(Array.isArray(records) ? records : []);
+      setLoading(false);
+    });
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
   }, [companyId]);
 
   const handleUpdateDeals = (newRecords) => {
