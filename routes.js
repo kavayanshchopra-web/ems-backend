@@ -19,7 +19,9 @@ import {
   getGhlIntegrationByTenant,
   getGhlIntegrationByLocation,
   saveGhlIntegration,
-  getGhlSyncLogs
+  getGhlSyncLogs,
+  disconnectGhlIntegration,
+  getDb
 } from './db.js';
 import { 
   ghlAuthService, 
@@ -1939,10 +1941,48 @@ export default function setupRoutes(io) {
     }
   });
 
-  // 2. Safe Connection Status (Never exposes secrets or tokens, isolated by tenant)
+  // 2. Safe Connection Status (Never exposes secrets or tokens, isolated by tenant & location)
   router.get('/v1/integrations/ghl/status', async (req, res) => {
     try {
+      const locationId = (req.query?.locationId || req.headers['x-location-id'] || '').trim();
       const tenantId = resolveGhlTenantId(req);
+
+      // If specific sub-account locationId is provided, evaluate that location's connection status
+      if (locationId) {
+        const integration = await getGhlIntegrationByLocation(locationId);
+        if (!integration || !integration.access_token || integration.is_active === 0) {
+          return res.json({ success: true, connected: false, locationId, reauthRequired: false });
+        }
+        let isValidToken = false;
+        try {
+          const decrypted = decryptToken(integration.access_token);
+          if (decrypted && decrypted.length > 5) isValidToken = true;
+        } catch (e) {
+          isValidToken = false;
+        }
+        if (!isValidToken) {
+          return res.json({ success: true, connected: false, locationId, reauthRequired: true, error: 'Token format is invalid or authorization required.' });
+        }
+        return res.json({
+          success: true,
+          connected: true,
+          locationId: integration.location_id,
+          companyId: integration.company_id,
+          tenantId: integration.tenant_id,
+          scope: integration.scope,
+          installedAt: integration.created_at,
+          updatedAt: integration.updated_at,
+          lastSyncAt: integration.last_sync_at,
+          expiresAt: integration.expires_at,
+          syncSettings: {
+            contacts: !!integration.sync_contacts,
+            conversations: !!integration.sync_conversations,
+            calls: !!integration.sync_calls,
+            opportunities: !!integration.sync_opportunities
+          }
+        });
+      }
+
       if (!tenantId) {
         return res.json({ success: true, connected: false, locationId: null, companyId: null });
       }
@@ -1954,15 +1994,20 @@ export default function setupRoutes(io) {
     }
   });
 
-  // 3. Disconnect GHL Sub-Account
+  // 3. Disconnect GHL Sub-Account (Supports both locationId and tenantId)
   router.post('/v1/integrations/ghl/oauth/disconnect', async (req, res) => {
     try {
+      const locationId = (req.body?.locationId || req.query?.locationId || '').trim();
       const tenantId = resolveGhlTenantId(req);
-      if (!tenantId) {
-        return res.status(400).json({ error: 'Tenant ID is required to disconnect' });
+
+      if (locationId) {
+        const db = getDb();
+        await db.run('DELETE FROM ghl_integrations WHERE location_id = ?', [locationId]);
       }
-      const result = await ghlAuthService.disconnectTenant(tenantId);
-      res.json(result);
+      if (tenantId) {
+        await ghlAuthService.disconnectTenant(tenantId);
+      }
+      res.json({ success: true, message: 'GoHighLevel integration disconnected successfully' });
     } catch (err) {
       console.error('[GHL Disconnect Error]', err.message);
       res.status(500).json({ error: err.message || 'Failed to disconnect GoHighLevel' });

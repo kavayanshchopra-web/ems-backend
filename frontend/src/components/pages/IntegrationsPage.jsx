@@ -132,28 +132,29 @@ export default function IntegrationsPage({
 
   const loadGhlOAuthData = async () => {
     try {
-      const firestoreLocs = await GhlOAuthService.getInstalledLocations(cleanCompanyId);
+      const activeLocId = (detectedLocationId || manualLocationId || '').trim();
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
-      const res = await fetch(`${API_URL}/v1/integrations/ghl/status?companyId=${encodeURIComponent(cleanCompanyId)}`, {
+      const url = `${API_URL}/v1/integrations/ghl/status?companyId=${encodeURIComponent(cleanCompanyId)}${activeLocId ? `&locationId=${encodeURIComponent(activeLocId)}` : ''}`;
+      
+      const res = await fetch(url, {
         headers: {
           ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-          'X-Tenant-Id': String(cleanCompanyId)
+          'X-Tenant-Id': String(cleanCompanyId),
+          ...(activeLocId ? { 'X-Location-Id': activeLocId } : {})
         }
       });
       if (res.ok) {
         const data = await res.json();
         if (data.connected && data.locationId) {
-          const fsMatch = firestoreLocs.find(l => l.locationId === data.locationId);
-
           setGhlLocations([{
             id: `ghl_${data.locationId}`,
             locationId: data.locationId,
-            accessToken: fsMatch?.accessToken || data.accessToken || '',
+            accessToken: data.accessToken || '',
             companyId: data.companyId || cleanCompanyId,
             tenantId: data.tenantId || cleanCompanyId,
             locationName: `Active Sub-Account (${data.locationId})`,
-            scope: data.scope || fsMatch?.scope || 'contacts, conversations, workflows, locations',
-            installedAt: data.installedAt || fsMatch?.installedAt || data.updatedAt || new Date().toISOString(),
+            scope: data.scope || 'contacts, conversations, workflows, locations',
+            installedAt: data.installedAt || data.updatedAt || new Date().toISOString(),
             status: 'connected'
           }]);
           fetchGhlSyncLogs();
@@ -559,22 +560,26 @@ export default function IntegrationsPage({
     if (!confirm('Disconnect this GoHighLevel Sub-Account Location?')) return;
     try {
       const loc = ghlLocations[0];
+      const targetLocId = loc?.locationId || detectedLocationId || manualLocationId;
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
-      const res = await fetch(`${API_URL}/v1/integrations/ghl/oauth/disconnect`, {
+      await fetch(`${API_URL}/v1/integrations/ghl/oauth/disconnect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
           'X-Tenant-Id': String(cleanCompanyId)
         },
-        body: JSON.stringify({ companyId: cleanCompanyId })
+        body: JSON.stringify({ companyId: cleanCompanyId, locationId: targetLocId })
       });
 
-      if (loc && loc.locationId) {
+      if (targetLocId) {
         try {
-          await deleteDoc(doc(db, 'integrations_ghl_oauth', `${cleanCompanyId}_${loc.locationId}`));
+          await deleteDoc(doc(db, 'integrations_ghl_oauth', `${cleanCompanyId}_${targetLocId}`));
         } catch (fErr) {}
       }
+      try {
+        localStorage.removeItem(`omnilflow_ghl_installed_${cleanCompanyId}`);
+      } catch (lErr) {}
 
       setGhlLocations([]);
       setGhlSyncLogs([]);
