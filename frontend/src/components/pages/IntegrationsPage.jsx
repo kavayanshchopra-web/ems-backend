@@ -1256,67 +1256,38 @@ export default function IntegrationsPage({
             </div>
 
             {ghlLocations.length === 0 ? (
-              <div style={{ padding: '28px 24px', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Zap size={22} style={{ color: '#ea580c' }} />
+              <div style={{ padding: '28px 24px', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Zap size={24} style={{ color: '#ea580c' }} />
+                    </div>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+                        Connect GoHighLevel Sub-Account
+                      </h4>
+                      <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#64748b' }}>
+                        Click below to authenticate via official HighLevel 1-Click OAuth and activate real-time 2-way data sync.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
-                      Connect HighLevel Sub-Account
-                    </h4>
-                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>
-                      Authenticate your sub-account via official HighLevel 1-Click OAuth to activate 2-way real-time data sync.
-                    </p>
-                  </div>
+
+                  <Button
+                    variant="primary"
+                    type="button"
+                    disabled={isSavingGhlAuth}
+                    onClick={handleLaunchGhlInstall}
+                    style={{ background: '#16a34a', borderColor: '#16a34a', fontWeight: '800', padding: '12px 24px', fontSize: '13px', whiteSpace: 'nowrap' }}
+                  >
+                    {isSavingGhlAuth ? 'Launching OAuth...' : '⚡ 1-Click Connect GoHighLevel (OAuth)'}
+                  </Button>
                 </div>
 
-                {detectedLocationId ? (
-                  <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '10px', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                    <div>
-                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#166534' }}>
-                        🎯 Auto-Detected HighLevel Sub-Account
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#15803d', marginTop: '2px' }}>
-                        Location ID: <strong style={{ fontFamily: 'monospace' }}>{detectedLocationId}</strong>
-                      </div>
+                {detectedLocationId && (
+                  <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                    <div style={{ fontSize: '12px', color: '#15803d' }}>
+                      🎯 Detected HighLevel Sub-Account Location: <strong style={{ fontFamily: 'monospace' }}>{detectedLocationId}</strong>
                     </div>
-                    <Button
-                      variant="primary"
-                      type="button"
-                      disabled={isLinkingLocation || isSavingGhlAuth}
-                      onClick={() => handleDirectLinkLocation(detectedLocationId)}
-                      style={{ background: '#16a34a', borderColor: '#16a34a', fontWeight: '700', padding: '10px 20px', whiteSpace: 'nowrap' }}
-                    >
-                      {isLinkingLocation ? 'Connecting...' : '⚡ 1-Click Connect Sub-Account (OAuth)'}
-                    </Button>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <input
-                      type="text"
-                      placeholder="Enter HighLevel Location ID (e.g. 6e8Z3wQIhDkCodRRVteu)"
-                      value={manualLocationId}
-                      onChange={(e) => setManualLocationId(e.target.value)}
-                      style={{
-                        flex: 1,
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        border: '1px solid #cbd5e1',
-                        fontSize: '13px',
-                        fontFamily: 'monospace',
-                        outline: 'none'
-                      }}
-                    />
-                    <Button
-                      variant="primary"
-                      type="button"
-                      disabled={isLinkingLocation || isSavingGhlAuth || !manualLocationId.trim()}
-                      onClick={() => handleDirectLinkLocation(manualLocationId)}
-                      style={{ background: '#ff6b00', borderColor: '#ff6b00', fontWeight: '700', padding: '10px 20px', whiteSpace: 'nowrap' }}
-                    >
-                      {isLinkingLocation ? 'Connecting...' : '⚡ Connect Sub-Account (OAuth)'}
-                    </Button>
                   </div>
                 )}
               </div>
