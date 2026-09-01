@@ -7,6 +7,7 @@
  */
 
 import { db } from '../../firebase';
+import GhlOAuthService from '../services/ghlOAuthService';
 import {
   collection,
   doc,
@@ -60,6 +61,13 @@ class FirebaseCloudEngine {
       } catch (err) {
         console.error(`Firebase save error (${collectionName}):`, err);
       }
+    }
+
+    // Automatic Real-Time 2-Way Push to GoHighLevel
+    if (collectionName === 'crm_deals' || collectionName === 'contacts' || collectionName === 'leads') {
+      try {
+        this.triggerAutoGhlSync(activeTenantId, payload);
+      } catch (syncErr) {}
     }
 
     return payload;
@@ -160,6 +168,47 @@ class FirebaseCloudEngine {
       }
       keysToRemove.forEach(k => localStorage.removeItem(k));
       console.log(`🧹 Purged ${keysToRemove.length} legacy un-isolated cache keys!`);
+    } catch (e) {}
+  }
+
+  /**
+   * Automatic background push to GoHighLevel
+   */
+  static async triggerAutoGhlSync(tenantId, record) {
+    if (!record || !tenantId) return;
+    try {
+      if (db) {
+        const q = query(collection(db, 'integrations_ghl_oauth'), where('companyId', '==', tenantId));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const loc = snap.docs[0].data();
+          if (loc && loc.accessToken && loc.locationId) {
+            GhlOAuthService.createOrUpdateContactDirectly({
+              locationId: loc.locationId,
+              accessToken: loc.accessToken,
+              contact: record
+            }).then(res => {
+              console.log('⚡ [Auto GHL Realtime Push Success]', record.id || record.phone, res?.contact?.id || res?.id);
+            }).catch(e => console.warn('⚡ [Auto GHL Realtime Push Warning]', e.message));
+            return;
+          }
+        }
+      }
+
+      // Backend fallback
+      const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
+      const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      const API_BASE = IS_DEV ? 'http://localhost:5000/api' : 'https://api.employeemanagementsystems.com/api';
+      
+      fetch(`${API_BASE}/v1/integrations/ghl/contacts/sync-all`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'X-Tenant-Id': String(tenantId)
+        },
+        body: JSON.stringify({ companyId: tenantId, contacts: [record] })
+      }).catch(() => {});
     } catch (e) {}
   }
 }
