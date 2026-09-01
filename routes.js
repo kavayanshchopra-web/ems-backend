@@ -2216,8 +2216,10 @@ export default function setupRoutes(io) {
   router.post('/v1/integrations/ghl/contacts/sync-all', async (req, res) => {
     try {
       const tenantId = resolveGhlTenantId(req);
-      if (!tenantId) return res.status(400).json({ error: 'Tenant ID is required', code: 'GHL_TENANT_REQUIRED' });
-      const summary = await ghlSyncEngine.syncAllContactsToGhl(tenantId);
+      const { contacts, locationId } = req.body || {};
+      const targetTenant = tenantId || locationId;
+      if (!targetTenant) return res.status(400).json({ error: 'Tenant ID or Location ID is required', code: 'GHL_TENANT_REQUIRED' });
+      const summary = await ghlSyncEngine.syncAllContactsToGhl(targetTenant, contacts);
       res.json({ success: true, ...summary });
     } catch (err) {
       console.error('[GHL Batch Sync Error]', err.message);
@@ -2281,11 +2283,19 @@ export default function setupRoutes(io) {
         rawBody,
         headers: req.headers,
         payload: req.body
-      });
-      if (io && result.emsContactId) {
-        getContact(result.emsContactId, 1).then(c => {
-          if (c) io.emit('contact_update', c);
-        }).catch(() => {});
+      if (io) {
+        io.emit('ghl_inbound_contact', {
+          locationId: result.locationId,
+          contactId: result.emsContactId,
+          ghlContactId: result.ghlContactId,
+          eventType: result.eventType,
+          contact: result.contactData || req.body?.data || req.body
+        });
+        if (result.emsContactId) {
+          getContact(result.emsContactId, 1).then(c => {
+            if (c) io.emit('contact_update', c);
+          }).catch(() => {});
+        }
       }
       res.status(200).json({ success: true, ...result });
     } catch (err) {
@@ -2294,9 +2304,14 @@ export default function setupRoutes(io) {
     }
   };
 
+  router.post('/v1/integrations/marketplace/webhooks', handleGhlWebhook);
   router.post('/v1/integrations/marketplace/webhook', handleGhlWebhook);
+  router.post('/v1/integrations/ghl/webhooks', handleGhlWebhook);
   router.post('/v1/integrations/ghl/webhook', handleGhlWebhook);
   router.post('/v1/integrations/webhook/ghl', handleGhlWebhook);
+  router.post('/v1/integrations/webhooks/ghl', handleGhlWebhook);
+  router.post('/v1/integrations/webhooks', handleGhlWebhook);
+  router.post('/v1/integrations/webhook', handleGhlWebhook);
 
   // 11. Discover Location Pipelines & Stages
   router.get('/v1/integrations/ghl/pipelines', async (req, res) => {

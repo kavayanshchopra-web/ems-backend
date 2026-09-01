@@ -44,31 +44,39 @@ export class GhlSyncEngine {
    * @param {string} emsContactId - EMS Contact Identifier (e.g. WhatsApp JID)
    * @returns {Promise<Object>} Sync result with status and GHL contact details
    */
-  async syncContactToGhl(tenantId, emsContactId) {
+  async syncContactToGhl(tenantId, emsContactId, explicitContact = null) {
     if (!tenantId) throw new GhlApiError('tenantId is required for contact sync', 'GHL_VALIDATION_ERROR', 400);
-    if (!emsContactId) throw new GhlApiError('emsContactId is required for contact sync', 'GHL_VALIDATION_ERROR', 400);
+    if (!emsContactId && !explicitContact) throw new GhlApiError('emsContactId is required for contact sync', 'GHL_VALIDATION_ERROR', 400);
+
+    const actualContactId = emsContactId || explicitContact?.id || explicitContact?.phone;
 
     // Skip WhatsApp Groups & Broadcasts
-    const idStr = String(emsContactId);
+    const idStr = String(actualContactId);
     if (idStr.includes('@g.us') || idStr.includes('@broadcast') || idStr.includes('status@') || (idStr.includes('-') && idStr.length > 15)) {
       return {
         status: 'skipped',
         reason: 'whatsapp_group_or_broadcast',
-        emsContactId
+        emsContactId: actualContactId
       };
     }
 
     // 1. Verify tenant has an active GHL integration
-    const integration = await getGhlIntegrationByTenant(tenantId);
+    let integration = await getGhlIntegrationByTenant(tenantId);
+    if (!integration && typeof tenantId === 'string') {
+      integration = await getGhlIntegrationByLocation(tenantId);
+    }
     if (!integration || !integration.is_active || !integration.location_id) {
       throw new GhlApiError('GoHighLevel integration is not active or connected for this tenant', 'GHL_NOT_CONNECTED', 400);
     }
     const locationId = integration.location_id;
 
     // 2. Fetch EMS contact record
-    const emsContact = await getContact(emsContactId, tenantId);
+    let emsContact = explicitContact || await getContact(actualContactId, tenantId);
+    if (!emsContact && typeof emsContactId === 'object') {
+      emsContact = emsContactId;
+    }
     if (!emsContact) {
-      throw new GhlApiError(`EMS Contact "${emsContactId}" not found in tenant ${tenantId}`, 'GHL_NOT_FOUND', 404);
+      throw new GhlApiError(`EMS Contact "${actualContactId}" not found in tenant ${tenantId}`, 'GHL_NOT_FOUND', 404);
     }
 
     // Skip groups if phone or name is invalid
@@ -76,13 +84,13 @@ export class GhlSyncEngine {
       return {
         status: 'skipped',
         reason: 'whatsapp_group_or_broadcast',
-        emsContactId
+        emsContactId: actualContactId
       };
     }
 
     // 3. Compute deterministic payload hash for loop suppression
     const payloadHash = this.generatePayloadHash(emsContact);
-    const existingLink = await getGhlEntityLink(tenantId, locationId, 'contact', emsContactId);
+    const existingLink = await getGhlEntityLink(tenantId, locationId, 'contact', actualContactId);
 
     if (existingLink && existingLink.last_synced_hash === payloadHash) {
       return {
@@ -326,21 +334,25 @@ export class GhlSyncEngine {
    * @param {number} tenantId 
    * @returns {Promise<Object>} Batch summary with total, synced, skipped, and failed counts
    */
-  async syncAllContactsToGhl(tenantId) {
+  async syncAllContactsToGhl(tenantId, explicitContacts = null) {
     if (!tenantId) throw new GhlApiError('tenantId is required', 'GHL_VALIDATION_ERROR', 400);
 
-    const allContacts = await getAllContacts(tenantId);
+    let allContacts = explicitContacts;
+    if (!allContacts || !Array.isArray(allContacts) || allContacts.length === 0) {
+      allContacts = await getAllContacts(tenantId);
+    }
     const summary = {
-      total: allContacts.length,
+      total: (allContacts || []).length,
       synced: 0,
       skipped: 0,
       failed: 0,
       errors: []
     };
 
-    for (const contact of allContacts) {
+    for (const contact of (allContacts || [])) {
       try {
-        const result = await this.syncContactToGhl(tenantId, contact.id);
+        const cId = contact.id || contact.phone;
+        const result = await this.syncContactToGhl(tenantId, cId, contact);
         if (result.status === 'skipped') {
           summary.skipped++;
         } else {
@@ -349,7 +361,7 @@ export class GhlSyncEngine {
       } catch (err) {
         summary.failed++;
         summary.errors.push({
-          contactId: contact.id,
+          contactId: contact.id || contact.phone,
           error: err.message
         });
       }

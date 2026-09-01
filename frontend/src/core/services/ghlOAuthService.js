@@ -244,6 +244,73 @@ export class GhlOAuthService {
   }
 
   /**
+   * Directly creates or updates a contact on HighLevel Cloud API
+   */
+  static async createOrUpdateContactDirectly({ locationId, accessToken, contact }) {
+    if (!locationId || !accessToken || !contact) return null;
+
+    const rawName = (contact.name || contact.customer_name || contact.customName || '').trim();
+    let firstName = rawName;
+    let lastName = '';
+    if (rawName.includes(' ')) {
+      const parts = rawName.split(' ');
+      firstName = parts[0];
+      lastName = parts.slice(1).join(' ');
+    }
+
+    let phone = (contact.phone || contact.id || '').replace(/[^0-9+]/g, '');
+    if (phone.includes('@')) phone = phone.split('@')[0];
+    if (phone && !phone.startsWith('+')) {
+      if (phone.length === 10) phone = `+91${phone}`;
+      else if (phone.length === 12 && phone.startsWith('91')) phone = `+${phone}`;
+    }
+
+    const payload = {
+      locationId,
+      name: rawName || undefined,
+      firstName: firstName || undefined,
+      lastName: lastName || undefined,
+      email: (contact.email || '').trim() || undefined,
+      phone: phone || undefined,
+      tags: Array.isArray(contact.labels || contact.tags) ? (contact.labels || contact.tags) : ['EMS CRM']
+    };
+
+    try {
+      const res = await fetch(`https://services.leadconnectorhq.com/contacts/upsert`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Version': '2021-07-28',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const fallbackRes = await fetch(`https://services.leadconnectorhq.com/contacts/`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Version': '2021-07-28',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await fallbackRes.json().catch(() => ({}));
+        return data;
+      }
+
+      const data = await res.json();
+      return data;
+    } catch (e) {
+      console.warn('[GhlOAuthService direct push error]', e.message);
+      return null;
+    }
+  }
+
+  /**
    * Revoke & Disconnect a GHL sub-account location
    */
   static async disconnectLocation(docId) {

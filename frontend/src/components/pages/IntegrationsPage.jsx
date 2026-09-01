@@ -648,6 +648,60 @@ export default function IntegrationsPage({
     setIsSyncingGhl(true);
     showToast('🚀 Synchronizing EMS contacts to HighLevel...', 'info');
     try {
+      const loc = ghlLocations[0];
+      const targetLocId = loc?.locationId || detectedLocationId || manualLocationId;
+
+      // 1. Fetch all local contacts from Firestore
+      const localContacts = await FirebaseCloudEngine.fetchRecords('contacts', cleanCompanyId);
+      const localDeals = await FirebaseCloudEngine.fetchRecords('crm_deals', cleanCompanyId);
+
+      const contactMap = new Map();
+      (localContacts || []).forEach(c => {
+        if (c && (c.name || c.phone || c.id)) {
+          contactMap.set(c.id || c.phone, c);
+        }
+      });
+      (localDeals || []).forEach(d => {
+        if (d && (d.customer_name || d.phone)) {
+          const key = d.phone || d.id;
+          if (!contactMap.has(key)) {
+            contactMap.set(key, {
+              id: d.id,
+              name: d.customer_name || d.title,
+              phone: d.phone,
+              email: d.email,
+              pipeline_stage: d.pipeline_stage || d.deal_stage,
+              labels: d.tags
+            });
+          }
+        }
+      });
+
+      const uniqueList = Array.from(contactMap.values());
+
+      // If direct Access Token is available, push directly to HighLevel Cloud API
+      if (loc && loc.accessToken && targetLocId) {
+        let synced = 0;
+        let failed = 0;
+        for (const c of uniqueList) {
+          try {
+            await GhlOAuthService.createOrUpdateContactDirectly({
+              locationId: targetLocId,
+              accessToken: loc.accessToken,
+              contact: c
+            });
+            synced++;
+          } catch (err) {
+            console.warn('Direct push error for contact:', c.name, err.message);
+            failed++;
+          }
+        }
+        showToast(`✅ Contact Sync Completed! Total: ${uniqueList.length}, Pushed: ${synced}`, 'success');
+        fetchGhlSyncLogs();
+        return;
+      }
+
+      // 2. Call backend proxy endpoint with local contacts payload
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
       const res = await fetch(`${API_URL}/v1/integrations/ghl/contacts/sync-all`, {
         method: 'POST',
@@ -656,7 +710,7 @@ export default function IntegrationsPage({
           ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
           'X-Tenant-Id': String(cleanCompanyId)
         },
-        body: JSON.stringify({ companyId: cleanCompanyId })
+        body: JSON.stringify({ companyId: cleanCompanyId, locationId: targetLocId, contacts: uniqueList })
       });
       const data = await res.json();
       if (res.ok) {
