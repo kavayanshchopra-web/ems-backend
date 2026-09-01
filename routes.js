@@ -708,6 +708,7 @@ export default function setupRoutes(io) {
         await saveContact(contactId, name || cleanPhone || 'New Contact', req.user.tenant_id, stage || 'new');
       }
 
+      const currentTenantId = resolveGhlTenantId(req) || req.user?.tenant_id || 1;
       const updated = await updateContactCRM(contactId, {
         customName: customName || name,
         email,
@@ -715,13 +716,13 @@ export default function setupRoutes(io) {
         pipelineStage: stage,
         labels,
         dealValue
-      }, req.user?.tenant_id || 1);
+      }, currentTenantId);
 
       io.emit('contact_update', updated);
 
       // Automatically trigger 2-way sync to GoHighLevel in background
       if (ghlSyncEngine) {
-        ghlSyncEngine.syncContactToGhl(req.user?.tenant_id || 1, contactId)
+        ghlSyncEngine.syncContactToGhl(currentTenantId, contactId)
           .then(res => console.log('[Auto GHL Sync Contact Success]', contactId, res?.status))
           .catch(e => console.warn('[Auto GHL Sync Error]', e.message));
       }
@@ -738,6 +739,7 @@ export default function setupRoutes(io) {
     const { id } = req.params;
     const { customName, email, notes, pipelineStage, labels, dealValue } = req.body;
     try {
+      const currentTenantId = resolveGhlTenantId(req) || req.user?.tenant_id || 1;
       const updated = await updateContactCRM(id, {
         customName,
         email,
@@ -745,13 +747,13 @@ export default function setupRoutes(io) {
         pipelineStage,
         labels,
         dealValue
-      }, req.user?.tenant_id || 1);
+      }, currentTenantId);
       
       io.emit('contact_update', updated);
 
       // Automatically trigger 2-way sync to GoHighLevel in background
       if (ghlSyncEngine) {
-        ghlSyncEngine.syncContactToGhl(req.user?.tenant_id || 1, id)
+        ghlSyncEngine.syncContactToGhl(currentTenantId, id)
           .then(res => console.log('[Auto GHL Sync Contact Success]', id, res?.status))
           .catch(e => console.warn('[Auto GHL Sync Error]', e.message));
       }
