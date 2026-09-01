@@ -12,6 +12,7 @@ import { LabelEngine } from '../LabelEngine';
 import { getNextSequentialId } from '../../../services/atsStorageService';
 
 import FirebaseCloudEngine from '../FirebaseCloudEngine';
+import GhlSyncBridge from '../../services/ghlSyncBridge';
 import { AuditEngine } from '../AuditEngine/AuditEngine';
 import { db, doc, setDoc, createEmployeeAuthAccount } from '../../../firebase.js';
 
@@ -84,6 +85,7 @@ export default function ActionEngine({
 
       // Sync CRM update with SQLite backend & GHL
       if (isCrmModule) {
+        GhlSyncBridge.pushSingleContactAuto(activeTenantId, editedRec).catch(() => {});
         const crmEditPayload = {
           customName: normalizedData.contact || normalizedData.name || selectedRecord.customName,
           email: normalizedData.email,
@@ -142,6 +144,7 @@ export default function ActionEngine({
 
       // Sync new CRM Deal to SQLite backend & GHL
       if (isCrmModule) {
+        GhlSyncBridge.pushSingleContactAuto(activeTenantId, newRec).catch(() => {});
         const crmPayload = {
           name: normalizedData.name || normalizedData.deal || normalizedData.title || 'New Deal',
           phone: cleanPhone || normalizedData.phone || '',

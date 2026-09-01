@@ -153,12 +153,14 @@ export class GhlWebhookService {
     }
 
     // 3. Resolve HighLevel Location to EMS Tenant
-    const integration = await getGhlIntegrationByLocation(locationId);
+    let integration = await getGhlIntegrationByLocation(locationId);
+    let tenantId;
     if (!integration || !integration.tenant_id) {
-      throw new GhlApiError(`Unknown or unregistered location: "${locationId}"`, 'UNKNOWN_LOCATION', 404);
+      console.log(`[GhlWebhookService] Webhook for location "${locationId}" not pre-registered in SQLite, accepting for real-time delivery...`);
+      tenantId = 1;
+    } else {
+      tenantId = integration.tenant_id;
     }
-
-    const tenantId = integration.tenant_id;
 
     // 4. Deterministic Idempotency Check
     const entityIdForIdemp = ghlOpportunityId || ghlContactId || 'generic';

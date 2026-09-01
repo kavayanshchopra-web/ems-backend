@@ -12,6 +12,8 @@ import ActionEngine from '../ActionEngine/ActionEngine';
 import ExportModal from '../ExportEngine/ExportEngine';
 import ImportModal from '../ImportEngine/ImportEngine';
 import SavedViewsEngine from '../FilterEngine/SavedViewsEngine';
+import FirebaseCloudEngine from '../FirebaseCloudEngine';
+import GhlSyncBridge from '../../services/ghlSyncBridge';
 import { SearchEngine } from '../SearchEngine';
 import { FilterEngine } from '../FilterEngine';
 import { LabelEngine } from '../LabelEngine';
@@ -332,8 +334,12 @@ export default function LayoutEngine({
             return r;
           });
           setRecords(updated);
+          const activeTenantId = authUser?.companyId || authUser?.tenantId || 'default_tenant';
           if (movedRec && moduleConfig.moduleId) {
-            FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, movedRec, 'acme_corp');
+            FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, movedRec, activeTenantId);
+            if (moduleConfig.moduleId === 'crm_deals' || moduleConfig.moduleId === 'contacts') {
+              GhlSyncBridge.pushSingleContactAuto(activeTenantId, movedRec).catch(() => {});
+            }
           }
           showToast(`Moved record to ${newStage}`, 'info');
         }}
