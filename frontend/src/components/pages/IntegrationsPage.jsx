@@ -529,8 +529,21 @@ export default function IntegrationsPage({
     }
   };
 
+  const GHL_CLIENT_ID = '6a9295b7a388799f3847366f-mte6ktt0';
+  const GHL_REDIRECT_URI = 'https://api.employeemanagementsystems.com/api/v1/integrations/marketplace/oauth/callback';
+  const GHL_SCOPE = 'contacts.readonly contacts.write opportunities.readonly opportunities.write workflows.readonly';
+
+  const getDirectGhlAuthUrl = () => {
+    return `https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&client_id=${GHL_CLIENT_ID}&redirect_uri=${encodeURIComponent(GHL_REDIRECT_URI)}&scope=${encodeURIComponent(GHL_SCOPE)}&state=${encodeURIComponent(cleanCompanyId)}`;
+  };
+
   const handleLaunchGhlInstall = async () => {
     setIsSavingGhlAuth(true);
+    let authWindow = null;
+    try {
+      authWindow = window.open('about:blank', 'GHL_OAuth_Window', 'width=680,height=780,menubar=no,toolbar=no');
+    } catch (e) {}
+
     try {
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
       const res = await fetch(`${API_URL}/v1/integrations/ghl/oauth/authorize?companyId=${encodeURIComponent(cleanCompanyId)}`, {
@@ -539,18 +552,23 @@ export default function IntegrationsPage({
           'X-Tenant-Id': String(cleanCompanyId)
         }
       });
-      const data = await res.json();
-      if (data.authUrl) {
-        const opened = window.open(data.authUrl, '_blank', 'width=650,height=750');
-        if (!opened || opened.closed || typeof opened.closed === 'undefined') {
-          window.location.href = data.authUrl;
-        }
-        showToast('🚀 Launching GoHighLevel Authorization window...', 'info');
+      const data = await res.json().catch(() => ({}));
+      const targetUrl = (data && data.authUrl) ? data.authUrl : getDirectGhlAuthUrl();
+
+      if (authWindow && !authWindow.closed) {
+        authWindow.location.href = targetUrl;
       } else {
-        showToast(data.error || 'Failed to start GHL OAuth process', 'error');
+        window.open(targetUrl, '_blank');
       }
+      showToast('🚀 HighLevel Authorization Window opened!', 'info');
     } catch (e) {
-      showToast('OAuth Error: ' + e.message, 'error');
+      const directUrl = getDirectGhlAuthUrl();
+      if (authWindow && !authWindow.closed) {
+        authWindow.location.href = directUrl;
+      } else {
+        window.open(directUrl, '_blank');
+      }
+      showToast('🚀 Launching HighLevel Authorization...', 'info');
     } finally {
       setIsSavingGhlAuth(false);
     }
@@ -1272,15 +1290,29 @@ export default function IntegrationsPage({
                     </div>
                   </div>
 
-                  <Button
-                    variant="primary"
-                    type="button"
-                    disabled={isSavingGhlAuth}
-                    onClick={handleLaunchGhlInstall}
-                    style={{ background: '#16a34a', borderColor: '#16a34a', fontWeight: '800', padding: '12px 24px', fontSize: '13px', whiteSpace: 'nowrap' }}
-                  >
-                    {isSavingGhlAuth ? 'Launching OAuth...' : '⚡ 1-Click Connect GoHighLevel (OAuth)'}
-                  </Button>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <a
+                      href={getDirectGhlAuthUrl()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        background: '#16a34a',
+                        color: '#ffffff',
+                        textDecoration: 'none',
+                        fontWeight: '800',
+                        padding: '12px 24px',
+                        fontSize: '13px',
+                        borderRadius: '8px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        boxShadow: '0 2px 4px rgba(22, 163, 74, 0.25)',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      <Zap size={15} /> 1-Click Connect GoHighLevel (OAuth)
+                    </a>
+                  </div>
                 </div>
 
                 {detectedLocationId && (
