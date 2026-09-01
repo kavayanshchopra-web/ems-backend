@@ -657,21 +657,48 @@ export default function IntegrationsPage({
 
       const contactMap = new Map();
       (localContacts || []).forEach(c => {
-        if (c && (c.name || c.phone || c.id)) {
-          contactMap.set(c.id || c.phone, c);
+        if (!c) return;
+        // Skip contacts that originated from HighLevel
+        if (c.source === 'GoHighLevel' || String(c.id).startsWith('ghl_') || String(c.id).startsWith('deal_ghl_')) return;
+        if (c.notes && c.notes.includes('Imported from GoHighLevel')) return;
+
+        // Clean phone and check validity
+        const cleanPhone = (c.phone || '').replace(/[^0-9+]/g, '');
+        const hasValidPhone = cleanPhone.length >= 10;
+        const hasValidEmail = c.email && c.email.includes('@');
+
+        if (hasValidPhone || hasValidEmail) {
+          const key = cleanPhone || c.email || c.id;
+          contactMap.set(key, {
+            id: c.id,
+            name: c.name || c.customer_name || 'EMS Contact',
+            phone: cleanPhone,
+            email: c.email || '',
+            pipeline_stage: c.pipeline_stage || 'lead',
+            labels: Array.isArray(c.labels) ? c.labels : (c.tags || ['EMS CRM'])
+          });
         }
       });
+
       (localDeals || []).forEach(d => {
-        if (d && (d.customer_name || d.phone)) {
-          const key = d.phone || d.id;
+        if (!d) return;
+        // Skip deals that originated from HighLevel
+        if (d.source === 'GoHighLevel' || (String(d.id).startsWith('deal_') && d.notes && d.notes.includes('Imported from GoHighLevel'))) return;
+
+        const cleanPhone = (d.phone || '').replace(/[^0-9+]/g, '');
+        const hasValidPhone = cleanPhone.length >= 10;
+        const hasValidEmail = d.email && d.email.includes('@');
+
+        if (hasValidPhone || hasValidEmail) {
+          const key = cleanPhone || d.email || d.id;
           if (!contactMap.has(key)) {
             contactMap.set(key, {
               id: d.id,
-              name: d.customer_name || d.title,
-              phone: d.phone,
-              email: d.email,
-              pipeline_stage: d.pipeline_stage || d.deal_stage,
-              labels: d.tags
+              name: d.customer_name || d.title || 'EMS Deal Lead',
+              phone: cleanPhone,
+              email: d.email || '',
+              pipeline_stage: d.pipeline_stage || d.deal_stage || 'lead',
+              labels: Array.isArray(d.tags) ? d.tags : ['EMS CRM']
             });
           }
         }
@@ -679,24 +706,33 @@ export default function IntegrationsPage({
 
       const uniqueList = Array.from(contactMap.values());
 
-      // If direct Access Token is available, push directly to HighLevel Cloud API
+      if (uniqueList.length === 0) {
+        showToast('ℹ️ All EMS contacts are already in sync with HighLevel. No new local contacts to push.', 'info');
+        return;
+      }
+
+      // If direct Access Token is available, push directly in parallel chunks
       if (loc && loc.accessToken && targetLocId) {
         let synced = 0;
         let failed = 0;
-        for (const c of uniqueList) {
-          try {
-            await GhlOAuthService.createOrUpdateContactDirectly({
-              locationId: targetLocId,
-              accessToken: loc.accessToken,
-              contact: c
-            });
-            synced++;
-          } catch (err) {
-            console.warn('Direct push error for contact:', c.name, err.message);
-            failed++;
-          }
+        const chunkSize = 5;
+        for (let i = 0; i < uniqueList.length; i += chunkSize) {
+          const chunk = uniqueList.slice(i, i + chunkSize);
+          await Promise.all(chunk.map(async (c) => {
+            try {
+              await GhlOAuthService.createOrUpdateContactDirectly({
+                locationId: targetLocId,
+                accessToken: loc.accessToken,
+                contact: c
+              });
+              synced++;
+            } catch (err) {
+              console.warn('Direct push error for contact:', c.name, err.message);
+              failed++;
+            }
+          }));
         }
-        showToast(`✅ Contact Sync Completed! Total: ${uniqueList.length}, Pushed: ${synced}`, 'success');
+        showToast(`✅ Contact Push Completed! Successfully pushed ${synced} contacts to HighLevel.`, 'success');
         fetchGhlSyncLogs();
         return;
       }
