@@ -1054,63 +1054,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       };
       socketInstance.on('telecalling:call_synced', handleCallSynced);
 
-      const handleGhlInbound = async (data) => {
-        try {
-          const contact = data?.contact || data;
-          if (!contact) return;
-          const fullName = contact.name || `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || contact.custom_name || contact.phone || 'HighLevel Lead';
-          const cleanPhone = contact.phone || '';
-          const cleanEmail = contact.email || '';
-          const contactId = data.contactId || data.id || `ghl_${Date.now()}`;
-          const currentCompany = authUser?.tenantId || authUser?.companyId || 'default_tenant';
-
-          // Save deal in Firestore
-          await FirebaseCloudEngine.saveRecord('crm_deals', {
-            id: `deal_${contactId}`,
-            title: `${fullName} - Deal`,
-            customer_name: fullName,
-            phone: cleanPhone,
-            email: cleanEmail,
-            deal_stage: 'New Lead',
-            pipeline_stage: 'lead',
-            amount: 0,
-            deal_value: 0,
-            notes: 'Live Inbound Sync from HighLevel Webhook',
-            tags: ['HighLevel', 'Live Sync'],
-            source: 'GoHighLevel',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }, currentCompany);
-
-          // Save contact in Firestore
-          await FirebaseCloudEngine.saveRecord('contacts', {
-            id: contactId,
-            name: fullName,
-            phone: cleanPhone,
-            email: cleanEmail,
-            pipeline_stage: 'lead',
-            labels: ['HighLevel', 'Live Sync']
-          }, currentCompany);
-
-          showToast(`⚡ Live Inbound Sync: ${fullName} added from HighLevel!`, 'success');
-        } catch (e) {
-          console.warn('[GHL Inbound Realtime Save Error]', e.message);
-        }
-      };
-
-      socketInstance.on('ghl_inbound_contact', handleGhlInbound);
-      socketInstance.on('contact_updated', handleGhlInbound);
-
       return () => {
         socketInstance.off('telecalling:call_synced', handleCallSynced);
-        socketInstance.off('ghl_inbound_contact', handleGhlInbound);
-        socketInstance.off('contact_updated', handleGhlInbound);
         socketInstance.disconnect();
       };
     } catch (err) {
       console.log('Notice: Socket client initialization:', err.message);
     }
-  }, [authUser]);
+  }, []);
   const recordingTimerRef = useRef(0);
   const startMicRecording = async () => {
     try {
