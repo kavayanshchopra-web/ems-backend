@@ -157,36 +157,22 @@ export default function IntegrationsPage({
             status: 'connected'
           }]);
           fetchGhlSyncLogs();
-        } else if (firestoreLocs.length > 0) {
-          setGhlLocations(firestoreLocs.map(l => ({
-            id: `ghl_${l.locationId}`,
-            locationId: l.locationId,
-            accessToken: l.accessToken,
-            companyId: l.companyId,
-            tenantId: l.companyId,
-            locationName: `Active Sub-Account (${l.locationId})`,
-            scope: l.scope,
-            installedAt: l.installedAt || new Date().toISOString(),
-            status: 'connected'
-          })));
-          fetchGhlSyncLogs();
+        } else if (data.reauthRequired && data.locationId) {
+          setGhlLocations([{
+            id: `ghl_${data.locationId}`,
+            locationId: data.locationId,
+            companyId: data.companyId || cleanCompanyId,
+            tenantId: data.tenantId || cleanCompanyId,
+            locationName: `Sub-Account (${data.locationId})`,
+            scope: data.scope || 'contacts, conversations, workflows, locations',
+            installedAt: data.installedAt || new Date().toISOString(),
+            status: 'reauth_required',
+            error: data.error || 'HighLevel OAuth authorization required.'
+          }]);
         } else {
           setGhlLocations([]);
           setGhlSyncLogs([]);
         }
-      } else if (firestoreLocs.length > 0) {
-        setGhlLocations(firestoreLocs.map(l => ({
-          id: `ghl_${l.locationId}`,
-          locationId: l.locationId,
-          accessToken: l.accessToken,
-          companyId: l.companyId,
-          tenantId: l.companyId,
-          locationName: `Active Sub-Account (${l.locationId})`,
-          scope: l.scope,
-          installedAt: l.installedAt || new Date().toISOString(),
-          status: 'connected'
-        })));
-        fetchGhlSyncLogs();
       } else {
         setGhlLocations([]);
         setGhlSyncLogs([]);
@@ -502,7 +488,7 @@ export default function IntegrationsPage({
   const handleDirectLinkLocation = async (targetLocId) => {
     const locIdToLink = (targetLocId || manualLocationId || detectedLocationId || '').trim();
     if (!locIdToLink) {
-      showToast('Please enter or select a Location ID to link', 'error');
+      showToast('Please enter or select a Location ID to connect', 'error');
       return;
     }
     setIsLinkingLocation(true);
@@ -519,19 +505,19 @@ export default function IntegrationsPage({
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        showToast(`✅ Sub-Account (${locIdToLink}) Connected Successfully!`, 'success');
-        setGhlLocations([{
-          id: `ghl_${locIdToLink}`,
-          locationId: locIdToLink,
-          accessToken: data.accessToken || '',
-          companyId: cleanCompanyId,
-          tenantId: cleanCompanyId,
-          locationName: `Active Sub-Account (${locIdToLink})`,
-          scope: 'contacts, conversations, workflows, locations',
-          installedAt: new Date().toISOString(),
-          status: 'connected'
-        }]);
-        loadGhlOAuthData();
+        if (data.requiresAuth && data.authUrl) {
+          showToast(`🚀 Opening HighLevel Authorization for sub-account (${locIdToLink})...`, 'info');
+          const opened = window.open(data.authUrl, '_blank', 'width=650,height=750');
+          if (!opened || opened.closed || typeof opened.closed === 'undefined') {
+            window.location.href = data.authUrl;
+          }
+        } else if (data.connected) {
+          showToast(`✅ Sub-Account (${locIdToLink}) Connected Successfully!`, 'success');
+          loadGhlOAuthData();
+        } else {
+          showToast(data.message || 'Sub-account registered. Please complete authorization.', 'info');
+          loadGhlOAuthData();
+        }
       } else {
         showToast(data.error || 'Failed to link sub-account', 'error');
       }
@@ -554,7 +540,7 @@ export default function IntegrationsPage({
       });
       const data = await res.json();
       if (data.authUrl) {
-        const opened = window.open(data.authUrl, '_blank');
+        const opened = window.open(data.authUrl, '_blank', 'width=650,height=750');
         if (!opened || opened.closed || typeof opened.closed === 'undefined') {
           window.location.href = data.authUrl;
         }
@@ -572,6 +558,7 @@ export default function IntegrationsPage({
   const handleDisconnectGhlLocation = async () => {
     if (!confirm('Disconnect this GoHighLevel Sub-Account Location?')) return;
     try {
+      const loc = ghlLocations[0];
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
       const res = await fetch(`${API_URL}/v1/integrations/ghl/oauth/disconnect`, {
         method: 'POST',
@@ -582,14 +569,16 @@ export default function IntegrationsPage({
         },
         body: JSON.stringify({ companyId: cleanCompanyId })
       });
-      if (res.ok) {
-        setGhlLocations([]);
-        setGhlSyncLogs([]);
-        showToast('GoHighLevel Sub-Account disconnected successfully', 'info');
-      } else {
-        const data = await res.json();
-        showToast(data.error || 'Failed to disconnect', 'error');
+
+      if (loc && loc.locationId) {
+        try {
+          await deleteDoc(doc(db, 'integrations_ghl_oauth', `${cleanCompanyId}_${loc.locationId}`));
+        } catch (fErr) {}
       }
+
+      setGhlLocations([]);
+      setGhlSyncLogs([]);
+      showToast('GoHighLevel Sub-Account disconnected successfully', 'info');
     } catch (e) {
       showToast('Disconnect error: ' + e.message, 'error');
     }
@@ -1269,10 +1258,10 @@ export default function IntegrationsPage({
                   </div>
                   <div>
                     <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
-                      Link HighLevel Sub-Account Location
+                      Connect HighLevel Sub-Account
                     </h4>
                     <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>
-                      Connect your sub-account in 1-click to activate 2-way real-time contact, deal, and conversation sync.
+                      Authenticate your sub-account via official HighLevel 1-Click OAuth to activate 2-way real-time data sync.
                     </p>
                   </div>
                 </div>
@@ -1290,18 +1279,18 @@ export default function IntegrationsPage({
                     <Button
                       variant="primary"
                       type="button"
-                      disabled={isLinkingLocation}
+                      disabled={isLinkingLocation || isSavingGhlAuth}
                       onClick={() => handleDirectLinkLocation(detectedLocationId)}
                       style={{ background: '#16a34a', borderColor: '#16a34a', fontWeight: '700', padding: '10px 20px', whiteSpace: 'nowrap' }}
                     >
-                      {isLinkingLocation ? 'Linking...' : '⚡ 1-Click Link Sub-Account'}
+                      {isLinkingLocation ? 'Connecting...' : '⚡ 1-Click Connect Sub-Account (OAuth)'}
                     </Button>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                     <input
                       type="text"
-                      placeholder="Enter HighLevel Location ID (e.g. 6e823wQIhDkCodRRVteu)"
+                      placeholder="Enter HighLevel Location ID (e.g. 6e8Z3wQIhDkCodRRVteu)"
                       value={manualLocationId}
                       onChange={(e) => setManualLocationId(e.target.value)}
                       style={{
@@ -1317,11 +1306,11 @@ export default function IntegrationsPage({
                     <Button
                       variant="primary"
                       type="button"
-                      disabled={isLinkingLocation || !manualLocationId.trim()}
+                      disabled={isLinkingLocation || isSavingGhlAuth || !manualLocationId.trim()}
                       onClick={() => handleDirectLinkLocation(manualLocationId)}
                       style={{ background: '#ff6b00', borderColor: '#ff6b00', fontWeight: '700', padding: '10px 20px', whiteSpace: 'nowrap' }}
                     >
-                      {isLinkingLocation ? 'Linking...' : '⚡ Link Sub-Account'}
+                      {isLinkingLocation ? 'Connecting...' : '⚡ Connect Sub-Account (OAuth)'}
                     </Button>
                   </div>
                 )}
@@ -1329,68 +1318,95 @@ export default function IntegrationsPage({
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {ghlLocations.map(loc => (
-                  <div key={loc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '16px 20px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>Location ID: {loc.locationId}</span>
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#475569' }}>
-                        <strong>Permissions:</strong> {loc.scope || 'contacts, conversations, workflows, locations'}
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                        Connected on: {loc.installedAt ? new Date(loc.installedAt).toLocaleString() : 'Active'}
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <div key={loc.id} style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px 20px', background: '#f8fafc', borderRadius: '10px', border: loc.status === 'reauth_required' ? '1px solid #fde047' : '1px solid #e2e8f0' }}>
+                    
+                    {loc.status === 'reauth_required' && (
+                      <div style={{ background: '#fefce8', border: '1px solid #fde047', borderRadius: '8px', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                        <div style={{ fontSize: '12px', color: '#854d0e', fontWeight: '600' }}>
+                          ⚠️ HighLevel OAuth Authorization Required — Click "Connect via OAuth" to activate 2-way sync for this sub-account.
+                        </div>
                         <Button
                           variant="primary"
                           size="sm"
-                          icon={<RefreshCw size={13} className={isSyncingGhl ? 'animate-spin' : ''} />}
-                          onClick={handleImportAllGhlContacts}
-                          disabled={isSyncingGhl}
-                          style={{ background: '#059669', borderColor: '#059669', fontWeight: '700' }}
+                          onClick={() => handleDirectLinkLocation(loc.locationId)}
+                          disabled={isLinkingLocation || isSavingGhlAuth}
+                          style={{ background: '#ca8a04', borderColor: '#ca8a04', fontWeight: '700', whiteSpace: 'nowrap' }}
                         >
-                          {isSyncingGhl ? 'Importing...' : '📥 Import All Contacts (GHL ➔ EMS)'}
-                        </Button>
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          icon={<Zap size={13} className={isSyncingGhl ? 'animate-spin' : ''} />}
-                          onClick={handleImportAllGhlDeals}
-                          disabled={isSyncingGhl}
-                          style={{ background: '#0d9488', borderColor: '#0d9488', fontWeight: '700' }}
-                        >
-                          {isSyncingGhl ? 'Importing Deals...' : '📥 Import Deals & Pipelines'}
+                          ⚡ Connect via OAuth
                         </Button>
                       </div>
+                    )}
 
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          icon={<Send size={12} />}
-                          onClick={handleSyncAllGhlContacts}
-                          disabled={isSyncingGhl}
-                        >
-                          📤 Push Contacts (EMS ➔ GHL)
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          icon={<Send size={12} />}
-                          onClick={handleSyncAllGhlDeals}
-                          disabled={isSyncingGhl}
-                        >
-                          📤 Push Deals (EMS ➔ GHL)
-                        </Button>
-                        <button
-                          onClick={handleDisconnectGhlLocation}
-                          style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #fca5a5', background: '#ffffff', color: '#ef4444', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
-                        >
-                          Disconnect
-                        </button>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>Location ID: {loc.locationId}</span>
+                          {loc.status === 'connected' ? (
+                            <Badge variant="success" style={{ fontSize: '11px' }}>● Connected & Active</Badge>
+                          ) : (
+                            <Badge variant="warning" style={{ fontSize: '11px' }}>● Auth Required</Badge>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#475569' }}>
+                          <strong>Permissions:</strong> {loc.scope || 'contacts, conversations, workflows, locations'}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                          Connected on: {loc.installedAt ? new Date(loc.installedAt).toLocaleString() : 'Active'}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            icon={<RefreshCw size={13} className={isSyncingGhl ? 'animate-spin' : ''} />}
+                            onClick={handleImportAllGhlContacts}
+                            disabled={isSyncingGhl || loc.status !== 'connected'}
+                            style={{ background: '#059669', borderColor: '#059669', fontWeight: '700', opacity: loc.status !== 'connected' ? 0.6 : 1 }}
+                          >
+                            {isSyncingGhl ? 'Importing...' : '📥 Import All Contacts (GHL ➔ EMS)'}
+                          </Button>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            icon={<Zap size={13} className={isSyncingGhl ? 'animate-spin' : ''} />}
+                            onClick={handleImportAllGhlDeals}
+                            disabled={isSyncingGhl || loc.status !== 'connected'}
+                            style={{ background: '#0d9488', borderColor: '#0d9488', fontWeight: '700', opacity: loc.status !== 'connected' ? 0.6 : 1 }}
+                          >
+                            {isSyncingGhl ? 'Importing Deals...' : '📥 Import Deals & Pipelines'}
+                          </Button>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            icon={<Send size={12} />}
+                            onClick={handleSyncAllGhlContacts}
+                            disabled={isSyncingGhl || loc.status !== 'connected'}
+                            style={{ opacity: loc.status !== 'connected' ? 0.6 : 1 }}
+                          >
+                            📤 Push Contacts (EMS ➔ GHL)
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            icon={<Send size={12} />}
+                            onClick={handleSyncAllGhlDeals}
+                            disabled={isSyncingGhl || loc.status !== 'connected'}
+                            style={{ opacity: loc.status !== 'connected' ? 0.6 : 1 }}
+                          >
+                            📤 Push Deals (EMS ➔ GHL)
+                          </Button>
+                          <button
+                            onClick={handleDisconnectGhlLocation}
+                            style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #fca5a5', background: '#ffffff', color: '#ef4444', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
+                          >
+                            Disconnect
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
