@@ -101,18 +101,23 @@ export class GhlOAuthService {
     if (!accessToken) throw new Error('HighLevel Access Token is required');
 
     let startAfter = null;
+    let startAfterId = null;
     let hasMore = true;
     let allContacts = [];
+    const seenContactIds = new Set();
     let page = 0;
     let totalInGhl = 0;
 
-    while (hasMore && allContacts.length < maxTotal && page < 150) {
+    while (hasMore && allContacts.length < maxTotal && page < 50) {
       page++;
       const url = new URL('https://services.leadconnectorhq.com/contacts/');
       url.searchParams.append('locationId', locationId);
       url.searchParams.append('limit', String(Math.min(limit, 100)));
       if (startAfter) {
-        url.searchParams.append('startAfter', startAfter);
+        url.searchParams.append('startAfter', String(startAfter));
+      }
+      if (startAfterId) {
+        url.searchParams.append('startAfterId', String(startAfterId));
       }
 
       const res = await fetch(url.toString(), {
@@ -131,28 +136,57 @@ export class GhlOAuthService {
 
       const data = await res.json();
       const contacts = data.contacts || [];
-      totalInGhl = data.total || (totalInGhl + contacts.length);
+      totalInGhl = data.total || (totalInGhl > 0 ? totalInGhl : contacts.length);
 
       if (!contacts.length) {
         hasMore = false;
         break;
       }
 
-      allContacts.push(...contacts);
-      if (onPageFetched) {
-        onPageFetched(contacts, allContacts.length, totalInGhl);
+      let newContactsInThisPage = 0;
+      const pageUniqueContacts = [];
+      for (const c of contacts) {
+        if (!seenContactIds.has(c.id)) {
+          seenContactIds.add(c.id);
+          allContacts.push(c);
+          pageUniqueContacts.push(c);
+          newContactsInThisPage++;
+        }
+      }
+
+      // If no new contacts were returned, stop immediately
+      if (newContactsInThisPage === 0) {
+        hasMore = false;
+        break;
+      }
+
+      if (onPageFetched && pageUniqueContacts.length > 0) {
+        onPageFetched(pageUniqueContacts, allContacts.length, totalInGhl);
+      }
+
+      // Stop if all contacts have been fetched
+      if (totalInGhl > 0 && allContacts.length >= totalInGhl) {
+        hasMore = false;
+        break;
+      }
+
+      // Stop if page was not full
+      if (contacts.length < limit) {
+        hasMore = false;
+        break;
       }
 
       if (data.meta && (data.meta.startAfter || data.meta.startAfterId)) {
-        startAfter = data.meta.startAfter || data.meta.startAfterId;
-      } else if (contacts.length < limit) {
-        hasMore = false;
+        startAfter = data.meta.startAfter;
+        startAfterId = data.meta.startAfterId;
       } else {
-        startAfter = contacts[contacts.length - 1].dateAdded || contacts[contacts.length - 1].id;
+        const lastContact = contacts[contacts.length - 1];
+        startAfter = lastContact.dateAdded;
+        startAfterId = lastContact.id;
       }
     }
 
-    return { contacts: allContacts, total: totalInGhl };
+    return { contacts: allContacts, total: totalInGhl || allContacts.length };
   }
 
   /**
