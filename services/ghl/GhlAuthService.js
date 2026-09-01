@@ -409,7 +409,11 @@ export class GhlAuthService {
       }
     }
 
-    return decryptToken(integration.access_token);
+    try {
+      return decryptToken(integration.access_token);
+    } catch (cryptoErr) {
+      throw new Error(`[GhlAuthService] HighLevel access token format invalid for location "${locationId}". Re-authorization required via 1-Click OAuth.`);
+    }
   }
 
   /**
@@ -441,7 +445,7 @@ export class GhlAuthService {
 
   /**
    * Retrieves safe connection status for frontend display without exposing tokens.
-   * @param {number} tenantId
+   * @param {number|string} tenantId
    */
   async getTenantConnectionStatus(tenantId) {
     if (!tenantId) {
@@ -452,13 +456,37 @@ export class GhlAuthService {
       return { connected: false, locationId: null, companyId: null, tenantId: String(tenantId) };
     }
 
+    // Validate that stored access token is genuine and encrypted
+    let isValidToken = false;
+    if (integration.access_token) {
+      try {
+        const decrypted = decryptToken(integration.access_token);
+        if (decrypted && decrypted.length > 3) {
+          isValidToken = true;
+        }
+      } catch (e) {
+        isValidToken = false;
+      }
+    }
+
+    if (!isValidToken) {
+      return {
+        connected: false,
+        reauthRequired: true,
+        locationId: integration.location_id,
+        companyId: integration.company_id,
+        tenantId: String(integration.tenant_id),
+        error: 'HighLevel OAuth authorization required for this sub-account.'
+      };
+    }
+
     return {
       connected: true,
       locationId: integration.location_id,
       companyId: integration.company_id,
       tenantId: String(integration.tenant_id),
       scope: integration.scope,
-      installedAt: integration.installed_at,
+      installedAt: integration.installed_at || integration.created_at,
       updatedAt: integration.updated_at,
       lastSyncAt: integration.last_sync_at,
       expiresAt: integration.expires_at,

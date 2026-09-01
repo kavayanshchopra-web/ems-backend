@@ -27,7 +27,8 @@ import {
   ghlSyncEngine, 
   ghlWebhookService,
   ghlWorkflowActionService,
-  ghlWorkflowTriggerService
+  ghlWorkflowTriggerService,
+  decryptToken
 } from './services/ghl/index.js';
 
 import express from 'express';
@@ -1882,7 +1883,7 @@ export default function setupRoutes(io) {
     }
   });
 
-  // 1c. Direct Sub-Account Location Link (Option 2 - Zero Popup Instant Link)
+  // 1c. Direct Sub-Account Location Link & Auth Status
   router.post('/v1/integrations/ghl/link-location', async (req, res) => {
     try {
       const tenantId = resolveGhlTenantId(req);
@@ -1896,33 +1897,42 @@ export default function setupRoutes(io) {
         return res.status(400).json({ error: 'Tenant / Company context is required' });
       }
 
-      // Check if location integration already exists in DB
+      // Check if location integration already exists in DB with genuine token
       let integration = await getGhlIntegrationByLocation(cleanLocId);
-      if (integration) {
+      let isValidToken = false;
+      if (integration && integration.access_token) {
+        try {
+          const decrypted = decryptToken(integration.access_token);
+          if (decrypted && decrypted.length > 3) isValidToken = true;
+        } catch (e) {
+          isValidToken = false;
+        }
+      }
+
+      if (integration && isValidToken) {
         // Update its tenant_id to bind with this specific company
         await saveGhlIntegration(tenantId, {
           locationId: cleanLocId,
           companyId: tenantId,
           accessToken: integration.access_token,
           refreshToken: integration.refresh_token,
-          scope: integration.scope || 'contacts,conversations,opportunities',
+          scope: integration.scope || 'contacts,conversations,opportunities,workflows,locations',
           isActive: 1
         });
+        const updated = await ghlAuthService.getTenantConnectionStatus(tenantId);
+        return res.json({ success: true, message: 'Sub-account linked successfully', ...updated });
       } else {
-        // Provision new active integration link for this sub-account
-        await saveGhlIntegration(tenantId, {
+        // Location requires official OAuth authorization
+        const stateToken = await createGhlOAuthState(tenantId, req.user?.id || 1);
+        const authUrl = ghlAuthService.getAuthorizationUrl({ state: stateToken });
+        return res.json({
+          success: true,
+          requiresAuth: true,
           locationId: cleanLocId,
-          companyId: tenantId,
-          accessToken: 'ghl_direct_link_' + cleanLocId,
-          refreshToken: 'ghl_direct_link_' + cleanLocId,
-          scope: 'contacts,conversations,opportunities,workflows,locations',
-          isActive: 1,
-          metadata: { linkedVia: 'direct_location_id', linkedAt: new Date().toISOString() }
+          authUrl,
+          message: 'Please complete 1-Click HighLevel authorization for this sub-account.'
         });
       }
-
-      const updated = await ghlAuthService.getTenantConnectionStatus(tenantId);
-      res.json({ success: true, message: 'Sub-account linked successfully', ...updated });
     } catch (err) {
       console.error('[GHL Direct Link Error]', err.message);
       res.status(500).json({ error: err.message || 'Failed to link sub-account' });
@@ -2135,9 +2145,10 @@ export default function setupRoutes(io) {
   router.post('/v1/integrations/ghl/contacts/import-all', async (req, res) => {
     try {
       const tenantId = resolveGhlTenantId(req);
-      if (!tenantId) return res.status(400).json({ error: 'Tenant ID is required', code: 'GHL_TENANT_REQUIRED' });
-      const { limit, maxTotal } = req.body || {};
-      const summary = await ghlSyncEngine.importAllContactsFromGhl(tenantId, { limit, maxTotal });
+      const { limit, maxTotal, locationId } = req.body || {};
+      const targetLoc = locationId || req.query?.locationId;
+      if (!tenantId && !targetLoc) return res.status(400).json({ error: 'Tenant ID or Location ID is required', code: 'GHL_TENANT_REQUIRED' });
+      const summary = await ghlSyncEngine.importAllContactsFromGhl(tenantId, { limit, maxTotal, locationId: targetLoc });
       res.json({ success: true, ...summary });
     } catch (err) {
       console.error('[GHL Bulk Import Contacts Error]', err.message);
@@ -2251,8 +2262,10 @@ export default function setupRoutes(io) {
   router.post('/v1/integrations/ghl/opportunities/import-all', async (req, res) => {
     try {
       const tenantId = resolveGhlTenantId(req);
-      if (!tenantId) return res.status(400).json({ error: 'Tenant ID is required', code: 'GHL_TENANT_REQUIRED' });
-      const summary = await ghlSyncEngine.importAllOpportunitiesFromGhl(tenantId);
+      const { limit, locationId } = req.body || {};
+      const targetLoc = locationId || req.query?.locationId;
+      if (!tenantId && !targetLoc) return res.status(400).json({ error: 'Tenant ID or Location ID is required', code: 'GHL_TENANT_REQUIRED' });
+      const summary = await ghlSyncEngine.importAllOpportunitiesFromGhl(tenantId, { limit, locationId: targetLoc });
       res.json({ success: true, ...summary });
     } catch (err) {
       console.error('[GHL Bulk Import Opportunities Error]', err.message);

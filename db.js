@@ -2016,8 +2016,8 @@ export async function saveGhlIntegration(tenantId, data = {}) {
   } catch (e) {}
 
   const existing = hasGhlLocationIdCol
-    ? await db.get(`SELECT id FROM ghl_integrations WHERE location_id = ? OR ghl_location_id = ?`, [locationId, locationId])
-    : await db.get(`SELECT id FROM ghl_integrations WHERE location_id = ?`, [locationId]);
+    ? await db.get(`SELECT id FROM ghl_integrations WHERE tenant_id = ? OR location_id = ? OR ghl_location_id = ?`, [safeTenantId, locationId, locationId])
+    : await db.get(`SELECT id FROM ghl_integrations WHERE tenant_id = ? OR location_id = ?`, [safeTenantId, locationId]);
 
   if (existing) {
     if (hasGhlLocationIdCol) {

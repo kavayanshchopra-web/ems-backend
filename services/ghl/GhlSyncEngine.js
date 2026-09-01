@@ -7,6 +7,7 @@ import {
 } from './ghlUtils.js';
 import { 
   getGhlIntegrationByTenant,
+  getGhlIntegrationByLocation,
   getContact, 
   getAllContacts,
   saveContact,
@@ -202,7 +203,10 @@ export class GhlSyncEngine {
     if (!tenantId) throw new GhlApiError('tenantId is required for contact import', 'GHL_VALIDATION_ERROR', 400);
     if (!ghlContactId) throw new GhlApiError('ghlContactId is required for contact import', 'GHL_VALIDATION_ERROR', 400);
 
-    const integration = await getGhlIntegrationByTenant(tenantId);
+    let integration = await getGhlIntegrationByTenant(tenantId);
+    if (!integration && typeof tenantId === 'string') {
+      integration = await getGhlIntegrationByLocation(tenantId);
+    }
     if (!integration || !integration.is_active || !integration.location_id) {
       throw new GhlApiError('GoHighLevel integration is not active for this tenant', 'GHL_NOT_CONNECTED', 400);
     }
@@ -703,14 +707,18 @@ export class GhlSyncEngine {
    * @param {Object} [options]
    * @returns {Promise<Object>}
    */
-  async importAllContactsFromGhl(tenantId, { limit = 100, maxTotal = 10000 } = {}) {
-    if (!tenantId) throw new GhlApiError('tenantId is required', 'GHL_VALIDATION_ERROR', 400);
+  async importAllContactsFromGhl(tenantId, { limit = 100, maxTotal = 10000, locationId: overrideLocId = null } = {}) {
+    if (!tenantId && !overrideLocId) throw new GhlApiError('tenantId or locationId is required', 'GHL_VALIDATION_ERROR', 400);
 
-    const integration = await getGhlIntegrationByTenant(tenantId);
+    let integration = tenantId ? await getGhlIntegrationByTenant(tenantId) : null;
+    if (!integration && (overrideLocId || tenantId)) {
+      integration = await getGhlIntegrationByLocation(overrideLocId || tenantId);
+    }
     if (!integration || !integration.location_id || integration.is_active !== 1) {
-      throw new GhlApiError('GoHighLevel is not connected for this tenant', 'GHL_NOT_CONNECTED', 400);
+      throw new GhlApiError('GoHighLevel is not connected for this sub-account', 'GHL_NOT_CONNECTED', 400);
     }
     const locationId = integration.location_id;
+    const effectiveTenantId = integration.tenant_id || tenantId || 1;
 
     const summary = {
       totalFound: 0,
@@ -789,14 +797,18 @@ export class GhlSyncEngine {
    * @param {Object} [options]
    * @returns {Promise<Object>}
    */
-  async importAllOpportunitiesFromGhl(tenantId, { limit = 100 } = {}) {
-    if (!tenantId) throw new GhlApiError('tenantId is required', 'GHL_VALIDATION_ERROR', 400);
+  async importAllOpportunitiesFromGhl(tenantId, { limit = 100, locationId: overrideLocId = null } = {}) {
+    if (!tenantId && !overrideLocId) throw new GhlApiError('tenantId or locationId is required', 'GHL_VALIDATION_ERROR', 400);
 
-    const integration = await getGhlIntegrationByTenant(tenantId);
+    let integration = tenantId ? await getGhlIntegrationByTenant(tenantId) : null;
+    if (!integration && (overrideLocId || tenantId)) {
+      integration = await getGhlIntegrationByLocation(overrideLocId || tenantId);
+    }
     if (!integration || !integration.location_id || integration.is_active !== 1) {
-      throw new GhlApiError('GoHighLevel is not connected for this tenant', 'GHL_NOT_CONNECTED', 400);
+      throw new GhlApiError('GoHighLevel is not connected for this sub-account', 'GHL_NOT_CONNECTED', 400);
     }
     const locationId = integration.location_id;
+    const effectiveTenantId = integration.tenant_id || tenantId || 1;
 
     // 1. Fetch all pipelines and stages
     const pipelinesRes = await ghlApiClient.getPipelines(locationId);
