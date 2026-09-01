@@ -244,6 +244,28 @@ export class GhlOAuthService {
   }
 
   /**
+   * Polls the latest recent contacts from HighLevel Cloud API (lightweight single-page query)
+   */
+  static async pollRecentContacts({ locationId, accessToken, limit = 20 }) {
+    if (!locationId || !accessToken) return [];
+    try {
+      const url = `https://services.leadconnectorhq.com/contacts/?locationId=${encodeURIComponent(locationId)}&limit=${limit}`;
+      const res = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Version': '2021-07-28',
+          'Accept': 'application/json'
+        }
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.contacts || [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /**
    * Directly creates or updates a contact on HighLevel Cloud API
    */
   static async createOrUpdateContactDirectly({ locationId, accessToken, contact }) {

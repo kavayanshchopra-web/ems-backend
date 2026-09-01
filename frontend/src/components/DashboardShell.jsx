@@ -75,6 +75,8 @@ import ShiftEngine from '../core/engines/ShiftEngine';
 import { LabelEngine } from '../core/engines/LabelEngine';
 import FirebaseCloudEngine from '../core/engines/FirebaseCloudEngine';
 import FeatureProvisioningEngine from '../core/engines/FeatureProvisioningEngine';
+import GhlOAuthService from '../core/services/ghlOAuthService';
+import { query, where } from 'firebase/firestore';
 import { moduleConfigService } from '../services/moduleConfigService';
 import { atsStorageService, getNextSequentialId } from '../services/atsStorageService';
 import {
@@ -1108,6 +1110,90 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.log('Notice: Socket client initialization:', err.message);
     }
+  }, [authUser]);
+
+  // Live HighLevel Inbound Background Auto-Poller (Stream from HighLevel every 10s)
+  useEffect(() => {
+    const currentCompany = authUser?.companyId || authUser?.tenantId || 'default_tenant';
+    let isMounted = true;
+    let pollTimer = null;
+    const knownContactIds = new Set();
+
+    const checkGhlInboundStream = async () => {
+      try {
+        if (!db) return;
+        const q = query(collection(db, 'integrations_ghl_oauth'), where('companyId', '==', String(currentCompany)));
+        const snap = await getDocs(q);
+        if (snap.empty) return;
+        const loc = snap.docs[0].data();
+        if (!loc || !loc.accessToken || !loc.locationId) return;
+
+        // Fetch latest 20 contacts directly from HighLevel
+        const recentContacts = await GhlOAuthService.pollRecentContacts({
+          locationId: loc.locationId,
+          accessToken: loc.accessToken,
+          limit: 20
+        });
+
+        if (!Array.isArray(recentContacts) || recentContacts.length === 0) return;
+
+        // Fetch existing deals to prevent duplicate ingestion
+        const existingDeals = await FirebaseCloudEngine.fetchRecords('crm_deals', currentCompany);
+        const existingDealIds = new Set((existingDeals || []).map(d => String(d.id)));
+
+        for (const c of recentContacts) {
+          const dealId = `deal_${c.id}`;
+          if (!existingDealIds.has(dealId) && !knownContactIds.has(c.id)) {
+            knownContactIds.add(c.id);
+            const fullName = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.phone || 'HighLevel Lead';
+            const cleanPhone = (c.phone || '').replace(/[^0-9+]/g, '');
+
+            const dealPayload = {
+              id: dealId,
+              title: `${fullName} - HighLevel Lead`,
+              customer_name: fullName,
+              phone: cleanPhone,
+              email: c.email || '',
+              deal_stage: 'New Lead',
+              pipeline_stage: 'lead',
+              amount: 0,
+              deal_value: 0,
+              notes: `Live Inbound Sync from HighLevel (Contact ID: ${c.id})`,
+              tags: Array.isArray(c.tags) ? c.tags : ['HighLevel'],
+              source: 'GoHighLevel',
+              createdAt: c.dateAdded || new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+
+            await FirebaseCloudEngine.saveRecord('crm_deals', dealPayload, currentCompany);
+            await FirebaseCloudEngine.saveRecord('contacts', {
+              id: `ghl_${c.id}`,
+              name: fullName,
+              phone: cleanPhone,
+              email: c.email || '',
+              pipeline_stage: 'lead',
+              labels: Array.isArray(c.tags) ? c.tags : ['HighLevel'],
+              source: 'GoHighLevel'
+            }, currentCompany);
+
+            if (isMounted) {
+              showToast(`⚡ Live Inbound Sync: ${fullName} added from HighLevel!`, 'success');
+            }
+          }
+        }
+      } catch (err) {
+        // Silent background polling
+      }
+    };
+
+    // Run immediately, then poll every 10 seconds
+    checkGhlInboundStream();
+    pollTimer = setInterval(checkGhlInboundStream, 10000);
+
+    return () => {
+      isMounted = false;
+      if (pollTimer) clearInterval(pollTimer);
+    };
   }, [authUser]);
   const recordingTimerRef = useRef(0);
   const startMicRecording = async () => {
