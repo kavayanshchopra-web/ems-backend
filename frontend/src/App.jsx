@@ -25,12 +25,30 @@ const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'l
 const LIVE_BACKEND = 'https://api.employeemanagementsystems.com';
 const API_URL = IS_DEV ? 'http://localhost:5000/api' : `${LIVE_BACKEND}/api`;
 
+export const getGhlContext = () => {
+  if (typeof window === 'undefined') return { locationId: '', locationName: '', isEmbedded: false };
+  const urlParams = new URLSearchParams(window.location.search);
+  let locationId = urlParams.get('location_id') || urlParams.get('locationId') || urlParams.get('loc_id') || urlParams.get('location') || '';
+  let locationName = urlParams.get('location_name') || urlParams.get('locationName') || urlParams.get('company_name') || urlParams.get('name') || '';
+
+  if (!locationId && typeof document !== 'undefined' && document.referrer) {
+    const match = document.referrer.match(/\/location\/([a-zA-Z0-9_-]+)/);
+    if (match && match[1] && match[1] !== 'undefined') {
+      locationId = match[1];
+    }
+  }
+
+  const isEmbedded = window.self !== window.top || urlParams.has('iframe') || !!locationId;
+  return { locationId: locationId.trim(), locationName: locationName.trim(), isEmbedded };
+};
+
 export default function App() {
+  const ghlContext = getGhlContext();
   const [activeTab, setActiveTab] = useState('login'); // 'login' or 'register'
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [companyName, setCompanyName] = useState('');
+  const [companyName, setCompanyName] = useState(ghlContext.locationName || '');
   const [authError, setAuthError] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
 
@@ -55,18 +73,29 @@ export default function App() {
     FirebaseCloudEngine.purgeAllLocalCaches();
   }, []);
 
-  // Auth state
+  // Auth state with strict Sub-Account location isolation
   const [authUser, setAuthUser] = useState(() => {
     try {
-      const isEmbedded = typeof window !== 'undefined' && (window.self !== window.top || window.location.search.includes('iframe') || window.location.search.includes('location'));
-      const saved = localStorage.getItem('omnilflow_user');
-      const user = saved ? JSON.parse(saved) : null;
+      const ghlCtx = getGhlContext();
 
-      // When embedded inside GHL iframe, do NOT auto-restore SuperAdmin session
-      if (isEmbedded && user?.role === 'superadmin') {
-        return null; // Force Login / Sign Up screen
+      // If inside a specific GHL Sub-Account Location:
+      if (ghlCtx.locationId) {
+        const savedLocUser = localStorage.getItem(`omnilflow_user_ghl_${ghlCtx.locationId}`);
+        if (savedLocUser) {
+          const user = JSON.parse(savedLocUser);
+          if (user && typeof window !== 'undefined') {
+            const tId = user.tenantId || user.companyId || user.tenant_id;
+            window.__omniflow_tenant = tId ? String(tId) : 'org_default';
+          }
+          return user;
+        }
+        // If this sub-account has never been registered/logged in on this browser, show Login / Sign Up!
+        return null;
       }
 
+      // Standalone browser access
+      const saved = localStorage.getItem('omnilflow_user');
+      const user = saved ? JSON.parse(saved) : null;
       if (user && typeof window !== 'undefined') {
         const tId = user.tenantId || user.companyId || user.tenant_id;
         window.__omniflow_tenant = tId ? String(tId) : 'org_default';
@@ -233,22 +262,54 @@ export default function App() {
           } catch (e) {}
         }
 
+        const ghlCtx = getGhlContext();
+        const finalTenantId = tenantId;
         const userData = {
           id: fbUser?.uid || usedDirectProfile?.id || usedDirectProfile?.uid || `user_${Date.now()}`,
           email: cleanEmail,
           name: storedName,
           role: storedRole,
           companyName: storedCompanyName,
-          tenantId: tenantId,
-          companyId: tenantId,
-          tenant_id: tenantId
+          tenantId: finalTenantId,
+          companyId: finalTenantId,
+          tenant_id: finalTenantId,
+          locationId: ghlCtx.locationId || usedDirectProfile?.locationId || null
         };
 
         FirebaseCloudEngine.purgeAllLocalCaches();
-        localStorage.setItem('omnilflow_token', fbUser?.accessToken || 'firebase_token');
+        const userToken = fbUser?.accessToken || 'firebase_token';
+        localStorage.setItem('omnilflow_token', userToken);
         localStorage.setItem('omnilflow_user', JSON.stringify(userData));
+        localStorage.setItem('omnilflow_current_company', finalTenantId);
+
+        // If inside a GHL sub-account, save location-specific session & bind to sub-account
+        if (ghlCtx.locationId) {
+          localStorage.setItem(`omnilflow_user_ghl_${ghlCtx.locationId}`, JSON.stringify(userData));
+          localStorage.setItem(`omnilflow_token_ghl_${ghlCtx.locationId}`, userToken);
+
+          if (db) {
+            try {
+              await setDoc(doc(db, 'companies', finalTenantId), {
+                ghl_location_id: ghlCtx.locationId,
+                updatedAt: new Date().toISOString()
+              }, { merge: true });
+              await setDoc(doc(db, 'user_profiles', userData.id), {
+                locationId: ghlCtx.locationId,
+                updatedAt: new Date().toISOString()
+              }, { merge: true });
+            } catch (e) {}
+          }
+
+          // Also notify backend to link location
+          fetch(`${API_URL}/v1/integrations/ghl/link-location`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Tenant-Id': String(finalTenantId) },
+            body: JSON.stringify({ companyId: finalTenantId, locationId: ghlCtx.locationId })
+          }).catch(() => {});
+        }
+
         setAuthUser(userData);
-        if (typeof window !== 'undefined') window.__omniflow_tenant = tenantId;
+        if (typeof window !== 'undefined') window.__omniflow_tenant = finalTenantId;
         showToast('Signed in successfully!', 'success');
         setAuthLoading(false);
         return;
@@ -318,21 +379,20 @@ export default function App() {
       if (auth) {
         const userCred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
         const fbUser = userCred.user;
-        const userRole = (cleanEmail === 'admin@omniflow.com' || cleanEmail === 'kavayanshchopra@gmail.com') ? 'superadmin' : 'owner';
-        
-        // Deterministic unique tenant ID for every new company registration
-        const companySlug = (companyName || 'workspace').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
+        const ghlCtx = getGhlContext();
+        const companySlug = (companyName || ghlCtx.locationName || 'workspace').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
         const uniqueTenantId = `org_${companySlug || 'tenant'}_${fbUser.uid.slice(0, 8)}`;
 
         const userData = {
           id: fbUser.uid,
           email: fbUser.email,
-          name: companyName ? `${companyName} Owner` : fbUser.email.split('@')[0],
+          name: companyName ? `${companyName} Owner` : (ghlCtx.locationName || fbUser.email.split('@')[0]),
           role: userRole,
-          companyName: companyName || 'My Workspace',
+          companyName: companyName || ghlCtx.locationName || 'My Workspace',
           tenantId: uniqueTenantId,
           companyId: uniqueTenantId,
-          tenant_id: uniqueTenantId
+          tenant_id: uniqueTenantId,
+          locationId: ghlCtx.locationId || null
         };
 
         // Save profile, company and user doc to Firestore
@@ -345,10 +405,11 @@ export default function App() {
 
             await setDoc(doc(db, 'companies', uniqueTenantId), {
               tenant_id: uniqueTenantId,
-              company_name: companyName || 'My Workspace',
-              name: companyName || 'My Workspace',
+              company_name: companyName || ghlCtx.locationName || 'My Workspace',
+              name: companyName || ghlCtx.locationName || 'My Workspace',
               owner_email: cleanEmail,
               owner_id: fbUser.uid,
+              ghl_location_id: ghlCtx.locationId || null,
               user_count: 1,
               emp_count: 0,
               createdAt: new Date().toISOString(),
@@ -359,6 +420,15 @@ export default function App() {
               ...userData,
               createdAt: new Date().toISOString()
             }, { merge: true });
+
+            if (ghlCtx.locationId) {
+              await setDoc(doc(db, 'integrations_ghl_oauth', `${uniqueTenantId}_${ghlCtx.locationId}`), {
+                companyId: uniqueTenantId,
+                locationId: ghlCtx.locationId,
+                status: 'unlinked',
+                installedAt: new Date().toISOString()
+              }, { merge: true });
+            }
           } catch (docErr) {
             console.warn('Could not save user profile doc:', docErr);
           }
@@ -366,8 +436,22 @@ export default function App() {
 
         // Purge any stale caches from previous sessions
         FirebaseCloudEngine.purgeAllLocalCaches();
-        localStorage.setItem('omnilflow_token', fbUser.accessToken || 'firebase_token');
+        const userToken = fbUser.accessToken || 'firebase_token';
+        localStorage.setItem('omnilflow_token', userToken);
         localStorage.setItem('omnilflow_user', JSON.stringify(userData));
+        localStorage.setItem('omnilflow_current_company', uniqueTenantId);
+
+        if (ghlCtx.locationId) {
+          localStorage.setItem(`omnilflow_user_ghl_${ghlCtx.locationId}`, JSON.stringify(userData));
+          localStorage.setItem(`omnilflow_token_ghl_${ghlCtx.locationId}`, userToken);
+
+          fetch(`${API_URL}/v1/integrations/ghl/link-location`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Tenant-Id': String(uniqueTenantId) },
+            body: JSON.stringify({ companyId: uniqueTenantId, locationId: ghlCtx.locationId })
+          }).catch(() => {});
+        }
+
         setAuthUser(userData);
         if (typeof window !== 'undefined') window.__omniflow_tenant = uniqueTenantId;
         showToast('Registered successfully! Your private workspace is ready.', 'success');
@@ -432,6 +516,32 @@ export default function App() {
           <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '28px' }}>
             {activeTab === 'register' ? 'Register your account to get started' : 'Sign in to your account to continue'}
           </p>
+
+          {ghlContext.locationId && (
+            <div style={{
+              background: '#f0fdf4',
+              border: '1px solid #86efac',
+              borderRadius: '12px',
+              padding: '12px 16px',
+              marginBottom: '20px',
+              textAlign: 'left',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>
+                ⚡
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: '#166534' }}>
+                  HighLevel Sub-Account Workspace
+                </div>
+                <div style={{ fontSize: '11px', color: '#15803d', fontFamily: 'monospace' }}>
+                  Location: {ghlContext.locationId}
+                </div>
+              </div>
+            </div>
+          )}
 
           {authError && (
             <div style={{
