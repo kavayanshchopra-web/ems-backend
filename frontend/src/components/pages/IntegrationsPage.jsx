@@ -48,6 +48,7 @@ export default function IntegrationsPage({
   const [ghlLocations, setGhlLocations] = useState([]);
   const [isSavingGhlAuth, setIsSavingGhlAuth] = useState(false);
   const [manualLocationId, setManualLocationId] = useState('');
+  const [subAccountApiKey, setSubAccountApiKey] = useState('');
   const [isLinkingLocation, setIsLinkingLocation] = useState(false);
 
   // Auto-detect Location ID from URL query parameters or referrer
@@ -489,7 +490,7 @@ export default function IntegrationsPage({
   const handleDirectLinkLocation = async (targetLocId) => {
     const locIdToLink = (targetLocId || manualLocationId || detectedLocationId || '').trim();
     if (!locIdToLink) {
-      showToast('Please enter or select a Location ID to connect', 'error');
+      showToast('Please enter a HighLevel Location ID', 'error');
       return;
     }
     setIsLinkingLocation(true);
@@ -502,25 +503,27 @@ export default function IntegrationsPage({
           ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
           'X-Tenant-Id': String(cleanCompanyId)
         },
-        body: JSON.stringify({ locationId: locIdToLink, companyId: cleanCompanyId })
+        body: JSON.stringify({ 
+          locationId: locIdToLink, 
+          companyId: cleanCompanyId,
+          apiKey: subAccountApiKey.trim()
+        })
       });
       const data = await res.json();
       if (res.ok && data.success) {
         if (data.requiresAuth && data.authUrl) {
-          showToast(`🚀 Opening HighLevel Authorization for sub-account (${locIdToLink})...`, 'info');
-          const opened = window.open(data.authUrl, '_blank', 'width=650,height=750');
-          if (!opened || opened.closed || typeof opened.closed === 'undefined') {
-            window.location.href = data.authUrl;
-          }
+          showToast(`🚀 Opening HighLevel Authorization window...`, 'info');
+          window.open(data.authUrl, '_blank');
         } else if (data.connected) {
           showToast(`✅ Sub-Account (${locIdToLink}) Connected Successfully!`, 'success');
+          setSubAccountApiKey('');
           loadGhlOAuthData();
         } else {
-          showToast(data.message || 'Sub-account registered. Please complete authorization.', 'info');
+          showToast(data.message || 'Sub-account linked successfully!', 'success');
           loadGhlOAuthData();
         }
       } else {
-        showToast(data.error || 'Failed to link sub-account', 'error');
+        showToast(data.error || 'Failed to connect sub-account', 'error');
       }
     } catch (e) {
       showToast('Link error: ' + e.message, 'error');
@@ -1274,54 +1277,115 @@ export default function IntegrationsPage({
             </div>
 
             {ghlLocations.length === 0 ? (
-              <div style={{ padding: '28px 24px', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Zap size={24} style={{ color: '#ea580c' }} />
+              <div style={{ padding: '24px', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                
+                {/* Method 1: Sub-Account Private API Key / Direct Token Connection (Recommended for Whitelabel) */}
+                <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Key size={20} style={{ color: '#059669' }} />
                     </div>
                     <div>
-                      <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
-                        Connect GoHighLevel Sub-Account
+                      <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+                        Method 1: Connect via Location API Key / Token (Instant & 100% Reliable)
                       </h4>
-                      <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#64748b' }}>
-                        Click below to authenticate via official HighLevel 1-Click OAuth and activate real-time 2-way data sync.
+                      <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>
+                        In WebGearz / HighLevel Sub-Account, go to <strong>Settings ➔ Business Profile / Developers ➔ Copy API Key</strong>.
                       </p>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <a
-                      href={getDirectGhlAuthUrl()}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        background: '#16a34a',
-                        color: '#ffffff',
-                        textDecoration: 'none',
-                        fontWeight: '800',
-                        padding: '12px 24px',
-                        fontSize: '13px',
-                        borderRadius: '8px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        boxShadow: '0 2px 4px rgba(22, 163, 74, 0.25)',
-                        whiteSpace: 'nowrap'
-                      }}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#475569', marginBottom: '4px' }}>
+                        HighLevel Location ID
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 6e8Z3wQIhDkCodRRVteu"
+                        value={manualLocationId || detectedLocationId}
+                        onChange={(e) => setManualLocationId(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          fontSize: '13px',
+                          fontFamily: 'monospace',
+                          outline: 'none',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#475569', marginBottom: '4px' }}>
+                        Sub-Account API Key / Private Token
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="Paste HighLevel Location API Key or PIT token"
+                        value={subAccountApiKey}
+                        onChange={(e) => setSubAccountApiKey(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          fontSize: '13px',
+                          outline: 'none',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button
+                      variant="primary"
+                      type="button"
+                      disabled={isLinkingLocation || !(manualLocationId || detectedLocationId)}
+                      onClick={() => handleDirectLinkLocation(manualLocationId || detectedLocationId)}
+                      style={{ background: '#059669', borderColor: '#059669', fontWeight: '700', padding: '10px 22px' }}
                     >
-                      <Zap size={15} /> 1-Click Connect GoHighLevel (OAuth)
-                    </a>
+                      {isLinkingLocation ? 'Connecting...' : '⚡ Connect Sub-Account Instantly'}
+                    </Button>
                   </div>
                 </div>
 
-                {detectedLocationId && (
-                  <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                    <div style={{ fontSize: '12px', color: '#15803d' }}>
-                      🎯 Detected HighLevel Sub-Account Location: <strong style={{ fontFamily: 'monospace' }}>{detectedLocationId}</strong>
+                {/* Method 2: HighLevel Marketplace OAuth */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', padding: '16px 20px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: '800', color: '#166534' }}>
+                      Method 2: Connect via HighLevel Marketplace (1-Click OAuth)
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#15803d', marginTop: '2px' }}>
+                      For agencies using standard HighLevel Marketplace App Login.
                     </div>
                   </div>
-                )}
+
+                  <a
+                    href={getDirectGhlAuthUrl()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      background: '#16a34a',
+                      color: '#ffffff',
+                      textDecoration: 'none',
+                      fontWeight: '800',
+                      padding: '10px 20px',
+                      fontSize: '12px',
+                      borderRadius: '8px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <Zap size={14} /> Launch HighLevel Marketplace OAuth
+                  </a>
+                </div>
+
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

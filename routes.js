@@ -30,7 +30,8 @@ import {
   ghlWebhookService,
   ghlWorkflowActionService,
   ghlWorkflowTriggerService,
-  decryptToken
+  decryptToken,
+  encryptToken
 } from './services/ghl/index.js';
 
 import express from 'express';
@@ -1889,8 +1890,9 @@ export default function setupRoutes(io) {
   router.post('/v1/integrations/ghl/link-location', async (req, res) => {
     try {
       const tenantId = resolveGhlTenantId(req);
-      const { locationId } = req.body;
+      const { locationId, accessToken, apiKey } = req.body || {};
       const cleanLocId = (locationId || req.query?.locationId || '').trim();
+      const rawToken = (accessToken || apiKey || '').trim();
 
       if (!cleanLocId) {
         return res.status(400).json({ error: 'Location ID is required to link sub-account' });
@@ -1899,20 +1901,56 @@ export default function setupRoutes(io) {
         return res.status(400).json({ error: 'Tenant / Company context is required' });
       }
 
+      // If user provided a Location API Key or Private Integration Token directly
+      if (rawToken && rawToken.length > 8) {
+        const testRes = await fetch(`https://services.leadconnectorhq.com/contacts/?locationId=${encodeURIComponent(cleanLocId)}&limit=1`, {
+          headers: {
+            'Authorization': `Bearer ${rawToken}`,
+            'Version': '2021-07-28',
+            'Accept': 'application/json'
+          }
+        });
+
+        if (testRes.status === 401 || testRes.status === 403) {
+          return res.status(400).json({ error: 'Invalid HighLevel API Token or Location ID mismatch. Please verify your token.' });
+        }
+
+        const encryptedAccess = encryptToken(rawToken);
+        const encryptedRefresh = encryptToken(rawToken);
+
+        await saveGhlIntegration(tenantId, {
+          locationId: cleanLocId,
+          companyId: tenantId,
+          accessToken: encryptedAccess,
+          refreshToken: encryptedRefresh,
+          scope: 'contacts,conversations,opportunities,workflows,locations',
+          isActive: 1,
+          metadata: { authMethod: 'private_api_key', linkedAt: new Date().toISOString() }
+        });
+
+        return res.json({
+          success: true,
+          connected: true,
+          locationId: cleanLocId,
+          companyId: tenantId,
+          tenantId,
+          message: 'GoHighLevel Sub-Account Connected Successfully via Private API Token!'
+        });
+      }
+
       // Check if location integration already exists in DB with genuine token
       let integration = await getGhlIntegrationByLocation(cleanLocId);
       let isValidToken = false;
       if (integration && integration.access_token) {
         try {
           const decrypted = decryptToken(integration.access_token);
-          if (decrypted && decrypted.length > 3) isValidToken = true;
+          if (decrypted && decrypted.length > 5) isValidToken = true;
         } catch (e) {
           isValidToken = false;
         }
       }
 
       if (integration && isValidToken) {
-        // Update its tenant_id to bind with this specific company
         await saveGhlIntegration(tenantId, {
           locationId: cleanLocId,
           companyId: tenantId,
@@ -1924,7 +1962,6 @@ export default function setupRoutes(io) {
         const updated = await ghlAuthService.getTenantConnectionStatus(tenantId);
         return res.json({ success: true, message: 'Sub-account linked successfully', ...updated });
       } else {
-        // Location requires official OAuth authorization
         const stateToken = await createGhlOAuthState(tenantId, req.user?.id || 1);
         const authUrl = ghlAuthService.getAuthorizationUrl({ state: stateToken });
         return res.json({
@@ -1932,7 +1969,7 @@ export default function setupRoutes(io) {
           requiresAuth: true,
           locationId: cleanLocId,
           authUrl,
-          message: 'Please complete 1-Click HighLevel authorization for this sub-account.'
+          message: 'Please complete HighLevel authorization for this sub-account.'
         });
       }
     } catch (err) {
