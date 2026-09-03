@@ -1006,20 +1006,35 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     const rawNumber = String(leadPhone || '').trim();
     const cleanNumber = rawNumber.replace(/[^0-9+]/g, '');
 
-    // 1. Trigger Native Phone Dialer on device (Android/iOS/PC Tel protocol)
+    // 1. Direct Native Android Telephony Bridge (Completely Bypasses Zoom & OS Intent Chooser)
     if (cleanNumber) {
-      try {
-        const telUri = `tel:${cleanNumber}`;
-        const a = document.createElement('a');
-        a.href = telUri;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => {
-          try { document.body.removeChild(a); } catch (e) {}
-        }, 500);
-      } catch (err) {
-        console.warn('[SIM Dialer] Native tel trigger note:', err);
+      if (window.AndroidApp && typeof window.AndroidApp.makeDirectCall === 'function') {
+        try {
+          window.AndroidApp.makeDirectCall(cleanNumber);
+        } catch (e) {
+          console.warn('[Android Bridge] makeDirectCall notice:', e);
+        }
+      } else if (window.OmniFlowNative && typeof window.OmniFlowNative.makeDirectCall === 'function') {
+        try {
+          window.OmniFlowNative.makeDirectCall(cleanNumber);
+        } catch (e) {
+          console.warn('[OmniFlow Bridge] makeDirectCall notice:', e);
+        }
+      } else {
+        // Fallback for Desktop Browser
+        try {
+          const telUri = `tel:${cleanNumber}`;
+          const a = document.createElement('a');
+          a.href = telUri;
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            try { document.body.removeChild(a); } catch (e) {}
+          }, 500);
+        } catch (err) {
+          console.warn('[SIM Dialer] Native tel trigger note:', err);
+        }
       }
     }
 
