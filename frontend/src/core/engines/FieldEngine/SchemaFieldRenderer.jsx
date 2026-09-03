@@ -34,6 +34,81 @@ const formatDate = (isoStr) => {
   }
 };
 
+export const UniversalAudioPlayer = ({ src }) => {
+  const [blobUrl, setBlobUrl] = React.useState(null);
+  const audioRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!src || src === '—') return;
+
+    if (src.startsWith('blob:') || src.startsWith('http://') || src.startsWith('https://')) {
+      setBlobUrl(src);
+      return;
+    }
+
+    if (src.startsWith('data:')) {
+      try {
+        const parts = src.split(',');
+        const mimeMatch = parts[0].match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : 'audio/mp4';
+        const bstr = atob(parts[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: mime });
+        const url = URL.createObjectURL(blob);
+        setBlobUrl(url);
+        return () => {
+          URL.revokeObjectURL(url);
+        };
+      } catch (e) {
+        setBlobUrl(src);
+      }
+    } else {
+      setBlobUrl(src);
+    }
+  }, [src]);
+
+  if (!src || src === '—') {
+    return <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>No Recording (Missed)</span>;
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(135deg, #f0fdf4 0%, #e6fffa 100%)', padding: '3px 8px', borderRadius: '10px', border: '1px solid #99f6e4', minWidth: '200px' }}>
+      <audio
+        ref={audioRef}
+        controls
+        src={blobUrl || src}
+        preload="auto"
+        style={{ height: '26px', width: '165px', borderRadius: '6px' }}
+      />
+      {blobUrl && (
+        <a
+          href={blobUrl}
+          download="call_recording.mp4"
+          title="Download Audio"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '3px 6px',
+            borderRadius: '6px',
+            background: '#0d9488',
+            color: '#ffffff',
+            fontSize: '11px',
+            textDecoration: 'none',
+            fontWeight: '600'
+          }}
+        >
+          ⬇️
+        </a>
+      )}
+    </div>
+  );
+};
+
 export default function SchemaFieldRenderer({
   field,
   value,
@@ -157,17 +232,7 @@ export default function SchemaFieldRenderer({
         </span>
       );
     } else if (field.type === 'audio' || field.id === 'recording' || field.key === 'recording' || field.id === 'audioUrl' || field.key === 'audioUrl') {
-      if (valStr && valStr !== '—') {
-        displayVal = (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(135deg, #f0fdf4 0%, #e6fffa 100%)', padding: '4px 8px', borderRadius: '12px', border: '1px solid #99f6e4', minWidth: '180px' }}>
-            <audio controls src={valStr} style={{ height: '28px', width: '100%', borderRadius: '6px' }} />
-          </div>
-        );
-      } else {
-        displayVal = (
-          <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>No Recording (Missed)</span>
-        );
-      }
+      displayVal = <UniversalAudioPlayer src={valStr} />;
     } else if ((field.type === 'phone' || field.id === 'phone' || field.key === 'phone') && valStr && valStr !== '—') {
       const contactLabel = 'Customer';
       displayVal = (
