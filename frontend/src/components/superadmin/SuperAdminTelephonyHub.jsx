@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Phone, Users, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw, Edit3, Settings, Play, Power, ExternalLink, Search, X, Save } from 'lucide-react';
+import { Phone, Users, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw, Edit3, Settings, Play, Power, ExternalLink, Search, X, Save, Smartphone, Cloud, Info } from 'lucide-react';
 
 export default function SuperAdminTelephonyHub({ showToast }) {
   const [tenants, setTenants] = useState([]);
@@ -8,12 +8,17 @@ export default function SuperAdminTelephonyHub({ showToast }) {
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Global Active Telephony Mode: 'sim_runo' (Default/Active) vs 'voxbay' (Standby)
+  const [globalTelephonyMode, setGlobalTelephonyMode] = useState(() => {
+    return localStorage.getItem('active_telephony_provider') || 'sim_runo';
+  });
 
   // Edit Modal State
   const [editForm, setEditForm] = useState({
     tenant_id: 1,
     company_name: '',
-    provider: 'voxbay',
+    provider: 'sim_runo',
     voxbay_uid: 'x97x4zzfz1',
     voxbay_upin: '8uqctamkgf',
     voxbay_did: '918031496345',
@@ -45,12 +50,25 @@ export default function SuperAdminTelephonyHub({ showToast }) {
     fetchTenants();
   }, []);
 
+  const handleGlobalProviderSwitch = (newProvider) => {
+    setGlobalTelephonyMode(newProvider);
+    localStorage.setItem('active_telephony_provider', newProvider);
+    window.dispatchEvent(new CustomEvent('omniflow:telephony_provider_changed', { detail: { provider: newProvider } }));
+    if (showToast) {
+      if (newProvider === 'sim_runo') {
+        showToast('📱 Active Telephony set to SIM Card & Runo Mobile Companion (Live)', 'success');
+      } else {
+        showToast('☁️ Active Telephony switched to Voxbay Cloud PBX (Active)', 'info');
+      }
+    }
+  };
+
   const openConfigModal = (tenant) => {
     setSelectedTenant(tenant);
     setEditForm({
       tenant_id: tenant.tenant_id,
       company_name: tenant.company_name || `Company #${tenant.tenant_id}`,
-      provider: tenant.provider || 'voxbay',
+      provider: tenant.provider || globalTelephonyMode || 'sim_runo',
       voxbay_uid: tenant.voxbay_uid || 'x97x4zzfz1',
       voxbay_upin: tenant.voxbay_upin || '8uqctamkgf',
       voxbay_did: tenant.voxbay_did || '918031496345',
@@ -128,10 +146,10 @@ export default function SuperAdminTelephonyHub({ showToast }) {
         <div>
           <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f2b26', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Phone size={20} style={{ color: '#0d9488' }} />
-            <span>Multi-Tenant Cloud PBX & Extension Allocator</span>
+            <span>Telephony Architecture & Provider Provisioning Hub</span>
           </h3>
           <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
-            Allocate 5-user PBX extension pools, configure agent mobile legs, and manage tenant telephony quotas.
+            Manage Active Calling Infrastructure (SIM Card / Runo Companion vs Voxbay Cloud PBX), manage tenant allocations, and test gateways.
           </p>
         </div>
 
@@ -158,101 +176,179 @@ export default function SuperAdminTelephonyHub({ showToast }) {
         </button>
       </div>
 
-      {/* METRIC CARDS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
-        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderLeft: '4px solid #0d9488', borderRadius: '10px', padding: '14px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <div style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Active Companies</div>
-          <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f2b26', marginTop: '4px' }}>{tenants.length}</div>
-        </div>
-
-        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderLeft: '4px solid #10b981', borderRadius: '10px', padding: '14px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <div style={{ fontSize: '11.5px', color: '#059669', fontWeight: '700', textTransform: 'uppercase' }}>Telephony Enabled</div>
-          <div style={{ fontSize: '24px', fontWeight: '800', color: '#059669', marginTop: '4px' }}>
-            {tenants.filter((t) => t.is_enabled === 1).length}
+      {/* GLOBAL TELEPHONY STATUS & SWITCHER BANNER */}
+      <div style={{
+        background: globalTelephonyMode === 'sim_runo'
+          ? 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)'
+          : 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+        border: globalTelephonyMode === 'sim_runo' ? '1.5px solid #86efac' : '1.5px solid #7dd3fc',
+        borderRadius: '12px',
+        padding: '18px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '16px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', maxWidth: '680px' }}>
+          <div style={{
+            background: globalTelephonyMode === 'sim_runo' ? '#16a34a' : '#0284c7',
+            color: '#ffffff',
+            borderRadius: '10px',
+            padding: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            {globalTelephonyMode === 'sim_runo' ? <Smartphone size={22} /> : <Cloud size={22} />}
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f2b26' }}>
+                Active Telephony Provider: {globalTelephonyMode === 'sim_runo' ? '📱 SIM Card & Runo Companion (LIVE)' : '☁️ Voxbay Cloud PBX (ACTIVE)'}
+              </span>
+              <span style={{
+                background: globalTelephonyMode === 'sim_runo' ? '#dcfce7' : '#e0f2fe',
+                color: globalTelephonyMode === 'sim_runo' ? '#15803d' : '#0369a1',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                fontSize: '11px',
+                fontWeight: '800'
+              }}>
+                PRIMARY
+              </span>
+            </div>
+            <p style={{ fontSize: '12px', color: '#475569', margin: '4px 0 0 0', lineHeight: 1.4 }}>
+              {globalTelephonyMode === 'sim_runo'
+                ? 'Direct SIM dialer, Android Companion auto-recording sync, and Runo-style call flow are active. Voxbay Cloud Telephony is safely on standby (hidden from agents/front views).'
+                : 'Voxbay Cloud PBX 2-leg dialer is active. Agents dial through Voxbay DID gateway.'}
+            </p>
           </div>
         </div>
 
-        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderLeft: '4px solid #2563eb', borderRadius: '10px', padding: '14px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <div style={{ fontSize: '11.5px', color: '#1d4ed8', fontWeight: '700', textTransform: 'uppercase' }}>Available Extensions</div>
-          <div style={{ fontSize: '24px', fontWeight: '800', color: '#1d4ed8', marginTop: '4px' }}>
-            5 / Company
-          </div>
+        {/* SuperAdmin Quick Switcher */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ffffff', padding: '6px', borderRadius: '10px', border: '1px solid #cbd5e1' }}>
+          <button
+            type="button"
+            onClick={() => handleGlobalProviderSwitch('sim_runo')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              border: 'none',
+              background: globalTelephonyMode === 'sim_runo' ? '#16a34a' : 'transparent',
+              color: globalTelephonyMode === 'sim_runo' ? '#ffffff' : '#64748b',
+              fontSize: '12px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s'
+            }}
+          >
+            <Smartphone size={13} />
+            <span>SIM / Runo (Live)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleGlobalProviderSwitch('voxbay')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              border: 'none',
+              background: globalTelephonyMode === 'voxbay' ? '#0284c7' : 'transparent',
+              color: globalTelephonyMode === 'voxbay' ? '#ffffff' : '#64748b',
+              fontSize: '12px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s'
+            }}
+          >
+            <Cloud size={13} />
+            <span>Voxbay (Standby)</span>
+          </button>
         </div>
       </div>
 
-      {/* SEARCH BAR */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
-        <div style={{ position: 'relative', width: '300px' }}>
+      {/* SEARCH AND FILTERS */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+        <div style={{ position: 'relative', width: '320px' }}>
           <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
           <input
             type="text"
-            placeholder="Search company, tenant ID, agent mobile..."
+            placeholder="Search tenant or DID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
               width: '100%',
-              background: '#ffffff',
-              border: '1px solid #cbd5e1',
-              padding: '7px 12px 7px 34px',
+              padding: '8px 12px 8px 34px',
               borderRadius: '8px',
+              border: '1px solid #cbd5e1',
+              fontSize: '12.5px',
               color: '#0f2b26',
-              fontSize: '13px',
               outline: 'none',
+              background: '#ffffff',
               boxSizing: 'border-box'
             }}
           />
         </div>
       </div>
 
-      {/* TENANTS TELEPHONY TABLE */}
-      <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+      {/* TENANT TELEPHONY TABLE */}
+      <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
-            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-              <th style={{ padding: '12px 16px', fontSize: '12px', color: '#475569', fontWeight: '700' }}>Company & Tenant</th>
-              <th style={{ padding: '12px 16px', fontSize: '12px', color: '#475569', fontWeight: '700' }}>Allocated Extensions</th>
-              <th style={{ padding: '12px 16px', fontSize: '12px', color: '#475569', fontWeight: '700' }}>Calling Mode</th>
-              <th style={{ padding: '12px 16px', fontSize: '12px', color: '#475569', fontWeight: '700' }}>Virtual DID</th>
-              <th style={{ padding: '12px 16px', fontSize: '12px', color: '#475569', fontWeight: '700' }}>Telephony Status</th>
-              <th style={{ padding: '12px 16px', fontSize: '12px', color: '#475569', fontWeight: '700', textAlign: 'right' }}>Actions</th>
+            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontSize: '11.5px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <th style={{ padding: '12px 16px' }}>Tenant / Company</th>
+              <th style={{ padding: '12px 16px' }}>Active Calling Provider</th>
+              <th style={{ padding: '12px 16px' }}>Leg 1 Agent Mobile</th>
+              <th style={{ padding: '12px 16px' }}>Voxbay DID (Standby)</th>
+              <th style={{ padding: '12px 16px' }}>Status</th>
+              <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredTenants.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ padding: '36px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
-                  No companies found matching criteria.
+                <td colSpan={6} style={{ padding: '32px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
+                  {loading ? 'Loading telephony tenant allocations...' : 'No tenant records found matching your search.'}
                 </td>
               </tr>
             ) : (
               filteredTenants.map((item) => (
-                <tr key={item.tenant_id} style={{ borderBottom: '1px solid #f1f5f9', background: '#ffffff' }}>
+                <tr key={item.tenant_id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.15s' }}>
                   <td style={{ padding: '14px 16px' }}>
-                    <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f2b26' }}>
+                    <div style={{ fontWeight: '700', color: '#0f2b26', fontSize: '13px' }}>
                       {item.company_name || `Company #${item.tenant_id}`}
                     </div>
-                    <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
-                      Tenant #{item.tenant_id} • Default Agent: {item.default_agent_mobile || '6283513686'}
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>
+                      Tenant ID: #{item.tenant_id}
                     </div>
                   </td>
 
                   <td style={{ padding: '14px 16px' }}>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                      {(item.allowed_extensions || '101,102,103,104,105').split(',').map((ext, idx) => (
-                        <span key={idx} style={{ background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '700', fontFamily: 'monospace' }}>
-                          Ext {ext.trim()}
-                        </span>
-                      ))}
-                    </div>
+                    {globalTelephonyMode === 'sim_runo' ? (
+                      <span style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '4px 8px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        <Smartphone size={12} /> SIM Card / Runo (Active)
+                      </span>
+                    ) : (
+                      <span style={{ background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '4px 8px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        <Cloud size={12} /> Voxbay PBX (Active)
+                      </span>
+                    )}
                   </td>
 
                   <td style={{ padding: '14px 16px' }}>
-                    <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#334155' }}>
-                      {item.calling_mode === 'mobile_to_mobile' ? '📱 Agent Mobile' : '💻 Softphone (Ext)'}
-                    </span>
+                    <div style={{ fontFamily: 'monospace', fontSize: '12.5px', color: '#334155', fontWeight: '600' }}>
+                      {item.default_agent_mobile || '6283513686'}
+                    </div>
                   </td>
 
-                  <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontSize: '12.5px', color: '#0d9488', fontWeight: '700' }}>
+                  <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontSize: '12.5px', color: '#64748b' }}>
                     {item.voxbay_did || '918031496345'}
                   </td>
 
@@ -331,7 +427,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
                   Telephony & PBX Allocation: {editForm.company_name}
                 </h3>
                 <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
-                  Tenant #{editForm.tenant_id} • Allocate PBX extensions and master telephony credentials.
+                  Tenant #{editForm.tenant_id} • Configure SIM / Runo companion and Voxbay credentials.
                 </p>
               </div>
 
@@ -344,7 +440,119 @@ export default function SuperAdminTelephonyHub({ showToast }) {
             </div>
 
             <form onSubmit={handleSaveConfig}>
+              {/* Telephony Provider Selection */}
+              <div style={{ marginBottom: '18px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#1e293b', marginBottom: '8px' }}>
+                  Active Telephony Provider for this Tenant:
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: editForm.provider === 'sim_runo' ? '2px solid #16a34a' : '1px solid #cbd5e1',
+                    background: editForm.provider === 'sim_runo' ? '#f0fdf4' : '#ffffff',
+                    cursor: 'pointer'
+                  }}>
+                    <input
+                      type="radio"
+                      name="provider"
+                      value="sim_runo"
+                      checked={editForm.provider === 'sim_runo'}
+                      onChange={(e) => setEditForm({ ...editForm, provider: e.target.value })}
+                    />
+                    <div>
+                      <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f2b26' }}>📱 SIM / Runo Companion</div>
+                      <div style={{ fontSize: '11px', color: '#15803d' }}>Live & Active Default</div>
+                    </div>
+                  </label>
+
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: editForm.provider === 'voxbay' ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                    background: editForm.provider === 'voxbay' ? '#f0f9ff' : '#ffffff',
+                    cursor: 'pointer'
+                  }}>
+                    <input
+                      type="radio"
+                      name="provider"
+                      value="voxbay"
+                      checked={editForm.provider === 'voxbay'}
+                      onChange={(e) => setEditForm({ ...editForm, provider: e.target.value })}
+                    />
+                    <div>
+                      <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f2b26' }}>☁️ Voxbay Cloud Telephony</div>
+                      <div style={{ fontSize: '11px', color: '#0369a1' }}>On Hold / Standby</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                {/* Default Agent Mobile */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                    Agent Mobile (SIM / Companion Sync)
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.default_agent_mobile}
+                    onChange={(e) => setEditForm({ ...editForm, default_agent_mobile: e.target.value })}
+                    required
+                    placeholder="e.g. 9876543210"
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      border: '1.5px solid #cbd5e1',
+                      fontSize: '13px',
+                      color: '#0f2b26',
+                      background: '#f8fafc',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                {/* Enabled Toggle */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                    Telephony Access Status
+                  </label>
+                  <select
+                    value={editForm.is_enabled}
+                    onChange={(e) => setEditForm({ ...editForm, is_enabled: parseInt(e.target.value, 10) })}
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      border: '1.5px solid #cbd5e1',
+                      fontSize: '13px',
+                      color: '#0f2b26',
+                      background: '#f8fafc',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <option value={1}>🟢 Enabled (Active)</option>
+                    <option value={0}>🔴 Disabled (Paused)</option>
+                  </select>
+                </div>
+
+                {/* Voxbay Preserved Section Header */}
+                <div style={{ gridColumn: 'span 2', marginTop: '10px', paddingTop: '12px', borderTop: '1px dashed #cbd5e1' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '800', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Cloud size={14} />
+                    <span>Voxbay Cloud PBX Gateway Credentials (Preserved in Standby)</span>
+                  </div>
+                </div>
+
                 {/* Voxbay UID */}
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
@@ -396,7 +604,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
                 {/* Virtual DID */}
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
-                    Virtual DID Number (Caller ID)
+                    Virtual DID Caller ID
                   </label>
                   <input
                     type="text"
@@ -417,34 +625,10 @@ export default function SuperAdminTelephonyHub({ showToast }) {
                   />
                 </div>
 
-                {/* Default Agent Mobile */}
+                {/* Allowed Extensions */}
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
-                    Default Agent Mobile (Leg 1)
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.default_agent_mobile}
-                    onChange={(e) => setEditForm({ ...editForm, default_agent_mobile: e.target.value })}
-                    required
-                    style={{
-                      width: '100%',
-                      padding: '9px 12px',
-                      borderRadius: '8px',
-                      border: '1.5px solid #cbd5e1',
-                      fontSize: '13px',
-                      color: '#0f2b26',
-                      background: '#f8fafc',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-
-                {/* Allowed Extensions */}
-                <div style={{ gridColumn: 'span 2' }}>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
-                    Allocated Extensions (Comma separated)
+                    Allocated Extensions
                   </label>
                   <input
                     type="text"
@@ -463,56 +647,6 @@ export default function SuperAdminTelephonyHub({ showToast }) {
                       boxSizing: 'border-box'
                     }}
                   />
-                </div>
-
-                {/* Calling Mode */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
-                    Default Calling Mode
-                  </label>
-                  <select
-                    value={editForm.calling_mode}
-                    onChange={(e) => setEditForm({ ...editForm, calling_mode: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '9px 12px',
-                      borderRadius: '8px',
-                      border: '1.5px solid #cbd5e1',
-                      fontSize: '13px',
-                      color: '#0f2b26',
-                      background: '#f8fafc',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  >
-                    <option value="mobile_to_mobile">📱 Agent Mobile (2-Leg Cloud)</option>
-                    <option value="extension_to_mobile">💻 Desktop Softphone (SIP Extension)</option>
-                  </select>
-                </div>
-
-                {/* Enabled Toggle */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
-                    Telephony Access Status
-                  </label>
-                  <select
-                    value={editForm.is_enabled}
-                    onChange={(e) => setEditForm({ ...editForm, is_enabled: parseInt(e.target.value, 10) })}
-                    style={{
-                      width: '100%',
-                      padding: '9px 12px',
-                      borderRadius: '8px',
-                      border: '1.5px solid #cbd5e1',
-                      fontSize: '13px',
-                      color: '#0f2b26',
-                      background: '#f8fafc',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  >
-                    <option value={1}>🟢 Enabled (Active)</option>
-                    <option value={0}>🔴 Disabled (Paused)</option>
-                  </select>
                 </div>
               </div>
 
@@ -537,7 +671,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
                   }}
                 >
                   <Play size={14} />
-                  <span>{testing ? 'Testing...' : 'Test Gateway API'}</span>
+                  <span>{testing ? 'Testing...' : 'Test Voxbay Gateway API'}</span>
                 </button>
 
                 <div style={{ display: 'flex', gap: '10px' }}>

@@ -3,7 +3,7 @@ import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
 import VoxbayCloudDialerModal from './VoxbayCloudDialerModal';
-import { PhoneCall } from 'lucide-react';
+import { PhoneCall, Smartphone } from 'lucide-react';
 
 export default function TelecallingView({
   authUser,
@@ -24,6 +24,7 @@ export default function TelecallingView({
   const { config } = useModuleRegistry(companyId, 'telecalling');
   
   const [isVoxbayOpen, setIsVoxbayOpen] = useState(false);
+  const activeProvider = localStorage.getItem('active_telephony_provider') || 'sim_runo';
 
   // Format callLogs to match standard fields if passed from parent
   const activeRecords = useMemo(() => {
@@ -33,16 +34,16 @@ export default function TelecallingView({
         name: log.customerName || log.contactName || log.name || 'Customer',
         agentName: log.agentName || authUser?.name || 'Telecaller Agent',
         phone: log.customerPhone || log.phoneNumber || log.phone || '—',
-        channel: log.channel || 'VOXBAY',
+        channel: log.channel || (activeProvider === 'voxbay' ? 'VOXBAY' : 'SIM'),
         type: log.type || 'OUTGOING',
         duration: typeof log.duration === 'string' ? log.duration : (log.durationSeconds ? `${Math.floor(log.durationSeconds / 60)}m ${log.durationSeconds % 60}s` : '00:30'),
         recording: log.recordingUrl || log.recording || log.audioUrl || '',
         status: log.disposition || log.status || 'Interested',
-        notes: log.notes || 'Voxbay Live Call'
+        notes: log.notes || (activeProvider === 'voxbay' ? 'Voxbay Live Call' : 'SIM Companion Call')
       }));
     }
     return [];
-  }, [callLogs, authUser]);
+  }, [callLogs, authUser, activeProvider]);
 
   const handleUpdateRecords = (newRecords) => {
     setCallLogs(newRecords);
@@ -62,17 +63,27 @@ export default function TelecallingView({
         name: newCall.contactName || newCall.customerName || newCall.name || 'Customer',
         agentName: authUser?.name || 'Staff 1',
         phone: newCall.phoneNumber || newCall.customerPhone || newCall.phone || '—',
-        channel: newCall.channel || 'VOXBAY',
+        channel: newCall.channel || (activeProvider === 'voxbay' ? 'VOXBAY' : 'SIM'),
         type: newCall.type || 'OUTGOING',
         duration: typeof newCall.duration === 'string' ? newCall.duration : '00:30',
         recording: newCall.recording || newCall.recordingUrl || '',
         status: newCall.status || 'Interested',
-        notes: newCall.notes || 'Voxbay Cloud Call'
+        notes: newCall.notes || (activeProvider === 'voxbay' ? 'Voxbay Cloud Call' : 'SIM Companion Call')
       },
       ...activeRecords
     ];
     handleUpdateRecords(updated);
     if (showToast) showToast('📞 Call logged and recording synced successfully!', 'success');
+  };
+
+  const handleHeaderDialClick = () => {
+    if (activeProvider === 'voxbay') {
+      setIsVoxbayOpen(true);
+    } else {
+      if (window.openGlobalDialer) {
+        window.openGlobalDialer('', 'Customer', false);
+      }
+    }
   };
 
   return (
@@ -83,7 +94,7 @@ export default function TelecallingView({
           customHeaderActions={
             <button
               type="button"
-              onClick={() => setIsVoxbayOpen(true)}
+              onClick={handleHeaderDialClick}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -100,8 +111,8 @@ export default function TelecallingView({
                 transition: 'all 0.2s ease'
               }}
             >
-              <PhoneCall size={14} />
-              <span>Dial via Voxbay Cloud</span>
+              {activeProvider === 'voxbay' ? <PhoneCall size={14} /> : <Smartphone size={14} />}
+              <span>{activeProvider === 'voxbay' ? 'Dial via Voxbay Cloud' : 'Call Lead (SIM Dialer)'}</span>
             </button>
           }
           moduleConfig={config}
@@ -121,7 +132,7 @@ export default function TelecallingView({
         />
       </div>
 
-      {/* Voxbay Cloud Click-To-Call Modal */}
+      {/* Voxbay Cloud Click-To-Call Modal (Active when Voxbay is enabled) */}
       {isVoxbayOpen && (
         <VoxbayCloudDialerModal
           isOpen={isVoxbayOpen}

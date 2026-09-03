@@ -126,7 +126,7 @@ export default function LayoutToolbar({
         <div className="module-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginLeft: 'auto' }}>
           {customHeaderActions}
 
-          {/* Voxbay Cloud Dialer Button on CRM Modules */}
+          {/* Dynamic Telephony Dialer Button on CRM Modules */}
           {!customHeaderActions && (
             <button
               type="button"
@@ -152,7 +152,7 @@ export default function LayoutToolbar({
               }}
             >
               <PhoneCall size={14} />
-              <span>Dial via Voxbay Cloud</span>
+              <span>{localStorage.getItem('active_telephony_provider') === 'voxbay' ? 'Dial via Voxbay Cloud' : 'Quick Call Lead'}</span>
             </button>
           )}
           {(canConfigure || canManage) && (

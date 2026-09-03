@@ -175,7 +175,7 @@ export default function SchemaFieldRenderer({
           <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{valStr}</span>
           <button
             type="button"
-            title="📞 Call via Voxbay Cloud"
+            title="📞 Call Contact"
             onClick={(e) => {
               e.stopPropagation();
               if (window.openGlobalDialer) {

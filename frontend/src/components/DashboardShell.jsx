@@ -936,21 +936,63 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       autoDial: Boolean(autoDial)
     });
   };
+
+  const openSimDialerPad = (phone = '', name = 'Customer') => {
+    setClickToCallLead({ name: name || 'Customer', phone: phone || '' });
+    setActiveCallStatus('idle');
+    setActiveCallDuration(0);
+    setShowClickToCallModal(true);
+  };
+
   useEffect(() => {
     window.openGlobalDialer = (phone, name, autoDial = true) => {
+      const activeProvider = localStorage.getItem('active_telephony_provider') || 'sim_runo';
+      if (activeProvider === 'voxbay') {
+        openVoxbayDialer(phone, name, autoDial);
+      } else {
+        if (phone && autoDial) {
+          initiateClickToCall(name || 'Customer', phone);
+        } else {
+          openSimDialerPad(phone, name);
+        }
+      }
+    };
+    window.openVoxbayDialer = (phone, name, autoDial = true) => {
       openVoxbayDialer(phone, name, autoDial);
     };
-    const handleCustomDialerEvent = (e) => {
+    window.openSimDialer = (phone, name, autoDial = false) => {
+      if (phone && autoDial) {
+        initiateClickToCall(name || 'Customer', phone);
+      } else {
+        openSimDialerPad(phone, name);
+      }
+    };
+    const handleCustomVoxbayEvent = (e) => {
       if (e.detail) {
         const { phone, name, autoDial } = e.detail;
         openVoxbayDialer(phone, name, autoDial !== false);
       }
     };
-    window.addEventListener('omniflow:open_voxbay_dialer', handleCustomDialerEvent);
-    window.addEventListener('omniflow:open_global_dialer', handleCustomDialerEvent);
+    const handleCustomGlobalEvent = (e) => {
+      if (e.detail) {
+        const { phone, name, autoDial } = e.detail;
+        const activeProvider = localStorage.getItem('active_telephony_provider') || 'sim_runo';
+        if (activeProvider === 'voxbay') {
+          openVoxbayDialer(phone, name, autoDial !== false);
+        } else {
+          if (phone && autoDial) {
+            initiateClickToCall(name || 'Customer', phone);
+          } else {
+            openSimDialerPad(phone, name);
+          }
+        }
+      }
+    };
+    window.addEventListener('omniflow:open_voxbay_dialer', handleCustomVoxbayEvent);
+    window.addEventListener('omniflow:open_global_dialer', handleCustomGlobalEvent);
     return () => {
-      window.removeEventListener('omniflow:open_voxbay_dialer', handleCustomDialerEvent);
-      window.removeEventListener('omniflow:open_global_dialer', handleCustomDialerEvent);
+      window.removeEventListener('omniflow:open_voxbay_dialer', handleCustomVoxbayEvent);
+      window.removeEventListener('omniflow:open_global_dialer', handleCustomGlobalEvent);
     };
   }, []);
   // Floating Click-to-Call CRM Lead Dialpad Widget States
@@ -961,7 +1003,28 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [activeCallDuration, setActiveCallDuration] = useState(0);
   const activeCallTimerRef = useRef(null);
   const initiateClickToCall = (leadName, leadPhone) => {
-    setClickToCallLead({ name: leadName || 'CRM Lead', phone: leadPhone || '' });
+    const rawNumber = String(leadPhone || '').trim();
+    const cleanNumber = rawNumber.replace(/[^0-9+]/g, '');
+
+    // 1. Trigger Native Phone Dialer on device (Android/iOS/PC Tel protocol)
+    if (cleanNumber) {
+      try {
+        const telUri = `tel:${cleanNumber}`;
+        const a = document.createElement('a');
+        a.href = telUri;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          try { document.body.removeChild(a); } catch (e) {}
+        }, 500);
+      } catch (err) {
+        console.warn('[SIM Dialer] Native tel trigger note:', err);
+      }
+    }
+
+    // 2. Open In-App Call Tracker & Disposition Widget
+    setClickToCallLead({ name: leadName || 'CRM Lead', phone: cleanNumber || rawNumber });
     setShowClickToCallModal(true);
     setActiveCallStatus('ringing');
     setActiveCallDuration(0);
@@ -7699,8 +7762,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               setShowClickToCallModal={setShowClickToCallModal}
               activeCallStatus={activeCallStatus}
               clickToCallLead={clickToCallLead}
+              setClickToCallLead={setClickToCallLead}
+              initiateClickToCall={initiateClickToCall}
               activeCallDuration={activeCallDuration}
               endClickToCall={endClickToCall}
+              contacts={contacts}
+              showToast={showToast}
             />
           </Suspense>
         )}
