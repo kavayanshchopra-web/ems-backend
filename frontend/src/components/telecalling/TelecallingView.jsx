@@ -1,9 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
 import VoxbayCloudDialerModal from './VoxbayCloudDialerModal';
 import { PhoneCall, Smartphone } from 'lucide-react';
+import { db } from '../../firebase';
+import { collection, onSnapshot, getDocs } from 'firebase/firestore';
 
 export default function TelecallingView({
   authUser,
@@ -24,29 +26,123 @@ export default function TelecallingView({
   const { config } = useModuleRegistry(companyId, 'telecalling');
   
   const [isVoxbayOpen, setIsVoxbayOpen] = useState(false);
+  const [internalLogs, setInternalLogs] = useState([]);
   const activeProvider = localStorage.getItem('active_telephony_provider') || 'sim_runo';
 
-  // Format callLogs to match standard fields if passed from parent
+  // 1. Direct Real-Time Multi-Collection Firestore Listener for Companion App & Web
+  useEffect(() => {
+    let unsubs = [];
+
+    const mergeRecords = (newDocs) => {
+      if (!Array.isArray(newDocs) || newDocs.length === 0) return;
+      setInternalLogs(prev => {
+        const map = new Map();
+        (prev || []).forEach(p => map.set(String(p.id), p));
+        newDocs.forEach(d => map.set(String(d.id), d));
+        return Array.from(map.values()).sort((a, b) => {
+          const timeA = Number(a._createdAt || a.createdAt || (a.timestamp ? new Date(a.timestamp).getTime() : 0)) || 0;
+          const timeB = Number(b._createdAt || b.createdAt || (b.timestamp ? new Date(b.timestamp).getTime() : 0)) || 0;
+          return timeB - timeA;
+        });
+      });
+    };
+
+    // A. Listen to 'callLogs' (Android Companion App Collection)
+    try {
+      if (db) {
+        const q1 = collection(db, 'callLogs');
+        const unsub1 = onSnapshot(q1, (snapshot) => {
+          const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          mergeRecords(docs);
+        }, (err) => console.warn('[Telecalling] callLogs listener notice:', err));
+        unsubs.push(unsub1);
+
+        // B. Listen to 'call_logs' (Web Dashboard Collection)
+        const q2 = collection(db, 'call_logs');
+        const unsub2 = onSnapshot(q2, (snapshot) => {
+          const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          mergeRecords(docs);
+        }, (err) => console.warn('[Telecalling] call_logs listener notice:', err));
+        unsubs.push(unsub2);
+      }
+    } catch (e) {
+      console.warn('[Telecalling] Firestore subscription error:', e);
+    }
+
+    // C. Initial Fetch from Backend SQLite API
+    fetch('/api/telecalling/logs')
+      .then(res => res.json())
+      .then(data => {
+        if (data?.logs && Array.isArray(data.logs)) {
+          mergeRecords(data.logs);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      unsubs.forEach(u => {
+        try { u(); } catch (e) {}
+      });
+    };
+  }, []);
+
+  // Format and merge all sources (parent props + internal live state)
   const activeRecords = useMemo(() => {
-    if (Array.isArray(callLogs) && callLogs.length > 0) {
-      return callLogs.map((log, index) => ({
+    const combined = new Map();
+    
+    // Add parent callLogs
+    if (Array.isArray(callLogs)) {
+      callLogs.forEach(c => {
+        if (c && c.id) combined.set(String(c.id), c);
+      });
+    }
+
+    // Add internal live Firestore logs
+    if (Array.isArray(internalLogs)) {
+      internalLogs.forEach(c => {
+        if (c && c.id) combined.set(String(c.id), c);
+      });
+    }
+
+    const allList = Array.from(combined.values());
+    if (allList.length === 0) return [];
+
+    return allList.map((log, index) => {
+      const durSecs = Number(log.durationSeconds || log.duration || 0);
+      let formattedDur = '00:30';
+      if (durSecs > 0) {
+        formattedDur = durSecs >= 60 ? `${Math.floor(durSecs / 60)}m ${durSecs % 60}s` : `${durSecs}s`;
+      } else if (typeof log.duration === 'string') {
+        formattedDur = log.duration;
+      }
+
+      const custName = log.customerName || log.contactName || log.name || log.customerPhone || log.phoneNumber || log.phone || 'Customer';
+      const custPhone = log.customerPhone || log.phoneNumber || log.phone || '—';
+
+      return {
         id: log.id || `CALL-${String(index + 1).padStart(4, '0')}`,
-        name: log.customerName || log.contactName || log.name || 'Customer',
-        agentName: log.agentName || authUser?.name || 'Telecaller Agent',
-        phone: log.customerPhone || log.phoneNumber || log.phone || '—',
+        name: custName,
+        agentName: log.agentName || authUser?.name || 'Mobile Agent',
+        phone: custPhone,
         channel: log.channel || (activeProvider === 'voxbay' ? 'VOXBAY' : 'SIM'),
-        type: log.type || 'OUTGOING',
-        duration: typeof log.duration === 'string' ? log.duration : (log.durationSeconds ? `${Math.floor(log.durationSeconds / 60)}m ${log.durationSeconds % 60}s` : '00:30'),
+        type: log.type || log.callType || 'OUTGOING',
+        duration: formattedDur,
         recording: log.recordingUrl || log.recording || log.audioUrl || '',
         status: log.disposition || log.status || 'Interested',
-        notes: log.notes || (activeProvider === 'voxbay' ? 'Voxbay Live Call' : 'SIM Companion Call')
-      }));
-    }
-    return [];
-  }, [callLogs, authUser, activeProvider]);
+        notes: log.notes || (activeProvider === 'voxbay' ? 'Voxbay Live Call' : 'SIM Companion Call'),
+        timestamp: log.timestamp || (log._createdAt ? new Date(log._createdAt).toLocaleString() : new Date().toISOString()),
+        _createdAt: log._createdAt || Date.now()
+      };
+    }).sort((a, b) => {
+      const timeA = Number(a._createdAt || 0);
+      const timeB = Number(b._createdAt || 0);
+      return timeB - timeA;
+    });
+  }, [callLogs, internalLogs, authUser, activeProvider]);
 
   const handleUpdateRecords = (newRecords) => {
-    setCallLogs(newRecords);
+    setInternalLogs(newRecords);
+    if (typeof setCallLogs === 'function') setCallLogs(newRecords);
     if (Array.isArray(newRecords)) {
       newRecords.forEach(rec => {
         if (rec && rec.id) {
@@ -59,7 +155,7 @@ export default function TelecallingView({
   const handleCallLogged = (newCall) => {
     const updated = [
       {
-        id: `CALL-${String(activeRecords.length + 1).padStart(4, '0')}`,
+        id: `CALL-${Date.now()}`,
         name: newCall.contactName || newCall.customerName || newCall.name || 'Customer',
         agentName: authUser?.name || 'Staff 1',
         phone: newCall.phoneNumber || newCall.customerPhone || newCall.phone || '—',
@@ -68,7 +164,8 @@ export default function TelecallingView({
         duration: typeof newCall.duration === 'string' ? newCall.duration : '00:30',
         recording: newCall.recording || newCall.recordingUrl || '',
         status: newCall.status || 'Interested',
-        notes: newCall.notes || (activeProvider === 'voxbay' ? 'Voxbay Cloud Call' : 'SIM Companion Call')
+        notes: newCall.notes || (activeProvider === 'voxbay' ? 'Voxbay Cloud Call' : 'SIM Companion Call'),
+        _createdAt: Date.now()
       },
       ...activeRecords
     ];
@@ -132,7 +229,7 @@ export default function TelecallingView({
         />
       </div>
 
-      {/* Voxbay Cloud Click-To-Call Modal (Active when Voxbay is enabled) */}
+      {/* Voxbay Cloud Click-To-Call Modal */}
       {isVoxbayOpen && (
         <VoxbayCloudDialerModal
           isOpen={isVoxbayOpen}
