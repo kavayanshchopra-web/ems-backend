@@ -412,6 +412,14 @@ export class GhlApiClient {
    * @param {string} opportunityId 
    * @returns {Promise<Object>}
    */
+  /**
+   * Delete an Opportunity in HighLevel.
+   * Endpoint: DELETE /opportunities/:id
+   * 
+   * @param {string} locationId 
+   * @param {string} opportunityId 
+   * @returns {Promise<Object>}
+   */
   async deleteOpportunity(locationId, opportunityId) {
     if (!opportunityId) throw new GhlApiError('opportunityId is required', 'GHL_VALIDATION_ERROR', 400);
     return this._request({
@@ -420,6 +428,95 @@ export class GhlApiClient {
       path: `/opportunities/${opportunityId}`
     });
   }
+
+  /**
+   * Post a Call Message with Duration & Recording directly to GHL Conversations Inbox.
+   * Endpoint: POST /conversations/messages
+   * 
+   * @param {string} locationId 
+   * @param {Object} params
+   * @param {string} params.contactId - GHL Contact ID
+   * @param {number} [params.durationSeconds=0] - Call duration in seconds
+   * @param {string} [params.recordingUrl=''] - Audio recording URL (.wav/.mp3)
+   * @param {string} [params.status='completed'] - Call status
+   * @param {string} [params.direction='outbound'] - 'inbound' | 'outbound'
+   * @param {string} [params.channel='VOXBAY'] - 'VOXBAY' | 'SIM_COMPANION'
+   * @param {string} [params.staffName='Agent'] - Calling agent name
+   * @param {string} [params.notes=''] - Call notes
+   * @returns {Promise<Object>}
+   */
+  async createConversationCallMessage(locationId, {
+    contactId,
+    durationSeconds = 0,
+    recordingUrl = '',
+    status = 'completed',
+    direction = 'outbound',
+    channel = 'VOXBAY',
+    staffName = 'Agent',
+    notes = ''
+  }) {
+    if (!contactId) throw new GhlApiError('contactId is required to post conversation call', 'GHL_VALIDATION_ERROR', 400);
+
+    const durMins = Math.floor(durationSeconds / 60);
+    const durSecs = durationSeconds % 60;
+    const durStr = `${durMins}m ${durSecs}s`;
+
+    const bodyText = [
+      `📞 ${direction.toUpperCase()} CALL (${channel})`,
+      `⏱️ Duration: ${durStr}`,
+      `👤 Staff: ${staffName}`,
+      `📊 Status: ${status}`,
+      notes ? `📝 Notes: ${notes}` : null,
+      recordingUrl ? `🎙️ Recording: ${recordingUrl}` : null
+    ].filter(Boolean).join('\n');
+
+    const payload = {
+      type: 'Call',
+      contactId,
+      status: status.toLowerCase() === 'connected' || status.toLowerCase() === 'interested' ? 'completed' : status.toLowerCase(),
+      direction: direction.toLowerCase(),
+      body: bodyText,
+      call: {
+        duration: durationSeconds,
+        status: status.toLowerCase(),
+        ...(recordingUrl ? { recordingUrl } : {})
+      },
+      ...(recordingUrl ? { attachments: [recordingUrl] } : {})
+    };
+
+    try {
+      return await this._request({
+        locationId,
+        method: 'POST',
+        path: '/conversations/messages',
+        body: payload
+      });
+    } catch (convErr) {
+      console.warn(`[GhlApiClient] /conversations/messages note: ${convErr.message}. Fallback to Contact Note.`);
+      // Fallback: Also add as Contact Note in HighLevel Contact Timeline
+      return await this.addContactNote(locationId, contactId, bodyText);
+    }
+  }
+
+  /**
+   * Add a Note to a HighLevel Contact Timeline.
+   * Endpoint: POST /contacts/:id/notes
+   * 
+   * @param {string} locationId 
+   * @param {string} contactId 
+   * @param {string} noteBody 
+   * @returns {Promise<Object>}
+   */
+  async addContactNote(locationId, contactId, noteBody) {
+    if (!contactId) throw new GhlApiError('contactId is required to add note', 'GHL_VALIDATION_ERROR', 400);
+    return this._request({
+      locationId,
+      method: 'POST',
+      path: `/contacts/${contactId}/notes`,
+      body: { body: noteBody }
+    });
+  }
 }
 
 export default new GhlApiClient();
+

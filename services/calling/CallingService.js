@@ -1,4 +1,4 @@
-﻿import VoxbayProvider from './VoxbayProvider.js';
+import VoxbayProvider from './VoxbayProvider.js';
 import desktopBridge from './desktopBridge.js';
 import { createCallLog, updateCallRecord, getTelephonySettings } from '../../db.js';
 
@@ -153,6 +153,22 @@ class CallingService {
           status: normalized.callStatus
         });
       }
+
+      // Asynchronously push call record & recording to GoHighLevel Conversation
+      try {
+        const tenantId = normalized.tenantId || 1;
+        import('../ghl/GhlSyncEngine.js').then(({ default: ghlSyncEngine }) => {
+          ghlSyncEngine.syncCallRecordToGhl(tenantId, {
+            customerPhone: normalized.destination || normalized.customerPhone || normalized.callerNumber,
+            durationSeconds: normalized.conversationDuration || normalized.totalCallDuration || 0,
+            recordingUrl: normalized.recording_URL || '',
+            status: normalized.callStatus || 'Completed',
+            channel: 'VOXBAY',
+            notes: 'Voxbay Live Telecalling Call'
+          }).catch(e => console.warn('[CallingService] GHL call sync warning:', e.message));
+        }).catch(() => {});
+      } catch (ghlErr) {}
+
       return normalized;
     }
     return null;

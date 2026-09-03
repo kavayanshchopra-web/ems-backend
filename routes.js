@@ -1980,6 +1980,29 @@ export default function setupRoutes(io) {
     }
   });
 
+  // Public endpoint for GHL embed script to verify if a location is authorized to use Voxbay Dialer
+  app.get('/api/ghl/check-active-location', async (req, res) => {
+    try {
+      const locationId = (req.query.locationId || '').trim();
+      if (!locationId) return res.json({ active: false });
+
+      const allowedList = ['1g4rrRuP0ubwpF6vqWka'];
+      if (allowedList.includes(locationId)) {
+        return res.json({ active: true, locationId });
+      }
+
+      const integration = await getGhlIntegrationByLocation(locationId);
+      if (integration && (integration.is_active === 1 || integration.access_token)) {
+        return res.json({ active: true, locationId });
+      }
+
+      return res.json({ active: false, locationId });
+    } catch (e) {
+      return res.json({ active: false });
+    }
+  });
+
+
   // 2. Safe Connection Status (Never exposes secrets or tokens, isolated by tenant & location)
   router.get('/v1/integrations/ghl/status', async (req, res) => {
     try {
@@ -2679,5 +2702,124 @@ export default function setupRoutes(io) {
   router.post('/voxbay', handleVoxbayWebhook);
   router.get('/voxbay', handleVoxbayWebhook);
 
+  // 4. Companion Mobile App & Web Log Synchronizer (Runo-Style SIM + Voxbay)
+  router.post(['/telecalling/sync-log', '/calls/log', '/telecalling/log'], async (req, res) => {
+    try {
+      const {
+        tenantId = 1,
+        staffId = '1',
+        staffName = 'Agent',
+        customerPhone,
+        phoneNumber,
+        customerName = 'Customer',
+        durationSeconds = 0,
+        duration = 0,
+        recordingBase64,
+        audioBase64,
+        recordingUrl = '',
+        disposition = 'Completed',
+        status = 'Completed',
+        notes = '',
+        channel = 'SIM_COMPANION',
+        type = 'OUTGOING'
+      } = req.body;
+
+      const targetPhone = customerPhone || phoneNumber;
+      if (!targetPhone) {
+        return res.status(400).json({ error: 'Customer phone number is required.' });
+      }
+
+      let finalRecordingUrl = recordingUrl;
+
+      // Handle Base64 Audio Upload from Companion App
+      const rawBase64 = recordingBase64 || audioBase64;
+      if (rawBase64 && typeof rawBase64 === 'string') {
+        try {
+          const cleanBase64 = rawBase64.replace(/^data:audio\/\w+;base64,/, '');
+          const audioBuffer = Buffer.from(cleanBase64, 'base64');
+          const fileName = `rec_${Date.now()}_${String(targetPhone).replace(/\D/g, '')}.mp3`;
+          const filePath = path.join(recordingsDir, fileName);
+          fs.writeFileSync(filePath, audioBuffer);
+          const domain = process.env.API_BASE_URL || 'https://api.employeemanagementsystems.com';
+          finalRecordingUrl = `${domain}/media/recordings/${fileName}`;
+        } catch (audioErr) {
+          console.warn('[SyncLog] Audio base64 decode notice:', audioErr.message);
+        }
+      }
+
+      const durSecs = Number(durationSeconds || duration || 0);
+
+      const logRecord = {
+        tenantId: Number(req.user?.tenantId || req.user?.tenant_id || tenantId || 1),
+        staffId: String(staffId),
+        staffName: String(staffName),
+        customerName: String(customerName),
+        customerPhone: String(targetPhone),
+        channel: String(channel),
+        type: String(type),
+        durationSeconds: durSecs,
+        recordingUrl: finalRecordingUrl || '',
+        disposition: String(disposition || status || 'Completed'),
+        notes: String(notes || 'Call recorded via OmniFlow Companion')
+      };
+
+      const saved = await createCallLog(logRecord.tenantId, logRecord);
+
+      // Real-time notification to web dashboard
+      if (io) {
+        io.emit('telecalling:call_logged', { ...logRecord, id: saved?.id });
+      }
+
+      // Asynchronously push to linked GoHighLevel Conversation
+      try {
+        ghlSyncEngine.syncCallRecordToGhl(logRecord.tenantId, {
+          ...logRecord,
+          id: saved?.id
+        }).catch(err => console.warn('[SyncLog] GHL Call Push Notice:', err.message));
+      } catch (e) {}
+
+      return res.status(200).json({
+        success: true,
+        message: 'Call log & recording synchronized successfully.',
+        callLog: saved || logRecord
+      });
+    } catch (err) {
+      console.error('[SyncLog] Error saving call log:', err);
+      return res.status(500).json({ error: 'Failed to sync call log', details: err.message });
+    }
+  });
+
+  router.get(['/telecalling/logs', '/calls/logs'], async (req, res) => {
+    try {
+      const tenantId = Number(req.user?.tenantId || req.user?.tenant_id || 1);
+      const logs = await getCallLogs(tenantId, 150);
+      return res.status(200).json({ success: true, logs: logs || [] });
+    } catch (err) {
+      return res.status(200).json({ success: true, logs: [] });
+    }
+  });
+
+  // 5. Inbuilt GoHighLevel Embed Script Delivery
+  const handleGhlEmbedScript = (req, res) => {
+    try {
+      const scriptPath = path.join(__dirname, 'public', 'ghl-voxbay-embed.js');
+      if (fs.existsSync(scriptPath)) {
+        const content = fs.readFileSync(scriptPath, 'utf8');
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Cache-Control', 'public, max-age=300');
+        return res.send(content);
+      } else {
+        return res.status(404).send('// Embed script not found');
+      }
+    } catch (e) {
+      return res.status(500).send('// Error loading embed script');
+    }
+  };
+
+  router.get('/public/ghl-voxbay-embed.js', handleGhlEmbedScript);
+  router.get('/ghl/dialer.js', handleGhlEmbedScript);
+  router.get('/ghl/embed.js', handleGhlEmbedScript);
+
   return router;
-}
+}

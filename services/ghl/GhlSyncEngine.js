@@ -874,8 +874,126 @@ export class GhlSyncEngine {
       }
     }
 
-    return summary;
+  /**
+   * Synchronize an EMS Call Record & Recording to GoHighLevel Conversation & Timeline.
+   * Works for both Voxbay PBX Cloud calls and Runo-style Mobile SIM Companion recordings.
+   * 
+   * @param {number} tenantId 
+   * @param {Object} callLog 
+   * @returns {Promise<Object>}
+   */
+  async syncCallRecordToGhl(tenantId, callLog = {}) {
+    if (!tenantId || !callLog) return { status: 'skipped', reason: 'missing_parameters' };
+
+    try {
+      // 1. Verify tenant has an active GHL integration
+      let integration = await getGhlIntegrationByTenant(tenantId);
+      if (!integration && typeof tenantId === 'string') {
+        integration = await getGhlIntegrationByLocation(tenantId);
+      }
+      if (!integration || !integration.is_active || !integration.location_id) {
+        return { status: 'skipped', reason: 'ghl_not_connected_or_inactive' };
+      }
+      const locationId = integration.location_id;
+
+      // 2. Resolve Customer Phone and Details
+      const rawPhone = callLog.customerPhone || callLog.customer_phone || callLog.phoneNumber || callLog.phone;
+      if (!rawPhone) return { status: 'skipped', reason: 'no_customer_phone' };
+
+      const cleanPhone = String(rawPhone).replace(/[^\d+]/g, '');
+      const e164Phone = normalizePhoneToE164(cleanPhone);
+      const customerName = callLog.customerName || callLog.customer_name || callLog.contactName || 'Customer';
+
+      // 3. Find GHL Contact ID
+      let ghlContactId = null;
+      const link = await getGhlEntityLink(tenantId, locationId, 'contact', cleanPhone) 
+                || (e164Phone ? await getGhlEntityLink(tenantId, locationId, 'contact', e164Phone) : null);
+
+      if (link && link.ghl_entity_id) {
+        ghlContactId = link.ghl_entity_id;
+      } else {
+        // Search in HighLevel or auto-provision
+        try {
+          const searchRes = await ghlApiClient.searchContacts(locationId, { query: cleanPhone.slice(-10) });
+          const found = (searchRes?.contacts || [])[0];
+          if (found && found.id) {
+            ghlContactId = found.id;
+            await saveGhlEntityLink(tenantId, locationId, 'contact', cleanPhone, ghlContactId, 'FOUND_ON_CALL_SYNC');
+          }
+        } catch (searchErr) {
+          console.warn('[GhlSyncEngine] Contact search during call sync warning:', searchErr.message);
+        }
+      }
+
+      // If still not found, create contact in GHL so call log is attached
+      if (!ghlContactId) {
+        try {
+          const syncRes = await this.syncContactToGhl(tenantId, cleanPhone, {
+            phone: e164Phone || cleanPhone,
+            name: customerName
+          });
+          if (syncRes && syncRes.ghlContactId) {
+            ghlContactId = syncRes.ghlContactId;
+          }
+        } catch (createErr) {
+          console.warn('[GhlSyncEngine] Auto-create contact for call log warning:', createErr.message);
+        }
+      }
+
+      if (!ghlContactId) {
+        return { status: 'failed', reason: 'could_not_resolve_ghl_contact', phone: cleanPhone };
+      }
+
+      // 4. Extract Duration, Recording, and Meta
+      const durationSeconds = Number(callLog.durationSeconds || callLog.duration_seconds || (typeof callLog.duration === 'number' ? callLog.duration : 0));
+      const recordingUrl = callLog.recordingUrl || callLog.recording_url || callLog.recording || callLog.audioUrl || '';
+      const channel = callLog.channel || (callLog.isSimCall ? 'SIM_COMPANION' : 'VOXBAY');
+      const staffName = callLog.staffName || callLog.staff_name || callLog.agentName || 'Agent';
+      const status = callLog.disposition || callLog.status || 'Completed';
+      const notes = callLog.notes || '';
+      const direction = (callLog.type || 'OUTGOING').toLowerCase();
+
+      // 5. Post to GHL Conversations & Activity Timeline
+      const ghlResult = await ghlApiClient.createConversationCallMessage(locationId, {
+        contactId: ghlContactId,
+        durationSeconds,
+        recordingUrl,
+        status,
+        direction,
+        channel,
+        staffName,
+        notes
+      });
+
+      // 6. Log Sync Audit
+      try {
+        await createGhlSyncLog(tenantId, {
+          location_id: locationId,
+          entity_type: 'call_recording',
+          entity_id: String(callLog.id || cleanPhone),
+          action: 'SYNC_CALL_TO_GHL',
+          status: 'SUCCESS',
+          details: JSON.stringify({
+            ghlContactId,
+            durationSeconds,
+            hasRecording: Boolean(recordingUrl),
+            channel
+          })
+        });
+      } catch (logErr) {}
+
+      return {
+        status: 'success',
+        ghlContactId,
+        locationId,
+        ghlResult
+      };
+    } catch (err) {
+      console.error('[GhlSyncEngine] syncCallRecordToGhl error:', err);
+      return { status: 'error', error: err.message };
+    }
   }
 }
 
 export default new GhlSyncEngine();
+
