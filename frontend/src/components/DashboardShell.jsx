@@ -1112,52 +1112,69 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const audioChunksRef = useRef([]);
   const timerIntervalRef = useRef(null);
 
-  // Fetch Call Logs on mount via Backend, Firestore onSnapshot & Tenant Engine
+  // Universal Call Logs & Recordings Loader (Multi-Collection Live Sync for Super Admin & Mobile)
   useEffect(() => {
-    const activeTenant = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 'org_default';
-    
     // 1. Fetch from Backend SQLite API
     fetch(`${API_URL}/telecalling/logs`)
       .then(res => res.json())
       .then(data => {
         if (data?.logs && Array.isArray(data.logs) && data.logs.length > 0) {
           setCallLogs(prev => {
-            const existingIds = new Set(prev.map(p => String(p.id)));
-            const fresh = data.logs.filter(l => !existingIds.has(String(l.id)));
-            return [...fresh, ...prev];
+            const map = new Map();
+            prev.forEach(p => map.set(String(p.id), p));
+            data.logs.forEach(l => map.set(String(l.id), l));
+            return Array.from(map.values());
           });
         }
       })
       .catch(() => {});
 
-    // 2. Fetch from FirebaseCloudEngine
-    FirebaseCloudEngine.fetchRecords('call_logs', activeTenant)
+    // 2. Fetch from FirebaseCloudEngine 'call_logs' (all tenants for Super Admin)
+    FirebaseCloudEngine.fetchRecords('call_logs', 'all')
       .then(records => {
         if (Array.isArray(records) && records.length > 0) {
           setCallLogs(prev => {
-            const existingIds = new Set(prev.map(p => String(p.id)));
-            const fresh = records.filter(l => !existingIds.has(String(l.id)));
-            return [...fresh, ...prev];
+            const map = new Map();
+            prev.forEach(p => map.set(String(p.id), p));
+            records.forEach(r => map.set(String(r.id), r));
+            return Array.from(map.values());
           });
         }
       })
       .catch(() => {});
 
-    // 3. Real-time Firestore onSnapshot for instant companion app sync
+    // 3. Real-time Firestore onSnapshot for 'callLogs' and 'call_logs'
     try {
-      const q = collection(db, 'callLogs');
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const liveRecords = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        if (liveRecords.length > 0) {
+      const q1 = collection(db, 'callLogs');
+      const unsub1 = onSnapshot(q1, (snapshot) => {
+        const live = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (live.length > 0) {
           setCallLogs(prev => {
             const map = new Map();
-            liveRecords.forEach(r => map.set(String(r.id), r));
-            prev.forEach(r => { if (!map.has(String(r.id))) map.set(String(r.id), r); });
-            return Array.from(map.values()).sort((a, b) => (b._createdAt || 0) - (a._createdAt || 0));
+            prev.forEach(p => map.set(String(p.id), p));
+            live.forEach(r => map.set(String(r.id), r));
+            return Array.from(map.values()).sort((a, b) => (b._createdAt || b.createdAt || 0) - (a._createdAt || a.createdAt || 0));
           });
         }
       }, (err) => console.warn('[Firestore] callLogs snapshot note:', err));
-      return () => unsubscribe();
+
+      const q2 = collection(db, 'call_logs');
+      const unsub2 = onSnapshot(q2, (snapshot) => {
+        const live = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (live.length > 0) {
+          setCallLogs(prev => {
+            const map = new Map();
+            prev.forEach(p => map.set(String(p.id), p));
+            live.forEach(r => map.set(String(r.id), r));
+            return Array.from(map.values()).sort((a, b) => (b._createdAt || b.createdAt || 0) - (a._createdAt || a.createdAt || 0));
+          });
+        }
+      }, (err) => console.warn('[Firestore] call_logs snapshot note:', err));
+
+      return () => {
+        try { unsub1(); } catch (e) {}
+        try { unsub2(); } catch (e) {}
+      };
     } catch (e) {}
   }, [authUser]);
 

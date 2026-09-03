@@ -380,8 +380,16 @@ export default function GpsTrackingPage({
                           <button
                             type="button"
                             className="btn"
-                            style={{ padding: '5px 8px', fontSize: '11px', fontWeight: '700', background: '#dcfce7', color: '#166534', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
-                            onClick={() => window.open(`tel:${emp.phone || '9876543210'}`)}
+                            onClick={() => {
+                              const ph = (emp.phone || '9876543210').replace(/[^0-9+]/g, '');
+                              if (window.AndroidApp && typeof window.AndroidApp.makeDirectCall === 'function') {
+                                window.AndroidApp.makeDirectCall(ph);
+                              } else if (window.openGlobalDialer) {
+                                window.openGlobalDialer(ph, emp.name, true);
+                              } else {
+                                window.open(`tel:${ph}`);
+                              }
+                            }}
                           >
                             <Phone size={12} />
                           </button>

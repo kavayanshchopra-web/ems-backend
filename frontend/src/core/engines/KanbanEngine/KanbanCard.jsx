@@ -1,4 +1,4 @@
-﻿/**
+/**
  * COMPACT ENTERPRISE CRM KANBAN CARD COMPONENT
  * Single-Line Ellipsis (Name, Email, Phone, Position), Non-Wrapping ATS ID, 15% Compact Vertical Padding,
  * Fixed-Width Status Dropdown (120px), Formatted Date & "No Resume" Fallback
@@ -160,7 +160,11 @@ export default function KanbanCard({
               title={`Call ${cleanPhone}`}
               onClick={(e) => {
                 e.stopPropagation();
-                if (window.openGlobalDialer) {
+                if (window.AndroidApp && typeof window.AndroidApp.makeDirectCall === 'function') {
+                  window.AndroidApp.makeDirectCall(cleanPhone);
+                } else if (window.OmniFlowNative && typeof window.OmniFlowNative.makeDirectCall === 'function') {
+                  window.OmniFlowNative.makeDirectCall(cleanPhone);
+                } else if (window.openGlobalDialer) {
                   window.openGlobalDialer(cleanPhone, cardName || 'Lead', true);
                 } else {
                   window.open(`tel:${cleanPhone}`);

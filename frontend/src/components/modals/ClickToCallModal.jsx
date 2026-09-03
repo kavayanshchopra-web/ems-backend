@@ -296,8 +296,18 @@ export default function ClickToCallModal({
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fbbf24', animation: 'pulse 1.5s infinite' }}></span>
                   <span>Ringing customer SIM phone...</span>
                 </div>
-                <a
-                  href={`tel:${String(clickToCallLead.phone || dialNumber).replace(/[^0-9+]/g, '')}`}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const clean = String(clickToCallLead.phone || dialNumber).replace(/[^0-9+]/g, '');
+                    if (window.AndroidApp && typeof window.AndroidApp.makeDirectCall === 'function') {
+                      window.AndroidApp.makeDirectCall(clean);
+                    } else if (window.OmniFlowNative && typeof window.OmniFlowNative.makeDirectCall === 'function') {
+                      window.OmniFlowNative.makeDirectCall(clean);
+                    } else {
+                      window.location.href = `tel:${clean}`;
+                    }
+                  }}
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -309,12 +319,12 @@ export default function ClickToCallModal({
                     color: '#38bdf8',
                     fontSize: '11.5px',
                     fontWeight: '700',
-                    textDecoration: 'none'
+                    cursor: 'pointer'
                   }}
                 >
                   <Phone size={12} />
-                  <span>Open Phone Dialer (tel:)</span>
-                </a>
+                  <span>Direct Dial SIM (Native)</span>
+                </button>
               </div>
             )}
 
