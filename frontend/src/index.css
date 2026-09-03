@@ -1874,17 +1874,41 @@ h1, h2, h3, h4, h5, h6 {
   .sidebar {
     position: fixed;
     top: 0;
-    left: -260px;
-    width: 260px !important;
-    min-width: 260px !important;
-    height: 100%;
-    z-index: 999;
+    left: -280px;
+    width: 280px !important;
+    min-width: 280px !important;
+    max-width: 85vw !important;
+    height: 100% !important;
+    z-index: 9999;
     transition: left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 4px 0 24px rgba(0,0,0,0.3);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+    overflow-y: auto !important;
   }
 
   .sidebar.mobile-open {
-    left: 0;
+    left: 0 !important;
+  }
+
+  .sidebar.mobile-open .category-label-text,
+  .sidebar.mobile-open .category-chevron,
+  .sidebar.mobile-open .nav-item span,
+  .sidebar.mobile-open .sidebar-logo span,
+  .sidebar.mobile-open .sidebar-category,
+  .sidebar.mobile-open .user-profile-text,
+  .sidebar.mobile-open .signout-text {
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: inline-block !important;
+  }
+
+  .sidebar.mobile-open .category-children-container {
+    display: flex !important;
+  }
+
+  .sidebar.mobile-open .user-signout-btn {
+    width: 100% !important;
+    padding: 8px 14px !important;
+    justify-content: flex-start !important;
   }
 
   /* Main content takes full viewport height minus header if layout changes, but here we fill layout height */

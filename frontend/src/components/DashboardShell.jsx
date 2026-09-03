@@ -1023,18 +1023,24 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }
     }
 
-    // 2. Open In-App Call Tracker & Disposition Widget
-    setClickToCallLead({ name: leadName || 'CRM Lead', phone: cleanNumber || rawNumber });
-    setShowClickToCallModal(true);
-    setActiveCallStatus('ringing');
-    setActiveCallDuration(0);
-    setTimeout(() => {
-      setActiveCallStatus('connected');
-      if (activeCallTimerRef.current) clearInterval(activeCallTimerRef.current);
-      activeCallTimerRef.current = setInterval(() => {
-        setActiveCallDuration(prev => prev + 1);
-      }, 1000);
-    }, 2500);
+    // 2. On Mobile, close web modal since native phone dialer and native post-call popup take over
+    const isMobileDevice = window.innerWidth <= 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobileDevice) {
+      setShowClickToCallModal(false);
+    } else {
+      // On Desktop/Laptop PC: Open In-App Call Tracker & Disposition Widget
+      setClickToCallLead({ name: leadName || 'CRM Lead', phone: cleanNumber || rawNumber });
+      setShowClickToCallModal(true);
+      setActiveCallStatus('ringing');
+      setActiveCallDuration(0);
+      setTimeout(() => {
+        setActiveCallStatus('connected');
+        if (activeCallTimerRef.current) clearInterval(activeCallTimerRef.current);
+        activeCallTimerRef.current = setInterval(() => {
+          setActiveCallDuration(prev => prev + 1);
+        }, 1000);
+      }, 2500);
+    }
   };
   const endClickToCall = async (disposition = 'Interested', notes = 'Completed call via Click-to-Call dialpad') => {
     if (activeCallTimerRef.current) clearInterval(activeCallTimerRef.current);
