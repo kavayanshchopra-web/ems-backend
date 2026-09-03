@@ -5,7 +5,7 @@ import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
 import VoxbayCloudDialerModal from './VoxbayCloudDialerModal';
 import { PhoneCall, Smartphone } from 'lucide-react';
 import { db } from '../../firebase';
-import { collection, onSnapshot, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, getDocs, doc, deleteDoc } from 'firebase/firestore';
 
 export default function TelecallingView({
   authUser,
@@ -173,6 +173,41 @@ export default function TelecallingView({
     if (showToast) showToast('📞 Call logged and recording synced successfully!', 'success');
   };
 
+  const handleSoftDelete = async (recordOrId) => {
+    const targetId = typeof recordOrId === 'object' ? (recordOrId.id || recordOrId.originalId) : recordOrId;
+    if (!targetId) return;
+
+    // 1. Delete from active Firestore collections
+    try {
+      if (db) {
+        await deleteDoc(doc(db, 'callLogs', String(targetId)));
+        await deleteDoc(doc(db, 'call_logs', String(targetId)));
+      }
+    } catch (e) {
+      console.warn('Firestore callLog delete notice:', e);
+    }
+
+    // 2. Move to Universal Recycle Bin / Archive
+    const rec = (activeRecords || []).find(r => r.id === targetId) || (typeof recordOrId === 'object' ? recordOrId : { id: targetId });
+    if (typeof softDeleteRecord === 'function') {
+      softDeleteRecord({
+        originalId: targetId,
+        id: targetId,
+        name: rec.name || rec.customerName || rec.phone || 'Call Log',
+        category: 'Call Recordings',
+        moduleTab: 'telecalling',
+        entityData: rec
+      });
+    }
+
+    // 3. Update React local state
+    setInternalLogs(prev => prev.filter(r => r.id !== targetId));
+    if (typeof setCallLogs === 'function') {
+      setCallLogs(prev => prev.filter(r => r.id !== targetId));
+    }
+    if (showToast) showToast('🗑️ Call log moved to Trash Archive', 'info');
+  };
+
   const handleHeaderDialClick = () => {
     if (activeProvider === 'voxbay') {
       setIsVoxbayOpen(true);
@@ -221,7 +256,7 @@ export default function TelecallingView({
           recycleBinItems={recycleBinItems}
           handleRestoreBinItem={handleRestoreBinItem}
           handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
-          softDeleteRecord={softDeleteRecord}
+          softDeleteRecord={handleSoftDelete}
           showToast={showToast}
           onOpenModuleConfig={onOpenModuleConfig}
           onManageStages={onManageStages}
