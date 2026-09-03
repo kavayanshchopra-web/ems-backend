@@ -1097,24 +1097,53 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const audioChunksRef = useRef([]);
   const timerIntervalRef = useRef(null);
 
-  // Fetch Call Logs on mount via tenant-scoped FirebaseCloudEngine
+  // Fetch Call Logs on mount via Backend, Firestore onSnapshot & Tenant Engine
   useEffect(() => {
     const activeTenant = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 'org_default';
-    if (!activeTenant || activeTenant === 'org_default') {
-      setCallLogs([]);
-      return;
-    }
-    FirebaseCloudEngine.fetchRecords('call_logs', activeTenant)
-      .then(records => {
-        if (Array.isArray(records)) {
-          setCallLogs(records);
-        } else {
-          setCallLogs([]);
+    
+    // 1. Fetch from Backend SQLite API
+    fetch(`${API_URL}/telecalling/logs`)
+      .then(res => res.json())
+      .then(data => {
+        if (data?.logs && Array.isArray(data.logs) && data.logs.length > 0) {
+          setCallLogs(prev => {
+            const existingIds = new Set(prev.map(p => String(p.id)));
+            const fresh = data.logs.filter(l => !existingIds.has(String(l.id)));
+            return [...fresh, ...prev];
+          });
         }
       })
-      .catch(() => {
-        setCallLogs([]);
-      });
+      .catch(() => {});
+
+    // 2. Fetch from FirebaseCloudEngine
+    FirebaseCloudEngine.fetchRecords('call_logs', activeTenant)
+      .then(records => {
+        if (Array.isArray(records) && records.length > 0) {
+          setCallLogs(prev => {
+            const existingIds = new Set(prev.map(p => String(p.id)));
+            const fresh = records.filter(l => !existingIds.has(String(l.id)));
+            return [...fresh, ...prev];
+          });
+        }
+      })
+      .catch(() => {});
+
+    // 3. Real-time Firestore onSnapshot for instant companion app sync
+    try {
+      const q = collection(db, 'callLogs');
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const liveRecords = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (liveRecords.length > 0) {
+          setCallLogs(prev => {
+            const map = new Map();
+            liveRecords.forEach(r => map.set(String(r.id), r));
+            prev.forEach(r => { if (!map.has(String(r.id))) map.set(String(r.id), r); });
+            return Array.from(map.values()).sort((a, b) => (b._createdAt || 0) - (a._createdAt || 0));
+          });
+        }
+      }, (err) => console.warn('[Firestore] callLogs snapshot note:', err));
+      return () => unsubscribe();
+    } catch (e) {}
   }, [authUser]);
 
   useEffect(() => {
