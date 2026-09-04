@@ -100,8 +100,53 @@ export default function LiveWhatsAppWebPage({
     };
 
     webview.addEventListener('page-title-updated', handleTitleUpdated);
+
+    // Register global bridge for ConversationsPage to send via this active webview
+    window.__omniflow_send_whatsapp_message = async ({ phone, text }) => {
+      const cleanPhone = String(phone || '').replace(/\D/g, '');
+      if (!cleanPhone || !text) return { success: false, error: 'Phone and text required' };
+
+      const targetWebview = iframeRef.current;
+      if (!targetWebview) {
+        return { success: false, error: 'WhatsApp Webview not mounted' };
+      }
+
+      try {
+        if (targetWebview.executeJavaScript) {
+          const script = `
+            (function() {
+              try {
+                const targetNumber = "${cleanPhone}";
+                const textMsg = ${JSON.stringify(text)};
+                const targetUrl = 'https://web.whatsapp.com/send?phone=' + targetNumber + '&text=' + encodeURIComponent(textMsg);
+                
+                const sendBtn = document.querySelector('button[aria-label="Send"], span[data-icon="send"], button span[data-icon="send"]');
+                if (sendBtn) {
+                  sendBtn.click();
+                  return { success: true, method: 'direct_click' };
+                }
+
+                window.location.href = targetUrl;
+                return { success: true, method: 'navigated' };
+              } catch(err) {
+                return { success: false, error: err.message };
+              }
+            })()
+          `;
+          const res = await targetWebview.executeJavaScript(script);
+          return { success: true, result: res };
+        } else if (targetWebview.src) {
+          targetWebview.src = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`;
+          return { success: true, method: 'src_nav' };
+        }
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    };
+
     return () => {
       webview.removeEventListener('page-title-updated', handleTitleUpdated);
+      delete window.__omniflow_send_whatsapp_message;
     };
   }, [selectedStaffId, frameKey]);
 

@@ -146,6 +146,55 @@ function createWindow() {
   });
 }
 
+// IPC Handlers for WhatsApp Web Bridge
+ipcMain.handle('whatsapp-send-message', async (event, payload) => {
+  const { phone, text } = payload || {};
+  const cleanPhone = String(phone || '').replace(/\D/g, '');
+  if (!cleanPhone || !text) {
+    return { success: false, error: 'Phone number and message text are required' };
+  }
+
+  try {
+    const { webContents } = require('electron');
+    const allWebContents = webContents.getAllWebContents();
+    const waWeb = allWebContents.find(wc => {
+      const u = wc.getURL() || '';
+      return u.includes('web.whatsapp.com');
+    });
+
+    if (!waWeb) {
+      return { success: false, error: 'WhatsApp Webview not active. Please open WhatsApp tab once.' };
+    }
+
+    const script = `
+      (function() {
+        try {
+          const cleanNumber = "${cleanPhone}";
+          const messageText = ${JSON.stringify(text)};
+          const targetUrl = 'https://web.whatsapp.com/send?phone=' + cleanNumber + '&text=' + encodeURIComponent(messageText);
+
+          // Check if send button is immediately available in active chat
+          const sendBtn = document.querySelector('button[aria-label="Send"], span[data-icon="send"], button span[data-icon="send"]');
+          if (sendBtn) {
+            sendBtn.click();
+            return { status: 'sent', method: 'dom_click' };
+          }
+
+          // Navigate to direct send URL
+          window.location.href = targetUrl;
+          return { status: 'navigating', targetUrl };
+        } catch (e) {
+          return { status: 'error', error: e.message };
+        }
+      })()
+    `;
+    const res = await waWeb.executeJavaScript(script);
+    return { success: true, data: res };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 // App lifecycle
 app.whenReady().then(() => {
   createWindow();
@@ -160,3 +209,4 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+

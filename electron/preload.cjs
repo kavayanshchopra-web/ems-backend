@@ -8,5 +8,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   reloadIframe: () => {
     ipcRenderer.send('reload-frame');
+  },
+  sendWhatsAppMessage: (payload) => {
+    return ipcRenderer.invoke('whatsapp-send-message', payload);
   }
 });

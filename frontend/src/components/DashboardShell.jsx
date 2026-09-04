@@ -6946,8 +6946,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-        {/* Unified Omnichannel Inbox & Staff WhatsApp Web Live Hub */}
-        {(activeTab === 'inbox' || activeTab === 'wa_live_web') && (
+        {/* Unified Omnichannel Inbox & Staff WhatsApp Web Live Hub (Persistent Background Bridge) */}
+        <div style={{
+          display: (activeTab === 'inbox' || activeTab === 'wa_live_web') ? 'flex' : 'none',
+          flex: 1,
+          height: '100%',
+          width: '100%',
+          flexDirection: 'column'
+        }}>
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading WhatsApp Live Hub...</div>}>
             <LiveWhatsAppWebPage
               authUser={authUser}
@@ -6958,7 +6964,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               setActiveTab={setActiveTab}
             />
           </Suspense>
-        )}
+        </div>
         
         {/* Voxbay Phone & Web Dialer */}
         
