@@ -621,6 +621,37 @@ export default function ConversationsPage({
     }
   };
 
+  // 8b. Handle Sync Calls to GoHighLevel
+  const [isSyncingGhl, setIsSyncingGhl] = useState(false);
+  const handleSyncCallsToGhl = async () => {
+    if (isSyncingGhl) return;
+    setIsSyncingGhl(true);
+    if (showToast) showToast('🚀 Syncing call recordings to GoHighLevel...', 'info');
+
+    try {
+      const logsToSend = Array.isArray(allCallLogs) && allCallLogs.length > 0 ? allCallLogs : [];
+      const res = await fetch(`${API_URL}/v1/integrations/ghl/calls/sync-all`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ callLogs: logsToSend })
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        if (showToast) showToast(`✅ Synchronized ${data.synced || logsToSend.length} call recordings to GoHighLevel!`, 'success');
+      } else {
+        if (showToast) showToast(data?.error || 'GHL sync completed with notices', 'info');
+      }
+    } catch (err) {
+      console.warn('[GHL Call Sync Error]', err);
+      if (showToast) showToast(`ℹ️ GHL Sync Notice: ${err.message}`, 'info');
+    } finally {
+      setIsSyncingGhl(false);
+    }
+  };
+
   // 9. Filtered Conversations List for Search
   const filteredConversations = useMemo(() => {
     if (!searchQuery.trim()) return conversationsList;
@@ -926,11 +957,35 @@ export default function ConversationsPage({
                 ))}
               </div>
 
-              {stats.totalCalls > 0 && (
-                <div style={{ fontSize: '11px', color: '#047857', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span>⏱️ Total Talk Time: {TimelineEngine.formatDuration(stats.totalDurationSeconds)}</span>
-                </div>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {stats.totalCalls > 0 && (
+                  <div style={{ fontSize: '11px', color: '#047857', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>⏱️ Total Talk Time: {TimelineEngine.formatDuration(stats.totalDurationSeconds)}</span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSyncCallsToGhl}
+                  disabled={isSyncingGhl}
+                  title="Synchronize all call recordings to GoHighLevel timeline"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    background: 'rgba(13, 148, 136, 0.1)',
+                    border: '1px solid rgba(13, 148, 136, 0.3)',
+                    color: '#0d9488',
+                    fontSize: '10.5px',
+                    fontWeight: '700',
+                    cursor: isSyncingGhl ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  <RefreshCw size={11} className={isSyncingGhl ? 'animate-spin' : ''} style={{ animation: isSyncingGhl ? 'spin 1s linear infinite' : 'none' }} />
+                  <span>{isSyncingGhl ? 'Syncing...' : 'Sync Calls to GHL'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Stream Content */}

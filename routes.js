@@ -2250,6 +2250,38 @@ export default function setupRoutes(io) {
     }
   });
 
+  // 7a. Batch Outbound Call Logs Sync: EMS Call Records to GHL
+  router.post(['/v1/integrations/ghl/calls/sync-all', '/api/v1/integrations/ghl/calls/sync-all'], async (req, res) => {
+    try {
+      const tenantId = resolveGhlTenantId(req);
+      const { callLogs, locationId } = req.body || {};
+      const targetTenant = tenantId || locationId;
+      if (!targetTenant) return res.status(400).json({ error: 'Tenant ID or Location ID is required', code: 'GHL_TENANT_REQUIRED' });
+
+      let logsToSync = Array.isArray(callLogs) && callLogs.length > 0 ? callLogs : await getCallLogs(targetTenant, 200);
+
+      const results = [];
+      for (const log of (logsToSync || [])) {
+        try {
+          const syncRes = await ghlSyncEngine.syncCallRecordToGhl(targetTenant, log);
+          results.push({ id: log.id, phone: log.customerPhone || log.phone, status: syncRes?.status || 'success', ghlContactId: syncRes?.ghlContactId });
+        } catch (e) {
+          results.push({ id: log.id, phone: log.customerPhone || log.phone, status: 'failed', error: e.message });
+        }
+      }
+
+      res.json({
+        success: true,
+        total: logsToSync.length,
+        synced: results.filter(r => r.status === 'success').length,
+        results
+      });
+    } catch (err) {
+      console.error('[GHL Batch Call Sync Error]', err.message);
+      res.status(err.status || 500).json({ error: err.message, code: err.code || 'GHL_CALL_SYNC_ERROR' });
+    }
+  });
+
   // 7b. Bulk Inbound Import: All GHL Contacts to EMS
   router.post('/v1/integrations/ghl/contacts/import-all', async (req, res) => {
     try {
