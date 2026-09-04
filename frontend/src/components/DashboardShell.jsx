@@ -762,7 +762,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   });
   // Telecalling & SIM Call Recordings State Hub
-  const [callLogs, setCallLogs] = useState([]);
+  const [callLogs, setCallLogs] = useState(() => {
+    try {
+      const cached = localStorage.getItem('omniflow_cached_call_logs');
+      return cached ? JSON.parse(cached) : [];
+    } catch (e) {
+      return [];
+    }
+  });
   // Universal Bin (DLP Vault) & Soft-Delete State Hub
   const [binCategoryFilter, setBinCategoryFilter] = useState('all');
   const [selectedBinTenant, setSelectedBinTenant] = useState('all');

@@ -26,10 +26,26 @@ export default function TelecallingView({
   const { config } = useModuleRegistry(companyId, 'telecalling');
   
   const [isVoxbayOpen, setIsVoxbayOpen] = useState(false);
-  const [internalLogs, setInternalLogs] = useState([]);
+  const [internalLogs, setInternalLogs] = useState(() => {
+    try {
+      const cached = localStorage.getItem('omniflow_cached_call_logs');
+      return cached ? JSON.parse(cached) : [];
+    } catch (e) {
+      return [];
+    }
+  });
   const activeProvider = localStorage.getItem('active_telephony_provider') || 'sim_runo';
 
-  const [crmContactMap, setCrmContactMap] = useState(new Map());
+  const [crmContactMap, setCrmContactMap] = useState(() => {
+    try {
+      const cached = localStorage.getItem('omniflow_cached_crm_contacts');
+      if (cached) {
+        const obj = JSON.parse(cached);
+        return new Map(Object.entries(obj));
+      }
+    } catch (e) {}
+    return new Map();
+  });
 
   // 1. Direct Real-Time Multi-Collection Firestore Listener for Companion App & Web + CRM Contact Auto-Lookup
   useEffect(() => {
@@ -41,11 +57,15 @@ export default function TelecallingView({
         const map = new Map();
         (prev || []).forEach(p => map.set(String(p.id), p));
         newDocs.forEach(d => map.set(String(d.id), d));
-        return Array.from(map.values()).sort((a, b) => {
+        const merged = Array.from(map.values()).sort((a, b) => {
           const timeA = Number(a._createdAt || a.createdAt || (a.timestamp ? new Date(a.timestamp).getTime() : 0)) || 0;
           const timeB = Number(b._createdAt || b.createdAt || (b.timestamp ? new Date(b.timestamp).getTime() : 0)) || 0;
           return timeB - timeA;
         });
+        try {
+          localStorage.setItem('omniflow_cached_call_logs', JSON.stringify(merged.slice(0, 150)));
+        } catch (e) {}
+        return merged;
       });
     };
 
@@ -68,6 +88,10 @@ export default function TelecallingView({
             });
           }
         });
+        try {
+          const obj = Object.fromEntries(newMap.entries());
+          localStorage.setItem('omniflow_cached_crm_contacts', JSON.stringify(obj));
+        } catch (e) {}
         return newMap;
       });
     };
