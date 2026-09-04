@@ -27,6 +27,7 @@ export default function TelecallingView({
   
   const [isVoxbayOpen, setIsVoxbayOpen] = useState(false);
   const [internalLogs, setInternalLogs] = useState(() => {
+    if (Array.isArray(callLogs) && callLogs.length > 0) return callLogs;
     try {
       const cached = localStorage.getItem('omniflow_cached_call_logs');
       return cached ? JSON.parse(cached) : [];
@@ -38,16 +39,29 @@ export default function TelecallingView({
 
   const [crmContactMap, setCrmContactMap] = useState(() => {
     try {
-      const cached = localStorage.getItem('omniflow_cached_crm_contacts');
+      const cached = localStorage.getItem('omniflow_cached_crm_contacts') || localStorage.getItem('omniflow_cached_contacts');
       if (cached) {
-        const obj = JSON.parse(cached);
-        return new Map(Object.entries(obj));
+        const parsed = JSON.parse(cached);
+        const map = new Map();
+        if (Array.isArray(parsed)) {
+          parsed.forEach(c => {
+            const name = c.name || c.fullName || c.contactName;
+            const phone = c.phone || c.phoneNumber;
+            if (name && phone) {
+              const digits = String(phone).replace(/\D/g, '');
+              if (digits.length >= 7) map.set(digits.slice(-10), name.trim());
+            }
+          });
+        } else if (typeof parsed === 'object') {
+          Object.entries(parsed).forEach(([k, v]) => map.set(k, v));
+        }
+        return map;
       }
     } catch (e) {}
     return new Map();
   });
 
-  // 1. Direct Real-Time Multi-Collection Firestore Listener for Companion App & Web + CRM Contact Auto-Lookup
+  // 1. Direct Real-Time Multi-Collection Firestore Listener for Companion App & Web Call Logs
   useEffect(() => {
     let unsubs = [];
 
@@ -63,7 +77,7 @@ export default function TelecallingView({
           return timeB - timeA;
         });
         try {
-          localStorage.setItem('omniflow_cached_call_logs', JSON.stringify(merged.slice(0, 150)));
+          localStorage.setItem('omniflow_cached_call_logs', JSON.stringify(merged.slice(0, 300)));
         } catch (e) {}
         return merged;
       });
@@ -88,10 +102,6 @@ export default function TelecallingView({
             });
           }
         });
-        try {
-          const obj = Object.fromEntries(newMap.entries());
-          localStorage.setItem('omniflow_cached_crm_contacts', JSON.stringify(obj));
-        } catch (e) {}
         return newMap;
       });
     };
@@ -113,34 +123,12 @@ export default function TelecallingView({
           mergeRecords(docs);
         }, (err) => console.warn('[Telecalling] call_logs listener notice:', err));
         unsubs.push(unsub2);
-
-        // C. Real-Time Listeners for CRM Contacts & Deals to Auto-Resolve Lead Names
-        const qContacts = collection(db, 'contacts');
-        const unsubContacts = onSnapshot(qContacts, (snapshot) => {
-          const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-          registerContacts(docs);
-        }, () => {});
-        unsubs.push(unsubContacts);
-
-        const qDeals = collection(db, 'crm_deals');
-        const unsubDeals = onSnapshot(qDeals, (snapshot) => {
-          const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-          registerContacts(docs);
-        }, () => {});
-        unsubs.push(unsubDeals);
-
-        const qLeads = collection(db, 'crm_leads');
-        const unsubLeads = onSnapshot(qLeads, (snapshot) => {
-          const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-          registerContacts(docs);
-        }, () => {});
-        unsubs.push(unsubLeads);
       }
     } catch (e) {
       console.warn('[Telecalling] Firestore subscription error:', e);
     }
 
-    // D. Initial Fetch from Backend SQLite API
+    // C. Initial Fetch from Backend SQLite API
     fetch('/api/telecalling/logs')
       .then(res => res.json())
       .then(data => {
@@ -150,7 +138,7 @@ export default function TelecallingView({
       })
       .catch(() => {});
 
-    // E. Initial Fetch for Backend Contacts
+    // D. Initial Fetch for Backend Contacts (Single Pass)
     fetch('/api/contacts')
       .then(res => res.json())
       .then(data => {

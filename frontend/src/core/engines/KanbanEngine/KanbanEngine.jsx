@@ -4,7 +4,7 @@
  * Fixed 320px Non-Shrinking Stage Columns
  */
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import KanbanColumn from './KanbanColumn';
 
 const getValString = (val, fallback = '') => {
@@ -86,36 +86,36 @@ export default function KanbanEngine({
   const groupByFieldId = moduleConfig.kanbanConfig?.groupByField || moduleConfig.kanbanGroupBy || 'status';
   const groupFieldDef = (moduleConfig.fields || []).find(f => f.id === groupByFieldId || f.key === groupByFieldId);
 
-  // Column Headers List Resolution
-  let stageColumns = [];
-  let stagesToUse = [];
+  // Column Headers List Resolution (Memoized)
+  const stageColumns = useMemo(() => {
+    let rawStages = [];
+    const isModuleSpecificStages = Array.isArray(moduleConfig?.stages) && moduleConfig.stages.length > 0;
 
-  const isModuleSpecificStages = Array.isArray(moduleConfig?.stages) && moduleConfig.stages.length > 0;
+    if (isModuleSpecificStages) {
+      rawStages = moduleConfig.stages;
+    } else if (Array.isArray(activePipelineStages) && activePipelineStages.length > 0 && (!moduleConfig?.moduleId || moduleConfig.moduleId === 'crm' || moduleConfig.moduleId === 'crm_deals')) {
+      rawStages = activePipelineStages;
+    } else if (systemDropdowns?.crmStages && Array.isArray(systemDropdowns.crmStages) && systemDropdowns.crmStages.length > 0) {
+      rawStages = systemDropdowns.crmStages;
+    } else if (systemDropdowns?.crm_stages && Array.isArray(systemDropdowns.crm_stages) && systemDropdowns.crm_stages.length > 0) {
+      rawStages = systemDropdowns.crm_stages;
+    } else if (Array.isArray(moduleConfig?.stages) && moduleConfig.stages.length > 0) {
+      rawStages = moduleConfig.stages;
+    }
 
-  if (isModuleSpecificStages) {
-    stagesToUse = moduleConfig.stages;
-  } else if (Array.isArray(activePipelineStages) && activePipelineStages.length > 0 && (!moduleConfig?.moduleId || moduleConfig.moduleId === 'crm' || moduleConfig.moduleId === 'crm_deals')) {
-    stagesToUse = activePipelineStages;
-  } else if (systemDropdowns?.crmStages && Array.isArray(systemDropdowns.crmStages) && systemDropdowns.crmStages.length > 0) {
-    stagesToUse = systemDropdowns.crmStages;
-  } else if (systemDropdowns?.crm_stages && Array.isArray(systemDropdowns.crm_stages) && systemDropdowns.crm_stages.length > 0) {
-    stagesToUse = systemDropdowns.crm_stages;
-  } else if (Array.isArray(moduleConfig?.stages) && moduleConfig.stages.length > 0) {
-    stagesToUse = moduleConfig.stages;
-  }
+    if (rawStages.length > 0 && (isModuleSpecificStages || groupByFieldId === 'status' || groupByFieldId === 'stage' || groupByFieldId === 'pipeline_stage' || groupByFieldId === 'type')) {
+      return rawStages.map(s => {
+        const stageName = typeof s === 'string' ? s : getValString(s.name || s.title || s.label || s.id || '');
+        const stageId = typeof s === 'string' ? s : String(s.id || s.key || stageName);
+        return {
+          id: stageId,
+          name: stageName || stageId,
+          emoji: (typeof s === 'object' && s.emoji) ? s.emoji : '📋',
+          color: (typeof s === 'object' && s.color) ? s.color : '#0d9488'
+        };
+      });
+    }
 
-  if (stagesToUse.length > 0 && (isModuleSpecificStages || groupByFieldId === 'status' || groupByFieldId === 'stage' || groupByFieldId === 'pipeline_stage' || groupByFieldId === 'type')) {
-    stageColumns = stagesToUse.map(s => {
-      const stageName = typeof s === 'string' ? s : getValString(s.name || s.title || s.label || s.id || '');
-      const stageId = typeof s === 'string' ? s : String(s.id || s.key || stageName);
-      return {
-        id: stageId,
-        name: stageName || stageId,
-        emoji: (typeof s === 'object' && s.emoji) ? s.emoji : '📋',
-        color: (typeof s === 'object' && s.color) ? s.color : '#0d9488'
-      };
-    });
-  } else {
     // Resolve from Lookup Data or System Dropdowns
     const lookupKey = groupFieldDef?.optionsSource || groupFieldDef?.key || groupFieldDef?.id || groupByFieldId;
     let rawOptions = [];
@@ -146,12 +146,12 @@ export default function KanbanEngine({
     }
 
     if (rawOptions.length === 0) {
-      const recordVals = Array.from(new Set(records.map(r => getValString(r[groupByFieldId] || r.status || r.stage || r.pipeline_stage || r.department)).filter(Boolean)));
+      const recordVals = Array.from(new Set((records || []).map(r => getValString(r[groupByFieldId] || r.status || r.stage || r.pipeline_stage || r.department)).filter(Boolean)));
       if (recordVals.length > 0) rawOptions = recordVals;
       else rawOptions = ['New Lead', 'Contacted', 'Qualified', 'Proposal Sent', 'Won', 'Lost'];
     }
 
-    stageColumns = rawOptions.map(opt => {
+    return rawOptions.map(opt => {
       const nameStr = getValString(opt);
       return {
         id: typeof opt === 'object' ? (opt.id || opt.key || nameStr) : nameStr,
@@ -160,67 +160,69 @@ export default function KanbanEngine({
         color: (typeof opt === 'object' && opt.color) ? opt.color : '#0d9488'
       };
     });
-  }
+  }, [moduleConfig, activePipelineStages, systemDropdowns, groupByFieldId, groupFieldDef, records]);
 
-  // Dynamically map records to stage columns
-  const autoGeneratedColumns = stageColumns.map((stage, stageIdx) => {
-    const stageName = stage.name;
-    const stageId = String(stage.id);
-    const sNameLower = stageName.toLowerCase().trim();
-    const sIdLower = stageId.toLowerCase().trim();
+  // Dynamically map records to stage columns (Memoized for high performance)
+  const autoGeneratedColumns = useMemo(() => {
+    return stageColumns.map((stage, stageIdx) => {
+      const stageName = stage.name;
+      const stageId = String(stage.id);
+      const sNameLower = stageName.toLowerCase().trim();
+      const sIdLower = stageId.toLowerCase().trim();
 
-    const stageRecords = records.filter(r => {
-      if (!r) return false;
-      const recVal = getValString(
-        r[groupByFieldId] !== undefined ? r[groupByFieldId] : (r.type || r.status || r.stage || r.pipeline_stage || r.department || r.role)
-      );
-      const rLower = recVal.toLowerCase().trim();
+      const stageRecords = (records || []).filter(r => {
+        if (!r) return false;
+        const recVal = getValString(
+          r[groupByFieldId] !== undefined ? r[groupByFieldId] : (r.type || r.status || r.stage || r.pipeline_stage || r.department || r.role)
+        );
+        const rLower = recVal.toLowerCase().trim();
 
-      const exactMatch = (
-        rLower === sNameLower ||
-        rLower === sIdLower ||
-        (sNameLower.includes('gazetted') && rLower.includes('gazetted')) ||
-        (sNameLower.includes('restricted') && rLower.includes('restricted'))
-      );
-      if (exactMatch) return true;
+        const exactMatch = (
+          rLower === sNameLower ||
+          rLower === sIdLower ||
+          (sNameLower.includes('gazetted') && rLower.includes('gazetted')) ||
+          (sNameLower.includes('restricted') && rLower.includes('restricted'))
+        );
+        if (exactMatch) return true;
 
-      // Smart semantic matching for CRM Sales Pipelines
-      const isLeadMatch = (rLower.includes('lead') || rLower === 'new' || rLower === 'contacted') && (sNameLower.includes('lead') || sIdLower === 'lead' || sNameLower.includes('new'));
-      if (isLeadMatch) return true;
+        // Smart semantic matching for CRM Sales Pipelines
+        const isLeadMatch = (rLower.includes('lead') || rLower === 'new' || rLower === 'contacted') && (sNameLower.includes('lead') || sIdLower === 'lead' || sNameLower.includes('new'));
+        if (isLeadMatch) return true;
 
-      const isProposalMatch = (rLower.includes('proposal') || rLower.includes('sent')) && (sNameLower.includes('proposal') || sIdLower === 'proposal');
-      if (isProposalMatch) return true;
+        const isProposalMatch = (rLower.includes('proposal') || rLower.includes('sent')) && (sNameLower.includes('proposal') || sIdLower === 'proposal');
+        if (isProposalMatch) return true;
 
-      const isNegotiationMatch = (rLower.includes('negotiat') || rLower.includes('discuss')) && (sNameLower.includes('negotiat') || sIdLower === 'negotiation');
-      if (isNegotiationMatch) return true;
+        const isNegotiationMatch = (rLower.includes('negotiat') || rLower.includes('discuss')) && (sNameLower.includes('negotiat') || sIdLower === 'negotiation');
+        if (isNegotiationMatch) return true;
 
-      const isWonMatch = (rLower.includes('won') || rLower.includes('closed won') || rLower.includes('closed_won')) && (sNameLower.includes('won') || sIdLower === 'won');
-      if (isWonMatch) return true;
+        const isWonMatch = (rLower.includes('won') || rLower.includes('closed won') || rLower.includes('closed_won')) && (sNameLower.includes('won') || sIdLower === 'won');
+        if (isWonMatch) return true;
 
-      const isLostMatch = (rLower.includes('lost') || rLower.includes('closed lost') || rLower.includes('closed_lost')) && (sNameLower.includes('lost') || sIdLower === 'lost');
-      if (isLostMatch) return true;
+        const isLostMatch = (rLower.includes('lost') || rLower.includes('closed lost') || rLower.includes('closed_lost')) && (sNameLower.includes('lost') || sIdLower === 'lost');
+        if (isLostMatch) return true;
 
-      // Fallback: If record has an unmapped stage and this is the first column, display it here so it never gets hidden
-      if (stageIdx === 0) {
-        const matchesAnyOther = stageColumns.slice(1).some(otherStage => {
-          const oName = String(otherStage.name).toLowerCase().trim();
-          const oId = String(otherStage.id).toLowerCase().trim();
-          return rLower === oName || rLower === oId || (rLower.includes('proposal') && oName.includes('proposal')) || (rLower.includes('won') && oName.includes('won')) || (rLower.includes('lost') && oName.includes('lost'));
-        });
-        if (!matchesAnyOther) return true;
-      }
+        // Fallback: If record has an unmapped stage and this is the first column, display it here so it never gets hidden
+        if (stageIdx === 0) {
+          const matchesAnyOther = stageColumns.slice(1).some(otherStage => {
+            const oName = String(otherStage.name).toLowerCase().trim();
+            const oId = String(otherStage.id).toLowerCase().trim();
+            return rLower === oName || rLower === oId || (rLower.includes('proposal') && oName.includes('proposal')) || (rLower.includes('won') && oName.includes('won')) || (rLower.includes('lost') && oName.includes('lost'));
+          });
+          if (!matchesAnyOther) return true;
+        }
 
-      return false;
+        return false;
+      });
+
+      return {
+        id: stageId || stageName,
+        name: stageName,
+        emoji: stage.emoji || '📋',
+        color: stage.color || '#0d9488',
+        list: stageRecords
+      };
     });
-
-    return {
-      id: stageId || stageName,
-      name: stageName,
-      emoji: stage.emoji || '📋',
-      color: stage.color || '#0d9488',
-      list: stageRecords
-    };
-  });
+  }, [stageColumns, records, groupByFieldId]);
 
   return (
     <div className="kanban-engine-outer-wrapper" style={{ width: '100%', overflow: 'visible' }}>

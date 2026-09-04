@@ -3,7 +3,7 @@
  * Master Page Shell Composing All 15 Master Engines for Any EMS Module
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import LayoutToolbar from './LayoutToolbar';
 import WidgetEngine from '../WidgetEngine/WidgetEngine';
 import ViewEngine from '../ViewEngine/ViewEngine';
@@ -206,31 +206,37 @@ export default function LayoutEngine({
     });
   }
 
-  const activeModuleRecords = (initialModuleRecords || []).filter(r => !!r);
+  const activeModuleRecords = useMemo(() => {
+    return (initialModuleRecords || []).filter(r => !!r);
+  }, [initialModuleRecords]);
 
-  // 1. FILTERING ENGINE PIPELINE
-  const searchMatchedRecords = SearchEngine.search(activeModuleRecords, searchQuery, moduleConfig);
-  const filteredRecords = FilterEngine.filterRecords(searchMatchedRecords, filterValues, moduleConfig);
+  // 1. FILTERING ENGINE PIPELINE (Memoized)
+  const filteredRecords = useMemo(() => {
+    const searchMatched = SearchEngine.search(activeModuleRecords, searchQuery, moduleConfig);
+    return FilterEngine.filterRecords(searchMatched, filterValues, moduleConfig);
+  }, [activeModuleRecords, searchQuery, filterValues, moduleConfig]);
 
-  // 2. SORTING ENGINE PIPELINE
-  const sortedRecords = [...(filteredRecords || []).filter(r => !!r)].sort((a, b) => {
-    if (!a || !b) return 0;
-    let valA = a[sortKey];
-    let valB = b[sortKey];
+  // 2. SORTING ENGINE PIPELINE (Memoized)
+  const sortedRecords = useMemo(() => {
+    return [...(filteredRecords || []).filter(r => !!r)].sort((a, b) => {
+      if (!a || !b) return 0;
+      let valA = a[sortKey];
+      let valB = b[sortKey];
 
-    if (sortKey === 'createdAt') {
-      valA = new Date(a?.createdAt || 0).getTime();
-      valB = new Date(b?.createdAt || 0).getTime();
-      return sortDir === 'asc' ? valA - valB : valB - valA;
-    }
+      if (sortKey === 'createdAt') {
+        valA = new Date(a?.createdAt || 0).getTime();
+        valB = new Date(b?.createdAt || 0).getTime();
+        return sortDir === 'asc' ? valA - valB : valB - valA;
+      }
 
-    valA = getValString(valA).toLowerCase();
-    valB = getValString(valB).toLowerCase();
+      valA = getValString(valA).toLowerCase();
+      valB = getValString(valB).toLowerCase();
 
-    if (valA < valB) return sortDir === 'asc' ? -1 : 1;
-    if (valA > valB) return sortDir === 'asc' ? 1 : -1;
-    return 0;
-  });
+      if (valA < valB) return sortDir === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredRecords, sortKey, sortDir]);
 
   const isFilterActive = FilterEngine.isFilterActive(filterValues) || Boolean(searchQuery.trim());
 
@@ -288,7 +294,12 @@ export default function LayoutEngine({
         customHeaderActions={customHeaderActions}
       />
 
-      {/* B. KPI SUMMARY STRIP WIDGETS (REMOVED FROM DIRECTORY — KEPT ON DASHBOARD) */}
+      {/* B. KPI SUMMARY STRIP WIDGETS */}
+      <WidgetEngine
+        moduleConfig={moduleConfig}
+        records={activeModuleRecords}
+        activePipelineStages={activePipelineStages}
+      />
 
       {/* C. ACTIVE FILTER CHIPS BAR */}
       <ActiveFilterChips

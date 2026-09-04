@@ -32,7 +32,24 @@ export class SummaryEngine {
       return safeRecords.length;
     }
 
-    // 2. SEMANTIC METRIC (e.g. INTERVIEW, OFFER, HIRED, WON, LOST)
+    // 2. FILTER COUNT BY FIELD / VALUE (e.g. ghlContactId, source: 'WhatsApp Inbound')
+    if (widget.metricType === 'FILTER_COUNT') {
+      if (widget.filterValue) {
+        const targetVal = String(widget.filterValue).toLowerCase();
+        return safeRecords.filter(r => {
+          if (!r) return false;
+          const fieldVal = String(r[widget.filterField] || '').toLowerCase();
+          return fieldVal === targetVal || fieldVal.includes(targetVal);
+        }).length;
+      } else if (widget.filterField) {
+        return safeRecords.filter(r => {
+          if (!r) return false;
+          return Boolean(r[widget.filterField]);
+        }).length;
+      }
+    }
+
+    // 3. SEMANTIC METRIC (e.g. INTERVIEW, OFFER, HIRED, WON, LOST)
     if (widget.metricType === 'SEMANTIC' && widget.semanticGroup) {
       const targetSemantic = String(widget.semanticGroup).toLowerCase();
 
@@ -53,13 +70,13 @@ export class SummaryEngine {
       }).length;
     }
 
-    // 3. STAGE COUNT BY NAME
+    // 4. STAGE COUNT BY NAME
     if (widget.metricType === 'STAGE_COUNT' && widget.stageName) {
       const targetStage = String(widget.stageName).toLowerCase();
       return safeRecords.filter(r => {
         if (!r) return false;
         const recStatus = getValString(r.status || r.stage).toLowerCase();
-        return recStatus === targetStage;
+        return recStatus === targetStage || recStatus.includes(targetStage) || targetStage.includes(recStatus);
       }).length;
     }
 

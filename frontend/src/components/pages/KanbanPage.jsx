@@ -19,25 +19,45 @@ export default function KanbanPage({
   onManageStages = () => {},
   onOpenChatWithLead = null
 }) {
-  const companyId = authUser?.companyId || authUser?.tenantId || 'default_tenant';
+  const companyId = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 'org_default';
   const { config } = useModuleRegistry(companyId, 'crm_deals');
-  const [deals, setDeals] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = `omniflow_kanban_deals_${companyId}`;
+  
+  const [deals, setDeals] = useState(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem(cacheKey) || localStorage.getItem(cacheKey);
+        if (cached) return JSON.parse(cached);
+      }
+    } catch (e) {}
+    return [];
+  });
+  const [loading, setLoading] = useState(false);
 
   // Load & subscribe to tenant-isolated CRM deals strictly from Firestore in real-time
   useEffect(() => {
-    setLoading(true);
     const unsubscribe = FirebaseCloudEngine.subscribeToCollection('crm_deals', companyId, (records) => {
-      setDeals(Array.isArray(records) ? records : []);
+      const list = Array.isArray(records) ? records : [];
+      setDeals(list);
       setLoading(false);
+      try {
+        if (typeof window !== 'undefined' && list.length > 0) {
+          sessionStorage.setItem(cacheKey, JSON.stringify(list));
+        }
+      } catch (e) {}
     });
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
     };
-  }, [companyId]);
+  }, [companyId, cacheKey]);
 
   const handleUpdateDeals = (newRecords) => {
     setDeals(newRecords);
+    try {
+      if (typeof window !== 'undefined' && Array.isArray(newRecords)) {
+        sessionStorage.setItem(cacheKey, JSON.stringify(newRecords));
+      }
+    } catch (e) {}
   };
 
   return (

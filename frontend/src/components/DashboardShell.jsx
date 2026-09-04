@@ -8,6 +8,8 @@ import DataTable from './DataTable';
 const CompanyOverviewView = lazy(() => import('./dashboard/CompanyOverviewView'));
 const TaskAnalyticsView = lazy(() => import('./dashboard/TaskAnalyticsView'));
 const EmployeesPage = lazy(() => import('./pages/EmployeesPage'));
+const ContactsPage = lazy(() => import('./pages/ContactsPage'));
+const ConversationsPage = lazy(() => import('./pages/ConversationsPage'));
 const RecruitmentPage = lazy(() => import('./pages/RecruitmentPage'));
 const ModuleConfigCenter = lazy(() => import('./config/ModuleConfigCenter'));
 const TelecallingView = lazy(() => import('./telecalling/TelecallingView'));
@@ -1650,7 +1652,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [kycDocuments, setKycDocuments] = useState([]);
   const [offboardingCases, setOffboardingCases] = useState([]);
   const [sessions, setSessions] = useState([]);
-  const [contacts, setContacts] = useState([]);
+  const [contacts, setContacts] = useState(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = localStorage.getItem('omniflow_cached_contacts');
+        return cached ? JSON.parse(cached) : [];
+      }
+    } catch (e) {}
+    return [];
+  });
   const [activeContact, setActiveContact] = useState(null);
   const [messages, setMessages] = useState([]);
   const [messagesOffset, setMessagesOffset] = useState(0);
@@ -5237,15 +5247,18 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data)) {
-          setContacts(data);
+        const incoming = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
+        if (incoming.length > 0) {
+          setContacts(incoming);
+          try {
+            localStorage.setItem('omniflow_cached_contacts', JSON.stringify(incoming.slice(0, 1000)));
+          } catch (e) {}
           return;
         }
       }
     } catch (err) {
       console.warn('REST API contacts fetch warning:', err);
     }
-    setContacts([]);
   };
   const fetchMessages = async (contactId, append = false) => {
     if (!contactId) return;
@@ -6212,8 +6225,24 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </AccordionCategory>
           )}
           {/* CATEGORY: CRM & SALES */}
-            {(canNav('wa_live_web') || canNav('kanban') || canNav('telecalling')) && (
+            {(canNav('conversations') || canNav('contacts') || canNav('wa_live_web') || canNav('kanban') || canNav('telecalling')) && (
               <AccordionCategory id="crm_sales" label={t('crmCat') || "CRM & SALES"} icon={MessageSquare} isExpanded={!!expandedCategories.crm_sales} onToggle={toggleCategory}>
+              {canNav('conversations') && (
+                <div className={`nav-item ${activeTab === 'conversations' ? 'active' : ''}`} onClick={() => setActiveTab('conversations')}>
+                  <MessageSquare size={15} style={{ color: "#14d2cb" }} />
+                  <span style={{ fontSize: "13px", fontWeight: activeTab === "conversations" ? "700" : "500", color: activeTab === "conversations" ? "#ffffff" : "#14d2cb" }}>
+                    Conversations
+                  </span>
+                </div>
+              )}
+              {canNav('contacts') && (
+                <div className={`nav-item ${activeTab === 'contacts' ? 'active' : ''}`} onClick={() => setActiveTab('contacts')}>
+                  <Users size={15} style={{ color: "#14d2cb" }} />
+                  <span style={{ fontSize: "13px", fontWeight: activeTab === "contacts" ? "700" : "500", color: activeTab === "contacts" ? "#ffffff" : "#14d2cb" }}>
+                    {t('contactsHub') || 'Contacts & Leads'}
+                  </span>
+                </div>
+              )}
               {canNav('wa_live_web') && (
                   <div className={`nav-item ${activeTab === 'wa_live_web' ? 'active' : ''}`} onClick={() => setActiveTab('wa_live_web')}>
                     <MessageSquare size={15} style={{ color: "#14d2cb" }} />
@@ -6935,6 +6964,40 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         
         {/* Voxbay Phone & Web Dialer */}
         
+        {/* Unified Conversations & Omni-Timeline Hub */}
+        {activeTab === 'conversations' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Conversations...</div>}>
+            <ConversationsPage
+              authUser={authUser}
+              contacts={contacts}
+              sessions={sessions}
+              activePipelineStages={stages}
+              showToast={showToast}
+            />
+          </Suspense>
+        )}
+
+        {/* CRM Contacts & Leads (GHL 2-Way Sync) */}
+        {activeTab === 'contacts' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Contacts & Leads...</div>}>
+            <ContactsPage
+              authUser={authUser}
+              contacts={contacts}
+              setContacts={setContacts}
+              showToast={showToast}
+              recycleBinItems={recycleBinItems}
+              handleRestoreBinItem={handleRestoreBinItem}
+              handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+              softDeleteRecord={softDeleteRecord}
+              openModuleConfigModal={handleOpenModuleConfig}
+              systemDropdowns={systemDropdowns}
+              activePipelineStages={stages}
+              onManageStages={() => setSelectedDropdownCategory('crm_stages')}
+              onOpenChatWithLead={handleOpenChatWithLead}
+            />
+          </Suspense>
+        )}
+
         {/* Telecalling & AI Voice Hub */}
         {activeTab === 'telecalling' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Telecalling...</div>}>

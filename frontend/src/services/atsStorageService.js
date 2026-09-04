@@ -32,28 +32,29 @@ export function formatCustomSequencePattern(pattern = 'ATS-001', seqNumber = 1) 
 }
 
 export function formatCandidateId(id, idx = 0, moduleConfig = null) {
+  const modId = moduleConfig?.moduleId || '';
+  const defaultPrefix = modId === 'contacts' ? 'CON' : (modId === 'employees' ? 'EMP' : (modId === 'crm_deals' ? 'DEAL' : (modId === 'telecalling' ? 'CALL' : 'ATS')));
+  const defaultPattern = `${defaultPrefix}-0001`;
+
   const idCfg = moduleConfig?.idConfig || {
-    prefix: 'ATS',
-    pattern: 'ATS-001',
+    prefix: defaultPrefix,
+    pattern: defaultPattern,
     nextSeq: 1
   };
 
-  const pattern = idCfg.pattern || `${idCfg.prefix || 'ATS'}-001`;
+  const pattern = idCfg.pattern || `${idCfg.prefix || defaultPrefix}-0001`;
 
   if (!id) return formatCustomSequencePattern(pattern, idx + 1);
-  const strId = String(id).trim();
 
-  // Preserve existing formatted string IDs (e.g. ATS-001, CAND/2026/001)
-  if (strId.startsWith('ATS') || strId.startsWith('CAND') || strId.includes('/') || strId.includes('.')) {
-    return strId;
+  // Strip WhatsApp domain extensions (@s.whatsapp.net, @g.us, etc.)
+  const strId = String(id).replace(/@s\.whatsapp\.net|@c\.us|@g\.us|@broadcast/gi, '').trim();
+
+  // Preserve existing properly formatted sequence IDs (e.g. CON-0001, ATS-001, EMP-0001)
+  if (/^[A-Za-z]{2,6}-\d{3,6}$/.test(strId)) {
+    return strId.toUpperCase();
   }
 
-  // Normalize raw numeric/timestamp IDs into custom pattern
-  const digits = strId.replace(/[^0-9]/g, '');
-  if (digits) {
-    const num = parseInt(digits.slice(-3), 10) || (idx + 1);
-    return formatCustomSequencePattern(pattern, num);
-  }
+  // Default to deterministic unique sequential ID (e.g. CON-0001, CON-0002)
   return formatCustomSequencePattern(pattern, idx + 1);
 }
 
@@ -98,8 +99,8 @@ export function getNextSequentialId(companyId, moduleId = 'recruitment_ats', mod
   const tenantKey = companyId ? String(companyId).replace(/[^a-zA-Z0-9_-]/g, '_') : 'default';
   
   const idCfg = moduleConfig?.idConfig || loadAtsModuleConfig(companyId)?.idConfig || {
-    prefix: moduleId === 'employees' ? 'EMP' : (moduleId === 'crm_leads' ? 'LEAD' : 'ATS'),
-    pattern: moduleId === 'employees' ? 'EMP-0001' : (moduleId === 'crm_leads' ? 'LEAD-0001' : 'ATS-001'),
+    prefix: moduleId === 'employees' ? 'EMP' : (moduleId === 'crm_leads' ? 'LEAD' : (moduleId === 'contacts' ? 'CON' : 'ATS')),
+    pattern: moduleId === 'employees' ? 'EMP-0001' : (moduleId === 'crm_leads' ? 'LEAD-0001' : (moduleId === 'contacts' ? 'CON-0001' : 'ATS-001')),
     nextSeq: 1
   };
 

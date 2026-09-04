@@ -13,7 +13,8 @@ export default function WidgetEngine({
   records = [],
   activePipelineStages = []
 }) {
-  const enabledWidgets = (moduleConfig.summaryWidgets || [])
+  const rawWidgets = moduleConfig.summaryWidgets || moduleConfig.defaultSummaryWidgets || [];
+  const enabledWidgets = (Array.isArray(rawWidgets) ? rawWidgets : [])
     .filter(w => w.enabled !== false)
     .sort((a, b) => (a.order || 0) - (b.order || 0));
 

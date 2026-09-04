@@ -234,37 +234,42 @@ export default function SchemaFieldRenderer({
     } else if (field.type === 'audio' || field.id === 'recording' || field.key === 'recording' || field.id === 'audioUrl' || field.key === 'audioUrl') {
       displayVal = <UniversalAudioPlayer src={valStr} />;
     } else if ((field.type === 'phone' || field.id === 'phone' || field.key === 'phone') && valStr && valStr !== '—') {
-      const contactLabel = 'Customer';
-      displayVal = (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{valStr}</span>
-          <button
-            type="button"
-            title="📞 Call Contact"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (window.openGlobalDialer) {
-                window.openGlobalDialer(valStr, contactLabel, true);
-              }
-            }}
-            style={{
-              padding: '3px 6px',
-              borderRadius: '6px',
-              background: 'rgba(16, 185, 129, 0.15)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              color: '#059669',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '11px',
-              lineHeight: 1
-            }}
-          >
-            📞
-          </button>
-        </span>
-      );
+      const isInvalidPhone = valStr.toLowerCase().startsWith('ghl_') || /[a-zA-Z]/.test(valStr) || valStr.replace(/\D/g, '').length < 7;
+      if (isInvalidPhone) {
+        displayVal = '—';
+      } else {
+        const contactLabel = 'Customer';
+        displayVal = (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{valStr}</span>
+            <button
+              type="button"
+              title="📞 Call Contact"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (window.openGlobalDialer) {
+                  window.openGlobalDialer(valStr, contactLabel, true);
+                }
+              }}
+              style={{
+                padding: '3px 6px',
+                borderRadius: '6px',
+                background: 'rgba(16, 185, 129, 0.15)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                color: '#059669',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '11px',
+                lineHeight: 1
+              }}
+            >
+              📞
+            </button>
+          </span>
+        );
+      }
     } else if (field.type === 'url' && valStr) {
       displayVal = (
         <a href={valStr.startsWith('http') ? valStr : `https://${valStr}`} target="_blank" rel="noreferrer" style={{ color: '#0d9488', textDecoration: 'underline' }}>

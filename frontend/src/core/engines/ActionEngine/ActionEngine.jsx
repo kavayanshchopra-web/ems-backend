@@ -58,11 +58,39 @@ export default function ActionEngine({
       tenantId: activeTenantId
     };
 
-    const isCrmModule = moduleConfig.moduleId === 'crm_deals' || moduleConfig.moduleId === 'crm_leads' || moduleConfig.moduleId === 'crm';
+    const isCrmModule = moduleConfig.moduleId === 'crm_deals' || moduleConfig.moduleId === 'crm_leads' || moduleConfig.moduleId === 'crm' || moduleConfig.moduleId === 'contacts';
     const API_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
       ? 'http://localhost:5000/api'
       : 'https://api.employeemanagementsystems.com/api';
     const token = typeof window !== 'undefined' ? localStorage.getItem('omnilflow_token') : null;
+
+    // Strict Duplicate Prevention on Phone Number & Gmail ID for Contacts/CRM
+    if (isCrmModule) {
+      const cleanPhoneDigits = (normalizedData.phone || '').replace(/\D/g, '');
+      const normPhone10 = cleanPhoneDigits.length >= 7 ? cleanPhoneDigits.slice(-10) : '';
+      const cleanEmail = (normalizedData.email || '').toLowerCase().trim();
+
+      const existingDup = (records || []).find(r => {
+        if (!r) return false;
+        if (showEditModal && selectedRecord && r.id === selectedRecord.id) return false;
+
+        const rPhoneDigits = String(r.phone || r.phoneNumber || r.id || '').replace(/\D/g, '');
+        const rNormPhone10 = rPhoneDigits.length >= 7 ? rPhoneDigits.slice(-10) : '';
+        const rEmail = String(r.email || '').toLowerCase().trim();
+
+        const phoneMatch = normPhone10 && rNormPhone10 && normPhone10 === rNormPhone10;
+        const emailMatch = cleanEmail && rEmail && cleanEmail === rEmail;
+        return phoneMatch || emailMatch;
+      });
+
+      if (existingDup && !showEditModal) {
+        const dupName = existingDup.name || existingDup.contactName || existingDup.customerName || existingDup.phone || 'Existing Contact';
+        if (showToast) {
+          showToast(`⚠️ Duplicate Blocked: A contact with this Phone or Email already exists ("${dupName}")`, 'error');
+        }
+        return; // Prevent duplicate insertion
+      }
+    }
 
     if (showEditModal && selectedRecord && selectedRecord.id) {
       // EDIT WORKFLOW
@@ -121,11 +149,11 @@ export default function ActionEngine({
       showToast(`Updated ${entityName.toLowerCase()} "${normalizedData.name || selectedRecord.id}"`, 'success');
       setShowEditModal(false);
     } else {
-      // CREATE WORKFLOW WITH SEQUENTIAL IDs (e.g. EMP-001, ATS-001)
+      // CREATE WORKFLOW WITH SEQUENTIAL IDs (e.g. CON-0001, EMP-0001, ATS-001)
       const cleanPhone = (normalizedData.phone || '').replace(/[^0-9]/g, '');
-      const nextSeqId = isCrmModule && cleanPhone 
+      const nextSeqId = (isCrmModule && moduleConfig.moduleId !== 'contacts' && cleanPhone) 
         ? `${cleanPhone}@s.whatsapp.net` 
-        : getNextSequentialId(activeTenantId, moduleConfig.moduleId || 'recruitment_ats', moduleConfig, records);
+        : getNextSequentialId(activeTenantId, moduleConfig.moduleId || 'contacts', moduleConfig, records);
 
       const newRec = {
         id: nextSeqId,

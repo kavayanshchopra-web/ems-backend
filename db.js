@@ -701,7 +701,12 @@ export async function initDb() {
     `CREATE INDEX IF NOT EXISTS idx_ghl_links_lookup ON ghl_entity_links(location_id, entity_type, ghl_entity_id)`,
     `CREATE INDEX IF NOT EXISTS idx_ghl_sync_logs_tenant ON ghl_sync_logs(tenant_id, created_at)`,
     `CREATE INDEX IF NOT EXISTS idx_ghl_sync_logs_idempotency ON ghl_sync_logs(idempotency_key)`,
-    `CREATE INDEX IF NOT EXISTS idx_ghl_oauth_states_token ON ghl_oauth_states(state_token)`
+    `CREATE INDEX IF NOT EXISTS idx_ghl_oauth_states_token ON ghl_oauth_states(state_token)`,
+    `CREATE INDEX IF NOT EXISTS idx_messages_tenant_contact_ts ON messages(tenant_id, contact_id, timestamp DESC)`,
+    `CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(tenant_id, contact_id, from_me, is_read)`,
+    `CREATE INDEX IF NOT EXISTS idx_contacts_tenant_id ON contacts(tenant_id, id)`,
+    `CREATE INDEX IF NOT EXISTS idx_call_logs_tenant_ts ON call_logs(tenant_id, timestamp DESC)`,
+    `CREATE INDEX IF NOT EXISTS idx_call_logs_phone ON call_logs(customer_phone)`
   ];
 
   for (const idx of ghlIndexes) {
@@ -1091,20 +1096,27 @@ export async function getRecentChats(tenantId = 1) {
            m.timestamp as lastMessageTime,
            m.from_me as last_message_from_me,
            m.media_type as last_message_media_type,
-           (SELECT COUNT(*) FROM messages m3 WHERE m3.contact_id = c.id AND m3.from_me = 0 AND m3.is_read = 0 AND m3.tenant_id = ?) as unread_count
+           COALESCE(u.unread_count, 0) as unread_count
     FROM contacts c
     LEFT JOIN (
-      SELECT m1.*
+      SELECT m1.contact_id, m1.text_content, m1.timestamp, m1.from_me, m1.media_type
       FROM messages m1
       INNER JOIN (
         SELECT contact_id, MAX(timestamp) as max_ts, MAX(id) as max_id
         FROM messages WHERE tenant_id = ?
         GROUP BY contact_id
       ) m2 ON m1.contact_id = m2.contact_id AND m1.timestamp = m2.max_ts AND m1.id = m2.max_id
-    ) m ON (c.id = m.contact_id OR m.contact_id LIKE '%' || REPLACE(c.id, '@s.whatsapp.net', '') || '%')
+      WHERE m1.tenant_id = ?
+    ) m ON c.id = m.contact_id
+    LEFT JOIN (
+      SELECT contact_id, COUNT(*) as unread_count
+      FROM messages
+      WHERE tenant_id = ? AND from_me = 0 AND is_read = 0
+      GROUP BY contact_id
+    ) u ON c.id = u.contact_id
     WHERE c.tenant_id = ? AND c.id != '0@s.whatsapp.net' AND c.id NOT LIKE '%@lid'
     ORDER BY (CASE WHEN m.timestamp IS NOT NULL THEN 1 ELSE 0 END) DESC, COALESCE(m.timestamp, 0) DESC, c.name ASC
-  `, [tenantId, tenantId, tenantId]);
+  `, [tenantId, tenantId, tenantId, tenantId]);
   
   return chats.map(c => {
     try {
