@@ -29,7 +29,9 @@ export default function TelecallingView({
   const [internalLogs, setInternalLogs] = useState([]);
   const activeProvider = localStorage.getItem('active_telephony_provider') || 'sim_runo';
 
-  // 1. Direct Real-Time Multi-Collection Firestore Listener for Companion App & Web
+  const [crmContactMap, setCrmContactMap] = useState(new Map());
+
+  // 1. Direct Real-Time Multi-Collection Firestore Listener for Companion App & Web + CRM Contact Auto-Lookup
   useEffect(() => {
     let unsubs = [];
 
@@ -44,6 +46,29 @@ export default function TelecallingView({
           const timeB = Number(b._createdAt || b.createdAt || (b.timestamp ? new Date(b.timestamp).getTime() : 0)) || 0;
           return timeB - timeA;
         });
+      });
+    };
+
+    // Helper to register phone numbers into CRM contact map
+    const registerContacts = (contactDocs) => {
+      if (!Array.isArray(contactDocs) || contactDocs.length === 0) return;
+      setCrmContactMap(prevMap => {
+        const newMap = new Map(prevMap);
+        contactDocs.forEach(c => {
+          const name = c.name || c.fullName || c.contactName || c.leadName || c.customerName || c.title;
+          const phoneCandidates = [c.phone, c.phoneNumber, c.mobile, c.customerPhone, c.phone_number, c.contactPhone];
+          if (name && typeof name === 'string' && name.trim()) {
+            phoneCandidates.forEach(p => {
+              if (p) {
+                const cleanDigits = String(p).replace(/\D/g, '');
+                if (cleanDigits.length >= 7) {
+                  newMap.set(cleanDigits.slice(-10), name.trim());
+                }
+              }
+            });
+          }
+        });
+        return newMap;
       });
     };
 
@@ -64,18 +89,49 @@ export default function TelecallingView({
           mergeRecords(docs);
         }, (err) => console.warn('[Telecalling] call_logs listener notice:', err));
         unsubs.push(unsub2);
+
+        // C. Real-Time Listeners for CRM Contacts & Deals to Auto-Resolve Lead Names
+        const qContacts = collection(db, 'contacts');
+        const unsubContacts = onSnapshot(qContacts, (snapshot) => {
+          const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          registerContacts(docs);
+        }, () => {});
+        unsubs.push(unsubContacts);
+
+        const qDeals = collection(db, 'crm_deals');
+        const unsubDeals = onSnapshot(qDeals, (snapshot) => {
+          const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          registerContacts(docs);
+        }, () => {});
+        unsubs.push(unsubDeals);
+
+        const qLeads = collection(db, 'crm_leads');
+        const unsubLeads = onSnapshot(qLeads, (snapshot) => {
+          const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          registerContacts(docs);
+        }, () => {});
+        unsubs.push(unsubLeads);
       }
     } catch (e) {
       console.warn('[Telecalling] Firestore subscription error:', e);
     }
 
-    // C. Initial Fetch from Backend SQLite API
+    // D. Initial Fetch from Backend SQLite API
     fetch('/api/telecalling/logs')
       .then(res => res.json())
       .then(data => {
         if (data?.logs && Array.isArray(data.logs)) {
           mergeRecords(data.logs);
         }
+      })
+      .catch(() => {});
+
+    // E. Initial Fetch for Backend Contacts
+    fetch('/api/contacts')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data?.contacts)) registerContacts(data.contacts);
+        else if (Array.isArray(data)) registerContacts(data);
       })
       .catch(() => {});
 
@@ -86,7 +142,7 @@ export default function TelecallingView({
     };
   }, []);
 
-  // Format and merge all sources (parent props + internal live state)
+  // Format and merge all sources (parent props + internal live state + CRM contact resolution)
   const activeRecords = useMemo(() => {
     const combined = new Map();
     
@@ -116,12 +172,31 @@ export default function TelecallingView({
         formattedDur = log.duration;
       }
 
-      const custName = log.customerName || log.contactName || log.name || log.customerPhone || log.phoneNumber || log.phone || 'Customer';
       const custPhone = log.customerPhone || log.phoneNumber || log.phone || '—';
+      const rawName = String(log.customerName || log.contactName || log.name || '').trim();
+      const cleanPhoneDigits = String(custPhone).replace(/\D/g, '');
+      const normPhone10 = cleanPhoneDigits.length >= 7 ? cleanPhoneDigits.slice(-10) : '';
+
+      // Check if current name is just a raw phone number
+      const isNameJustPhone = !rawName || 
+        rawName.replace(/[\s\+\-\(\)]/g, '') === cleanPhoneDigits || 
+        /^\+?\d{7,15}$/.test(rawName.replace(/[\s\-]/g, '')) ||
+        rawName.toLowerCase() === 'customer' ||
+        rawName.toLowerCase() === 'call log';
+
+      let resolvedCustomerName = rawName;
+      if (isNameJustPhone && normPhone10 && crmContactMap.has(normPhone10)) {
+        // Matched in CRM Leads / Contacts!
+        resolvedCustomerName = crmContactMap.get(normPhone10);
+      } else if (isNameJustPhone) {
+        // Fallback to phone number if no contact match found
+        resolvedCustomerName = custPhone !== '—' ? custPhone : 'Customer';
+      }
 
       return {
         id: log.id || `CALL-${String(index + 1).padStart(4, '0')}`,
-        name: custName,
+        name: resolvedCustomerName,
+        customerName: resolvedCustomerName,
         agentName: log.agentName || authUser?.name || 'Mobile Agent',
         phone: custPhone,
         channel: log.channel || (activeProvider === 'voxbay' ? 'VOXBAY' : 'SIM'),
@@ -138,7 +213,7 @@ export default function TelecallingView({
       const timeB = Number(b._createdAt || 0);
       return timeB - timeA;
     });
-  }, [callLogs, internalLogs, authUser, activeProvider]);
+  }, [callLogs, internalLogs, crmContactMap, authUser, activeProvider]);
 
   const handleUpdateRecords = (newRecords) => {
     setInternalLogs(newRecords);
