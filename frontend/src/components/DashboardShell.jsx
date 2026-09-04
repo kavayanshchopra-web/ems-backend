@@ -6225,44 +6225,42 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </AccordionCategory>
           )}
           {/* CATEGORY: CRM & SALES */}
-            {(canNav('conversations') || canNav('contacts') || canNav('wa_live_web') || canNav('kanban') || canNav('telecalling')) && (
+            {(canNav('contacts') || canNav('conversations') || canNav('wa_live_web') || canNav('kanban') || canNav('telecalling')) && (
               <AccordionCategory id="crm_sales" label={t('crmCat') || "CRM & SALES"} icon={MessageSquare} isExpanded={!!expandedCategories.crm_sales} onToggle={toggleCategory}>
+              {canNav('contacts') && (
+                <div className={`nav-item ${activeTab === 'contacts' ? 'active' : ''}`} onClick={() => setActiveTab('contacts')}>
+                  <Users size={15} />
+                  <span style={{ fontSize: "13px" }}>
+                    Contacts
+                  </span>
+                </div>
+              )}
               {canNav('conversations') && (
                 <div className={`nav-item ${activeTab === 'conversations' ? 'active' : ''}`} onClick={() => setActiveTab('conversations')}>
-                  <MessageSquare size={15} style={{ color: "#14d2cb" }} />
-                  <span style={{ fontSize: "13px", fontWeight: activeTab === "conversations" ? "700" : "500", color: activeTab === "conversations" ? "#ffffff" : "#14d2cb" }}>
+                  <MessageSquare size={15} />
+                  <span style={{ fontSize: "13px" }}>
                     Conversations
                   </span>
                 </div>
               )}
-              {canNav('contacts') && (
-                <div className={`nav-item ${activeTab === 'contacts' ? 'active' : ''}`} onClick={() => setActiveTab('contacts')}>
-                  <Users size={15} style={{ color: "#14d2cb" }} />
-                  <span style={{ fontSize: "13px", fontWeight: activeTab === "contacts" ? "700" : "500", color: activeTab === "contacts" ? "#ffffff" : "#14d2cb" }}>
-                    {t('contactsHub') || 'Contacts & Leads'}
+              {canNav('wa_live_web') && (
+                <div className={`nav-item ${activeTab === 'wa_live_web' ? 'active' : ''}`} onClick={() => setActiveTab('wa_live_web')}>
+                  <MessageSquare size={15} />
+                  <span style={{ fontSize: "13px" }}>
+                    WhatsApp
                   </span>
                 </div>
               )}
-              {canNav('wa_live_web') && (
-                  <div className={`nav-item ${activeTab === 'wa_live_web' ? 'active' : ''}`} onClick={() => setActiveTab('wa_live_web')}>
-                    <MessageSquare size={15} style={{ color: "#14d2cb" }} />
-                    <span style={{ fontSize: "13px", fontWeight: activeTab === "wa_live_web" ? "700" : "500", color: activeTab === "wa_live_web" ? "#ffffff" : "#14d2cb" }}>
-                      WhatsApp
-                    </span>
-                  </div>
-                )}
-              
-              
               {canNav('kanban') && (
                 <div className={`nav-item ${activeTab === 'kanban' ? 'active' : ''}`} onClick={() => setActiveTab('kanban')}>
                   <Layers size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('crmPipeline')}</span>
+                  <span style={{ fontSize: '13px' }}>CRM</span>
                 </div>
               )}
               {canNav('telecalling') && (
                 <div className={`nav-item ${activeTab === 'telecalling' ? 'active' : ''}`} onClick={() => setActiveTab('telecalling')}>
                   <PhoneCall size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('callRecordings')}</span>
+                  <span style={{ fontSize: '13px' }}>Phone System</span>
                 </div>
               )}
             </AccordionCategory>
@@ -6488,7 +6486,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           {/* Desktop Page Title (Aligned equal from left with content cards) */}
           <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '0px', marginRight: '20px', flexShrink: 0 }}>
             <span style={{ fontSize: '14px', fontWeight: '800', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                 {activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' '))}
+                 {activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' '))))}
             </span>
           </div>
           <div className="header-actions-group">

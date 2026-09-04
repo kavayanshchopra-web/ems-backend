@@ -627,17 +627,25 @@ export default function MobilePreviewSimulatorOverlay({
                       {/* CRM & SALES */}
                       {AccordionCategory && (
                         <AccordionCategory id="crm_sales" label="CRM & SALES">
-                          <div className={`nav-item ${activeTab === 'channels' ? 'active' : ''}`} onClick={() => { setActiveTab('channels'); setMobileSidebarOpen(false); }}>
+                          <div className={`nav-item ${activeTab === 'contacts' ? 'active' : ''}`} onClick={() => { setActiveTab('contacts'); setMobileSidebarOpen(false); }}>
+                            <span style={{ fontSize: '14px' }}>👥</span>
+                            <span style={{ fontSize: '13px' }}>Contacts</span>
+                          </div>
+                          <div className={`nav-item ${activeTab === 'conversations' ? 'active' : ''}`} onClick={() => { setActiveTab('conversations'); setMobileSidebarOpen(false); }}>
+                            <span style={{ fontSize: '14px' }}>💬</span>
+                            <span style={{ fontSize: '13px' }}>Conversations</span>
+                          </div>
+                          <div className={`nav-item ${activeTab === 'wa_live_web' ? 'active' : ''}`} onClick={() => { setActiveTab('wa_live_web'); setMobileSidebarOpen(false); }}>
                             <Smartphone size={15} />
-                            <span style={{ fontSize: '13px' }}>WA Channels</span>
+                            <span style={{ fontSize: '13px' }}>WhatsApp</span>
                           </div>
                           <div className={`nav-item ${activeTab === 'kanban' ? 'active' : ''}`} onClick={() => { setActiveTab('kanban'); setMobileSidebarOpen(false); }}>
                             <Layers size={15} />
-                            <span style={{ fontSize: '13px' }}>CRM Pipeline</span>
+                            <span style={{ fontSize: '13px' }}>CRM</span>
                           </div>
                           <div className={`nav-item ${activeTab === 'telecalling' ? 'active' : ''}`} onClick={() => { setActiveTab('telecalling'); setMobileSidebarOpen(false); }}>
                             <span style={{ fontSize: '14px' }}>📞</span>
-                            <span style={{ fontSize: '13px' }}>Call Recordings & SIM Sync</span>
+                            <span style={{ fontSize: '13px' }}>Phone System</span>
                           </div>
                         </AccordionCategory>
                       )}

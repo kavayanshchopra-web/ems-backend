@@ -97,10 +97,11 @@ class PermissionEngineService {
       { id: 'expenses', label: 'Expenses Claim', icon: '🧾', category: 'PAYROLL & FINANCE' },
 
       // CRM & SALES
-      { id: 'channels', label: 'WA Channels', icon: '📱', category: 'CRM & SALES' },
-      { id: 'wa_live_web', label: 'Staff WhatsApp Live', icon: '💻', category: 'CRM & SALES' },
-      { id: 'kanban', label: 'CRM Pipeline Board', icon: '📈', category: 'CRM & SALES' },
-      { id: 'telecalling', label: 'Call Recordings & SIM Sync', icon: '📞', category: 'CRM & SALES' },
+      { id: 'contacts', label: 'Contacts', icon: '👥', category: 'CRM & SALES' },
+      { id: 'conversations', label: 'Conversations', icon: '💬', category: 'CRM & SALES' },
+      { id: 'wa_live_web', label: 'WhatsApp', icon: '💻', category: 'CRM & SALES' },
+      { id: 'kanban', label: 'CRM', icon: '📈', category: 'CRM & SALES' },
+      { id: 'telecalling', label: 'Phone System', icon: '📞', category: 'CRM & SALES' },
 
       // OPERATIONS
       { id: 'tasks', label: 'Tasks Board', icon: '📋', category: 'OPERATIONS' },

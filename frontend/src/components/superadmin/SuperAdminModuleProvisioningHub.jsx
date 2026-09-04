@@ -49,10 +49,11 @@ export default function SuperAdminModuleProvisioningHub({
       { id: 'expenses', label: 'Expenses Claim', icon: '🧾', category: 'PAYROLL & FINANCE', desc: 'Travel & daily expense reimbursements with receipt upload and approval.' },
 
       // CRM & SALES
-      { id: 'channels', label: 'WA Channels', icon: '📱', category: 'CRM & SALES', desc: 'Multi-device WhatsApp QR code bridge and session connectivity.' },
-      { id: 'wa_live_web', label: 'Staff WhatsApp Live', icon: '💻', category: 'CRM & SALES', desc: 'Embedded WhatsApp Web interface for direct customer conversations.' },
-      { id: 'kanban', label: 'CRM Pipeline Board', icon: '📈', category: 'CRM & SALES', desc: 'Drag-and-drop sales lead stages, deal values, and customer notes.' },
-      { id: 'telecalling', label: 'Call Recordings & SIM Sync', icon: '📞', category: 'CRM & SALES', desc: 'Telecalling call logs, audio playback, dispositions, and SIM bridge.' },
+      { id: 'contacts', label: 'Contacts', icon: '👥', category: 'CRM & SALES', desc: 'Contact directory, leads, and duplicate restrictions.' },
+      { id: 'conversations', label: 'Conversations', icon: '💬', category: 'CRM & SALES', desc: 'Unified communications feed, WhatsApp chats, and call recordings.' },
+      { id: 'wa_live_web', label: 'WhatsApp', icon: '💻', category: 'CRM & SALES', desc: 'Embedded WhatsApp Web interface for direct customer conversations.' },
+      { id: 'kanban', label: 'CRM', icon: '📈', category: 'CRM & SALES', desc: 'Drag-and-drop sales lead stages, deal values, and customer notes.' },
+      { id: 'telecalling', label: 'Phone System', icon: '📞', category: 'CRM & SALES', desc: 'Telecalling call logs, audio playback, dispositions, and SIM bridge.' },
 
       // OPERATIONS
       { id: 'tasks', label: 'Tasks Board', icon: '📋', category: 'OPERATIONS', desc: 'Team task delegation, priorities, due dates, and completion status.' },
