@@ -648,6 +648,11 @@ export default function ConversationsPage({
         ? activeContact.phone 
         : (activeContact.rawPhone || activeContact.id || '');
 
+      const norm10 = activeContact.normPhone10 || (String(resolvedPhone).replace(/\D/g, '').slice(-10));
+      const contactCallLogs = norm10 && callLogsByPhoneMap && callLogsByPhoneMap.has(norm10)
+        ? callLogsByPhoneMap.get(norm10)
+        : (Array.isArray(allCallLogs) ? allCallLogs : []);
+
       const payload = {
         contact: {
           ...activeContact,
@@ -656,7 +661,7 @@ export default function ConversationsPage({
           name: activeContact.name || activeContact.custom_name || 'Contact'
         },
         messages: Array.isArray(activeMessages) ? activeMessages : [],
-        callLogs: Array.isArray(matchedCalls) && matchedCalls.length > 0 ? matchedCalls : (Array.isArray(allCallLogs) ? allCallLogs : [])
+        callLogs: Array.isArray(contactCallLogs) ? contactCallLogs : []
       };
 
       const res = await fetch(`${API_URL}/v1/integrations/ghl/conversations/sync`, {
