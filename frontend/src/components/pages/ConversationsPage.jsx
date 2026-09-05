@@ -91,8 +91,8 @@ function TimelineAudioPlayer({ src, duration = 0 }) {
 
   if (!src) {
     return (
-      <div style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', padding: '4px 0' }}>
-        No audio recording available for this call
+      <div style={{ fontSize: '10px', color: '#94a3b8', fontStyle: 'italic', padding: '2px 0' }}>
+        No audio recording available
       </div>
     );
   }
@@ -101,13 +101,14 @@ function TimelineAudioPlayer({ src, duration = 0 }) {
     <div style={{
       display: 'flex',
       alignItems: 'center',
-      gap: '8px',
-      background: 'rgba(15, 23, 42, 0.04)',
-      padding: '6px 10px',
-      borderRadius: '8px',
-      border: '1px solid rgba(226, 232, 240, 0.8)',
-      marginTop: '6px',
-      maxWidth: '360px'
+      gap: '6px',
+      background: 'rgba(15, 23, 42, 0.03)',
+      padding: '4px 8px',
+      borderRadius: '6px',
+      border: '1px solid rgba(226, 232, 240, 0.7)',
+      marginTop: '4px',
+      width: '100%',
+      maxWidth: '340px'
     }}>
       <audio
         ref={audioRef}
@@ -121,8 +122,8 @@ function TimelineAudioPlayer({ src, duration = 0 }) {
         type="button"
         onClick={togglePlay}
         style={{
-          width: '28px',
-          height: '28px',
+          width: '22px',
+          height: '22px',
           borderRadius: '50%',
           background: isPlaying ? '#0d9488' : '#2563eb',
           color: '#ffffff',
@@ -132,14 +133,14 @@ function TimelineAudioPlayer({ src, duration = 0 }) {
           justifyContent: 'center',
           cursor: 'pointer',
           flexShrink: 0,
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
         }}
         title={isPlaying ? 'Pause Recording' : 'Play Recording'}
       >
-        {isPlaying ? <Pause size={13} /> : <Play size={13} style={{ marginLeft: '2px' }} />}
+        {isPlaying ? <Pause size={10} /> : <Play size={10} style={{ marginLeft: '1px' }} />}
       </button>
 
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: '2px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: '1px' }}>
         <input
           type="range"
           min="0"
@@ -148,12 +149,12 @@ function TimelineAudioPlayer({ src, duration = 0 }) {
           onChange={handleSeek}
           style={{
             width: '100%',
-            height: '4px',
+            height: '3px',
             accentColor: '#0d9488',
             cursor: 'pointer'
           }}
         />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#64748b', fontWeight: '600' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#64748b', fontWeight: '600', lineHeight: 1 }}>
           <span>{formatTime(currentTime)}</span>
           <span>{formatTime(totalDuration || duration)}</span>
         </div>
@@ -164,10 +165,10 @@ function TimelineAudioPlayer({ src, duration = 0 }) {
         download="call-recording.wav"
         target="_blank"
         rel="noreferrer"
-        style={{ color: '#64748b', padding: '4px', display: 'flex', alignItems: 'center' }}
+        style={{ color: '#64748b', padding: '2px', display: 'flex', alignItems: 'center' }}
         title="Download Audio"
       >
-        <Download size={13} />
+        <Download size={11} />
       </a>
     </div>
   );
@@ -635,31 +636,45 @@ export default function ConversationsPage({
     }
   };
 
-  // 8b. Handle Sync Calls to GoHighLevel
+  // 8b. Handle Sync Conversation & Calls to GoHighLevel
   const [isSyncingGhl, setIsSyncingGhl] = useState(false);
-  const handleSyncCallsToGhl = async () => {
-    if (isSyncingGhl) return;
+  const handleSyncConversationToGhl = async () => {
+    if (isSyncingGhl || !activeContact) return;
     setIsSyncingGhl(true);
-    if (showToast) showToast('🚀 Syncing call recordings to GoHighLevel...', 'info');
+    if (showToast) showToast('🚀 Syncing contact, conversation & calls to GoHighLevel...', 'info');
 
     try {
-      const logsToSend = Array.isArray(allCallLogs) && allCallLogs.length > 0 ? allCallLogs : [];
-      const res = await fetch(`${API_URL}/v1/integrations/ghl/calls/sync-all`, {
+      const resolvedPhone = (activeContact.phone && activeContact.phone !== '—') 
+        ? activeContact.phone 
+        : (activeContact.rawPhone || activeContact.id || '');
+
+      const payload = {
+        contact: {
+          ...activeContact,
+          phone: resolvedPhone,
+          phoneNumber: resolvedPhone,
+          name: activeContact.name || activeContact.custom_name || 'Contact'
+        },
+        messages: Array.isArray(activeMessages) ? activeMessages : [],
+        callLogs: Array.isArray(matchedCalls) && matchedCalls.length > 0 ? matchedCalls : (Array.isArray(allCallLogs) ? allCallLogs : [])
+      };
+
+      const res = await fetch(`${API_URL}/v1/integrations/ghl/conversations/sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
-        body: JSON.stringify({ callLogs: logsToSend })
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (data && data.success) {
-        if (showToast) showToast(`✅ Synchronized ${data.synced || logsToSend.length} call recordings to GoHighLevel!`, 'success');
+        if (showToast) showToast(`✅ Synced to GoHighLevel! (${data.messagesSynced || 0} msgs, ${data.callsSynced || 0} calls)`, 'success');
       } else {
-        if (showToast) showToast(data?.error || 'GHL sync completed with notices', 'info');
+        if (showToast) showToast(data?.error || 'GHL sync completed', 'info');
       }
     } catch (err) {
-      console.warn('[GHL Call Sync Error]', err);
+      console.warn('[GHL Sync Error]', err);
       if (showToast) showToast(`ℹ️ GHL Sync Notice: ${err.message}`, 'info');
     } finally {
       setIsSyncingGhl(false);
@@ -911,6 +926,30 @@ export default function ConversationsPage({
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <button
                   type="button"
+                  onClick={handleSyncConversationToGhl}
+                  disabled={isSyncingGhl}
+                  title="Sync contact profile, messages, and calls to GoHighLevel"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '7px 12px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
+                    border: '1px solid #047857',
+                    color: '#ffffff',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: isSyncingGhl ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 2px 4px rgba(13, 148, 136, 0.25)'
+                  }}
+                >
+                  <RefreshCw size={13} className={isSyncingGhl ? 'animate-spin' : ''} style={{ animation: isSyncingGhl ? 'spin 1s linear infinite' : 'none' }} />
+                  <span>{isSyncingGhl ? 'Syncing to GHL...' : 'Sync to HighLevel'}</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={handleTriggerCall}
                   style={{
                     display: 'flex',
@@ -979,9 +1018,9 @@ export default function ConversationsPage({
                 )}
                 <button
                   type="button"
-                  onClick={handleSyncCallsToGhl}
+                  onClick={handleSyncConversationToGhl}
                   disabled={isSyncingGhl}
-                  title="Synchronize all call recordings to GoHighLevel timeline"
+                  title="Synchronize conversation, contact & call recordings to GoHighLevel timeline"
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -997,7 +1036,7 @@ export default function ConversationsPage({
                   }}
                 >
                   <RefreshCw size={11} className={isSyncingGhl ? 'animate-spin' : ''} style={{ animation: isSyncingGhl ? 'spin 1s linear infinite' : 'none' }} />
-                  <span>{isSyncingGhl ? 'Syncing...' : 'Sync Calls to GHL'}</span>
+                  <span>{isSyncingGhl ? 'Syncing...' : 'Sync to GHL'}</span>
                 </button>
               </div>
             </div>
@@ -1006,10 +1045,10 @@ export default function ConversationsPage({
             <div style={{
               flex: 1,
               overflowY: 'auto',
-              padding: '20px',
+              padding: '12px 18px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '12px'
+              gap: '6px'
             }}>
               {isLoadingMessages ? (
                 <div style={{ textAlign: 'center', padding: '40px', color: '#64748b', fontSize: '12px' }}>
@@ -1028,7 +1067,7 @@ export default function ConversationsPage({
                   const itemDate = new Date(item.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 
                   // ==========================================
-                  // RENDER 1: CALL RECORD TIMELINE CARD
+                  // RENDER 1: CALL RECORD TIMELINE CARD (Compact & Sleek)
                   // ==========================================
                   if (item.type === 'call') {
                     const isOutbound = item.callType === 'OUTGOING';
@@ -1041,45 +1080,45 @@ export default function ConversationsPage({
                         style={{
                           alignSelf: 'center',
                           width: '100%',
-                          maxWidth: '520px',
+                          maxWidth: '430px',
                           background: isMissed ? '#fff1f2' : '#ffffff',
                           border: isMissed ? '1px solid #fecdd3' : '1px solid #e2e8f0',
-                          borderRadius: '12px',
-                          padding: '12px 16px',
-                          boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
-                          margin: '4px 0'
+                          borderRadius: '10px',
+                          padding: '7px 12px',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                          margin: '2px 0'
                         }}
                       >
                         {/* Call Card Header */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                             <div style={{
-                              width: '28px',
-                              height: '28px',
-                              borderRadius: '6px',
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '5px',
                               background: isMissed ? '#fee2e2' : (isOutbound ? '#eff6ff' : '#ecfdf5'),
                               color: isMissed ? '#e11d48' : (isOutbound ? '#2563eb' : '#059669'),
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center'
                             }}>
-                              {isMissed ? <PhoneMissed size={14} /> : (isOutbound ? <PhoneOutgoing size={14} /> : <PhoneIncoming size={14} />)}
+                              {isMissed ? <PhoneMissed size={12} /> : (isOutbound ? <PhoneOutgoing size={12} /> : <PhoneIncoming size={12} />)}
                             </div>
                             <div>
-                              <div style={{ fontSize: '12.5px', fontWeight: '800', color: isMissed ? '#e11d48' : '#0f172a' }}>
+                              <div style={{ fontSize: '11.5px', fontWeight: '800', color: isMissed ? '#e11d48' : '#0f172a', lineHeight: 1.2 }}>
                                 {isMissed ? 'Missed Call' : (isOutbound ? 'Outbound Call' : 'Inbound Call')}
                               </div>
-                              <div style={{ fontSize: '10.5px', color: '#64748b' }}>
-                                Handled by <b>{item.agentName}</b> via {item.channel === 'VOXBAY' ? '🌐 Voxbay Cloud' : '📱 SIM Companion'}
+                              <div style={{ fontSize: '9.5px', color: '#64748b', marginTop: '1px' }}>
+                                Handled by <b>{item.agentName}</b> via {item.channel === 'VOXBAY' ? '🌐 Voxbay' : '📱 SIM Companion'}
                               </div>
                             </div>
                           </div>
 
                           <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: '11px', fontWeight: '700', color: '#334155' }}>
+                            <div style={{ fontSize: '10.5px', fontWeight: '700', color: '#334155', lineHeight: 1.2 }}>
                               ⏱️ {durationStr}
                             </div>
-                            <div style={{ fontSize: '10px', color: '#94a3b8' }}>
+                            <div style={{ fontSize: '9px', color: '#94a3b8', marginTop: '1px' }}>
                               {itemDate} • {itemTime}
                             </div>
                           </div>
@@ -1089,8 +1128,8 @@ export default function ConversationsPage({
                         {item.recordingUrl ? (
                           <TimelineAudioPlayer src={item.recordingUrl} duration={item.durationSeconds} />
                         ) : (
-                          <div style={{ fontSize: '10.5px', color: '#94a3b8', fontStyle: 'italic', marginTop: '4px' }}>
-                            {isMissed ? 'Call was not answered' : 'Audio recording processed / no file attached'}
+                          <div style={{ fontSize: '9.5px', color: '#94a3b8', fontStyle: 'italic', marginTop: '2px' }}>
+                            {isMissed ? 'Call was not answered' : 'Audio recording processed'}
                           </div>
                         )}
                       </div>
