@@ -27,23 +27,25 @@ export default function LiveWhatsAppWebPage({
 }) {
   const activeTenant = String(authUser?.tenantId || authUser?.companyId || (typeof window !== 'undefined' && window.__omniflow_tenant) || 'default_tenant');
 
-  // Load saved custom staff list from tenant-scoped storage
+  // Load saved custom staff list from tenant-scoped storage with legacy fallback
   const [customStaffList, setCustomStaffList] = useState(() => {
     try {
-      const saved = localStorage.getItem(`omniflow_custom_staff_${activeTenant}`);
+      const saved = localStorage.getItem(`omniflow_custom_staff_${activeTenant}`) || localStorage.getItem('omniflow_custom_staff_accounts');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
-    return [];
+    return [
+      { id: 'primary', name: 'Primary Account', phone: 'Scan QR to connect', status: 'idle' }
+    ];
   });
 
   const [selectedStaffId, setSelectedStaffId] = useState(() => {
-    return localStorage.getItem(`omniflow_selected_staff_id_${activeTenant}`) || '';
+    return localStorage.getItem(`omniflow_selected_staff_id_${activeTenant}`) || localStorage.getItem('omniflow_selected_staff_id') || 'primary';
   });
 
   // Track live unread message counts per staff account
   const [unreadCounts, setUnreadCounts] = useState(() => {
     try {
-      const saved = localStorage.getItem(`omniflow_staff_unreads_${activeTenant}`);
+      const saved = localStorage.getItem(`omniflow_staff_unreads_${activeTenant}`) || localStorage.getItem('omniflow_staff_unreads');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
     return {};
@@ -103,8 +105,9 @@ export default function LiveWhatsAppWebPage({
 
     // Register global bridge for ConversationsPage to send via this active webview
     window.__omniflow_send_whatsapp_message = async ({ phone, text }) => {
-      const cleanPhone = String(phone || '').replace(/\D/g, '');
-      if (!cleanPhone || !text) return { success: false, error: 'Phone and text required' };
+      const cleanDigits = String(phone || '').replace(/\D/g, '');
+      if (!cleanDigits || !text) return { success: false, error: 'Phone and text required' };
+      const intlNumber = cleanDigits.length === 10 ? (`91${cleanDigits}`) : cleanDigits;
 
       const targetWebview = iframeRef.current;
       if (!targetWebview) {
@@ -116,27 +119,98 @@ export default function LiveWhatsAppWebPage({
           const script = `
             (function() {
               try {
-                const targetNumber = "${cleanPhone}";
+                const targetNumber = "${intlNumber}";
                 const textMsg = ${JSON.stringify(text)};
                 const targetUrl = 'https://web.whatsapp.com/send?phone=' + targetNumber + '&text=' + encodeURIComponent(textMsg);
-                
-                const sendBtn = document.querySelector('button[aria-label="Send"], span[data-icon="send"], button span[data-icon="send"]');
-                if (sendBtn) {
-                  sendBtn.click();
-                  return { success: true, method: 'direct_click' };
+
+                function attemptSend() {
+                  // 1. Try finding Send button and click it
+                  const sendBtn = document.querySelector('button[aria-label="Send"], button[data-testid="compose-btn-send"], span[data-icon="send"], span[data-icon="send-light"], button span[data-icon="send"], footer button:has(span[data-icon="send"]), footer button:last-child');
+                  if (sendBtn) {
+                    const actualBtn = sendBtn.tagName === 'BUTTON' ? sendBtn : (sendBtn.closest('button') || sendBtn);
+                    ['pointerdown', 'mousedown', 'focus', 'pointerup', 'mouseup', 'click'].forEach(evtType => {
+                      actualBtn.dispatchEvent(new MouseEvent(evtType, { bubbles: true, cancelable: true, view: window }));
+                    });
+                    return true;
+                  }
+
+                  // 2. Dispatch Enter keys on active contenteditable input
+                  const textBox = document.querySelector('footer div[contenteditable="true"], div[role="textbox"][contenteditable="true"], div[data-testid="conversation-compose-box-input"]');
+                  if (textBox && textBox.innerText.trim().length > 0) {
+                    textBox.focus();
+                    ['keydown', 'keypress', 'keyup'].forEach(kType => {
+                      textBox.dispatchEvent(new KeyboardEvent(kType, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
+                    });
+                    return true;
+                  }
+                  return false;
                 }
 
+                // Check if current open chat matches targetNumber
+                let currentChatPhone = '';
+                try {
+                  const mainEl = document.querySelector('#main') || document.querySelector('header');
+                  if (mainEl) {
+                    const fiberKey = Object.keys(mainEl).find(k => k.startsWith('__reactFiber$') || k.startsWith('__reactInternalInstance$'));
+                    if (fiberKey) {
+                      let curr = mainEl[fiberKey];
+                      let depth = 0;
+                      while (curr && depth < 35) {
+                        const chat = curr.memoizedProps?.chat || curr.memoizedProps?.conversation;
+                        if (chat && chat.id?._serialized) {
+                          currentChatPhone = String(chat.id._serialized).split('@')[0].replace(/\\D/g, '');
+                          break;
+                        }
+                        curr = curr.return;
+                        depth++;
+                      }
+                    }
+                  }
+                } catch (e) {}
+
+                const current10 = currentChatPhone ? currentChatPhone.slice(-10) : '';
+                const target10 = targetNumber.slice(-10);
+
+                // If already on the same chat, insert and send immediately
+                if (current10 && target10 && current10 === target10) {
+                  const currentInput = document.querySelector('footer div[contenteditable="true"], div[role="textbox"][contenteditable="true"]');
+                  if (currentInput) {
+                    currentInput.focus();
+                    document.execCommand('selectAll', false, null);
+                    document.execCommand('insertText', false, textMsg);
+                    currentInput.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true }));
+                    setTimeout(attemptSend, 100);
+                    return { success: true, method: 'immediate_chat_matched' };
+                  }
+                }
+
+                // Otherwise, navigate to send link
                 window.location.href = targetUrl;
-                return { success: true, method: 'navigated' };
+                return { success: true, method: 'navigated_to_send_url', targetNumber };
               } catch(err) {
                 return { success: false, error: err.message };
               }
             })()
           `;
           const res = await targetWebview.executeJavaScript(script);
+
+          // Webview native keystroke simulation sequence
+          let inputTries = 0;
+          const inputTimer = setInterval(() => {
+            inputTries++;
+            try {
+              if (targetWebview.sendInputEvent) {
+                targetWebview.sendInputEvent({ type: 'keyDown', keyCode: 'Return' });
+                targetWebview.sendInputEvent({ type: 'char', keyCode: '\r' });
+                targetWebview.sendInputEvent({ type: 'keyUp', keyCode: 'Return' });
+              }
+            } catch (e) {}
+            if (inputTries > 15) clearInterval(inputTimer);
+          }, 350);
+
           return { success: true, result: res };
         } else if (targetWebview.src) {
-          targetWebview.src = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`;
+          targetWebview.src = `https://web.whatsapp.com/send?phone=${intlNumber}&text=${encodeURIComponent(text)}`;
           return { success: true, method: 'src_nav' };
         }
       } catch (err) {
@@ -150,11 +224,264 @@ export default function LiveWhatsAppWebPage({
     };
   }, [selectedStaffId, frameKey]);
 
+  // Direct In-Webview Real-Time Continuous Bidirectional Sync Engine
+  useEffect(() => {
+    const webview = iframeRef.current;
+    if (!webview) return;
+
+    let syncInterval = null;
+
+    const runWebviewSync = async () => {
+      try {
+        if (!webview.executeJavaScript) return;
+
+        const currentActivePhone = activeContact ? String(activeContact.phone || activeContact.rawPhone || activeContact.phoneNumber || '').replace(/\D/g, '') : '';
+        const currentActiveName = activeContact?.name || '';
+
+        const extractScript = `
+          (function() {
+            try {
+              function parsePhoneFromJid(jid) {
+                if (!jid) return '';
+                return String(jid).split('@')[0].replace(/\\D/g, '');
+              }
+
+              // AUTO-SEND HANDLER: Strictly only runs during programmatic /send?phone= navigation
+              try {
+                const currentHref = window.location.href || '';
+                if (currentHref.includes('/send?phone=') || currentHref.includes('omniflow_auto=1')) {
+                  const sendBtn = document.querySelector('button[aria-label="Send"], button[data-testid="compose-btn-send"], span[data-icon="send"], span[data-icon="send-light"], button span[data-icon="send"], footer button:has(span[data-icon="send"])');
+                  if (sendBtn) {
+                    const actualBtn = sendBtn.tagName === 'BUTTON' ? sendBtn : (sendBtn.closest('button') || sendBtn);
+                    ['pointerdown', 'mousedown', 'focus', 'pointerup', 'mouseup', 'click'].forEach(evtType => {
+                      actualBtn.dispatchEvent(new MouseEvent(evtType, { bubbles: true, cancelable: true, view: window }));
+                    });
+                    try { window.history.replaceState({}, '', '/'); } catch(e) {}
+                  }
+                }
+              } catch (sendErr) {}
+
+              // 1. Multi-Strategy Phone Number & Chat Title Extractor
+              let phone = '';
+              let chatTitle = '';
+
+              // Strategy A: Scan data-id attributes of messages in #main for exact JID
+              const allDataIdEls = Array.from(document.querySelectorAll('#main *[data-id], *[data-id]'));
+              for (const el of allDataIdEls) {
+                const dId = el.getAttribute('data-id') || '';
+                const m = dId.match(/([0-9]{7,15})@(c\.us|s\.whatsapp\.net)/);
+                if (m && m[1]) {
+                  phone = m[1];
+                  break;
+                }
+              }
+
+              // Strategy B: Scan active chat item in left sidebar
+              if (!phone) {
+                const activeSideItem = document.querySelector('#pane-side div[aria-selected="true"], #pane-side div[role="listitem"]:has([aria-selected="true"]), #pane-side div[role="row"]:has([aria-selected="true"])');
+                if (activeSideItem) {
+                  const rawHtml = activeSideItem.outerHTML || '';
+                  const m = rawHtml.match(/([0-9]{7,15})@(c\.us|s\.whatsapp\.net)/);
+                  if (m && m[1]) phone = m[1];
+                }
+              }
+
+              // Strategy C: Multi-Root React Fiber Traversal
+              if (!phone || !chatTitle) {
+                try {
+                  const candidateEls = [
+                    document.querySelector('#main'),
+                    document.querySelector('#main header'),
+                    document.querySelector('#pane-side div[aria-selected="true"]'),
+                    document.querySelector('#main footer'),
+                    document.querySelector('#app')
+                  ].filter(Boolean);
+
+                  for (const el of candidateEls) {
+                    const fiberKey = Object.keys(el).find(k => k.startsWith('__reactFiber$') || k.startsWith('__reactInternalInstance$'));
+                    if (!fiberKey) continue;
+                    let curr = el[fiberKey];
+                    let d = 0;
+                    while (curr && d < 40) {
+                      const p = curr.memoizedProps;
+                      if (p) {
+                        const c = p.chat || p.conversation || p.contact || p.data?.chat;
+                        if (c) {
+                          if (!chatTitle) chatTitle = c.name || c.formattedTitle || c.title || '';
+                          if (!phone && c.id?._serialized) {
+                            const m = String(c.id._serialized).match(/([0-9]{7,15})@(c\.us|s\.whatsapp\.net)/);
+                            if (m && m[1]) phone = m[1];
+                          }
+                          if (!phone && c.contact?.phoneNumber) {
+                            phone = String(c.contact.phoneNumber).replace(/\\D/g, '');
+                          }
+                          if (!phone && c.id?.user) {
+                            const u = String(c.id.user).replace(/\\D/g, '');
+                            if (u.length >= 7) phone = u;
+                          }
+                        }
+                      }
+                      curr = curr.return;
+                      d++;
+                    }
+                    if (phone && chatTitle) break;
+                  }
+                } catch (fibErr) {}
+              }
+
+              // Strategy D: DOM Header Title and Subtitle Extraction
+              if (!chatTitle) {
+                const headerTitleEl = document.querySelector('#main header span[data-testid="conversation-info-header-chat-title"], #main header span[title], header span[title], header div[role="button"] span[title]');
+                chatTitle = headerTitleEl ? (headerTitleEl.getAttribute('title') || headerTitleEl.innerText || '').trim() : '';
+              }
+
+              if (!phone) {
+                const subtitleEl = document.querySelector('#main header span[title*="+"], header span[title*="+"], #main header div[data-testid="chat-subtitle"]');
+                if (subtitleEl) {
+                  const subDigits = String(subtitleEl.getAttribute('title') || subtitleEl.innerText || '').replace(/\\D/g, '');
+                  if (subDigits.length >= 7) phone = subDigits;
+                }
+              }
+
+              if (!phone && chatTitle) {
+                const titleDigits = chatTitle.replace(/\\D/g, '');
+                if (titleDigits.length >= 7) phone = titleDigits;
+              }
+
+              // Fallback to active CRM contact phone if this chat is open
+              if (!phone && "${currentActivePhone}") {
+                phone = "${currentActivePhone}";
+              }
+
+              // 2. Extract all visible messages in the active chat container (#main)
+              const container = document.querySelector('#main') || document;
+              const messageNodes = container.querySelectorAll('div.message-in, div.message-out, div[data-id], div[role="row"]');
+              const messages = [];
+
+              if (messageNodes && messageNodes.length > 0) {
+                messageNodes.forEach((node, idx) => {
+                  try {
+                    const dataId = node.getAttribute('data-id') || node.querySelector('*[data-id]')?.getAttribute('data-id') || '';
+                    const isOut = node.classList.contains('message-out') || Boolean(node.querySelector('.message-out')) || dataId.startsWith('true_');
+
+                    let text = '';
+                    const textSpan = node.querySelector('span.selectable-text, div.copyable-text, span._ao3e, span[dir="ltr"], span[dir="rtl"]');
+                    if (textSpan) {
+                      text = textSpan.innerText || textSpan.textContent || '';
+                    }
+                    if (!text) {
+                      const clone = node.cloneNode(true);
+                      const removeEls = clone.querySelectorAll('span[dir="auto"], svg, button');
+                      removeEls.forEach(el => el.remove());
+                      text = (clone.innerText || '').trim();
+                    }
+
+                    text = (text || '').trim();
+                    if (!text) return;
+
+                    let msgId = dataId;
+                    let msgPhone = phone;
+
+                    if (dataId) {
+                      const m = dataId.match(/([0-9]{7,15})@(c\.us|s\.whatsapp\.net)/);
+                      if (m && m[1]) {
+                        msgPhone = m[1];
+                      }
+                    }
+                    if (!msgId) {
+                      msgId = 'wa_' + (isOut ? 'out' : 'in') + '_' + text.substring(0, 20) + '_' + (node.offsetTop || idx);
+                    }
+
+                    let ts = Math.floor(Date.now() / 1000);
+                    const copyable = node.querySelector('div.copyable-text[data-pre-plain-text]');
+                    if (copyable) {
+                      const preText = copyable.getAttribute('data-pre-plain-text') || '';
+                      const matchTime = preText.match(/\\[(.*?)\\]/);
+                      if (matchTime && matchTime[1]) {
+                        const parsedDate = new Date(matchTime[1]);
+                        if (!isNaN(parsedDate.getTime())) {
+                          ts = Math.floor(parsedDate.getTime() / 1000);
+                        }
+                      }
+                    }
+
+                    messages.push({
+                      id: msgId,
+                      body: text,
+                      sender: chatTitle || msgPhone || "${currentActiveName}",
+                      phone: msgPhone || phone,
+                      fromMe: isOut,
+                      timestamp: ts
+                    });
+                  } catch (e) {}
+                });
+              }
+
+              return {
+                phone: phone,
+                sender: chatTitle || "${currentActiveName}",
+                messages: messages
+              };
+            } catch (err) {
+              return { error: err.message };
+            }
+          })()
+        `;
+
+        const result = await webview.executeJavaScript(extractScript);
+        if (result && Array.isArray(result.messages) && result.messages.length > 0) {
+          // Dispatch local custom event for zero-latency in-memory UI updates
+          if (typeof window !== 'undefined') {
+            try {
+              window.dispatchEvent(new CustomEvent('omniflow-wa-batch-sync', { detail: result }));
+            } catch (evErr) {}
+          }
+
+          const API_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+            ? 'http://localhost:5000/api'
+            : 'https://api.employeemanagementsystems.com/api';
+          const token = localStorage.getItem('token') || localStorage.getItem('omnilflow_token');
+
+          await fetch(`${API_URL}/messages/inbound-sync`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({
+              phone: result.phone,
+              sender: result.sender,
+              messages: result.messages,
+              tenantId: activeTenant
+            })
+          });
+        }
+      } catch (err) {}
+    };
+
+    const handleDomReady = () => {
+      if (syncInterval) clearInterval(syncInterval);
+      syncInterval = setInterval(runWebviewSync, 1500);
+      runWebviewSync();
+    };
+
+    webview.addEventListener('dom-ready', handleDomReady);
+    webview.addEventListener('did-finish-load', handleDomReady);
+
+    syncInterval = setInterval(runWebviewSync, 1500);
+
+    return () => {
+      if (syncInterval) clearInterval(syncInterval);
+      webview.removeEventListener('dom-ready', handleDomReady);
+      webview.removeEventListener('did-finish-load', handleDomReady);
+    };
+  }, [selectedStaffId, frameKey, activeTenant]);
+
   // Listen for native incoming WhatsApp Web messages and sync with database & GHL
   useEffect(() => {
     if (typeof window !== 'undefined' && window.electronAPI?.onIncomingWhatsAppMessage) {
       const unsub = window.electronAPI.onIncomingWhatsAppMessage(async (msgData) => {
-        const { sender, body, timestamp } = msgData || {};
+        const { sender, body, phone, timestamp, fromMe } = msgData || {};
         if (!body) return;
 
         try {
@@ -172,6 +499,8 @@ export default function LiveWhatsAppWebPage({
             body: JSON.stringify({
               sender,
               body,
+              phone,
+              fromMe,
               timestamp: Math.floor((timestamp || Date.now()) / 1000),
               tenantId: activeTenant
             })
@@ -203,6 +532,7 @@ export default function LiveWhatsAppWebPage({
 
   const handleSelectStaff = (id) => {
     setSelectedStaffId(id);
+    localStorage.setItem(`omniflow_selected_staff_id_${activeTenant}`, id);
     localStorage.setItem('omniflow_selected_staff_id', id);
     setFrameKey(Date.now());
     setIsDropdownOpen(false);
@@ -223,9 +553,11 @@ export default function LiveWhatsAppWebPage({
 
     const updated = [...customStaffList, newAccount];
     setCustomStaffList(updated);
+    localStorage.setItem(`omniflow_custom_staff_${activeTenant}`, JSON.stringify(updated));
     localStorage.setItem('omniflow_custom_staff_accounts', JSON.stringify(updated));
 
     setSelectedStaffId(newId);
+    localStorage.setItem(`omniflow_selected_staff_id_${activeTenant}`, newId);
     localStorage.setItem('omniflow_selected_staff_id', newId);
     setNewStaffName('');
     setIsAddingMode(false);
@@ -276,8 +608,8 @@ export default function LiveWhatsAppWebPage({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <a
-            href="/OmniFlow-CRM-Setup.exe" download="OmniFlow-CRM-Setup.exe"
-            download="OmniFlow-WhatsApp-CRM.exe"
+            href="/OmniFlow-CRM-Setup.exe"
+            download="OmniFlow-CRM-Setup.exe"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -296,7 +628,7 @@ export default function LiveWhatsAppWebPage({
             <span>📥 Download Desktop App (.exe)</span>
           </a>
           <a
-            href="/OmniFlow-CRM-Setup.exe" download="OmniFlow-CRM-Setup.exe"
+            href="/OmniFlow-CRM-Setup.exe"
             download="OmniFlow-WhatsApp-Desktop-Suite.zip"
             style={{
               display: 'inline-flex',

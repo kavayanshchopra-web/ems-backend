@@ -106,12 +106,35 @@ export class TimelineEngine {
       ...(Array.isArray(notes) ? notes : [])
     ];
 
-    // Deduplicate by ID
+    // Deduplicate by ID and content proximity
     const dedupMap = new Map();
+    const seenContentMap = new Map();
+
     combined.forEach(item => {
-      if (item && item.id) {
-        dedupMap.set(String(item.id), item);
+      if (!item) return;
+      const itemId = String(item.id || '');
+      if (itemId) {
+        if (dedupMap.has(itemId)) return;
       }
+
+      if (item.type === 'whatsapp' && item.content) {
+        const cleanContent = String(item.content).trim();
+        const fromMeKey = item.fromMe ? 'out' : 'in';
+        const contentKey = `${fromMeKey}_${cleanContent}`;
+        const itemTs = item.timestamp || 0;
+
+        if (seenContentMap.has(contentKey)) {
+          const prevTs = seenContentMap.get(contentKey);
+          if (Math.abs(itemTs - prevTs) < 8000) {
+            // Duplicate message within 8 seconds (e.g. optimistic + sync)
+            return;
+          }
+        }
+        seenContentMap.set(contentKey, itemTs);
+      }
+
+      const key = itemId || `item_${Math.random()}`;
+      dedupMap.set(key, item);
     });
 
     // Sort ascending by timestamp (oldest first for natural chat reading flow)

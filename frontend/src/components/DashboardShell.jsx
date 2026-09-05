@@ -5177,31 +5177,62 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
       // Global Electron Native WhatsApp Webview Inbound Sync
       let unsubElectron = null;
-      if (typeof window !== 'undefined' && window.electronAPI?.onIncomingWhatsAppMessage) {
-        unsubElectron = window.electronAPI.onIncomingWhatsAppMessage(async (msgData) => {
-          const { sender, body, timestamp } = msgData || {};
-          if (!body) return;
+      if (typeof window !== 'undefined') {
+        if (window.electronAPI?.onIncomingWhatsAppMessage) {
+          unsubElectron = window.electronAPI.onIncomingWhatsAppMessage(async (msgData) => {
+            const { sender, body, phone, timestamp, fromMe } = msgData || {};
+            if (!body) return;
 
-          try {
-            const token = localStorage.getItem('token') || localStorage.getItem('omnilflow_token');
-            await fetch(`${API_URL}/messages/inbound-sync`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-              },
-              body: JSON.stringify({
-                sender,
-                body,
-                timestamp: Math.floor((timestamp || Date.now()) / 1000),
-                tenantId: authUser?.tenantId || 1
-              })
-            });
-            fetchContacts();
-          } catch (err) {
-            console.warn('[Global WA Inbound Sync Error]', err);
-          }
-        });
+            try {
+              const token = localStorage.getItem('token') || localStorage.getItem('omnilflow_token');
+              await fetch(`${API_URL}/messages/inbound-sync`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({
+                  sender,
+                  body,
+                  phone,
+                  fromMe,
+                  timestamp: Math.floor((timestamp || Date.now()) / 1000),
+                  tenantId: authUser?.tenantId || 1
+                })
+              });
+              fetchContacts();
+            } catch (err) {
+              console.warn('[Global WA Inbound Sync Error]', err);
+            }
+          });
+        }
+
+        if (window.electronAPI?.onIncomingWhatsAppBatch) {
+          window.electronAPI.onIncomingWhatsAppBatch(async (batchData) => {
+            const { phone, sender, messages } = batchData || {};
+            if (!Array.isArray(messages) || messages.length === 0) return;
+
+            try {
+              const token = localStorage.getItem('token') || localStorage.getItem('omnilflow_token');
+              await fetch(`${API_URL}/messages/inbound-sync`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({
+                  phone,
+                  sender,
+                  messages,
+                  tenantId: authUser?.tenantId || 1
+                })
+              });
+              fetchContacts();
+            } catch (err) {
+              console.warn('[Global WA Batch Sync Error]', err);
+            }
+          });
+        }
       }
       socket.on('media_downloaded', (data) => {
         console.log('Background media downloaded:', data);
@@ -6986,11 +7017,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         )}
         {/* Unified Omnichannel Inbox & Staff WhatsApp Web Live Hub (Persistent Background Bridge) */}
         <div style={{
-          display: (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp') ? 'flex' : 'none',
+          display: 'flex',
           flex: 1,
           height: '100%',
           width: '100%',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          position: (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp') ? 'relative' : 'absolute',
+          left: (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp') ? '0' : '-99999px',
+          top: (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp') ? '0' : '0',
+          opacity: (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp') ? 1 : 0,
+          pointerEvents: (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp') ? 'auto' : 'none',
+          zIndex: (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp') ? 1 : -999
         }}>
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading WhatsApp Live Hub...</div>}>
             <LiveWhatsAppWebPage

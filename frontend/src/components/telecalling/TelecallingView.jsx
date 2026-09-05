@@ -129,7 +129,14 @@ export default function TelecallingView({
     }
 
     // C. Initial Fetch from Backend SQLite API
-    fetch('/api/telecalling/logs')
+    const API_BASE = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+      ? 'http://localhost:5000/api'
+      : '/api';
+    const authToken = typeof window !== 'undefined' ? (localStorage.getItem('omnilflow_token') || localStorage.getItem('token')) : null;
+
+    fetch(`${API_BASE}/telecalling/logs`, {
+      headers: { ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) }
+    })
       .then(res => res.json())
       .then(data => {
         if (data?.logs && Array.isArray(data.logs)) {
@@ -139,7 +146,9 @@ export default function TelecallingView({
       .catch(() => {});
 
     // D. Initial Fetch for Backend Contacts (Single Pass)
-    fetch('/api/contacts')
+    fetch(`${API_BASE}/contacts`, {
+      headers: { ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) }
+    })
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data?.contacts)) registerContacts(data.contacts);

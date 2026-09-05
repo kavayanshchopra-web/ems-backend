@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import io from 'socket.io-client';
 import { 
   MessageSquare, 
   Phone, 
@@ -419,6 +420,9 @@ export default function ConversationsPage({
     }
 
     const contactId = activeContact.id;
+    const cleanPhone = String(activeContact.phone || activeContact.rawPhone || activeContact.phoneNumber || activeContact.id || '').replace(/\D/g, '');
+    const norm10 = cleanPhone.length >= 7 ? cleanPhone.slice(-10) : '';
+
     const cached = messagesCacheRef.current.get(contactId);
     if (cached && cached.length > 0) {
       setActiveMessages(cached);
@@ -427,14 +431,36 @@ export default function ConversationsPage({
       setIsLoadingMessages(true);
     }
 
-    fetch(`${API_URL}/contacts/${encodeURIComponent(contactId)}/messages?limit=100`, {
+    const queryPhone = norm10 ? `91${norm10}` : cleanPhone;
+    fetch(`${API_URL}/contacts/${encodeURIComponent(contactId)}/messages?limit=200&phone=${encodeURIComponent(queryPhone)}`, {
       headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
     })
       .then(res => res.json())
       .then(data => {
         const msgs = Array.isArray(data?.messages) ? data.messages : (Array.isArray(data) ? data : []);
-        messagesCacheRef.current.set(contactId, msgs);
-        setActiveMessages(msgs);
+        setActiveMessages(prev => {
+          const map = new Map();
+          // First add server messages
+          msgs.forEach(m => {
+            const key = m.id || `${m.text_content || m.textContent}_${m.timestamp}`;
+            map.set(key, m);
+          });
+          // Then preserve any recent local/optimistic messages not yet returned by server
+          (prev || []).forEach(p => {
+            const key = p.id || `${p.text_content || p.textContent}_${p.timestamp}`;
+            const existsInServer = msgs.some(m => m.id === p.id || ((m.text_content === p.text_content || m.textContent === p.textContent) && Math.abs((m.timestamp || 0) - (p.timestamp || 0)) < 8));
+            if (!existsInServer) {
+              map.set(key, p);
+            }
+          });
+          const merged = Array.from(map.values()).sort((a, b) => {
+            const tA = (a.timestamp && a.timestamp < 10000000000) ? a.timestamp * 1000 : (a.timestamp || 0);
+            const tB = (b.timestamp && b.timestamp < 10000000000) ? b.timestamp * 1000 : (b.timestamp || 0);
+            return tA - tB;
+          });
+          messagesCacheRef.current.set(contactId, merged);
+          return merged;
+        });
         setIsLoadingMessages(false);
         setTimeout(() => {
           if (messagesEndRef.current) {
@@ -446,38 +472,171 @@ export default function ConversationsPage({
         console.warn('[ConversationsPage] Messages fetch error:', err);
         setIsLoadingMessages(false);
       });
-  }, [activeContact?.id, API_URL, token]);
+  }, [activeContact?.id, activeContact?.phone, activeContact?.rawPhone, API_URL, token]);
 
-  // Real-time Electron WhatsApp Webview Incoming Message Listener
+  // Real-time Electron WhatsApp Webview Incoming Message & Batch Sync Listener
   useEffect(() => {
-    let cleanup = null;
-    if (typeof window !== 'undefined' && window.electronAPI?.onIncomingWhatsAppMessage) {
-      cleanup = window.electronAPI.onIncomingWhatsAppMessage((msg) => {
-        if (!msg || !msg.body) return;
-        const incomingText = msg.body;
-        const senderName = msg.sender || '';
+    let cleanup1 = null;
+    let cleanup2 = null;
+
+    if (typeof window !== 'undefined') {
+      if (window.electronAPI?.onIncomingWhatsAppMessage) {
+        cleanup1 = window.electronAPI.onIncomingWhatsAppMessage((msg) => {
+          if (!msg || !msg.body) return;
+          const incomingText = msg.body;
+          const senderName = msg.sender || '';
+          const isFromMe = msg.fromMe === true || msg.fromMe === 1;
+
+          if (activeContact) {
+            const contactPhoneNorm = String(activeContact.phone || activeContact.rawPhone || activeContact.id || '').replace(/\D/g, '').slice(-10);
+            const senderNorm = String(msg.phone || senderName).replace(/\D/g, '').slice(-10);
+            const nameMatches = activeContact.name && senderName && activeContact.name.toLowerCase().includes(senderName.toLowerCase());
+
+            if ((senderNorm && contactPhoneNorm && senderNorm === contactPhoneNorm) || nameMatches || !senderNorm) {
+              const newMsgObj = {
+                id: msg.id || ('wa_' + (isFromMe ? 'out_' : 'in_') + Date.now()),
+                textContent: incomingText,
+                text_content: incomingText,
+                fromMe: isFromMe,
+                from_me: isFromMe ? 1 : 0,
+                timestamp: msg.timestamp || Math.floor(Date.now() / 1000),
+                contact_id: activeContact.id
+              };
+              setActiveMessages(prev => {
+                if (prev.some(m => m.id === newMsgObj.id || ((m.textContent === incomingText || m.text_content === incomingText) && Math.abs((m.timestamp || 0) - newMsgObj.timestamp) < 6))) {
+                  return prev;
+                }
+                const updated = [...prev, newMsgObj];
+                messagesCacheRef.current.set(activeContact.id, updated);
+                return updated;
+              });
+              setTimeout(() => {
+                if (messagesEndRef.current) {
+                  messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+                }
+              }, 80);
+            }
+          }
+        });
+      }
+
+      const handleBatchData = (batchData) => {
+        const { phone, sender, messages: batchMsgs } = batchData || {};
+        if (!Array.isArray(batchMsgs) || batchMsgs.length === 0 || !activeContact) return;
+
+        const contactPhoneNorm = String(activeContact.phone || activeContact.rawPhone || activeContact.id || '').replace(/\D/g, '').slice(-10);
+        const targetNorm = String(phone || sender || '').replace(/\D/g, '').slice(-10);
+        const nameMatches = activeContact.name && sender && (
+          activeContact.name.toLowerCase().includes(String(sender).toLowerCase()) ||
+          String(sender).toLowerCase().includes(activeContact.name.toLowerCase())
+        );
+
+        if ((targetNorm && contactPhoneNorm && targetNorm === contactPhoneNorm) || nameMatches) {
+          setActiveMessages(prev => {
+            const existingMap = new Map();
+            prev.forEach(m => existingMap.set(m.id || `${m.text_content || m.textContent}_${m.timestamp}`, m));
+
+            batchMsgs.forEach(b => {
+              const bText = (b.body || b.text || '').trim();
+              if (!bText) return;
+              const isFromMe = b.fromMe === true || b.fromMe === 1;
+              const key = b.id || `${bText}_${b.timestamp}`;
+              if (!existingMap.has(key)) {
+                existingMap.set(key, {
+                  id: b.id || `wa_sync_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                  textContent: bText,
+                  text_content: bText,
+                  fromMe: isFromMe,
+                  from_me: isFromMe ? 1 : 0,
+                  timestamp: b.timestamp || Math.floor(Date.now() / 1000),
+                  contact_id: activeContact.id
+                });
+              }
+            });
+
+            const sorted = Array.from(existingMap.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            messagesCacheRef.current.set(activeContact.id, sorted);
+            return sorted;
+          });
+
+          setTimeout(() => {
+            if (messagesEndRef.current) {
+              messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+            }
+          }, 100);
+        }
+      };
+
+      if (window.electronAPI?.onIncomingWhatsAppBatch) {
+        cleanup2 = window.electronAPI.onIncomingWhatsAppBatch(handleBatchData);
+      }
+
+      const handleCustomBatchEvent = (e) => {
+        if (e && e.detail) handleBatchData(e.detail);
+      };
+      window.addEventListener('omniflow-wa-batch-sync', handleCustomBatchEvent);
+
+      return () => {
+        if (typeof cleanup1 === 'function') cleanup1();
+        if (typeof cleanup2 === 'function') cleanup2();
+        window.removeEventListener('omniflow-wa-batch-sync', handleCustomBatchEvent);
+      };
+    }
+
+    return () => {
+      if (typeof cleanup1 === 'function') cleanup1();
+      if (typeof cleanup2 === 'function') cleanup2();
+    };
+  }, [activeContact]);
+
+  // Real-time Socket.IO Inbound & Outbound Sync Listener
+  useEffect(() => {
+    const SOCKET_BASE = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+      ? 'http://localhost:5000'
+      : 'https://api.employeemanagementsystems.com';
+
+    let socket = null;
+    try {
+      socket = io(SOCKET_BASE, {
+        query: { token: token || '' },
+        transports: ['websocket', 'polling']
+      });
+
+      socket.on('new_message', (msg) => {
+        if (!msg) return;
+        const msgText = msg.textContent || msg.text_content || msg.text || '';
+        const targetId = msg.contactId || msg.contact_id || msg.recipientJid || '';
+        const isFromMe = (msg.fromMe === 1 || msg.fromMe === true || msg.from_me === 1 || msg.from_me === true);
+        const msgTimestamp = msg.timestamp || Math.floor(Date.now() / 1000);
 
         if (activeContact) {
           const contactPhoneNorm = String(activeContact.phone || activeContact.rawPhone || activeContact.id || '').replace(/\D/g, '').slice(-10);
-          const senderNorm = String(senderName).replace(/\D/g, '').slice(-10);
-          const nameMatches = activeContact.name && senderName && activeContact.name.toLowerCase().includes(senderName.toLowerCase());
+          const targetNorm = String(targetId || msg.phone || '').replace(/\D/g, '').slice(-10);
+          const idMatches = targetId && (targetId === activeContact.id || targetId === activeContact.phone || targetId === activeContact.rawPhone);
+          const phoneMatches = contactPhoneNorm && targetNorm && contactPhoneNorm === targetNorm;
 
-          if ((senderNorm && contactPhoneNorm && senderNorm === contactPhoneNorm) || nameMatches || !senderNorm) {
+          if (idMatches || phoneMatches) {
             const newMsgObj = {
-              id: 'wa_in_' + Date.now(),
-              textContent: incomingText,
-              text_content: incomingText,
-              fromMe: false,
-              from_me: 0,
-              timestamp: Math.floor(Date.now() / 1000),
+              id: msg.id || `wa_sock_${Date.now()}`,
+              textContent: msgText,
+              text_content: msgText,
+              fromMe: isFromMe,
+              from_me: isFromMe ? 1 : 0,
+              timestamp: msgTimestamp,
+              mediaUrl: msg.mediaUrl || msg.media_url || null,
+              mediaType: msg.mediaType || msg.media_type || 'text',
               contact_id: activeContact.id
             };
+
             setActiveMessages(prev => {
-              if (prev.some(m => (m.textContent === incomingText || m.text_content === incomingText) && Math.abs((m.timestamp || 0) - newMsgObj.timestamp) < 6)) {
+              if (prev.some(m => m.id === newMsgObj.id || ((m.textContent === msgText || m.text_content === msgText) && Math.abs((m.timestamp || 0) - msgTimestamp) < 5))) {
                 return prev;
               }
-              return [...prev, newMsgObj];
+              const updated = [...prev, newMsgObj];
+              messagesCacheRef.current.set(activeContact.id, updated);
+              return updated;
             });
+
             setTimeout(() => {
               if (messagesEndRef.current) {
                 messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -485,13 +644,43 @@ export default function ConversationsPage({
             }, 80);
           }
         }
+
+        // Update live conversation previews & sort
+        setConversationsList(prev => {
+          const targetNorm = String(targetId || msg.phone || '').replace(/\D/g, '').slice(-10);
+          let matchFound = false;
+          const updated = prev.map(c => {
+            const cNorm = c.normPhone10 || String(c.phone || c.rawPhone || c.id || '').replace(/\D/g, '').slice(-10);
+            if (c.id === targetId || (targetNorm && cNorm && targetNorm === cNorm)) {
+              matchFound = true;
+              return {
+                ...c,
+                lastMessage: msgText || c.lastMessage,
+                lastMessageTime: Date.now(),
+                unreadCount: isFromMe ? 0 : (c.unreadCount || 0) + 1
+              };
+            }
+            return c;
+          });
+
+          return updated.sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+        });
       });
+
+      socket.on('contact_updated', (data) => {
+        if (!data) return;
+        setConversationsList(prev => prev.map(c => c.id === data.id ? { ...c, ...data } : c));
+      });
+    } catch (err) {
+      console.warn('[ConversationsPage Socket Warning]', err);
     }
 
     return () => {
-      if (typeof cleanup === 'function') cleanup();
+      if (socket) {
+        try { socket.disconnect(); } catch (e) {}
+      }
     };
-  }, [activeContact]);
+  }, [activeContact, token]);
 
   // Pre-indexed Call Logs by 10-digit Phone for O(1) instantaneous lookup
   const callLogsByPhoneMap = useMemo(() => {
@@ -546,17 +735,81 @@ export default function ConversationsPage({
     const textToSend = replyText.trim();
     const targetPhone = activeContact.rawPhone || activeContact.phone || activeContact.id;
     const cleanPhone = String(targetPhone).replace(/\D/g, '');
+    const norm10 = cleanPhone.length >= 7 ? cleanPhone.slice(-10) : '';
+    const intlPhone = norm10 ? `91${norm10}` : cleanPhone;
+    const outMsgId = `wa_out_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+    const nowSec = Math.floor(Date.now() / 1000);
 
     setIsSending(true);
 
+    const newMsgObj = {
+      id: outMsgId,
+      textContent: textToSend,
+      text_content: textToSend,
+      fromMe: true,
+      from_me: 1,
+      timestamp: nowSec,
+      status: 'sent',
+      contact_id: activeContact.id
+    };
+
+    // 1. Instant Optimistic UI Update & Local Cache Hydration (0ms latency, persists on tab switches)
+    setActiveMessages(prev => [...prev, newMsgObj]);
+    const currentCached = messagesCacheRef.current.get(activeContact.id) || [];
+    messagesCacheRef.current.set(activeContact.id, [...currentCached, newMsgObj]);
+
+    setConversationsList(prev => {
+      const updated = prev.map(c => {
+        if (c.id === activeContact.id || (norm10 && c.normPhone10 === norm10)) {
+          return {
+            ...c,
+            lastMessage: textToSend,
+            lastMessageTime: Date.now()
+          };
+        }
+        return c;
+      });
+      return updated.sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+    });
+    setReplyText('');
+
+    setTimeout(() => {
+      if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }, 50);
+
     try {
       let sentSuccess = false;
-      let sendMethod = 'cloud';
+      let sendMethod = 'desktop_webview';
 
-      // 1. Check if Desktop App WhatsApp Web Bridge is available
+      // 2. Direct Backend SQLite DB Persistence via Inbound-Sync (Ensures message never disappears on reload/tab switch)
+      try {
+        fetch(`${API_URL}/messages/inbound-sync`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({
+            phone: intlPhone || cleanPhone,
+            sender: activeContact.name || cleanPhone,
+            messages: [{
+              id: outMsgId,
+              body: textToSend,
+              text: textToSend,
+              fromMe: true,
+              timestamp: nowSec
+            }],
+            tenantId: companyId
+          })
+        }).catch(e => console.warn('[Direct DB Persist Notice]', e));
+      } catch (dbErr) {
+        console.warn('[Direct DB Persist Error]', dbErr);
+      }
+
+      // 3. Trigger Real WhatsApp Web in Embedded Desktop Webview
       if (typeof window !== 'undefined' && window.__omniflow_send_whatsapp_message) {
         try {
-          const deskRes = await window.__omniflow_send_whatsapp_message({ phone: cleanPhone, text: textToSend });
+          const deskRes = await window.__omniflow_send_whatsapp_message({ phone: intlPhone, text: textToSend });
           if (deskRes && deskRes.success) {
             sentSuccess = true;
             sendMethod = 'desktop_webview';
@@ -566,10 +819,10 @@ export default function ConversationsPage({
         }
       }
 
-      // 2. Check if Electron Main Process API is available
-      if (!sentSuccess && typeof window !== 'undefined' && window.electronAPI?.sendWhatsAppMessage) {
+      // 4. Trigger Electron IPC WhatsApp Web API
+      if (typeof window !== 'undefined' && window.electronAPI?.sendWhatsAppMessage) {
         try {
-          const eleRes = await window.electronAPI.sendWhatsAppMessage({ phone: cleanPhone, text: textToSend });
+          const eleRes = await window.electronAPI.sendWhatsAppMessage({ phone: intlPhone, text: textToSend });
           if (eleRes && eleRes.success) {
             sentSuccess = true;
             sendMethod = 'electron_ipc';
@@ -579,12 +832,14 @@ export default function ConversationsPage({
         }
       }
 
-      // 3. Fallback to VPS Backend API if not sent via desktop bridge
+      // 5. Fallback to Cloud Backend API (Baileys or Local Sync)
       if (!sentSuccess) {
         try {
           const payload = {
             contactId: activeContact.id,
-            phone: targetPhone,
+            phone: intlPhone || cleanPhone || targetPhone,
+            recipientJid: intlPhone ? `${intlPhone}@s.whatsapp.net` : (cleanPhone ? `${cleanPhone}@s.whatsapp.net` : activeContact.id),
+            text: textToSend,
             message: textToSend
           };
 
@@ -607,42 +862,8 @@ export default function ConversationsPage({
         }
       }
 
-      // 4. If webview or backend succeeded OR user is in desktop app
-      if (sentSuccess || (typeof window !== 'undefined' && (window.electronAPI?.isDesktopApp || window.__omniflow_send_whatsapp_message))) {
-        // Append optimistic message
-        const optimisticMsg = {
-          id: `opt_${Date.now()}`,
-          text_content: textToSend,
-          from_me: 1,
-          timestamp: Date.now(),
-          status: 'sent'
-        };
-        setActiveMessages(prev => [...prev, optimisticMsg]);
-        setConversationsList(prev => prev.map(c => c.id === activeContact.id ? { ...c, lastMessage: textToSend, lastMessageTime: Date.now() } : c));
-        setReplyText('');
-
-        if (showToast) {
-          showToast(sendMethod === 'backend_api' ? '💬 WhatsApp message sent' : '⚡ WhatsApp sent via Desktop Live Web', 'success');
-        }
-
-        setTimeout(() => {
-          if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-        }, 50);
-      } else {
-        // Offer 1-Click WhatsApp Web Direct Open
-        const fallbackUrl = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(textToSend)}`;
-        window.open(fallbackUrl, '_blank');
-        
-        const optimisticMsg = {
-          id: `opt_${Date.now()}`,
-          text_content: textToSend,
-          from_me: 1,
-          timestamp: Date.now(),
-          status: 'sent'
-        };
-        setActiveMessages(prev => [...prev, optimisticMsg]);
-        setReplyText('');
-        if (showToast) showToast('💬 WhatsApp Web opened to send message', 'info');
+      if (showToast) {
+        showToast(sendMethod === 'backend_api' ? '💬 WhatsApp message sent' : '⚡ WhatsApp sent & saved to CRM', 'success');
       }
     } catch (err) {
       console.error('[Send Message Error]', err);
