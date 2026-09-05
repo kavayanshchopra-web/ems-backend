@@ -443,6 +443,51 @@ export default function ConversationsPage({
       });
   }, [activeContact?.id, API_URL, token]);
 
+  // Real-time Electron WhatsApp Webview Incoming Message Listener
+  useEffect(() => {
+    let cleanup = null;
+    if (typeof window !== 'undefined' && window.electronAPI?.onIncomingWhatsAppMessage) {
+      cleanup = window.electronAPI.onIncomingWhatsAppMessage((msg) => {
+        if (!msg || !msg.body) return;
+        const incomingText = msg.body;
+        const senderName = msg.sender || '';
+
+        if (activeContact) {
+          const contactPhoneNorm = String(activeContact.phone || activeContact.rawPhone || activeContact.id || '').replace(/\D/g, '').slice(-10);
+          const senderNorm = String(senderName).replace(/\D/g, '').slice(-10);
+          const nameMatches = activeContact.name && senderName && activeContact.name.toLowerCase().includes(senderName.toLowerCase());
+
+          if ((senderNorm && contactPhoneNorm && senderNorm === contactPhoneNorm) || nameMatches || !senderNorm) {
+            const newMsgObj = {
+              id: 'wa_in_' + Date.now(),
+              textContent: incomingText,
+              text_content: incomingText,
+              fromMe: false,
+              from_me: 0,
+              timestamp: Math.floor(Date.now() / 1000),
+              contact_id: activeContact.id
+            };
+            setActiveMessages(prev => {
+              if (prev.some(m => (m.textContent === incomingText || m.text_content === incomingText) && Math.abs((m.timestamp || 0) - newMsgObj.timestamp) < 6)) {
+                return prev;
+              }
+              return [...prev, newMsgObj];
+            });
+            setTimeout(() => {
+              if (messagesEndRef.current) {
+                messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+              }
+            }, 80);
+          }
+        }
+      });
+    }
+
+    return () => {
+      if (typeof cleanup === 'function') cleanup();
+    };
+  }, [activeContact]);
+
   // Pre-indexed Call Logs by 10-digit Phone for O(1) instantaneous lookup
   const callLogsByPhoneMap = useMemo(() => {
     const map = new Map();

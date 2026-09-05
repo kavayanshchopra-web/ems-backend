@@ -150,6 +150,43 @@ export default function LiveWhatsAppWebPage({
     };
   }, [selectedStaffId, frameKey]);
 
+  // Listen for native incoming WhatsApp Web messages and sync with database & GHL
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.electronAPI?.onIncomingWhatsAppMessage) {
+      const unsub = window.electronAPI.onIncomingWhatsAppMessage(async (msgData) => {
+        const { sender, body, timestamp } = msgData || {};
+        if (!body) return;
+
+        try {
+          const API_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+            ? 'http://localhost:5000/api'
+            : 'https://api.employeemanagementsystems.com/api';
+          const token = localStorage.getItem('token') || localStorage.getItem('omnilflow_token');
+
+          await fetch(`${API_URL}/messages/inbound-sync`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({
+              sender,
+              body,
+              timestamp: Math.floor((timestamp || Date.now()) / 1000),
+              tenantId: activeTenant
+            })
+          });
+        } catch (syncErr) {
+          console.warn('[WhatsApp Inbound Sync Error]', syncErr);
+        }
+      });
+
+      return () => {
+        if (typeof unsub === 'function') unsub();
+      };
+    }
+  }, [activeTenant]);
+
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -612,7 +649,7 @@ export default function LiveWhatsAppWebPage({
 
       {/* Main Full-Screen WhatsApp Web Center Viewport (100% Space) */}
       <div style={{ flex: 1, height: '100%', position: 'relative', backgroundColor: '#111b21', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {typeof window !== 'undefined' && (window.electronAPI?.isDesktopApp || !!window.navigator.userAgent.match(/Electron/i)) ? (
+        {typeof window !== 'undefined' && window.electronAPI?.isDesktopApp ? (
           <webview
             key={`${selectedStaffId}_${frameKey}`}
             ref={iframeRef}
