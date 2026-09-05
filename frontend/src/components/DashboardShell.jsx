@@ -5174,6 +5174,35 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         // Refresh contacts list to update previews and order
         fetchContacts();
       });
+
+      // Global Electron Native WhatsApp Webview Inbound Sync
+      let unsubElectron = null;
+      if (typeof window !== 'undefined' && window.electronAPI?.onIncomingWhatsAppMessage) {
+        unsubElectron = window.electronAPI.onIncomingWhatsAppMessage(async (msgData) => {
+          const { sender, body, timestamp } = msgData || {};
+          if (!body) return;
+
+          try {
+            const token = localStorage.getItem('token') || localStorage.getItem('omnilflow_token');
+            await fetch(`${API_URL}/messages/inbound-sync`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+              },
+              body: JSON.stringify({
+                sender,
+                body,
+                timestamp: Math.floor((timestamp || Date.now()) / 1000),
+                tenantId: authUser?.tenantId || 1
+              })
+            });
+            fetchContacts();
+          } catch (err) {
+            console.warn('[Global WA Inbound Sync Error]', err);
+          }
+        });
+      }
       socket.on('media_downloaded', (data) => {
         console.log('Background media downloaded:', data);
         if (!data) return;
@@ -6957,7 +6986,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         )}
         {/* Unified Omnichannel Inbox & Staff WhatsApp Web Live Hub (Persistent Background Bridge) */}
         <div style={{
-          display: (activeTab === 'inbox' || activeTab === 'wa_live_web') ? 'flex' : 'none',
+          display: (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp') ? 'flex' : 'none',
           flex: 1,
           height: '100%',
           width: '100%',

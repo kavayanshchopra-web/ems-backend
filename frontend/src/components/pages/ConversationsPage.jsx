@@ -396,6 +396,11 @@ export default function ConversationsPage({
           if (!activeContact) {
             setActiveContact(cleanRoster[0]);
           }
+        } else if (Array.isArray(propContacts) && propContacts.length > 0) {
+          setConversationsList(formatContactRoster(propContacts));
+          if (!activeContact) {
+            setActiveContact(formatContactRoster(propContacts)[0]);
+          }
         }
       } catch (err) {
         console.warn('[ConversationsPage] Contacts fetch error:', err);

@@ -651,10 +651,10 @@ export default function LiveWhatsAppWebPage({
       <div style={{ flex: 1, height: '100%', position: 'relative', backgroundColor: '#111b21', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {typeof window !== 'undefined' && window.electronAPI?.isDesktopApp ? (
           <webview
-            key={`${selectedStaffId}_${frameKey}`}
+            key={`wa_${selectedStaffId || 'primary'}_${frameKey}`}
             ref={iframeRef}
             src="https://web.whatsapp.com"
-            partition={`persist:staff_${selectedStaffId}`}
+            partition={`persist:staff_${selectedStaffId || 'primary'}`}
             useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
             style={{
               width: '100%',
