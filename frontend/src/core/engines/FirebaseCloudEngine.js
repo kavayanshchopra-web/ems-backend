@@ -20,6 +20,8 @@ import {
 } from 'firebase/firestore';
 
 class FirebaseCloudEngine {
+  static _memoryCache = new Map();
+
   /**
    * Helper to resolve tenantId strictly from user identity
    */
@@ -39,6 +41,42 @@ class FirebaseCloudEngine {
     return userTenantId ? String(userTenantId).trim() : 'org_default';
   }
 
+  static getCacheKey(collectionName, tenantId) {
+    const activeTenantId = (tenantId === 'all' || tenantId === 'platform_superadmin') ? tenantId : this.getTenantId(tenantId);
+    return `omnilflow_cloud_cache_${activeTenantId}_${collectionName}`;
+  }
+
+  static getCachedRecords(collectionName, tenantId) {
+    const cacheKey = this.getCacheKey(collectionName, tenantId);
+    if (this._memoryCache.has(cacheKey)) {
+      return this._memoryCache.get(cacheKey);
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const local = localStorage.getItem(cacheKey);
+        if (local) {
+          const parsed = JSON.parse(local);
+          if (Array.isArray(parsed)) {
+            this._memoryCache.set(cacheKey, parsed);
+            return parsed;
+          }
+        }
+      } catch (e) {}
+    }
+    return null;
+  }
+
+  static setCachedRecords(collectionName, tenantId, records) {
+    if (!Array.isArray(records)) return;
+    const cacheKey = this.getCacheKey(collectionName, tenantId);
+    this._memoryCache.set(cacheKey, records);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(records.slice(0, 500)));
+      } catch (e) {}
+    }
+  }
+
   /**
    * Save / Update a record in Firestore with automatic tenantId isolation
    */
@@ -51,6 +89,18 @@ class FirebaseCloudEngine {
       tenantId: activeTenantId,
       updatedAt: new Date().toISOString()
     };
+
+    // Optimistically update memory cache
+    const current = this.getCachedRecords(collectionName, tenantId) || [];
+    const index = current.findIndex(r => String(r.id) === docId);
+    let updated;
+    if (index >= 0) {
+      updated = [...current];
+      updated[index] = { ...updated[index], ...payload };
+    } else {
+      updated = [payload, ...current];
+    }
+    this.setCachedRecords(collectionName, tenantId, updated);
 
     if (db) {
       try {
@@ -67,38 +117,59 @@ class FirebaseCloudEngine {
   }
 
   /**
-   * Fetch all records for a tenant from Firestore strictly isolated by tenantId
+   * Fetch all records for a tenant from Firestore strictly isolated by tenantId (with SWR caching)
    */
   static async fetchRecords(collectionName, tenantId = null) {
     const activeTenantId = (tenantId === 'all' || tenantId === 'platform_superadmin') ? tenantId : this.getTenantId(tenantId);
-    let records = [];
+    const cached = this.getCachedRecords(collectionName, tenantId);
 
+    // If we have cached records, initiate background refresh and return cached immediately
     if (db) {
       try {
         const colRef = collection(db, collectionName);
         const q = (activeTenantId === 'all')
           ? colRef
           : query(colRef, where('tenantId', '==', activeTenantId));
-        const snap = await getDocs(q);
+        
+        const fetchPromise = getDocs(q).then((snap) => {
+          if (snap && !snap.empty) {
+            const fresh = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(i => !!i);
+            this.setCachedRecords(collectionName, tenantId, fresh);
+            return fresh;
+          } else {
+            this.setCachedRecords(collectionName, tenantId, []);
+            return [];
+          }
+        }).catch(err => {
+          console.error(`Firebase fetch error (${collectionName}):`, err);
+          return cached || [];
+        });
 
-        if (snap && !snap.empty) {
-          records = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // If cached exists, return cached for instantaneous 0ms UI render
+        if (cached && cached.length > 0) {
+          fetchPromise.catch(() => {});
+          return cached;
         }
+
+        return await fetchPromise;
       } catch (err) {
         console.error(`Firebase fetch error (${collectionName}):`, err);
       }
     }
 
-    // Filter out corrupted/null items
-    records = records.filter(i => !!i);
-    return records;
+    return cached || [];
   }
 
   /**
    * Delete a record from Firestore
    */
-  static async deleteRecord(collectionName, recordId) {
+  static async deleteRecord(collectionName, recordId, tenantId = null) {
     const docId = String(recordId);
+    // Optimistic cache update
+    const current = this.getCachedRecords(collectionName, tenantId) || [];
+    const filtered = current.filter(r => String(r.id) !== docId);
+    this.setCachedRecords(collectionName, tenantId, filtered);
+
     if (db) {
       try {
         await deleteDoc(doc(db, collectionName, docId));
@@ -110,18 +181,27 @@ class FirebaseCloudEngine {
   }
 
   /**
-   * Realtime Listener for live updates across all devices
+   * Realtime Listener for live updates across all devices with instant cached first-fire
    */
   static subscribeToCollection(collectionName, tenantId = null, callback) {
-    if (!db) return () => {};
     const activeTenantId = (tenantId === 'all' || tenantId === 'platform_superadmin') ? tenantId : this.getTenantId(tenantId);
+    
+    // Fire callback immediately with cached data if present (0ms instant render)
+    const cached = this.getCachedRecords(collectionName, tenantId);
+    if (cached && cached.length > 0 && typeof callback === 'function') {
+      try { callback(cached); } catch (e) {}
+    }
+
+    if (!db) return () => {};
+
     try {
       const colRef = collection(db, collectionName);
       const q = (activeTenantId === 'all' || activeTenantId === 'platform_superadmin') 
         ? colRef 
         : query(colRef, where('tenantId', '==', activeTenantId));
       return onSnapshot(q, (snap) => {
-        const records = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const records = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(i => !!i);
+        this.setCachedRecords(collectionName, tenantId, records);
         if (typeof callback === 'function') callback(records);
       }, (err) => {
         console.error(`Firebase subscription error (${collectionName}):`, err);
@@ -132,35 +212,50 @@ class FirebaseCloudEngine {
   }
 
   /**
-   * Purge all legacy local caches and tenant data completely
+   * Purge all legacy un-isolated local caches while preserving active CRM & tenant data
    */
   static purgeAllLocalCaches() {
     try {
       if (typeof window === 'undefined') return;
       const keysToRemove = [];
+      const preservedKeys = [
+        'omnilflow_token',
+        'omnilflow_user',
+        'omnilflow_master_module_configs_',
+        'omnilflow_config_',
+        'omnilflow_system_dropdowns',
+        'omnilflow_permission_matrix_',
+        'omnilflow_feature_provisioning',
+        'omniflow_cached_contacts',
+        'omniflow_cached_call_logs',
+        'omnilflow_fallback_contacts',
+        'omnilflow_cached_contacts',
+        'omniflow_contacts_',
+        'omnilflow_cloud_cache_',
+        'omnilflow_disposition_options',
+        'omnilflow_fallback_sessions'
+      ];
+
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
+        if (!key) continue;
+
+        const isPreserved = preservedKeys.some(p => key.startsWith(p) || key === p);
+        if (isPreserved) continue;
+
         if (
-          key && (
-            key.startsWith('omnilflow_') ||
-            key.startsWith('omniflow_') ||
-            key.startsWith('storage_config_') ||
-            key.startsWith('whatsapp_crm_') ||
-            key.startsWith('custom_columns_')
-          ) && 
-          key !== 'omnilflow_token' && 
-          key !== 'omnilflow_user' &&
-          !key.startsWith('omnilflow_master_module_configs_') &&
-          !key.startsWith('omnilflow_config_') &&
-          !key.startsWith('omnilflow_system_dropdowns') &&
-          !key.startsWith('omnilflow_permission_matrix_') &&
-          !key.startsWith('omnilflow_feature_provisioning')
+          key.startsWith('storage_config_') ||
+          key.startsWith('whatsapp_crm_') ||
+          key.startsWith('custom_columns_') ||
+          key.startsWith('legacy_')
         ) {
           keysToRemove.push(key);
         }
       }
       keysToRemove.forEach(k => localStorage.removeItem(k));
-      console.log(`🧹 Purged ${keysToRemove.length} legacy un-isolated cache keys!`);
+      if (keysToRemove.length > 0) {
+        console.log(`🧹 Cleaned up ${keysToRemove.length} legacy keys.`);
+      }
     } catch (e) {}
   }
 }

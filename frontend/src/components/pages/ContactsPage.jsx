@@ -46,9 +46,9 @@ export default function ContactsPage({
     return [];
   });
 
-  // Sync when propContacts arrives from parent
+  // Sync when propContacts arrives or updates from parent
   useEffect(() => {
-    if (Array.isArray(propContacts) && propContacts.length > 0 && internalRecords.length === 0) {
+    if (Array.isArray(propContacts) && propContacts.length > 0) {
       setInternalRecords(prev => processAndMergeRecords(prev, propContacts));
     }
   }, [propContacts]);
@@ -238,8 +238,12 @@ export default function ContactsPage({
         if (incoming.length > 0) {
           setInternalRecords(prev => processAndMergeRecords(prev, incoming));
           try {
-            localStorage.setItem('omniflow_cached_contacts', JSON.stringify(incoming.slice(0, 1000)));
-          } catch (e) {}
+            localStorage.setItem('omniflow_cached_contacts', JSON.stringify(incoming));
+          } catch (e) {
+            try {
+              localStorage.setItem('omniflow_cached_contacts', JSON.stringify(incoming.slice(0, 2000)));
+            } catch (e2) {}
+          }
         }
       })
       .catch(() => {});

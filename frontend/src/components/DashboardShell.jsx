@@ -5235,7 +5235,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+  const isFetchingContactsRef = useRef(false);
   const fetchContacts = async () => {
+    if (isFetchingContactsRef.current) return;
+    isFetchingContactsRef.current = true;
     const activeTenant = authUser?.tenantId || authUser?.companyId || 'default_tenant';
     const token = localStorage.getItem('omnilflow_token');
     try {
@@ -5251,13 +5254,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         if (incoming.length > 0) {
           setContacts(incoming);
           try {
-            localStorage.setItem('omniflow_cached_contacts', JSON.stringify(incoming.slice(0, 1000)));
-          } catch (e) {}
+            localStorage.setItem('omniflow_cached_contacts', JSON.stringify(incoming));
+          } catch (e) {
+            try {
+              localStorage.setItem('omniflow_cached_contacts', JSON.stringify(incoming.slice(0, 2000)));
+            } catch (e2) {}
+          }
           return;
         }
       }
     } catch (err) {
       console.warn('REST API contacts fetch warning:', err);
+    } finally {
+      isFetchingContactsRef.current = false;
     }
   };
   const fetchMessages = async (contactId, append = false) => {

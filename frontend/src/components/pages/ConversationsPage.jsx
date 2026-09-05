@@ -298,6 +298,7 @@ export default function ConversationsPage({
   const [newNoteText, setNewNoteText] = useState('');
 
   const messagesEndRef = useRef(null);
+  const messagesCacheRef = useRef(new Map());
 
   const API_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
     ? 'http://localhost:5000/api'
@@ -311,6 +312,11 @@ export default function ConversationsPage({
       setConversationsList(formatted);
       if (!activeContact && formatted.length > 0) {
         setActiveContact(formatted[0]);
+      } else if (activeContact) {
+        const updatedActive = formatted.find(c => c.id === activeContact.id || (c.normPhone10 && c.normPhone10 === activeContact.normPhone10));
+        if (updatedActive) {
+          setActiveContact(prev => ({ ...prev, ...updatedActive }));
+        }
       }
     }
   }, [propContacts]);
@@ -398,15 +404,22 @@ export default function ConversationsPage({
     fetchContacts();
   }, [API_URL, token]);
 
-  // 4. Fetch WhatsApp Messages for Active Contact
+  // 4. Fetch WhatsApp Messages for Active Contact (with instant cache preview)
   useEffect(() => {
     if (!activeContact || !activeContact.id) {
       setActiveMessages([]);
+      setIsLoadingMessages(false);
       return;
     }
 
-    setIsLoadingMessages(true);
     const contactId = activeContact.id;
+    const cached = messagesCacheRef.current.get(contactId);
+    if (cached && cached.length > 0) {
+      setActiveMessages(cached);
+      setIsLoadingMessages(false);
+    } else {
+      setIsLoadingMessages(true);
+    }
 
     fetch(`${API_URL}/contacts/${encodeURIComponent(contactId)}/messages?limit=100`, {
       headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
@@ -414,19 +427,20 @@ export default function ConversationsPage({
       .then(res => res.json())
       .then(data => {
         const msgs = Array.isArray(data?.messages) ? data.messages : (Array.isArray(data) ? data : []);
+        messagesCacheRef.current.set(contactId, msgs);
         setActiveMessages(msgs);
         setIsLoadingMessages(false);
         setTimeout(() => {
           if (messagesEndRef.current) {
             messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
           }
-        }, 100);
+        }, 80);
       })
       .catch(err => {
         console.warn('[ConversationsPage] Messages fetch error:', err);
         setIsLoadingMessages(false);
       });
-  }, [activeContact, API_URL, token]);
+  }, [activeContact?.id, API_URL, token]);
 
   // Pre-indexed Call Logs by 10-digit Phone for O(1) instantaneous lookup
   const callLogsByPhoneMap = useMemo(() => {
