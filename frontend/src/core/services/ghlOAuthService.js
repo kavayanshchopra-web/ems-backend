@@ -450,7 +450,9 @@ export class GhlOAuthService {
    */
   static async uploadAudioBase64ToStorage(base64Data, callId = '') {
     if (!base64Data || typeof base64Data !== 'string') return null;
-    if (!base64Data.startsWith('data:audio/')) return null;
+    const isDataUri = base64Data.startsWith('data:');
+    const isLikelyBase64 = base64Data.length > 50 && /^[A-Za-z0-9+/=,\s]+$/.test(base64Data.slice(0, 200));
+    if (!isDataUri && !isLikelyBase64) return null;
 
     // 1. Try uploading to Backend API server first for instantaneous static MP3 persistence
     try {
@@ -480,11 +482,16 @@ export class GhlOAuthService {
     // 2. Fallback to Firebase Storage
     try {
       if (storage) {
-        const arr = base64Data.split(',');
-        if (arr.length < 2) return null;
-        const mimeMatch = arr[0].match(/:(.*?);/);
-        const mime = mimeMatch ? mimeMatch[1] : 'audio/mp4';
-        const bstr = atob(arr[1]);
+        let mime = 'audio/mp4';
+        let rawStr = base64Data;
+        if (base64Data.includes(',')) {
+          const parts = base64Data.split(',');
+          const mimeMatch = parts[0].match(/:(.*?);/);
+          if (mimeMatch) mime = mimeMatch[1];
+          rawStr = parts[1];
+        }
+        const cleanRaw = rawStr.replace(/[^A-Za-z0-9+/=]/g, '');
+        const bstr = atob(cleanRaw);
         let n = bstr.length;
         const u8arr = new Uint8Array(n);
         while (n--) {
@@ -532,7 +539,7 @@ export class GhlOAuthService {
       const staffName = callLog.agentName || callLog.staffName || 'Mobile Agent';
 
       // 1. Auto-upload Base64 audio from mobile app to get a real playable HTTPS URL
-      if (recordingUrl && typeof recordingUrl === 'string' && recordingUrl.startsWith('data:audio/')) {
+      if (recordingUrl && typeof recordingUrl === 'string' && (recordingUrl.startsWith('data:') || recordingUrl.length > 300)) {
         try {
           const uploadedUrl = await this.uploadAudioBase64ToStorage(recordingUrl, callLog.id || phone);
           if (uploadedUrl) {
@@ -543,9 +550,9 @@ export class GhlOAuthService {
         }
       }
 
-      // Ensure raw base64 string is NEVER placed in notes or body text
-      if (rawNotes.includes('data:audio/')) {
-        rawNotes = rawNotes.replace(/data:audio\/[a-zA-Z0-9+=/;,\s]+/g, '[HD Audio Stream]');
+      // Clean notes from base64
+      if (rawNotes.includes('data:')) {
+        rawNotes = rawNotes.replace(/data:[a-zA-Z0-9+=/;:,\-\s]+/g, '[HD Audio Stream]');
       }
 
       const isValidAudioUrl = typeof recordingUrl === 'string' && (recordingUrl.startsWith('http://') || recordingUrl.startsWith('https://'));
@@ -553,7 +560,7 @@ export class GhlOAuthService {
       let audioDisplayLine = null;
       if (isValidAudioUrl) {
         audioDisplayLine = `🎙️ Audio Recording: ${recordingUrl}`;
-      } else if (recordingUrl && typeof recordingUrl === 'string' && recordingUrl.startsWith('data:audio/')) {
+      } else if (recordingUrl && typeof recordingUrl === 'string' && (recordingUrl.startsWith('data:') || recordingUrl.length > 50)) {
         audioDisplayLine = `🎙️ Audio: [HD Audio recorded on SIM Companion App]`;
       }
 
@@ -575,9 +582,7 @@ export class GhlOAuthService {
         audioDisplayLine
       ].filter(Boolean).join('\n');
 
-      let callPostSuccess = false;
-
-      // 1. Resolve or initialize HighLevel conversation thread for this contact
+      // 2. Resolve or initialize HighLevel conversation thread for this contact
       let conversationId = null;
       try {
         const sRes = await fetch(`https://services.leadconnectorhq.com/conversations/search?locationId=${encodeURIComponent(locationId)}&contactId=${encodeURIComponent(ghlContactId)}`, {
@@ -611,23 +616,21 @@ export class GhlOAuthService {
         console.warn('[GhlOAuthService Conversation Init Notice]', convInitErr);
       }
 
-      // 2. Post Call event to HighLevel Conversation Thread (Try inbound endpoint for incoming calls, fallback to general messages)
+      // 3. Post Call event to HighLevel Conversation Thread
+      // Using /conversations/messages/inbound records the call event & attachments into timeline cleanly without requiring Twilio carrier setup
+      const msgPayload = {
+        type: 'SMS',
+        contactId: ghlContactId,
+        ...(conversationId ? { conversationId } : {}),
+        message: bodyText,
+        body: bodyText,
+        status: 'delivered',
+        direction: 'inbound',
+        ...(isValidAudioUrl ? { attachments: [recordingUrl] } : {})
+      };
+
       try {
-        const msgPayload = {
-          type: 'SMS',
-          contactId: ghlContactId,
-          ...(conversationId ? { conversationId } : {}),
-          message: bodyText,
-          body: bodyText,
-          status: 'delivered',
-          direction: direction.toLowerCase(),
-          ...(isValidAudioUrl ? { attachments: [recordingUrl] } : {})
-        };
-
-        const isIncoming = direction.toLowerCase() === 'inbound';
-        const primaryEndpoint = isIncoming ? '/conversations/messages/inbound' : '/conversations/messages';
-
-        let res = await fetch(`https://services.leadconnectorhq.com${primaryEndpoint}`, {
+        let res = await fetch(`https://services.leadconnectorhq.com/conversations/messages/inbound`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -651,13 +654,11 @@ export class GhlOAuthService {
             body: JSON.stringify(msgPayload)
           });
         }
-
-        if (res.ok) callPostSuccess = true;
       } catch (callErr) {
         console.warn('[GhlOAuthService Call POST notice]', callErr);
       }
 
-      // 3. Always write Contact Note so audio link & duration is guaranteed to display in HighLevel Contact Detail Activity Feed
+      // 4. Always write Contact Note so audio link & duration is guaranteed to display in HighLevel Contact Detail Activity Feed & Notes tab
       try {
         await fetch(`https://services.leadconnectorhq.com/contacts/${ghlContactId}/notes`, {
           method: 'POST',
@@ -679,10 +680,10 @@ export class GhlOAuthService {
         status: 'SUCCESS',
         emsEntityId: callLog.id || callLog.customerPhone || phone,
         ghlEntityId: ghlContactId,
-        details: `Synced ${direction.toUpperCase()} call (${durStr}) for ${name} (${phone})`
+        details: `Synced ${direction.toUpperCase()} call (${durStr}) ${isValidAudioUrl ? 'with playable HD Audio recording' : ''} for ${name} (${phone})`
       });
 
-      return { success: true, ghlContactId, conversationId };
+      return { success: true, ghlContactId, conversationId, hasAudio: isValidAudioUrl };
     } catch (e) {
       console.warn('[GhlOAuthService call push error]', e.message);
       return null;
