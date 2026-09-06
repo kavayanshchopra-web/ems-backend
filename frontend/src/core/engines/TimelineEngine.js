@@ -51,11 +51,14 @@ export class TimelineEngine {
 
     return rawCallLogs.filter(call => {
       if (!call) return false;
+      // If no target phone or name filter was supplied, assume rawCallLogs is already scoped
+      if (!normTarget10 && !normTargetName) return true;
+
       const callPhone = String(call.customerPhone || call.customer_phone || call.phoneNumber || call.phone || call.number || '').replace(/\D/g, '');
       const callNorm10 = callPhone.length >= 7 ? callPhone.slice(-10) : '';
       
-      const phoneMatched = normTarget10 && callNorm10 && normTarget10 === callNorm10;
-      const nameMatched = normTargetName && call.customerName && String(call.customerName).trim().toLowerCase() === normTargetName;
+      const phoneMatched = Boolean(normTarget10 && callNorm10 && (normTarget10 === callNorm10 || callNorm10.endsWith(normTarget10) || normTarget10.endsWith(callNorm10)));
+      const nameMatched = Boolean(normTargetName && call.customerName && String(call.customerName).trim().toLowerCase() === normTargetName);
 
       return phoneMatched || nameMatched;
     }).map((c, idx) => {
@@ -72,7 +75,25 @@ export class TimelineEngine {
       else if (rawType.includes('MISS')) callType = 'MISSED';
       else if (rawType.includes('REJ')) callType = 'REJECTED';
 
-      const durationSec = Number(c.duration || c.durationSeconds || c.duration_seconds || 0);
+      let durationSec = Number(c.durationSeconds || c.duration_seconds || 0);
+      if (!durationSec && c.duration) {
+        if (typeof c.duration === 'number') {
+          durationSec = c.duration;
+        } else if (typeof c.duration === 'string') {
+          const minMatch = c.duration.match(/(\d+)\s*m/i);
+          const secMatch = c.duration.match(/(\d+)\s*s/i);
+          if (minMatch || secMatch) {
+            durationSec = (minMatch ? parseInt(minMatch[1], 10) * 60 : 0) + (secMatch ? parseInt(secMatch[1], 10) : 0);
+          } else if (c.duration.includes(':')) {
+            const parts = c.duration.split(':').map(p => parseInt(p, 10));
+            if (parts.length === 2) durationSec = (parts[0] * 60) + parts[1];
+            else if (parts.length === 3) durationSec = (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+          } else {
+            durationSec = parseInt(c.duration, 10) || 0;
+          }
+        }
+      }
+
       const recording = c.recordingUrl || c.recording || c.audioUrl || c.recording_url || c.fileUrl || null;
 
       return {

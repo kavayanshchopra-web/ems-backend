@@ -64,6 +64,7 @@ function unwrapCallRecord(raw) {
   const notes = getVal('notes') || getVal('remark') || '';
   const agentName = getVal('staffName') || getVal('staff_name') || getVal('agentName') || getVal('agent') || 'Agent';
   const channel = getVal('channel') || 'SIM';
+  const recording = getVal('recordingUrl') || getVal('recording') || getVal('audioUrl') || getVal('recording_url') || getVal('fileUrl') || '';
   const createdAt = Number(getVal('_createdAt') || getVal('createdAt')) || (raw.timestamp ? new Date(raw.timestamp).getTime() : Date.now());
 
   return {
@@ -72,6 +73,8 @@ function unwrapCallRecord(raw) {
     phoneNumber: String(phone),
     customerName: String(name),
     recordingUrl: recording,
+    recording: recording,
+    audioUrl: recording,
     durationSeconds: duration,
     type: String(type),
     disposition: String(disposition),
@@ -133,10 +136,18 @@ function TimelineAudioPlayer({ src, duration = 0 }) {
     setCurrentTime(0);
   };
 
-  if (!src) {
+  if (!src || src === '[no audio]') {
     return (
       <div style={{ fontSize: '10px', color: '#94a3b8', fontStyle: 'italic', padding: '2px 0' }}>
         No audio recording available
+      </div>
+    );
+  }
+
+  if (src === '[on device]') {
+    return (
+      <div style={{ fontSize: '10.5px', color: '#0d9488', fontWeight: '500', padding: '3px 0', display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <span>📱</span> <span>Audio recorded locally on Companion Device</span>
       </div>
     );
   }
@@ -1077,7 +1088,15 @@ export default function ConversationsPage({
     if (!activeContact) return { timeline: [], stats: {} };
 
     const norm10 = activeContact.normPhone10 || (String(activeContact.rawPhone || activeContact.phone || '').replace(/\D/g, '').slice(-10));
-    const matchedCalls = norm10 && callLogsByPhoneMap.has(norm10) ? callLogsByPhoneMap.get(norm10) : [];
+    let matchedCalls = norm10 && callLogsByPhoneMap.has(norm10) ? callLogsByPhoneMap.get(norm10) : [];
+
+    // Fallback: search allCallLogs directly if map miss
+    if ((!matchedCalls || matchedCalls.length === 0) && norm10) {
+      matchedCalls = (allCallLogs || []).filter(c => {
+        const cp = String(c.customerPhone || c.customer_phone || c.phoneNumber || c.phone || '').replace(/\D/g, '').slice(-10);
+        return cp && cp === norm10;
+      });
+    }
 
     const contactCalls = TimelineEngine.normalizeCallLogsForContact(
       matchedCalls,
@@ -1086,7 +1105,7 @@ export default function ConversationsPage({
     );
 
     return TimelineEngine.mergeAndSortTimeline(activeMessages, contactCalls, crmNotes);
-  }, [activeContact, activeMessages, callLogsByPhoneMap, crmNotes]);
+  }, [activeContact, activeMessages, callLogsByPhoneMap, allCallLogs, crmNotes]);
 
   // Filter timeline based on active view tab
   const filteredTimeline = useMemo(() => {
@@ -1982,8 +2001,8 @@ export default function ConversationsPage({
                         </div>
 
                         {/* Call Audio Player */}
-                        {item.recordingUrl ? (
-                          <TimelineAudioPlayer src={item.recordingUrl} duration={item.durationSeconds} />
+                        {(item.recordingUrl || item.recording || item.audioUrl) ? (
+                          <TimelineAudioPlayer src={item.recordingUrl || item.recording || item.audioUrl} duration={item.durationSeconds} />
                         ) : (
                           <div style={{ fontSize: '9.5px', color: '#94a3b8', fontStyle: 'italic', marginTop: '2px' }}>
                             {isMissed ? 'Call was not answered' : 'Audio recording processed'}
