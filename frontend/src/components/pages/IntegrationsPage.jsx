@@ -92,7 +92,8 @@ export default function IntegrationsPage({
   const [loadingLogs, setLoadingLogs] = useState(false);
 
   // GHL Sync Engine State
-  const [isSyncingGhl, setIsSyncingGhl] = useState(false);
+  const [syncingAction, setSyncingAction] = useState(null);
+  const isSyncingGhl = Boolean(syncingAction);
   const [ghlSyncLogs, setGhlSyncLogs] = useState([]);
 
   const cleanCompanyId = companyId || authUser?.companyId || authUser?.tenant_id || 'default_tenant';
@@ -670,7 +671,7 @@ export default function IntegrationsPage({
   };
 
   const handleSyncAllGhlContacts = async () => {
-    setIsSyncingGhl(true);
+    setSyncingAction('push_contacts');
     showToast('🚀 Synchronizing EMS contacts to HighLevel...', 'info');
     try {
       const loc = ghlLocations[0];
@@ -783,12 +784,12 @@ export default function IntegrationsPage({
     } catch (e) {
       showToast('Sync error: ' + e.message, 'error');
     } finally {
-      setIsSyncingGhl(false);
+      setSyncingAction(null);
     }
   };
 
   const handleSyncAllGhlDeals = async () => {
-    setIsSyncingGhl(true);
+    setSyncingAction('push_deals');
     showToast('💼 Synchronizing CRM Deals & Opportunities to HighLevel...', 'info');
     try {
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
@@ -812,12 +813,12 @@ export default function IntegrationsPage({
     } catch (e) {
       showToast('Sync error: ' + e.message, 'error');
     } finally {
-      setIsSyncingGhl(false);
+      setSyncingAction(null);
     }
   };
 
   const handleSyncAllGhlCalls = async () => {
-    setIsSyncingGhl(true);
+    setSyncingAction('push_calls');
     showToast('🎙️ Synchronizing Call Recordings to GoHighLevel...', 'info');
     try {
       let loc = ghlLocations[0];
@@ -1005,12 +1006,12 @@ export default function IntegrationsPage({
     } catch (e) {
       showToast('Sync error: ' + e.message, 'error');
     } finally {
-      setIsSyncingGhl(false);
+      setSyncingAction(null);
     }
   };
 
   const handleImportAllGhlContacts = async () => {
-    setIsSyncingGhl(true);
+    setSyncingAction('import_contacts');
     showToast('📥 Connecting to HighLevel API to import contacts...', 'info');
     try {
       const loc = ghlLocations[0];
@@ -1114,12 +1115,12 @@ export default function IntegrationsPage({
     } catch (e) {
       showToast('Import error: ' + e.message, 'error');
     } finally {
-      setIsSyncingGhl(false);
+      setSyncingAction(null);
     }
   };
 
   const handleImportAllGhlDeals = async () => {
-    setIsSyncingGhl(true);
+    setSyncingAction('import_deals');
     showToast('📥 Fetching & Importing all Pipelines & Deals from HighLevel...', 'info');
     try {
       const loc = ghlLocations[0];
@@ -1758,22 +1759,22 @@ export default function IntegrationsPage({
                           <Button
                             variant="primary"
                             size="sm"
-                            icon={<RefreshCw size={13} className={isSyncingGhl ? 'animate-spin' : ''} />}
+                            icon={<RefreshCw size={13} className={syncingAction === 'import_contacts' ? 'animate-spin' : ''} />}
                             onClick={handleImportAllGhlContacts}
                             disabled={isSyncingGhl || loc.status !== 'connected'}
                             style={{ background: '#059669', borderColor: '#059669', fontWeight: '700', opacity: loc.status !== 'connected' ? 0.6 : 1 }}
                           >
-                            {isSyncingGhl ? 'Importing...' : '📥 Import All Contacts (GHL ➔ EMS)'}
+                            {syncingAction === 'import_contacts' ? 'Importing Contacts...' : '📥 Import All Contacts (GHL ➔ EMS)'}
                           </Button>
                           <Button
                             variant="primary"
                             size="sm"
-                            icon={<Zap size={13} className={isSyncingGhl ? 'animate-spin' : ''} />}
+                            icon={<Zap size={13} className={syncingAction === 'import_deals' ? 'animate-spin' : ''} />}
                             onClick={handleImportAllGhlDeals}
                             disabled={isSyncingGhl || loc.status !== 'connected'}
                             style={{ background: '#0d9488', borderColor: '#0d9488', fontWeight: '700', opacity: loc.status !== 'connected' ? 0.6 : 1 }}
                           >
-                            {isSyncingGhl ? 'Importing Deals...' : '📥 Import Deals & Pipelines'}
+                            {syncingAction === 'import_deals' ? 'Importing Deals...' : '📥 Import Deals & Pipelines'}
                           </Button>
                         </div>
 
@@ -1781,32 +1782,32 @@ export default function IntegrationsPage({
                           <Button
                             variant="secondary"
                             size="sm"
-                            icon={<Send size={12} />}
+                            icon={<Send size={12} className={syncingAction === 'push_contacts' ? 'animate-spin' : ''} />}
                             onClick={handleSyncAllGhlContacts}
                             disabled={isSyncingGhl || loc.status !== 'connected'}
                             style={{ opacity: loc.status !== 'connected' ? 0.6 : 1 }}
                           >
-                            📤 Push Contacts (EMS ➔ GHL)
+                            {syncingAction === 'push_contacts' ? 'Pushing Contacts...' : '📤 Push Contacts (EMS ➔ GHL)'}
                           </Button>
                           <Button
                             variant="secondary"
                             size="sm"
-                            icon={<Send size={12} />}
+                            icon={<Send size={12} className={syncingAction === 'push_deals' ? 'animate-spin' : ''} />}
                             onClick={handleSyncAllGhlDeals}
                             disabled={isSyncingGhl || loc.status !== 'connected'}
                             style={{ opacity: loc.status !== 'connected' ? 0.6 : 1 }}
                           >
-                            📤 Push Deals (EMS ➔ GHL)
+                            {syncingAction === 'push_deals' ? 'Pushing Deals...' : '📤 Push Deals (EMS ➔ GHL)'}
                           </Button>
                           <Button
                             variant="secondary"
                             size="sm"
-                            icon={<PhoneCall size={12} />}
+                            icon={<PhoneCall size={12} className={syncingAction === 'push_calls' ? 'animate-spin' : ''} />}
                             onClick={handleSyncAllGhlCalls}
                             disabled={isSyncingGhl || loc.status !== 'connected'}
                             style={{ background: '#f8fafc', borderColor: '#0d9488', color: '#0d9488', fontWeight: '700', opacity: loc.status !== 'connected' ? 0.6 : 1 }}
                           >
-                            🎙️ Push Call Recordings (EMS ➔ GHL)
+                            {syncingAction === 'push_calls' ? 'Pushing Calls...' : '🎙️ Push Call Recordings (EMS ➔ GHL)'}
                           </Button>
                           <button
                             onClick={handleDisconnectGhlLocation}

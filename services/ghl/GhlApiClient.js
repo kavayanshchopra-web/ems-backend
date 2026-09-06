@@ -469,17 +469,22 @@ export class GhlApiClient {
     else if (s.includes('fail')) normStatus = 'failed';
     else normStatus = 'completed';
 
+    const isValidAudioUrl = typeof recordingUrl === 'string' && (recordingUrl.startsWith('http://') || recordingUrl.startsWith('https://'));
+    let audioDisplayLine = null;
+    if (isValidAudioUrl) {
+      audioDisplayLine = `🎙️ Audio Recording: ${recordingUrl}`;
+    } else if (recordingUrl && recordingUrl.startsWith('data:audio/')) {
+      audioDisplayLine = `🎙️ Audio: [HD Audio saved on EMS Companion App]`;
+    }
+
     const bodyText = [
       `📞 ${normDirection.toUpperCase()} CALL (${channel})`,
       `⏱️ Duration: ${durStr}`,
       `👤 Staff: ${staffName}`,
       `📊 Status: ${normStatus}`,
       notes ? `📝 Notes: ${notes}` : null,
-      recordingUrl ? `🎙️ Recording: ${recordingUrl}` : null
+      audioDisplayLine
     ].filter(Boolean).join('\n');
-
-    let ghlRes = null;
-    const isValidAudioUrl = typeof recordingUrl === 'string' && (recordingUrl.startsWith('http://') || recordingUrl.startsWith('https://'));
 
     // 1. Resolve or create conversation thread for contact
     let conversationId = null;

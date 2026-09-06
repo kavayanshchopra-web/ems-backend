@@ -1,8 +1,9 @@
 // OmniFlow EMS v2.5 — GoHighLevel (GHL) Official Marketplace OAuth 2.0 Service
 // Manages OAuth token exchange, Location ID linking, and GHL sub-account lifecycle
 
-import { db } from '../../firebase.js';
+import { db, storage } from '../../firebase.js';
 import { collection, query, where, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const GHL_OAUTH_TOKEN_URL = 'https://services.leadconnectorhq.com/oauth/token';
 
@@ -445,6 +446,37 @@ export class GhlOAuthService {
   }
 
   /**
+   * Converts Base64 audio into a permanent public Firebase Storage URL for GHL attachment & playback
+   */
+  static async uploadAudioBase64ToStorage(base64Data, callId = '') {
+    if (!base64Data || typeof base64Data !== 'string') return null;
+    if (!base64Data.startsWith('data:audio/')) return null;
+
+    try {
+      const arr = base64Data.split(',');
+      if (arr.length < 2) return null;
+      const mimeMatch = arr[0].match(/:(.*?);/);
+      const mime = mimeMatch ? mimeMatch[1] : 'audio/mp4';
+      const bstr = atob(arr[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      const blob = new Blob([u8arr], { type: mime });
+      const ext = mime.includes('mp4') || mime.includes('m4a') ? 'm4a' : (mime.includes('wav') ? 'wav' : 'mp3');
+      const safeId = String(callId || Date.now()).replace(/[^a-zA-Z0-9_-]/g, '_');
+      const storageRef = ref(storage, `call_recordings/${safeId}.${ext}`);
+      const snapshot = await uploadBytes(storageRef, blob, { contentType: mime });
+      const downloadUrl = await getDownloadURL(snapshot.ref);
+      return downloadUrl;
+    } catch (e) {
+      console.warn('[uploadAudioBase64ToStorage notice]', e.message);
+      return null;
+    }
+  }
+
+  /**
    * Directly posts a call recording event to HighLevel Conversations Cloud API
    */
   static async createConversationCallDirectly({ locationId, accessToken, callLog }) {
@@ -465,11 +497,32 @@ export class GhlOAuthService {
       if (!ghlContactId) return null;
 
       const durationSeconds = this.parseDurationToSeconds(callLog.durationSeconds ?? callLog.duration);
-      const recordingUrl = callLog.recordingUrl || callLog.recording || callLog.audioUrl || callLog.audio_url || '';
+      let recordingUrl = callLog.recordingUrl || callLog.recording || callLog.audioUrl || callLog.audio_url || '';
       const rawStatus = (callLog.disposition || callLog.status || 'completed').toLowerCase();
       const direction = (callLog.type || callLog.callType || 'OUTGOING').toLowerCase().includes('in') ? 'inbound' : 'outbound';
       const notes = callLog.notes || '';
       const staffName = callLog.agentName || callLog.staffName || 'Mobile Agent';
+
+      // 1. Auto-upload Base64 audio from mobile app to Firebase Storage so GHL gets a real playable HTTPS link
+      if (recordingUrl && typeof recordingUrl === 'string' && recordingUrl.startsWith('data:audio/')) {
+        try {
+          const uploadedUrl = await this.uploadAudioBase64ToStorage(recordingUrl, callLog.id || callLog.customerPhone);
+          if (uploadedUrl) {
+            recordingUrl = uploadedUrl;
+          }
+        } catch (upErr) {
+          console.warn('[Audio upload notice]', upErr);
+        }
+      }
+
+      const isValidAudioUrl = typeof recordingUrl === 'string' && (recordingUrl.startsWith('http://') || recordingUrl.startsWith('https://'));
+
+      let audioDisplayLine = null;
+      if (isValidAudioUrl) {
+        audioDisplayLine = `🎙️ Audio Recording: ${recordingUrl}`;
+      } else if (recordingUrl && recordingUrl.startsWith('data:audio/')) {
+        audioDisplayLine = `🎙️ Audio: [HD Audio recorded on SIM Companion App]`;
+      }
 
       let normStatus = 'completed';
       if (rawStatus.includes('miss') || rawStatus.includes('reject')) normStatus = 'no-answer';
@@ -486,11 +539,10 @@ export class GhlOAuthService {
         `👤 Staff: ${staffName}`,
         `📊 Status: ${normStatus}`,
         notes ? `📝 Notes: ${notes}` : null,
-        recordingUrl ? `🎙️ Recording: ${recordingUrl}` : null
+        audioDisplayLine
       ].filter(Boolean).join('\n');
 
       let callPostSuccess = false;
-      const isValidAudioUrl = typeof recordingUrl === 'string' && (recordingUrl.startsWith('http://') || recordingUrl.startsWith('https://'));
 
       // 1. Resolve or initialize HighLevel conversation thread for this contact
       let conversationId = null;
