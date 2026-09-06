@@ -6,6 +6,7 @@ import VoxbayCloudDialerModal from './VoxbayCloudDialerModal';
 import { PhoneCall, Smartphone } from 'lucide-react';
 import { db } from '../../firebase';
 import { collection, onSnapshot, getDocs, doc, deleteDoc } from 'firebase/firestore';
+import { GhlOAuthService } from '../../core/services/ghlOAuthService';
 
 export default function TelecallingView({
   authUser,
@@ -267,6 +268,21 @@ export default function TelecallingView({
     ];
     handleUpdateRecords(updated);
     if (showToast) showToast('📞 Call logged and recording synced successfully!', 'success');
+
+    // Asynchronously push to linked GoHighLevel if connected
+    try {
+      const cleanComp = String(companyId || 'org_default');
+      GhlOAuthService.getInstalledLocations(cleanComp).then(installed => {
+        const directLoc = installed?.find(l => l.accessToken) || installed?.[0];
+        if (directLoc && directLoc.accessToken) {
+          GhlOAuthService.createConversationCallDirectly({
+            locationId: directLoc.locationId || '1g4rrRuP0ubwpF6vqWka',
+            accessToken: directLoc.accessToken,
+            callLog: updated[0]
+          }).catch(err => console.warn('[Telecalling Live GHL Push notice]', err));
+        }
+      }).catch(() => {});
+    } catch (e) {}
   };
 
   const handleSoftDelete = async (recordOrId) => {
