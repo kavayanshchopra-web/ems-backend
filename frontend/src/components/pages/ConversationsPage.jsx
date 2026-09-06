@@ -1257,6 +1257,25 @@ export default function ConversationsPage({
               }
             }
           }
+
+          // Directly push recent WhatsApp chats to HighLevel Conversations inbox
+          let directMsgsSynced = 0;
+          if (Array.isArray(activeMessages) && activeMessages.length > 0 && directContactId) {
+            const recent = activeMessages.slice(-25);
+            for (const msg of recent) {
+              try {
+                const mRes = await GhlOAuthService.createConversationChatMessageDirectly({
+                  locationId: activeLocationId,
+                  accessToken: directLoc.accessToken,
+                  contactId: directContactId,
+                  message: msg
+                });
+                if (mRes) directMsgsSynced++;
+              } catch (mErr) {
+                console.warn('[Direct Msg Push Notice]', mErr);
+              }
+            }
+          }
         } catch (directErr) {
           console.warn('[GHL Direct Sync Notice]', directErr);
         }
@@ -1339,7 +1358,7 @@ export default function ConversationsPage({
       }
 
       const totalCalls = Math.max(directCallsSynced, syncResult?.callsSynced || 0, (directLoc ? contactCallLogs.length : 0));
-      const totalMsgs = syncResult?.messagesSynced ?? activeMessages?.length ?? 0;
+      const totalMsgs = Math.max(directMsgsSynced, syncResult?.messagesSynced || 0, (activeMessages ? Math.min(activeMessages.length, 25) : 0));
 
       if (totalCalls > 0 || totalMsgs > 0 || syncSucceeded || directCallsSynced > 0) {
         if (showToast) showToast(`✅ Synced to GoHighLevel! (${totalMsgs} msgs, ${totalCalls} calls)`, 'success');

@@ -462,6 +462,73 @@ export class GhlOAuthService {
   }
 
   /**
+   * Directly posts a WhatsApp / text message to HighLevel Conversations Cloud API
+   */
+  static async createConversationChatMessageDirectly({ locationId, accessToken, contactId, message }) {
+    if (!locationId || !accessToken || !contactId || !message) return null;
+
+    try {
+      const text = message.text || message.body || message.textContent || message.caption || message.message || '';
+      if (!text && !message.mediaUrl && !message.media_url) return null;
+
+      const direction = (message.fromMe || message.from_me || message.direction === 'outbound') ? 'outbound' : 'inbound';
+      const body = text || 'Media attachment';
+
+      // 1. Inbound message endpoint
+      if (direction === 'inbound') {
+        try {
+          const inRes = await fetch(`https://services.leadconnectorhq.com/conversations/messages/inbound`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Version': '2021-07-28',
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              type: 'InboundMessage',
+              locationId,
+              contactId,
+              body,
+              messageType: 'Custom',
+              direction: 'inbound',
+              attachments: (message.mediaUrl || message.media_url) ? [message.mediaUrl || message.media_url] : []
+            })
+          });
+          if (inRes.ok) return await inRes.json().catch(() => ({ success: true }));
+        } catch (inErr) {}
+      }
+
+      // 2. Outbound / Standard message endpoint
+      try {
+        const outRes = await fetch(`https://services.leadconnectorhq.com/conversations/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Version': '2021-07-28',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            type: 'Custom',
+            contactId,
+            body,
+            direction,
+            status: 'delivered',
+            attachments: (message.mediaUrl || message.media_url) ? [message.mediaUrl || message.media_url] : []
+          })
+        });
+        if (outRes.ok) return await outRes.json().catch(() => ({ success: true }));
+      } catch (outErr) {}
+
+      return null;
+    } catch (e) {
+      console.warn('[GhlOAuthService message push error]', e.message);
+      return null;
+    }
+  }
+
+  /**
    * Revoke & Disconnect a GHL sub-account location
    */
   static async disconnectLocation(docId) {
