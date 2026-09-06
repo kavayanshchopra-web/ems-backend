@@ -342,8 +342,19 @@ export default function TelecallingView({
     // Asynchronously push to linked GoHighLevel if connected
     try {
       const cleanComp = String(companyId || 'org_default');
-      GhlOAuthService.getInstalledLocations(cleanComp).then(installed => {
-        const directLoc = installed?.find(l => l.accessToken) || installed?.[0];
+      GhlOAuthService.getInstalledLocations(cleanComp).then(async (installed) => {
+        let directLoc = installed?.find(l => l.accessToken) || installed?.[0];
+        if (!directLoc || !directLoc.accessToken) {
+          try {
+            const allDocs = await getDocs(collection(db, 'integrations_ghl_oauth'));
+            allDocs.forEach(d => {
+              const data = d.data();
+              if (data && data.accessToken && (!directLoc || !directLoc.accessToken)) {
+                directLoc = { id: d.id, ...data };
+              }
+            });
+          } catch (e) {}
+        }
         if (directLoc && directLoc.accessToken) {
           GhlOAuthService.createConversationCallDirectly({
             locationId: directLoc.locationId || '1g4rrRuP0ubwpF6vqWka',

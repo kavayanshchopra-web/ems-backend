@@ -46,11 +46,13 @@ import {
   saveSession, 
   getRecentChats, 
   getMessagesForContact, 
+  clearAllCrmData,
   updateContactCRM,
   updateContactProfilePic,
   markMessagesAsRead,
   getDb,
   saveContact,
+  saveMessage,
   saveWebhookLog,
   getWebhookLogs,
   getContact,
@@ -618,22 +620,34 @@ export default function setupRoutes(io) {
     }
   });
 
+  // Clear all contacts and messages across SQLite for clean reset
+  router.post(['/contacts/clear-all', '/api/contacts/clear-all', '/v1/contacts/clear-all'], async (req, res) => {
+    try {
+      await clearAllCrmData(req.user?.tenant_id || 1);
+      if (io) {
+        io.emit('contacts_cleared', { tenantId: req.user?.tenant_id || 1 });
+      }
+      res.json({ success: true, message: 'All CRM contacts and conversation history have been cleared successfully.' });
+    } catch (err) {
+      console.error('Error clearing CRM data:', err);
+      res.status(500).json({ error: err.message || 'Failed to clear CRM data' });
+    }
+  });
+
   // Get messages for a contact
   router.get('/contacts/:id/messages', async (req, res) => {
     const { id } = req.params;
-    const limit = parseInt(req.query.limit) || 50;
+    const limit = parseInt(req.query.limit) || 100;
     const offset = parseInt(req.query.offset) || 0;
+    const phone = req.query.phone || req.query.phoneNumber || null;
+    const tenantId = req.user?.tenant_id || (req.query.tenantId && !isNaN(parseInt(req.query.tenantId, 10)) ? parseInt(req.query.tenantId, 10) : 1);
+
     try {
-      const messages = await getMessagesForContact(id, limit, offset, req.user.tenant_id);
-      
-      const db = getDb();
-      const countRow = await db.get(`SELECT COUNT(*) as total FROM messages WHERE contact_id = ? AND tenant_id = ?`, [id, req.user.tenant_id]);
-      const total = countRow ? countRow.total : 0;
-      
+      const messages = await getMessagesForContact(id, limit, offset, tenantId, phone);
       res.json({
         messages,
-        total,
-        hasMore: offset + messages.length < total
+        total: messages.length,
+        hasMore: false
       });
     } catch (err) {
       console.error(err);
@@ -644,12 +658,123 @@ export default function setupRoutes(io) {
   // Mark messages as read
   router.put('/contacts/:id/read', async (req, res) => {
     const { id } = req.params;
+    const tenantId = req.user?.tenant_id || 1;
     try {
-      await markMessagesAsRead(id, req.user.tenant_id);
+      await markMessagesAsRead(id, tenantId);
       res.json({ success: true });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'Failed to mark messages as read' });
+    }
+  });
+
+  // Inbound WhatsApp Web Desktop Bridge Sync Endpoint (Single & Batch Real-time Sync)
+  router.post(['/messages/inbound-sync', '/api/messages/inbound-sync', '/v1/messages/inbound-sync'], async (req, res) => {
+    try {
+      const { sender, body, phone, timestamp, fromMe = false, messages: batchMessages, tenantId: rawTenantId = 1 } = req.body || {};
+      const tenantId = (rawTenantId && !isNaN(parseInt(rawTenantId, 10))) ? parseInt(rawTenantId, 10) : 1;
+
+      const rawList = Array.isArray(batchMessages) && batchMessages.length > 0
+        ? batchMessages
+        : (body ? [{ body, fromMe, timestamp: timestamp || Math.floor(Date.now() / 1000), sender, phone, id: req.body.id }] : []);
+
+      if (rawList.length === 0) {
+        return res.status(400).json({ error: 'Message body or messages array is required' });
+      }
+
+      const db = await getDb();
+
+      // Determine contact identifier (JID & clean phone)
+      const rawPhoneCandidate = phone || sender || (rawList[0] && (rawList[0].phone || rawList[0].sender)) || '';
+      const cleanDigits = String(rawPhoneCandidate).replace(/@s\.whatsapp\.net|@c\.us|@g\.us|@broadcast|@lid/g, '').replace(/\D/g, '');
+      const last10 = cleanDigits.length >= 7 ? cleanDigits.slice(-10) : '';
+
+      let contactJid = '';
+      if (last10) {
+        contactJid = `91${last10}@s.whatsapp.net`;
+      } else if (String(rawPhoneCandidate).includes('@')) {
+        contactJid = String(rawPhoneCandidate).trim();
+      } else {
+        contactJid = sender ? sender.trim() : 'Unknown_Contact';
+      }
+
+      // Check if this contact already exists in SQLite
+      let resolvedContact = null;
+      if (last10) {
+        try {
+          resolvedContact = await db.get(
+            `SELECT id, name, phone, phone_normalized FROM contacts 
+             WHERE (phone_normalized = ? OR phone LIKE ? OR id LIKE ? OR id = ?) AND tenant_id = ? LIMIT 1`,
+            [last10, `%${last10}%`, `%${last10}%`, contactJid, tenantId]
+          );
+        } catch (e) {}
+      }
+
+      const effectiveContactId = resolvedContact ? resolvedContact.id : contactJid;
+      const contactDisplayName = resolvedContact?.name || (sender && !sender.includes('@') ? sender : (last10 ? `+91 ${last10}` : 'Contact'));
+
+      // Save / Update contact with 10-digit normalized phone
+      await saveContact(effectiveContactId, contactDisplayName, tenantId, 'lead', cleanDigits || (last10 ? `91${last10}` : null));
+
+      const savedCount = [];
+
+      for (const msgItem of rawList) {
+        if (!msgItem || (!msgItem.body && !msgItem.text)) continue;
+        const msgText = String(msgItem.body || msgItem.text || '').trim();
+        if (!msgText) continue;
+
+        const isFromMe = (msgItem.fromMe === true || msgItem.fromMe === 1 || msgItem.from_me === 1 || msgItem.from_me === true);
+        const ts = msgItem.timestamp || Math.floor(Date.now() / 1000);
+        const messageId = msgItem.id || `wa_sync_${ts}_${Math.random().toString(36).substr(2, 4)}`;
+
+        const messagePayload = {
+          id: messageId,
+          sessionId: 'desktop_webview',
+          contactId: effectiveContactId,
+          fromMe: isFromMe,
+          textContent: msgText,
+          mediaUrl: msgItem.mediaUrl || null,
+          mediaType: msgItem.mediaType || 'text',
+          timestamp: ts,
+          tenantId
+        };
+
+        await saveMessage(messagePayload);
+        savedCount.push(messageId);
+
+        // Emit real-time WebSocket event to UI
+        if (io) {
+          io.emit('new_message', {
+            ...messagePayload,
+            session_id: 'desktop_webview',
+            contact_id: effectiveContactId,
+            from_me: isFromMe ? 1 : 0,
+            text_content: msgText,
+            media_type: 'text',
+            media_url: null,
+            phone: last10 || cleanDigits,
+            normPhone10: last10,
+            contactName: contactDisplayName
+          });
+        }
+      }
+
+      if (io && savedCount.length > 0) {
+        io.emit('contact_updated', {
+          id: effectiveContactId,
+          name: contactDisplayName,
+          phone: last10 ? `+91 ${last10}` : cleanDigits,
+          normPhone10: last10,
+          phone_normalized: last10,
+          lastMessage: rawList[rawList.length - 1]?.body || rawList[rawList.length - 1]?.text,
+          lastMessageTime: Date.now()
+        });
+      }
+
+      res.json({ success: true, count: savedCount.length, contactId: effectiveContactId, phone: last10 });
+    } catch (err) {
+      console.error('[Inbound Sync Error]', err);
+      res.status(500).json({ error: err.message });
     }
   });
 
@@ -886,56 +1011,120 @@ export default function setupRoutes(io) {
     }
   });
 
-  // Send WhatsApp message
+  // Send WhatsApp message (Unified Desktop Webview + Baileys + Local SQLite Engine)
   router.post('/messages/send', async (req, res) => {
-    const { sessionId, recipientJid, text } = req.body;
-    if (!sessionId || !recipientJid || !text) {
-      return res.status(400).json({ error: 'sessionId, recipientJid, and text are required' });
+    const rawText = req.body.text || req.body.message || req.body.textContent || '';
+    const rawTarget = req.body.recipientJid || req.body.contactId || req.body.phone || '';
+    const sessionId = req.body.sessionId || 'desktop_webview';
+    const tenantId = req.user?.tenant_id || 1;
+
+    if (!rawTarget || !rawText.trim()) {
+      return res.status(400).json({ error: 'recipientJid (or phone/contactId) and text (or message) are required' });
     }
 
+    let recipientJid = String(rawTarget).trim();
+    const cleanDigits = recipientJid.replace(/\D/g, '');
+    if (cleanDigits.length >= 7 && !recipientJid.includes('@')) {
+      recipientJid = `${cleanDigits}@s.whatsapp.net`;
+    }
+
+    const text = rawText.trim();
+
     try {
-      const session = await getSession(sessionId);
-      if (!session || session.tenant_id !== req.user.tenant_id) {
-        return res.status(403).json({ error: 'Session access denied' });
+      let sentMessage = null;
+      let usedBaileys = false;
+
+      // 1. Try Baileys gateway if a valid active session exists
+      if (sessionId && sessionId !== 'desktop_webview') {
+        try {
+          const session = await getSession(sessionId);
+          if (session && session.tenant_id === tenantId) {
+            sentMessage = await sendWhatsAppMessage(sessionId, recipientJid, text);
+            usedBaileys = true;
+          }
+        } catch (bErr) {
+          console.warn('[Baileys Send Notice - Falling back to local engine]:', bErr.message);
+        }
       }
 
-      const sentMessage = await sendWhatsAppMessage(sessionId, recipientJid, text);
-      
-      io.emit('new_message', {
-        id: sentMessage.id,
-        sessionId,
-        session_id: sessionId,
-        contactId: sentMessage.recipientJid,
-        contact_id: sentMessage.recipientJid,
-        fromMe: 1,
-        from_me: 1,
-        textContent: text,
-        text_content: text,
-        mediaType: 'text',
-        media_type: 'text',
-        timestamp: sentMessage.timestamp,
-        tenantId: req.user.tenant_id
-      });
+      // 2. If not sent via Baileys (e.g. Desktop Webview mode), store directly in SQLite & emit Socket.IO
+      if (!sentMessage) {
+        const messageId = `wa_out_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+        const ts = Math.floor(Date.now() / 1000);
 
-      res.json({ message: 'Message sent successfully', data: sentMessage });
+        await saveContact(recipientJid, cleanDigits || recipientJid, tenantId);
+
+        const messagePayload = {
+          id: messageId,
+          sessionId: 'desktop_webview',
+          contactId: recipientJid,
+          fromMe: true,
+          textContent: text,
+          mediaUrl: null,
+          mediaType: 'text',
+          timestamp: ts,
+          status: 'sent',
+          tenantId
+        };
+        await saveMessage(messagePayload);
+
+        sentMessage = {
+          id: messageId,
+          recipientJid,
+          contactId: recipientJid,
+          text,
+          timestamp: ts,
+          fromMe: true,
+          status: 'sent'
+        };
+      }
+
+      // 3. Emit real-time WebSocket event
+      if (io) {
+        io.emit('new_message', {
+          id: sentMessage.id,
+          sessionId: usedBaileys ? sessionId : 'desktop_webview',
+          session_id: usedBaileys ? sessionId : 'desktop_webview',
+          contactId: recipientJid,
+          contact_id: recipientJid,
+          fromMe: 1,
+          from_me: 1,
+          textContent: text,
+          text_content: text,
+          mediaType: 'text',
+          media_type: 'text',
+          timestamp: sentMessage.timestamp || Math.floor(Date.now() / 1000),
+          status: 'sent',
+          tenantId
+        });
+      }
+
+      res.json({ success: true, message: 'Message processed successfully', data: sentMessage });
     } catch (err) {
-      console.error(err);
+      console.error('[Send Message Error]', err);
       res.status(500).json({ error: err.message || 'Failed to send message' });
     }
   });
 
   // Send Media Message
   router.post('/messages/send-media', async (req, res) => {
-    const { sessionId, recipientJid, mediaType, fileName, fileMimeType, fileData } = req.body;
-    if (!sessionId || !recipientJid || !mediaType || !fileData) {
-      return res.status(400).json({ error: 'sessionId, recipientJid, mediaType, and fileData are required' });
+    const { sessionId = 'desktop_webview', mediaType, fileName, fileMimeType, fileData } = req.body;
+    const rawTarget = req.body.recipientJid || req.body.contactId || req.body.phone || '';
+    const tenantId = req.user?.tenant_id || 1;
+
+    if (!rawTarget || !mediaType || !fileData) {
+      return res.status(400).json({ error: 'recipientJid, mediaType, and fileData are required' });
+    }
+
+    let recipientJid = String(rawTarget).trim();
+    const cleanDigits = recipientJid.replace(/\D/g, '');
+    if (cleanDigits.length >= 7 && !recipientJid.includes('@')) {
+      recipientJid = `${cleanDigits}@s.whatsapp.net`;
     }
 
     try {
-      const session = await getSession(sessionId);
-      if (!session || session.tenant_id !== req.user.tenant_id) {
-        return res.status(403).json({ error: 'Session access denied' });
-      }
+      let sentMedia = null;
+      let usedBaileys = false;
 
       const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
       if (!matches || matches.length !== 3) {
@@ -946,31 +1135,80 @@ export default function setupRoutes(io) {
       const base64Data = matches[2];
       const buffer = Buffer.from(base64Data, 'base64');
 
-      const sentMedia = await sendWhatsAppMedia(
-        sessionId,
-        recipientJid,
-        mediaType,
-        buffer,
-        fileName || `attachment_${Date.now()}`,
-        fileMimeType || mimeType
-      );
+      if (sessionId && sessionId !== 'desktop_webview') {
+        try {
+          const session = await getSession(sessionId);
+          if (session && session.tenant_id === tenantId) {
+            sentMedia = await sendWhatsAppMedia(
+              sessionId,
+              recipientJid,
+              mediaType,
+              buffer,
+              fileName || `attachment_${Date.now()}`,
+              fileMimeType || mimeType
+            );
+            usedBaileys = true;
+          }
+        } catch (bErr) {
+          console.warn('[Baileys Media Send Notice]:', bErr.message);
+        }
+      }
 
-      io.emit('new_message', {
-        id: sentMedia.id,
-        sessionId,
-        contactId: sentMedia.contactId,
-        fromMe: 1,
-        textContent: sentMedia.textContent,
-        mediaType: sentMedia.mediaType,
-        mediaUrl: sentMedia.mediaUrl,
-        timestamp: sentMedia.timestamp,
-        tenantId: req.user.tenant_id
-      });
+      if (!sentMedia) {
+        const messageId = `wa_media_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+        const ts = Math.floor(Date.now() / 1000);
+        await saveContact(recipientJid, cleanDigits || recipientJid, tenantId);
 
-      res.json({ message: 'Media sent successfully', data: sentMedia });
+        const messagePayload = {
+          id: messageId,
+          sessionId: 'desktop_webview',
+          contactId: recipientJid,
+          fromMe: true,
+          textContent: fileName || '[Media Attachment]',
+          mediaUrl: fileData,
+          mediaType: mediaType || 'document',
+          timestamp: ts,
+          status: 'sent',
+          tenantId
+        };
+        await saveMessage(messagePayload);
+
+        sentMedia = {
+          id: messageId,
+          contactId: recipientJid,
+          recipientJid,
+          textContent: fileName || '[Media Attachment]',
+          mediaType,
+          mediaUrl: fileData,
+          timestamp: ts,
+          status: 'sent'
+        };
+      }
+
+      if (io) {
+        io.emit('new_message', {
+          id: sentMedia.id,
+          sessionId: usedBaileys ? sessionId : 'desktop_webview',
+          session_id: usedBaileys ? sessionId : 'desktop_webview',
+          contactId: sentMedia.contactId || recipientJid,
+          contact_id: sentMedia.contactId || recipientJid,
+          fromMe: 1,
+          from_me: 1,
+          textContent: sentMedia.textContent,
+          text_content: sentMedia.textContent,
+          mediaType: sentMedia.mediaType,
+          media_type: sentMedia.mediaType,
+          mediaUrl: sentMedia.mediaUrl,
+          media_url: sentMedia.mediaUrl,
+          timestamp: sentMedia.timestamp,
+          tenantId
+        });
+      }
+
+      res.json({ success: true, message: 'Media sent successfully', data: sentMedia });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: err.message || 'Failed to send media message' });
+      res.status(500).json({ error: err.message || 'Failed to send media' });
     }
   });
 
@@ -2222,12 +2460,13 @@ export default function setupRoutes(io) {
   });
 
   // 6. Sync Single EMS Contact to GHL
-  router.post('/v1/integrations/ghl/contacts/:id/sync', async (req, res) => {
+  router.post(['/v1/integrations/ghl/contacts/:id/sync', '/api/v1/integrations/ghl/contacts/:id/sync'], async (req, res) => {
     try {
       const tenantId = resolveGhlTenantId(req);
       if (!tenantId) return res.status(400).json({ error: 'Tenant ID is required', code: 'GHL_TENANT_REQUIRED' });
       const emsContactId = req.params.id;
-      const result = await ghlSyncEngine.syncContactToGhl(tenantId, emsContactId);
+      const explicitContact = req.body?.contact || (req.body && Object.keys(req.body).length > 0 ? req.body : null);
+      const result = await ghlSyncEngine.syncContactToGhl(tenantId, emsContactId, explicitContact);
       res.json({ success: true, ...result });
     } catch (err) {
       console.error('[GHL Sync Contact Error]', err.message);
@@ -2236,7 +2475,7 @@ export default function setupRoutes(io) {
   });
 
   // 7. Batch Outbound Sync: EMS Contacts to GHL
-  router.post('/v1/integrations/ghl/contacts/sync-all', async (req, res) => {
+  router.post(['/v1/integrations/ghl/contacts/sync-all', '/api/v1/integrations/ghl/contacts/sync-all'], async (req, res) => {
     try {
       const tenantId = resolveGhlTenantId(req);
       const { contacts, locationId } = req.body || {};
@@ -2282,8 +2521,29 @@ export default function setupRoutes(io) {
     }
   });
 
-  // 7b. Bulk Inbound Import: All GHL Contacts to EMS
-  router.post('/v1/integrations/ghl/contacts/import-all', async (req, res) => {
+  // 7b. Sync Full Conversation (Contact + WhatsApp Messages + Call Records) to GHL
+  router.post(['/v1/integrations/ghl/conversations/sync', '/api/v1/integrations/ghl/conversations/sync'], async (req, res) => {
+    try {
+      const tenantId = resolveGhlTenantId(req);
+      const { contact, messages, callLogs, locationId } = req.body || {};
+      const targetTenant = tenantId || locationId || req.body?.companyId || req.headers['x-location-id'] || req.headers['x-tenant-id'] || '1g4rrRuP0ubwpF6vqWka';
+      if (!contact) return res.status(400).json({ error: 'Contact data is required', code: 'GHL_CONTACT_REQUIRED' });
+
+      const result = await ghlSyncEngine.syncConversationToGhl(targetTenant, {
+        contact,
+        messages: Array.isArray(messages) ? messages : [],
+        callLogs: Array.isArray(callLogs) ? callLogs : []
+      });
+
+      res.json({ success: true, ...result });
+    } catch (err) {
+      console.error('[GHL Conversation Sync Error]', err.message);
+      res.status(err.status || 500).json({ error: err.message, code: err.code || 'GHL_CONVERSATION_SYNC_ERROR' });
+    }
+  });
+
+  // 7c. Bulk Inbound Import: All GHL Contacts to EMS
+  router.post(['/v1/integrations/ghl/contacts/import-all', '/api/v1/integrations/ghl/contacts/import-all'], async (req, res) => {
     try {
       const tenantId = resolveGhlTenantId(req);
       const { limit, maxTotal, locationId } = req.body || {};
@@ -2314,16 +2574,31 @@ export default function setupRoutes(io) {
     }
   });
 
-  // 9. Get GHL Sync Logs for Tenant
+  // 9. Get GHL Sync Logs for Tenant & Location
   router.get('/v1/integrations/ghl/logs', async (req, res) => {
     try {
       const tenantId = resolveGhlTenantId(req);
-      if (!tenantId) {
-        return res.json({ success: true, logs: [] });
-      }
+      const locationId = (req.query?.locationId || req.headers['x-location-id'] || '').trim();
       const limit = parseInt(req.query.limit, 10) || 50;
-      const logs = await getGhlSyncLogs(tenantId, null, limit);
-      res.json({ success: true, logs });
+
+      let logs = [];
+      const dbInstance = getDb();
+      if (locationId) {
+        try {
+          logs = await dbInstance.all(
+            `SELECT * FROM ghl_sync_logs WHERE location_id = ? ORDER BY id DESC LIMIT ?`,
+            [locationId, limit]
+          );
+        } catch (e) {}
+      }
+      if (!logs || logs.length === 0) {
+        if (tenantId) {
+          logs = await getGhlSyncLogs(tenantId, null, limit);
+        } else {
+          logs = await dbInstance.all(`SELECT * FROM ghl_sync_logs ORDER BY id DESC LIMIT ?`, [limit]).catch(() => []);
+        }
+      }
+      res.json({ success: true, logs: logs || [] });
     } catch (err) {
       console.error('[GHL Get Logs Error]', err.message);
       res.status(500).json({ error: err.message || 'Failed to retrieve sync logs' });
@@ -2340,6 +2615,12 @@ export default function setupRoutes(io) {
         payload: req.body
       });
       if (io) {
+        if (result.callLog) {
+          io.emit('telecalling:call_logged', result.callLog);
+        }
+        if (result.message) {
+          io.emit('new_message', result.message);
+        }
         io.emit('ghl_inbound_contact', {
           locationId: result.locationId,
           contactId: result.emsContactId,
@@ -2360,6 +2641,93 @@ export default function setupRoutes(io) {
     }
   };
 
+  // 10b. HighLevel Conversation Provider Outbound Message Delivery Webhook
+  const handleGhlMessageDelivery = async (req, res) => {
+    try {
+      const payload = req.body || {};
+      const {
+        locationId,
+        contactId,
+        phone,
+        to,
+        body,
+        message,
+        text
+      } = payload;
+
+      let recipientPhone = phone || to || payload.customerPhone || payload.phone_number || payload.contact?.phone || payload.contact?.phoneNumber;
+      const messageBody = body || message || text || payload.content || '';
+
+      // Fallback: If phone is not in top-level payload, resolve via contactId or GHL link
+      if (!recipientPhone && contactId) {
+        try {
+          const emsContact = await getEmsEntityByGhlId(tenantId || 1, 'contact', contactId);
+          if (emsContact && emsContact.phone) {
+            recipientPhone = emsContact.phone;
+          }
+        } catch (lookupErr) {
+          console.warn('[GHL Delivery] Could not resolve contact by GHL ID:', lookupErr.message);
+        }
+      }
+
+      if (!recipientPhone) {
+        return res.status(400).json({ error: 'Recipient phone is required', code: 'PHONE_REQUIRED' });
+      }
+
+      // Resolve tenant by location ID
+      let tenantId = 1;
+      if (locationId) {
+        const integration = await getGhlIntegrationByLocation(locationId);
+        if (integration && integration.tenant_id) {
+          tenantId = integration.tenant_id;
+        }
+      }
+
+      // Find an active WhatsApp session for this tenant
+      const sessions = await getAllSessions(tenantId);
+      const activeSession = (sessions || []).find(s => s.status === 'connected') || (sessions && sessions[0]);
+
+      if (!activeSession) {
+        console.warn(`[GHL Delivery] No active WhatsApp session found for tenant ${tenantId}`);
+        return res.status(503).json({ error: 'No active WhatsApp session connected. Please connect via QR code in Channels.', code: 'NO_SESSION' });
+      }
+
+      // Send message via Baileys WhatsApp Socket
+      const cleanDigits = String(recipientPhone).replace(/\D/g, '');
+      const sendResult = await sendWhatsAppMessage(activeSession.id, cleanDigits, messageBody);
+
+      // Broadcast real-time to UI
+      if (io) {
+        io.emit('new_message', {
+          id: sendResult.id,
+          session_id: activeSession.id,
+          contact_id: sendResult.recipientJid,
+          from_me: 1,
+          text_content: messageBody,
+          media_type: 'text',
+          media_url: null,
+          timestamp: sendResult.timestamp,
+          tenantId
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        messageId: sendResult.id,
+        status: 'delivered',
+        timestamp: sendResult.timestamp
+      });
+    } catch (err) {
+      console.error('[GHL Outbound Delivery Error]', err);
+      return res.status(500).json({ error: err.message || 'Failed to deliver message via WhatsApp', code: 'DELIVERY_FAILED' });
+    }
+  };
+
+  router.post(['/v1/integrations/ghl/messages/delivery', '/api/v1/integrations/ghl/messages/delivery'], handleGhlMessageDelivery);
+  router.post(['/v1/integrations/marketplace/messages/delivery', '/api/v1/integrations/marketplace/messages/delivery'], handleGhlMessageDelivery);
+  router.post(['/v1/integrations/ghl/delivery', '/api/v1/integrations/ghl/delivery'], handleGhlMessageDelivery);
+  router.post(['/messages/delivery', '/api/messages/delivery'], handleGhlMessageDelivery);
+  router.post(['/delivery', '/api/delivery'], handleGhlMessageDelivery);
   router.post('/v1/integrations/marketplace/webhooks', handleGhlWebhook);
   router.post('/v1/integrations/marketplace/webhook', handleGhlWebhook);
   router.post('/v1/integrations/ghl/webhooks', handleGhlWebhook);

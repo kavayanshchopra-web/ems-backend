@@ -1,0 +1,1 @@
+function r(n){if(!n)return"";const t=String(n).replace(/@s\.whatsapp\.net|@c\.us|@g\.us|@broadcast|@lid/g,"").replace(/\D/g,"");return t.length>=10?t.slice(-10):t.length>=7?t:""}function i(n){const t=r(n);if(!t||t.length<10){const e=String(n||"").replace(/\D/g,"");return e?e.length>6?`+${e}`:e:"—"}return`+91 ${t.slice(0,5)} ${t.slice(5)}`}export{r as n,i as t};

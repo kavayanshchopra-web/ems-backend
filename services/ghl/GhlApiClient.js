@@ -461,27 +461,139 @@ export class GhlApiClient {
     const durSecs = durationSeconds % 60;
     const durStr = `${durMins}m ${durSecs}s`;
 
+    const normDirection = (direction || '').toLowerCase().includes('in') ? 'inbound' : 'outbound';
+    let normStatus = 'completed';
+    const s = (status || '').toLowerCase();
+    if (s.includes('miss') || s.includes('reject')) normStatus = 'no-answer';
+    else if (s.includes('busy')) normStatus = 'busy';
+    else if (s.includes('fail')) normStatus = 'failed';
+    else normStatus = 'completed';
+
     const bodyText = [
-      `📞 ${direction.toUpperCase()} CALL (${channel})`,
+      `📞 ${normDirection.toUpperCase()} CALL (${channel})`,
       `⏱️ Duration: ${durStr}`,
       `👤 Staff: ${staffName}`,
-      `📊 Status: ${status}`,
+      `📊 Status: ${normStatus}`,
       notes ? `📝 Notes: ${notes}` : null,
       recordingUrl ? `🎙️ Recording: ${recordingUrl}` : null
     ].filter(Boolean).join('\n');
 
+    let ghlRes = null;
+    const isValidAudioUrl = typeof recordingUrl === 'string' && (recordingUrl.startsWith('http://') || recordingUrl.startsWith('https://'));
+
+    // 1. Resolve or create conversation thread for contact
+    let conversationId = null;
+    try {
+      conversationId = await this.resolveOrCreateConversation(locationId, contactId);
+    } catch (convErr) {
+      console.warn(`[GhlApiClient] resolve conversation notice: ${convErr.message}`);
+    }
+
+    // 2. Post call summary message to the contact's GHL conversation thread
+    try {
+      ghlRes = await this._request({
+        locationId,
+        method: 'POST',
+        path: '/conversations/messages',
+        body: {
+          type: 'SMS',
+          contactId,
+          ...(conversationId ? { conversationId } : {}),
+          message: bodyText,
+          body: bodyText,
+          status: 'delivered',
+          direction: normDirection,
+          ...(isValidAudioUrl ? { attachments: [recordingUrl] } : {})
+        }
+      });
+    } catch (convErr) {
+      console.warn(`[GhlApiClient] /conversations/messages Call notice: ${convErr.message}`);
+    }
+
+    // 3. Always attach Contact Note so recording link and duration is guaranteed to appear in HighLevel contact activity feed
+    try {
+      await this.addContactNote(locationId, contactId, bodyText);
+    } catch (noteErr) {
+      console.warn(`[GhlApiClient] Contact note notice: ${noteErr.message}`);
+    }
+
+    return ghlRes || { status: 'success', contactId, conversationId };
+  }
+
+  /**
+   * Resolve existing or create new Conversation thread for contact in HighLevel
+   */
+  async resolveOrCreateConversation(locationId, contactId) {
+    if (!locationId || !contactId) return null;
+    try {
+      const searchRes = await this._request({
+        locationId,
+        method: 'GET',
+        path: `/conversations/search?locationId=${encodeURIComponent(locationId)}&contactId=${encodeURIComponent(contactId)}`
+      });
+      const foundId = searchRes?.conversations?.[0]?.id;
+      if (foundId) return foundId;
+    } catch (e) {}
+
+    try {
+      const createRes = await this._request({
+        locationId,
+        method: 'POST',
+        path: '/conversations/',
+        body: { locationId, contactId }
+      });
+      return createRes?.conversation?.id || createRes?.id || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * Post a WhatsApp / Text Chat Message directly to GHL Conversations Inbox.
+   * Endpoint: POST /conversations/messages
+   * 
+   * @param {string} locationId 
+   * @param {Object} params
+   * @param {string} params.contactId - GHL Contact ID
+   * @param {string} [params.message=''] - Message content
+   * @param {string} [params.direction='inbound'] - 'inbound' | 'outbound'
+   * @param {string} [params.status='delivered'] - 'delivered' | 'read'
+   * @param {string} [params.mediaUrl=''] - Optional media attachment
+   * @returns {Promise<Object>}
+   */
+  async createConversationChatMessage(locationId, {
+    contactId,
+    message = '',
+    direction = 'inbound',
+    status = 'delivered',
+    mediaUrl = ''
+  }) {
+    if (!contactId) throw new GhlApiError('contactId is required to post message', 'GHL_VALIDATION_ERROR', 400);
+
+    const bodyText = [
+      `💬 WHATSAPP (${direction.toUpperCase()})`,
+      message ? `💬 Message: ${message}` : null,
+      mediaUrl ? `📎 Media: ${mediaUrl}` : null
+    ].filter(Boolean).join('\n');
+
+    const isValidMedia = typeof mediaUrl === 'string' && (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://'));
+
+    // 1. Resolve or create conversation thread
+    let conversationId = null;
+    try {
+      conversationId = await this.resolveOrCreateConversation(locationId, contactId);
+    } catch (e) {}
+
+    // 2. Post to /conversations/messages
     const payload = {
-      type: 'Call',
+      type: 'SMS',
       contactId,
-      status: status.toLowerCase() === 'connected' || status.toLowerCase() === 'interested' ? 'completed' : status.toLowerCase(),
+      ...(conversationId ? { conversationId } : {}),
       direction: direction.toLowerCase(),
-      body: bodyText,
-      call: {
-        duration: durationSeconds,
-        status: status.toLowerCase(),
-        ...(recordingUrl ? { recordingUrl } : {})
-      },
-      ...(recordingUrl ? { attachments: [recordingUrl] } : {})
+      status: status.toLowerCase() === 'read' ? 'read' : 'delivered',
+      message: message || bodyText,
+      body: message || bodyText,
+      ...(isValidMedia ? { attachments: [mediaUrl] } : {})
     };
 
     try {
@@ -493,7 +605,6 @@ export class GhlApiClient {
       });
     } catch (convErr) {
       console.warn(`[GhlApiClient] /conversations/messages note: ${convErr.message}. Fallback to Contact Note.`);
-      // Fallback: Also add as Contact Note in HighLevel Contact Timeline
       return await this.addContactNote(locationId, contactId, bodyText);
     }
   }

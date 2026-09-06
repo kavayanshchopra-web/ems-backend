@@ -86,6 +86,16 @@ export class GhlOAuthService {
       const snap = await getDocs(q);
       const list = [];
       snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      if (list.length > 0) return list;
+
+      // Fallback: Query all docs in integrations_ghl_oauth if companyId differed
+      const allSnap = await getDocs(collection(db, 'integrations_ghl_oauth'));
+      allSnap.forEach(d => {
+        const data = d.data();
+        if (data && data.accessToken) {
+          list.push({ id: d.id, ...data });
+        }
+      });
       return list;
     } catch (e) {
       const saved = JSON.parse(localStorage.getItem(`omnilflow_ghl_installed_${companyId}`) || '[]');
@@ -482,14 +492,48 @@ export class GhlOAuthService {
       let callPostSuccess = false;
       const isValidAudioUrl = typeof recordingUrl === 'string' && (recordingUrl.startsWith('http://') || recordingUrl.startsWith('https://'));
 
-      // 1. Attempt standard /conversations/messages Custom message
+      // 1. Resolve or initialize HighLevel conversation thread for this contact
+      let conversationId = null;
       try {
-        const payload = {
-          type: 'Custom',
+        const sRes = await fetch(`https://services.leadconnectorhq.com/conversations/search?locationId=${encodeURIComponent(locationId)}&contactId=${encodeURIComponent(ghlContactId)}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Version': '2021-07-28',
+            'Accept': 'application/json'
+          }
+        });
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          conversationId = sData?.conversations?.[0]?.id;
+        }
+        if (!conversationId) {
+          const cRes = await fetch(`https://services.leadconnectorhq.com/conversations/`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Version': '2021-07-28',
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({ locationId, contactId: ghlContactId })
+          });
+          if (cRes.ok) {
+            const cData = await cRes.json();
+            conversationId = cData?.conversation?.id || cData?.id;
+          }
+        }
+      } catch (convInitErr) {
+        console.warn('[GhlOAuthService Conversation Init Notice]', convInitErr);
+      }
+
+      // 2. Post Call event to HighLevel Conversation Thread (using standard SMS channel for guaranteed delivery)
+      try {
+        const msgPayload = {
+          type: 'SMS',
           contactId: ghlContactId,
+          ...(conversationId ? { conversationId } : {}),
           message: bodyText,
           body: bodyText,
-          direction,
           status: 'delivered',
           ...(isValidAudioUrl ? { attachments: [recordingUrl] } : {})
         };
@@ -502,38 +546,11 @@ export class GhlOAuthService {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(msgPayload)
         });
         if (res.ok) callPostSuccess = true;
       } catch (callErr) {
         console.warn('[GhlOAuthService Call POST notice]', callErr);
-      }
-
-      // 2. If inbound, also post to /conversations/messages/inbound for conversation inbox thread
-      if (direction === 'inbound') {
-        try {
-          const res = await fetch(`https://services.leadconnectorhq.com/conversations/messages/inbound`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Version': '2021-07-28',
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-              type: 'Custom',
-              conversationProviderId: 'EMS_CALL_RECORDINGS',
-              contactId: ghlContactId,
-              message: bodyText,
-              body: bodyText,
-              direction: 'inbound',
-              attachments: isValidAudioUrl ? [recordingUrl] : []
-            })
-          });
-          if (res.ok) callPostSuccess = true;
-        } catch (inboundErr) {
-          console.warn('[GhlOAuthService Inbound Call notice]', inboundErr);
-        }
       }
 
       // 3. Always write Contact Note so audio link & duration is guaranteed to display in HighLevel Contact Detail Activity Feed
@@ -561,7 +578,7 @@ export class GhlOAuthService {
         details: `Synced ${direction.toUpperCase()} call (${durStr}) for ${name} (${phone})`
       });
 
-      return { success: true, ghlContactId };
+      return { success: true, ghlContactId, conversationId };
     } catch (e) {
       console.warn('[GhlOAuthService call push error]', e.message);
       return null;
@@ -581,10 +598,22 @@ export class GhlOAuthService {
       const direction = (message.fromMe || message.from_me || message.direction === 'outbound') ? 'outbound' : 'inbound';
       const body = text || 'Media attachment';
 
-      // 1. Inbound message endpoint
-      if (direction === 'inbound') {
-        try {
-          const inRes = await fetch(`https://services.leadconnectorhq.com/conversations/messages/inbound`, {
+      // 1. Resolve or initialize HighLevel conversation thread
+      let conversationId = null;
+      try {
+        const sRes = await fetch(`https://services.leadconnectorhq.com/conversations/search?locationId=${encodeURIComponent(locationId)}&contactId=${encodeURIComponent(contactId)}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Version': '2021-07-28',
+            'Accept': 'application/json'
+          }
+        });
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          conversationId = sData?.conversations?.[0]?.id;
+        }
+        if (!conversationId) {
+          const cRes = await fetch(`https://services.leadconnectorhq.com/conversations/`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
@@ -592,57 +621,53 @@ export class GhlOAuthService {
               'Content-Type': 'application/json',
               'Accept': 'application/json'
             },
-            body: JSON.stringify({
-              type: 'Custom',
-              conversationProviderId: 'EMS_WHATSAPP_SYSTEM',
-              contactId,
-              message: body,
-              body,
-              direction: 'inbound',
-              attachments: (message.mediaUrl || message.media_url) ? [message.mediaUrl || message.media_url] : []
-            })
+            body: JSON.stringify({ locationId, contactId })
           });
-          if (inRes.ok) return await inRes.json().catch(() => ({ success: true }));
-        } catch (inErr) {}
-      }
-
-      // 2. Outbound / Standard message endpoint
-      try {
-        const outRes = await fetch(`https://services.leadconnectorhq.com/conversations/messages`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Version': '2021-07-28',
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify({
-            type: 'Custom',
-            contactId,
-            message: body,
-            body,
-            direction,
-            status: 'delivered',
-            attachments: (message.mediaUrl || message.media_url) ? [message.mediaUrl || message.media_url] : []
-          })
-        });
-        if (outRes.ok) {
-          const resJson = await outRes.json().catch(() => ({ success: true }));
-          await this.recordSyncAuditLog({
-            locationId,
-            action: 'SYNC_CHAT_MESSAGE',
-            status: 'SUCCESS',
-            emsEntityId: message.id || 'wa_msg',
-            ghlEntityId: contactId,
-            details: `Pushed ${direction.toUpperCase()} message: "${body.substring(0, 30)}..."`
-          });
-          return resJson;
+          if (cRes.ok) {
+            const cData = await cRes.json();
+            conversationId = cData?.conversation?.id || cData?.id;
+          }
         }
-      } catch (outErr) {}
+      } catch (convErr) {}
 
+      // 2. Post to /conversations/messages with type: 'SMS'
+      const media = message.mediaUrl || message.media_url;
+      const isValidMedia = typeof media === 'string' && (media.startsWith('http://') || media.startsWith('https://'));
+
+      const res = await fetch(`https://services.leadconnectorhq.com/conversations/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Version': '2021-07-28',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          type: 'SMS',
+          contactId,
+          ...(conversationId ? { conversationId } : {}),
+          message: body,
+          body,
+          status: 'delivered',
+          ...(isValidMedia ? { attachments: [media] } : {})
+        })
+      });
+
+      if (res.ok) {
+        const resJson = await res.json().catch(() => ({ success: true }));
+        await this.recordSyncAuditLog({
+          locationId,
+          action: 'SYNC_CHAT_MESSAGE',
+          status: 'SUCCESS',
+          emsEntityId: message.id || 'wa_msg',
+          ghlEntityId: contactId,
+          details: `Pushed message: "${body.substring(0, 30)}..."`
+        });
+        return resJson;
+      }
       return null;
     } catch (e) {
-      console.warn('[GhlOAuthService message push error]', e.message);
+      console.warn('[GhlOAuthService msg push error]', e.message);
       return null;
     }
   }

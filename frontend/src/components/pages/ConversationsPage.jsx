@@ -1361,6 +1361,34 @@ export default function ConversationsPage({
           return cPhone.endsWith(norm10);
         });
       }
+      if (contactCallLogs.length === 0 && norm10) {
+        try {
+          if (db) {
+            const [snap1, snap2] = await Promise.all([
+              getDocs(collection(db, 'callLogs')).catch(() => ({ forEach: () => {} })),
+              getDocs(collection(db, 'call_logs')).catch(() => ({ forEach: () => {} }))
+            ]);
+            snap1.forEach(d => {
+              const data = d.data();
+              const p = String(data.customerPhone || data.phoneNumber || '').replace(/\D/g, '');
+              if (p.endsWith(norm10)) {
+                const unwrapped = unwrapCallRecord({ id: d.id, ...data });
+                if (unwrapped) contactCallLogs.push(unwrapped);
+              }
+            });
+            snap2.forEach(d => {
+              const data = d.data();
+              const p = String(data.customerPhone || data.phoneNumber || '').replace(/\D/g, '');
+              if (p.endsWith(norm10)) {
+                const unwrapped = unwrapCallRecord({ id: d.id, ...data });
+                if (unwrapped) contactCallLogs.push(unwrapped);
+              }
+            });
+          }
+        } catch (dbErr) {
+          console.warn('[GHL Sync Call Fetch Fallback Notice]', dbErr);
+        }
+      }
 
       // 2. Resolve installed GHL Location & Token
       let directLoc = null;
