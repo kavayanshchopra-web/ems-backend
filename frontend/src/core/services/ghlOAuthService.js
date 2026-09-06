@@ -354,10 +354,15 @@ export class GhlOAuthService {
 
       const durationSeconds = Number(callLog.durationSeconds || callLog.duration || 0);
       const recordingUrl = callLog.recordingUrl || callLog.recording || callLog.audioUrl || '';
-      const status = (callLog.disposition || callLog.status || 'completed').toLowerCase();
+      const rawStatus = (callLog.disposition || callLog.status || 'completed').toLowerCase();
       const direction = (callLog.type || 'OUTGOING').toLowerCase().includes('in') ? 'inbound' : 'outbound';
       const notes = callLog.notes || '';
       const staffName = callLog.agentName || callLog.staffName || 'Agent';
+
+      let normStatus = 'completed';
+      if (rawStatus.includes('miss') || rawStatus.includes('reject')) normStatus = 'no-answer';
+      else if (rawStatus.includes('busy')) normStatus = 'busy';
+      else if (rawStatus.includes('fail')) normStatus = 'failed';
 
       const durMins = Math.floor(durationSeconds / 60);
       const durSecs = durationSeconds % 60;
@@ -367,36 +372,89 @@ export class GhlOAuthService {
         `📞 ${direction.toUpperCase()} CALL`,
         `⏱️ Duration: ${durStr}`,
         `👤 Staff: ${staffName}`,
-        `📊 Status: ${status}`,
+        `📊 Status: ${normStatus}`,
         notes ? `📝 Notes: ${notes}` : null,
         recordingUrl ? `🎙️ Recording: ${recordingUrl}` : null
       ].filter(Boolean).join('\n');
 
-      const payload = {
-        type: 'Call',
-        contactId: ghlContactId,
-        status: status === 'connected' || status === 'interested' ? 'completed' : status,
-        direction,
-        body: bodyText,
-        call: {
-          duration: durationSeconds,
-          status,
-          ...(recordingUrl ? { recordingUrl } : {})
-        },
-        ...(recordingUrl ? { attachments: [recordingUrl] } : {})
-      };
+      let callPostSuccess = false;
 
-      const res = await fetch(`https://services.leadconnectorhq.com/conversations/messages`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Version': '2021-07-28',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-      return await res.json().catch(() => ({}));
+      // 1. Attempt standard /conversations/messages
+      try {
+        const payload = {
+          type: 'Call',
+          contactId: ghlContactId,
+          status: normStatus,
+          direction,
+          body: bodyText,
+          call: {
+            duration: durationSeconds,
+            status: normStatus,
+            ...(recordingUrl ? { recordingUrl } : {})
+          },
+          ...(recordingUrl ? { attachments: [recordingUrl] } : {})
+        };
+
+        const res = await fetch(`https://services.leadconnectorhq.com/conversations/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Version': '2021-07-28',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) callPostSuccess = true;
+      } catch (callErr) {
+        console.warn('[GhlOAuthService Call POST notice]', callErr);
+      }
+
+      // 2. Attempt inbound/outbound messages endpoint
+      if (!callPostSuccess) {
+        try {
+          const subPath = direction === 'inbound' ? 'inbound' : 'outbound';
+          const res = await fetch(`https://services.leadconnectorhq.com/conversations/messages/${subPath}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Version': '2021-07-28',
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              type: direction === 'inbound' ? 'InboundMessage' : 'OutboundMessage',
+              locationId,
+              contactId: ghlContactId,
+              body: bodyText,
+              messageType: 'Custom',
+              direction,
+              attachments: recordingUrl ? [recordingUrl] : []
+            })
+          });
+          if (res.ok) callPostSuccess = true;
+        } catch (inboundErr) {
+          console.warn('[GhlOAuthService Inbound/Outbound notice]', inboundErr);
+        }
+      }
+
+      // 3. Always write Contact Note so audio link is guaranteed to display in HighLevel Contact Detail Activity Feed
+      try {
+        await fetch(`https://services.leadconnectorhq.com/contacts/${ghlContactId}/notes`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Version': '2021-07-28',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({ body: bodyText })
+        });
+      } catch (noteErr) {
+        console.warn('[GhlOAuthService Note notice]', noteErr);
+      }
+
+      return { success: true, ghlContactId };
     } catch (e) {
       console.warn('[GhlOAuthService call push error]', e.message);
       return null;

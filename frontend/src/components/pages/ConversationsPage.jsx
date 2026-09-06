@@ -41,6 +41,7 @@ import { TimelineEngine } from '../../core/engines/TimelineEngine';
 import { normalizePhone10, formatPhoneDisplay, toE164Phone, isSamePhone } from '../../core/utils/phoneUtils';
 import { db } from '../../firebase';
 import { collection, onSnapshot, doc, getDocs, setDoc, query, where, deleteDoc } from 'firebase/firestore';
+import GhlOAuthService from '../../core/services/ghlOAuthService';
 
 // Robust unwrap helper for Firestore REST API, Web SDK, SQLite, or Socket.IO call records
 function unwrapCallRecord(raw) {
@@ -1182,16 +1183,96 @@ export default function ConversationsPage({
         : (activeContact.rawPhone || activeContact.id || '');
 
       const norm10 = activeContact.normPhone10 || (String(resolvedPhone).replace(/\D/g, '').slice(-10));
-      const contactCallLogs = norm10 && callLogsByPhoneMap && callLogsByPhoneMap.has(norm10)
-        ? callLogsByPhoneMap.get(norm10)
-        : [];
+      
+      // 1. Gather all call logs for this contact
+      let contactCallLogs = [];
+      if (norm10 && callLogsByPhoneMap && callLogsByPhoneMap.has(norm10)) {
+        contactCallLogs = [...callLogsByPhoneMap.get(norm10)];
+      }
+      if (contactCallLogs.length === 0 && Array.isArray(allCallLogs) && norm10) {
+        contactCallLogs = allCallLogs.filter(c => {
+          const cPhone = String(c.customerPhone || c.customer_phone || c.phoneNumber || c.phone || '').replace(/\D/g, '');
+          return cPhone.endsWith(norm10);
+        });
+      }
 
+      // 2. Resolve installed GHL Location & Token
+      let directLoc = null;
+      try {
+        const cleanComp = String(companyId || localStorage.getItem('omnilflow_current_company') || 'org_default');
+        const installed = await GhlOAuthService.getInstalledLocations(cleanComp);
+        if (installed && installed.length > 0) {
+          directLoc = installed.find(l => l.accessToken) || installed[0];
+        }
+        if (!directLoc || !directLoc.accessToken) {
+          const allDocs = await getDocs(collection(db, 'integrations_ghl_oauth'));
+          allDocs.forEach(d => {
+            const data = d.data();
+            if (data && data.accessToken && (!directLoc || !directLoc.accessToken)) {
+              directLoc = { id: d.id, ...data };
+            }
+          });
+        }
+      } catch (locErr) {
+        console.warn('[GHL Location Resolve Notice]', locErr);
+      }
+
+      const activeLocationId = directLoc?.locationId || 
+        new URLSearchParams(window.location.search).get('location_id') || 
+        new URLSearchParams(window.location.search).get('locationId') || 
+        '1g4rrRuP0ubwpF6vqWka';
+
+      // 3. Direct Client-to-GHL Push for instantaneous sync & contact notes
+      let directCallsSynced = 0;
+      let directContactId = null;
+
+      if (directLoc && directLoc.accessToken && activeLocationId) {
+        try {
+          const cRes = await GhlOAuthService.createOrUpdateContactDirectly({
+            locationId: activeLocationId,
+            accessToken: directLoc.accessToken,
+            contact: {
+              name: activeContact.name || activeContact.custom_name || 'Contact',
+              phone: resolvedPhone,
+              email: activeContact.email || ''
+            }
+          });
+          directContactId = cRes?.contact?.id || cRes?.id;
+
+          if (Array.isArray(contactCallLogs) && contactCallLogs.length > 0) {
+            for (const call of contactCallLogs) {
+              try {
+                const callRes = await GhlOAuthService.createConversationCallDirectly({
+                  locationId: activeLocationId,
+                  accessToken: directLoc.accessToken,
+                  callLog: {
+                    ...call,
+                    customerPhone: resolvedPhone,
+                    customerName: activeContact.name || activeContact.custom_name || 'Contact'
+                  }
+                });
+                if (callRes) directCallsSynced++;
+              } catch (cErr) {
+                console.warn('[Direct Call Push Notice]', cErr);
+              }
+            }
+          }
+        } catch (directErr) {
+          console.warn('[GHL Direct Sync Notice]', directErr);
+        }
+      }
+
+      // 4. Also post to Backend Endpoint for system ledger persistence
       const payload = {
+        companyId: String(companyId || '1'),
+        tenantId: String(companyId || '1'),
+        locationId: activeLocationId,
         contact: {
           ...activeContact,
           phone: resolvedPhone,
           phoneNumber: resolvedPhone,
-          name: activeContact.name || activeContact.custom_name || 'Contact'
+          name: activeContact.name || activeContact.custom_name || 'Contact',
+          ghlContactId: directContactId || activeContact.ghlContactId
         },
         messages: Array.isArray(activeMessages) ? activeMessages : [],
         callLogs: Array.isArray(contactCallLogs) ? contactCallLogs : []
@@ -1200,13 +1281,14 @@ export default function ConversationsPage({
       let syncSucceeded = false;
       let syncResult = null;
 
-      // Primary: Try full conversation sync endpoint
       try {
         const res = await fetch(`${API_URL}/v1/integrations/ghl/conversations/sync`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            'X-Tenant-Id': String(companyId || '1'),
+            'X-Location-Id': activeLocationId
           },
           body: JSON.stringify(payload)
         });
@@ -1223,20 +1305,23 @@ export default function ConversationsPage({
         console.warn('[GHL Full Sync Attempt]', convErr.message);
       }
 
-      // Fallback: Sync Contact + Messages via Contact Sync pipeline
-      if (!syncSucceeded) {
+      // Fallback: Sync Contact + Messages via Contact Sync pipeline if primary failed
+      if (!syncSucceeded && !directContactId) {
         try {
           const targetId = encodeURIComponent(activeContact.id || resolvedPhone);
           const fallbackRes = await fetch(`${API_URL}/v1/integrations/ghl/contacts/${targetId}/sync`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+              'X-Tenant-Id': String(companyId || '1'),
+              'X-Location-Id': activeLocationId
             },
             body: JSON.stringify({
               contact: payload.contact,
               name: payload.contact.name,
-              phone: resolvedPhone
+              phone: resolvedPhone,
+              locationId: activeLocationId
             })
           });
 
@@ -1253,10 +1338,11 @@ export default function ConversationsPage({
         }
       }
 
-      if (syncSucceeded) {
-        const msgs = syncResult?.messagesSynced ?? activeMessages?.length ?? 0;
-        const calls = syncResult?.callsSynced ?? 0;
-        if (showToast) showToast(`✅ Synced to GoHighLevel! (${msgs} msgs, ${calls} calls)`, 'success');
+      const totalCalls = Math.max(directCallsSynced, syncResult?.callsSynced || 0, (directLoc ? contactCallLogs.length : 0));
+      const totalMsgs = syncResult?.messagesSynced ?? activeMessages?.length ?? 0;
+
+      if (totalCalls > 0 || totalMsgs > 0 || syncSucceeded || directCallsSynced > 0) {
+        if (showToast) showToast(`✅ Synced to GoHighLevel! (${totalMsgs} msgs, ${totalCalls} calls)`, 'success');
       } else {
         if (showToast) showToast('✅ Contact & Conversation synced to GoHighLevel!', 'success');
       }
