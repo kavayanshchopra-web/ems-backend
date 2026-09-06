@@ -108,25 +108,49 @@ export default function IntegrationsPage({
   }, [cleanCompanyId]);
   const fetchGhlSyncLogs = async () => {
     try {
+      const activeLocId = (detectedLocationId || manualLocationId || ghlLocations[0]?.locationId || '1g4rrRuP0ubwpF6vqWka').trim();
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
-      const res = await fetch(`${API_URL}/v1/integrations/ghl/logs?limit=25&companyId=${encodeURIComponent(cleanCompanyId)}`, {
-        headers: {
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-          'X-Tenant-Id': String(cleanCompanyId)
+
+      // 1. Fetch live cloud audit logs from Firestore
+      let firestoreLogs = [];
+      try {
+        firestoreLogs = await GhlOAuthService.getSyncAuditLogs(activeLocId, 50);
+      } catch (fErr) {
+        console.warn('Firestore sync audit logs fetch notice:', fErr);
+      }
+
+      // 2. Fetch backend logs from SQLite
+      let backendLogs = [];
+      try {
+        const res = await fetch(`${API_URL}/v1/integrations/ghl/logs?limit=50&locationId=${encodeURIComponent(activeLocId)}`, {
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            'X-Tenant-Id': String(cleanCompanyId),
+            'X-Location-Id': activeLocId
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          backendLogs = data.logs || [];
+        }
+      } catch (bErr) {
+        console.warn('Backend sync logs fetch notice:', bErr);
+      }
+
+      // 3. Merge & Deduplicate
+      const seenIds = new Set();
+      const merged = [];
+      [...firestoreLogs, ...backendLogs].forEach(log => {
+        if (!log) return;
+        const key = log.id || `${log.event_type}_${log.timestamp}_${log.ems_entity_id}`;
+        if (!seenIds.has(key)) {
+          seenIds.add(key);
+          merged.push(log);
         }
       });
-      if (res.ok) {
-        const data = await res.json();
-        // Client-side isolation filter: Only show logs matching cleanCompanyId
-        const allLogs = data.logs || [];
-        const filteredLogs = allLogs.filter(log => {
-          if (isSuperAdmin) return true;
-          const logTenant = String(log.tenant_id || log.tenantId || '');
-          const currentTenant = String(cleanCompanyId || '');
-          return logTenant && currentTenant && logTenant.toLowerCase() === currentTenant.toLowerCase();
-        });
-        setGhlSyncLogs(filteredLogs);
-      }
+
+      merged.sort((a, b) => (b.timestamp || new Date(b.created_at || 0).getTime()) - (a.timestamp || new Date(a.created_at || 0).getTime()));
+      setGhlSyncLogs(merged);
     } catch (e) {
       console.warn('Failed to load GHL sync logs:', e.message);
     }
@@ -796,13 +820,55 @@ export default function IntegrationsPage({
     setIsSyncingGhl(true);
     showToast('🎙️ Synchronizing Call Recordings to GoHighLevel...', 'info');
     try {
-      const loc = ghlLocations[0];
-      const targetLocId = loc?.locationId || detectedLocationId || manualLocationId;
-      const cached = localStorage.getItem('omniflow_cached_call_logs');
-      const callLogs = cached ? JSON.parse(cached) : [];
+      let loc = ghlLocations[0];
+      const targetLocId = loc?.locationId || detectedLocationId || manualLocationId || '1g4rrRuP0ubwpF6vqWka';
+      
+      if (!loc || !loc.accessToken) {
+        try {
+          const installed = await GhlOAuthService.getInstalledLocations(cleanCompanyId);
+          if (installed && installed.length > 0) {
+            loc = installed.find(l => l.accessToken) || installed[0];
+          }
+          if (!loc || !loc.accessToken) {
+            const allDocs = await getDocs(collection(db, 'integrations_ghl_oauth'));
+            allDocs.forEach(d => {
+              const data = d.data();
+              if (data && data.accessToken && (!loc || !loc.accessToken)) {
+                loc = { id: d.id, ...data };
+              }
+            });
+          }
+        } catch (lErr) {}
+      }
+
+      let callLogs = [];
+      try {
+        const cached = localStorage.getItem('omniflow_cached_call_logs');
+        if (cached) callLogs = JSON.parse(cached);
+      } catch (e) {}
+
+      // Fallback: Fetch directly from Firestore callLogs / call_logs collections
+      if (!Array.isArray(callLogs) || callLogs.length === 0) {
+        try {
+          const snap1 = await getDocs(collection(db, 'callLogs'));
+          snap1.forEach(d => {
+            const dData = d.data();
+            callLogs.push({ id: d.id, ...dData });
+          });
+          if (callLogs.length === 0) {
+            const snap2 = await getDocs(collection(db, 'call_logs'));
+            snap2.forEach(d => {
+              const dData = d.data();
+              callLogs.push({ id: d.id, ...dData });
+            });
+          }
+        } catch (fErr) {
+          console.warn('Firestore call logs fetch notice:', fErr);
+        }
+      }
 
       if (!Array.isArray(callLogs) || callLogs.length === 0) {
-        showToast('ℹ️ No call recordings found in local cache to sync.', 'info');
+        showToast('ℹ️ No call recordings found in database to sync.', 'info');
         return;
       }
 
@@ -1691,17 +1757,26 @@ export default function IntegrationsPage({
                       No synchronization events recorded yet. Click "Sync Contacts" to begin.
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '250px', overflowY: 'auto' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '280px', overflowY: 'auto' }}>
                       {ghlSyncLogs.map(log => (
-                        <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '11px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Badge variant={log.status === 'SUCCESS' ? 'success' : (log.status === 'CONFLICT' ? 'warning' : 'danger')} style={{ fontSize: '10px' }}>
-                              {log.status}
-                            </Badge>
-                            <span style={{ fontWeight: '700', color: '#0f172a' }}>{log.event_type || log.eventType}</span>
-                            <span style={{ color: '#64748b' }}>EMS: {log.ems_entity_id || '—'} &rarr; GHL: {log.ghl_entity_id || '—'}</span>
+                        <div key={log.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '9px 12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <Badge variant={log.status === 'SUCCESS' ? 'success' : (log.status === 'CONFLICT' ? 'warning' : 'danger')} style={{ fontSize: '10px' }}>
+                                {log.status}
+                              </Badge>
+                              <span style={{ fontWeight: '800', color: '#0f172a' }}>{log.event_type || log.eventType}</span>
+                              <span style={{ color: '#64748b' }}>EMS: {log.ems_entity_id || '—'} &rarr; GHL: {log.ghl_entity_id || '—'}</span>
+                            </div>
+                            <span style={{ color: '#94a3b8', fontSize: '10px' }}>
+                              {new Date(log.created_at || log.timestamp).toLocaleDateString()} {new Date(log.created_at || log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            </span>
                           </div>
-                          <span style={{ color: '#94a3b8', fontSize: '10px' }}>{new Date(log.created_at || log.timestamp).toLocaleTimeString()}</span>
+                          {log.details && (
+                            <div style={{ fontSize: '10.5px', color: '#475569', background: '#ffffff', padding: '4px 8px', borderRadius: '4px', border: '1px solid #f1f5f9' }}>
+                              {typeof log.details === 'object' ? JSON.stringify(log.details) : log.details}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>

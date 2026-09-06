@@ -1362,6 +1362,16 @@ export default function ConversationsPage({
 
       if (totalCalls > 0 || totalMsgs > 0 || syncSucceeded || directCallsSynced > 0) {
         if (showToast) showToast(`✅ Synced to GoHighLevel! (${totalMsgs} msgs, ${totalCalls} calls)`, 'success');
+        try {
+          await GhlOAuthService.recordSyncAuditLog({
+            locationId: activeLocationId,
+            action: 'SYNC_CONVERSATION',
+            status: 'SUCCESS',
+            emsEntityId: activeContact.id || resolvedPhone,
+            ghlEntityId: directContactId || syncResult?.ghlContactId || '—',
+            details: `Synced "${activeContact.name || 'Contact'}" (${resolvedPhone}): ${totalMsgs} WhatsApp chats, ${totalCalls} call recordings`
+          });
+        } catch (e) {}
       } else {
         if (showToast) showToast('✅ Contact & Conversation synced to GoHighLevel!', 'success');
       }

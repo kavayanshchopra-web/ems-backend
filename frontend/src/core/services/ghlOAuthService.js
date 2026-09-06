@@ -321,10 +321,30 @@ export class GhlOAuthService {
           body: JSON.stringify(payload)
         });
         const data = await fallbackRes.json().catch(() => ({}));
+        if (data && (data.contact?.id || data.id)) {
+          await this.recordSyncAuditLog({
+            locationId,
+            action: 'PUSH_CONTACT',
+            status: 'SUCCESS',
+            emsEntityId: contact.id || phone,
+            ghlEntityId: data.contact?.id || data.id,
+            details: `Provisioned contact "${rawName || phone}" on HighLevel`
+          });
+        }
         return data;
       }
 
       const data = await res.json();
+      if (data && (data.contact?.id || data.id)) {
+        await this.recordSyncAuditLog({
+          locationId,
+          action: 'PUSH_CONTACT',
+          status: 'SUCCESS',
+          emsEntityId: contact.id || phone,
+          ghlEntityId: data.contact?.id || data.id,
+          details: `Provisioned contact "${rawName || phone}" on HighLevel`
+        });
+      }
       return data;
     } catch (e) {
       console.warn('[GhlOAuthService direct push error]', e.message);
@@ -454,6 +474,15 @@ export class GhlOAuthService {
         console.warn('[GhlOAuthService Note notice]', noteErr);
       }
 
+      await this.recordSyncAuditLog({
+        locationId,
+        action: 'PUSH_CALL_RECORDING',
+        status: 'SUCCESS',
+        emsEntityId: callLog.id || callLog.customerPhone || phone,
+        ghlEntityId: ghlContactId,
+        details: `Synced ${direction.toUpperCase()} call (${durStr}) for ${name} (${phone})`
+      });
+
       return { success: true, ghlContactId };
     } catch (e) {
       console.warn('[GhlOAuthService call push error]', e.message);
@@ -518,13 +547,73 @@ export class GhlOAuthService {
             attachments: (message.mediaUrl || message.media_url) ? [message.mediaUrl || message.media_url] : []
           })
         });
-        if (outRes.ok) return await outRes.json().catch(() => ({ success: true }));
+        if (outRes.ok) {
+          const resJson = await outRes.json().catch(() => ({ success: true }));
+          await this.recordSyncAuditLog({
+            locationId,
+            action: 'SYNC_CHAT_MESSAGE',
+            status: 'SUCCESS',
+            emsEntityId: message.id || 'wa_msg',
+            ghlEntityId: contactId,
+            details: `Pushed ${direction.toUpperCase()} message: "${body.substring(0, 30)}..."`
+          });
+          return resJson;
+        }
       } catch (outErr) {}
 
       return null;
     } catch (e) {
       console.warn('[GhlOAuthService message push error]', e.message);
       return null;
+    }
+  }
+
+  /**
+   * Records a synchronization audit log to Firestore
+   */
+  static async recordSyncAuditLog({ locationId, tenantId = 'default_tenant', action, status = 'SUCCESS', emsEntityId = '—', ghlEntityId = '—', details = '' }) {
+    try {
+      const id = `sync_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+      const logDoc = {
+        id,
+        location_id: locationId || '1g4rrRuP0ubwpF6vqWka',
+        locationId: locationId || '1g4rrRuP0ubwpF6vqWka',
+        tenant_id: tenantId,
+        tenantId,
+        direction: 'OUTBOUND',
+        event_type: action,
+        eventType: action,
+        status,
+        ems_entity_id: String(emsEntityId || '—'),
+        ghl_entity_id: String(ghlEntityId || '—'),
+        details: typeof details === 'object' ? JSON.stringify(details) : String(details),
+        created_at: new Date().toISOString(),
+        timestamp: Date.now()
+      };
+      await setDoc(doc(db, 'ghl_sync_audit_logs', id), logDoc);
+      return logDoc;
+    } catch (e) {
+      console.warn('[GhlOAuthService record log notice]', e.message);
+      return null;
+    }
+  }
+
+  /**
+   * Fetches sync audit logs from Firestore
+   */
+  static async getSyncAuditLogs(locationId = null, limitCount = 50) {
+    try {
+      const snap = await getDocs(collection(db, 'ghl_sync_audit_logs'));
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      list.sort((a, b) => (b.timestamp || new Date(b.created_at || 0).getTime()) - (a.timestamp || new Date(a.created_at || 0).getTime()));
+      if (locationId) {
+        return list.filter(l => !l.location_id || l.location_id === locationId || l.locationId === locationId).slice(0, limitCount);
+      }
+      return list.slice(0, limitCount);
+    } catch (e) {
+      console.warn('[GhlOAuthService fetch logs notice]', e.message);
+      return [];
     }
   }
 
