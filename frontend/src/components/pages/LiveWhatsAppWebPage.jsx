@@ -417,10 +417,83 @@ export default function LiveWhatsAppWebPage({
                 });
               }
 
+              // 3. Extract all sidebar chats from #pane-side
+              const sidebarChats = [];
+              try {
+                const paneRows = document.querySelectorAll('#pane-side div[role="listitem"], #pane-side div[role="row"], #pane-side div[data-testid="cell-frame-container"]');
+                paneRows.forEach(row => {
+                  try {
+                    let rPhone = '';
+                    let rName = '';
+                    let rLastMsg = '';
+                    let rUnread = 0;
+
+                    const titleEl = row.querySelector('span[title], div[title], .x10flqx, span._ao3e');
+                    if (titleEl) {
+                      rName = titleEl.getAttribute('title') || titleEl.innerText || '';
+                    }
+
+                    const subEl = row.querySelector('span[dir="ltr"], span[dir="auto"], span._ao3e, div._ak8l');
+                    if (subEl) {
+                      rLastMsg = subEl.innerText || subEl.textContent || '';
+                    }
+
+                    const unreadBadge = row.querySelector('span[aria-label*="unread"], span._ak8q, span[data-testid="icon-unread-count"]');
+                    if (unreadBadge) {
+                      const uCount = parseInt((unreadBadge.innerText || unreadBadge.textContent || '0').replace(/\D/g, ''), 10);
+                      if (!isNaN(uCount)) rUnread = uCount;
+                    }
+
+                    // Extract phone from React fiber or row html
+                    const rawHtml = row.outerHTML || '';
+                    const m = rawHtml.match(/([0-9]{7,15})@(c\.us|s\.whatsapp\.net)/);
+                    if (m && m[1]) rPhone = m[1];
+
+                    if (!rPhone) {
+                      const fiberKey = Object.keys(row).find(k => k.startsWith('__reactFiber$') || k.startsWith('__reactInternalInstance$'));
+                      if (fiberKey) {
+                        let curr = row[fiberKey];
+                        let d = 0;
+                        while (curr && d < 25) {
+                          const c = curr.memoizedProps?.chat || curr.memoizedProps?.conversation || curr.memoizedProps?.contact;
+                          if (c) {
+                            if (c.id?._serialized) {
+                              const matchP = String(c.id._serialized).match(/([0-9]{7,15})@(c\.us|s\.whatsapp\.net)/);
+                              if (matchP && matchP[1]) rPhone = matchP[1];
+                            }
+                            if (!rName && (c.name || c.formattedTitle || c.title)) {
+                              rName = c.name || c.formattedTitle || c.title;
+                            }
+                            break;
+                          }
+                          curr = curr.return;
+                          d++;
+                        }
+                      }
+                    }
+
+                    if (!rPhone && rName) {
+                      const digits = rName.replace(/\D/g, '');
+                      if (digits.length >= 7) rPhone = digits;
+                    }
+
+                    if (rPhone) {
+                      sidebarChats.push({
+                        phone: rPhone,
+                        name: rName || rPhone,
+                        lastMessage: rLastMsg,
+                        unreadCount: rUnread
+                      });
+                    }
+                  } catch (e) {}
+                });
+              } catch (e) {}
+
               return {
                 phone: phone,
                 sender: chatTitle || "${currentActiveName}",
-                messages: messages
+                messages: messages,
+                sidebarChats: sidebarChats
               };
             } catch (err) {
               return { error: err.message };
@@ -429,32 +502,57 @@ export default function LiveWhatsAppWebPage({
         `;
 
         const result = await webview.executeJavaScript(extractScript);
-        if (result && Array.isArray(result.messages) && result.messages.length > 0) {
-          // Dispatch local custom event for zero-latency in-memory UI updates
-          if (typeof window !== 'undefined') {
-            try {
-              window.dispatchEvent(new CustomEvent('omniflow-wa-batch-sync', { detail: result }));
-            } catch (evErr) {}
-          }
-
-          const API_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+        if (result) {
+          const isDesktopEnv = typeof window !== 'undefined' && (Boolean(window.electronAPI) || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+          const API_URL = isDesktopEnv
             ? 'http://localhost:5000/api'
             : 'https://api.employeemanagementsystems.com/api';
           const token = localStorage.getItem('token') || localStorage.getItem('omnilflow_token');
 
-          await fetch(`${API_URL}/messages/inbound-sync`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-            },
-            body: JSON.stringify({
-              phone: result.phone,
-              sender: result.sender,
-              messages: result.messages,
-              tenantId: activeTenant
-            })
-          });
+          // A. Sync active messages
+          if (Array.isArray(result.messages) && result.messages.length > 0) {
+            if (typeof window !== 'undefined') {
+              try {
+                window.dispatchEvent(new CustomEvent('omniflow-wa-batch-sync', { detail: result }));
+              } catch (evErr) {}
+            }
+
+            await fetch(`${API_URL}/messages/inbound-sync`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+              },
+              body: JSON.stringify({
+                phone: result.phone,
+                sender: result.sender,
+                messages: result.messages,
+                tenantId: activeTenant
+              })
+            });
+          }
+
+          // B. Sync sidebar contacts roster
+          if (Array.isArray(result.sidebarChats) && result.sidebarChats.length > 0) {
+            for (const sChat of result.sidebarChats) {
+              if (sChat.phone && sChat.lastMessage) {
+                fetch(`${API_URL}/messages/inbound-sync`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                  },
+                  body: JSON.stringify({
+                    phone: sChat.phone,
+                    sender: sChat.name,
+                    body: sChat.lastMessage,
+                    fromMe: false,
+                    tenantId: activeTenant
+                  })
+                }).catch(() => {});
+              }
+            }
+          }
         }
       } catch (err) {}
     };

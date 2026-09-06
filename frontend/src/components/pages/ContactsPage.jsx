@@ -9,7 +9,8 @@ import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
 import { db } from '../../firebase';
 import { collection, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
-import { RefreshCw, Zap } from 'lucide-react';
+import { RefreshCw, Zap, Trash2 } from 'lucide-react';
+import { normalizePhone10, formatPhoneDisplay, toE164Phone } from '../../core/utils/phoneUtils';
 
 export default function ContactsPage({
   authUser = null,
@@ -53,7 +54,8 @@ export default function ContactsPage({
     }
   }, [propContacts]);
 
-  const API_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+  const isDesktop = typeof window !== 'undefined' && (Boolean(window.electronAPI) || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const API_URL = isDesktop
     ? 'http://localhost:5000/api'
     : 'https://api.employeemanagementsystems.com/api';
   const token = typeof window !== 'undefined' ? (localStorage.getItem('omnilflow_token') || localStorage.getItem('token')) : null;
@@ -101,19 +103,8 @@ export default function ContactsPage({
       const isInternalGhlId = rawPhone.toLowerCase().startsWith('ghl_') || /[a-zA-Z]/.test(rawPhone);
       const cleanDigits = isInternalGhlId ? '' : rawPhone.replace(/\D/g, '');
 
-      let formattedPhone = '—';
-      let normPhone10 = '';
-
-      if (!isInternalGhlId && cleanDigits.length >= 7) {
-        normPhone10 = cleanDigits.slice(-10);
-        if (cleanDigits.startsWith('91') && cleanDigits.length === 12) {
-          formattedPhone = `+91 ${cleanDigits.slice(2)}`;
-        } else if (cleanDigits.length === 10) {
-          formattedPhone = `+91 ${cleanDigits}`;
-        } else {
-          formattedPhone = `+${cleanDigits}`;
-        }
-      }
+      let normPhone10 = normalizePhone10(rawPhone);
+      let formattedPhone = normPhone10 ? formatPhoneDisplay(normPhone10) : ((!isInternalGhlId && cleanDigits.length >= 7) ? `+${cleanDigits}` : '—');
 
       // C. SANITIZE EMAIL
       const rawEmail = String(d.email || d.customerEmail || '').trim().toLowerCase();

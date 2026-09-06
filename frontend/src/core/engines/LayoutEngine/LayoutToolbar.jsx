@@ -4,7 +4,9 @@
  */
 
 import React, { useState } from 'react';
-import { Plus, Archive, Settings, Sliders, Filter, Download, Upload, X, Columns, ChevronDown, PhoneCall, Phone } from 'lucide-react';
+import { Plus, Archive, Settings, Sliders, Filter, Download, Upload, X, Columns, ChevronDown, PhoneCall, Phone, Trash2 } from 'lucide-react';
+import { db } from '../../../firebase';
+import { collection, getDocs, deleteDoc, query, where } from 'firebase/firestore';
 import Button from '../../../components/ui/Button';
 import SearchInput from '../../../components/ui/SearchInput';
 import ViewSwitcher from '../ViewEngine/ViewSwitcher';
@@ -249,6 +251,62 @@ export default function LayoutToolbar({
                         style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: '600', color: '#0d9488', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
                       >
                         <Sliders size={13} /> Configure Module
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setShowManageDropdown(false);
+                          const title = LabelEngine.getTitle(moduleConfig) || 'Module';
+                          if (!window.confirm(`⚠️ Are you sure you want to clear all records from ${title}? This will purge all dummy/cached records so you can start clean.`)) return;
+                          try {
+                            const colName = moduleConfig.collection || moduleConfig.key || 'crm_deals';
+                            const companyId = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 'org_default';
+
+                            // 1. Delete from Firestore
+                            if (db) {
+                              try {
+                                const colRef = collection(db, colName);
+                                const q = (companyId === 'all' || companyId === 'platform_superadmin')
+                                  ? colRef
+                                  : query(colRef, where('tenantId', '==', companyId));
+                                const snap = await getDocs(q);
+                                const delPromises = snap.docs.map(d => deleteDoc(d.ref));
+                                await Promise.all(delPromises);
+                              } catch (fErr) {
+                                console.warn('Firestore purge notice:', fErr);
+                              }
+                            }
+
+                            // 2. Clear local cache
+                            try {
+                              sessionStorage.removeItem(`omniflow_kanban_deals_${companyId}`);
+                              localStorage.removeItem(`omniflow_kanban_deals_${companyId}`);
+                              localStorage.removeItem(`omnilflow_cloud_cache_${companyId}_${colName}`);
+                              localStorage.removeItem('omniflow_cached_contacts');
+                            } catch (e) {}
+
+                            // 3. Clear SQLite backend
+                            try {
+                              const isDesktop = typeof window !== 'undefined' && (Boolean(window.electronAPI) || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+                              const API_URL = isDesktop ? 'http://localhost:5000/api' : 'https://api.employeemanagementsystems.com/api';
+                              const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('token');
+                              fetch(`${API_URL}/contacts/clear-all`, {
+                                method: 'POST',
+                                headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
+                              }).catch(() => {});
+                            } catch (sErr) {}
+
+                            if (typeof setRecords === 'function') setRecords([]);
+                            if (showToast) showToast(`🧹 All ${title} records cleared!`, 'success');
+                            setTimeout(() => { window.location.reload(); }, 600);
+                          } catch (err) {
+                            if (showToast) showToast('❌ Error: ' + err.message, 'error');
+                          }
+                        }}
+                        style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: '600', color: '#dc2626', border: 'none', background: 'rgba(239,68,68,0.05)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid #fee2e2' }}
+                      >
+                        <Trash2 size={13} color="#dc2626" /> Reset & Clear All Records
                       </button>
                     </div>
                   </div>

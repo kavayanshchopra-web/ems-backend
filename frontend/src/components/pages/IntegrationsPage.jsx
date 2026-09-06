@@ -24,7 +24,8 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  Radio
+  Radio,
+  PhoneCall
 } from 'lucide-react';
 
 import GhlOAuthService from '../../core/services/ghlOAuthService.js';
@@ -783,6 +784,43 @@ export default function IntegrationsPage({
         fetchGhlSyncLogs();
       } else {
         showToast(data.error || 'Opportunities sync failed', 'error');
+      }
+    } catch (e) {
+      showToast('Sync error: ' + e.message, 'error');
+    } finally {
+      setIsSyncingGhl(false);
+    }
+  };
+
+  const handleSyncAllGhlCalls = async () => {
+    setIsSyncingGhl(true);
+    showToast('🎙️ Synchronizing Call Recordings to GoHighLevel...', 'info');
+    try {
+      const loc = ghlLocations[0];
+      const targetLocId = loc?.locationId || detectedLocationId || manualLocationId;
+      const cached = localStorage.getItem('omniflow_cached_call_logs');
+      const callLogs = cached ? JSON.parse(cached) : [];
+
+      const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
+      const res = await fetch(`${API_URL}/v1/integrations/ghl/calls/sync-all`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'X-Tenant-Id': String(cleanCompanyId)
+        },
+        body: JSON.stringify({
+          companyId: cleanCompanyId,
+          locationId: targetLocId,
+          callLogs: Array.isArray(callLogs) ? callLogs : []
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`✅ Call Recordings Sync Completed! Total: ${data.total || 0}, Synced: ${data.synced || 0}`, 'success');
+        fetchGhlSyncLogs();
+      } else {
+        showToast(data.error || 'Call sync failed', 'error');
       }
     } catch (e) {
       showToast('Sync error: ' + e.message, 'error');
@@ -1579,6 +1617,16 @@ export default function IntegrationsPage({
                             style={{ opacity: loc.status !== 'connected' ? 0.6 : 1 }}
                           >
                             📤 Push Deals (EMS ➔ GHL)
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            icon={<PhoneCall size={12} />}
+                            onClick={handleSyncAllGhlCalls}
+                            disabled={isSyncingGhl || loc.status !== 'connected'}
+                            style={{ background: '#f8fafc', borderColor: '#0d9488', color: '#0d9488', fontWeight: '700', opacity: loc.status !== 'connected' ? 0.6 : 1 }}
+                          >
+                            🎙️ Push Call Recordings (EMS ➔ GHL)
                           </Button>
                           <button
                             onClick={handleDisconnectGhlLocation}

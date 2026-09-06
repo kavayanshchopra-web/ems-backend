@@ -37,8 +37,49 @@ import {
   Mic
 } from 'lucide-react';
 import { TimelineEngine } from '../../core/engines/TimelineEngine';
+import { normalizePhone10, formatPhoneDisplay, toE164Phone, isSamePhone } from '../../core/utils/phoneUtils';
 import { db } from '../../firebase';
-import { collection, onSnapshot, doc, getDocs, setDoc, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, doc, getDocs, setDoc, query, where, deleteDoc } from 'firebase/firestore';
+
+// Robust unwrap helper for Firestore REST API, Web SDK, SQLite, or Socket.IO call records
+function unwrapCallRecord(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const f = raw.fields || {};
+  const getVal = (key) => {
+    if (raw[key] !== undefined && raw[key] !== null) return raw[key];
+    if (f[key]) {
+      return f[key].stringValue ?? f[key].integerValue ?? f[key].doubleValue ?? f[key].booleanValue ?? f[key].timestampValue;
+    }
+    return undefined;
+  };
+
+  const phone = getVal('customerPhone') || getVal('customer_phone') || getVal('phoneNumber') || getVal('phone') || getVal('number') || '';
+  const name = getVal('customerName') || getVal('customer_name') || getVal('name') || getVal('contactName') || '';
+  const recording = getVal('recordingUrl') || getVal('recording_url') || getVal('recording') || getVal('audioUrl') || getVal('fileUrl') || '';
+  const duration = Number(getVal('durationSeconds') || getVal('duration_seconds') || getVal('duration') || 0);
+  const type = getVal('type') || getVal('callType') || getVal('call_type') || 'OUTGOING';
+  const disposition = getVal('disposition') || getVal('status') || '';
+  const notes = getVal('notes') || getVal('remark') || '';
+  const agentName = getVal('staffName') || getVal('staff_name') || getVal('agentName') || getVal('agent') || 'Agent';
+  const channel = getVal('channel') || 'SIM';
+  const createdAt = Number(getVal('_createdAt') || getVal('createdAt')) || (raw.timestamp ? new Date(raw.timestamp).getTime() : Date.now());
+
+  return {
+    id: String(raw.id || `call_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`),
+    customerPhone: String(phone),
+    phoneNumber: String(phone),
+    customerName: String(name),
+    recordingUrl: recording,
+    durationSeconds: duration,
+    type: String(type),
+    disposition: String(disposition),
+    notes: String(notes),
+    agentName: String(agentName),
+    channel: String(channel),
+    timestamp: raw.timestamp || new Date(createdAt).toISOString(),
+    _createdAt: createdAt
+  };
+}
 
 // In-thread Embedded Audio Player Component
 function TimelineAudioPlayer({ src, duration = 0 }) {
@@ -195,12 +236,10 @@ export default function ConversationsPage({
         return;
       }
 
+      const norm10 = normalizePhone10(c.phone || c.phoneNumber || c.customerPhone || c.id || '');
       const cleanPhone = String(c.phone || c.phoneNumber || c.customerPhone || (c.id.includes('@s.whatsapp.net') ? c.id.split('@')[0] : '')).replace(/\D/g, '');
-      const norm10 = cleanPhone.length >= 7 ? cleanPhone.slice(-10) : '';
       const isInternal = cleanPhone.toLowerCase().startsWith('ghl_') || /[a-z]/i.test(cleanPhone);
-      const formattedPhone = (!isInternal && cleanPhone.length >= 7)
-        ? (cleanPhone.length === 10 ? `+91 ${cleanPhone}` : `+${cleanPhone}`)
-        : '—';
+      const formattedPhone = norm10 ? formatPhoneDisplay(norm10) : ((!isInternal && cleanPhone.length >= 7) ? `+${cleanPhone}` : '—');
 
       let rawName = String(c.name || c.fullName || c.custom_name || c.customName || c.displayName || '').replace(/@s\.whatsapp\.net/g, '').trim();
       if (rawName.toLowerCase().startsWith('ghl_') || !rawName) {
@@ -290,7 +329,18 @@ export default function ConversationsPage({
   });
 
   const [activeMessages, setActiveMessages] = useState([]);
-  const [allCallLogs, setAllCallLogs] = useState([]);
+  const [allCallLogs, setAllCallLogs] = useState(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = localStorage.getItem('omniflow_cached_call_logs');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      }
+    } catch (e) {}
+    return [];
+  });
   const [crmNotes, setCrmNotes] = useState([]);
   const [activeTabFilter, setActiveTabFilter] = useState('all'); // 'all' | 'whatsapp' | 'calls' | 'notes'
   const [searchQuery, setSearchQuery] = useState('');
@@ -302,7 +352,8 @@ export default function ConversationsPage({
   const messagesEndRef = useRef(null);
   const messagesCacheRef = useRef(new Map());
 
-  const API_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+  const isDesktop = typeof window !== 'undefined' && (Boolean(window.electronAPI) || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const API_URL = isDesktop
     ? 'http://localhost:5000/api'
     : 'https://api.employeemanagementsystems.com/api';
   const token = typeof window !== 'undefined' ? (localStorage.getItem('omnilflow_token') || localStorage.getItem('token')) : null;
@@ -323,47 +374,52 @@ export default function ConversationsPage({
     }
   }, [propContacts]);
 
-  // 2. Fetch / Stream Call Logs (Firestore + SQLite)
+  // 2. Fetch / Stream Call Logs (Firestore + SQLite with live caching)
   useEffect(() => {
     let unsubs = [];
 
     const handleNewCallDocs = (docs) => {
-      if (!Array.isArray(docs)) return;
+      if (!Array.isArray(docs) || docs.length === 0) return;
+      const unwrapped = docs.map(unwrapCallRecord).filter(Boolean);
       setAllCallLogs(prev => {
         const map = new Map();
         (prev || []).forEach(p => map.set(String(p.id), p));
-        docs.forEach(d => map.set(String(d.id), d));
-        return Array.from(map.values()).sort((a, b) => {
-          const timeA = new Date(a._createdAt || a.createdAt || a.timestamp || 0).getTime();
-          const timeB = new Date(b._createdAt || b.createdAt || b.timestamp || 0).getTime();
+        unwrapped.forEach(d => map.set(String(d.id), d));
+        const merged = Array.from(map.values()).sort((a, b) => {
+          const timeA = Number(a._createdAt || (a.timestamp ? new Date(a.timestamp).getTime() : 0)) || 0;
+          const timeB = Number(b._createdAt || (b.timestamp ? new Date(b.timestamp).getTime() : 0)) || 0;
           return timeB - timeA;
         });
+        try {
+          localStorage.setItem('omniflow_cached_call_logs', JSON.stringify(merged.slice(0, 300)));
+        } catch (e) {}
+        return merged;
       });
     };
 
     try {
       if (db) {
-        // A. Companion App Call Logs
+        // A. Companion App Call Logs (Direct Android Phone Sync)
         const q1 = collection(db, 'callLogs');
         const unsub1 = onSnapshot(q1, (snap) => {
           const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           handleNewCallDocs(docs);
-        }, () => {});
+        }, (err) => console.warn('[ConversationsPage] callLogs notice:', err));
         unsubs.push(unsub1);
 
-        // B. Telecalling / Voxbay Logs
-        const q2 = collection(db, 'telecalling_logs');
+        // B. Telecalling / Web Dashboard Call Logs
+        const q2 = collection(db, 'call_logs');
         const unsub2 = onSnapshot(q2, (snap) => {
           const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           handleNewCallDocs(docs);
-        }, () => {});
+        }, (err) => console.warn('[ConversationsPage] call_logs notice:', err));
         unsubs.push(unsub2);
       }
     } catch (e) {
       console.warn('[ConversationsPage] Call log listener error:', e);
     }
 
-    // Backend Call Logs Fetch
+    // Backend SQLite Call Logs Initial Fetch
     fetch(`${API_URL}/telecalling/logs`, {
       headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
     })
@@ -591,7 +647,8 @@ export default function ConversationsPage({
 
   // Real-time Socket.IO Inbound & Outbound Sync Listener
   useEffect(() => {
-    const SOCKET_BASE = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+    const isDesktopEnv = typeof window !== 'undefined' && (Boolean(window.electronAPI) || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const SOCKET_BASE = isDesktopEnv
       ? 'http://localhost:5000'
       : 'https://api.employeemanagementsystems.com';
 
@@ -645,12 +702,12 @@ export default function ConversationsPage({
           }
         }
 
-        // Update live conversation previews & sort
+        // Update live conversation previews & sort (or auto-insert new lead)
         setConversationsList(prev => {
-          const targetNorm = String(targetId || msg.phone || '').replace(/\D/g, '').slice(-10);
+          const targetNorm = normalizePhone10(targetId || msg.phone || msg.normPhone10 || '');
           let matchFound = false;
           const updated = prev.map(c => {
-            const cNorm = c.normPhone10 || String(c.phone || c.rawPhone || c.id || '').replace(/\D/g, '').slice(-10);
+            const cNorm = c.normPhone10 || normalizePhone10(c.phone || c.rawPhone || c.id || '');
             if (c.id === targetId || (targetNorm && cNorm && targetNorm === cNorm)) {
               matchFound = true;
               return {
@@ -663,13 +720,139 @@ export default function ConversationsPage({
             return c;
           });
 
+          if (!matchFound && targetNorm) {
+            const formattedPhone = formatPhoneDisplay(targetNorm);
+            const newContact = {
+              id: msg.contact_id || `91${targetNorm}@s.whatsapp.net`,
+              name: msg.contactName || formattedPhone,
+              phone: formattedPhone,
+              rawPhone: targetNorm,
+              normPhone10: targetNorm,
+              email: '',
+              lastMessage: msgText,
+              lastMessageTime: Date.now(),
+              unreadCount: isFromMe ? 0 : 1,
+              stage: 'New Leads',
+              source: 'WhatsApp',
+              displayId: `CON-${String(prev.length + 1).padStart(4, '0')}`,
+              tags: []
+            };
+            return [newContact, ...updated].sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+          }
+
           return updated.sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
         });
       });
 
       socket.on('contact_updated', (data) => {
         if (!data) return;
-        setConversationsList(prev => prev.map(c => c.id === data.id ? { ...c, ...data } : c));
+        const dataNorm = normalizePhone10(data.normPhone10 || data.phone || data.id || '');
+        setConversationsList(prev => {
+          let found = false;
+          const mapped = prev.map(c => {
+            const cNorm = c.normPhone10 || normalizePhone10(c.phone || c.rawPhone || c.id || '');
+            if (c.id === data.id || (dataNorm && cNorm && dataNorm === cNorm)) {
+              found = true;
+              return { ...c, ...data, normPhone10: cNorm || dataNorm };
+            }
+            return c;
+          });
+          if (!found && dataNorm) {
+            const formattedPhone = formatPhoneDisplay(dataNorm);
+            const newLead = {
+              id: data.id || `91${dataNorm}@s.whatsapp.net`,
+              name: data.name || formattedPhone,
+              phone: formattedPhone,
+              rawPhone: dataNorm,
+              normPhone10: dataNorm,
+              email: data.email || '',
+              lastMessage: data.lastMessage || '',
+              lastMessageTime: data.lastMessageTime || Date.now(),
+              unreadCount: 0,
+              stage: data.stage || 'New Leads',
+              source: 'WhatsApp',
+              displayId: `CON-${String(prev.length + 1).padStart(4, '0')}`,
+              tags: []
+            };
+            return [newLead, ...mapped].sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+          }
+          return mapped;
+        });
+      });
+
+      socket.on('telecalling:call_logged', (rawCall) => {
+        if (!rawCall) return;
+        const call = unwrapCallRecord(rawCall);
+        if (!call || !call.customerPhone) return;
+
+        // 1. Add to allCallLogs state and update cache
+        setAllCallLogs(prev => {
+          const map = new Map();
+          (prev || []).forEach(p => map.set(String(p.id), p));
+          map.set(String(call.id), call);
+          const merged = Array.from(map.values()).sort((a, b) => {
+            const timeA = Number(a._createdAt || (a.timestamp ? new Date(a.timestamp).getTime() : 0)) || 0;
+            const timeB = Number(b._createdAt || (b.timestamp ? new Date(b.timestamp).getTime() : 0)) || 0;
+            return timeB - timeA;
+          });
+          try {
+            localStorage.setItem('omniflow_cached_call_logs', JSON.stringify(merged.slice(0, 300)));
+          } catch (e) {}
+          return merged;
+        });
+
+        // 2. Auto-update active conversations preview or insert new lead
+        const callPhone = String(call.customerPhone).replace(/\D/g, '');
+        const norm10 = callPhone.length >= 7 ? callPhone.slice(-10) : '';
+        if (norm10) {
+          setConversationsList(prev => {
+            let match = false;
+            const updated = prev.map(c => {
+              const cNorm = c.normPhone10 || String(c.phone || c.rawPhone || c.id || '').replace(/\D/g, '').slice(-10);
+              if (cNorm && cNorm === norm10) {
+                match = true;
+                return {
+                  ...c,
+                  lastMessage: `📞 ${call.type || 'Call'} (${call.durationSeconds || 0}s)`,
+                  lastMessageTime: Date.now()
+                };
+              }
+              return c;
+            });
+
+            if (!match) {
+              const formattedPhone = formatPhoneDisplay(norm10);
+              const newLead = {
+                id: `call_lead_${norm10}`,
+                name: call.customerName && call.customerName !== 'Customer' ? call.customerName : formattedPhone,
+                phone: formattedPhone,
+                rawPhone: norm10,
+                normPhone10: norm10,
+                email: '',
+                lastMessage: `📞 ${call.type || 'Call'} (${call.durationSeconds || 0}s)`,
+                lastMessageTime: Date.now(),
+                unreadCount: 0,
+                stage: 'New Leads',
+                source: 'SIM Companion',
+                displayId: `CON-${String(prev.length + 1).padStart(4, '0')}`,
+                tags: []
+              };
+              return [newLead, ...updated].sort((a, b) => (b.lastMessageTime || 0) - (a.lastMessageTime || 0));
+            }
+
+            return updated.sort((a, b) => (b.lastMessageTime || 0) - (a.lastMessageTime || 0));
+          });
+        }
+      });
+
+      socket.on('contacts_cleared', () => {
+        setConversationsList([]);
+        setActiveContact(null);
+        setActiveMessages([]);
+        messagesCacheRef.current.clear();
+        try {
+          localStorage.removeItem('omniflow_cached_contacts');
+        } catch (e) {}
       });
     } catch (err) {
       console.warn('[ConversationsPage Socket Warning]', err);
@@ -694,15 +877,93 @@ export default function ConversationsPage({
         map.get(norm10).push(call);
       }
     });
+
+    // Ensure calls in each phone group are sorted newest first
+    map.forEach((list, phone) => {
+      list.sort((a, b) => {
+        const timeA = Number(a._createdAt || (a.timestamp ? new Date(a.timestamp).getTime() : 0)) || 0;
+        const timeB = Number(b._createdAt || (b.timestamp ? new Date(b.timestamp).getTime() : 0)) || 0;
+        return timeB - timeA;
+      });
+    });
+
     return map;
   }, [allCallLogs]);
+
+  // Synchronize every phone number with call recordings into the conversations roster
+  useEffect(() => {
+    if (!callLogsByPhoneMap || callLogsByPhoneMap.size === 0) return;
+
+    setConversationsList(prev => {
+      const existingNorms = new Set();
+      prev.forEach(c => {
+        const norm = c.normPhone10 || String(c.phone || c.rawPhone || c.id || '').replace(/\D/g, '').slice(-10);
+        if (norm) existingNorms.add(norm);
+      });
+
+      const newLeads = [];
+      const updatedMap = new Map();
+      prev.forEach(c => updatedMap.set(c.id, c));
+
+      callLogsByPhoneMap.forEach((calls, norm10) => {
+        if (!norm10 || !Array.isArray(calls) || calls.length === 0) return;
+        const latestCall = calls[0];
+        const callTime = Number(latestCall._createdAt || (latestCall.timestamp ? new Date(latestCall.timestamp).getTime() : 0)) || Date.now();
+        const callType = latestCall.type || 'Call';
+        const dur = latestCall.durationSeconds || 0;
+
+        if (existingNorms.has(norm10)) {
+          // Refresh existing contact if call is newer
+          for (const [id, c] of updatedMap.entries()) {
+            const cNorm = c.normPhone10 || String(c.phone || c.rawPhone || c.id || '').replace(/\D/g, '').slice(-10);
+            if (cNorm === norm10) {
+              const currentMsgTime = new Date(c.lastMessageTime || 0).getTime();
+              if (callTime > currentMsgTime) {
+                updatedMap.set(id, {
+                  ...c,
+                  lastMessage: `📞 ${callType} (${dur}s)`,
+                  lastMessageTime: callTime
+                });
+              }
+            }
+          }
+        } else {
+          // Auto-insert phone number into conversations roster
+          const formattedPhone = formatPhoneDisplay(norm10);
+          newLeads.push({
+            id: `call_lead_${norm10}`,
+            name: (latestCall.customerName && latestCall.customerName !== 'Customer') ? latestCall.customerName : formattedPhone,
+            phone: formattedPhone,
+            rawPhone: norm10,
+            normPhone10: norm10,
+            email: '',
+            lastMessage: `📞 ${callType} (${dur}s)`,
+            lastMessageTime: callTime,
+            unreadCount: 0,
+            stage: 'New Leads',
+            source: 'SIM Companion',
+            displayId: `CON-${String(prev.length + newLeads.length + 1).padStart(4, '0')}`,
+            tags: []
+          });
+          existingNorms.add(norm10);
+        }
+      });
+
+      if (newLeads.length === 0) {
+        return Array.from(updatedMap.values()).sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+      }
+
+      const combined = [...Array.from(updatedMap.values()), ...newLeads];
+      return combined.sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+    });
+  }, [callLogsByPhoneMap]);
 
   // 5. Build Unified Merged Timeline (WhatsApp + Multi-Call Records + Notes)
   const { timeline, stats } = useMemo(() => {
     if (!activeContact) return { timeline: [], stats: {} };
 
     const norm10 = activeContact.normPhone10 || (String(activeContact.rawPhone || activeContact.phone || '').replace(/\D/g, '').slice(-10));
-    const matchedCalls = norm10 && callLogsByPhoneMap.has(norm10) ? callLogsByPhoneMap.get(norm10) : allCallLogs;
+    const matchedCalls = norm10 && callLogsByPhoneMap.has(norm10) ? callLogsByPhoneMap.get(norm10) : [];
 
     const contactCalls = TimelineEngine.normalizeCallLogsForContact(
       matchedCalls,
@@ -711,7 +972,7 @@ export default function ConversationsPage({
     );
 
     return TimelineEngine.mergeAndSortTimeline(activeMessages, contactCalls, crmNotes);
-  }, [activeContact, activeMessages, callLogsByPhoneMap, allCallLogs, crmNotes]);
+  }, [activeContact, activeMessages, callLogsByPhoneMap, crmNotes]);
 
   // Filter timeline based on active view tab
   const filteredTimeline = useMemo(() => {
@@ -922,7 +1183,7 @@ export default function ConversationsPage({
       const norm10 = activeContact.normPhone10 || (String(resolvedPhone).replace(/\D/g, '').slice(-10));
       const contactCallLogs = norm10 && callLogsByPhoneMap && callLogsByPhoneMap.has(norm10)
         ? callLogsByPhoneMap.get(norm10)
-        : (Array.isArray(allCallLogs) ? allCallLogs : []);
+        : [];
 
       const payload = {
         contact: {
@@ -1060,6 +1321,49 @@ export default function ConversationsPage({
                   {conversationsList.length} Active Leads
                 </div>
               </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!window.confirm('⚠️ Kya aap saare CRM Contacts aur Messages reset karna chahte hain taaki WhatsApp fresh scan ho sake?')) return;
+                  try {
+                    const res = await fetch(`${API_URL}/contacts/clear-all`, {
+                      method: 'POST',
+                      headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
+                    });
+                    const data = await res.json();
+                    if (data && data.success) {
+                      setConversationsList([]);
+                      setActiveContact(null);
+                      setActiveMessages([]);
+                      messagesCacheRef.current.clear();
+                      try { localStorage.removeItem('omniflow_cached_contacts'); } catch(e) {}
+                      if (showToast) showToast('🧹 Saara CRM data reset ho gaya! Ab WhatsApp connect karein.', 'success');
+                    }
+                  } catch (e) {
+                    if (showToast) showToast('❌ Reset Error: ' + e.message, 'error');
+                  }
+                }}
+                style={{
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  border: '1px solid rgba(239, 68, 68, 0.2)',
+                  color: '#dc2626',
+                  borderRadius: '6px',
+                  padding: '4px 8px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="Clear all contacts and conversation history"
+              >
+                <Trash2 size={12} />
+                <span>Reset</span>
+              </button>
             </div>
           </div>
 
