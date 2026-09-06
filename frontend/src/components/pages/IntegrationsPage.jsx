@@ -841,38 +841,120 @@ export default function IntegrationsPage({
         } catch (lErr) {}
       }
 
-      let callLogs = [];
+      // 1. Build Contact Map from CRM to resolve phone numbers to customer names (e.g. 9646378478 -> rahul)
+      const contactMap = new Map();
       try {
-        const cached = localStorage.getItem('omniflow_cached_call_logs');
-        if (cached) callLogs = JSON.parse(cached);
-      } catch (e) {}
-
-      // Fallback: Fetch directly from Firestore callLogs / call_logs collections
-      if (!Array.isArray(callLogs) || callLogs.length === 0) {
-        try {
-          const snap1 = await getDocs(collection(db, 'callLogs'));
-          snap1.forEach(d => {
-            const dData = d.data();
-            callLogs.push({ id: d.id, ...dData });
-          });
-          if (callLogs.length === 0) {
-            const snap2 = await getDocs(collection(db, 'call_logs'));
-            snap2.forEach(d => {
-              const dData = d.data();
-              callLogs.push({ id: d.id, ...dData });
+        const cCached = localStorage.getItem('omniflow_cached_crm_contacts') || localStorage.getItem('omniflow_cached_contacts');
+        if (cCached) {
+          const cParsed = JSON.parse(cCached);
+          if (Array.isArray(cParsed)) {
+            cParsed.forEach(c => {
+              const name = c.name || c.fullName || c.contactName || c.leadName;
+              const phone = c.phone || c.phoneNumber || c.mobile || c.customerPhone;
+              if (name && phone) {
+                const digits = String(phone).replace(/\D/g, '');
+                if (digits.length >= 7) contactMap.set(digits.slice(-10), name.trim());
+              }
             });
           }
-        } catch (fErr) {
-          console.warn('Firestore call logs fetch notice:', fErr);
         }
+      } catch (e) {}
+
+      // 2. Fetch and merge ALL call log sources (Firestore callLogs + call_logs + SQLite API + localStorage)
+      const allCallsMap = new Map();
+
+      // Source A: Local Storage cache
+      try {
+        const cached = localStorage.getItem('omniflow_cached_call_logs');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(c => {
+              const k = c.id || `${(c.customerPhone || c.phone || '').replace(/\D/g, '')}_${c.timestamp || c._createdAt || ''}`;
+              if (k) allCallsMap.set(String(k), c);
+            });
+          }
+        }
+      } catch (e) {}
+
+      // Source B: Firestore collection 'callLogs' (Android Companion App)
+      try {
+        if (db) {
+          const snap1 = await getDocs(collection(db, 'callLogs'));
+          snap1.forEach(d => {
+            const data = { id: d.id, ...d.data() };
+            const k = data.id || `${(data.customerPhone || data.phone || '').replace(/\D/g, '')}_${data.timestamp || data._createdAt || ''}`;
+            if (k) allCallsMap.set(String(k), data);
+          });
+        }
+      } catch (fErr1) {
+        console.warn('Firestore callLogs fetch notice:', fErr1);
       }
+
+      // Source C: Firestore collection 'call_logs' (Web Dashboard)
+      try {
+        if (db) {
+          const snap2 = await getDocs(collection(db, 'call_logs'));
+          snap2.forEach(d => {
+            const data = { id: d.id, ...d.data() };
+            const k = data.id || `${(data.customerPhone || data.phone || '').replace(/\D/g, '')}_${data.timestamp || data._createdAt || ''}`;
+            if (k) allCallsMap.set(String(k), data);
+          });
+        }
+      } catch (fErr2) {
+        console.warn('Firestore call_logs fetch notice:', fErr2);
+      }
+
+      // Source D: Backend SQLite /api/telecalling/logs
+      try {
+        const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('token') || localStorage.getItem('omniflow_token');
+        const bRes = await fetch(`${API_URL}/telecalling/logs`, {
+          headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
+        });
+        if (bRes.ok) {
+          const bData = await bRes.json();
+          if (Array.isArray(bData?.logs)) {
+            bData.logs.forEach(c => {
+              const k = c.id || `${(c.customerPhone || c.phone || '').replace(/\D/g, '')}_${c.timestamp || c._createdAt || ''}`;
+              if (k) allCallsMap.set(String(k), c);
+            });
+          }
+        }
+      } catch (bErr) {
+        console.warn('Backend telecalling logs fetch notice:', bErr);
+      }
+
+      // Format, resolve names, and sort all calls
+      const callLogs = Array.from(allCallsMap.values()).map(c => {
+        const custPhone = c.customerPhone || c.phoneNumber || c.phone || '';
+        const rawDigits = String(custPhone).replace(/\D/g, '');
+        const norm10 = rawDigits.length >= 7 ? rawDigits.slice(-10) : '';
+        let resolvedName = (c.customerName || c.contactName || c.name || '').trim();
+        if ((!resolvedName || resolvedName.toLowerCase() === 'customer' || resolvedName === custPhone) && norm10 && contactMap.has(norm10)) {
+          resolvedName = contactMap.get(norm10);
+        }
+        return {
+          ...c,
+          customerPhone: custPhone,
+          customerName: resolvedName || 'Customer'
+        };
+      }).sort((a, b) => {
+        const timeA = Number(a._createdAt || a.createdAt || (a.timestamp ? new Date(a.timestamp).getTime() : 0)) || 0;
+        const timeB = Number(b._createdAt || b.createdAt || (b.timestamp ? new Date(b.timestamp).getTime() : 0)) || 0;
+        return timeB - timeA;
+      });
+
+      // Update local cache with complete merged dataset
+      try {
+        localStorage.setItem('omniflow_cached_call_logs', JSON.stringify(callLogs.slice(0, 300)));
+      } catch (e) {}
 
       if (!Array.isArray(callLogs) || callLogs.length === 0) {
         showToast('ℹ️ No call recordings found in database to sync.', 'info');
         return;
       }
 
-      // 1. Direct HighLevel Cloud API push if location has active accessToken
+      // 3. Direct HighLevel Cloud API push if location has active accessToken
       if (loc && loc.accessToken && targetLocId) {
         let synced = 0;
         let failed = 0;

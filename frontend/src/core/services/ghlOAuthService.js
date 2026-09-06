@@ -266,12 +266,38 @@ export class GhlOAuthService {
   }
 
   /**
+   * Helper to parse arbitrary duration strings (e.g. "36s", "00:30", "1m 15s") to seconds
+   */
+  static parseDurationToSeconds(val) {
+    if (val === undefined || val === null) return 30;
+    if (typeof val === 'number' && !isNaN(val)) return Math.max(0, Math.round(val));
+    const str = String(val).trim().toLowerCase();
+    if (!str) return 30;
+    if (/^\d+\s*s?$/.test(str)) {
+      const p = parseInt(str, 10);
+      return !isNaN(p) && p >= 0 ? p : 30;
+    }
+    if (str.includes(':')) {
+      const parts = str.split(':').map(p => parseInt(p, 10) || 0);
+      if (parts.length === 2) return parts[0] * 60 + parts[1];
+      if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    }
+    const minM = str.match(/(\d+)\s*m/);
+    const secM = str.match(/(\d+)\s*s/);
+    if (minM || secM) {
+      return (minM ? parseInt(minM[1], 10) * 60 : 0) + (secM ? parseInt(secM[1], 10) : 0);
+    }
+    const num = parseInt(str.replace(/\D/g, ''), 10);
+    return !isNaN(num) && num >= 0 ? num : 30;
+  }
+
+  /**
    * Directly creates or updates a contact on HighLevel Cloud API
    */
   static async createOrUpdateContactDirectly({ locationId, accessToken, contact }) {
     if (!locationId || !accessToken || !contact) return null;
 
-    const rawName = (contact.name || contact.customer_name || contact.customName || '').trim();
+    const rawName = (contact.name || contact.customerName || contact.customer_name || contact.customName || '').trim();
     let firstName = rawName;
     let lastName = '';
     if (rawName.includes(' ')) {
@@ -280,13 +306,69 @@ export class GhlOAuthService {
       lastName = parts.slice(1).join(' ');
     }
 
-    let phone = (contact.phone || contact.id || '').replace(/[^0-9+]/g, '');
+    const rawPhone = String(contact.phone || contact.phoneNumber || contact.customerPhone || contact.id || '').trim();
+    const cleanDigits = rawPhone.replace(/\D/g, '');
+    const normPhone10 = cleanDigits.length >= 7 ? cleanDigits.slice(-10) : cleanDigits;
+
+    let phone = rawPhone.replace(/[^0-9+]/g, '');
     if (phone.includes('@')) phone = phone.split('@')[0];
     if (phone && !phone.startsWith('+')) {
       if (phone.length === 10) phone = `+91${phone}`;
+      else if (phone.length === 11 && phone.startsWith('0')) phone = `+91${phone.slice(1)}`;
       else if (phone.length === 12 && phone.startsWith('91')) phone = `+${phone}`;
     }
 
+    // Step A: Search for existing contact by phone query in HighLevel first!
+    if (normPhone10 && normPhone10.length >= 7) {
+      try {
+        const searchUrl = `https://services.leadconnectorhq.com/contacts/?locationId=${encodeURIComponent(locationId)}&query=${encodeURIComponent(normPhone10)}`;
+        const searchRes = await fetch(searchUrl, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Version': '2021-07-28',
+            'Accept': 'application/json'
+          }
+        });
+        if (searchRes.ok) {
+          const searchData = await searchRes.json();
+          if (Array.isArray(searchData?.contacts) && searchData.contacts.length > 0) {
+            const matched = searchData.contacts.find(c => {
+              const cDigits = String(c.phone || '').replace(/\D/g, '');
+              return cDigits.endsWith(normPhone10) || cDigits.includes(normPhone10);
+            }) || searchData.contacts[0];
+
+            if (matched && matched.id) {
+              // If matched contact in GHL is missing name or is just phone number, update it to real customer name
+              if (rawName && rawName.toLowerCase() !== 'customer' && (!matched.name || matched.name.replace(/\D/g, '') === normPhone10 || matched.name.includes('0'))) {
+                try {
+                  await fetch(`https://services.leadconnectorhq.com/contacts/${matched.id}`, {
+                    method: 'PUT',
+                    headers: {
+                      'Authorization': `Bearer ${accessToken}`,
+                      'Version': '2021-07-28',
+                      'Content-Type': 'application/json',
+                      'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                      name: rawName,
+                      firstName: firstName || rawName,
+                      lastName: lastName || undefined,
+                      ...(contact.email ? { email: contact.email } : {})
+                    })
+                  });
+                } catch (putErr) {}
+              }
+
+              return { contact: matched, id: matched.id };
+            }
+          }
+        }
+      } catch (searchErr) {
+        console.warn('[GhlOAuthService Contact Search Notice]', searchErr);
+      }
+    }
+
+    // Step B: Upsert contact if not found by search
     const payload = {
       locationId,
       name: rawName || undefined,
@@ -361,7 +443,7 @@ export class GhlOAuthService {
     try {
       // 1. Resolve or create contact on GHL
       const phone = callLog.customerPhone || callLog.phoneNumber || callLog.phone || '';
-      const name = callLog.customerName || 'Customer';
+      const name = callLog.customerName || callLog.contactName || callLog.name || 'Customer';
 
       const contactRes = await this.createOrUpdateContactDirectly({
         locationId,
@@ -372,12 +454,12 @@ export class GhlOAuthService {
       const ghlContactId = contactRes?.contact?.id || contactRes?.id;
       if (!ghlContactId) return null;
 
-      const durationSeconds = Number(callLog.durationSeconds || callLog.duration || 0);
-      const recordingUrl = callLog.recordingUrl || callLog.recording || callLog.audioUrl || '';
+      const durationSeconds = this.parseDurationToSeconds(callLog.durationSeconds ?? callLog.duration);
+      const recordingUrl = callLog.recordingUrl || callLog.recording || callLog.audioUrl || callLog.audio_url || '';
       const rawStatus = (callLog.disposition || callLog.status || 'completed').toLowerCase();
-      const direction = (callLog.type || 'OUTGOING').toLowerCase().includes('in') ? 'inbound' : 'outbound';
+      const direction = (callLog.type || callLog.callType || 'OUTGOING').toLowerCase().includes('in') ? 'inbound' : 'outbound';
       const notes = callLog.notes || '';
-      const staffName = callLog.agentName || callLog.staffName || 'Agent';
+      const staffName = callLog.agentName || callLog.staffName || 'Mobile Agent';
 
       let normStatus = 'completed';
       if (rawStatus.includes('miss') || rawStatus.includes('reject')) normStatus = 'no-answer';
@@ -389,7 +471,7 @@ export class GhlOAuthService {
       const durStr = `${durMins}m ${durSecs}s`;
 
       const bodyText = [
-        `📞 ${direction.toUpperCase()} CALL`,
+        `📞 ${direction.toUpperCase()} CALL (${callLog.channel || 'SIM'})`,
         `⏱️ Duration: ${durStr}`,
         `👤 Staff: ${staffName}`,
         `📊 Status: ${normStatus}`,
@@ -399,19 +481,15 @@ export class GhlOAuthService {
 
       let callPostSuccess = false;
 
-      // 1. Attempt standard /conversations/messages
+      // 1. Attempt standard /conversations/messages Custom message
       try {
         const payload = {
-          type: 'Call',
+          type: 'Custom',
           contactId: ghlContactId,
-          status: normStatus,
-          direction,
+          message: bodyText,
           body: bodyText,
-          call: {
-            duration: durationSeconds,
-            status: normStatus,
-            ...(recordingUrl ? { recordingUrl } : {})
-          },
+          direction,
+          status: 'delivered',
           ...(recordingUrl ? { attachments: [recordingUrl] } : {})
         };
 
@@ -430,11 +508,10 @@ export class GhlOAuthService {
         console.warn('[GhlOAuthService Call POST notice]', callErr);
       }
 
-      // 2. Attempt inbound/outbound messages endpoint
-      if (!callPostSuccess) {
+      // 2. If inbound, also post to /conversations/messages/inbound for conversation inbox thread
+      if (direction === 'inbound') {
         try {
-          const subPath = direction === 'inbound' ? 'inbound' : 'outbound';
-          const res = await fetch(`https://services.leadconnectorhq.com/conversations/messages/${subPath}`, {
+          const res = await fetch(`https://services.leadconnectorhq.com/conversations/messages/inbound`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
@@ -443,22 +520,22 @@ export class GhlOAuthService {
               'Accept': 'application/json'
             },
             body: JSON.stringify({
-              type: direction === 'inbound' ? 'InboundMessage' : 'OutboundMessage',
-              locationId,
+              type: 'Custom',
+              conversationProviderId: 'EMS_CALL_RECORDINGS',
               contactId: ghlContactId,
+              message: bodyText,
               body: bodyText,
-              messageType: 'Custom',
-              direction,
+              direction: 'inbound',
               attachments: recordingUrl ? [recordingUrl] : []
             })
           });
           if (res.ok) callPostSuccess = true;
         } catch (inboundErr) {
-          console.warn('[GhlOAuthService Inbound/Outbound notice]', inboundErr);
+          console.warn('[GhlOAuthService Inbound Call notice]', inboundErr);
         }
       }
 
-      // 3. Always write Contact Note so audio link is guaranteed to display in HighLevel Contact Detail Activity Feed
+      // 3. Always write Contact Note so audio link & duration is guaranteed to display in HighLevel Contact Detail Activity Feed
       try {
         await fetch(`https://services.leadconnectorhq.com/contacts/${ghlContactId}/notes`, {
           method: 'POST',
@@ -515,11 +592,11 @@ export class GhlOAuthService {
               'Accept': 'application/json'
             },
             body: JSON.stringify({
-              type: 'InboundMessage',
-              locationId,
+              type: 'Custom',
+              conversationProviderId: 'EMS_WHATSAPP_SYSTEM',
               contactId,
+              message: body,
               body,
-              messageType: 'Custom',
               direction: 'inbound',
               attachments: (message.mediaUrl || message.media_url) ? [message.mediaUrl || message.media_url] : []
             })
@@ -541,6 +618,7 @@ export class GhlOAuthService {
           body: JSON.stringify({
             type: 'Custom',
             contactId,
+            message: body,
             body,
             direction,
             status: 'delivered',
