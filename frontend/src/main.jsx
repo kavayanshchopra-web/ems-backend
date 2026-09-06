@@ -5,6 +5,14 @@ import './payroll.css'
 
 import App from './App.jsx'
 
+// Auto-reload when Vite detects a stale chunk after a new deployment
+if (typeof window !== 'undefined') {
+  window.addEventListener('vite:preloadError', () => {
+    console.warn('[Vite] Stale chunk detected after new deployment. Auto-reloading...');
+    window.location.reload();
+  });
+}
+
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -16,6 +24,16 @@ class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
+    const errStr = (error?.message || error || '').toString().toLowerCase();
+    if (errStr.includes('failed to fetch dynamically imported module') || errStr.includes('error loading dynamically imported module')) {
+      const lastReload = sessionStorage.getItem('vite_chunk_reload_ts');
+      const now = Date.now();
+      if (!lastReload || now - Number(lastReload) > 8000) {
+        sessionStorage.setItem('vite_chunk_reload_ts', String(now));
+        window.location.reload();
+        return;
+      }
+    }
     console.error("App Crash Caught:", error, errorInfo);
     this.setState({ errorInfo });
   }
