@@ -80,6 +80,42 @@ export default function TelecallingView({
         try {
           localStorage.setItem('omniflow_cached_call_logs', JSON.stringify(merged.slice(0, 300)));
         } catch (e) {}
+
+        // Background auto-sync new calls to GoHighLevel
+        try {
+          const syncedJson = localStorage.getItem('omniflow_ghl_synced_calls');
+          const syncedSet = new Set(syncedJson ? JSON.parse(syncedJson) : []);
+          const recentThreshold = Date.now() - 60 * 60 * 1000;
+
+          const pendingCalls = newDocs.filter(c => {
+            if (!c.id || syncedSet.has(c.id)) return false;
+            const callTime = Number(c._createdAt || c.createdAt || (c.timestamp ? new Date(c.timestamp).getTime() : 0)) || 0;
+            return callTime >= recentThreshold;
+          });
+
+          if (pendingCalls.length > 0) {
+            const cleanComp = String(companyId || 'org_default');
+            GhlOAuthService.getInstalledLocations(cleanComp).then(async (installed) => {
+              const directLoc = installed?.find(l => l.accessToken) || installed?.[0];
+              if (directLoc && directLoc.accessToken) {
+                for (const call of pendingCalls) {
+                  try {
+                    const res = await GhlOAuthService.createConversationCallDirectly({
+                      locationId: directLoc.locationId || '1g4rrRuP0ubwpF6vqWka',
+                      accessToken: directLoc.accessToken,
+                      callLog: call
+                    });
+                    if (res) {
+                      syncedSet.add(call.id);
+                      localStorage.setItem('omniflow_ghl_synced_calls', JSON.stringify(Array.from(syncedSet).slice(-500)));
+                    }
+                  } catch (e) {}
+                }
+              }
+            }).catch(() => {});
+          }
+        } catch (e) {}
+
         return merged;
       });
     };

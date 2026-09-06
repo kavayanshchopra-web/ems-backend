@@ -57,8 +57,8 @@ function unwrapCallRecord(raw) {
 
   const phone = getVal('customerPhone') || getVal('customer_phone') || getVal('phoneNumber') || getVal('phone') || getVal('number') || '';
   const name = getVal('customerName') || getVal('customer_name') || getVal('name') || getVal('contactName') || '';
-  const recording = getVal('recordingUrl') || getVal('recording_url') || getVal('recording') || getVal('audioUrl') || getVal('fileUrl') || '';
-  const duration = Number(getVal('durationSeconds') || getVal('duration_seconds') || getVal('duration') || 0);
+  const rawDur = getVal('durationSeconds') || getVal('duration_seconds') || getVal('duration') || 0;
+  const duration = GhlOAuthService.parseDurationToSeconds(rawDur);
   const type = getVal('type') || getVal('callType') || getVal('call_type') || 'OUTGOING';
   const disposition = getVal('disposition') || getVal('status') || '';
   const notes = getVal('notes') || getVal('remark') || '';
@@ -383,6 +383,9 @@ export default function ConversationsPage({
     const handleNewCallDocs = (docs) => {
       if (!Array.isArray(docs) || docs.length === 0) return;
       const unwrapped = docs.map(unwrapCallRecord).filter(Boolean);
+      if (unwrapped.length === 0) return;
+
+      // 1. Merge into allCallLogs state and cache
       setAllCallLogs(prev => {
         const map = new Map();
         (prev || []).forEach(p => map.set(String(p.id), p));
@@ -397,6 +400,115 @@ export default function ConversationsPage({
         } catch (e) {}
         return merged;
       });
+
+      // 2. Auto-Link call leads into Conversations roster (create new lead if phone not in list)
+      setConversationsList(prev => {
+        let updatedList = [...prev];
+        let hasChanges = false;
+
+        unwrapped.forEach(call => {
+          const rawPhone = String(call.customerPhone || call.phoneNumber || '').replace(/\D/g, '');
+          const norm10 = rawPhone.length >= 7 ? rawPhone.slice(-10) : '';
+          if (!norm10) return;
+
+          const existingIdx = updatedList.findIndex(c => {
+            const cNorm = c.normPhone10 || String(c.phone || c.rawPhone || c.id || '').replace(/\D/g, '').slice(-10);
+            return cNorm && cNorm === norm10;
+          });
+
+          const durSecs = call.durationSeconds || 0;
+          const durStr = durSecs >= 60 ? `${Math.floor(durSecs / 60)}m ${durSecs % 60}s` : `${durSecs}s`;
+          const lastMsg = `📞 ${call.type || 'INCOMING'} Call (${durStr})`;
+          const callTime = call._createdAt || (call.timestamp ? new Date(call.timestamp).getTime() : Date.now());
+
+          if (existingIdx !== -1) {
+            const current = updatedList[existingIdx];
+            const isCallNewer = callTime >= (new Date(current.lastMessageTime || 0).getTime());
+            const hasBetterName = call.customerName && call.customerName !== 'Customer' && (!current.name || current.name.replace(/\D/g, '') === norm10);
+            
+            if (isCallNewer || hasBetterName) {
+              hasChanges = true;
+              updatedList[existingIdx] = {
+                ...current,
+                name: hasBetterName ? call.customerName : current.name,
+                lastMessage: isCallNewer ? lastMsg : current.lastMessage,
+                lastMessageTime: isCallNewer ? callTime : current.lastMessageTime
+              };
+            }
+          } else {
+            // Brand new lead detected from call! Insert into conversations list
+            hasChanges = true;
+            const formattedPhone = formatPhoneDisplay(norm10);
+            const newLead = {
+              id: `call_lead_${norm10}`,
+              name: (call.customerName && call.customerName !== 'Customer') ? call.customerName : formattedPhone,
+              phone: formattedPhone,
+              rawPhone: rawPhone,
+              normPhone10: norm10,
+              email: '',
+              lastMessage: lastMsg,
+              lastMessageTime: callTime,
+              unreadCount: 0,
+              stage: 'New Leads',
+              source: 'SIM Companion',
+              displayId: `CON-${String(updatedList.length + 1).padStart(4, '0')}`,
+              tags: ['SIM Call']
+            };
+            updatedList.unshift(newLead);
+          }
+        });
+
+        if (hasChanges) {
+          const sorted = updatedList.sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+          try {
+            localStorage.setItem('omniflow_cached_contacts', JSON.stringify(sorted.slice(0, 200)));
+          } catch (e) {}
+          return sorted;
+        }
+        return prev;
+      });
+
+      // 3. Live Auto-Sync to GoHighLevel in background
+      try {
+        const syncedJson = localStorage.getItem('omniflow_ghl_synced_calls');
+        const syncedSet = new Set(syncedJson ? JSON.parse(syncedJson) : []);
+        const recentThreshold = Date.now() - 60 * 60 * 1000; // Calls from last 60 minutes
+
+        const pendingCalls = unwrapped.filter(c => {
+          if (!c.id || syncedSet.has(c.id)) return false;
+          const callTime = c._createdAt || (c.timestamp ? new Date(c.timestamp).getTime() : 0);
+          return callTime >= recentThreshold;
+        });
+
+        if (pendingCalls.length > 0) {
+          const cleanComp = String(companyId || 'org_default');
+          GhlOAuthService.getInstalledLocations(cleanComp).then(async (installed) => {
+            const directLoc = installed?.find(l => l.accessToken) || installed?.[0];
+            if (directLoc && directLoc.accessToken) {
+              for (const call of pendingCalls) {
+                try {
+                  const res = await GhlOAuthService.createConversationCallDirectly({
+                    locationId: directLoc.locationId || '1g4rrRuP0ubwpF6vqWka',
+                    accessToken: directLoc.accessToken,
+                    callLog: call
+                  });
+                  if (res) {
+                    syncedSet.add(call.id);
+                    localStorage.setItem('omniflow_ghl_synced_calls', JSON.stringify(Array.from(syncedSet).slice(-500)));
+                    if (showToast) {
+                      showToast(`⚡ Live SIM Call linked & synced to GoHighLevel! (${call.customerName || call.customerPhone})`, 'success');
+                    }
+                  }
+                } catch (cErr) {
+                  console.warn('[Live GHL Auto-Sync notice]', cErr);
+                }
+              }
+            }
+          }).catch(() => {});
+        }
+      } catch (ghlAutoErr) {
+        console.warn('[GHL Auto-Sync notice]', ghlAutoErr);
+      }
     };
 
     try {
