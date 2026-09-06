@@ -115,7 +115,7 @@ export default function IntegrationsPage({
       // 1. Fetch live cloud audit logs from Firestore
       let firestoreLogs = [];
       try {
-        firestoreLogs = await GhlOAuthService.getSyncAuditLogs(activeLocId, 50);
+        firestoreLogs = await GhlOAuthService.getSyncAuditLogs(activeLocId, 100);
       } catch (fErr) {
         console.warn('Firestore sync audit logs fetch notice:', fErr);
       }
@@ -123,7 +123,7 @@ export default function IntegrationsPage({
       // 2. Fetch backend logs from SQLite
       let backendLogs = [];
       try {
-        const res = await fetch(`${API_URL}/v1/integrations/ghl/logs?limit=50&locationId=${encodeURIComponent(activeLocId)}`, {
+        const res = await fetch(`${API_URL}/v1/integrations/ghl/logs?limit=100&locationId=${encodeURIComponent(activeLocId)}`, {
           headers: {
             ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
             'X-Tenant-Id': String(cleanCompanyId),
@@ -674,8 +674,26 @@ export default function IntegrationsPage({
     setSyncingAction('push_contacts');
     showToast('🚀 Synchronizing EMS contacts to HighLevel...', 'info');
     try {
-      const loc = ghlLocations[0];
-      const targetLocId = loc?.locationId || detectedLocationId || manualLocationId;
+      let loc = ghlLocations[0];
+      const targetLocId = loc?.locationId || detectedLocationId || manualLocationId || '1g4rrRuP0ubwpF6vqWka';
+
+      if (!loc || !loc.accessToken) {
+        try {
+          const installed = await GhlOAuthService.getInstalledLocations(cleanCompanyId);
+          if (installed && installed.length > 0) {
+            loc = installed.find(l => l.accessToken) || installed[0];
+          }
+          if (!loc || !loc.accessToken) {
+            const allDocs = await getDocs(collection(db, 'integrations_ghl_oauth'));
+            allDocs.forEach(d => {
+              const data = d.data();
+              if (data && data.accessToken && (!loc || !loc.accessToken)) {
+                loc = { id: d.id, ...data };
+              }
+            });
+          }
+        } catch (lErr) {}
+      }
 
       // 1. Fetch all local contacts from Firestore
       const localContacts = await FirebaseCloudEngine.fetchRecords('contacts', cleanCompanyId);
@@ -1014,8 +1032,27 @@ export default function IntegrationsPage({
     setSyncingAction('import_contacts');
     showToast('📥 Connecting to HighLevel API to import contacts...', 'info');
     try {
-      const loc = ghlLocations[0];
-      const targetLocId = loc?.locationId || detectedLocationId || manualLocationId;
+      let loc = ghlLocations[0];
+      const targetLocId = loc?.locationId || detectedLocationId || manualLocationId || '1g4rrRuP0ubwpF6vqWka';
+
+      if (!loc || !loc.accessToken) {
+        try {
+          const installed = await GhlOAuthService.getInstalledLocations(cleanCompanyId);
+          if (installed && installed.length > 0) {
+            loc = installed.find(l => l.accessToken) || installed[0];
+          }
+          if (!loc || !loc.accessToken) {
+            const allDocs = await getDocs(collection(db, 'integrations_ghl_oauth'));
+            allDocs.forEach(d => {
+              const data = d.data();
+              if (data && data.accessToken && (!loc || !loc.accessToken)) {
+                loc = { id: d.id, ...data };
+              }
+            });
+          }
+        } catch (lErr) {}
+      }
+
       let importedList = [];
       let totalFound = 0;
 
@@ -1123,13 +1160,33 @@ export default function IntegrationsPage({
     setSyncingAction('import_deals');
     showToast('📥 Fetching & Importing all Pipelines & Deals from HighLevel...', 'info');
     try {
-      const loc = ghlLocations[0];
+      let loc = ghlLocations[0];
+      const targetLocId = loc?.locationId || detectedLocationId || manualLocationId || '1g4rrRuP0ubwpF6vqWka';
+
+      if (!loc || !loc.accessToken) {
+        try {
+          const installed = await GhlOAuthService.getInstalledLocations(cleanCompanyId);
+          if (installed && installed.length > 0) {
+            loc = installed.find(l => l.accessToken) || installed[0];
+          }
+          if (!loc || !loc.accessToken) {
+            const allDocs = await getDocs(collection(db, 'integrations_ghl_oauth'));
+            allDocs.forEach(d => {
+              const data = d.data();
+              if (data && data.accessToken && (!loc || !loc.accessToken)) {
+                loc = { id: d.id, ...data };
+              }
+            });
+          }
+        } catch (lErr) {}
+      }
+
       let oppsList = [];
       let totalFound = 0;
 
-      if (loc && loc.locationId && loc.accessToken) {
+      if (loc && targetLocId && loc.accessToken) {
         const res = await GhlOAuthService.fetchOpportunitiesDirectly({
-          locationId: loc.locationId,
+          locationId: targetLocId,
           accessToken: loc.accessToken
         });
         oppsList = res.opportunities || [];
@@ -1824,9 +1881,14 @@ export default function IntegrationsPage({
                 {/* Recent GHL Sync Audit Logs */}
                 <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: '#334155' }}>
-                      Recent Sync Audit Activity ({ghlSyncLogs.length})
-                    </h4>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: '#334155' }}>
+                        Recent Sync Audit Activity ({ghlSyncLogs.length} events)
+                      </h4>
+                      <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#64748b' }}>
+                        Live log of pushed call recordings, contact provisions, and sync actions
+                      </p>
+                    </div>
                     <button
                       onClick={fetchGhlSyncLogs}
                       style={{ background: 'none', border: 'none', color: '#0d9488', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
