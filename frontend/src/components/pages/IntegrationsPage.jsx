@@ -837,7 +837,7 @@ export default function IntegrationsPage({
 
   const handleSyncAllGhlCalls = async () => {
     setSyncingAction('push_calls');
-    showToast('🎙️ Synchronizing Call Recordings to GoHighLevel...', 'info');
+    showToast('🎙️ Gathering and Synchronizing Call Recordings to GoHighLevel...', 'info');
     try {
       let loc = ghlLocations[0];
       const targetLocId = loc?.locationId || detectedLocationId || manualLocationId || '1g4rrRuP0ubwpF6vqWka';
@@ -860,15 +860,30 @@ export default function IntegrationsPage({
         } catch (lErr) {}
       }
 
-      // 1. Build Contact Map from CRM to resolve phone numbers to customer names (e.g. 9646378478 -> rahul)
+      // 1. Build Contact Map from Firestore & Local CRM to resolve phone numbers to customer names (e.g. 9646378478 -> rahul)
       const contactMap = new Map();
       try {
+        // Source A: Firestore contacts
+        if (db) {
+          const cSnap = await getDocs(collection(db, 'contacts')).catch(() => ({ forEach: () => {} }));
+          cSnap.forEach(d => {
+            const c = d.data();
+            const name = c.name || c.customName || c.custom_name || c.customerName;
+            const phone = c.phone || c.phoneNumber || c.rawPhone || d.id;
+            if (name && phone) {
+              const digits = String(phone).replace(/\D/g, '');
+              if (digits.length >= 7) contactMap.set(digits.slice(-10), name.trim());
+            }
+          });
+        }
+
+        // Source B: Local Storage cache
         const cCached = localStorage.getItem('omniflow_cached_crm_contacts') || localStorage.getItem('omniflow_cached_contacts');
         if (cCached) {
           const cParsed = JSON.parse(cCached);
           if (Array.isArray(cParsed)) {
             cParsed.forEach(c => {
-              const name = c.name || c.fullName || c.contactName || c.leadName;
+              const name = c.name || c.fullName || c.contactName || c.leadName || c.custom_name;
               const phone = c.phone || c.phoneNumber || c.mobile || c.customerPhone;
               if (name && phone) {
                 const digits = String(phone).replace(/\D/g, '');
@@ -993,13 +1008,14 @@ export default function IntegrationsPage({
               failed++;
             }
           }));
+          showToast(`🚀 Pushing call recordings to GoHighLevel... (${Math.min(i + chunkSize, callLogs.length)}/${callLogs.length})`, 'info');
         }
         showToast(`✅ Call Recordings Synced to HighLevel! Total: ${callLogs.length}, Synced: ${synced}`, 'success');
         fetchGhlSyncLogs();
         return;
       }
 
-      // 2. Fallback to Backend endpoint
+      // 4. Fallback to Backend endpoint
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
       const res = await fetch(`${API_URL}/v1/integrations/ghl/calls/sync-all`, {
         method: 'POST',

@@ -446,34 +446,62 @@ export class GhlOAuthService {
   }
 
   /**
-   * Converts Base64 audio into a permanent public Firebase Storage URL for GHL attachment & playback
+   * Converts Base64 audio into a permanent public HTTPS URL (via Backend API / Firebase Storage) for GHL attachment & playback
    */
   static async uploadAudioBase64ToStorage(base64Data, callId = '') {
     if (!base64Data || typeof base64Data !== 'string') return null;
     if (!base64Data.startsWith('data:audio/')) return null;
 
+    // 1. Try uploading to Backend API server first for instantaneous static MP3 persistence
     try {
-      const arr = base64Data.split(',');
-      if (arr.length < 2) return null;
-      const mimeMatch = arr[0].match(/:(.*?);/);
-      const mime = mimeMatch ? mimeMatch[1] : 'audio/mp4';
-      const bstr = atob(arr[1]);
-      let n = bstr.length;
-      const u8arr = new Uint8Array(n);
-      while (n--) {
-        u8arr[n] = bstr.charCodeAt(n);
+      const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      const customGateway = typeof window !== 'undefined' ? localStorage.getItem('omniflow_custom_gateway') : null;
+      const apiBase = customGateway || (isDev ? 'http://localhost:5000/api' : 'https://api.employeemanagementsystems.com/api');
+
+      const uploadRes = await fetch(`${apiBase}/telecalling/upload-recording`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audioBase64: base64Data,
+          callId: String(callId || Date.now())
+        })
+      });
+
+      if (uploadRes.ok) {
+        const uploadJson = await uploadRes.json();
+        if (uploadJson && (uploadJson.url || uploadJson.recordingUrl)) {
+          return uploadJson.url || uploadJson.recordingUrl;
+        }
       }
-      const blob = new Blob([u8arr], { type: mime });
-      const ext = mime.includes('mp4') || mime.includes('m4a') ? 'm4a' : (mime.includes('wav') ? 'wav' : 'mp3');
-      const safeId = String(callId || Date.now()).replace(/[^a-zA-Z0-9_-]/g, '_');
-      const storageRef = ref(storage, `call_recordings/${safeId}.${ext}`);
-      const snapshot = await uploadBytes(storageRef, blob, { contentType: mime });
-      const downloadUrl = await getDownloadURL(snapshot.ref);
-      return downloadUrl;
-    } catch (e) {
-      console.warn('[uploadAudioBase64ToStorage notice]', e.message);
-      return null;
+    } catch (apiErr) {
+      console.warn('[uploadAudioBase64ToStorage Backend Notice]', apiErr.message);
     }
+
+    // 2. Fallback to Firebase Storage
+    try {
+      if (storage) {
+        const arr = base64Data.split(',');
+        if (arr.length < 2) return null;
+        const mimeMatch = arr[0].match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : 'audio/mp4';
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: mime });
+        const ext = mime.includes('mp4') || mime.includes('m4a') ? 'm4a' : (mime.includes('wav') ? 'wav' : 'mp3');
+        const safeId = String(callId || Date.now()).replace(/[^a-zA-Z0-9_-]/g, '_');
+        const storageRef = ref(storage, `call_recordings/${safeId}.${ext}`);
+        const snapshot = await uploadBytes(storageRef, blob, { contentType: mime });
+        const downloadUrl = await getDownloadURL(snapshot.ref);
+        return downloadUrl;
+      }
+    } catch (e) {
+      console.warn('[uploadAudioBase64ToStorage Firebase Notice]', e.message);
+    }
+    return null;
   }
 
   /**
@@ -497,16 +525,16 @@ export class GhlOAuthService {
       if (!ghlContactId) return null;
 
       const durationSeconds = this.parseDurationToSeconds(callLog.durationSeconds ?? callLog.duration);
-      let recordingUrl = callLog.recordingUrl || callLog.recording || callLog.audioUrl || callLog.audio_url || '';
+      let recordingUrl = callLog.recordingUrl || callLog.recording || callLog.audioUrl || callLog.audio_url || callLog.audioBase64 || callLog.recordingBase64 || '';
       const rawStatus = (callLog.disposition || callLog.status || 'completed').toLowerCase();
       const direction = (callLog.type || callLog.callType || 'OUTGOING').toLowerCase().includes('in') ? 'inbound' : 'outbound';
-      const notes = callLog.notes || '';
+      let rawNotes = String(callLog.notes || '').trim();
       const staffName = callLog.agentName || callLog.staffName || 'Mobile Agent';
 
-      // 1. Auto-upload Base64 audio from mobile app to Firebase Storage so GHL gets a real playable HTTPS link
+      // 1. Auto-upload Base64 audio from mobile app to get a real playable HTTPS URL
       if (recordingUrl && typeof recordingUrl === 'string' && recordingUrl.startsWith('data:audio/')) {
         try {
-          const uploadedUrl = await this.uploadAudioBase64ToStorage(recordingUrl, callLog.id || callLog.customerPhone);
+          const uploadedUrl = await this.uploadAudioBase64ToStorage(recordingUrl, callLog.id || phone);
           if (uploadedUrl) {
             recordingUrl = uploadedUrl;
           }
@@ -515,12 +543,17 @@ export class GhlOAuthService {
         }
       }
 
+      // Ensure raw base64 string is NEVER placed in notes or body text
+      if (rawNotes.includes('data:audio/')) {
+        rawNotes = rawNotes.replace(/data:audio\/[a-zA-Z0-9+=/;,\s]+/g, '[HD Audio Stream]');
+      }
+
       const isValidAudioUrl = typeof recordingUrl === 'string' && (recordingUrl.startsWith('http://') || recordingUrl.startsWith('https://'));
 
       let audioDisplayLine = null;
       if (isValidAudioUrl) {
         audioDisplayLine = `🎙️ Audio Recording: ${recordingUrl}`;
-      } else if (recordingUrl && recordingUrl.startsWith('data:audio/')) {
+      } else if (recordingUrl && typeof recordingUrl === 'string' && recordingUrl.startsWith('data:audio/')) {
         audioDisplayLine = `🎙️ Audio: [HD Audio recorded on SIM Companion App]`;
       }
 
@@ -538,7 +571,7 @@ export class GhlOAuthService {
         `⏱️ Duration: ${durStr}`,
         `👤 Staff: ${staffName}`,
         `📊 Status: ${normStatus}`,
-        notes ? `📝 Notes: ${notes}` : null,
+        rawNotes ? `📝 Notes: ${rawNotes}` : null,
         audioDisplayLine
       ].filter(Boolean).join('\n');
 
@@ -578,7 +611,7 @@ export class GhlOAuthService {
         console.warn('[GhlOAuthService Conversation Init Notice]', convInitErr);
       }
 
-      // 2. Post Call event to HighLevel Conversation Thread (using standard SMS channel for guaranteed delivery)
+      // 2. Post Call event to HighLevel Conversation Thread (Try inbound endpoint for incoming calls, fallback to general messages)
       try {
         const msgPayload = {
           type: 'SMS',
@@ -587,10 +620,14 @@ export class GhlOAuthService {
           message: bodyText,
           body: bodyText,
           status: 'delivered',
+          direction: direction.toLowerCase(),
           ...(isValidAudioUrl ? { attachments: [recordingUrl] } : {})
         };
 
-        const res = await fetch(`https://services.leadconnectorhq.com/conversations/messages`, {
+        const isIncoming = direction.toLowerCase() === 'inbound';
+        const primaryEndpoint = isIncoming ? '/conversations/messages/inbound' : '/conversations/messages';
+
+        let res = await fetch(`https://services.leadconnectorhq.com${primaryEndpoint}`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -600,6 +637,21 @@ export class GhlOAuthService {
           },
           body: JSON.stringify(msgPayload)
         });
+
+        if (!res.ok) {
+          // Fallback to /conversations/messages
+          res = await fetch(`https://services.leadconnectorhq.com/conversations/messages`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Version': '2021-07-28',
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify(msgPayload)
+          });
+        }
+
         if (res.ok) callPostSuccess = true;
       } catch (callErr) {
         console.warn('[GhlOAuthService Call POST notice]', callErr);
@@ -682,11 +734,24 @@ export class GhlOAuthService {
         }
       } catch (convErr) {}
 
-      // 2. Post to /conversations/messages with type: 'SMS'
+      // 2. Post to /conversations/messages/inbound or /conversations/messages
       const media = message.mediaUrl || message.media_url;
       const isValidMedia = typeof media === 'string' && (media.startsWith('http://') || media.startsWith('https://'));
 
-      const res = await fetch(`https://services.leadconnectorhq.com/conversations/messages`, {
+      const msgPayload = {
+        type: 'SMS',
+        contactId,
+        ...(conversationId ? { conversationId } : {}),
+        message: body,
+        body,
+        status: 'delivered',
+        direction: direction.toLowerCase(),
+        ...(isValidMedia ? { attachments: [media] } : {})
+      };
+
+      const endpoint = direction.toLowerCase() === 'inbound' ? '/conversations/messages/inbound' : '/conversations/messages';
+
+      let res = await fetch(`https://services.leadconnectorhq.com${endpoint}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -694,16 +759,21 @@ export class GhlOAuthService {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({
-          type: 'SMS',
-          contactId,
-          ...(conversationId ? { conversationId } : {}),
-          message: body,
-          body,
-          status: 'delivered',
-          ...(isValidMedia ? { attachments: [media] } : {})
-        })
+        body: JSON.stringify(msgPayload)
       });
+
+      if (!res.ok) {
+        res = await fetch(`https://services.leadconnectorhq.com/conversations/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Version': '2021-07-28',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(msgPayload)
+        });
+      }
 
       if (res.ok) {
         const resJson = await res.json().catch(() => ({ success: true }));

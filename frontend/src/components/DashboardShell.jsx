@@ -833,6 +833,115 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       unsubBin();
     };
   }, [activeTab]);
+
+  // =========================================================================
+  // GLOBAL REAL-TIME GOHIGHLEVEL (GHL) CALL & CONVERSATION SYNC ENGINE
+  // =========================================================================
+  useEffect(() => {
+    if (!db) return;
+    const unsubs = [];
+    let syncedSet = new Set();
+    try {
+      const cached = JSON.parse(localStorage.getItem('omniflow_ghl_synced_calls') || '[]');
+      if (Array.isArray(cached)) syncedSet = new Set(cached);
+    } catch (e) {}
+
+    const handleNewCallDocs = async (docs) => {
+      if (!Array.isArray(docs) || docs.length === 0) return;
+      
+      const recentThreshold = Date.now() - (7 * 24 * 60 * 60 * 1000); // last 7 days
+      const parseCallTime = (c) => {
+        if (c._createdAt && Number(c._createdAt) > 0) return Number(c._createdAt);
+        if (c.createdAt && Number(c.createdAt) > 0) return Number(c.createdAt);
+        if (typeof c.timestamp === 'number') return c.timestamp < 10000000000 ? c.timestamp * 1000 : c.timestamp;
+        if (typeof c.timestamp === 'string') {
+          const parsed = new Date(c.timestamp).getTime();
+          if (!isNaN(parsed) && parsed > 0) return parsed;
+        }
+        return Date.now();
+      };
+
+      const pendingCalls = docs.filter(c => {
+        const idKey = c.id || `${(c.customerPhone || c.phone || '').replace(/\D/g, '')}_${c.timestamp || c._createdAt || ''}`;
+        if (!idKey || syncedSet.has(idKey)) return false;
+        const callTime = parseCallTime(c);
+        return callTime >= recentThreshold;
+      });
+
+      if (pendingCalls.length === 0) return;
+
+      try {
+        const cleanComp = String(authUser?.tenantId || authUser?.companyId || authUser?.tenant_id || localStorage.getItem('omnilflow_current_company') || 'org_default');
+        const installed = await GhlOAuthService.getInstalledLocations(cleanComp);
+        let directLoc = installed?.find(l => l.accessToken) || installed?.[0];
+
+        if (!directLoc || !directLoc.accessToken) {
+          try {
+            const allDocs = await getDocs(collection(db, 'integrations_ghl_oauth'));
+            allDocs.forEach(d => {
+              const data = d.data();
+              if (data && data.accessToken && (!directLoc || !directLoc.accessToken)) {
+                directLoc = { id: d.id, ...data };
+              }
+            });
+          } catch (e) {}
+        }
+
+        const activeLocationId = directLoc?.locationId || 
+          new URLSearchParams(window.location.search).get('location_id') || 
+          new URLSearchParams(window.location.search).get('locationId') || 
+          '1g4rrRuP0ubwpF6vqWka';
+
+        if (directLoc && directLoc.accessToken && activeLocationId) {
+          for (const call of pendingCalls) {
+            const idKey = call.id || `${(call.customerPhone || call.phone || '').replace(/\D/g, '')}_${call.timestamp || call._createdAt || ''}`;
+            try {
+              const res = await GhlOAuthService.createConversationCallDirectly({
+                locationId: activeLocationId,
+                accessToken: directLoc.accessToken,
+                callLog: call
+              });
+              if (res) {
+                syncedSet.add(idKey);
+                if (call.id) syncedSet.add(call.id);
+                localStorage.setItem('omniflow_ghl_synced_calls', JSON.stringify(Array.from(syncedSet).slice(-500)));
+                console.log(`⚡ [Global GHL Sync] Live Call Synced to HighLevel: ${call.customerName || call.customerPhone}`);
+              }
+            } catch (cErr) {
+              console.warn('[Global Live GHL Call Push notice]', cErr);
+            }
+          }
+        }
+      } catch (ghlAutoErr) {
+        console.warn('[Global GHL Auto-Sync notice]', ghlAutoErr);
+      }
+    };
+
+    try {
+      // 1. Listen to Companion App 'callLogs'
+      const unsub1 = onSnapshot(collection(db, 'callLogs'), (snap) => {
+        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        handleNewCallDocs(docs);
+      }, (err) => console.warn('[DashboardShell] callLogs live listener notice:', err));
+      unsubs.push(unsub1);
+
+      // 2. Listen to Web / CRM 'call_logs'
+      const unsub2 = onSnapshot(collection(db, 'call_logs'), (snap) => {
+        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        handleNewCallDocs(docs);
+      }, (err) => console.warn('[DashboardShell] call_logs live listener notice:', err));
+      unsubs.push(unsub2);
+    } catch (e) {
+      console.warn('[DashboardShell] GHL Live Call Sync Subscription Error:', e);
+    }
+
+    return () => {
+      unsubs.forEach(u => {
+        try { u(); } catch (e) {}
+      });
+    };
+  }, [authUser]);
+
   // Universal Soft-Delete Handler handled by async softDeleteRecord below
   const [telecallingSearch, setTelecallingSearch] = useState('');
   const [telecallingChannelFilter, setTelecallingChannelFilter] = useState('all');
