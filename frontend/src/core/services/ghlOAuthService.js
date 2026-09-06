@@ -333,6 +333,77 @@ export class GhlOAuthService {
   }
 
   /**
+   * Directly posts a call recording event to HighLevel Conversations Cloud API
+   */
+  static async createConversationCallDirectly({ locationId, accessToken, callLog }) {
+    if (!locationId || !accessToken || !callLog) return null;
+
+    try {
+      // 1. Resolve or create contact on GHL
+      const phone = callLog.customerPhone || callLog.phoneNumber || callLog.phone || '';
+      const name = callLog.customerName || 'Customer';
+
+      const contactRes = await this.createOrUpdateContactDirectly({
+        locationId,
+        accessToken,
+        contact: { name, phone }
+      });
+
+      const ghlContactId = contactRes?.contact?.id || contactRes?.id;
+      if (!ghlContactId) return null;
+
+      const durationSeconds = Number(callLog.durationSeconds || callLog.duration || 0);
+      const recordingUrl = callLog.recordingUrl || callLog.recording || callLog.audioUrl || '';
+      const status = (callLog.disposition || callLog.status || 'completed').toLowerCase();
+      const direction = (callLog.type || 'OUTGOING').toLowerCase().includes('in') ? 'inbound' : 'outbound';
+      const notes = callLog.notes || '';
+      const staffName = callLog.agentName || callLog.staffName || 'Agent';
+
+      const durMins = Math.floor(durationSeconds / 60);
+      const durSecs = durationSeconds % 60;
+      const durStr = `${durMins}m ${durSecs}s`;
+
+      const bodyText = [
+        `📞 ${direction.toUpperCase()} CALL`,
+        `⏱️ Duration: ${durStr}`,
+        `👤 Staff: ${staffName}`,
+        `📊 Status: ${status}`,
+        notes ? `📝 Notes: ${notes}` : null,
+        recordingUrl ? `🎙️ Recording: ${recordingUrl}` : null
+      ].filter(Boolean).join('\n');
+
+      const payload = {
+        type: 'Call',
+        contactId: ghlContactId,
+        status: status === 'connected' || status === 'interested' ? 'completed' : status,
+        direction,
+        body: bodyText,
+        call: {
+          duration: durationSeconds,
+          status,
+          ...(recordingUrl ? { recordingUrl } : {})
+        },
+        ...(recordingUrl ? { attachments: [recordingUrl] } : {})
+      };
+
+      const res = await fetch(`https://services.leadconnectorhq.com/conversations/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Version': '2021-07-28',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      return await res.json().catch(() => ({}));
+    } catch (e) {
+      console.warn('[GhlOAuthService call push error]', e.message);
+      return null;
+    }
+  }
+
+  /**
    * Revoke & Disconnect a GHL sub-account location
    */
   static async disconnectLocation(docId) {

@@ -801,6 +801,38 @@ export default function IntegrationsPage({
       const cached = localStorage.getItem('omniflow_cached_call_logs');
       const callLogs = cached ? JSON.parse(cached) : [];
 
+      if (!Array.isArray(callLogs) || callLogs.length === 0) {
+        showToast('ℹ️ No call recordings found in local cache to sync.', 'info');
+        return;
+      }
+
+      // 1. Direct HighLevel Cloud API push if location has active accessToken
+      if (loc && loc.accessToken && targetLocId) {
+        let synced = 0;
+        let failed = 0;
+        const chunkSize = 3;
+        for (let i = 0; i < callLogs.length; i += chunkSize) {
+          const chunk = callLogs.slice(i, i + chunkSize);
+          await Promise.all(chunk.map(async (c) => {
+            try {
+              const res = await GhlOAuthService.createConversationCallDirectly({
+                locationId: targetLocId,
+                accessToken: loc.accessToken,
+                callLog: c
+              });
+              if (res) synced++;
+              else failed++;
+            } catch (err) {
+              failed++;
+            }
+          }));
+        }
+        showToast(`✅ Call Recordings Synced to HighLevel! Total: ${callLogs.length}, Synced: ${synced}`, 'success');
+        fetchGhlSyncLogs();
+        return;
+      }
+
+      // 2. Fallback to Backend endpoint
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
       const res = await fetch(`${API_URL}/v1/integrations/ghl/calls/sync-all`, {
         method: 'POST',

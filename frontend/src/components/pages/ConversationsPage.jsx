@@ -34,7 +34,8 @@ import {
   Sparkles,
   FileText,
   ExternalLink,
-  Mic
+  Mic,
+  Trash2
 } from 'lucide-react';
 import { TimelineEngine } from '../../core/engines/TimelineEngine';
 import { normalizePhone10, formatPhoneDisplay, toE164Phone, isSamePhone } from '../../core/utils/phoneUtils';
