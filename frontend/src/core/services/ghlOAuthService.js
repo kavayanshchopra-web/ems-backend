@@ -480,6 +480,7 @@ export class GhlOAuthService {
       ].filter(Boolean).join('\n');
 
       let callPostSuccess = false;
+      const isValidAudioUrl = typeof recordingUrl === 'string' && (recordingUrl.startsWith('http://') || recordingUrl.startsWith('https://'));
 
       // 1. Attempt standard /conversations/messages Custom message
       try {
@@ -490,7 +491,7 @@ export class GhlOAuthService {
           body: bodyText,
           direction,
           status: 'delivered',
-          ...(recordingUrl ? { attachments: [recordingUrl] } : {})
+          ...(isValidAudioUrl ? { attachments: [recordingUrl] } : {})
         };
 
         const res = await fetch(`https://services.leadconnectorhq.com/conversations/messages`, {
@@ -526,7 +527,7 @@ export class GhlOAuthService {
               message: bodyText,
               body: bodyText,
               direction: 'inbound',
-              attachments: recordingUrl ? [recordingUrl] : []
+              attachments: isValidAudioUrl ? [recordingUrl] : []
             })
           });
           if (res.ok) callPostSuccess = true;

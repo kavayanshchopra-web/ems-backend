@@ -483,23 +483,58 @@ export default function ConversationsPage({
       try {
         const syncedJson = localStorage.getItem('omniflow_ghl_synced_calls');
         const syncedSet = new Set(syncedJson ? JSON.parse(syncedJson) : []);
-        const recentThreshold = Date.now() - 60 * 60 * 1000; // Calls from last 60 minutes
+        const recentThreshold = Date.now() - 24 * 60 * 60 * 1000; // Calls from last 24 hours
+
+        const parseCallTime = (c) => {
+          if (c._createdAt && Number(c._createdAt) > 0) return Number(c._createdAt);
+          if (c.createdAt && Number(c.createdAt) > 0) return Number(c.createdAt);
+          if (typeof c.timestamp === 'number') return c.timestamp < 10000000000 ? c.timestamp * 1000 : c.timestamp;
+          if (typeof c.timestamp === 'string') {
+            const parsed = new Date(c.timestamp).getTime();
+            if (!isNaN(parsed) && parsed > 0) return parsed;
+            const m = c.timestamp.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            if (m) {
+              const d = new Date(`${m[3]}-${m[2]}-${m[1]}`);
+              if (!isNaN(d.getTime())) return d.getTime();
+            }
+          }
+          return Date.now();
+        };
 
         const pendingCalls = unwrapped.filter(c => {
           if (!c.id || syncedSet.has(c.id)) return false;
-          const callTime = c._createdAt || (c.timestamp ? new Date(c.timestamp).getTime() : 0);
+          const callTime = parseCallTime(c);
           return callTime >= recentThreshold;
         });
 
         if (pendingCalls.length > 0) {
-          const cleanComp = String(companyId || 'org_default');
+          const cleanComp = String(companyId || localStorage.getItem('omnilflow_current_company') || 'org_default');
           GhlOAuthService.getInstalledLocations(cleanComp).then(async (installed) => {
-            const directLoc = installed?.find(l => l.accessToken) || installed?.[0];
+            let directLoc = installed?.find(l => l.accessToken) || installed?.[0];
+            
+            // Resilient fallback across all integrations_ghl_oauth docs if companyId differed
+            if (!directLoc || !directLoc.accessToken) {
+              try {
+                const allDocs = await getDocs(collection(db, 'integrations_ghl_oauth'));
+                allDocs.forEach(d => {
+                  const data = d.data();
+                  if (data && data.accessToken && (!directLoc || !directLoc.accessToken)) {
+                    directLoc = { id: d.id, ...data };
+                  }
+                });
+              } catch (e) {}
+            }
+
+            const activeLocationId = directLoc?.locationId || 
+              new URLSearchParams(window.location.search).get('location_id') || 
+              new URLSearchParams(window.location.search).get('locationId') || 
+              '1g4rrRuP0ubwpF6vqWka';
+
             if (directLoc && directLoc.accessToken) {
               for (const call of pendingCalls) {
                 try {
                   const res = await GhlOAuthService.createConversationCallDirectly({
-                    locationId: directLoc.locationId || '1g4rrRuP0ubwpF6vqWka',
+                    locationId: activeLocationId,
                     accessToken: directLoc.accessToken,
                     callLog: call
                   });
