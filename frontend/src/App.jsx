@@ -7,7 +7,9 @@ import {
   setDoc,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  GoogleAuthProvider,
+  signInWithPopup
 } from './firebase.js';
 import FirebaseCloudEngine from './core/engines/FirebaseCloudEngine';
 
@@ -20,6 +22,10 @@ import {
 } from 'lucide-react';
 
 const DashboardShell = lazy(() => import('./components/DashboardShell'));
+import CompanyRegistrationWizard from './components/CompanyRegistrationWizard';
+import PaymentGateScreen from './components/PaymentGateScreen';
+import OmniFlowLoginPage from './components/auth/OmniFlowLoginPage';
+import SubscriptionEngine from './core/engines/SubscriptionEngine';
 
 const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 const LIVE_BACKEND = 'https://api.employeemanagementsystems.com';
@@ -48,6 +54,7 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [companyName, setCompanyName] = useState(ghlContext.locationName || '');
   const [authError, setAuthError] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
@@ -117,9 +124,55 @@ export default function App() {
       }
       return user;
     } catch (err) {
+      console.warn('Could not parse stored user:', err);
       return null;
     }
   });
+
+  // Real-Time Subscription & Expiry Monitor (Auto-Lock upon 7-day trial or paid expiry)
+  useEffect(() => {
+    if (!authUser || authUser.role === 'superadmin' || authUser.email === 'admin@omniflow.com') return;
+
+    let isMounted = true;
+    const checkSubscription = async () => {
+      try {
+        const tenantId = authUser.tenant_id || authUser.tenantId || authUser.companyId || 1;
+        const sub = await SubscriptionEngine.fetchTenantSubscription(tenantId);
+        if (!isMounted || !sub) return;
+
+        const expiry = sub.expiry_date || sub.expires_at || sub.trial_ends_at;
+        const isTimeExpired = Boolean(expiry && new Date(expiry).getTime() < Date.now());
+        const effectiveStatus = isTimeExpired ? 'expired' : sub.status;
+
+        if (
+          effectiveStatus !== authUser.subscription_status ||
+          expiry !== authUser.subscription_expiry
+        ) {
+          setAuthUser(prev => {
+            if (!prev) return null;
+            const updated = {
+              ...prev,
+              subscription_status: effectiveStatus,
+              subscription_expiry: expiry,
+              expiry_date: expiry,
+              is_trial: sub.is_trial
+            };
+            localStorage.setItem('omnilflow_user', JSON.stringify(updated));
+            return updated;
+          });
+        }
+      } catch (e) {
+        console.warn('Subscription monitor check notice:', e);
+      }
+    };
+
+    checkSubscription();
+    const interval = setInterval(checkSubscription, 15000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [authUser?.tenant_id, authUser?.tenantId]);
 
   // Listen for dynamic HighLevel context messages
   useEffect(() => {
@@ -369,6 +422,58 @@ export default function App() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      if (!auth) throw new Error('Authentication service is currently unavailable.');
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const fbUser = result.user;
+      const ghlCtx = getGhlContext();
+
+      // Look up existing tenant or user profile in Firestore
+      let foundProfile = null;
+      if (db) {
+        try {
+          const qProf = query(collection(db, 'user_profiles'), where('email', '==', (fbUser.email || '').toLowerCase()));
+          const snapProf = await getDocs(qProf);
+          if (!snapProf.empty) {
+            foundProfile = snapProf.docs[0].data();
+          }
+        } catch (e) {}
+      }
+
+      const uniqueTenantId = foundProfile?.tenant_id || foundProfile?.companyId || `org_google_${fbUser.uid.slice(0, 8)}`;
+      const appUser = {
+        id: fbUser.uid,
+        email: fbUser.email,
+        name: fbUser.displayName || fbUser.email.split('@')[0],
+        role: foundProfile?.role || 'owner',
+        companyName: foundProfile?.companyName || ghlCtx.locationName || 'My Workspace',
+        tenantId: uniqueTenantId,
+        companyId: uniqueTenantId,
+        tenant_id: uniqueTenantId,
+        locationId: ghlCtx.locationId || null,
+        subscription_status: 'active'
+      };
+
+      const token = await fbUser.getIdToken();
+      localStorage.setItem('omnilflow_token', token);
+      localStorage.setItem('omnilflow_user', JSON.stringify(appUser));
+      setAuthUser(appUser);
+      if (typeof window !== 'undefined') window.__omniflow_tenant = String(uniqueTenantId);
+      showToast(`Welcome ${appUser.name || appUser.email}!`, 'success');
+    } catch (googleErr) {
+      console.error('Google Sign-In note:', googleErr);
+      if (googleErr.code !== 'auth/popup-closed-by-user') {
+        setAuthError(googleErr.message || 'Google authentication failed.');
+      }
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     setForgotPasswordLoading(true);
@@ -516,17 +621,37 @@ export default function App() {
   };
 
   if (!authUser) {
+    if (activeTab === 'register') {
+      return (
+        <CompanyRegistrationWizard
+          onComplete={(authData) => {
+            const u = authData.user || {
+              id: 1,
+              email: email,
+              role: 'owner',
+              tenant_id: authData.tenant?.id || authData.subscription?.tenant_id || 1,
+              subscription_status: authData.subscription?.status || (authData.subscription?.is_trial ? 'trial' : 'pending_payment'),
+              subscription_expiry: authData.subscription?.expiry_date,
+              expiry_date: authData.subscription?.expiry_date,
+              is_trial: authData.subscription?.is_trial ? 1 : 0
+            };
+            setAuthUser(u);
+            localStorage.setItem('omnilflow_user', JSON.stringify(u));
+            if (authData.token) {
+              localStorage.setItem('omnilflow_token', authData.token);
+              localStorage.setItem('token', authData.token);
+            }
+            if (typeof window !== 'undefined') {
+              window.__omniflow_tenant = String(u.tenant_id || u.tenantId || 1);
+            }
+          }}
+          onSwitchToLogin={() => setActiveTab('login')}
+        />
+      );
+    }
+
     return (
-      <div className="auth-page" style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        width: '100vw',
-        background: '#f4f6f8',
-        fontFamily: 'var(--font-body)',
-        padding: '20px'
-      }}>
+      <div className="auth-page" style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
         {toast.visible && (
           <div style={{
             position: 'fixed',
@@ -545,257 +670,30 @@ export default function App() {
           </div>
         )}
 
-        <div style={{
-          width: '100%',
-          maxWidth: '420px',
-          padding: '40px',
-          background: '#ffffff',
-          borderRadius: '24px',
-          boxShadow: '0 15px 35px rgba(0, 0, 0, 0.03), 0 5px 15px rgba(0, 0, 0, 0.01)',
-          border: '1px solid #eef2f6',
-          color: '#0f2b26',
-          textAlign: 'center'
-        }}>
-          <h2 style={{ fontSize: '28px', fontWeight: '700', color: '#0f172a', lineHeight: '42px', fontFamily: 'var(--font-header)', marginBottom: '4px' }}>
-            {activeTab === 'register' ? 'Create Account' : 'Welcome Back'}
-          </h2>
-          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '28px' }}>
-            {activeTab === 'register' ? 'Register your account to get started' : 'Sign in to your account to continue'}
-          </p>
-
-          {ghlContext.locationId && (
-            <div style={{
-              background: '#f0fdf4',
-              border: '1px solid #86efac',
-              borderRadius: '12px',
-              padding: '12px 16px',
-              marginBottom: '20px',
-              textAlign: 'left',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px'
-            }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>
-                ⚡
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '13px', fontWeight: '800', color: '#166534' }}>
-                  HighLevel Sub-Account Workspace
-                </div>
-                <div style={{ fontSize: '11px', color: '#15803d', fontFamily: 'monospace' }}>
-                  Location: {ghlContext.locationId}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {authError && (
-            <div style={{
-              padding: '12px',
-              background: 'rgba(239, 68, 68, 0.08)',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
-              borderRadius: '8px',
-              color: '#ef4444',
-              fontSize: '12px',
-              marginBottom: '20px',
-              textAlign: 'center',
-              fontWeight: '500'
-            }}>
-              {authError}
-            </div>
-          )}
-
-          {activeTab === 'register' ? (
-            <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ textAlign: 'left' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#0f2b26', marginBottom: '6px' }}>Company Name</label>
-                <div style={{ position: 'relative' }}>
-                  <Users size={16} style={{ position: 'absolute', left: '12px', top: '14px', color: '#94a3b8' }} />
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Acme Corporation"
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px 14px 12px 40px',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      background: '#f8fafc',
-                      outline: 'none',
-                      fontSize: '13px',
-                      fontFamily: 'var(--font-body)'
-                    }}
-                  />
-                </div>
-              </div>
-              <div style={{ textAlign: 'left' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#0f2b26', marginBottom: '6px' }}>Work Email</label>
-                <div style={{ position: 'relative' }}>
-                  <Mail size={16} style={{ position: 'absolute', left: '12px', top: '14px', color: '#94a3b8' }} />
-                  <input
-                    type="email"
-                    required
-                    placeholder="name@company.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px 14px 12px 40px',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      background: '#f8fafc',
-                      outline: 'none',
-                      fontSize: '13px',
-                      fontFamily: 'var(--font-body)'
-                    }}
-                  />
-                </div>
-              </div>
-              <div style={{ textAlign: 'left' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#0f2b26', marginBottom: '6px' }}>Password</label>
-                <div style={{ position: 'relative' }}>
-                  <Lock size={16} style={{ position: 'absolute', left: '12px', top: '14px', color: '#94a3b8' }} />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px 40px 12px 40px',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      background: '#f8fafc',
-                      outline: 'none',
-                      fontSize: '13px',
-                      fontFamily: 'var(--font-body)'
-                    }}
-                  />
-                </div>
-              </div>
-              <button type="submit" disabled={authLoading} className="btn" style={{
-                background: '#0db49e',
-                color: 'white',
-                padding: '12px',
-                borderRadius: '8px',
-                fontWeight: '700',
-                border: 'none',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(13, 180, 158, 0.2)',
-                fontSize: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                marginTop: '10px'
-              }}>
-                {authLoading ? 'Creating Workspace...' : 'Register Workspace →'}
-              </button>
-              <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '13px', color: '#64748b' }}>
-                Already have an account?{' '}
-                <span onClick={() => { setActiveTab('login'); setAuthError(null); }} style={{ color: '#0db49e', fontWeight: '700', cursor: 'pointer' }}>
-                  Sign In
-                </span>
-              </div>
-            </form>
-          ) : (
-            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ textAlign: 'left' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#0f2b26', marginBottom: '6px' }}>Email Address</label>
-                <div style={{ position: 'relative' }}>
-                  <Mail size={16} style={{ position: 'absolute', left: '12px', top: '14px', color: '#94a3b8' }} />
-                  <input
-                    type="email"
-                    required
-                    placeholder="name@company.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px 14px 12px 40px',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      background: '#f8fafc',
-                      outline: 'none',
-                      fontSize: '13px',
-                      fontFamily: 'var(--font-body)'
-                    }}
-                  />
-                </div>
-              </div>
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <label style={{ fontSize: '12px', fontWeight: '600', color: '#0f2b26' }}>Password</label>
-                  <span
-                    onClick={() => {
-                      setForgotPasswordForm({ email: email || '', newPassword: '' });
-                      setForgotPasswordError(null);
-                      setShowForgotPasswordModal(true);
-                    }}
-                    style={{ fontSize: '11px', color: '#0db49e', fontWeight: '600', cursor: 'pointer' }}>
-                    Forgot password?
-                  </span>
-                </div>
-                <div style={{ position: 'relative' }}>
-                  <Lock size={16} style={{ position: 'absolute', left: '12px', top: '14px', color: '#94a3b8' }} />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px 40px 12px 40px',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      background: '#f8fafc',
-                      outline: 'none',
-                      fontSize: '13px',
-                      fontFamily: 'var(--font-body)'
-                    }}
-                  />
-                  <div
-                    onClick={() => setShowPassword(!showPassword)}
-                    style={{ position: 'absolute', right: '12px', top: '13px', cursor: 'pointer', color: '#94a3b8', display: 'flex', alignItems: 'center' }}
-                    title={showPassword ? "Hide Password" : "Show Password"}>
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', textAlign: 'left' }}>
-                <input type="checkbox" id="rememberMe" style={{ accentColor: '#0db49e', cursor: 'pointer' }} />
-                <label htmlFor="rememberMe" style={{ fontSize: '12px', color: '#64748b', cursor: 'pointer', userSelect: 'none' }}>Remember me</label>
-              </div>
-              <button type="submit" disabled={authLoading} className="btn" style={{
-                background: '#0db49e',
-                color: 'white',
-                padding: '12px',
-                borderRadius: '8px',
-                fontWeight: '700',
-                border: 'none',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(13, 180, 158, 0.2)',
-                fontSize: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px'
-              }}>
-                {authLoading ? 'Logging in...' : 'Sign In →'}
-              </button>
-              <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '13px', color: '#64748b' }}>
-                Don't have an account?{' '}
-                <span onClick={() => { setActiveTab('register'); setAuthError(null); }} style={{ color: '#0db49e', fontWeight: '700', cursor: 'pointer' }}>
-                  Sign Up
-                </span>
-              </div>
-            </form>
-          )}
-        </div>
+        <OmniFlowLoginPage
+          email={email}
+          setEmail={setEmail}
+          password={password}
+          setPassword={setPassword}
+          showPassword={showPassword}
+          setShowPassword={setShowPassword}
+          rememberMe={rememberMe}
+          setRememberMe={setRememberMe}
+          authLoading={authLoading}
+          authError={authError}
+          handleLogin={handleLogin}
+          handleGoogleLogin={handleGoogleLogin}
+          onOpenForgotPassword={() => {
+            setForgotPasswordForm({ email: email || '', newPassword: '' });
+            setForgotPasswordError(null);
+            setShowForgotPasswordModal(true);
+          }}
+          onSwitchToRegister={() => {
+            setActiveTab('register');
+            setAuthError(null);
+          }}
+          ghlContext={ghlContext}
+        />
 
         {showForgotPasswordModal && (
           <div style={{
@@ -911,6 +809,35 @@ export default function App() {
           </div>
         )}
       </div>
+    );
+  }
+
+  // Strict Subscription & Payment Gate Verification (Zero Access Until Verified or Expired)
+  const isSuperAdmin = authUser.role === 'superadmin' || authUser.email === 'admin@omniflow.com';
+  const subStatus = authUser.subscription_status || authUser.subscriptionStatus;
+  const expiryDate = authUser.subscription_expiry || authUser.expiry_date;
+  const isTimeExpired = Boolean(expiryDate && new Date(expiryDate).getTime() < Date.now());
+  const isLocked = !isSuperAdmin && (
+    subStatus === 'pending_payment' || 
+    subStatus === 'payment_under_review' || 
+    subStatus === 'expired' || 
+    isTimeExpired
+  );
+
+  if (isLocked) {
+    return (
+      <PaymentGateScreen
+        user={authUser}
+        onLogout={() => {
+          localStorage.clear();
+          sessionStorage.clear();
+          setAuthUser(null);
+          setActiveTab('login');
+        }}
+        onPaymentVerified={(sub) => {
+          setAuthUser(prev => ({ ...prev, subscription_status: 'active' }));
+        }}
+      />
     );
   }
 

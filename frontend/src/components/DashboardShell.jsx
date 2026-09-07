@@ -65,6 +65,8 @@ const ConfirmModal = lazy(() => import('./modals/ConfirmModal'));
 const CustomInputModal = lazy(() => import('./modals/CustomInputModal'));
 const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage'));
 const LiveWhatsAppWebPage = lazy(() => import('./pages/LiveWhatsAppWebPage'));
+const FeedbackPage = lazy(() => import('./pages/FeedbackPage'));
+import ModuleGateScreen from './ModuleGateScreen';
 import StorageUpgradeModal from './storage/StorageUpgradeModal';
 import MediaStorageView from './storage/MediaStorageView';
 import SearchInput from './ui/SearchInput';
@@ -77,6 +79,7 @@ import ShiftEngine from '../core/engines/ShiftEngine';
 import { LabelEngine } from '../core/engines/LabelEngine';
 import FirebaseCloudEngine from '../core/engines/FirebaseCloudEngine';
 import FeatureProvisioningEngine from '../core/engines/FeatureProvisioningEngine';
+import SubscriptionEngine, { DEFAULT_PLANS } from '../core/engines/SubscriptionEngine';
 import GhlOAuthService from '../core/services/ghlOAuthService';
 import { query, where } from 'firebase/firestore';
 import { moduleConfigService } from '../services/moduleConfigService';
@@ -155,6 +158,7 @@ import {
   BarChart2,
   Menu,
   Share2,
+  MessageSquareHeart,
   ArrowLeft
 } from 'lucide-react';
 // Dynamic Registry - Auto-Extensible Module Config for RBAC
@@ -763,6 +767,28 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       live_gps_tracking: true
     }
   });
+
+  // Multi-Tenant Subscription & Near-Expiry Alert Engine
+  const [tenantSubscription, setTenantSubscription] = useState(null);
+
+  useEffect(() => {
+    if (authUser && authUser.role !== 'superadmin') {
+      SubscriptionEngine.fetchTenantSubscription()
+        .then(sub => {
+          if (sub) setTenantSubscription(sub);
+        })
+        .catch(err => console.warn('Could not fetch tenant subscription in DashboardShell:', err));
+    }
+  }, [authUser]);
+
+  const subscriptionExpiryDaysLeft = useMemo(() => {
+    if (!tenantSubscription || authUser?.role === 'superadmin') return null;
+    const expiresAt = tenantSubscription.expiry_date || tenantSubscription.expires_at || tenantSubscription.trial_ends_at || tenantSubscription.current_period_end;
+    if (!expiresAt) return null;
+    const diffMs = new Date(expiresAt).getTime() - Date.now();
+    const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    return days;
+  }, [tenantSubscription, authUser]);
   // Telecalling & SIM Call Recordings State Hub
   const [callLogs, setCallLogs] = useState(() => {
     try {
@@ -3204,12 +3230,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     description: '',
     features: '',
     maxChannels: 1,
-    maxContacts: 250,
+    maxContacts: 999999999,
     maxEmployees: 5,
     allowChatbot: false,
     allowScheduler: false,
     allowGpsTracking: false,
-    isActive: true
+    isActive: true,
+    includedModules: []
   });
   const [adminPrices, setAdminPrices] = useState([]);
   const [adminNewPriceForm, setAdminNewPriceForm] = useState({
@@ -3569,7 +3596,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       const res = await fetch(`${API_URL}/admin/plans`);
       if (!res.ok) throw new Error('Failed to retrieve plans');
       const data = await res.json();
-      setSuperadminPlans(data);
+      setSuperadminPlans(Array.isArray(data) && data.length > 0 ? data : DEFAULT_PLANS);
     } catch (err) {
       setAdminPlansError(err.message);
     } finally {
@@ -3682,11 +3709,48 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const fetchSuperadminCompanies = async () => {
     try {
       if (db) {
+        // Build map of connected GHL locations
+        const ghlMap = {};
+        try {
+          const ghlSnap = await getDocs(collection(db, 'integrations_ghl_oauth'));
+          ghlSnap.forEach(gDoc => {
+            const gData = gDoc.data();
+            const cId = gData.companyId || gData.tenantId;
+            if (cId) {
+              ghlMap[cId] = gDoc.id || gData.locationId;
+            }
+          });
+        } catch (e) {}
+
+        // Build map of tenant subscriptions
+        const subMap = {};
+        try {
+          const subSnap = await getDocs(collection(db, 'tenant_subscriptions'));
+          subSnap.forEach(sDoc => {
+            const sData = sDoc.data() || {};
+            const tId = sDoc.id || sData.tenant_id;
+            if (tId) {
+              subMap[tId] = sData;
+            }
+          });
+        } catch (e) {}
+
         const qSnap = await getDocs(collection(db, 'companies'));
         const fbList = [];
         qSnap.forEach(docDoc => {
           if (docDoc.id === 'platform_superadmin') return;
           const c = docDoc.data();
+          const ghlLoc = ghlMap[docDoc.id] || c.locationId || c.ghlLocationId || c.ghl_location_id || (docDoc.id?.startsWith('org_loc_') ? docDoc.id.replace('org_loc_', '') : null);
+          const isGhl = Boolean(c.source === 'gohighlevel' || ghlLoc || docDoc.id?.startsWith('ghl_') || docDoc.id?.startsWith('org_loc_'));
+
+          const sub = subMap[docDoc.id] || {};
+          const expiryDate = sub.expiry_date || c.subscription_expiry || null;
+          const planName = sub.plan_name || c.plan_name || (c.plan_id ? c.plan_id.toUpperCase() : 'Free Trial');
+          const planId = sub.plan_id || c.plan_id || 'trial';
+          const isTrial = sub.is_trial !== undefined ? sub.is_trial : (c.is_trial !== undefined ? c.is_trial : (planId === 'trial' || planName?.toLowerCase().includes('trial')));
+          const isTimeExpired = expiryDate ? new Date(expiryDate).getTime() < Date.now() : false;
+          const subStatus = isTimeExpired ? 'expired' : (sub.status || c.subscription_status || (isTrial ? 'trial' : 'active'));
+
           fbList.push({
             tenant_id: docDoc.id,
             company_name: c.company_name || c.name || docDoc.id,
@@ -3694,7 +3758,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             emp_count: c.emp_count || 0,
             owner_email: c.owner_email || c.email || '—',
             createdAt: c.createdAt || '—',
-            status: c.status || 'active'
+            status: c.status || 'active',
+            source: isGhl ? 'gohighlevel' : (c.source || 'direct'),
+            locationId: ghlLoc || null,
+            subscription_expiry: expiryDate,
+            plan_name: planName,
+            plan_id: planId,
+            is_trial: isTrial,
+            trial_days: sub.trial_days || c.trial_days || 7,
+            subscription_status: subStatus
           });
         });
         setSuperadminCompanies(fbList);
@@ -3797,8 +3869,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       name: adminPlanForm.name,
       description: adminPlanForm.description,
       features: adminPlanForm.features.split('\n').filter(f => f.trim()),
+      includedModules: adminPlanForm.includedModules || [],
       maxChannels: parseInt(adminPlanForm.maxChannels) || 1,
-      maxContacts: parseInt(adminPlanForm.maxContacts) || 250,
+      maxContacts: 999999999, // Unlimited contacts
       maxEmployees: parseInt(adminPlanForm.maxEmployees) || 5,
       allowChatbot: adminPlanForm.allowChatbot ? 1 : 0,
       allowScheduler: adminPlanForm.allowScheduler ? 1 : 0,
@@ -3831,12 +3904,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           description: '',
           features: '',
           maxChannels: 1,
-          maxContacts: 250,
+          maxContacts: 999999999,
           maxEmployees: 5,
           allowChatbot: false,
           allowScheduler: false,
           allowGpsTracking: false,
-          isActive: true
+          isActive: true,
+          includedModules: []
         });
         return;
       }
@@ -6250,6 +6324,81 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     };
   }, []);
 
+  const isModuleSubscribed = (modId) => {
+    if (!authUser) return true;
+    if (authUser.role === 'superadmin' || authUser.role === 'super_admin' || authUser.isSuperAdmin) return true;
+
+    // Core operational, settings, profile, personal portal & billing pages are NEVER locked
+    const CORE_MODULES = [
+      'billing', 'feedback', 'app_guide', 'settings', 'roles_permissions',
+      'system_dropdowns', 'module_configuration', 'recycle_bin', 'integrations',
+      'dashboards', 'admin_dashboard', 'manager_dashboard', 'my_portal',
+      'my_attendance', 'leaves', 'shifts', 'superadmin', 'superadmin_plans'
+    ];
+    if (CORE_MODULES.includes(modId)) return true;
+
+    // Multi-tenant subscription gating
+    if (tenantSubscription) {
+      if (tenantSubscription.status === 'expired' || tenantSubscription.status === 'pending_payment') {
+        return false;
+      }
+
+      const activeModules = Array.isArray(tenantSubscription.active_modules) ? tenantSubscription.active_modules : [];
+      if (activeModules.length > 0) {
+        const ALIAS_MAP = {
+          conversations: ['conversations', 'whatsapp_chats', 'wa_live_web', 'channels', 'whatsapp_crm', 'crm_full'],
+          wa_live_web: ['wa_live_web', 'conversations', 'whatsapp_chats', 'whatsapp_crm', 'crm_full', 'inbox', 'channels'],
+          inbox: ['inbox', 'conversations', 'whatsapp_chats', 'wa_live_web', 'whatsapp_crm', 'crm_full'],
+          channels: ['channels', 'conversations', 'wa_live_web', 'whatsapp_crm'],
+          contacts: ['contacts', 'crm_contacts', 'crm_full'],
+          kanban: ['kanban', 'crm_deals', 'crm_pipeline', 'crm_full'],
+          telecalling: ['telecalling', 'voxbay_cloud', 'sim_call_recording', 'telecalling_sim'],
+          attendance: ['attendance', 'office_kiosk', 'attendance_kiosk'],
+          office_kiosk: ['office_kiosk', 'attendance', 'attendance_kiosk'],
+          gps_attendance: ['gps_attendance', 'gps_tracking', 'live_gps_tracking', 'field_ops'],
+          employees: ['employees', 'hr', 'hr_management'],
+          payroll: ['payroll', 'payroll_salary', 'payroll_finance'],
+          taxes_compliance: ['taxes_compliance', 'payroll', 'payroll_finance'],
+          ff_settlements: ['ff_settlements', 'payroll', 'payroll_finance'],
+          advances_loans: ['advances_loans', 'payroll', 'payroll_finance'],
+          expenses: ['expenses', 'payroll', 'payroll_finance'],
+          recruitment_ats: ['recruitment_ats', 'recruitment', 'ats'],
+          tasks: ['tasks', 'tasks_board', 'operations'],
+          notice_board: ['notice_board', 'operations'],
+          holidays: ['holidays', 'operations'],
+          asset_management: ['asset_management', 'assets', 'hr_management'],
+          verify_documents: ['verify_documents', 'verify_docs', 'hr_management'],
+          offboarding: ['offboarding', 'hr_management'],
+          audit_logs: ['audit_logs', 'system_audit'],
+          media_storage: ['media_storage', 'storage']
+        };
+
+        const aliases = ALIAS_MAP[modId] || [modId];
+        return aliases.some(alias => activeModules.includes(alias) || activeModules.includes(alias.toLowerCase()));
+      }
+    }
+
+    return true;
+  };
+
+  const renderLockBadge = (modId) => {
+    if (isModuleSubscribed(modId)) return null;
+    return (
+      <span
+        style={{
+          marginLeft: 'auto',
+          fontSize: '11px',
+          opacity: 0.8,
+          display: 'inline-flex',
+          alignItems: 'center'
+        }}
+        title="Upgrade Plan to Unlock"
+      >
+        🔒
+      </span>
+    );
+  };
+
   const canNav = (modId) => {
     if (!authUser) return false;
     if (authUser.role === 'superadmin' || authUser.role === 'super_admin' || authUser.isSuperAdmin) return true;
@@ -6316,18 +6465,21 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 <div className={`nav-item ${activeTab === 'gps_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('gps_attendance')}>
                   <Globe size={15} />
                   <span style={{ fontSize: '13px' }}>{t('liveTracking')}</span>
+                  {renderLockBadge('gps_attendance')}
                 </div>
               )}
               {canNav('audit_logs') && (
                 <div className={`nav-item ${activeTab === 'audit_logs' ? 'active' : ''}`} onClick={() => setActiveTab('audit_logs')}>
                   <FileText size={15} />
                   <span style={{ fontSize: '13px' }}>{t('auditLogs')}</span>
+                  {renderLockBadge('audit_logs')}
                 </div>
               )}
               {canNav('media_storage') && (
                 <div className={`nav-item ${activeTab === 'media_storage' ? 'active' : ''}`} onClick={() => setActiveTab('media_storage')}>
                   <HardDrive size={15} style={{ color: '#14d2cb' }} />
                   <span style={{ fontSize: '13px' }}>Media & Storage Vault</span>
+                  {renderLockBadge('media_storage')}
                 </div>
               )}
             </AccordionCategory>
@@ -6339,30 +6491,35 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 <div className={`nav-item ${activeTab === 'employees' ? 'active' : ''}`} onClick={() => setActiveTab('employees')}>
                   <Users size={15} />
                   <span style={{ fontSize: '13px' }}>{t('allEmployees')}</span>
+                  {renderLockBadge('employees')}
                 </div>
               )}
               {canNav('recruitment_ats') && (
                 <div className={`nav-item ${activeTab === 'recruitment_ats' ? 'active' : ''}`} onClick={() => setActiveTab('recruitment_ats')}>
                   <Briefcase size={15} />
                   <span style={{ fontSize: '13px' }}>{t('recruitmentAts')}</span>
+                  {renderLockBadge('recruitment_ats')}
                 </div>
               )}
               {canNav('asset_management') && (
                 <div className={`nav-item ${activeTab === 'asset_management' ? 'active' : ''}`} onClick={() => setActiveTab('asset_management')}>
                   <FileText size={15} />
                   <span style={{ fontSize: '13px' }}>{t('assetManagement')}</span>
+                  {renderLockBadge('asset_management')}
                 </div>
               )}
               {canNav('verify_documents') && (
                 <div className={`nav-item ${activeTab === 'verify_documents' ? 'active' : ''}`} onClick={() => setActiveTab('verify_documents')}>
                   <FileText size={15} />
                   <span style={{ fontSize: '13px' }}>{t('verifyDocuments')}</span>
+                  {renderLockBadge('verify_documents')}
                 </div>
               )}
               {canNav('offboarding') && (
                 <div className={`nav-item ${activeTab === 'offboarding' ? 'active' : ''}`} onClick={() => setActiveTab('offboarding')}>
                   <Trash2 size={15} />
                   <span style={{ fontSize: '13px' }}>{t('offboardingExit')}</span>
+                  {renderLockBadge('offboarding')}
                 </div>
               )}
             </AccordionCategory>
@@ -6374,30 +6531,35 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 <div className={`nav-item ${activeTab === 'payroll' ? 'active' : ''}`} onClick={() => setActiveTab('payroll')}>
                   <CreditCard size={15} />
                   <span style={{ fontSize: '13px' }}>{t('payrollSalary')}</span>
+                  {renderLockBadge('payroll')}
                 </div>
               )}
               {canNav('taxes_compliance') && (
                 <div className={`nav-item ${activeTab === 'taxes_compliance' ? 'active' : ''}`} onClick={() => setActiveTab('taxes_compliance')}>
                   <FileText size={15} />
                   <span style={{ fontSize: '13px' }}>{t('taxesCompliance')}</span>
+                  {renderLockBadge('taxes_compliance')}
                 </div>
               )}
               {canNav('ff_settlements') && (
                 <div className={`nav-item ${activeTab === 'ff_settlements' ? 'active' : ''}`} onClick={() => setActiveTab('ff_settlements')}>
                   <Check size={15} />
                   <span style={{ fontSize: '13px' }}>{t('ffSettlements')}</span>
+                  {renderLockBadge('ff_settlements')}
                 </div>
               )}
               {canNav('advances_loans') && (
                 <div className={`nav-item ${activeTab === 'advances_loans' ? 'active' : ''}`} onClick={() => setActiveTab('advances_loans')}>
                   <CreditCard size={15} />
                   <span style={{ fontSize: '13px' }}>{t('advancesLoans')}</span>
+                  {renderLockBadge('advances_loans')}
                 </div>
               )}
               {canNav('expenses') && (
                 <div className={`nav-item ${activeTab === 'expenses' ? 'active' : ''}`} onClick={() => setActiveTab('expenses')}>
                   <CreditCard size={15} />
                   <span style={{ fontSize: '13px' }}>{t('expensesClaim')}</span>
+                  {renderLockBadge('expenses')}
                 </div>
               )}
             </AccordionCategory>
@@ -6411,6 +6573,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   <span style={{ fontSize: "13px" }}>
                     Contacts
                   </span>
+                  {renderLockBadge('contacts')}
                 </div>
               )}
               {canNav('conversations') && (
@@ -6419,6 +6582,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   <span style={{ fontSize: "13px" }}>
                     Conversations
                   </span>
+                  {renderLockBadge('conversations')}
                 </div>
               )}
               {canNav('wa_live_web') && (
@@ -6427,18 +6591,21 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   <span style={{ fontSize: "13px" }}>
                     WhatsApp
                   </span>
+                  {renderLockBadge('wa_live_web')}
                 </div>
               )}
               {canNav('kanban') && (
                 <div className={`nav-item ${activeTab === 'kanban' ? 'active' : ''}`} onClick={() => setActiveTab('kanban')}>
                   <Layers size={15} />
                   <span style={{ fontSize: '13px' }}>CRM</span>
+                  {renderLockBadge('kanban')}
                 </div>
               )}
               {canNav('telecalling') && (
                 <div className={`nav-item ${activeTab === 'telecalling' ? 'active' : ''}`} onClick={() => setActiveTab('telecalling')}>
                   <PhoneCall size={15} />
                   <span style={{ fontSize: '13px' }}>Phone System</span>
+                  {renderLockBadge('telecalling')}
                 </div>
               )}
             </AccordionCategory>
@@ -6450,24 +6617,28 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 <div className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`} onClick={() => setActiveTab('tasks')}>
                   <ClipboardList size={15} />
                   <span style={{ fontSize: '13px' }}>{t('tasksBoard')}</span>
+                  {renderLockBadge('tasks')}
                 </div>
               )}
               {canNav('office_kiosk') && (
                 <div className={`nav-item ${activeTab === 'office_kiosk' ? 'active' : ''}`} onClick={() => setActiveTab('office_kiosk')}>
                   <Clock size={15} />
                   <span style={{ fontSize: '13px' }}>{t('officeKiosk')}</span>
+                  {renderLockBadge('office_kiosk')}
                 </div>
               )}
               {canNav('notice_board') && (
                 <div className={`nav-item ${activeTab === 'notice_board' ? 'active' : ''}`} onClick={() => setActiveTab('notice_board')}>
                   <Bell size={15} />
                   <span style={{ fontSize: '13px' }}>{t('noticeBoard')}</span>
+                  {renderLockBadge('notice_board')}
                 </div>
               )}
               {canNav('holidays') && (
                 <div className={`nav-item ${activeTab === 'holidays' ? 'active' : ''}`} onClick={() => setActiveTab('holidays')}>
                   <Calendar size={15} />
                   <span style={{ fontSize: '13px' }}>{t('holidaysList')}</span>
+                  {renderLockBadge('holidays')}
                 </div>
               )}
             </AccordionCategory>
@@ -6496,12 +6667,20 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </AccordionCategory>
           )}
           {/* CATEGORY: HELP & SUPPORT */}
-          {canNav('app_guide') && (
+          {(canNav('app_guide') || canNav('feedback')) && (
             <AccordionCategory id="help_support" label={t('helpSupportCat') || "HELP & SUPPORT"} icon={Megaphone} isExpanded={!!expandedCategories.help_support} onToggle={toggleCategory}>
-              <div className={`nav-item ${activeTab === 'app_guide' ? 'active' : ''}`} onClick={() => setActiveTab('app_guide')}>
-                <Globe size={15} />
-                <span style={{ fontSize: '13px' }}>{t('appGuide')}</span>
-              </div>
+              {canNav('app_guide') && (
+                <div className={`nav-item ${activeTab === 'app_guide' ? 'active' : ''}`} onClick={() => setActiveTab('app_guide')}>
+                  <Globe size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('appGuide')}</span>
+                </div>
+              )}
+              {canNav('feedback') && (
+                <div className={`nav-item ${activeTab === 'feedback' ? 'active' : ''}`} onClick={() => setActiveTab('feedback')}>
+                  <MessageSquareHeart size={15} />
+                  <span style={{ fontSize: '13px' }}>{t('feedbackSuggestions') || 'Feedback & Suggestions'}</span>
+                </div>
+              )}
             </AccordionCategory>
           )}
           {/* CATEGORY: SETTINGS */}
@@ -6667,6 +6846,80 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                  {activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' '))))}
             </span>
           </div>
+
+          {/* Center Header Expiry & 7-Day Free Trial Notice Pill */}
+          {(() => {
+            if (!tenantSubscription || authUser?.role === 'superadmin') return null;
+            const expiryDate = tenantSubscription.expiry_date || tenantSubscription.expires_at || tenantSubscription.trial_ends_at;
+            if (!expiryDate) return null;
+
+            const diffMs = new Date(expiryDate).getTime() - Date.now();
+            const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+            const isTrial = tenantSubscription.is_trial || tenantSubscription.plan_id === 'trial' || tenantSubscription.status === 'trial';
+            
+            // Show if trial is active or paid subscription has <= 7 days left
+            if (!isTrial && daysLeft > 7) return null;
+
+            const formattedDate = new Date(expiryDate).toLocaleDateString('en-IN', {
+              day: 'numeric',
+              month: 'short'
+            });
+
+            return (
+              <div
+                onClick={() => setActiveTab('billing')}
+                title="Click to manage subscription & upgrade"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: isTrial ? 'rgba(20, 210, 203, 0.12)' : 'rgba(245, 158, 11, 0.15)',
+                  border: isTrial ? '1px solid rgba(20, 210, 203, 0.35)' : '1px solid rgba(245, 158, 11, 0.4)',
+                  padding: '4px 12px 4px 10px',
+                  borderRadius: '999px',
+                  cursor: 'pointer',
+                  margin: '0 auto',
+                  flexShrink: 0,
+                  transition: 'all 0.2s ease',
+                  boxShadow: isTrial ? '0 0 12px rgba(20, 210, 203, 0.15)' : '0 0 12px rgba(245, 158, 11, 0.15)'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.borderColor = isTrial ? '#14d2cb' : '#f59e0b';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.borderColor = isTrial ? 'rgba(20, 210, 203, 0.35)' : 'rgba(245, 158, 11, 0.4)';
+                }}
+              >
+                <span style={{ fontSize: '13px' }}>{isTrial ? '⏳' : '⚠️'}</span>
+                <span style={{ fontSize: '12px', fontWeight: '700', color: isTrial ? '#14d2cb' : '#fbbf24', letterSpacing: '0.2px' }}>
+                  {isTrial ? (
+                    <>
+                      Free Trial: <span style={{ color: '#ffffff', fontWeight: '800' }}>{daysLeft > 0 ? `${daysLeft}d left` : 'Ends today'}</span> (Till {formattedDate})
+                    </>
+                  ) : (
+                    <>
+                      Plan Expiring: <span style={{ color: '#ffffff', fontWeight: '800' }}>{daysLeft > 0 ? `${daysLeft}d left` : 'Today'}</span>
+                    </>
+                  )}
+                </span>
+                <span style={{
+                  background: isTrial ? '#14d2cb' : '#f59e0b',
+                  color: '#064e3b',
+                  fontSize: '10px',
+                  fontWeight: '800',
+                  padding: '2px 8px',
+                  borderRadius: '999px',
+                  marginLeft: '4px',
+                  textTransform: 'uppercase'
+                }}>
+                  {isTrial ? 'Upgrade' : 'Renew'}
+                </span>
+              </div>
+            );
+          })()}
+
           <div className="header-actions-group">
             {(activeTab === 'inbox' || activeTab === 'kanban') && (
               <button className="btn btn-secondary broadcast-header-btn" onClick={() => {
@@ -7046,6 +7299,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </div>
           </div>
         </header>
+
         {/* GoHighLevel SuperAdmin Workspace Impersonation Banner */}
         {impersonatedCompany && (
           <div style={{
@@ -7102,53 +7356,111 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </button>
           </div>
         )}
+        {/* Near-Expiry Warning Alert Banner (Persistent when <= 7 days, 100% clean when > 7 days) */}
+        {subscriptionExpiryDaysLeft !== null && subscriptionExpiryDaysLeft <= 7 && (
+          <div style={{
+            background: subscriptionExpiryDaysLeft <= 2 ? 'linear-gradient(90deg, #991b1b 0%, #dc2626 100%)' : 'linear-gradient(90deg, #b45309 0%, #d97706 100%)',
+            color: '#ffffff',
+            padding: '8px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '13px',
+            fontWeight: '600',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            zIndex: 40,
+            animation: 'fadeIn 0.3s ease'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '18px' }}>⚠️</span>
+              <span>
+                <strong>Subscription Notice:</strong> Your current plan {tenantSubscription?.plan_name ? `(${tenantSubscription.plan_name})` : ''} expires in{' '}
+                <span style={{ textDecoration: 'underline', fontWeight: '800' }}>
+                  {subscriptionExpiryDaysLeft <= 0 ? 'Today / Expired' : `${subscriptionExpiryDaysLeft} day${subscriptionExpiryDaysLeft === 1 ? '' : 's'}`}
+                </span>
+                . Renew now to maintain uninterrupted access to all workspace features.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab('billing')}
+              style={{
+                background: '#ffffff',
+                color: subscriptionExpiryDaysLeft <= 2 ? '#dc2626' : '#d97706',
+                border: 'none',
+                padding: '5px 14px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: '800',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <span>⚡ Renew Plan Now</span>
+            </button>
+          </div>
+        )}
         {/* Content Area Routing Container */}
         <main className="main-content" style={{ flex: 1, overflowY: 'auto', position: 'relative', padding: isGhlEmbedded ? '6px' : '0' }}>
-          {/* System Audit Logs Dashboard */}
-          {activeTab === 'audit_logs' && (
-            <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Audit Trail...</div>}>
-              <SystemAuditLogsPage
+          {/* Unified Omnichannel Inbox & Staff WhatsApp Web Live Hub (Persistent Background Bridge) */}
+          <div style={{
+            display: 'flex',
+            flex: 1,
+            height: '100%',
+            width: '100%',
+            flexDirection: 'column',
+            position: (isModuleSubscribed(activeTab) && (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp')) ? 'relative' : 'absolute',
+            left: (isModuleSubscribed(activeTab) && (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp')) ? '0' : '-99999px',
+            top: (isModuleSubscribed(activeTab) && (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp')) ? '0' : '0',
+            opacity: (isModuleSubscribed(activeTab) && (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp')) ? 1 : 0,
+            pointerEvents: (isModuleSubscribed(activeTab) && (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp')) ? 'auto' : 'none',
+            zIndex: (isModuleSubscribed(activeTab) && (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp')) ? 1 : -999
+          }}>
+            <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading WhatsApp Live Hub...</div>}>
+              <LiveWhatsAppWebPage
                 authUser={authUser}
-                superadminCompanies={superadminCompanies}
-                showToast={showToast}
+                sessions={sessions}
+                contacts={contacts}
+                activeContact={activeContact}
+                setActiveContact={setActiveContact}
+                setActiveTab={setActiveTab}
               />
             </Suspense>
-          )}
-        {/* Media Storage Vault */}
-        {activeTab === 'media_storage' && (
-          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Media Storage...</div>}>
-            <MediaStorageView
-              API_URL={API_URL}
-              showToast={showToast}
-              softDeleteRecord={softDeleteRecord}
+          </div>
+
+          {/* Module Subscription Paywall & Gating Screen */}
+          {!isModuleSubscribed(activeTab) ? (
+            <ModuleGateScreen
+              moduleId={activeTab}
+              tenantSubscription={tenantSubscription}
+              onNavigateToBilling={() => setActiveTab('billing')}
             />
-          </Suspense>
-        )}
-        {/* Unified Omnichannel Inbox & Staff WhatsApp Web Live Hub (Persistent Background Bridge) */}
-        <div style={{
-          display: 'flex',
-          flex: 1,
-          height: '100%',
-          width: '100%',
-          flexDirection: 'column',
-          position: (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp') ? 'relative' : 'absolute',
-          left: (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp') ? '0' : '-99999px',
-          top: (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp') ? '0' : '0',
-          opacity: (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp') ? 1 : 0,
-          pointerEvents: (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp') ? 'auto' : 'none',
-          zIndex: (activeTab === 'inbox' || activeTab === 'wa_live_web' || activeTab === 'whatsapp') ? 1 : -999
-        }}>
-          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading WhatsApp Live Hub...</div>}>
-            <LiveWhatsAppWebPage
-              authUser={authUser}
-              sessions={sessions}
-              contacts={contacts}
-              activeContact={activeContact}
-              setActiveContact={setActiveContact}
-              setActiveTab={setActiveTab}
-            />
-          </Suspense>
-        </div>
+          ) : (
+            <>
+              {/* System Audit Logs Dashboard */}
+              {activeTab === 'audit_logs' && (
+                <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Audit Trail...</div>}>
+                  <SystemAuditLogsPage
+                    authUser={authUser}
+                    superadminCompanies={superadminCompanies}
+                    showToast={showToast}
+                  />
+                </Suspense>
+              )}
+              {/* Media Storage Vault */}
+              {activeTab === 'media_storage' && (
+                <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Media Storage...</div>}>
+                  <MediaStorageView
+                    API_URL={API_URL}
+                    showToast={showToast}
+                    softDeleteRecord={softDeleteRecord}
+                  />
+                </Suspense>
+              )}
         
         {/* Voxbay Phone & Web Dialer */}
         
@@ -7285,18 +7597,31 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {activeTab === 'billing' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Subscription Billing...</div>}>
             <BillingPage
+              user={authUser}
               billingTenant={billingTenant}
               API_URL={API_URL}
               selectedCountry={selectedCountry}
               setSelectedCountry={setSelectedCountry}
               billingPlans={billingPlans}
               handleCreateCheckoutSession={handleCreateCheckoutSession}
+              showToast={showToast}
+            />
+          </Suspense>
+        )}
+        {activeTab === 'feedback' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Feedback...</div>}>
+            <FeedbackPage
+              API_URL={API_URL}
+              authUser={authUser}
+              showToast={showToast}
             />
           </Suspense>
         )}
         {(activeTab === 'superadmin_plans' || activeTab === 'superadmin') && authUser?.role === 'superadmin' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading SuperAdmin Panel...</div>}>
             <SuperAdminPage
+              API_URL={API_URL}
+              authUser={authUser}
               superadminMetrics={superadminMetrics}
               superadminSubTab={superadminSubTab}
               setSuperadminSubTab={setSuperadminSubTab}
@@ -7309,6 +7634,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               superadminCompanies={superadminCompanies}
               superadminCompaniesQuery={superadminCompaniesQuery}
               setSuperadminCompaniesQuery={setSuperadminCompaniesQuery}
+              fetchSuperadminCompanies={fetchSuperadminCompanies}
               handleDeleteCompany={handleDeleteCompany}
               handleEnterCompany={handleEnterCompany}
               adminPlansError={adminPlansError}
@@ -7337,7 +7663,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {/* 9. TAXES & COMPLIANCE */}
         {activeTab === 'taxes_compliance' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#0d9488', fontWeight: 'bold' }}>? Loading Taxes & Compliance...</div>}>
-            <TaxesCompliancePage showToast={showToast} />
+            <TaxesCompliancePage showToast={showToast} authUser={authUser} setActiveTab={setActiveTab} />
           </Suspense>
         )}
         {/* 25. SYSTEM DROPDOWNS CONFIG - 2-COLUMN MASTER LAYOUT */}
@@ -7721,6 +8047,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
+            </>
+          )}
       </main>
     </div> {/* end app-main-container */}
         {/* Forgot Password Modal */}

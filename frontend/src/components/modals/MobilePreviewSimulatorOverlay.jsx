@@ -944,7 +944,7 @@ export default function MobilePreviewSimulatorOverlay({
                         { id: 'manage_companies', label: 'Manage Companies' },
                         { id: 'manage_plans', label: 'Manage Plans' },
                         { id: 'audit_logs', label: 'Audit Logs' },
-                        { id: 'system_tools', label: 'System Tools' }
+                        { id: 'model_studio', label: 'Model Studio' }
                       ].map((tabObj) => {
                         const isActive = (superadminSubTab || 'system_users') === tabObj.id;
                         return (
@@ -1043,33 +1043,6 @@ export default function MobilePreviewSimulatorOverlay({
                         <div style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0' }}>
                           <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>📜 Superadmin Login Verified</div>
                           <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>Kavayansh Chopra • Today, 12:05 AM</div>
-                        </div>
-                      </div>
-                    )}
-
-                    {superadminSubTab === 'system_tools' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f2b26' }}>🛠️ Diagnostic & Maintenance Tools</div>
-                        <div style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div>
-                            <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>🧹 Clear System Cache</div>
-                            <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>Purge active session cache & force sync</div>
-                          </div>
-                          <button style={{ background: 'linear-gradient(135deg, #0d9488, #064e43)', color: 'white', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}>Flush Cache</button>
-                        </div>
-                        <div style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div>
-                            <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>🔌 Test WebSocket Server</div>
-                            <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>Ping realtime Baileys & WhatsApp Socket</div>
-                          </div>
-                          <button style={{ background: '#ffffff', border: '1px solid #cbd5e1', color: '#334155', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}>Test Socket</button>
-                        </div>
-                        <div style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div>
-                            <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f2b26' }}>🔥 Firebase Health</div>
-                            <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>Verify connection to ems-ag Firestore</div>
-                          </div>
-                          <button style={{ background: '#ffffff', border: '1px solid #cbd5e1', color: '#334155', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}>Check Health</button>
                         </div>
                       </div>
                     )}

@@ -24,6 +24,7 @@ import { ADVANCES_LOANS_MANIFEST } from './manifests/advancesLoans.manifest';
 import { WORKSPACE_KYC_MANIFEST } from './manifests/workspaceKyc.manifest';
 import { CONTACTS_MANIFEST } from './manifests/contacts.manifest';
 import { CONVERSATIONS_MANIFEST } from './manifests/conversations.manifest';
+import { FEEDBACK_MANIFEST } from './manifests/feedback.manifest';
 import { moduleConfigService } from '../../services/moduleConfigService';
 
 class MasterModuleRegistry {
@@ -60,6 +61,7 @@ class MasterModuleRegistry {
     this.registerModule(TASKS_MANIFEST);
     this.registerModule(ADVANCES_LOANS_MANIFEST);
     this.registerModule(WORKSPACE_KYC_MANIFEST);
+    this.registerModule(FEEDBACK_MANIFEST);
 
     this._initialized = true;
   }
@@ -74,7 +76,7 @@ class MasterModuleRegistry {
     }
     
     // Freeze to prevent accidental mutation of system defaults
-    this._manifests.set(manifest.moduleId, Object.freeze({ ...manifest }));
+    this._manifests.set(manifest.moduleId, Object.freeze({ id: manifest.moduleId, ...manifest }));
   }
 
   /**
@@ -86,12 +88,36 @@ class MasterModuleRegistry {
     return this._manifests.get(moduleId) || null;
   }
 
+  getManifest(moduleId) {
+    return this.getSystemManifest(moduleId);
+  }
+
   /**
    * Get all registered system manifests
    * @returns {Array<Object>}
    */
   getAllSystemManifests() {
-    return Array.from(this._manifests.values());
+    return Array.from(this._manifests.values()).map(m => ({ id: m.moduleId || m.id, ...m }));
+  }
+
+  getAllManifests() {
+    return this.getAllSystemManifests();
+  }
+
+  static getSystemManifest(moduleId) {
+    return masterModuleRegistry ? masterModuleRegistry.getSystemManifest(moduleId) : null;
+  }
+
+  static getManifest(moduleId) {
+    return masterModuleRegistry ? masterModuleRegistry.getManifest(moduleId) : null;
+  }
+
+  static getAllSystemManifests() {
+    return masterModuleRegistry ? masterModuleRegistry.getAllSystemManifests() : [];
+  }
+
+  static getAllManifests() {
+    return masterModuleRegistry ? masterModuleRegistry.getAllManifests() : [];
   }
 
   /**
