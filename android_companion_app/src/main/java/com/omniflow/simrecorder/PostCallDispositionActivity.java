@@ -26,6 +26,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.GridLayout;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.Nullable;
@@ -108,93 +109,159 @@ public class PostCallDispositionActivity extends AppCompatActivity {
         }
     }
 
+    private TextView tvDatePill;
+    private TextView tvTimePill;
+
     private View buildLayout() {
+        ScrollView scroll = new ScrollView(this);
+        scroll.setVerticalScrollBarEnabled(false);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(36, 30, 36, 30);
+        root.setPadding(32, 28, 32, 28);
 
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(Color.parseColor("#041F1E")); // Deep Dark Teal (Signature Theme)
+        bg.setColor(Color.parseColor("#041F1E")); // Deep Dark Teal Glass
         bg.setCornerRadius(28f);
         bg.setStroke(2, Color.parseColor("#14B8A6")); // Glowing Teal Border
         root.setBackground(bg);
 
-        // 1. Top Header Row: Icon + Title + Duration Badge + Top-Right (X) Close Button
+        String resolvedName = CallRecordingService.resolveContactOrCallerIdName(this, phoneNumber);
+
+        // ==========================================
+        // 1. TOP HEADER: Name + Duration Badge + (X) Close
+        // ==========================================
         LinearLayout headerRow = new LinearLayout(this);
         headerRow.setOrientation(LinearLayout.HORIZONTAL);
         headerRow.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView tvTitle = new TextView(this);
-        tvTitle.setText("📞 Call Completed");
-        tvTitle.setTextColor(Color.WHITE);
-        tvTitle.setTextSize(15.5f);
-        tvTitle.setTypeface(null, Typeface.BOLD);
-        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f);
-        headerRow.addView(tvTitle, titleParams);
+        LinearLayout nameCol = new LinearLayout(this);
+        nameCol.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams nameColParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f);
+
+        TextView tvCallStatus = new TextView(this);
+        tvCallStatus.setText("Call Completed");
+        tvCallStatus.setTextColor(Color.parseColor("#5EEAD4"));
+        tvCallStatus.setTextSize(11f);
+        nameCol.addView(tvCallStatus);
+
+        TextView tvName = new TextView(this);
+        tvName.setText(resolvedName != null && !resolvedName.isEmpty() ? resolvedName : phoneNumber);
+        tvName.setTextColor(Color.WHITE);
+        tvName.setTextSize(19f);
+        tvName.setTypeface(null, Typeface.BOLD);
+        nameCol.addView(tvName);
+
+        TextView tvPhoneSub = new TextView(this);
+        tvPhoneSub.setText(phoneNumber + " • " + callType);
+        tvPhoneSub.setTextColor(Color.parseColor("#94A3B8"));
+        tvPhoneSub.setTextSize(11f);
+        nameCol.addView(tvPhoneSub);
+
+        headerRow.addView(nameCol, nameColParams);
+
+        // Right side: Duration Badge + (X) Close Button
+        LinearLayout rightHeader = new LinearLayout(this);
+        rightHeader.setOrientation(LinearLayout.HORIZONTAL);
+        rightHeader.setGravity(Gravity.CENTER_VERTICAL);
+
+        LinearLayout durBadge = new LinearLayout(this);
+        durBadge.setOrientation(LinearLayout.VERTICAL);
+        durBadge.setPadding(14, 8, 14, 8);
+        durBadge.setGravity(Gravity.CENTER);
+        GradientDrawable durBg = new GradientDrawable();
+        durBg.setColor(Color.parseColor("#082B28"));
+        durBg.setCornerRadius(12f);
+        durBg.setStroke(1, Color.parseColor("#0F766E"));
+        durBadge.setBackground(durBg);
+
+        TextView tvDurLabel = new TextView(this);
+        tvDurLabel.setText("Call Duration:");
+        tvDurLabel.setTextColor(Color.parseColor("#94A3B8"));
+        tvDurLabel.setTextSize(9.5f);
+        durBadge.addView(tvDurLabel);
 
         long mins = durationSeconds / 60;
         long secs = durationSeconds % 60;
-        String durText = (mins > 0 ? (mins + "m " + secs + "s") : (secs + "s"));
+        String durText = String.format(Locale.getDefault(), "%02d:%02d mins", mins, secs);
 
-        TextView tvDurBadge = new TextView(this);
-        tvDurBadge.setText("⏱️ " + durText);
-        tvDurBadge.setTextColor(Color.parseColor("#5EEAD4")); // Light Teal
-        tvDurBadge.setTextSize(11.5f);
-        tvDurBadge.setTypeface(null, Typeface.BOLD);
-        tvDurBadge.setPadding(14, 6, 14, 6);
-        GradientDrawable durBg = new GradientDrawable();
-        durBg.setColor(Color.parseColor("#0F3836"));
-        durBg.setCornerRadius(14f);
-        durBg.setStroke(1, Color.parseColor("#134E4A"));
-        tvDurBadge.setBackground(durBg);
-        headerRow.addView(tvDurBadge);
+        TextView tvDurVal = new TextView(this);
+        tvDurVal.setText(durText);
+        tvDurVal.setTextColor(Color.WHITE);
+        tvDurVal.setTextSize(11f);
+        tvDurVal.setTypeface(null, Typeface.BOLD);
+        durBadge.addView(tvDurVal);
 
-        // Prominent (X) Close Button
+        rightHeader.addView(durBadge);
+
         TextView btnClose = new TextView(this);
         btnClose.setText("✕");
         btnClose.setTextColor(Color.parseColor("#94A3B8"));
         btnClose.setTextSize(18f);
         btnClose.setTypeface(null, Typeface.BOLD);
-        btnClose.setPadding(18, 4, 8, 4);
+        btnClose.setPadding(18, 4, 0, 4);
         btnClose.setClickable(true);
-        btnClose.setOnClickListener(v -> {
-            finish(); // Instant close
-        });
-        headerRow.addView(btnClose);
+        btnClose.setOnClickListener(v -> finish());
+        rightHeader.addView(btnClose);
 
+        headerRow.addView(rightHeader);
         root.addView(headerRow);
 
-        // 2. Phone Number display & Call Direction
-        TextView tvPhone = new TextView(this);
-        tvPhone.setText(phoneNumber + " • " + callType + " (SIM 1)");
-        tvPhone.setTextColor(Color.parseColor("#2DD4BF")); // Teal text
-        tvPhone.setTextSize(12.5f);
-        tvPhone.setPadding(0, 6, 0, 16);
-        root.addView(tvPhone);
+        // ==========================================
+        // 2. AUDIO WAVEFORM PREVIEW BAR
+        // ==========================================
+        LinearLayout waveBar = new LinearLayout(this);
+        waveBar.setOrientation(LinearLayout.HORIZONTAL);
+        waveBar.setGravity(Gravity.CENTER_VERTICAL);
+        waveBar.setPadding(16, 10, 16, 10);
 
-        // 3. Subtitle
-        TextView tvSub = new TextView(this);
-        tvSub.setText("SELECT LEAD OUTCOME / DISPOSITION:");
-        tvSub.setTextColor(Color.parseColor("#94A3B8"));
-        tvSub.setTextSize(11f);
-        tvSub.setTypeface(null, Typeface.BOLD);
-        tvSub.setPadding(0, 0, 0, 10);
-        root.addView(tvSub);
+        GradientDrawable waveBg = new GradientDrawable();
+        waveBg.setColor(Color.parseColor("#062422"));
+        waveBg.setCornerRadius(14f);
+        waveBg.setStroke(1, Color.parseColor("#0E4743"));
+        waveBar.setBackground(waveBg);
 
-        // 4. Disposition Chips (Grid with 2 columns)
+        TextView tvPlayBtn = new TextView(this);
+        tvPlayBtn.setText("▶");
+        tvPlayBtn.setTextColor(Color.parseColor("#14B8A6"));
+        tvPlayBtn.setTextSize(13f);
+        tvPlayBtn.setPadding(0, 0, 12, 0);
+        waveBar.addView(tvPlayBtn);
+
+        TextView tvWaveform = new TextView(this);
+        tvWaveform.setText("||| | ||| |||| | ||| || |||| ||| | ||| |||| | ||| || ||||");
+        tvWaveform.setTextColor(Color.parseColor("#2DD4BF"));
+        tvWaveform.setTextSize(10.5f);
+        tvWaveform.setLetterSpacing(0.08f);
+        waveBar.addView(tvWaveform, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f));
+
+        TextView tvWaveTime = new TextView(this);
+        tvWaveTime.setText(String.format(Locale.getDefault(), "%02d:%02d", mins, secs));
+        tvWaveTime.setTextColor(Color.parseColor("#94A3B8"));
+        tvWaveTime.setTextSize(11f);
+        waveBar.addView(tvWaveTime);
+
+        LinearLayout.LayoutParams waveParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        waveParams.setMargins(0, 14, 0, 12);
+        root.addView(waveBar, waveParams);
+
+        // ==========================================
+        // 3. SECTION: LEAD OUTCOME / DISPOSITION CARD
+        // ==========================================
+        LinearLayout dispCard = createSectionCard("Lead Outcome / Disposition");
+
         GridLayout grid = new GridLayout(this);
         grid.setColumnCount(2);
         dispositionButtons = new TextView[dispositions.length];
 
         for (int i = 0; i < dispositions.length; i++) {
             final String disp = dispositions[i];
-            final String emoji = dispositionEmojis[i];
 
             TextView chip = new TextView(this);
-            chip.setText(emoji + " " + disp);
-            chip.setTextSize(11f);
+            chip.setText((i == 0 ? "✔ " : "") + disp);
+            chip.setTextSize(11.5f);
             chip.setGravity(Gravity.CENTER);
-            chip.setPadding(12, 14, 12, 14);
+            chip.setPadding(10, 12, 10, 12);
             chip.setClickable(true);
 
             GridLayout.LayoutParams glp = new GridLayout.LayoutParams();
@@ -213,113 +280,124 @@ public class PostCallDispositionActivity extends AppCompatActivity {
             grid.addView(chip);
         }
         updateDispositionStyles();
-        root.addView(grid);
+        dispCard.addView(grid);
+        root.addView(dispCard);
 
-        // 5. Calendar Follow-up Date & Time Picker Card
-        LinearLayout followUpRow = new LinearLayout(this);
-        followUpRow.setOrientation(LinearLayout.HORIZONTAL);
-        followUpRow.setGravity(Gravity.CENTER_VERTICAL);
-        followUpRow.setPadding(16, 14, 16, 14);
-        followUpRow.setClickable(true);
+        // ==========================================
+        // 4. SECTION: CALENDAR FOLLOW-UP DATE & TIME
+        // ==========================================
+        LinearLayout calCard = createSectionCard("Calendar Follow-up Date & Time");
 
-        GradientDrawable calBg = new GradientDrawable();
-        calBg.setColor(Color.parseColor("#082F2C"));
-        calBg.setCornerRadius(14f);
-        calBg.setStroke(1, Color.parseColor("#14B8A6"));
-        followUpRow.setBackground(calBg);
+        LinearLayout calRow = new LinearLayout(this);
+        calRow.setOrientation(LinearLayout.HORIZONTAL);
+        calRow.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView tvCalIcon = new TextView(this);
-        tvCalIcon.setText("📅");
-        tvCalIcon.setTextSize(14f);
-        tvCalIcon.setPadding(0, 0, 12, 0);
-        followUpRow.addView(tvCalIcon);
+        // Glowing Teal Calendar Square Icon
+        TextView tvCalBox = new TextView(this);
+        tvCalBox.setText("📅");
+        tvCalBox.setTextSize(16f);
+        tvCalBox.setGravity(Gravity.CENTER);
+        GradientDrawable calBoxBg = new GradientDrawable();
+        calBoxBg.setColor(Color.parseColor("#093834"));
+        calBoxBg.setCornerRadius(14f);
+        calBoxBg.setStroke(2, Color.parseColor("#14B8A6"));
+        tvCalBox.setBackground(calBoxBg);
+        LinearLayout.LayoutParams calBoxParams = new LinearLayout.LayoutParams(100, 100);
+        calBoxParams.setMargins(0, 0, 14, 0);
+        tvCalBox.setLayoutParams(calBoxParams);
+        calRow.addView(tvCalBox);
 
-        TextView tvFollowUpText = new TextView(this);
-        tvFollowUpText.setText("Set Follow-up Date & Time Reminder");
-        tvFollowUpText.setTextColor(Color.parseColor("#5EEAD4"));
-        tvFollowUpText.setTextSize(11.5f);
-        tvFollowUpText.setTypeface(null, Typeface.BOLD);
-        followUpRow.addView(tvFollowUpText, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f));
+        LinearLayout calCol = new LinearLayout(this);
+        calCol.setOrientation(LinearLayout.VERTICAL);
 
-        followUpRow.setOnClickListener(v -> {
-            Calendar now = Calendar.getInstance();
-            DatePickerDialog dpd = new DatePickerDialog(this, (view, year, month, dayOfMonth) -> {
-                Calendar chosen = Calendar.getInstance();
-                chosen.set(year, month, dayOfMonth);
-                String dateStr = new SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(chosen.getTime());
-                selectedFollowUpDate = dateStr;
+        TextView tvCalSub = new TextView(this);
+        tvCalSub.setText("Select Next Follow-up Date");
+        tvCalSub.setTextColor(Color.parseColor("#94A3B8"));
+        tvCalSub.setTextSize(11f);
+        tvCalSub.setPadding(0, 0, 0, 4);
+        calCol.addView(tvCalSub);
 
-                TimePickerDialog tpd = new TimePickerDialog(this, (tView, hourOfDay, minute) -> {
-                    String ampm = hourOfDay >= 12 ? "PM" : "AM";
-                    int hr12 = hourOfDay % 12;
-                    if (hr12 == 0) hr12 = 12;
-                    String timeStr = String.format(Locale.getDefault(), "%02d:%02d %s", hr12, minute, ampm);
-                    selectedFollowUpTime = timeStr;
-                    tvFollowUpText.setText("📅 " + dateStr + " • " + timeStr);
-                    tvFollowUpText.setTextColor(Color.parseColor("#14B8A6"));
-                }, now.get(Calendar.HOUR_OF_DAY) + 1, 0, false);
-                tpd.show();
-            }, now.get(Calendar.YEAR), now.get(Calendar.MONTH), now.get(Calendar.DAY_OF_MONTH));
-            dpd.show();
-        });
+        // Date & Time Pills Row
+        LinearLayout pillsRow = new LinearLayout(this);
+        pillsRow.setOrientation(LinearLayout.HORIZONTAL);
 
-        LinearLayout.LayoutParams calParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        calParams.setMargins(0, 12, 0, 4);
-        root.addView(followUpRow, calParams);
+        tvDatePill = new TextView(this);
+        tvDatePill.setText("Choose Date");
+        tvDatePill.setTextColor(Color.WHITE);
+        tvDatePill.setTextSize(11.5f);
+        tvDatePill.setPadding(14, 6, 14, 6);
+        GradientDrawable datePillBg = new GradientDrawable();
+        datePillBg.setColor(Color.parseColor("#082F2C"));
+        datePillBg.setCornerRadius(12f);
+        datePillBg.setStroke(1, Color.parseColor("#0F766E"));
+        tvDatePill.setBackground(datePillBg);
+        tvDatePill.setClickable(true);
+        tvDatePill.setOnClickListener(v -> openDatePicker());
+        pillsRow.addView(tvDatePill);
 
-        // 6. Notes input
-        TextView tvNotesLabel = new TextView(this);
-        tvNotesLabel.setText("CALL NOTES / DISCUSSION REMARKS:");
-        tvNotesLabel.setTextColor(Color.parseColor("#94A3B8"));
-        tvNotesLabel.setTextSize(11f);
-        tvNotesLabel.setTypeface(null, Typeface.BOLD);
-        tvNotesLabel.setPadding(0, 12, 0, 6);
-        root.addView(tvNotesLabel);
+        tvTimePill = new TextView(this);
+        tvTimePill.setText("11:00 AM ⌵");
+        tvTimePill.setTextColor(Color.parseColor("#2DD4BF"));
+        tvTimePill.setTextSize(11.5f);
+        tvTimePill.setPadding(14, 6, 14, 6);
+        GradientDrawable timePillBg = new GradientDrawable();
+        timePillBg.setColor(Color.parseColor("#082F2C"));
+        timePillBg.setCornerRadius(12f);
+        timePillBg.setStroke(1, Color.parseColor("#0F766E"));
+        tvTimePill.setBackground(timePillBg);
+        tvTimePill.setClickable(true);
+        LinearLayout.LayoutParams timeParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        timeParams.setMargins(8, 0, 0, 0);
+        tvTimePill.setLayoutParams(timeParams);
+        tvTimePill.setOnClickListener(v -> openTimePicker());
+        pillsRow.addView(tvTimePill);
+
+        calCol.addView(pillsRow);
+        calRow.addView(calCol, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f));
+        calCard.addView(calRow);
+        root.addView(calCard);
+
+        // ==========================================
+        // 5. SECTION: CALL NOTES
+        // ==========================================
+        LinearLayout notesCard = createSectionCard("Call Notes");
 
         etNotes = new EditText(this);
-        etNotes.setHint("Enter client requirements, budget, timeline, project scope...");
-        etNotes.setHintTextColor(Color.parseColor("#4B6B68"));
+        etNotes.setHint("Add notes from the call...");
+        etNotes.setHintTextColor(Color.parseColor("#4A6B68"));
         etNotes.setTextColor(Color.WHITE);
         etNotes.setTextSize(12f);
-        etNotes.setPadding(18, 14, 18, 14);
-        etNotes.setMinLines(2);
-        etNotes.setMaxLines(4);
+        etNotes.setPadding(16, 12, 16, 12);
+        etNotes.setLines(2);
+        etNotes.setMaxLines(3);
         etNotes.setGravity(Gravity.TOP);
 
         GradientDrawable inputBg = new GradientDrawable();
-        inputBg.setColor(Color.parseColor("#072725"));
-        inputBg.setCornerRadius(14f);
-        inputBg.setStroke(1, Color.parseColor("#134E4A"));
+        inputBg.setColor(Color.parseColor("#041B19"));
+        inputBg.setCornerRadius(12f);
+        inputBg.setStroke(1, Color.parseColor("#0D4E4A"));
         etNotes.setBackground(inputBg);
-        root.addView(etNotes);
+        notesCard.addView(etNotes);
+        root.addView(notesCard);
 
-        // 7. Action Buttons Row: Save & Sync + Skip
-        LinearLayout actionRow = new LinearLayout(this);
-        actionRow.setOrientation(LinearLayout.HORIZONTAL);
-        actionRow.setPadding(0, 18, 0, 0);
-
-        Button btnSkip = new Button(this);
-        btnSkip.setText("Skip");
-        btnSkip.setTextColor(Color.parseColor("#94A3B8"));
-        btnSkip.setTextSize(12f);
-        btnSkip.setBackgroundColor(Color.TRANSPARENT);
-        btnSkip.setOnClickListener(v -> finish());
-        LinearLayout.LayoutParams skipParams = new LinearLayout.LayoutParams(0, 100, 0.7f);
-        skipParams.setMargins(0, 0, 8, 0);
-        actionRow.addView(btnSkip, skipParams);
-
+        // ==========================================
+        // 6. BOTTOM ACTION BUTTON: SAVE & SYNC LEAD
+        // ==========================================
         btnSave = new Button(this);
-        btnSave.setText("💾 Save & Sync Lead");
+        btnSave.setText("Save & Sync Lead");
         btnSave.setTextColor(Color.WHITE);
-        btnSave.setTextSize(13f);
+        btnSave.setTextSize(14f);
         btnSave.setTypeface(null, Typeface.BOLD);
+        btnSave.setAllCaps(false);
 
-        GradientDrawable btnBg = new GradientDrawable();
-        btnBg.setColor(Color.parseColor("#0D9488")); // Signature Emerald Teal
-        btnBg.setCornerRadius(16f);
+        GradientDrawable btnBg = new GradientDrawable(
+            GradientDrawable.Orientation.LEFT_RIGHT,
+            new int[]{Color.parseColor("#059669"), Color.parseColor("#14B8A6")}
+        );
+        btnBg.setCornerRadius(22f);
         btnSave.setBackground(btnBg);
 
-        // --- ZERO-LAG INSTANT DISMISS (0ms) ---
+        // ZERO-LAG INSTANT DISMISS (0ms)
         btnSave.setOnClickListener(v -> {
             final String notes = etNotes != null ? etNotes.getText().toString().trim() : "";
             final String disp = selectedDisposition;
@@ -327,22 +405,78 @@ public class PostCallDispositionActivity extends AppCompatActivity {
             final String fTime = selectedFollowUpTime;
             final String cId = callId;
 
-            // 1. Instantly close screen (phone is 100% free for next call!)
-            Toast.makeText(this, "✅ Saved & Synced!", Toast.LENGTH_SHORT).show();
+            // 1. Instantly close screen (phone freed immediately!)
+            Toast.makeText(this, "✅ Lead Saved & Synced!", Toast.LENGTH_SHORT).show();
             finish();
 
-            // 2. Heavy audio processing and background network sync execute in detached thread
+            // 2. Heavy background sync runs detached
             new Thread(() -> {
                 executeBackgroundSync(disp, notes, fDate, fTime, cId);
             }).start();
         });
 
-        LinearLayout.LayoutParams saveParams = new LinearLayout.LayoutParams(0, 100, 2.3f);
-        actionRow.addView(btnSave, saveParams);
+        LinearLayout.LayoutParams saveParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 110);
+        saveParams.setMargins(0, 16, 0, 0);
+        root.addView(btnSave, saveParams);
 
-        root.addView(actionRow);
+        scroll.addView(root);
+        return scroll;
+    }
 
-        return root;
+    private LinearLayout createSectionCard(String title) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(18, 14, 18, 14);
+
+        GradientDrawable cBg = new GradientDrawable();
+        cBg.setColor(Color.parseColor("#062422")); // Elevated Card Surface
+        cBg.setCornerRadius(16f);
+        cBg.setStroke(1, Color.parseColor("#0B413E"));
+        card.setBackground(cBg);
+
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText(title);
+        tvTitle.setTextColor(Color.parseColor("#94A3B8"));
+        tvTitle.setTextSize(11.5f);
+        tvTitle.setTypeface(null, Typeface.BOLD);
+        tvTitle.setPadding(0, 0, 0, 8);
+        card.addView(tvTitle);
+
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(0, 0, 0, 10);
+        card.setLayoutParams(lp);
+        return card;
+    }
+
+    private void openDatePicker() {
+        Calendar now = Calendar.getInstance();
+        DatePickerDialog dpd = new DatePickerDialog(this, (view, year, month, dayOfMonth) -> {
+            Calendar chosen = Calendar.getInstance();
+            chosen.set(year, month, dayOfMonth);
+            String dateStr = new SimpleDateFormat("EEE, dd MMM", Locale.getDefault()).format(chosen.getTime());
+            selectedFollowUpDate = dateStr;
+            if (tvDatePill != null) {
+                tvDatePill.setText(dateStr);
+                tvDatePill.setTextColor(Color.parseColor("#2DD4BF"));
+            }
+        }, now.get(Calendar.YEAR), now.get(Calendar.MONTH), now.get(Calendar.DAY_OF_MONTH));
+        dpd.show();
+    }
+
+    private void openTimePicker() {
+        Calendar now = Calendar.getInstance();
+        TimePickerDialog tpd = new TimePickerDialog(this, (tView, hourOfDay, minute) -> {
+            String ampm = hourOfDay >= 12 ? "PM" : "AM";
+            int hr12 = hourOfDay % 12;
+            if (hr12 == 0) hr12 = 12;
+            String timeStr = String.format(Locale.getDefault(), "%02d:%02d %s", hr12, minute, ampm);
+            selectedFollowUpTime = timeStr;
+            if (tvTimePill != null) {
+                tvTimePill.setText(timeStr + " ⌵");
+                tvTimePill.setTextColor(Color.parseColor("#2DD4BF"));
+            }
+        }, now.get(Calendar.HOUR_OF_DAY) + 1, 0, false);
+        tpd.show();
     }
 
     private void updateDispositionStyles() {
@@ -355,13 +489,15 @@ public class PostCallDispositionActivity extends AppCompatActivity {
             chipBg.setCornerRadius(14f);
 
             if (isSelected) {
-                chipBg.setColor(Color.parseColor("#0D9488")); // Active Teal
+                chipBg.setColor(Color.parseColor("#0D9488")); // Glowing Active Teal
                 chipBg.setStroke(2, Color.parseColor("#14B8A6"));
+                btn.setText("✔ " + dispositions[i]);
                 btn.setTextColor(Color.WHITE);
                 btn.setTypeface(null, Typeface.BOLD);
             } else {
-                chipBg.setColor(Color.parseColor("#1E293B")); // Inactive Slate
-                chipBg.setStroke(1, Color.parseColor("#334155"));
+                chipBg.setColor(Color.parseColor("#082B29")); // Subtle Surface Teal
+                chipBg.setStroke(1, Color.parseColor("#0D4E4A"));
+                btn.setText(dispositions[i]);
                 btn.setTextColor(Color.parseColor("#94A3B8"));
                 btn.setTypeface(null, Typeface.NORMAL);
             }
