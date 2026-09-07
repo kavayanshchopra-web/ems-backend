@@ -1,347 +1,251 @@
 package com.omniflow.simrecorder;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.provider.Settings;
+import android.os.Handler;
+import android.os.Looper;
+import android.telecom.TelecomManager;
 import android.util.Log;
-import android.view.Gravity;
 import android.view.View;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.TextView;
+import android.widget.FrameLayout;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import java.util.ArrayList;
-import java.util.List;
 
-import com.journeyapps.barcodescanner.ScanContract;
-import com.journeyapps.barcodescanner.ScanOptions;
-import org.json.JSONObject;
-
+/**
+ * MainActivity — Full-Screen EMS Mobile Web Experience + Native 1-Click SIM Telephony
+ */
 public class MainActivity extends AppCompatActivity {
 
-    private static final int PERMISSION_REQUEST_CODE = 101;
-    private static final int FOLDER_PICKER_REQUEST_CODE = 202;
-    
-    // Production dashboard URL
-    public static final String DASHBOARD_URL = "https://ems-crm-sandy.vercel.app";
+    private static final String TAG = "OmniFlowMain";
+    public static final String DASHBOARD_URL = "https://app.employeemanagementsystems.com";
 
-    private TextView tvFolderStatus;
-    private Button btnScanQr;
-    private Button btnSelectFolder;
-    private Button btnToggleService;
-    private Button btnExtSetup;
-    private LinearLayout header;
+    private WebView webView;
+    private ProgressBar progressBar;
 
-    // QR Code Scanner Launcher
-    private final androidx.activity.result.ActivityResultLauncher<ScanOptions> barcodeLauncher = 
-        registerForActivityResult(new ScanContract(), result -> {
-            if (result.getContents() != null) {
-                handleScannedQrData(result.getContents());
-            }
-        });
+    public class WebAppInterface {
+        Context mContext;
+        WebAppInterface(Context c) {
+            mContext = c;
+        }
+
+        @JavascriptInterface
+        public void makeDirectCall(String phoneNumber) {
+            new Handler(Looper.getMainLooper()).post(() -> performDirectCall(phoneNumber));
+        }
+
+        @JavascriptInterface
+        public void dial(String phoneNumber) {
+            new Handler(Looper.getMainLooper()).post(() -> performDirectCall(phoneNumber));
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Root container (vertical LinearLayout)
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Color.WHITE);
+        // Full Screen Root FrameLayout
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(Color.parseColor("#0F172A")); // Slate dark
 
-        // Programmatic settings header bar
-        header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setPadding(16, 12, 16, 12);
-        header.setBackgroundColor(Color.parseColor("#0F172A")); // Dark Slate
-        header.setGravity(Gravity.CENTER_VERTICAL);
+        // 1. Setup 100% Full-Screen WebView
+        webView = new WebView(this);
+        FrameLayout.LayoutParams webViewParams = new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, 
+            FrameLayout.LayoutParams.MATCH_PARENT
+        );
+        webView.setLayoutParams(webViewParams);
 
-        LinearLayout textContainer = new LinearLayout(this);
-        textContainer.setOrientation(LinearLayout.VERTICAL);
-        
-        TextView tvTitle = new TextView(this);
-        tvTitle.setText("OmniFlow PBX");
-        tvTitle.setTextColor(Color.WHITE);
-        tvTitle.setTextSize(12f);
-        tvTitle.setTypeface(null, Typeface.BOLD);
-
-        tvFolderStatus = new TextView(this);
-        tvFolderStatus.setText("Ext: 101 • Ready");
-        tvFolderStatus.setTextColor(Color.parseColor("#10B981")); // Green
-        tvFolderStatus.setTextSize(10f);
-
-        textContainer.addView(tvTitle);
-        textContainer.addView(tvFolderStatus);
-
-        LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(
-            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f);
-        header.addView(textContainer, textParams);
-
-        // 1. Scan QR from Laptop Button
-        btnScanQr = new Button(this);
-        btnScanQr.setText("📷 Scan QR");
-        btnScanQr.setTextSize(11f);
-        btnScanQr.setTextColor(Color.WHITE);
-        btnScanQr.setBackgroundColor(Color.parseColor("#0D9488")); // Emerald Teal
-        btnScanQr.setAllCaps(false);
-        btnScanQr.setPadding(12, 5, 12, 5);
-        btnScanQr.setOnClickListener(v -> startQrScanner());
-
-        LinearLayout.LayoutParams qrParams = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        qrParams.setMargins(3, 0, 3, 0);
-        header.addView(btnScanQr, qrParams);
-
-        // 2. Extension Setup Button
-        btnExtSetup = new Button(this);
-        btnExtSetup.setText("☎️ 101");
-        btnExtSetup.setTextSize(11f);
-        btnExtSetup.setTextColor(Color.WHITE);
-        btnExtSetup.setBackgroundColor(Color.parseColor("#6366F1")); // Indigo
-        btnExtSetup.setAllCaps(false);
-        btnExtSetup.setPadding(12, 5, 12, 5);
-        btnExtSetup.setOnClickListener(v -> showExtensionConfigDialog());
-
-        header.addView(btnExtSetup, qrParams);
-
-        // 3. Folder Button
-        btnSelectFolder = new Button(this);
-        btnSelectFolder.setText("📁 Folder");
-        btnSelectFolder.setTextSize(11f);
-        btnSelectFolder.setTextColor(Color.WHITE);
-        btnSelectFolder.setBackgroundColor(Color.parseColor("#3B82F6")); // Blue
-        btnSelectFolder.setAllCaps(false);
-        btnSelectFolder.setPadding(12, 5, 12, 5);
-        btnSelectFolder.setOnClickListener(v -> selectCallRecordingsFolder());
-
-        header.addView(btnSelectFolder, qrParams);
-
-        // 4. Toggle Service Button
-        btnToggleService = new Button(this);
-        btnToggleService.setText("🟢 ACTIVE");
-        btnToggleService.setTextSize(11f);
-        btnToggleService.setTextColor(Color.WHITE);
-        btnToggleService.setBackgroundColor(Color.parseColor("#10B981")); // Green
-        btnToggleService.setAllCaps(false);
-        btnToggleService.setPadding(12, 5, 12, 5);
-        btnToggleService.setOnClickListener(v -> toggleMonitorService());
-
-        header.addView(btnToggleService, qrParams);
-
-        // Add header to root
-        root.addView(header);
-
-        // Setup WebView
-        WebView webView = new WebView(this);
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
+        webSettings.setDatabaseEnabled(true);
+        webSettings.setAllowFileAccess(true);
+        webSettings.setAllowContentAccess(true);
         webSettings.setMediaPlaybackRequiresUserGesture(false);
+        webSettings.setUseWideViewPort(true);
+        webSettings.setLoadWithOverviewMode(true);
+        webSettings.setSupportZoom(false);
+        webSettings.setBuiltInZoomControls(false);
+        webSettings.setDisplayZoomControls(false);
+        webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);
 
-        webView.setWebViewClient(new WebViewClient());
-        webView.loadUrl(DASHBOARD_URL);
+        // Bind Direct Native Telephony JavaScript Interfaces
+        webView.addJavascriptInterface(new WebAppInterface(this), "AndroidApp");
+        webView.addJavascriptInterface(new WebAppInterface(this), "OmniFlowNative");
 
-        LinearLayout.LayoutParams webViewParams = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, 0, 1.0f);
-        root.addView(webView, webViewParams);
+        // Progress bar for page load
+        progressBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        progressBar.setMax(100);
+        progressBar.setProgress(0);
+        progressBar.setVisibility(View.GONE);
+        FrameLayout.LayoutParams pbParams = new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, 8
+        );
+        progressBar.setLayoutParams(pbParams);
+
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onProgressChanged(WebView view, int newProgress) {
+                if (newProgress < 100) {
+                    progressBar.setVisibility(View.VISIBLE);
+                    progressBar.setProgress(newProgress);
+                } else {
+                    progressBar.setVisibility(View.GONE);
+                }
+            }
+        });
+
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                Uri uri = request.getUrl();
+                String url = uri != null ? uri.toString() : "";
+                
+                // If it's a tel: link, trigger direct GSM call immediately bypassing Zoom
+                if (url.startsWith("tel:")) {
+                    String cleanPhone = url.replace("tel:", "").trim();
+                    performDirectCall(cleanPhone);
+                    return true;
+                }
+                if (url.startsWith("mailto:") || url.startsWith("whatsapp:")) {
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                        startActivity(intent);
+                        return true;
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error launching external intent: " + e.getMessage());
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                // Ensure proper mobile viewport
+                webView.evaluateJavascript(
+                    "(function() { " +
+                    "  var meta = document.querySelector('meta[name=\"viewport\"]');" +
+                    "  if (!meta) {" +
+                    "    meta = document.createElement('meta');" +
+                    "    meta.name = 'viewport';" +
+                    "    document.head.appendChild(meta);" +
+                    "  }" +
+                    "  meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';" +
+                    "})();", null
+                );
+            }
+        });
+
+        root.addView(webView);
+        root.addView(progressBar);
 
         setContentView(root);
 
-        requestEssentialPermissions();
-        updateUI();
+        // Load the full Live EMS Portal
+        SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
+        String targetUrl = prefs.getString("dashboard_url", DASHBOARD_URL);
+        webView.loadUrl(targetUrl);
+
+        // Start background call recording & sync services silently
         startMonitorService();
-    }
 
-    private void startQrScanner() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 109);
-            return;
-        }
-        ScanOptions options = new ScanOptions();
-        options.setPrompt("Scan Laptop CRM Pairing QR Code");
-        options.setBeepEnabled(true);
-        options.setOrientationLocked(false);
-        options.setBarcodeImageEnabled(false);
-        barcodeLauncher.launch(options);
-    }
-
-    private void handleScannedQrData(String rawData) {
-        try {
-            JSONObject json = new JSONObject(rawData);
-            String action = json.optString("action", "");
-            String serverUrl = json.optString("serverUrl", "");
-            String ext = json.optString("extension", "101");
-            String name = json.optString("staffName", "Telecaller Agent");
-
-            if (!serverUrl.isEmpty()) {
-                SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
-                prefs.edit()
-                    .putString("api_url", serverUrl)
-                    .putString("extension", ext)
-                    .putString("staff_id", ext)
-                    .putString("staff_name", name)
-                    .apply();
-
-                updateUI();
-                stopMonitorService();
-                startMonitorService();
-
-                android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
-                builder.setTitle("🎉 Paired Successfully!");
-                builder.setMessage("Connected to Laptop CRM!\n\nExtension: " + ext + "\nAgent: " + name + "\nServer: " + serverUrl);
-                builder.setPositiveButton("OK", null);
-                builder.show();
-            } else {
-                Toast.makeText(this, "Invalid QR Code: Server URL missing", Toast.LENGTH_LONG).show();
+        // Check and prompt for Overlay permission (Required for Post-Call Lead Notes Popup)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(this)) {
+            try {
+                Intent intent = new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:" + getPackageName()));
+                startActivity(intent);
+                Toast.makeText(this, "Please enable 'Appear on top' to show Lead Notes Popup after calls.", Toast.LENGTH_LONG).show();
+            } catch (Exception e) {
+                Log.w(TAG, "Could not open overlay settings: " + e.getMessage());
             }
-        } catch (Exception e) {
-            // Handle plain URL or extension text
-            Toast.makeText(this, "QR Code Scanned: " + rawData, Toast.LENGTH_SHORT).show();
         }
     }
 
+    /**
+     * Directly places GSM Phone Call using the native Samsung / Android Dialer package
+     * Completely bypasses Zoom, Skype, and any third-party app chooser popups!
+     */
+    public void performDirectCall(String phoneNumber) {
+        if (phoneNumber == null || phoneNumber.trim().isEmpty()) return;
+        String cleanPhone = phoneNumber.replaceAll("[^0-9+]", "").trim();
+        if (cleanPhone.isEmpty()) return;
+        
+        Uri callUri = Uri.parse("tel:" + cleanPhone);
+        Log.d(TAG, "🎯 performDirectCall triggered for: " + cleanPhone);
 
-    private void showExtensionConfigDialog() {
-        SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
-        String currentExt = prefs.getString("extension", "101");
-        String currentName = prefs.getString("staff_name", "Telecaller Agent");
-        String currentUrl = prefs.getString("api_url", "http://192.168.29.95:5000");
+        TelecomManager telecomManager = (TelecomManager) getSystemService(Context.TELECOM_SERVICE);
+        String defaultDialer = (telecomManager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) 
+            ? telecomManager.getDefaultDialerPackage() : null;
 
-        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
-        builder.setTitle("📞 Telecaller Extension & Server Setup");
-
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(40, 20, 40, 10);
-
-        TextView tvExtLabel = new TextView(this);
-        tvExtLabel.setText("Your Extension Number (e.g. 101, 102, 103):");
-        tvExtLabel.setTextSize(12f);
-        layout.addView(tvExtLabel);
-
-        final android.widget.EditText inputExt = new android.widget.EditText(this);
-        inputExt.setText(currentExt);
-        inputExt.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-        layout.addView(inputExt);
-
-        TextView tvNameLabel = new TextView(this);
-        tvNameLabel.setText("Staff / Agent Name:");
-        tvNameLabel.setTextSize(12f);
-        tvNameLabel.setPadding(0, 15, 0, 0);
-        layout.addView(tvNameLabel);
-
-        final android.widget.EditText inputName = new android.widget.EditText(this);
-        inputName.setText(currentName);
-        layout.addView(inputName);
-
-        TextView tvUrlLabel = new TextView(this);
-        tvUrlLabel.setText("CRM Server IP / URL:");
-        tvUrlLabel.setTextSize(12f);
-        tvUrlLabel.setPadding(0, 15, 0, 0);
-        layout.addView(tvUrlLabel);
-
-        final android.widget.EditText inputUrl = new android.widget.EditText(this);
-        inputUrl.setText(currentUrl);
-        layout.addView(inputUrl);
-
-        builder.setView(layout);
-
-        builder.setPositiveButton("Save & Pair", (dialog, which) -> {
-            String newExt = inputExt.getText().toString().trim();
-            String newName = inputName.getText().toString().trim();
-            String newUrl = inputUrl.getText().toString().trim();
-
-            if (newExt.isEmpty()) newExt = "101";
-            if (newName.isEmpty()) newName = "Telecaller Agent";
-            if (newUrl.isEmpty()) newUrl = "http://192.168.29.95:5000";
-
-            prefs.edit()
-                .putString("extension", newExt)
-                .putString("staff_id", newExt)
-                .putString("staff_name", newName)
-                .putString("api_url", newUrl)
-                .apply();
-
-            updateUI();
-            // Restart SimBridgeService to apply new credentials
-            stopMonitorService();
-            startMonitorService();
-
-            Toast.makeText(MainActivity.this, "✅ Extension " + newExt + " Paired Successfully!", Toast.LENGTH_LONG).show();
-        });
-
-        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
-        builder.show();
-    }
-
-    private void updateUI() {
-        SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
-        boolean enabled = prefs.getBoolean("recording_enabled", true);
-        String folderUriStr = prefs.getString("selected_folder_uri", "");
-        String ext = prefs.getString("extension", "101");
-        String name = prefs.getString("staff_name", "Telecaller Agent");
-
-        if (btnExtSetup != null) {
-            btnExtSetup.setText("☎️ Ext: " + ext);
+        if (defaultDialer == null || defaultDialer.isEmpty()) {
+            defaultDialer = "com.samsung.android.dialer";
         }
 
-        if (enabled) {
-            btnToggleService.setText("🟢 ACTIVE");
-            btnToggleService.setBackgroundColor(Color.parseColor("#10B981")); // Green
-        } else {
-            btnToggleService.setText("🔴 PAUSED");
-            btnToggleService.setBackgroundColor(Color.parseColor("#EF4444")); // Red
+        // 1. Explicit ACTION_CALL with Phone Package (Strictly forces SIM / Phone Dialer)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED) {
+            try {
+                Intent callIntent = new Intent(Intent.ACTION_CALL, callUri);
+                callIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                if (defaultDialer != null && !defaultDialer.isEmpty()) {
+                    callIntent.setPackage(defaultDialer);
+                }
+                startActivity(callIntent);
+                return;
+            } catch (Exception e) {
+                Log.w(TAG, "Direct package call failed, trying generic ACTION_CALL: " + e.getMessage());
+            }
+
+            try {
+                Intent callIntent = new Intent(Intent.ACTION_CALL, callUri);
+                callIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(callIntent);
+                return;
+            } catch (Exception e) {
+                Log.w(TAG, "Generic ACTION_CALL failed: " + e.getMessage());
+            }
         }
 
-        if (folderUriStr.isEmpty()) {
-            tvFolderStatus.setText("Ext " + ext + " • ⚠️ Link Folder");
-            tvFolderStatus.setTextColor(Color.parseColor("#F59E0B")); // Amber
-        } else {
-            tvFolderStatus.setText("Ext " + ext + " (" + name + ") • 🟢 Ready");
-            tvFolderStatus.setTextColor(Color.parseColor("#10B981")); // Green
-        }
-    }
-
-    private void selectCallRecordingsFolder() {
+        // 2. Fallback: ACTION_DIAL with explicit Dialer Package
         try {
-            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-            intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION |
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION |
-                            Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-            startActivityForResult(intent, FOLDER_PICKER_REQUEST_CODE);
+            Intent dialIntent = new Intent(Intent.ACTION_DIAL, callUri);
+            dialIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            if (defaultDialer != null && !defaultDialer.isEmpty()) {
+                dialIntent.setPackage(defaultDialer);
+            }
+            startActivity(dialIntent);
         } catch (Exception e) {
-            Toast.makeText(this, "Error opening folder tree picker: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Log.e(TAG, "Fallback dial failed: " + e.getMessage());
+            try {
+                Intent fallback = new Intent(Intent.ACTION_DIAL, callUri);
+                fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(fallback);
+            } catch (Exception ignored) {}
         }
-    }
-
-    private void toggleMonitorService() {
-        SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
-        boolean current = prefs.getBoolean("recording_enabled", true);
-        boolean next = !current;
-        prefs.edit().putBoolean("recording_enabled", next).apply();
-
-        if (next) {
-            startMonitorService();
-            Toast.makeText(this, "✅ SIM Call Monitor Started!", Toast.LENGTH_SHORT).show();
-        } else {
-            stopMonitorService();
-            Toast.makeText(this, "⏸ SIM Call Monitor Paused", Toast.LENGTH_SHORT).show();
-        }
-        updateUI();
     }
 
     private void startMonitorService() {
@@ -350,108 +254,32 @@ public class MainActivity extends AppCompatActivity {
             Intent bridgeIntent = new Intent(this, SimBridgeService.class);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 startForegroundService(recIntent);
-                startForegroundService(bridgeIntent);
+                try {
+                    startForegroundService(bridgeIntent);
+                } catch (Exception ignored) {}
             } else {
                 startService(recIntent);
                 startService(bridgeIntent);
             }
         } catch (Exception e) {
-            Log.e("OmniFlow", "Error starting services: " + e.getMessage());
-        }
-    }
-
-    private void stopMonitorService() {
-        try {
-            Intent recIntent = new Intent(this, CallRecordingService.class);
-            Intent bridgeIntent = new Intent(this, SimBridgeService.class);
-            stopService(recIntent);
-            stopService(bridgeIntent);
-        } catch (Exception e) {
-            Log.e("OmniFlow", "Error stopping services: " + e.getMessage());
+            Log.e(TAG, "Error starting background services: " + e.getMessage());
         }
     }
 
     @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == FOLDER_PICKER_REQUEST_CODE && resultCode == RESULT_OK) {
-            if (data != null && data.getData() != null) {
-                Uri treeUri = data.getData();
-                try {
-                    int takeFlags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-                    getContentResolver().takePersistableUriPermission(treeUri, takeFlags);
-
-                    SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
-                    prefs.edit().putString("selected_folder_uri", treeUri.toString()).apply();
-
-                    Toast.makeText(this, "✅ Recordings folder linked successfully!", Toast.LENGTH_LONG).show();
-                    updateUI();
-                } catch (Exception e) {
-                    Toast.makeText(this, "Permission persistence failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                }
-            }
-        }
-    }
-
-    private List<String> getRequiredPermissionsList() {
-        List<String> list = new ArrayList<>();
-        list.add(Manifest.permission.READ_PHONE_STATE);
-        list.add(Manifest.permission.RECORD_AUDIO);
-        list.add(Manifest.permission.READ_CALL_LOG);
-        list.add(Manifest.permission.PROCESS_OUTGOING_CALLS);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            list.add(Manifest.permission.READ_MEDIA_AUDIO);
+    public void onBackPressed() {
+        if (webView != null && webView.canGoBack()) {
+            webView.goBack();
         } else {
-            list.add(Manifest.permission.READ_EXTERNAL_STORAGE);
-        }
-        return list;
-    }
-
-    private boolean hasAllPermissions() {
-        for (String perm : getRequiredPermissionsList()) {
-            if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private void requestEssentialPermissions() {
-        List<String> missing = new ArrayList<>();
-        for (String perm : getRequiredPermissionsList()) {
-            if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
-                missing.add(perm);
-            }
-        }
-        if (!missing.isEmpty()) {
-            ActivityCompat.requestPermissions(this, missing.toArray(new String[0]), PERMISSION_REQUEST_CODE);
-        } else {
-            checkOverlayPermission();
-        }
-    }
-
-    private void checkOverlayPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            try {
-                Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:" + getPackageName()));
-                startActivity(intent);
-                Toast.makeText(this, "👉 Enable 'Display over other apps' overlay widget permission", Toast.LENGTH_LONG).show();
-            } catch (Exception e) {}
+            super.onBackPressed();
         }
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == PERMISSION_REQUEST_CODE) {
-            if (hasAllPermissions()) {
-                Toast.makeText(this, "🟢 Permissions Authorized. SIM Listener active.", Toast.LENGTH_LONG).show();
-                checkOverlayPermission();
-                updateUI();
-            } else {
-                Toast.makeText(this, "⚠️ Please grant all permissions in settings for call recording sync.", Toast.LENGTH_LONG).show();
-            }
+    protected void onDestroy() {
+        super.onDestroy();
+        if (webView != null) {
+            webView.destroy();
         }
     }
 }

@@ -44,15 +44,14 @@ public class PermissionsActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        // Start SIM Bridge immediately
-        try {
-            Intent bridgeIntent = new Intent(this, SimBridgeService.class);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(bridgeIntent);
-            } else {
-                startService(bridgeIntent);
-            }
-        } catch (Exception e) {}
+        super.onCreate(savedInstanceState);
+
+        // If all permissions were already granted, launch MainActivity directly
+        SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
+        if (prefs.getBoolean("permissions_onboarded", false) && isAllPermissionsGranted()) {
+            finishAndLaunchMain();
+            return;
+        }
 
         // Root vertical layout
         LinearLayout root = new LinearLayout(this);
@@ -242,7 +241,7 @@ public class PermissionsActivity extends AppCompatActivity {
         boolean folderGranted = isFolderPermissionGranted();
         setBadgedStatus(tvFolderStatus, folderGranted);
 
-        boolean allGranted = phoneGranted && notifGranted && batteryGranted && overlayGranted && folderGranted;
+        boolean allGranted = isAllPermissionsGranted();
         if (allGranted) {
             btnActionButton.setText("🚀 Launch OmniFlow Telecalling");
             GradientDrawable btnBg = new GradientDrawable(
@@ -254,6 +253,11 @@ public class PermissionsActivity extends AppCompatActivity {
         } else {
             btnActionButton.setText("Request Permissions");
         }
+    }
+
+    private boolean isAllPermissionsGranted() {
+        return isPhonePermissionGranted() && isNotificationPermissionGranted() && 
+               isBatteryOptimizationGranted() && isOverlayPermissionGranted() && isFolderPermissionGranted();
     }
 
     private void setBadgedStatus(TextView tv, boolean granted) {
@@ -322,6 +326,7 @@ public class PermissionsActivity extends AppCompatActivity {
         list.add(Manifest.permission.CALL_PHONE);
         list.add(Manifest.permission.READ_PHONE_STATE);
         list.add(Manifest.permission.READ_CALL_LOG);
+        list.add(Manifest.permission.READ_CONTACTS);
         list.add(Manifest.permission.RECORD_AUDIO);
         list.add(Manifest.permission.PROCESS_OUTGOING_CALLS);
         ActivityCompat.requestPermissions(this, list.toArray(new String[0]), PERMISSION_REQ_CODE);
@@ -354,6 +359,19 @@ public class PermissionsActivity extends AppCompatActivity {
     }
 
     private void requestFolderPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !android.os.Environment.isExternalStorageManager()) {
+            try {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                intent.setData(Uri.parse("package:" + getPackageName()));
+                startActivityForResult(intent, SAF_FOLDER_REQ_CODE);
+                return;
+            } catch (Exception e) {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                startActivityForResult(intent, SAF_FOLDER_REQ_CODE);
+                return;
+            }
+        }
+
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION |
                         Intent.FLAG_GRANT_WRITE_URI_PERMISSION |

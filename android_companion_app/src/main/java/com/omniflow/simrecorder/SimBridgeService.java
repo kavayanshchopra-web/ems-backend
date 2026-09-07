@@ -41,7 +41,17 @@ public class SimBridgeService extends Service {
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
-        startForeground(NOTIFICATION_ID, buildForegroundNotification());
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIFICATION_ID, buildForegroundNotification(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+            } else {
+                startForeground(NOTIFICATION_ID, buildForegroundNotification());
+            }
+        } catch (Exception e) {
+            try {
+                startForeground(NOTIFICATION_ID, buildForegroundNotification());
+            } catch (Exception ignored) {}
+        }
     }
 
     @Override

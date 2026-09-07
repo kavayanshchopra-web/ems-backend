@@ -21,7 +21,23 @@ import {
   saveGhlIntegration,
   getGhlSyncLogs,
   disconnectGhlIntegration,
-  getDb
+  createFeedbackRecord,
+  getFeedbackById,
+  getFeedbacksByTenant,
+  getAllFeedbacks,
+  updateFeedbackStatusAndReply,
+  deleteFeedbackRecord,
+  createBillingInvoice,
+  getInvoiceById,
+  getTenantInvoices,
+  getAllBillingInvoices,
+  updateInvoiceStatus,
+  createOrUpdateTenantSubscription,
+  getTenantSubscription,
+  extendTenantSubscription,
+  getPendingSubscriptionApprovals,
+  getSaaSPricingConfigs,
+  setSaaSPricingConfig
 } from './db.js';
 import { 
   ghlAuthService, 
@@ -38,6 +54,7 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import Stripe from 'stripe';
+import paymentGatewayService from './services/PaymentGatewayService.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -109,7 +126,9 @@ import {
   getSimBridgeDeviceByStaff,
   registerOrUpdateSimDevice,
   getCallLogs,
-  createCallLog
+  createCallLog,
+  findRecentCallLog,
+  updateCallLog
 } from './db.js';
 import { 
   startSession, 
@@ -139,6 +158,8 @@ export async function authMiddleware(req, res, next) {
   // Allow login, signup, health check, public webhook & integration OAuth routes without blocking
   if (
     req.path.startsWith('/auth/') ||
+    req.path.startsWith('/payment/') ||
+    req.path.includes('/payment/') ||
     req.path === '/health' ||
     req.path === '/billing/webhook' ||
     req.path.includes('/integrations/marketplace/') ||
@@ -294,6 +315,334 @@ export default function setupRoutes(io) {
     } catch (err) {
       console.error('Registration error:', err);
       res.status(500).json({ error: 'Registration failed. Please try again.' });
+    }
+  });
+
+  // Tenant Registration with Dynamic Plan & Customization
+  router.post(['/auth/register-with-plan', '/api/auth/register-with-plan'], async (req, res) => {
+    const {
+      companyName,
+      adminName,
+      email,
+      phone,
+      password,
+      industry,
+      teamSize,
+      country,
+      state,
+      gstin,
+      planId,
+      planName,
+      billingCycle = 'monthly',
+      seats = 5,
+      channels = 1,
+      selectedAddons = [],
+      pricingSummary = {},
+      paymentMode = 'trial',
+      utrRef = '',
+      isTrial = false,
+      trialDays = 7
+    } = req.body;
+
+    if (!email || !companyName) {
+      return res.status(400).json({ error: 'email and companyName are required' });
+    }
+
+    try {
+      const cleanEmail = email.toLowerCase().trim();
+      let user = await getUserByEmail(cleanEmail);
+      if (user) {
+        return res.status(400).json({ error: 'User with this email already exists. Please log in.' });
+      }
+
+      // 1. Create tenant
+      const tenant = await createTenant(companyName);
+
+      // 2. Hash password & create user
+      const passwordHash = await bcrypt.hash(password || 'Password@123', 10);
+      const role = cleanEmail === 'admin@omniflow.com' ? 'superadmin' : 'owner';
+      user = await createUser(cleanEmail, passwordHash, role, tenant.id);
+
+      // 3. Compute validity and status
+      const now = new Date();
+      const validityDays = isTrial ? Number(trialDays || 7) : (billingCycle === 'yearly' ? 365 : 30);
+      const expiryDate = new Date(now.getTime() + validityDays * 86400000).toISOString();
+      const status = isTrial ? 'trial' : (paymentMode === 'razorpay' ? 'active' : 'payment_under_review');
+
+      // 4. Create or update tenant subscription
+      const subscription = await createOrUpdateTenantSubscription(tenant.id, {
+        plan_id: planId || (isTrial ? 'trial' : 'starter'),
+        plan_name: planName || (isTrial ? 'Free Trial' : 'Starter Growth'),
+        billing_cycle: billingCycle,
+        max_seats: Number(seats) || 5,
+        max_channels: Number(channels) || 1,
+        active_modules: Array.isArray(selectedAddons) ? selectedAddons : [],
+        amount_paid: Number(pricingSummary?.grandTotal) || 0,
+        currency: 'INR',
+        payment_mode: paymentMode,
+        utr_ref: utrRef,
+        status: status,
+        is_trial: isTrial ? 1 : 0,
+        trial_days: isTrial ? Number(trialDays || 7) : 0,
+        start_date: now.toISOString(),
+        expiry_date: expiryDate
+      });
+
+      // 5. Update tenant table status
+      const db = getDb();
+      await db.run('UPDATE tenants SET subscription_status = ?, plan_id = ? WHERE id = ?', [status, planId || 'starter', tenant.id]);
+
+      // 6. Create billing invoice record
+      const invNumber = `INV/2026-27/${Math.floor(1000 + Math.random() * 9000)}`;
+      const invoice = await createBillingInvoice({
+        invoice_number: invNumber,
+        tenant_id: tenant.id,
+        company_name: companyName,
+        buyer_name: adminName || companyName,
+        buyer_email: cleanEmail,
+        buyer_phone: phone || '',
+        buyer_state: state || 'Haryana',
+        buyer_country: country || 'IN',
+        buyer_gstin: gstin || '',
+        plan_id: planId || (isTrial ? 'trial' : 'starter'),
+        plan_name: planName || (isTrial ? 'Free Trial' : 'Starter Growth'),
+        billing_cycle: billingCycle,
+        base_price: pricingSummary?.basePrice || 0,
+        extra_seats_amount: pricingSummary?.extraSeatsTotal || 0,
+        extra_channels_amount: pricingSummary?.extraChannelsTotal || 0,
+        addons_amount: pricingSummary?.addonsTotal || 0,
+        discount_amount: pricingSummary?.discountAmount || 0,
+        taxable_subtotal: pricingSummary?.taxableSubtotal || 0,
+        tax_rate: pricingSummary?.taxRate || 0,
+        cgst_amount: pricingSummary?.cgstAmount || 0,
+        sgst_amount: pricingSummary?.sgstAmount || 0,
+        igst_amount: pricingSummary?.igstAmount || 0,
+        total_tax_amount: pricingSummary?.totalTaxAmount || 0,
+        grand_total: pricingSummary?.grandTotal || 0,
+        payment_mode: paymentMode,
+        utr_ref: utrRef,
+        status: isTrial ? 'paid' : (paymentMode === 'razorpay' ? 'paid' : 'pending'),
+        admin_notes: isTrial ? `Trial account activated for ${validityDays} days` : `Payment mode: ${paymentMode}, Ref: ${utrRef}`
+      });
+
+      // 7. Generate JWT Token
+      const token = jwt.sign(
+        { id: user.id, email: user.email, role: user.role, tenant_id: tenant.id },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      if (io) {
+        io.emit('company:registered', { tenantId: tenant.id, companyName, planId, status });
+      }
+
+      return res.status(201).json({
+        success: true,
+        token,
+        user: { id: user.id, email: user.email, role: user.role, tenantId: tenant.id },
+        tenant,
+        subscription,
+        invoice
+      });
+    } catch (err) {
+      console.error('Registration with plan error:', err);
+      return res.status(500).json({ error: 'Registration failed: ' + err.message });
+    }
+  });
+
+  // ==========================================
+  // RAZORPAY PAYMENT GATEWAY ENDPOINTS
+  // ==========================================
+
+  // 1. Get Public Gateway Configuration for Checkout Popup
+  router.get(['/payment/config', '/api/payment/config'], async (req, res) => {
+    try {
+      const publicConfig = paymentGatewayService.getPublicConfig();
+      return res.status(200).json({ success: true, ...publicConfig });
+    } catch (err) {
+      console.error('[Payment Config Error]:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 2. Create Razorpay Payment Order
+  router.post(['/payment/create-order', '/api/payment/create-order'], async (req, res) => {
+    try {
+      const { amount, currency = 'INR', receipt, notes = {} } = req.body;
+      const numAmount = Number(amount);
+      if (!numAmount || numAmount <= 0) {
+        return res.status(400).json({ success: false, error: 'Valid payment amount is required' });
+      }
+
+      const order = await paymentGatewayService.createOrder({
+        amount: numAmount,
+        currency,
+        receipt: receipt || `rcpt_${Date.now()}`,
+        notes
+      });
+
+      return res.status(200).json({ success: true, order });
+    } catch (err) {
+      console.error('[Razorpay Create Order Error]:', err);
+      return res.status(500).json({ success: false, error: 'Failed to create payment order: ' + err.message });
+    }
+  });
+
+  // 3. Verify Signature and Automatically Activate Account
+  router.post(['/payment/verify-and-register', '/api/payment/verify-and-register'], async (req, res) => {
+    try {
+      const {
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+        companyName,
+        adminName,
+        email,
+        phone,
+        password,
+        industry,
+        teamSize,
+        country,
+        state,
+        gstin,
+        planId,
+        planName,
+        billingCycle = 'monthly',
+        seats = 5,
+        channels = 1,
+        selectedAddons = [],
+        pricingSummary = {}
+      } = req.body;
+
+      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+        return res.status(400).json({ success: false, error: 'Missing Razorpay verification tokens (order_id, payment_id, signature)' });
+      }
+
+      if (!email || !companyName) {
+        return res.status(400).json({ success: false, error: 'Company name and admin email are required' });
+      }
+
+      // Step A: Verify Razorpay HMAC-SHA256 signature
+      const verification = paymentGatewayService.verifyPaymentSignature({
+        orderId: razorpay_order_id,
+        paymentId: razorpay_payment_id,
+        signature: razorpay_signature
+      });
+
+      if (!verification.valid) {
+        console.warn('❌ [Razorpay Verification Failed]:', verification.error);
+        return res.status(400).json({ success: false, error: 'Payment signature verification failed. Please contact support.' });
+      }
+
+      console.log(`✅ [Razorpay Payment Verified] Payment ID: ${razorpay_payment_id}, Order: ${razorpay_order_id}`);
+
+      // Step B: Create or find tenant
+      const cleanEmail = email.toLowerCase().trim();
+      let tenant;
+      let existingUser = await getUserByEmail(cleanEmail);
+      if (existingUser) {
+        tenant = await getTenant(existingUser.tenant_id);
+      } else {
+        tenant = await createTenant(companyName);
+      }
+
+      // Step C: Create or update user
+      let user = existingUser;
+      if (!user) {
+        const passwordHash = await bcrypt.hash(password || 'Password@123', 10);
+        const role = cleanEmail === 'admin@omniflow.com' ? 'superadmin' : 'owner';
+        user = await createUser(cleanEmail, passwordHash, role, tenant.id);
+      }
+
+      // Step D: Calculate validity (Yearly = 365 days, Monthly = 30 days)
+      const isYearly = billingCycle === 'yearly';
+      const validityDays = isYearly ? 365 : 30;
+      const now = new Date();
+      const expiryDate = new Date(now.getTime() + validityDays * 86400000).toISOString();
+
+      // Step E: Activate subscription immediately with status 'active'
+      const subscription = await createOrUpdateTenantSubscription(tenant.id, {
+        plan_id: planId || 'starter',
+        plan_name: planName || 'Starter Growth',
+        billing_cycle: billingCycle,
+        max_seats: Number(seats) || 5,
+        max_channels: Number(channels) || 1,
+        active_modules: Array.isArray(selectedAddons) ? selectedAddons : [],
+        amount_paid: Number(pricingSummary?.grandTotal) || 0,
+        currency: 'INR',
+        payment_mode: 'razorpay',
+        utr_ref: razorpay_payment_id,
+        status: 'active', // INSTANT ACTIVE ACTIVATION!
+        is_trial: 0,
+        trial_days: 0,
+        start_date: now.toISOString(),
+        expiry_date: expiryDate
+      });
+
+      // Step F: Update tenant table
+      const db = getDb();
+      await db.run('UPDATE tenants SET subscription_status = ?, plan_id = ? WHERE id = ?', ['active', planId || 'starter', tenant.id]);
+
+      // Step G: Record paid GST Tax Invoice
+      const invNumber = `INV/2026-27/${Math.floor(1000 + Math.random() * 9000)}`;
+      const invoice = await createBillingInvoice({
+        invoice_number: invNumber,
+        tenant_id: tenant.id,
+        company_name: companyName,
+        buyer_name: adminName || companyName,
+        buyer_email: cleanEmail,
+        buyer_phone: phone || '',
+        buyer_state: state || 'Haryana',
+        buyer_country: country || 'IN',
+        buyer_gstin: gstin || '',
+        plan_id: planId || 'starter',
+        plan_name: planName || 'Starter Growth',
+        billing_cycle: billingCycle,
+        base_price: pricingSummary?.basePrice || 0,
+        extra_seats_amount: pricingSummary?.extraSeatsTotal || 0,
+        extra_channels_amount: pricingSummary?.extraChannelsTotal || 0,
+        addons_amount: pricingSummary?.addonsTotal || 0,
+        discount_amount: pricingSummary?.discountAmount || 0,
+        taxable_subtotal: pricingSummary?.taxableSubtotal || 0,
+        tax_rate: pricingSummary?.taxRate || 18,
+        cgst_amount: pricingSummary?.cgstAmount || 0,
+        sgst_amount: pricingSummary?.sgstAmount || 0,
+        igst_amount: pricingSummary?.igstAmount || 0,
+        total_tax_amount: pricingSummary?.totalTaxAmount || 0,
+        grand_total: pricingSummary?.grandTotal || 0,
+        payment_mode: 'razorpay',
+        utr_ref: razorpay_payment_id,
+        status: 'paid',
+        admin_notes: `Auto-verified Razorpay Payment ID: ${razorpay_payment_id}, Order ID: ${razorpay_order_id}`,
+        approved_by: 'Razorpay Payment Engine',
+        approved_at: now.toISOString()
+      });
+
+      // Step H: Sign JWT Token
+      const token = jwt.sign(
+        { id: user.id, email: user.email, role: user.role, tenant_id: tenant.id },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      if (io) {
+        io.emit('company:registered', { tenantId: tenant.id, companyName, planId, status: 'active' });
+        io.emit('subscription:activated', { tenantId: tenant.id, planId, expiryDate });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: `Payment successful! Workspace for ${companyName} is instantly activated.`,
+        token,
+        user: { id: user.id, email: user.email, role: user.role, tenantId: tenant.id },
+        tenant,
+        subscription,
+        invoice,
+        paymentId: razorpay_payment_id
+      });
+    } catch (err) {
+      console.error('[Razorpay Verify & Register Error]:', err);
+      return res.status(500).json({ success: false, error: 'Verification failed: ' + err.message });
     }
   });
 
@@ -1848,7 +2197,7 @@ export default function setupRoutes(io) {
 
   // 3. Create or update plan details (Superadmin only)
   router.post('/admin/plans', checkSuperadmin, async (req, res) => {
-    const { id, name, description, features, maxChannels, maxContacts, allowChatbot, allowScheduler, isActive } = req.body;
+    const { id, name, description, features, maxChannels, maxContacts, allowChatbot, allowScheduler, isActive, includedModules, maxEmployees } = req.body;
     if (!id || !name) {
       return res.status(400).json({ error: 'id and name are required' });
     }
@@ -1862,7 +2211,9 @@ export default function setupRoutes(io) {
         parseInt(maxContacts) || 250,
         allowChatbot ? 1 : 0,
         allowScheduler ? 1 : 0,
-        isActive ? 1 : 0
+        isActive ? 1 : 0,
+        includedModules || [],
+        parseInt(maxEmployees) || 5
       );
       res.json(updated);
     } catch (err) {
@@ -3102,6 +3453,39 @@ export default function setupRoutes(io) {
   router.post('/voxbay', handleVoxbayWebhook);
   router.get('/voxbay', handleVoxbayWebhook);
 
+  // 3b. Dedicated Audio Recording Upload Endpoint (Converts Base64 mobile streams to public static MP3 URLs)
+  router.post(['/telecalling/upload-recording', '/calls/upload-recording', '/telecalling/upload-audio'], async (req, res) => {
+    try {
+      const { audioBase64, recordingBase64, data, customerPhone, phone, callId } = req.body || {};
+      const rawBase64 = audioBase64 || recordingBase64 || data;
+      if (!rawBase64 || typeof rawBase64 !== 'string') {
+        return res.status(400).json({ error: 'Audio Base64 data is required' });
+      }
+
+      // Robustly extract base64 data regardless of data URI prefix (data:audio/..., data:video/..., data:application/...)
+      const cleanBase64 = rawBase64.includes(',') ? rawBase64.split(',')[1].trim() : rawBase64.trim();
+      const audioBuffer = Buffer.from(cleanBase64, 'base64');
+      const targetPhone = String(customerPhone || phone || callId || Date.now()).replace(/\D/g, '');
+      const fileName = `rec_${Date.now()}_${targetPhone || 'audio'}.mp3`;
+      const filePath = path.join(recordingsDir, fileName);
+      fs.writeFileSync(filePath, audioBuffer);
+
+      const domain = process.env.API_BASE_URL || 'https://api.employeemanagementsystems.com';
+      const fileUrl = `${domain}/media/recordings/${fileName}`;
+
+      return res.status(200).json({
+        success: true,
+        url: fileUrl,
+        recordingUrl: fileUrl,
+        fileName,
+        size: audioBuffer.length
+      });
+    } catch (err) {
+      console.error('[UploadRecording Error]', err.message);
+      return res.status(500).json({ error: 'Failed to save recording', details: err.message });
+    }
+  });
+
   // 4. Companion Mobile App & Web Log Synchronizer (Runo-Style SIM + Voxbay)
   router.post(['/telecalling/sync-log', '/calls/log', '/telecalling/log'], async (req, res) => {
     try {
@@ -3120,6 +3504,9 @@ export default function setupRoutes(io) {
         disposition = 'Completed',
         status = 'Completed',
         notes = '',
+        followUpDate = '',
+        followUpTime = '',
+        callId = '',
         channel = 'SIM_COMPANION',
         type = 'OUTGOING'
       } = req.body;
@@ -3139,8 +3526,8 @@ export default function setupRoutes(io) {
           const audioBuffer = Buffer.from(cleanBase64, 'base64');
           const fileName = `rec_${Date.now()}_${String(targetPhone).replace(/\D/g, '')}.mp3`;
           const filePath = path.join(recordingsDir, fileName);
-          fs.writeFileSync(filePath, audioBuffer);
-          const domain = process.env.API_BASE_URL || 'https://api.employeemanagementsystems.com';
+          const reqHost = req.get('host');
+          const domain = process.env.API_BASE_URL || (reqHost ? `${req.protocol}://${reqHost}` : 'https://ems-backend-9hig.onrender.com');
           finalRecordingUrl = `${domain}/media/recordings/${fileName}`;
         } catch (audioErr) {
           console.warn('[SyncLog] Audio base64 decode notice:', audioErr.message);
@@ -3148,9 +3535,50 @@ export default function setupRoutes(io) {
       }
 
       const durSecs = Number(durationSeconds || duration || 0);
+      const activeTenantId = Number(req.user?.tenantId || req.user?.tenant_id || tenantId || 1);
 
-      const logRecord = {
-        tenantId: Number(req.user?.tenantId || req.user?.tenant_id || tenantId || 1),
+      // Check if call log already exists (e.g. created instantly in Stage 1 upon call cut)
+      const existing = await findRecentCallLog(activeTenantId, targetPhone, callId);
+
+      let savedRecord;
+      let isUpdate = false;
+
+      let combinedNotes = notes || '';
+      if (callId && !combinedNotes.includes(callId)) {
+        combinedNotes = combinedNotes ? `${combinedNotes} [Ref: ${callId}]` : `[Ref: ${callId}]`;
+      }
+      if (followUpDate) {
+        combinedNotes += ` | Follow-up: ${followUpDate} ${followUpTime || ''}`.trim();
+      }
+
+      if (existing) {
+        isUpdate = true;
+        savedRecord = await updateCallLog(activeTenantId, existing.id, {
+          disposition: disposition || status || existing.disposition || 'Interested',
+          notes: combinedNotes || existing.notes,
+          recordingUrl: finalRecordingUrl || existing.recording_url || '',
+          durationSeconds: durSecs > 0 ? durSecs : existing.duration_seconds
+        });
+      } else {
+        const logRecord = {
+          tenantId: activeTenantId,
+          staffId: String(staffId),
+          staffName: String(staffName),
+          customerName: String(customerName),
+          customerPhone: String(targetPhone),
+          channel: String(channel),
+          type: String(type),
+          durationSeconds: durSecs,
+          recordingUrl: finalRecordingUrl || '',
+          disposition: String(disposition || status || 'Completed'),
+          notes: String(combinedNotes || 'Call recorded via OmniFlow Companion')
+        };
+        savedRecord = await createCallLog(activeTenantId, logRecord);
+      }
+
+      const finalPayload = {
+        tenantId: activeTenantId,
+        id: savedRecord?.id || existing?.id,
         staffId: String(staffId),
         staffName: String(staffName),
         customerName: String(customerName),
@@ -3158,30 +3586,30 @@ export default function setupRoutes(io) {
         channel: String(channel),
         type: String(type),
         durationSeconds: durSecs,
-        recordingUrl: finalRecordingUrl || '',
-        disposition: String(disposition || status || 'Completed'),
-        notes: String(notes || 'Call recorded via OmniFlow Companion')
+        recordingUrl: finalRecordingUrl || savedRecord?.recording_url || '',
+        disposition: String(disposition || status || savedRecord?.disposition || 'Completed'),
+        notes: combinedNotes,
+        followUpDate: followUpDate || null,
+        callId: callId || null
       };
-
-      const saved = await createCallLog(logRecord.tenantId, logRecord);
 
       // Real-time notification to web dashboard
       if (io) {
-        io.emit('telecalling:call_logged', { ...logRecord, id: saved?.id });
+        io.emit(isUpdate ? 'telecalling:call_updated' : 'telecalling:call_logged', finalPayload);
       }
 
       // Asynchronously push to linked GoHighLevel Conversation
       try {
-        ghlSyncEngine.syncCallRecordToGhl(logRecord.tenantId, {
-          ...logRecord,
-          id: saved?.id
-        }).catch(err => console.warn('[SyncLog] GHL Call Push Notice:', err.message));
+        ghlSyncEngine.syncCallRecordToGhl(activeTenantId, finalPayload).catch(err =>
+          console.warn('[SyncLog] GHL Call Push Notice:', err.message)
+        );
       } catch (e) {}
 
       return res.status(200).json({
         success: true,
-        message: 'Call log & recording synchronized successfully.',
-        callLog: saved || logRecord
+        isUpdate,
+        message: isUpdate ? 'Call log updated successfully.' : 'Call log created successfully.',
+        callLog: savedRecord || finalPayload
       });
     } catch (err) {
       console.error('[SyncLog] Error saving call log:', err);
@@ -3220,6 +3648,740 @@ export default function setupRoutes(io) {
   router.get('/public/ghl-voxbay-embed.js', handleGhlEmbedScript);
   router.get('/ghl/dialer.js', handleGhlEmbedScript);
   router.get('/ghl/embed.js', handleGhlEmbedScript);
+
+  // ==========================================
+  // MULTI-TENANT FEEDBACK & SUGGESTIONS ENGINE
+  // ==========================================
+
+  // 1. Submit feedback from any employee or company user
+  router.post(['/feedback/submit', '/api/feedback/submit'], async (req, res) => {
+    try {
+      const payload = req.body || {};
+      const tenantId = Number(req.user?.tenantId || req.user?.tenant_id || payload.tenantId || payload.tenant_id || 1);
+      const companyId = String(payload.companyId || req.user?.companyId || req.user?.tenant_id || `tenant_${tenantId}`);
+      const companyName = String(payload.companyName || req.user?.companyName || 'Unknown Org');
+      const userId = String(payload.userId || req.user?.id || req.user?.userId || 'usr_anonymous');
+      const userName = String(payload.userName || req.user?.name || req.user?.userName || 'Anonymous User');
+      const userEmail = String(payload.userEmail || req.user?.email || '');
+      const userRole = String(payload.userRole || req.user?.role || 'employee');
+
+      if (!payload.title && !payload.message) {
+        return res.status(400).json({ error: 'Feedback title or message is required' });
+      }
+
+      const newRecord = await createFeedbackRecord({
+        ...payload,
+        tenantId,
+        companyId,
+        companyName,
+        userId,
+        userName,
+        userEmail,
+        userRole
+      });
+
+      if (io) {
+        io.emit('feedback:new_submission', newRecord);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Feedback submitted successfully',
+        feedback: newRecord
+      });
+    } catch (err) {
+      console.error('[Feedback] Submit Error:', err);
+      return res.status(500).json({ error: 'Failed to submit feedback', details: err.message });
+    }
+  });
+
+  // 2. Fetch feedback for current logged in user / tenant
+  router.get(['/feedback/my', '/api/feedback/my'], async (req, res) => {
+    try {
+      const tenantId = Number(req.user?.tenantId || req.user?.tenant_id || req.query.tenantId || 1);
+      const companyId = req.query.companyId || req.user?.companyId || null;
+      const feedbacks = await getFeedbacksByTenant(tenantId, companyId);
+      return res.status(200).json({ success: true, feedbacks: feedbacks || [] });
+    } catch (err) {
+      console.error('[Feedback] My Feedbacks Error:', err);
+      return res.status(500).json({ error: 'Failed to retrieve feedback list', details: err.message });
+    }
+  });
+
+  // 3. SuperAdmin: Fetch all feedbacks across all companies with multi-filters
+  router.get(['/superadmin/feedbacks', '/api/superadmin/feedbacks'], async (req, res) => {
+    try {
+      const { companyId, category, status, rating, search } = req.query;
+      const feedbacks = await getAllFeedbacks({ companyId, category, status, rating, search });
+      return res.status(200).json({ success: true, feedbacks: feedbacks || [] });
+    } catch (err) {
+      console.error('[Feedback SuperAdmin] Fetch Error:', err);
+      return res.status(500).json({ error: 'Failed to retrieve superadmin feedbacks', details: err.message });
+    }
+  });
+
+  // 4. SuperAdmin: Update feedback status and post resolution reply
+  router.put(['/superadmin/feedback/:id/status', '/api/superadmin/feedback/:id/status'], async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, adminReply, adminName } = req.body;
+      const reviewerName = adminName || req.user?.name || 'Super Admin';
+
+      const updated = await updateFeedbackStatusAndReply(id, status, adminReply, reviewerName);
+      if (!updated) {
+        return res.status(404).json({ error: 'Feedback record not found' });
+      }
+
+      if (io) {
+        io.emit('feedback:status_updated', updated);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Feedback status and resolution updated successfully',
+        feedback: updated
+      });
+    } catch (err) {
+      console.error('[Feedback SuperAdmin] Update Error:', err);
+      return res.status(500).json({ error: 'Failed to update feedback status', details: err.message });
+    }
+  });
+
+  // 5. SuperAdmin: Delete feedback record
+  router.delete(['/superadmin/feedback/:id', '/api/superadmin/feedback/:id'], async (req, res) => {
+    try {
+      const { id } = req.params;
+      await deleteFeedbackRecord(id);
+
+      if (io) {
+        io.emit('feedback:deleted', { id });
+      }
+
+      return res.status(200).json({ success: true, message: 'Feedback record deleted successfully' });
+    } catch (err) {
+      console.error('[Feedback SuperAdmin] Delete Error:', err);
+      return res.status(500).json({ error: 'Failed to delete feedback record', details: err.message });
+    }
+  });
+
+  // ==============================================================================
+  // 💳 MULTI-TENANT SUBSCRIPTION & DYNAMIC GST TAX BILLING ENGINE ENDPOINTS
+  // ==============================================================================
+
+  // 1. Sign-up with Custom Dynamic Plan, Modules, & Add-ons
+  router.post(['/auth/register-with-plan', '/api/auth/register-with-plan'], async (req, res) => {
+    try {
+      const {
+        companyName,
+        adminName,
+        email,
+        phone,
+        password,
+        industry = 'Other',
+        teamSize = '1-10',
+        country = 'IN',
+        state = 'Haryana',
+        gstin = '',
+        planId = 'starter',
+        planName = 'Starter Growth',
+        billingCycle = 'monthly',
+        seats = 5,
+        channels = 1,
+        selectedAddons = [],
+        pricingSummary = {},
+        paymentMode = 'upi',
+        utrRef = '',
+        receiptUrl = '',
+        isTrial = false
+      } = req.body;
+
+      if (!email || !password || !companyName) {
+        return res.status(400).json({ error: 'Company Name, Admin Email, and Password are required.' });
+      }
+
+      const existingUser = await getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ error: 'An account with this email address already exists.' });
+      }
+
+      // 1. Create tenant entity
+      const tenant = await createTenant(companyName);
+      const tenantId = String(tenant.id);
+
+      // 2. Hash password & create owner user
+      const passwordHash = await bcrypt.hash(password, 10);
+      const role = email.toLowerCase().trim() === 'admin@omniflow.com' ? 'superadmin' : 'owner';
+      const user = await createUser(email, passwordHash, role, tenant.id);
+
+      // Set display name / contact person if available
+      try {
+        const db = getDb();
+        await db.run(
+          `UPDATE users SET displayName = ?, phone = ? WHERE id = ?`,
+          [adminName || companyName, phone || '', user.id]
+        );
+      } catch (e) {}
+
+      // 3. Determine status & validity dates
+      const now = new Date();
+      let status = 'pending_payment';
+      let expiryDate = new Date(now.getTime() + 30 * 86400000);
+
+      if (isTrial) {
+        status = 'trial';
+        expiryDate = new Date(now.getTime() + 14 * 86400000); // 14-day free trial
+      } else if (paymentMode === 'razorpay' && pricingSummary.grandTotal > 0) {
+        // If razorpay mock/instant success is passed
+        status = utrRef ? 'active' : 'pending_payment';
+      } else if (paymentMode === 'upi' || paymentMode === 'bank_transfer') {
+        status = utrRef ? 'payment_under_review' : 'pending_payment';
+      }
+
+      // Compile all active modules
+      const activeModulesList = Array.isArray(selectedAddons) ? [...selectedAddons] : [];
+
+      // 4. Create Tenant Subscription Record
+      const subscription = await createOrUpdateTenantSubscription({
+        tenant_id: tenantId,
+        company_name: companyName,
+        plan_id: planId,
+        plan_name: planName,
+        billing_cycle: billingCycle,
+        max_seats: Number(seats) || 5,
+        max_channels: Number(channels) || 1,
+        active_modules: activeModulesList,
+        amount_paid: Number(pricingSummary.grandTotal) || 0,
+        is_trial: isTrial ? 1 : 0,
+        start_date: now.toISOString(),
+        expiry_date: expiryDate.toISOString(),
+        status: status
+      });
+
+      // 5. Generate Official Section 31 GST Tax Invoice Record
+      const invNumber = `INV/2026-27/${Math.floor(1000 + Math.random() * 9000)}`;
+      const invoice = await createBillingInvoice({
+        invoice_number: invNumber,
+        tenant_id: tenantId,
+        company_name: companyName,
+        buyer_name: adminName || companyName,
+        buyer_email: email,
+        buyer_phone: phone,
+        buyer_state: state,
+        buyer_gstin: gstin,
+        plan_id: planId,
+        plan_name: planName,
+        billing_cycle: billingCycle,
+        line_items: pricingSummary.lineItems || [
+          { name: `${planName} (${billingCycle})`, sac: '998313', qty: 1, amount: Number(pricingSummary.subtotal) || 0 }
+        ],
+        subtotal: Number(pricingSummary.subtotal) || 0,
+        discount: Number(pricingSummary.discount) || 0,
+        taxable_subtotal: Number(pricingSummary.taxableSubtotal) || 0,
+        tax_rate: Number(pricingSummary.taxRate) || 18,
+        tax_amount: Number(pricingSummary.taxAmount) || 0,
+        cgst_amount: Number(pricingSummary.cgstAmount) || 0,
+        sgst_amount: Number(pricingSummary.sgstAmount) || 0,
+        igst_amount: Number(pricingSummary.igstAmount) || 0,
+        grand_total: Number(pricingSummary.grandTotal) || 0,
+        currency: pricingSummary.currency || 'INR',
+        payment_mode: paymentMode,
+        utr_ref: utrRef,
+        receipt_url: receiptUrl,
+        status: isTrial ? 'paid' : (status === 'active' ? 'paid' : 'pending'),
+        admin_notes: isTrial ? 'Free Trial Tier Activated' : (utrRef ? `Client submitted UTR: ${utrRef}` : 'Awaiting Payment Verification')
+      });
+
+      // 6. Generate JWT Auth Token
+      const token = jwt.sign(
+        {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          tenant_id: tenant.id,
+          subscription_status: status
+        },
+        JWT_SECRET,
+        { expiresIn: '30d' }
+      );
+
+      // Realtime notification to Super Admin via Socket.IO
+      if (io) {
+        io.emit('subscription:new_signup', {
+          tenantId,
+          companyName,
+          email,
+          planName,
+          grandTotal: pricingSummary.grandTotal,
+          paymentMode,
+          status,
+          utrRef,
+          invoiceNumber: invNumber,
+          createdAt: now.toISOString()
+        });
+      }
+
+      return res.status(201).json({
+        success: true,
+        message: isTrial
+          ? 'Free trial account registered and activated successfully.'
+          : 'Registration successful. Subscription order created.',
+        token,
+        user: { id: user.id, email: user.email, role: user.role, tenantId: tenant.id, subscription_status: status },
+        tenant,
+        subscription,
+        invoice
+      });
+    } catch (err) {
+      console.error('[Registration With Plan Error]:', err);
+      return res.status(500).json({ error: 'Failed to complete registration and plan setup', details: err.message });
+    }
+  });
+
+  // 2. Client submits UTR Reference & Payment Proof
+  router.post(['/billing/submit-utr', '/api/billing/submit-utr'], async (req, res) => {
+    try {
+      const { invoiceId, utrRef, receiptUrl = '', paymentMode = 'upi' } = req.body;
+      const tenantId = String(req.user.tenant_id);
+
+      if (!utrRef) {
+        return res.status(400).json({ error: 'Payment Reference / UTR Number is required.' });
+      }
+
+      let invoice = null;
+      if (invoiceId) {
+        invoice = await getInvoiceById(invoiceId);
+      }
+      if (!invoice) {
+        const invoices = await getTenantInvoices(tenantId);
+        invoice = invoices.find(i => i.status === 'pending') || invoices[0];
+      }
+
+      if (invoice) {
+        const db = getDb();
+        await db.run(
+          `UPDATE billing_invoices
+           SET utr_ref = ?, receipt_url = ?, payment_mode = ?, status = 'pending', admin_notes = ?, updated_at = CURRENT_TIMESTAMP
+           WHERE id = ?`,
+          [utrRef, receiptUrl, paymentMode, `Submitted UTR: ${utrRef} on ${new Date().toLocaleString()}`, invoice.id]
+        );
+      }
+
+      // Update tenant subscription status to review
+      const sub = await createOrUpdateTenantSubscription({
+        tenant_id: tenantId,
+        status: 'payment_under_review'
+      });
+
+      if (io) {
+        io.emit('subscription:utr_submitted', {
+          tenantId,
+          invoiceId: invoice?.id,
+          invoiceNumber: invoice?.invoice_number,
+          utrRef,
+          companyName: sub?.company_name || 'Client',
+          submittedAt: new Date().toISOString()
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Payment verification submitted successfully. Super Admin will verify within 15-30 minutes.',
+        subscription: sub,
+        invoice: invoice ? await getInvoiceById(invoice.id) : null
+      });
+    } catch (err) {
+      console.error('[Submit UTR Error]:', err);
+      return res.status(500).json({ error: 'Failed to submit payment verification', details: err.message });
+    }
+  });
+
+  // 3. Get Caller's Active Subscription & Usage Status
+  router.get(['/billing/my-subscription', '/api/billing/my-subscription'], async (req, res) => {
+    try {
+      const tenantId = String(req.user.tenant_id);
+      let sub = await getTenantSubscription(tenantId);
+
+      if (!sub) {
+        // Fallback default subscription if none exists
+        sub = await createOrUpdateTenantSubscription({
+          tenant_id: tenantId,
+          company_name: 'My Organization',
+          plan_id: 'starter',
+          plan_name: 'Starter Growth',
+          billing_cycle: 'monthly',
+          max_seats: 5,
+          max_channels: 1,
+          active_modules: [],
+          status: 'active',
+          expiry_date: new Date(Date.now() + 30 * 86400000).toISOString()
+        });
+      }
+
+      const expiry = new Date(sub.expiry_date || Date.now());
+      const now = new Date();
+      const diffMs = expiry.getTime() - now.getTime();
+      const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      const isExpiringSoon = daysLeft <= 7 && daysLeft >= 0;
+      const isExpired = daysLeft < 0;
+
+      return res.status(200).json({
+        subscription: sub,
+        daysLeft,
+        isExpiringSoon,
+        isExpired,
+        status: isExpired ? 'expired' : sub.status
+      });
+    } catch (err) {
+      console.error('[My Subscription Error]:', err);
+      return res.status(500).json({ error: 'Failed to fetch subscription', details: err.message });
+    }
+  });
+
+  // 4. Get Caller's Invoices
+  router.get(['/billing/my-invoices', '/api/billing/my-invoices'], async (req, res) => {
+    try {
+      const tenantId = String(req.user.tenant_id);
+      const invoices = await getTenantInvoices(tenantId);
+      return res.status(200).json(invoices || []);
+    } catch (err) {
+      console.error('[My Invoices Error]:', err);
+      return res.status(500).json({ error: 'Failed to fetch billing invoices', details: err.message });
+    }
+  });
+
+  // 5. Create Renewal / Upgrade Invoice Order
+  router.post(['/billing/create-renewal-order', '/api/billing/create-renewal-order'], async (req, res) => {
+    try {
+      const tenantId = String(req.user.tenant_id);
+      const sub = await getTenantSubscription(tenantId);
+      const {
+        planId = sub?.plan_id || 'pro',
+        planName = sub?.plan_name || 'Unlimited Pro',
+        billingCycle = 'yearly',
+        seats = sub?.max_seats || 10,
+        channels = sub?.max_channels || 2,
+        selectedAddons = sub?.active_modules || [],
+        pricingSummary = {},
+        paymentMode = 'upi'
+      } = req.body;
+
+      const invNumber = `INV/2026-27/${Math.floor(1000 + Math.random() * 9000)}`;
+      const invoice = await createBillingInvoice({
+        invoice_number: invNumber,
+        tenant_id: tenantId,
+        company_name: sub?.company_name || 'Organization',
+        buyer_name: req.user.displayName || req.user.email,
+        buyer_email: req.user.email,
+        buyer_phone: '',
+        buyer_state: pricingSummary.buyerState || 'Haryana',
+        buyer_gstin: pricingSummary.buyerGstin || '',
+        plan_id: planId,
+        plan_name: planName,
+        billing_cycle: billingCycle,
+        line_items: pricingSummary.lineItems || [],
+        subtotal: Number(pricingSummary.subtotal) || 0,
+        discount: Number(pricingSummary.discount) || 0,
+        taxable_subtotal: Number(pricingSummary.taxableSubtotal) || 0,
+        tax_rate: Number(pricingSummary.taxRate) || 18,
+        tax_amount: Number(pricingSummary.taxAmount) || 0,
+        cgst_amount: Number(pricingSummary.cgstAmount) || 0,
+        sgst_amount: Number(pricingSummary.sgstAmount) || 0,
+        igst_amount: Number(pricingSummary.igstAmount) || 0,
+        grand_total: Number(pricingSummary.grandTotal) || 0,
+        currency: pricingSummary.currency || 'INR',
+        payment_mode: paymentMode,
+        status: 'pending',
+        admin_notes: 'Renewal/Upgrade Invoice generated'
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: 'Renewal invoice order created',
+        invoice
+      });
+    } catch (err) {
+      console.error('[Create Renewal Order Error]:', err);
+      return res.status(500).json({ error: 'Failed to create renewal order', details: err.message });
+    }
+  });
+
+  // 6. SuperAdmin: Get Pending Approvals Queue
+  router.get(['/superadmin/pending-approvals', '/api/superadmin/pending-approvals'], checkRole(['superadmin']), async (req, res) => {
+    try {
+      const approvals = await getPendingSubscriptionApprovals();
+      return res.status(200).json(approvals || []);
+    } catch (err) {
+      console.error('[SuperAdmin Approvals Error]:', err);
+      return res.status(500).json({ error: 'Failed to fetch pending approvals', details: err.message });
+    }
+  });
+
+  // 7. SuperAdmin: 1-Click Approve Subscription & Issue Paid GST Invoice
+  router.post(['/superadmin/approve-subscription/:id', '/api/superadmin/approve-subscription/:id'], checkRole(['superadmin']), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { validityDays = 30, adminNotes = 'Approved and activated by SuperAdmin' } = req.body;
+
+      const invoice = await getInvoiceById(id);
+      if (!invoice) {
+        return res.status(404).json({ error: 'Invoice record not found' });
+      }
+
+      const tenantId = String(invoice.tenant_id);
+      const reviewer = req.user.email || 'superadmin';
+
+      // 1. Mark Invoice Paid
+      const updatedInvoice = await updateInvoiceStatus(invoice.id, 'paid', adminNotes, reviewer);
+
+      // 2. Extend/Activate Tenant Subscription
+      const now = new Date();
+      const expiry = new Date(now.getTime() + Number(validityDays) * 86400000);
+
+      const updatedSub = await createOrUpdateTenantSubscription({
+        tenant_id: tenantId,
+        company_name: invoice.company_name,
+        plan_id: invoice.plan_id,
+        plan_name: invoice.plan_name,
+        billing_cycle: invoice.billing_cycle,
+        amount_paid: invoice.grand_total,
+        is_trial: 0,
+        start_date: now.toISOString(),
+        expiry_date: expiry.toISOString(),
+        status: 'active'
+      });
+
+      // 3. Emit real-time unlock signal
+      if (io) {
+        io.emit('subscription:approved', {
+          tenantId,
+          companyName: invoice.company_name,
+          invoiceNumber: invoice.invoice_number,
+          expiryDate: expiry.toISOString(),
+          status: 'active'
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: `Subscription approved! Workspace for ${invoice.company_name} is now ACTIVE until ${expiry.toLocaleDateString()}.`,
+        invoice: updatedInvoice,
+        subscription: updatedSub
+      });
+    } catch (err) {
+      console.error('[SuperAdmin Approve Error]:', err);
+      return res.status(500).json({ error: 'Failed to approve subscription', details: err.message });
+    }
+  });
+
+  // 8. SuperAdmin: Reject Subscription
+  router.post(['/superadmin/reject-subscription/:id', '/api/superadmin/reject-subscription/:id'], checkRole(['superadmin']), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { reason = 'Invalid payment reference / payment not received' } = req.body;
+
+      const invoice = await getInvoiceById(id);
+      if (!invoice) {
+        return res.status(404).json({ error: 'Invoice record not found' });
+      }
+
+      const tenantId = String(invoice.tenant_id);
+      const reviewer = req.user.email || 'superadmin';
+
+      const updatedInvoice = await updateInvoiceStatus(invoice.id, 'rejected', reason, reviewer);
+      const updatedSub = await createOrUpdateTenantSubscription({
+        tenant_id: tenantId,
+        status: 'pending_payment'
+      });
+
+      if (io) {
+        io.emit('subscription:rejected', {
+          tenantId,
+          invoiceNumber: invoice.invoice_number,
+          reason
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Subscription request rejected.',
+        invoice: updatedInvoice,
+        subscription: updatedSub
+      });
+    } catch (err) {
+      console.error('[SuperAdmin Reject Error]:', err);
+      return res.status(500).json({ error: 'Failed to reject subscription', details: err.message });
+    }
+  });
+
+  // 9. SuperAdmin: Direct Company & Account Provisioning (Demo/Test/Free/VIP)
+  router.post(['/superadmin/create-direct-company', '/api/superadmin/create-direct-company'], checkRole(['superadmin']), async (req, res) => {
+    try {
+      const {
+        companyName,
+        adminName,
+        adminEmail,
+        adminPhone = '',
+        adminPassword = 'Password@123',
+        planId = 'pro',
+        planName = 'Unlimited Pro (Direct Provisioned)',
+        validityDays = 365,
+        maxSeats = 25,
+        maxChannels = 5,
+        activeModules = ['crm_full', 'telecalling_sim', 'voxbay_cloud', 'field_ops', 'chatbot_rules', 'ghl_integration'],
+        accountType = 'free_demo',
+        notes = 'Created directly by Super Admin'
+      } = req.body;
+
+      if (!companyName || !adminEmail) {
+        return res.status(400).json({ error: 'Company Name and Admin Email are required' });
+      }
+
+      const existing = await getUserByEmail(adminEmail);
+      if (existing) {
+        return res.status(400).json({ error: 'A user with this email already exists' });
+      }
+
+      // 1. Create Tenant
+      const tenant = await createTenant(companyName);
+      const tenantId = String(tenant.id);
+
+      // 2. Create User
+      const passwordHash = await bcrypt.hash(adminPassword, 10);
+      const user = await createUser(adminEmail, passwordHash, 'owner', tenant.id);
+
+      try {
+        const db = getDb();
+        await db.run(`UPDATE users SET displayName = ?, phone = ? WHERE id = ?`, [adminName || companyName, adminPhone, user.id]);
+      } catch (e) {}
+
+      // 3. Create Subscription with status 'active' directly (Zero Payment Gate required)
+      const now = new Date();
+      const expiry = new Date(now.getTime() + Number(validityDays) * 86400000);
+
+      const subscription = await createOrUpdateTenantSubscription({
+        tenant_id: tenantId,
+        company_name: companyName,
+        plan_id: planId,
+        plan_name: planName,
+        billing_cycle: 'custom',
+        max_seats: Number(maxSeats) || 25,
+        max_channels: Number(maxChannels) || 5,
+        active_modules: Array.isArray(activeModules) ? activeModules : [],
+        amount_paid: 0,
+        is_trial: accountType === 'free_demo' ? 1 : 0,
+        start_date: now.toISOString(),
+        expiry_date: expiry.toISOString(),
+        status: 'active'
+      });
+
+      // 4. Generate Complimentary Invoice Record
+      const invNumber = `DIR/2026-27/${Math.floor(1000 + Math.random() * 9000)}`;
+      const invoice = await createBillingInvoice({
+        invoice_number: invNumber,
+        tenant_id: tenantId,
+        company_name: companyName,
+        buyer_name: adminName || companyName,
+        buyer_email: adminEmail,
+        buyer_phone: adminPhone,
+        buyer_state: 'Haryana',
+        plan_id: planId,
+        plan_name: planName,
+        billing_cycle: `${validityDays} Days Custom`,
+        subtotal: 0,
+        taxable_subtotal: 0,
+        tax_amount: 0,
+        grand_total: 0,
+        currency: 'INR',
+        payment_mode: 'direct_admin',
+        status: 'paid',
+        admin_notes: `Direct account provisioned by SuperAdmin. Type: ${accountType}. Notes: ${notes}`,
+        approved_by: req.user.email,
+        approved_at: now.toISOString()
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: `Company '${companyName}' provisioned with immediate ACTIVE access for ${validityDays} days.`,
+        tenant,
+        user: { id: user.id, email: user.email, role: user.role, tenantId: tenant.id },
+        subscription,
+        invoice,
+        credentials: {
+          email: adminEmail,
+          password: adminPassword,
+          loginUrl: '/login'
+        }
+      });
+    } catch (err) {
+      console.error('[Direct Company Creation Error]:', err);
+      return res.status(500).json({ error: 'Failed to provision direct company account', details: err.message });
+    }
+  });
+
+  // 9b. SuperAdmin Extend Tenant Subscription Validity
+  router.post(['/superadmin/extend-subscription', '/api/superadmin/extend-subscription'], async (req, res) => {
+    try {
+      const { tenantId, additionalDays = 7, newExpiryDate = null, status = null } = req.body;
+      if (!tenantId) {
+        return res.status(400).json({ error: 'tenantId is required' });
+      }
+
+      const updatedSub = await extendTenantSubscription(tenantId, { additionalDays, newExpiryDate, status });
+      if (io) {
+        io.emit('subscription:extended', { tenantId, expiryDate: updatedSub.expiry_date, status: updatedSub.status });
+      }
+      return res.json({ success: true, subscription: updatedSub });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // 10. SaaS Pricing & Payment Credentials Settings (Super Admin)
+  router.get(['/superadmin/pricing-config', '/api/superadmin/pricing-config'], async (req, res) => {
+    try {
+      const config = await getSaaSPricingConfigs();
+      return res.status(200).json(config || {});
+    } catch (err) {
+      console.error('[Get Pricing Config Error]:', err);
+      return res.status(500).json({ error: 'Failed to fetch pricing config', details: err.message });
+    }
+  });
+
+  router.post(['/superadmin/pricing-config', '/api/superadmin/pricing-config'], checkRole(['superadmin']), async (req, res) => {
+    try {
+      const { configKey, configValue } = req.body;
+      if (!configKey) {
+        return res.status(400).json({ error: 'configKey is required' });
+      }
+      const updated = await setSaaSPricingConfig(configKey, configValue);
+      return res.status(200).json({ success: true, message: 'Configuration updated successfully', config: updated });
+    } catch (err) {
+      console.error('[Save Pricing Config Error]:', err);
+      return res.status(500).json({ error: 'Failed to save pricing configuration', details: err.message });
+    }
+  });
+
+  // 11. Razorpay Payment Gateway Credentials (SuperAdmin)
+  router.get(['/superadmin/payment-gateway-config', '/api/superadmin/payment-gateway-config'], async (req, res) => {
+    try {
+      const config = paymentGatewayService.getConfig();
+      return res.status(200).json({ success: true, config });
+    } catch (err) {
+      console.error('[Get Gateway Config Error]:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  router.post(['/superadmin/payment-gateway-config', '/api/superadmin/payment-gateway-config'], async (req, res) => {
+    try {
+      const { keyId, keySecret, mode, enabled } = req.body;
+      const updated = await paymentGatewayService.updateConfig({ keyId, keySecret, mode, enabled }, getDb());
+      return res.status(200).json({ success: true, message: 'Razorpay configuration saved successfully', config: updated });
+    } catch (err) {
+      console.error('[Save Gateway Config Error]:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
 
   return router;
 }
