@@ -6,11 +6,14 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { initDb } from './db.js';
+import { initDb, getDb } from './db.js';
 import setupRoutes from './routes.js';
 import { initAllSessions } from './sessionManager.js';
+import paymentGatewayService from './services/PaymentGatewayService.js';
+import jwt from 'jsonwebtoken';
 
 dotenv.config();
+const JWT_SECRET = process.env.JWT_SECRET || 'omniflow_super_secret_jwt_key';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,8 +41,19 @@ app.use('/api/billing/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve Desktop App and APK Downloads statically
+const downloadsDir = path.join(__dirname, 'public', 'downloads');
+if (!fs.existsSync(downloadsDir)) {
+  fs.mkdirSync(downloadsDir, { recursive: true });
+}
+app.use('/downloads', express.static(downloadsDir));
+
 // Serve WhatsApp downloaded media statically
 app.use('/media', express.static(mediaStoreDir));
+if (fs.existsSync('C:\\Users\\Lenovo\\Desktop\\Recordings')) {
+  app.use('/recordings', express.static('C:\\Users\\Lenovo\\Desktop\\Recordings'));
+  app.use('/desktop-recordings', express.static('C:\\Users\\Lenovo\\Desktop\\Recordings'));
+}
 
 // Root status route
 app.get('/', (req, res) => {
@@ -54,15 +68,23 @@ app.get('/api/health', (req, res) => {
 // Setup API routes
 app.use('/api', setupRoutes(io));
 
-// Serve built frontend in production if dist exists
-const frontendDistDir = path.join(__dirname, '../frontend/dist');
-if (fs.existsSync(frontendDistDir)) {
-  app.use(express.static(frontendDistDir));
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api') || req.path.startsWith('/media')) return next();
-    res.sendFile(path.join(frontendDistDir, 'index.html'));
-  });
-}
+// Voxbay standard webhook endpoint (/callcenterbridging)
+const handleVoxbayWebhook = async (req, res) => {
+  try {
+    const payload = { ...req.query, ...req.body };
+    console.log('[Global Voxbay Webhook Received]', JSON.stringify(payload));
+    res.setHeader('Content-Type', 'text/plain');
+    res.status(200).send('success');
+  } catch (err) {
+    console.error('[Voxbay Webhook Global Handler Error]', err);
+    res.setHeader('Content-Type', 'text/plain');
+    res.status(200).send('success');
+  }
+};
+app.post('/callcenterbridging', handleVoxbayWebhook);
+app.get('/callcenterbridging', handleVoxbayWebhook);
+app.post('/voxbay', handleVoxbayWebhook);
+app.get('/voxbay', handleVoxbayWebhook);
 
 const PORT = process.env.PORT || 5000;
 
@@ -70,13 +92,50 @@ async function start() {
   try {
     // 1. Initialize SQLite Database
     await initDb();
+    await paymentGatewayService.init(getDb());
 
     // 2. Start all active sessions in the background
     await initAllSessions(io);
 
-    // 3. Socket.io handling
+    // 3. Socket.io handling with Multi-Tenant Room Isolation
+    io.use((socket, next) => {
+      try {
+        const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+        const tenantId = socket.handshake.auth?.tenant_id || socket.handshake.auth?.tenantId || socket.handshake.query?.tenant_id || socket.handshake.query?.tenantId;
+        
+        if (token) {
+          try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            socket.userId = decoded.id;
+            socket.tenantId = decoded.tenant_id || decoded.tenantId || decoded.companyId || tenantId || 'default';
+          } catch {
+            const unverified = jwt.decode(token);
+            socket.userId = unverified?.sub || unverified?.user_id || 'anonymous';
+            socket.tenantId = unverified?.tenant_id || unverified?.tenantId || unverified?.companyId || tenantId || 'default';
+          }
+        } else if (tenantId) {
+          socket.tenantId = tenantId;
+        } else {
+          socket.tenantId = 'default';
+        }
+      } catch (err) {
+        socket.tenantId = 'default';
+      }
+      next();
+    });
+
     io.on('connection', (socket) => {
-      console.log('Socket client connected:', socket.id);
+      const room = `tenant_${socket.tenantId}`;
+      socket.join(room);
+      console.log(`Socket client connected: ${socket.id} (Joined Room: ${room})`);
+      
+      // Support dynamic tenant room joining
+      socket.on('join_tenant', (newTenantId) => {
+        if (newTenantId) {
+          socket.join(`tenant_${newTenantId}`);
+          console.log(`Socket ${socket.id} joined room: tenant_${newTenantId}`);
+        }
+      });
       
       socket.on('disconnect', () => {
         console.log('Socket client disconnected:', socket.id);
