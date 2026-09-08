@@ -27,6 +27,7 @@ import CompanyRegistrationWizard from './components/CompanyRegistrationWizard';
 import PaymentGateScreen from './components/PaymentGateScreen';
 import OmniFlowLoginPage from './components/auth/OmniFlowLoginPage';
 import SubscriptionEngine from './core/engines/SubscriptionEngine';
+import { isSandboxEnvironment } from './core/services/supabaseSandboxService';
 
 const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 const LIVE_BACKEND = 'https://api.employeemanagementsystems.com';
@@ -120,6 +121,12 @@ export default function App() {
       const saved = localStorage.getItem('omnilflow_user');
       const user = saved ? JSON.parse(saved) : null;
       if (user && typeof window !== 'undefined') {
+        if (isSandboxEnvironment()) {
+          user.tenantId = 999;
+          user.companyId = 999;
+          user.tenant_id = 999;
+          user.companyName = '#TEN-0999-SANDBOX-DEMO';
+        }
         const tId = user.tenantId || user.companyId || user.tenant_id;
         window.__omniflow_tenant = tId ? String(tId) : 'org_default';
       }
@@ -209,15 +216,16 @@ export default function App() {
       cleanEmail === 'superadmin@omniflow.com' ||
       cleanEmail === 'kavayanshchopra@gmail.com'
     ) {
+      const isSb = isSandboxEnvironment();
       const masterUser = {
         id: 'superadmin_master',
         name: cleanEmail === 'kavayanshchopra@gmail.com' ? 'Kavayansh Chopra' : 'Super Admin',
         email: cleanEmail,
         role: 'superadmin',
-        companyName: 'Master Control HQ',
-        tenantId: 'platform_superadmin',
-        companyId: 'platform_superadmin',
-        tenant_id: 'platform_superadmin'
+        companyName: isSb ? '#TEN-0999-SANDBOX-DEMO' : 'Master Control HQ',
+        tenantId: isSb ? 999 : 'platform_superadmin',
+        companyId: isSb ? 999 : 'platform_superadmin',
+        tenant_id: isSb ? 999 : 'platform_superadmin'
       };
 
       // Ensure Superadmin user exists in Firestore users
@@ -236,8 +244,8 @@ export default function App() {
       localStorage.setItem('omnilflow_token', mockToken);
       localStorage.setItem('omnilflow_user', JSON.stringify(masterUser));
       setAuthUser(masterUser);
-      if (typeof window !== 'undefined') window.__omniflow_tenant = 'platform_superadmin';
-      showToast('Welcome Superadmin! Master Access Granted.', 'success');
+      if (typeof window !== 'undefined') window.__omniflow_tenant = isSb ? '999' : 'platform_superadmin';
+      showToast(isSb ? '🚀 Connected to Sandbox Environment (Tenant 999 - Isolated)' : 'Welcome Superadmin! Master Access Granted.', 'success');
       setAuthLoading(false);
       return;
     }

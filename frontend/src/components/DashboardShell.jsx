@@ -73,6 +73,7 @@ import SearchInput from './ui/SearchInput';
 import MediaStorageEngine from '../core/engines/MediaStorageEngine';
 import LayoutEngine from '../core/engines/LayoutEngine/LayoutEngine';
 import { useModuleRegistry } from '../core/registry/useModuleRegistry';
+import { isSandboxEnvironment, SupabaseSandboxService } from '../core/services/supabaseSandboxService';
 import { PermissionEngine, STANDARD_ACTIONS, ACCESS_SCOPES, DEFAULT_ROLES } from '../core/engines/PermissionEngine/permissionEngine';
 import TrashVaultEngine from '../core/engines/TrashVaultEngine';
 import ShiftEngine from '../core/engines/ShiftEngine';
@@ -4147,6 +4148,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setIsEmployeesLoading(true);
     setEmployeesError(null);
     try {
+      if (isSandboxEnvironment()) {
+        const sandboxEmps = await SupabaseSandboxService.fetchEmployees(999);
+        setEmployees(sandboxEmps);
+        return;
+      }
       const currentTenantId = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id;
       const cloudRecords = await FirebaseCloudEngine.fetchRecords('employees', currentTenantId);
       if (Array.isArray(cloudRecords)) {
@@ -4156,7 +4162,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         setEmployees([]);
       }
     } catch (fbErr) {
-      console.warn('Firebase firestore query error:', fbErr.message);
+      console.warn('Employees query error:', fbErr.message);
       setEmployees([]);
     } finally {
       setIsEmployeesLoading(false);
@@ -4192,6 +4198,27 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       const existingName = `${existingDup.first_name || existingDup.name || ''} ${existingDup.last_name || ''}`.trim() || 'Existing Employee';
       showToast(`⚠️ Duplicate Blocked: Is ${dupField} se pehle se employee account ("${existingName}") maujood hai. 1 Gmail ya Mobile Number se 2 accounts nahi ban sakte!`, 'error');
       setIsEmployeesLoading(false);
+      return;
+    }
+
+    // DIRECT SUPABASE SQL FOR SANDBOX
+    if (isSandboxEnvironment()) {
+      try {
+        let savedEmp;
+        if (isEdit) {
+          savedEmp = await SupabaseSandboxService.updateEmployee(newEmployeeForm.id, newEmployeeForm, 999);
+        } else {
+          savedEmp = await SupabaseSandboxService.createEmployee(newEmployeeForm, 999);
+        }
+        await fetchEmployees();
+        setShowAddEmployeeModal(false);
+        setNewEmployeeForm({ firstName: '', lastName: '', email: '', phone: '', role: 'employee', department: 'Engineering', salary: '', status: 'active' });
+        showToast(`🎉 Employee "${savedEmp.first_name || ''} ${savedEmp.last_name || ''}" saved directly to Supabase SQL!`, 'success');
+      } catch (sbErr) {
+        showToast(sbErr.message || 'Failed to save to Supabase SQL', 'error');
+      } finally {
+        setIsEmployeesLoading(false);
+      }
       return;
     }
 
@@ -4613,6 +4640,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }
     } catch (fbErr) {
       console.warn('Firestore soft delete failed:', fbErr.message);
+    }
+    if (isSandboxEnvironment()) {
+      await SupabaseSandboxService.deleteEmployee(id, 999);
+      await fetchEmployees();
+      showToast('Employee removed from Supabase SQL', 'info');
+      return;
     }
     // Update React local state immediately
     setEmployees(prev => {
@@ -5571,9 +5604,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const fetchContacts = async () => {
     if (isFetchingContactsRef.current) return;
     isFetchingContactsRef.current = true;
-    const activeTenant = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || 'org_unassigned';
-    const token = localStorage.getItem('omnilflow_token');
     try {
+      if (isSandboxEnvironment()) {
+        const sbContacts = await SupabaseSandboxService.fetchContacts(999);
+        setContacts(sbContacts);
+        return;
+      }
+      const activeTenant = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || 'org_unassigned';
+      const token = localStorage.getItem('omnilflow_token');
       const res = await fetch(`${API_URL}/contacts`, {
         headers: {
           'Authorization': `Bearer ${token || ''}`,
@@ -5773,6 +5811,29 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setNewChatError('Phone number is required');
       return;
     }
+
+    if (isSandboxEnvironment()) {
+      try {
+        setIsCreatingNewChat(true);
+        const newLead = await SupabaseSandboxService.createContact({
+          name: newChatName.trim() || newChatPhone.trim(),
+          phone: newChatPhone.trim()
+        }, 999);
+        await fetchContacts();
+        setActiveContact(newLead);
+        setNewChatPhone('');
+        setNewChatName('');
+        setShowNewChatModal(false);
+        showToast(`🎉 Lead "${newLead.name}" saved directly to Supabase SQL!`, 'success');
+      } catch (leadErr) {
+        setNewChatError(leadErr.message);
+        showToast(leadErr.message, 'error');
+      } finally {
+        setIsCreatingNewChat(false);
+      }
+      return;
+    }
+
     const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
     const activeSession = newChatSessionId || (sessions.find(s => s.status === 'connected')?.id);
     setIsCreatingNewChat(true);
