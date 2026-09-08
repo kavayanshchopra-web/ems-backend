@@ -78,6 +78,7 @@ import TrashVaultEngine from '../core/engines/TrashVaultEngine';
 import ShiftEngine from '../core/engines/ShiftEngine';
 import { LabelEngine } from '../core/engines/LabelEngine';
 import FirebaseCloudEngine from '../core/engines/FirebaseCloudEngine';
+import TenantStorage from '../core/services/TenantStorage';
 import FeatureProvisioningEngine from '../core/engines/FeatureProvisioningEngine';
 import SubscriptionEngine, { DEFAULT_PLANS } from '../core/engines/SubscriptionEngine';
 import GhlOAuthService from '../core/services/ghlOAuthService';
@@ -679,9 +680,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     try {
       if (auth) await signOut(auth);
     } catch (e) {}
+    TenantStorage.clearAll();
+    FirebaseCloudEngine.clearMemoryCache();
     FirebaseCloudEngine.purgeAllLocalCaches();
-    localStorage.removeItem('omnilflow_token');
-    localStorage.removeItem('omnilflow_user');
+    localStorage.clear();
     sessionStorage.clear();
     if (typeof setAuthUser === 'function') {
       setAuthUser(null);
@@ -791,12 +793,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   }, [tenantSubscription, authUser]);
   // Telecalling & SIM Call Recordings State Hub
   const [callLogs, setCallLogs] = useState(() => {
-    try {
-      const cached = localStorage.getItem('omniflow_cached_call_logs');
-      return cached ? JSON.parse(cached) : [];
-    } catch (e) {
-      return [];
-    }
+    const tId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id;
+    return TenantStorage.getItem('call_logs', tId, []);
   });
   // Universal Bin (DLP Vault) & Soft-Delete State Hub
   const [binCategoryFilter, setBinCategoryFilter] = useState('all');
@@ -832,33 +830,37 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     theadEl.addEventListener('wheel', handleWheel, { passive: false });
     return () => theadEl.removeEventListener('wheel', handleWheel);
   }, [activeTab]);
+  const isSuperAdminHQ = effectiveAuthUser?.role === 'superadmin' && !effectiveAuthUser?.isImpersonating;
+  const activeTenantKey = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || 'org_unassigned';
+  const binTenantTarget = isSuperAdminHQ ? 'all' : activeTenantKey;
+
   const fetchRecycleBin = async () => {
     try {
-      const cloudBin = await FirebaseCloudEngine.fetchRecords('recycle_bin', 'all');
-      const localBin = TrashVaultEngine.getVaultItems('all');
+      const cloudBin = await FirebaseCloudEngine.fetchRecords('recycle_bin', binTenantTarget);
+      const localBin = TrashVaultEngine.getVaultItems(binTenantTarget);
       const map = new Map();
-      (localBin || []).forEach(item => { if (item && (item.id || item.originalId)) map.set(String(item.id || item.originalId), item); });
-      (cloudBin || []).forEach(item => { if (item && (item.id || item.originalId)) map.set(String(item.id || item.originalId), item); });
+      (localBin || []).filter(item => isSuperAdminHQ || !item.tenantId || item.tenantId === activeTenantKey).forEach(item => { if (item && (item.id || item.originalId)) map.set(String(item.id || item.originalId), item); });
+      (cloudBin || []).filter(item => isSuperAdminHQ || !item.tenantId || item.tenantId === activeTenantKey).forEach(item => { if (item && (item.id || item.originalId)) map.set(String(item.id || item.originalId), item); });
       setRecycleBinItems(Array.from(map.values()));
     } catch (e) {
-      setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
+      setRecycleBinItems(TrashVaultEngine.getVaultItems(binTenantTarget));
     }
   };
   useEffect(() => {
     fetchRecycleBin();
-    const unsubBin = FirebaseCloudEngine.subscribeToCollection('recycle_bin', 'all', (records) => {
+    const unsubBin = FirebaseCloudEngine.subscribeToCollection('recycle_bin', binTenantTarget, (records) => {
       if (Array.isArray(records)) {
-        const localBin = TrashVaultEngine.getVaultItems('all');
+        const localBin = TrashVaultEngine.getVaultItems(binTenantTarget);
         const map = new Map();
-        (localBin || []).forEach(item => { if (item && (item.id || item.originalId)) map.set(String(item.id || item.originalId), item); });
-        (records || []).forEach(item => { if (item && (item.id || item.originalId)) map.set(String(item.id || item.originalId), item); });
+        (localBin || []).filter(item => isSuperAdminHQ || !item.tenantId || item.tenantId === activeTenantKey).forEach(item => { if (item && (item.id || item.originalId)) map.set(String(item.id || item.originalId), item); });
+        (records || []).filter(item => isSuperAdminHQ || !item.tenantId || item.tenantId === activeTenantKey).forEach(item => { if (item && (item.id || item.originalId)) map.set(String(item.id || item.originalId), item); });
         setRecycleBinItems(Array.from(map.values()));
       }
     });
     return () => {
       unsubBin();
     };
-  }, [activeTab]);
+  }, [activeTab, activeTenantKey, isSuperAdminHQ]);
 
   // =========================================================================
   // GLOBAL REAL-TIME GOHIGHLEVEL (GHL) CALL & CONVERSATION SYNC ENGINE
@@ -1256,16 +1258,24 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const audioChunksRef = useRef([]);
   const timerIntervalRef = useRef(null);
 
-  // Universal Call Logs & Recordings Loader (Multi-Collection Live Sync for Super Admin & Mobile)
+  // Universal Call Logs & Recordings Loader (Strictly Tenant-Scoped)
   useEffect(() => {
-    // 1. Fetch from Backend SQLite API
-    fetch(`${API_URL}/telecalling/logs`)
+    if (!activeTenantKey || activeTenantKey === 'org_unassigned') return;
+    const token = localStorage.getItem('omnilflow_token');
+
+    // 1. Fetch from Backend SQLite API with tenant header
+    fetch(`${API_URL}/telecalling/logs`, {
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        'x-tenant-id': String(activeTenantKey)
+      }
+    })
       .then(res => res.json())
       .then(data => {
         if (data?.logs && Array.isArray(data.logs) && data.logs.length > 0) {
           setCallLogs(prev => {
             const map = new Map();
-            prev.forEach(p => map.set(String(p.id), p));
+            prev.filter(p => isSuperAdminHQ || !p.tenantId || p.tenantId === activeTenantKey).forEach(p => map.set(String(p.id), p));
             data.logs.forEach(l => map.set(String(l.id), l));
             return Array.from(map.values());
           });
@@ -1273,13 +1283,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       })
       .catch(() => {});
 
-    // 2. Fetch from FirebaseCloudEngine 'call_logs' (all tenants for Super Admin)
-    FirebaseCloudEngine.fetchRecords('call_logs', 'all')
+    // 2. Fetch from FirebaseCloudEngine 'call_logs' (Strictly active tenant unless Superadmin HQ)
+    const callLogTarget = isSuperAdminHQ ? 'all' : activeTenantKey;
+    FirebaseCloudEngine.fetchRecords('call_logs', callLogTarget)
       .then(records => {
-        if (Array.isArray(records) && records.length > 0) {
+        if (Array.isArray(records)) {
           setCallLogs(prev => {
             const map = new Map();
-            prev.forEach(p => map.set(String(p.id), p));
+            prev.filter(p => isSuperAdminHQ || !p.tenantId || p.tenantId === activeTenantKey).forEach(p => map.set(String(p.id), p));
             records.forEach(r => map.set(String(r.id), r));
             return Array.from(map.values());
           });
@@ -1287,28 +1298,32 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       })
       .catch(() => {});
 
-    // 3. Real-time Firestore onSnapshot for 'callLogs' and 'call_logs'
+    // 3. Real-time Firestore onSnapshot scoped strictly to tenant
     try {
-      const q1 = collection(db, 'callLogs');
+      const q1 = isSuperAdminHQ
+        ? collection(db, 'callLogs')
+        : query(collection(db, 'callLogs'), where('tenantId', '==', String(activeTenantKey)));
       const unsub1 = onSnapshot(q1, (snapshot) => {
         const live = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         if (live.length > 0) {
           setCallLogs(prev => {
             const map = new Map();
-            prev.forEach(p => map.set(String(p.id), p));
+            prev.filter(p => isSuperAdminHQ || !p.tenantId || p.tenantId === activeTenantKey).forEach(p => map.set(String(p.id), p));
             live.forEach(r => map.set(String(r.id), r));
             return Array.from(map.values()).sort((a, b) => (b._createdAt || b.createdAt || 0) - (a._createdAt || a.createdAt || 0));
           });
         }
       }, (err) => console.warn('[Firestore] callLogs snapshot note:', err));
 
-      const q2 = collection(db, 'call_logs');
+      const q2 = isSuperAdminHQ
+        ? collection(db, 'call_logs')
+        : query(collection(db, 'call_logs'), where('tenantId', '==', String(activeTenantKey)));
       const unsub2 = onSnapshot(q2, (snapshot) => {
         const live = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         if (live.length > 0) {
           setCallLogs(prev => {
             const map = new Map();
-            prev.forEach(p => map.set(String(p.id), p));
+            prev.filter(p => isSuperAdminHQ || !p.tenantId || p.tenantId === activeTenantKey).forEach(p => map.set(String(p.id), p));
             live.forEach(r => map.set(String(r.id), r));
             return Array.from(map.values()).sort((a, b) => (b._createdAt || b.createdAt || 0) - (a._createdAt || a.createdAt || 0));
           });
@@ -1320,7 +1335,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         try { unsub2(); } catch (e) {}
       };
     } catch (e) {}
-  }, [authUser]);
+  }, [activeTenantKey, isSuperAdminHQ]);
 
   useEffect(() => {
     try {
@@ -1788,13 +1803,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [offboardingCases, setOffboardingCases] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [contacts, setContacts] = useState(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const cached = localStorage.getItem('omniflow_cached_contacts');
-        return cached ? JSON.parse(cached) : [];
-      }
-    } catch (e) {}
-    return [];
+    const tId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id;
+    return TenantStorage.getItem('contacts', tId, []);
   });
   const [activeContact, setActiveContact] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -3854,7 +3864,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         setSuperadminUsers(prev => {
           const updated = prev.filter(u => u.id !== userId);
           try {
-            localStorage.setItem('omnilflow_fallback_users', JSON.stringify(updated));
+            TenantStorage.setItem('users', updated, activeTenantKey);
           } catch (e) {}
           return updated;
         });
@@ -4319,7 +4329,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
       setEmployees(prev => {
         const updated = (prev || []).filter(emp => emp && String(emp.id) !== String(targetId));
-        try { localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(updated)); } catch (err) {}
+        try { TenantStorage.setItem('employees', updated, activeTenantKey); } catch (err) {}
         return updated;
       });
     }
@@ -4385,9 +4395,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       : (recycleBinItems || []).find(x => x && (String(x.id) === String(itemOrId) || String(x.recycleBinId) === String(itemOrId) || String(x.originalId) === String(itemOrId)));
     if (!item) {
       try {
-        const saved = localStorage.getItem('omnilflow_fallback_recycle_bin');
-        if (saved) {
-          const list = JSON.parse(saved);
+        const list = TenantStorage.getItem('recycle_bin', activeTenantKey, []);
+        if (list) {
           item = (list || []).find(x => x && (String(x.id) === String(itemOrId) || String(x.recycleBinId) === String(itemOrId) || String(x.originalId) === String(itemOrId)));
         }
       } catch (e) {}
@@ -4399,7 +4408,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.warn('handleRestoreBinItem: Record not found for itemOrId:', itemOrId);
       return;
     }
-    const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
+    const currentTenantId = activeTenantKey;
     const payload = item.payload || item.entityData || item || {};
     const type = String(item.type || item.category || item.moduleTab || '').toLowerCase();
     const restoredRecord = payload.record || payload.employee || payload.candidate || payload.asset || payload || {};
@@ -4408,6 +4417,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       ...restoredRecord,
       id: cleanId,
       originalId: cleanId,
+      tenantId: currentTenantId,
       archived: false,
       is_archived: 0,
       lifecycleStatus: 'ACTIVE',
@@ -4422,6 +4432,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
+            'x-tenant-id': String(currentTenantId),
             ...(token ? { 'Authorization': `Bearer ${token}` } : {})
           },
           body: JSON.stringify({ isArchived: false })
@@ -4455,7 +4466,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       setEmployees(prev => {
         const filtered = (prev || []).filter(e => e && String(e.id) !== String(cleanRec.id));
         const updated = [cleanRec, ...filtered];
-        try { localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(updated)); } catch (e) {}
+        try { TenantStorage.setItem('employees', updated, activeTenantKey); } catch (e) {}
         return updated;
       });
       FirebaseCloudEngine.saveRecord('employees', cleanRec, currentTenantId);
@@ -4463,7 +4474,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } else if (type.includes('task')) {
       setTasks(prev => {
         const updated = [cleanRec, ...(prev || []).filter(t => t && String(t.id) !== String(cleanRec.id))];
-        try { localStorage.setItem('omnilflow_fallback_tasks', JSON.stringify(updated)); } catch (e) {}
+        try { TenantStorage.setItem('tasks', updated, activeTenantKey); } catch (e) {}
         return updated;
       });
       FirebaseCloudEngine.saveRecord('tasks', cleanRec, currentTenantId);
@@ -4478,7 +4489,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } else if (type.includes('asset') || type.includes('device')) {
       setAssets(prev => {
         const updated = [cleanRec, ...(prev || []).filter(a => a && String(a.id) !== String(cleanRec.id))];
-        try { localStorage.setItem('omnilflow_fallback_assets', JSON.stringify(updated)); } catch (e) {}
+        try { TenantStorage.setItem('assets', updated, activeTenantKey); } catch (e) {}
         return updated;
       });
       FirebaseCloudEngine.saveRecord('assets', cleanRec, currentTenantId);
@@ -4486,15 +4497,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       // Default: Restore as CRM Lead / Contact
       setContacts(prev => {
         const updated = [cleanRec, ...(prev || []).filter(c => c && String(c.id) !== String(cleanRec.id))];
-        try { localStorage.setItem('omnilflow_fallback_contacts', JSON.stringify(updated)); } catch (e) {}
+        try { TenantStorage.setItem('contacts', updated, activeTenantKey); } catch (e) {}
         return updated;
       });
       FirebaseCloudEngine.saveRecord('crm_leads', cleanRec, currentTenantId);
     }
-    if (item.id) TrashVaultEngine.restoreItem('all', item.id);
-    if (cleanId) TrashVaultEngine.restoreItem('all', cleanId);
-    if (item.originalId) TrashVaultEngine.restoreItem('all', item.originalId);
-    setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
+    if (item.id) TrashVaultEngine.restoreItem(binTenantTarget, item.id);
+    if (cleanId) TrashVaultEngine.restoreItem(binTenantTarget, cleanId);
+    if (item.originalId) TrashVaultEngine.restoreItem(binTenantTarget, item.originalId);
+    setRecycleBinItems(TrashVaultEngine.getVaultItems(binTenantTarget));
     showToast(`Restored "${cleanRec.name || cleanRec.title || item.name || 'Record'}" to active workspace!`, 'success');
   };
   const handleEmptyBinVault = () => {
@@ -4549,7 +4560,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     // Update React local state immediately
     setEmployees(prev => {
       const updated = prev.filter(emp => String(emp.id) !== String(id));
-      try { localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(updated)); } catch (e) {}
+      try { TenantStorage.setItem('employees', updated, activeTenantKey); } catch (e) {}
       return updated;
     });
     try {
@@ -4596,7 +4607,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setBillingPlans(prev => {
       const updated = (prev || []).filter(p => p.id !== planId);
       try {
-        localStorage.setItem('omnilflow_fallback_saas_plans', JSON.stringify(updated));
+        TenantStorage.setItem('saas_plans', updated, activeTenantKey);
       } catch (e) {}
       return updated;
     });
@@ -4802,27 +4813,44 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   };
   const fetchTasks = async () => {
+    const currentTenantId = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || 'org_unassigned';
+    const token = localStorage.getItem('omnilflow_token');
     try {
-      if (db) {
-        const qSnap = await getDocs(collection(db, 'tasks'));
+      if (db && currentTenantId && currentTenantId !== 'org_unassigned') {
+        const qSnap = await getDocs(query(collection(db, 'tasks'), where('tenantId', '==', String(currentTenantId))));
         const fbList = [];
         qSnap.forEach(docDoc => {
           fbList.push({ id: docDoc.id, ...docDoc.data() });
         });
         setTasks(fbList);
-        localStorage.setItem('omnilflow_fallback_tasks', JSON.stringify(fbList));
+        TenantStorage.setItem('tasks', fbList, currentTenantId);
         return;
       }
     } catch (fbErr) {
       console.warn('Firebase query tasks failed:', fbErr.message);
     }
-    const saved = localStorage.getItem('omnilflow_fallback_tasks');
-    if (saved !== null) {
-      try { setTasks(JSON.parse(saved)); } catch (e) {}
-    }
+    try {
+      const res = await fetch(`${API_URL}/tasks`, {
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': String(currentTenantId)
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const incoming = Array.isArray(data) ? data : [];
+        setTasks(incoming);
+        TenantStorage.setItem('tasks', incoming, currentTenantId);
+        return;
+      }
+    } catch (e) {}
+    const saved = TenantStorage.getItem('tasks', currentTenantId, []);
+    setTasks(saved);
   };
   const handleSaveTask = async (e) => {
     e.preventDefault();
+    const currentTenantId = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || 'org_unassigned';
+    const token = localStorage.getItem('omnilflow_token');
     const isEdit = !!newTaskForm.id;
     const payload = {
       title: newTaskForm.title,
@@ -4830,23 +4858,35 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       assignedTo: newTaskForm.assignedTo || 'Unassigned',
       priority: newTaskForm.priority,
       status: newTaskForm.status,
-      dueDate: newTaskForm.dueDate
+      dueDate: newTaskForm.dueDate,
+      tenantId: currentTenantId
     };
     try {
       if (db) {
         if (isEdit) {
-          await setDoc(doc(db, 'tasks', newTaskForm.id.toString()), payload);
+          await setDoc(doc(db, 'tasks', newTaskForm.id.toString()), payload, { merge: true });
         } else {
           await addDoc(collection(db, 'tasks'), payload);
         }
-        showToast('?? Sync: Task added to Cloud Firestore!', 'success');
+        showToast('Sync: Task added to Cloud Firestore!', 'success');
       }
     } catch (fbErr) {
       console.warn('Firebase save task failed:', fbErr.message);
     }
+    try {
+      await fetch(`${API_URL}/tasks${isEdit ? `/${newTaskForm.id}` : ''}`, {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': String(currentTenantId)
+        },
+        body: JSON.stringify(payload)
+      });
+    } catch (err) {}
     setTasks(prev => {
       const updated = isEdit ? prev.map(t => t.id === newTaskForm.id ? { ...t, ...payload } : t) : [{ id: `task_${Date.now()}`, ...payload }, ...prev];
-      localStorage.setItem('omnilflow_fallback_tasks', JSON.stringify(updated));
+      TenantStorage.setItem('tasks', updated, currentTenantId);
       return updated;
     });
     setShowAddTaskModal(false);
@@ -4854,6 +4894,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   };
   const handleDeleteTask = async (taskId) => {
     if (!confirm('Are you sure you want to delete this task?')) return;
+    const currentTenantId = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || 'org_unassigned';
+    const token = localStorage.getItem('omnilflow_token');
     const taskObj = tasks.find(t => t.id === taskId);
     if (taskObj) {
       softDeleteRecord({
@@ -4872,93 +4914,96 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.warn(fbErr.message);
     }
     try {
-      const res = await fetch(`${API_URL}/tasks/${taskId}`, { method: 'DELETE' });
-      if (res.ok) {
-        fetchTasks();
-        return;
-      }
+      await fetch(`${API_URL}/tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': String(currentTenantId)
+        }
+      });
     } catch (err) {
       console.error(err);
     }
-    const saved = localStorage.getItem('omnilflow_fallback_tasks');
-    if (saved) {
-      let list = JSON.parse(saved);
-      list = list.filter(t => t.id !== taskId);
-      localStorage.setItem('omnilflow_fallback_tasks', JSON.stringify(list));
-    }
-    fetchTasks();
+    setTasks(prev => {
+      const updated = prev.filter(t => t.id !== taskId);
+      TenantStorage.setItem('tasks', updated, currentTenantId);
+      return updated;
+    });
   };
   const fetchNotices = async () => {
+    const currentTenantId = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || 'org_unassigned';
+    const token = localStorage.getItem('omnilflow_token');
     try {
-      if (db) {
-        const qSnap = await getDocs(collection(db, 'notices'));
+      if (db && currentTenantId && currentTenantId !== 'org_unassigned') {
+        const qSnap = await getDocs(query(collection(db, 'notices'), where('tenantId', '==', String(currentTenantId))));
         const fbList = [];
         qSnap.forEach(docDoc => {
           fbList.push({ id: docDoc.id, ...docDoc.data() });
         });
-        if (fbList.length > 0) {
-          setNotices(fbList);
-          localStorage.setItem('omnilflow_fallback_notices', JSON.stringify(fbList));
-          return;
-        }
+        setNotices(fbList);
+        TenantStorage.setItem('notices', fbList, currentTenantId);
+        return;
       }
     } catch (fbErr) {
       console.warn('Firebase query notices failed:', fbErr.message);
     }
     try {
-      const res = await fetch(`${API_URL}/notices`);
-      if (res.ok) {
-        const data = await res.json();
-        setNotices(data);
-        localStorage.setItem('omnilflow_fallback_notices', JSON.stringify(data));
-      }
-    } catch (err) {
-      console.error(err);
-    }
-    const saved = localStorage.getItem('omnilflow_fallback_notices');
-    if (saved) setNotices(JSON.parse(saved));
-  };
-  const handleSaveNotice = async (e) => {
-    e.preventDefault();
-    const payload = {
-      title: newNoticeForm.title,
-      content: newNoticeForm.content,
-      createdAt: new Date().toISOString()
-    };
-    try {
-      if (db) {
-        await addDoc(collection(db, 'notices'), payload);
-        showToast('?? Sync: Notice added to Cloud Firestore!', 'success');
-      }
-    } catch (fbErr) {
-      console.warn('Firebase save notice failed:', fbErr.message);
-    }
-    try {
       const res = await fetch(`${API_URL}/notices`, {
-        method: 'POST',
-        body: JSON.stringify(newNoticeForm)
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': String(currentTenantId)
+        }
       });
       if (res.ok) {
-        alert('Notice published successfully!');
-        setShowAddNoticeModal(false);
-        setNewNoticeForm({ title: '', content: '' });
-        fetchNotices();
+        const data = await res.json();
+        const incoming = Array.isArray(data) ? data : [];
+        setNotices(incoming);
+        TenantStorage.setItem('notices', incoming, currentTenantId);
         return;
       }
     } catch (err) {
       console.error(err);
     }
-    const saved = localStorage.getItem('omnilflow_fallback_notices');
-    let list = saved ? JSON.parse(saved) : [];
-    list.push({ id: Date.now(), ...payload });
-    localStorage.setItem('omnilflow_fallback_notices', JSON.stringify(list));
-    alert('Notice published in local sync!');
+    const saved = TenantStorage.getItem('notices', currentTenantId, []);
+    setNotices(saved);
+  };
+  const handleSaveNotice = async (e) => {
+    e.preventDefault();
+    const currentTenantId = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || 'org_unassigned';
+    const token = localStorage.getItem('omnilflow_token');
+    const payload = {
+      title: newNoticeForm.title,
+      content: newNoticeForm.content,
+      tenantId: currentTenantId,
+      createdAt: new Date().toISOString()
+    };
+    try {
+      if (db) {
+        await addDoc(collection(db, 'notices'), payload);
+        showToast('Sync: Notice added to Cloud Firestore!', 'success');
+      }
+    } catch (fbErr) {
+      console.warn('Firebase save notice failed:', fbErr.message);
+    }
+    try {
+      await fetch(`${API_URL}/notices`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': String(currentTenantId)
+        },
+        body: JSON.stringify(payload)
+      });
+    } catch (err) {}
     setShowAddNoticeModal(false);
     setNewNoticeForm({ title: '', content: '' });
     fetchNotices();
   };
   const handleDeleteNotice = async (id) => {
     if (!confirm('Are you sure you want to delete this notice?')) return;
+    const currentTenantId = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || 'org_unassigned';
+    const token = localStorage.getItem('omnilflow_token');
     const noticeObj = notices.find(n => n.id === id);
     if (noticeObj) {
       softDeleteRecord({
@@ -4977,102 +5022,91 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.warn(fbErr.message);
     }
     try {
-      const res = await fetch(`${API_URL}/notices/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        fetchNotices();
-        return;
-      }
+      await fetch(`${API_URL}/notices/${id}`, {
+        method: 'DELETE',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': String(currentTenantId)
+        }
+      });
     } catch (err) {
       console.error(err);
-    }
-    const saved = localStorage.getItem('omnilflow_fallback_notices');
-    if (saved) {
-      let list = JSON.parse(saved);
-      list = list.filter(n => n.id !== id);
-      localStorage.setItem('omnilflow_fallback_notices', JSON.stringify(list));
     }
     fetchNotices();
   };
   const fetchHolidays = async () => {
+    const currentTenantId = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || 'org_unassigned';
+    const token = localStorage.getItem('omnilflow_token');
     try {
-      if (db) {
-        const qSnap = await getDocs(collection(db, 'holidays'));
+      if (db && currentTenantId && currentTenantId !== 'org_unassigned') {
+        const qSnap = await getDocs(query(collection(db, 'holidays'), where('tenantId', '==', String(currentTenantId))));
         const fbList = [];
         qSnap.forEach(docDoc => {
           fbList.push({ id: docDoc.id, ...docDoc.data() });
         });
-        if (fbList.length > 0) {
-          setHolidays(fbList);
-          localStorage.setItem('omnilflow_fallback_holidays', JSON.stringify(fbList));
-          return;
-        }
+        setHolidays(fbList);
+        TenantStorage.setItem('holidays', fbList, currentTenantId);
+        return;
       }
     } catch (fbErr) {
       console.warn('Firebase query holidays failed:', fbErr.message);
     }
     try {
-      const res = await fetch(`${API_URL}/holidays`);
-      if (res.ok) {
-        const data = await res.json();
-        setHolidays(data);
-        localStorage.setItem('omnilflow_fallback_holidays', JSON.stringify(data));
-      }
-    } catch (err) {
-      console.error(err);
-    }
-    const saved = localStorage.getItem('omnilflow_fallback_holidays');
-    if (saved) setHolidays(JSON.parse(saved));
-  };
-  const handleSaveHoliday = async (e) => {
-    e.preventDefault();
-    const payload = {
-      name: newHolidayForm.name,
-      date: newHolidayForm.date
-    };
-    try {
-      if (db) {
-        await addDoc(collection(db, 'holidays'), payload);
-        showToast('?? Sync: Holiday added to Cloud Firestore!', 'success');
-      }
-    } catch (fbErr) {
-      console.warn('Firebase save holiday failed:', fbErr.message);
-    }
-    try {
       const res = await fetch(`${API_URL}/holidays`, {
-        method: 'POST',
-        body: JSON.stringify(newHolidayForm)
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': String(currentTenantId)
+        }
       });
       if (res.ok) {
-        alert('Holiday added successfully!');
-        setShowAddHolidayModal(false);
-        setNewHolidayForm({ name: '', date: '' });
-        fetchHolidays();
+        const data = await res.json();
+        const incoming = Array.isArray(data) ? data : [];
+        setHolidays(incoming);
+        TenantStorage.setItem('holidays', incoming, currentTenantId);
         return;
       }
     } catch (err) {
       console.error(err);
     }
-    const saved = localStorage.getItem('omnilflow_fallback_holidays');
-    let list = saved ? JSON.parse(saved) : [];
-    list.push({ id: Date.now(), ...payload });
-    localStorage.setItem('omnilflow_fallback_holidays', JSON.stringify(list));
-    alert('Holiday saved in local sync!');
+    const saved = TenantStorage.getItem('holidays', currentTenantId, []);
+    setHolidays(saved);
+  };
+  const handleSaveHoliday = async (e) => {
+    e.preventDefault();
+    const currentTenantId = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || 'org_unassigned';
+    const token = localStorage.getItem('omnilflow_token');
+    const payload = {
+      name: newHolidayForm.name,
+      date: newHolidayForm.date,
+      tenantId: currentTenantId
+    };
+    try {
+      if (db) {
+        await addDoc(collection(db, 'holidays'), payload);
+        showToast('Sync: Holiday added to Cloud Firestore!', 'success');
+      }
+    } catch (fbErr) {
+      console.warn('Firebase save holiday failed:', fbErr.message);
+    }
+    try {
+      await fetch(`${API_URL}/holidays`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': String(currentTenantId)
+        },
+        body: JSON.stringify(payload)
+      });
+    } catch (err) {}
     setShowAddHolidayModal(false);
     setNewHolidayForm({ name: '', date: '' });
     fetchHolidays();
   };
   const handleDeleteHoliday = async (id) => {
     if (!confirm('Are you sure you want to delete this holiday?')) return;
-    const holidayObj = holidays.find(h => h.id === id);
-    if (holidayObj) {
-      softDeleteRecord({
-        originalId: id,
-        name: holidayObj.name || `Holiday #${id}`,
-        category: 'Holiday List',
-        entityData: holidayObj,
-        links: 'Attendance Registry Linkages'
-      });
-    }
+    const currentTenantId = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || 'org_unassigned';
+    const token = localStorage.getItem('omnilflow_token');
     try {
       if (db) {
         await deleteDoc(doc(db, 'holidays', id.toString()));
@@ -5081,90 +5115,89 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.warn(fbErr.message);
     }
     try {
-      const res = await fetch(`${API_URL}/holidays/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        fetchHolidays();
-        return;
-      }
+      await fetch(`${API_URL}/holidays/${id}`, {
+        method: 'DELETE',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': String(currentTenantId)
+        }
+      });
     } catch (err) {
       console.error(err);
-    }
-    const saved = localStorage.getItem('omnilflow_fallback_holidays');
-    if (saved) {
-      let list = JSON.parse(saved);
-      list = list.filter(h => h.id !== id);
-      localStorage.setItem('omnilflow_fallback_holidays', JSON.stringify(list));
     }
     fetchHolidays();
   };
   const fetchLeaves = async () => {
+    const currentTenantId = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || 'org_unassigned';
+    const token = localStorage.getItem('omnilflow_token');
     try {
-      if (db) {
-        const qSnap = await getDocs(collection(db, 'leaves'));
+      if (db && currentTenantId && currentTenantId !== 'org_unassigned') {
+        const qSnap = await getDocs(query(collection(db, 'leaves'), where('tenantId', '==', String(currentTenantId))));
         const fbList = [];
         qSnap.forEach(docDoc => {
           fbList.push({ id: docDoc.id, ...docDoc.data() });
         });
-        if (fbList.length > 0) {
-          setLeaves(fbList);
-          localStorage.setItem('omnilflow_fallback_leaves', JSON.stringify(fbList));
-          return;
-        }
+        setLeaves(fbList);
+        TenantStorage.setItem('leaves', fbList, currentTenantId);
+        return;
       }
     } catch (fbErr) {
       console.warn('Firebase query leaves failed:', fbErr.message);
     }
     try {
-      const res = await fetch(`${API_URL}/leaves`);
+      const res = await fetch(`${API_URL}/leaves`, {
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': String(currentTenantId)
+        }
+      });
       if (res.ok) {
         const data = await res.json();
-        setLeaves(data);
-        localStorage.setItem('omnilflow_fallback_leaves', JSON.stringify(data));
+        const incoming = Array.isArray(data) ? data : [];
+        setLeaves(incoming);
+        TenantStorage.setItem('leaves', incoming, currentTenantId);
+        return;
       }
     } catch (err) {
       console.error(err);
     }
-    const saved = localStorage.getItem('omnilflow_fallback_leaves');
-    if (saved) setLeaves(JSON.parse(saved));
+    const saved = TenantStorage.getItem('leaves', currentTenantId, []);
+    setLeaves(saved);
   };
   const handleSaveLeave = async (e) => {
     e.preventDefault();
+    const currentTenantId = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || 'org_unassigned';
+    const token = localStorage.getItem('omnilflow_token');
     const payload = {
       startDate: newLeaveForm.startDate,
       endDate: newLeaveForm.endDate,
       type: newLeaveForm.type,
       reason: newLeaveForm.reason,
       status: 'pending',
+      tenantId: currentTenantId,
       requestedBy: authUser?.email || 'Employee'
     };
     try {
       if (db) {
         await addDoc(collection(db, 'leaves'), payload);
-        showToast('?? Sync: Leave submitted to Cloud Firestore!', 'success');
+        showToast('Sync: Leave submitted to Cloud Firestore!', 'success');
       }
     } catch (fbErr) {
       console.warn('Firebase save leave failed:', fbErr.message);
     }
     try {
-      const res = await fetch(`${API_URL}/leaves`, {
+      await fetch(`${API_URL}/leaves`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': String(currentTenantId)
+        },
         body: JSON.stringify(payload)
       });
-      if (res.ok) {
-        alert('Leave requested successfully!');
-        setShowAddLeaveModal(false);
-        setNewLeaveForm({ startDate: '', endDate: '', type: 'Sick', reason: '' });
-        fetchLeaves();
-        return;
-      }
     } catch (err) {
       console.error(err);
     }
-    const saved = localStorage.getItem('omnilflow_fallback_leaves');
-    let list = saved ? JSON.parse(saved) : [];
-    list.push({ id: Date.now(), ...payload });
-    localStorage.setItem('omnilflow_fallback_leaves', JSON.stringify(list));
-    alert('Leave request saved in local sync!');
     setShowAddLeaveModal(false);
     setNewLeaveForm({ startDate: '', endDate: '', type: 'Sick', reason: '' });
     fetchLeaves();
@@ -5188,11 +5221,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     } catch (err) {
       console.error(err);
     }
-    const saved = localStorage.getItem('omnilflow_fallback_leaves');
-    if (saved) {
-      let list = JSON.parse(saved);
-      list = list.map(l => l.id === id ? { ...l, status } : l);
-      localStorage.setItem('omnilflow_fallback_leaves', JSON.stringify(list));
+    const saved = TenantStorage.getItem('leaves', activeTenantKey, []);
+    if (saved && Array.isArray(saved)) {
+      const list = saved.map(l => l.id === id ? { ...l, status } : l);
+      TenantStorage.setItem('leaves', list, activeTenantKey);
     }
     fetchLeaves();
   };
@@ -5324,7 +5356,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             }
             return s;
           });
-          try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(updated)); } catch (e) {}
+          try { TenantStorage.setItem('sessions', updated, activeTenantKey); } catch (e) {}
           return updated;
         });
       });
@@ -5482,7 +5514,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const fetchContacts = async () => {
     if (isFetchingContactsRef.current) return;
     isFetchingContactsRef.current = true;
-    const activeTenant = authUser?.tenantId || authUser?.companyId || 'default_tenant';
+    const activeTenant = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || 'org_unassigned';
     const token = localStorage.getItem('omnilflow_token');
     try {
       const res = await fetch(`${API_URL}/contacts`, {
@@ -5494,17 +5526,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       if (res.ok) {
         const data = await res.json();
         const incoming = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
-        if (incoming.length > 0) {
-          setContacts(incoming);
-          try {
-            localStorage.setItem('omniflow_cached_contacts', JSON.stringify(incoming));
-          } catch (e) {
-            try {
-              localStorage.setItem('omniflow_cached_contacts', JSON.stringify(incoming.slice(0, 2000)));
-            } catch (e2) {}
-          }
-          return;
-        }
+        setContacts(incoming);
+        TenantStorage.setItem('contacts', incoming, activeTenant);
+      } else {
+        setContacts([]);
       }
     } catch (err) {
       console.warn('REST API contacts fetch warning:', err);
@@ -5732,7 +5757,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setContacts(prev => {
       const filtered = prev.filter(c => String(c.id) !== String(data.id));
       const updated = [data, ...filtered];
-      try { localStorage.setItem('omnilflow_fallback_contacts', JSON.stringify(updated)); } catch (e) {}
+      try { TenantStorage.setItem('contacts', updated, activeTenantKey); } catch (e) {}
       return updated;
     });
     setActiveContact(data);
@@ -5814,7 +5839,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setChatbotRules(prev => {
       const updated = prev.filter(r => r.id !== id);
       try {
-        localStorage.setItem('omnilflow_fallback_chatbot_rules', JSON.stringify(updated));
+        TenantStorage.setItem('chatbot_rules', updated, activeTenantKey);
       } catch (e) {}
       return updated;
     });
@@ -5886,7 +5911,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setSessions(prev => {
       const filtered = (prev || []).filter(s => String(s.id) !== String(fallbackId));
       const updated = [optimisticSession, ...filtered];
-      try { localStorage.setItem('omnilflow_fallback_sessions', JSON.stringify(updated)); } catch (err) {}
+      try { TenantStorage.setItem('sessions', updated, activeTenantKey); } catch (err) {}
       return updated;
     });
     let createdSession = null;

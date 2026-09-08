@@ -28,6 +28,7 @@ import {
   X
 } from 'lucide-react';
 import StorageUpgradeModal from './StorageUpgradeModal.jsx';
+import TenantStorage from '../../core/services/TenantStorage.js';
 
 export default function MediaStorageView({ authUser, showToast }) {
   const [loading, setLoading] = useState(true);
@@ -316,14 +317,14 @@ export default function MediaStorageView({ authUser, showToast }) {
         await deleteDoc(doc(db, 'media_vault', item.id));
       } else {
         // Remove from local fallback employees
-        const localEmps = JSON.parse(localStorage.getItem('omnilflow_fallback_employees') || '[]');
+        const localEmps = TenantStorage.getItem('employees', cleanTenant, []);
         const updatedEmps = localEmps.map(emp => {
           if (emp.media === item.fileName || emp.documents === item.fileName) {
             return { ...emp, media: '', documents: '' };
           }
           return emp;
         });
-        localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(updatedEmps));
+        TenantStorage.setItem('employees', updatedEmps, cleanTenant);
       }
 
       if (showToast) showToast(`🗑️ File deleted and quota reclaimed!`, 'success');

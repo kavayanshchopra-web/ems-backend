@@ -558,9 +558,9 @@ export default function ConversationsPage({
     };
 
     try {
-      if (db) {
+      if (db && companyId && companyId !== 'org_default' && companyId !== 'org_unassigned') {
         // A. Companion App Call Logs (Direct Android Phone Sync)
-        const q1 = collection(db, 'callLogs');
+        const q1 = query(collection(db, 'callLogs'), where('tenantId', '==', String(companyId)));
         const unsub1 = onSnapshot(q1, (snap) => {
           const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           handleNewCallDocs(docs);
@@ -568,7 +568,7 @@ export default function ConversationsPage({
         unsubs.push(unsub1);
 
         // B. Telecalling / Web Dashboard Call Logs
-        const q2 = collection(db, 'call_logs');
+        const q2 = query(collection(db, 'call_logs'), where('tenantId', '==', String(companyId)));
         const unsub2 = onSnapshot(q2, (snap) => {
           const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           handleNewCallDocs(docs);
@@ -581,7 +581,10 @@ export default function ConversationsPage({
 
     // Backend SQLite Call Logs Initial Fetch
     fetch(`${API_URL}/telecalling/logs`, {
-      headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        'x-tenant-id': String(companyId)
+      }
     })
       .then(res => res.json())
       .then(data => {
@@ -595,14 +598,17 @@ export default function ConversationsPage({
         try { u(); } catch (e) {}
       });
     };
-  }, [API_URL, token]);
+  }, [API_URL, token, companyId]);
 
   // 3. Load Contacts & Build Active Conversations Roster
   useEffect(() => {
     const fetchContacts = async () => {
       try {
         const res = await fetch(`${API_URL}/contacts`, {
-          headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            'x-tenant-id': String(companyId)
+          }
         });
         const data = await res.json();
         const rawList = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
@@ -614,10 +620,19 @@ export default function ConversationsPage({
             setActiveContact(cleanRoster[0]);
           }
         } else if (Array.isArray(propContacts) && propContacts.length > 0) {
-          setConversationsList(formatContactRoster(propContacts));
-          if (!activeContact) {
-            setActiveContact(formatContactRoster(propContacts)[0]);
+          const filteredProps = propContacts.filter(p => !p.tenantId || p.tenantId === companyId);
+          if (filteredProps.length > 0) {
+            setConversationsList(formatContactRoster(filteredProps));
+            if (!activeContact) {
+              setActiveContact(formatContactRoster(filteredProps)[0]);
+            }
+          } else {
+            setConversationsList([]);
+            setActiveContact(null);
           }
+        } else {
+          setConversationsList([]);
+          setActiveContact(null);
         }
       } catch (err) {
         console.warn('[ConversationsPage] Contacts fetch error:', err);
@@ -625,7 +640,7 @@ export default function ConversationsPage({
     };
 
     fetchContacts();
-  }, [API_URL, token]);
+  }, [API_URL, token, companyId]);
 
   // 4. Fetch WhatsApp Messages for Active Contact (with instant cache preview)
   useEffect(() => {

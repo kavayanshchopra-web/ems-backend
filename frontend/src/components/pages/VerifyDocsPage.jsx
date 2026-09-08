@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
+import TenantStorage from '../../core/services/TenantStorage';
 
 export default function VerifyDocsPage({
   companyId,
@@ -18,7 +19,8 @@ export default function VerifyDocsPage({
   onManageStages,
   onOpenPositionModal
 }) {
-  const { config } = useModuleRegistry(companyId || 'default_tenant', 'verify_documents');
+  const activeTenant = authUser?.tenantId || authUser?.companyId || companyId || 'org_unassigned';
+  const { config } = useModuleRegistry(activeTenant, 'verify_documents');
 
   // Inject Employee Names into schema fields for employee dropdown selection
   const linkedConfig = useMemo(() => {
@@ -46,7 +48,7 @@ export default function VerifyDocsPage({
   const handleUpdateKycDocuments = (newDocs) => {
     setKycDocuments(newDocs);
     try {
-      localStorage.setItem('omnilflow_fallback_kyc_documents', JSON.stringify(newDocs));
+      TenantStorage.setItem('kyc_documents', newDocs, activeTenant);
     } catch (e) {}
   };
 

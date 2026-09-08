@@ -7,8 +7,9 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
+import TenantStorage from '../../core/services/TenantStorage';
 import { db } from '../../firebase';
-import { collection, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, deleteDoc, query, where } from 'firebase/firestore';
 import { RefreshCw, Zap, Trash2 } from 'lucide-react';
 import { normalizePhone10, formatPhoneDisplay, toE164Phone } from '../../core/utils/phoneUtils';
 
@@ -27,24 +28,18 @@ export default function ContactsPage({
   onManageStages = () => {},
   onOpenChatWithLead = null
 }) {
-  const companyId = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 'org_default';
+  const companyId = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 'org_unassigned';
   const { config } = useModuleRegistry(companyId, 'contacts');
 
   const [isSyncingGhl, setIsSyncingGhl] = useState(false);
   const [ghlLocationStatus, setGhlLocationStatus] = useState(null);
 
-  // Initialize records cleanly with immediate hydration from props or localStorage cache
+  // Initialize records strictly scoped to the active tenant
   const [internalRecords, setInternalRecords] = useState(() => {
     if (Array.isArray(propContacts) && propContacts.length > 0) {
-      return propContacts;
+      return propContacts.filter(r => !r.tenantId || r.tenantId === companyId);
     }
-    try {
-      if (typeof window !== 'undefined') {
-        const cached = localStorage.getItem('omniflow_cached_contacts');
-        if (cached) return JSON.parse(cached);
-      }
-    } catch (e) {}
-    return [];
+    return TenantStorage.getItem('contacts', companyId, []);
   });
 
   // Sync when propContacts arrives or updates from parent
@@ -205,13 +200,14 @@ export default function ContactsPage({
   useEffect(() => {
     let unsubs = [];
 
-    // A. Listen exclusively to Firestore 'contacts' collection (NO crm_deals!)
+    // A. Listen exclusively to Firestore 'contacts' collection for this tenant
     try {
-      if (db) {
-        const qContacts = collection(db, 'contacts');
+      if (db && companyId && companyId !== 'org_unassigned') {
+        const qContacts = query(collection(db, 'contacts'), where('tenantId', '==', String(companyId)));
         const unsub1 = onSnapshot(qContacts, (snapshot) => {
           const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
           setInternalRecords(prev => processAndMergeRecords(prev, docs));
+          TenantStorage.setItem('contacts', docs, companyId);
         }, (err) => console.warn('[ContactsPage] Firestore contacts listener notice:', err));
         unsubs.push(unsub1);
       }
@@ -221,20 +217,20 @@ export default function ContactsPage({
 
     // B. Fetch Contacts from SQLite API & Merge Deterministically
     fetch(`${API_URL}/contacts`, {
-      headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        'x-tenant-id': String(companyId)
+      }
     })
       .then(res => res.json())
       .then(data => {
         const incoming = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
         if (incoming.length > 0) {
           setInternalRecords(prev => processAndMergeRecords(prev, incoming));
-          try {
-            localStorage.setItem('omniflow_cached_contacts', JSON.stringify(incoming));
-          } catch (e) {
-            try {
-              localStorage.setItem('omniflow_cached_contacts', JSON.stringify(incoming.slice(0, 2000)));
-            } catch (e2) {}
-          }
+          TenantStorage.setItem('contacts', incoming, companyId);
+        } else {
+          // If empty state returned from backend, ensure clean state without cross-tenant pollution
+          setInternalRecords(prev => prev.filter(r => r.tenantId === companyId));
         }
       })
       .catch(() => {});

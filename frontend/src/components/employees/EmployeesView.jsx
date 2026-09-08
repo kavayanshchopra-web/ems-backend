@@ -2,6 +2,8 @@ import React from 'react';
 import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 
+import TenantStorage from '../../core/services/TenantStorage';
+
 export default function EmployeesView({
   authUser,
   employees = [],
@@ -17,13 +19,13 @@ export default function EmployeesView({
   onManageStages = () => {},
   onOpenPositionModal = () => {}
 }) {
-  const companyId = authUser?.companyId || 'default_tenant';
+  const companyId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id || 'org_unassigned';
   const { config } = useModuleRegistry(companyId, 'employees');
 
   const handleUpdateEmployees = (newRecords) => {
     setEmployees(newRecords);
     try {
-      localStorage.setItem('omnilflow_fallback_employees', JSON.stringify(newRecords));
+      TenantStorage.setItem('employees', newRecords, companyId);
     } catch (e) {}
   };
 

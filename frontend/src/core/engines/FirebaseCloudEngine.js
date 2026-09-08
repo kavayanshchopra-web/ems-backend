@@ -22,6 +22,10 @@ import {
 class FirebaseCloudEngine {
   static _memoryCache = new Map();
 
+  static clearMemoryCache() {
+    this._memoryCache.clear();
+  }
+
   /**
    * Helper to resolve tenantId strictly from user identity
    */

@@ -12,6 +12,7 @@ import {
   signInWithPopup
 } from './firebase.js';
 import FirebaseCloudEngine from './core/engines/FirebaseCloudEngine';
+import TenantStorage from './core/services/TenantStorage';
 
 import {
   Mail,
@@ -581,6 +582,7 @@ export default function App() {
         }
 
         // Purge any stale caches from previous sessions
+        TenantStorage.clearAll();
         FirebaseCloudEngine.purgeAllLocalCaches();
         const userToken = fbUser.accessToken || 'firebase_token';
         localStorage.setItem('omnilflow_token', userToken);
@@ -625,24 +627,36 @@ export default function App() {
       return (
         <CompanyRegistrationWizard
           onComplete={(authData) => {
-            const u = authData.user || {
-              id: 1,
-              email: email,
-              role: 'owner',
-              tenant_id: authData.tenant?.id || authData.subscription?.tenant_id || 1,
-              subscription_status: authData.subscription?.status || (authData.subscription?.is_trial ? 'trial' : 'pending_payment'),
+            // Clean slate: purge all previous session and cache data completely
+            TenantStorage.clearAll();
+
+            const rawTenantId = authData.tenant?.id || authData.tenant?.tenant_id || authData.user?.tenantId || authData.user?.tenant_id || authData.subscription?.tenant_id;
+            const finalTenantId = rawTenantId ? String(rawTenantId).trim() : `org_signup_${Date.now()}`;
+
+            const u = {
+              id: authData.user?.id || `user_${Date.now()}`,
+              email: authData.user?.email || email || '',
+              name: authData.user?.name || (email ? email.split('@')[0] : 'Workspace Owner'),
+              role: authData.user?.role || 'owner',
+              tenantId: finalTenantId,
+              tenant_id: finalTenantId,
+              companyId: finalTenantId,
+              companyName: authData.tenant?.company_name || authData.tenant?.name || 'My Workspace',
+              subscription_status: authData.subscription?.status || (authData.subscription?.is_trial ? 'trial' : 'active'),
               subscription_expiry: authData.subscription?.expiry_date,
               expiry_date: authData.subscription?.expiry_date,
               is_trial: authData.subscription?.is_trial ? 1 : 0
             };
+
             setAuthUser(u);
             localStorage.setItem('omnilflow_user', JSON.stringify(u));
+            localStorage.setItem('omnilflow_current_company', finalTenantId);
             if (authData.token) {
               localStorage.setItem('omnilflow_token', authData.token);
               localStorage.setItem('token', authData.token);
             }
             if (typeof window !== 'undefined') {
-              window.__omniflow_tenant = String(u.tenant_id || u.tenantId || 1);
+              window.__omniflow_tenant = finalTenantId;
             }
           }}
           onSwitchToLogin={() => setActiveTab('login')}

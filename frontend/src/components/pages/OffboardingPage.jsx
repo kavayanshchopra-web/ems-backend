@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
+import TenantStorage from '../../core/services/TenantStorage';
 
 export default function OffboardingPage({
   companyId,
@@ -19,47 +20,43 @@ export default function OffboardingPage({
   onManageStages,
   onOpenPositionModal
 }) {
-  const { config } = useModuleRegistry(companyId || 'default_tenant', 'offboarding');
+  const activeTenant = authUser?.tenantId || authUser?.companyId || companyId || 'org_unassigned';
+  const { config } = useModuleRegistry(activeTenant, 'offboarding');
 
   // Cross-Module Dynamic Linkage: Auto-compute IT Asset Clearance from live assets directory!
   const syncedOffboardingCases = useMemo(() => {
-    return (offboardingCases || []).map(caseItem => {
-      const empName = (caseItem.employee || '').toLowerCase().trim();
-      if (!empName) return caseItem;
+    return (offboardingCases || []).map(c => {
+      // Find all assets assigned to this employee
+      const assignedAssets = (assets || []).filter(a =>
+        a.assigned_to && (
+          String(a.assigned_to).toLowerCase() === String(c.employee_name).toLowerCase() ||
+          String(a.assigned_to).toLowerCase() === String(c.employee_id).toLowerCase() ||
+          String(a.assigned_to_id) === String(c.employee_id)
+        )
+      );
 
-      // Find all assets assigned to this employee in Asset Management
-      const assignedAssets = (assets || []).filter(a => {
-        const assignedTo = (a.assignedTo || a.employee || '').toLowerCase().trim();
-        return (assignedTo && empName.includes(assignedTo)) || (assignedTo && assignedTo.includes(empName));
-      });
-
-      let calculatedAssetClearance = caseItem.assetClearance;
-      if (assignedAssets.length > 0) {
-        const assetNames = assignedAssets.map(a => a.name || a.tag).join(', ');
-        calculatedAssetClearance = `⏳ Pending Return (${assignedAssets.length}: ${assetNames})`;
-      } else if (!caseItem.assetClearance || caseItem.assetClearance.includes('Pending')) {
-        calculatedAssetClearance = '✓ Cleared';
-      }
+      const hasPendingAssets = assignedAssets.some(a =>
+        String(a.status || '').toLowerCase() === 'assigned' ||
+        String(a.status || '').toLowerCase() === 'in use'
+      );
 
       return {
-        ...caseItem,
-        assetClearance: calculatedAssetClearance
+        ...c,
+        assets_reclaimed: assignedAssets.length > 0 && !hasPendingAssets ? 'YES' : (assignedAssets.length > 0 ? 'NO' : 'N/A'),
+        _assignedAssetsCount: assignedAssets.length
       };
     });
   }, [offboardingCases, assets]);
 
-  // Inject Employee Names into schema fields for employee dropdown selection!
+  // Inject dynamic active employee list into employee_name dropdown
   const linkedConfig = useMemo(() => {
-    if (!config) return config;
-    const empOptions = (employees || []).map(e => `${e.first_name || ''} ${e.last_name || ''}`.trim()).filter(Boolean);
-    if (empOptions.length === 0) return config;
-
-    const updatedFields = (config.fields || []).map(f => {
-      if (f.id === 'employee' || f.key === 'employee') {
+    if (!config || !config.fields) return config;
+    const updatedFields = config.fields.map(f => {
+      if (f.name === 'employee_name' && employees.length > 0) {
         return {
           ...f,
-          type: 'dropdown',
-          options: empOptions
+          type: 'select',
+          options: employees.map(emp => emp.name || `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.email || `EMP #${emp.id}`)
         };
       }
       return f;
@@ -74,7 +71,7 @@ export default function OffboardingPage({
   const handleUpdateOffboardingCases = (newCases) => {
     setOffboardingCases(newCases);
     try {
-      localStorage.setItem('omnilflow_fallback_offboarding_cases', JSON.stringify(newCases));
+      TenantStorage.setItem('offboarding_cases', newCases, activeTenant);
     } catch (e) {}
   };
 

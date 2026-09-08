@@ -1,6 +1,7 @@
 import React from 'react';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
+import TenantStorage from '../../core/services/TenantStorage';
 
 export default function AssetManagementPage({
   companyId,
@@ -17,12 +18,13 @@ export default function AssetManagementPage({
   onManageStages,
   onOpenPositionModal
 }) {
-  const { config } = useModuleRegistry(companyId || 'default_tenant', 'asset_management');
+  const activeTenant = authUser?.tenantId || authUser?.companyId || companyId || 'org_unassigned';
+  const { config } = useModuleRegistry(activeTenant, 'asset_management');
 
   const handleUpdateAssets = (newAssets) => {
     setAssets(newAssets);
     try {
-      localStorage.setItem('omnilflow_fallback_assets', JSON.stringify(newAssets));
+      TenantStorage.setItem('assets', newAssets, activeTenant);
     } catch (e) {}
   };
 
