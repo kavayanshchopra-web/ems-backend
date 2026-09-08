@@ -82,7 +82,7 @@ async function handleDownloadMedia(msg, mediaType) {
 }
 
 // Trigger media download asynchronously in the background so it doesn't block Express or the main socket
-function triggerDownloadMediaBackground(msg, mediaType, io) {
+function triggerDownloadMediaBackground(msg, mediaType, io, tenantId) {
   if (mediaType === 'text') return;
   const msgId = msg.key.id;
 
@@ -90,8 +90,12 @@ function triggerDownloadMediaBackground(msg, mediaType, io) {
     .then(async (mediaUrl) => {
       if (mediaUrl) {
         await updateMessageMediaUrl(msgId, mediaUrl);
-        // Broadcast media downloaded update event to client
-        io.emit('media_downloaded', { id: msgId, mediaUrl, media_url: mediaUrl });
+        // Broadcast media downloaded update event to client in tenant room
+        if (tenantId) {
+          io.to(`tenant_${tenantId}`).emit('media_downloaded', { id: msgId, mediaUrl, media_url: mediaUrl });
+        } else {
+          io.emit('media_downloaded', { id: msgId, mediaUrl, media_url: mediaUrl });
+        }
       }
     })
     .catch((err) => {
@@ -135,6 +139,14 @@ export async function startSession(id, io) {
 
   const session = await getSession(id);
   const tenantId = session?.tenant_id || 1;
+  const tenantRoom = `tenant_${tenantId}`;
+  const emitToTenant = (event, data) => {
+    try {
+      io.to(tenantRoom).emit(event, data);
+    } catch {
+      io.emit(event, data);
+    }
+  };
 
   const sessionPath = path.join(sessionsDir, id);
   const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
@@ -172,14 +184,14 @@ export async function startSession(id, io) {
       try {
         const qrDataUrl = await QRCode.toDataURL(qr);
         await updateSessionStatus(id, 'qr_ready', qrDataUrl, null);
-        io.emit('session_update', { id, status: 'qr_ready', qr: qrDataUrl });
+        emitToTenant('session_update', { id, status: 'qr_ready', qr: qrDataUrl });
       } catch (err) {
         console.error('Error generating QR data URL:', err);
       }
     } else if (connection === 'connecting') {
       console.log(`[Session ${id}] Connecting...`);
       await updateSessionStatus(id, 'connecting', null, null);
-      io.emit('session_update', { id, status: 'connecting' });
+      emitToTenant('session_update', { id, status: 'connecting' });
     }
 
     if (connection === 'open') {
@@ -195,7 +207,7 @@ export async function startSession(id, io) {
       }
       
       await updateSessionStatus(id, 'connected', null, phoneNumber, profilePicUrl);
-      io.emit('session_update', { id, status: 'connected', phoneNumber, profilePicUrl });
+      emitToTenant('session_update', { id, status: 'connected', phoneNumber, profilePicUrl });
     }
 
     if (connection === 'close') {
@@ -219,7 +231,7 @@ export async function startSession(id, io) {
           fs.rmSync(sessionPath, { recursive: true, force: true });
         }
         
-        io.emit('session_update', { id, status: 'disconnected' });
+        emitToTenant('session_update', { id, status: 'disconnected' });
       }
     }
   });
@@ -324,7 +336,7 @@ export async function startSession(id, io) {
             if (!textContent && mediaType === 'text') continue;
 
             if (mediaType !== 'text') {
-              triggerDownloadMediaBackground(msg, mediaType, io);
+              triggerDownloadMediaBackground(msg, mediaType, io, tenantId);
             }
 
             const contactName = msg.key.fromMe ? null : msg.pushName;
@@ -358,7 +370,7 @@ export async function startSession(id, io) {
       }
 
       // Trigger frontend reload
-      io.emit('new_message', { system_sync: true });
+      emitToTenant('new_message', { system_sync: true });
     }).catch(err => {
       console.error(`[History Sync Queue Error]`, err);
     });
@@ -392,7 +404,7 @@ export async function startSession(id, io) {
           await saveContact(jid, contactName);
         }
       }
-      io.emit('new_message', { system_sync: true }); // Notify UI to refresh contact names
+      emitToTenant('new_message', { system_sync: true }); // Notify UI to refresh contact names
     } catch (err) {
       console.error('Error handling contacts.upsert:', err);
     }
@@ -430,7 +442,7 @@ export async function startSession(id, io) {
           await updateContactProfilePic(jid, cachedUrl);
         }
       }
-      io.emit('new_message', { system_sync: true }); // Notify UI to refresh chat list
+      emitToTenant('new_message', { system_sync: true }); // Notify UI to refresh chat list
     } catch (err) {
       console.error('Error handling contacts.update:', err);
     }
@@ -501,7 +513,7 @@ export async function startSession(id, io) {
       await saveMessage(messagePayload);
 
       // Emit new message event to UI with both camelCase and snake_case properties
-      io.emit('new_message', {
+      emitToTenant('new_message', {
         ...messagePayload,
         session_id: id,
         contact_id: jid,
@@ -511,6 +523,31 @@ export async function startSession(id, io) {
         media_url: mediaUrl,
         contactName
       });
+
+      // Real-time GoHighLevel Sync Pipeline (Asynchronous, Non-Blocking)
+      if (tenantId && !jid.endsWith('@g.us') && !jid.endsWith('@broadcast')) {
+        import('./services/ghl/GhlSyncEngine.js').then(async ({ default: ghlSyncEngine }) => {
+          try {
+            const { getGhlIntegrationByTenant } = await import('./db.js');
+            const integration = await getGhlIntegrationByTenant(tenantId);
+            if (integration && integration.is_active && integration.location_id) {
+              await ghlSyncEngine.syncConversationToGhl(tenantId, {
+                contact: { id: jid, phone: jid, name: contactName || jid },
+                messages: [{
+                  text: textContent || (mediaType !== 'text' ? `[Sent ${mediaType}]` : ''),
+                  fromMe: fromMe,
+                  mediaUrl: mediaUrl,
+                  status: 'delivered'
+                }],
+                callLogs: []
+              });
+            }
+          } catch (syncErr) {
+            // Silently log notice without disrupting core messaging loop
+            console.warn(`[GHL Realtime Sync] Note: ${syncErr.message}`);
+          }
+        }).catch(() => {});
+      }
 
       // Chatbot Auto-Reply Logic
       if (!fromMe && textContent && textContent.trim()) {
@@ -534,7 +571,7 @@ export async function startSession(id, io) {
               setTimeout(async () => {
                 try {
                   const autoSent = await sendWhatsAppMessage(id, jid, matchedRule.reply_text);
-                  io.emit('new_message', {
+                  emitToTenant('new_message', {
                     id: autoSent.id,
                     session_id: id,
                     contact_id: jid,

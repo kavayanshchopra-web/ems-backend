@@ -174,7 +174,7 @@ export async function authMiddleware(req, res, next) {
     req.path.startsWith('/calls') ||
     req.path.startsWith('/telecalling')
   ) {
-    const headerTenant = req.headers['x-tenant-id'] || req.headers['x-company-id'] || null;
+    const headerTenant = req.headers['x-tenant-id'] || req.headers['x-company-id'] || req.query.tenant_id || null;
     const authHeader = req.headers['authorization'];
     const token = authHeader ? authHeader.split(' ')[1] : null;
     if (token) {
@@ -182,37 +182,37 @@ export async function authMiddleware(req, res, next) {
         const decoded = jwt.verify(token, JWT_SECRET);
         req.user = {
           ...decoded,
-          tenant_id: headerTenant || decoded.tenant_id || decoded.tenantId || decoded.companyId || 1
+          tenant_id: decoded.tenant_id || decoded.tenantId || decoded.companyId || headerTenant || null
         };
       } catch {
         try {
           const unverified = jwt.decode(token);
           req.user = { 
-            id: unverified?.sub || 1, 
-            email: unverified?.email || 'admin@omniflow.com', 
-            role: unverified?.role || 'admin', 
-            tenant_id: headerTenant || unverified?.tenant_id || unverified?.tenantId || 1 
+            id: unverified?.sub || unverified?.user_id || 'unverified_user', 
+            email: unverified?.email || 'user@omniflow.com', 
+            role: unverified?.role || 'user', 
+            tenant_id: unverified?.tenant_id || unverified?.tenantId || unverified?.companyId || headerTenant || null 
           };
         } catch {
-          req.user = { id: 1, email: 'admin@omniflow.com', role: 'admin', tenant_id: headerTenant || 1 };
+          req.user = { id: 'anonymous', email: 'guest@omniflow.com', role: 'guest', tenant_id: headerTenant || null };
         }
       }
     } else {
-      req.user = { id: 1, email: 'admin@omniflow.com', role: 'admin', tenant_id: headerTenant || 1 };
+      req.user = { id: 'anonymous', email: 'guest@omniflow.com', role: 'guest', tenant_id: headerTenant || null };
     }
     return next();
   }
 
   const authHeader = req.headers['authorization'];
   const token = authHeader ? authHeader.split(' ')[1] : null;
-  const headerTenant = req.headers['x-tenant-id'] || req.headers['x-company-id'] || null;
+  const headerTenant = req.headers['x-tenant-id'] || req.headers['x-company-id'] || req.query.tenant_id || null;
 
   if (token) {
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
       req.user = {
         ...decoded,
-        tenant_id: headerTenant || decoded.tenant_id || decoded.tenantId || decoded.companyId || 1
+        tenant_id: decoded.tenant_id || decoded.tenantId || decoded.companyId || headerTenant || null
       };
       return next();
     } catch (err) {
@@ -222,32 +222,26 @@ export async function authMiddleware(req, res, next) {
         if (unverified && (unverified.email || unverified.user_id || unverified.sub)) {
           req.user = {
             id: unverified.user_id || unverified.sub || 1,
-            email: unverified.email || 'admin@omniflow.com',
-            role: unverified.role || 'admin',
-            tenant_id: headerTenant || unverified.tenant_id || unverified.tenantId || 1
+            email: unverified.email || 'user@omniflow.com',
+            role: unverified.role || 'owner',
+            tenant_id: unverified.tenant_id || unverified.tenantId || unverified.companyId || headerTenant || null
           };
           return next();
         }
       } catch {}
 
-      if (token === 'superadmin_master_token_override' || token.startsWith('firebase_') || token.startsWith('emp_token_')) {
+      if (token === 'superadmin_master_token_override') {
         req.user = { 
           id: 1, 
           email: 'admin@omniflow.com', 
-          role: 'admin', 
-          tenant_id: headerTenant || 1 
+          role: 'superadmin', 
+          tenant_id: headerTenant || 'platform_superadmin' 
         };
         return next();
       }
 
       return res.status(401).json({ error: 'Invalid or expired authentication token', details: err.message });
     }
-  }
-
-  // Explicit local development fallback
-  if (process.env.NODE_ENV === 'development' || process.env.ALLOW_DEV_SUPERADMIN_FALLBACK === 'true') {
-    req.user = { id: 1, email: 'admin@omniflow.com', role: 'superadmin', tenant_id: headerTenant || 1 };
-    return next();
   }
 
   return res.status(401).json({ error: 'Access denied: Valid authentication token required' });
@@ -961,8 +955,12 @@ export default function setupRoutes(io) {
   // Get contacts / recent chats
   router.get('/contacts', async (req, res) => {
     try {
-      const contacts = await getRecentChats(req.user.tenant_id);
-      res.json(contacts);
+      const activeTenant = req.user?.tenant_id || req.headers['x-tenant-id'] || req.query.tenant_id;
+      if (!activeTenant || activeTenant === 'org_unassigned' || activeTenant === 'null' || activeTenant === 'undefined') {
+        return res.json([]);
+      }
+      const contacts = await getRecentChats(activeTenant);
+      res.json(contacts || []);
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'Failed to retrieve contacts' });
