@@ -2568,7 +2568,7 @@ export default function setupRoutes(io) {
   });
 
   // Public endpoint for GHL embed script to verify if a location is authorized to use Voxbay Dialer
-  app.get('/api/ghl/check-active-location', async (req, res) => {
+  router.get('/ghl/check-active-location', async (req, res) => {
     try {
       const locationId = (req.query.locationId || '').trim();
       if (!locationId) return res.json({ active: false });

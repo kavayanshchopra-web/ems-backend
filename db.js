@@ -3,6 +3,7 @@ import sqlite3 from 'sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import { postgresAdapter, getPgPool } from './postgresDb.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = path.join(__dirname, 'database.sqlite');
@@ -10,6 +11,18 @@ const dbPath = path.join(__dirname, 'database.sqlite');
 let db;
 
 export async function initDb() {
+  if (process.env.DATABASE_URL) {
+    try {
+      const pool = getPgPool();
+      await pool.query('SELECT 1');
+      console.log('⚡ Connected to Supabase PostgreSQL 17 Master Database successfully!');
+      db = postgresAdapter;
+      return db;
+    } catch (pgErr) {
+      console.error('❌ Failed to connect to Supabase PostgreSQL, falling back to SQLite:', pgErr.message);
+    }
+  }
+
   db = await open({
     filename: dbPath,
     driver: sqlite3.Database
