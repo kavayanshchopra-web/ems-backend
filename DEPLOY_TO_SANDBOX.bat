@@ -39,9 +39,9 @@ git push origin staging
 echo Git staging sync complete.
 
 echo.
-echo [3/3] Deploying frontend directly to Vercel Sandbox (Preview / Staging)...
-cd /d "%~dp0frontend"
-call npx vercel --yes
+echo [3/3] Deploying frontend directly to Vercel Sandbox (Permanent Domain)...
+cd /d "%~dp0"
+call node deploy_sandbox_step.mjs
 if %errorlevel% neq 0 (
   color 0C
   echo.
