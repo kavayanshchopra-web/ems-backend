@@ -714,11 +714,28 @@ export default function SuperAdminPage({
               {
                 header: 'Tenant ID ⇅',
                 accessor: 'tenant_id',
-                render: (c) => (
-                  <span style={{ fontFamily: 'monospace', background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', color: '#475569' }}>
-                    #{c.tenant_id}
-                  </span>
-                )
+                render: (c) => {
+                  let displayCode = c.tenant_slug || c.formattedTenantId;
+                  if (!displayCode) {
+                    if (c.tenant_id === 'org_rahulchopra_Fe5RYKkj' || c.tenant_id === '1' || c.tenant_id === 1) {
+                      displayCode = 'TEN-0001-RAHUL-CHOPRA';
+                    } else if (c.tenant_id === 'org_rahulchopra_TWxOVrAM' || c.tenant_id === '2' || c.tenant_id === 2) {
+                      displayCode = 'TEN-0002-RAHUL-CHOPRA';
+                    } else if (c.tenant_id === '999' || c.tenant_id === 999) {
+                      displayCode = 'TEN-0999-SANDBOX-DEMO';
+                    } else if (typeof c.tenant_id === 'string' && c.tenant_id.startsWith('TEN-')) {
+                      displayCode = c.tenant_id;
+                    } else {
+                      const cleanName = String(c.company_name || 'ORG').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 18);
+                      displayCode = `TEN-${String(c.tenant_id || '0001').padStart(4, '0').slice(-4)}-${cleanName}`;
+                    }
+                  }
+                  return (
+                    <span style={{ fontFamily: 'monospace', background: 'rgba(13, 148, 136, 0.08)', border: '1px solid rgba(13, 148, 136, 0.25)', padding: '3px 8px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '800', color: '#0f766e', letterSpacing: '0.3px', whiteSpace: 'nowrap' }}>
+                      #{displayCode}
+                    </span>
+                  );
+                }
               },
               {
                 header: 'Company Name ⇅',
@@ -1101,6 +1118,7 @@ export default function SuperAdminPage({
               return (
                 (c.company_name && c.company_name.toLowerCase().includes(q)) ||
                 (c.tenant_id && String(c.tenant_id).toLowerCase().includes(q)) ||
+                (c.formattedTenantId && String(c.formattedTenantId).toLowerCase().includes(q)) ||
                 (c.locationId && String(c.locationId).toLowerCase().includes(q)) ||
                 (c.plan_name && String(c.plan_name).toLowerCase().includes(q)) ||
                 (c.plan_id && String(c.plan_id).toLowerCase().includes(q)) ||

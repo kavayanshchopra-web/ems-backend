@@ -3761,8 +3761,23 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           const isTimeExpired = expiryDate ? new Date(expiryDate).getTime() < Date.now() : false;
           const subStatus = isTimeExpired ? 'expired' : (sub.status || c.subscription_status || (isTrial ? 'trial' : 'active'));
 
+          let formattedSlug = 'TEN-0001-RAHUL-CHOPRA';
+          if (docDoc.id === 'org_rahulchopra_TWxOVrAM' || docDoc.id === '2' || docDoc.id === 2) {
+            formattedSlug = 'TEN-0002-RAHUL-CHOPRA';
+          } else if (docDoc.id === 'org_rahulchopra_Fe5RYKkj' || docDoc.id === '1' || docDoc.id === 1) {
+            formattedSlug = 'TEN-0001-RAHUL-CHOPRA';
+          } else if (docDoc.id === 'sandbox_test_org' || docDoc.id === '999' || docDoc.id === 999) {
+            formattedSlug = 'TEN-0999-SANDBOX-DEMO';
+          } else {
+            const clean = String(c.company_name || c.name || 'ORG').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20);
+            const num = fbList.length + 3;
+            formattedSlug = `TEN-${String(num).padStart(4, '0')}-${clean}`;
+          }
+
           fbList.push({
             tenant_id: docDoc.id,
+            tenant_slug: formattedSlug,
+            formattedTenantId: formattedSlug,
             company_name: c.company_name || c.name || docDoc.id,
             user_count: c.user_count || c.userCount || 1,
             emp_count: c.emp_count || 0,
@@ -4152,6 +4167,33 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     const isEdit = !!newEmployeeForm.id;
     const currentTenantId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id;
     const activeTenantId = FirebaseCloudEngine.getTenantId(currentTenantId);
+
+    const cleanEmpEmail = (newEmployeeForm.email || '').toLowerCase().trim();
+    const cleanPhoneDigits = (newEmployeeForm.phone || '').replace(/\D/g, '');
+    const normPhone10 = cleanPhoneDigits.length >= 7 ? cleanPhoneDigits.slice(-10) : '';
+
+    // Strict Duplicate Prevention on Email & Phone Number
+    const existingDup = (employees || []).find(emp => {
+      if (!emp) return false;
+      if (isEdit && String(emp.id) === String(newEmployeeForm.id)) return false;
+      const empEmail = (emp.email || '').toLowerCase().trim();
+      const empPhoneDigits = (emp.phone || '').replace(/\D/g, '');
+      const empNorm10 = empPhoneDigits.length >= 7 ? empPhoneDigits.slice(-10) : '';
+
+      const emailMatch = cleanEmpEmail && empEmail && cleanEmpEmail === empEmail;
+      const phoneMatch = normPhone10 && empNorm10 && normPhone10 === empNorm10;
+      return emailMatch || phoneMatch;
+    });
+
+    if (existingDup) {
+      const isEmailDup = cleanEmpEmail && (existingDup.email || '').toLowerCase().trim() === cleanEmpEmail;
+      const dupField = isEmailDup ? 'Email Address' : 'Phone Number';
+      const existingName = `${existingDup.first_name || existingDup.name || ''} ${existingDup.last_name || ''}`.trim() || 'Existing Employee';
+      showToast(`⚠️ Duplicate Blocked: Is ${dupField} se pehle se employee account ("${existingName}") maujood hai. 1 Gmail ya Mobile Number se 2 accounts nahi ban sakte!`, 'error');
+      setIsEmployeesLoading(false);
+      return;
+    }
+
     const newEmpObj = {
       id: isEdit ? newEmployeeForm.id : getNextSequentialId(currentTenantId, 'employees', null, employees),
       first_name: newEmployeeForm.firstName,
@@ -4164,7 +4206,32 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       status: newEmployeeForm.status || 'active',
       tenantId: activeTenantId
     };
-    // 1. Instant Local State
+
+    // 1. Save to Backend REST API (Direct Supabase connection)
+    try {
+      const token = typeof window !== 'undefined' ? (localStorage.getItem('omnilflow_token') || localStorage.getItem('token')) : null;
+      const url = isEdit ? `${API_URL}/employees/${newEmployeeForm.id}` : `${API_URL}/employees`;
+      const method = isEdit ? 'PUT' : 'POST';
+      const resp = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': String(activeTenantId)
+        },
+        body: JSON.stringify({ ...newEmployeeForm, tenantId: activeTenantId })
+      });
+      const respJson = await resp.json();
+      if (!resp.ok) {
+        showToast(respJson.error || 'Failed to save employee profile', 'error');
+        setIsEmployeesLoading(false);
+        return;
+      }
+    } catch (err) {
+      console.warn('Backend employee save notice:', err.message);
+    }
+
+    // 2. Instant Local State update
     setEmployees(prev => {
       if (isEdit) {
         return prev.map(emp => emp.id === newEmployeeForm.id ? { ...emp, ...newEmpObj } : emp);
@@ -4172,19 +4239,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         return [newEmpObj, ...prev.filter(e => e.id !== newEmpObj.id)];
       }
     });
-    // 2. Save to Backend REST API
-    try {
-      const url = isEdit ? `${API_URL}/employees/${newEmployeeForm.id}` : `${API_URL}/employees`;
-      const method = isEdit ? 'PUT' : 'POST';
-      await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...newEmployeeForm, tenantId: activeTenantId })
-      });
-    } catch (err) {
-      console.warn('Backend employee save notice:', err.message);
-    }
-    // 3. Save to Cloud Firestore
+
+    // 3. Save to Cloud Firestore fallback
     await FirebaseCloudEngine.saveRecord('employees', newEmpObj, activeTenantId);
     // 4. Save Registered Login User Credentials for Workspace Login
     if (newEmployeeForm.password) {
