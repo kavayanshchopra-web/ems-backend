@@ -691,6 +691,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       window.location.reload();
     }
   };
+
+  const [impersonatedCompany, setImpersonatedCompany] = useState(null);
+
+  const effectiveAuthUser = useMemo(() => {
+    if (!impersonatedCompany) return authUser;
+    return {
+      ...authUser,
+      tenantId: impersonatedCompany.tenant_id || impersonatedCompany.id,
+      companyId: impersonatedCompany.tenant_id || impersonatedCompany.id,
+      tenant_id: impersonatedCompany.tenant_id || impersonatedCompany.id,
+      companyName: impersonatedCompany.company_name || impersonatedCompany.name || impersonatedCompany.tenant_id,
+      isImpersonating: true,
+      realRole: authUser?.role
+    };
+  }, [authUser, impersonatedCompany]);
+
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
@@ -1769,21 +1785,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     setActiveTab('module_configuration');
   };
-
-  const [impersonatedCompany, setImpersonatedCompany] = useState(null);
-
-  const effectiveAuthUser = useMemo(() => {
-    if (!impersonatedCompany) return authUser;
-    return {
-      ...authUser,
-      tenantId: impersonatedCompany.tenant_id || impersonatedCompany.id,
-      companyId: impersonatedCompany.tenant_id || impersonatedCompany.id,
-      tenant_id: impersonatedCompany.tenant_id || impersonatedCompany.id,
-      companyName: impersonatedCompany.company_name || impersonatedCompany.name || impersonatedCompany.tenant_id,
-      isImpersonating: true,
-      realRole: authUser?.role
-    };
-  }, [authUser, impersonatedCompany]);
 
   const handleEnterCompany = (company) => {
     if (!company) return;
