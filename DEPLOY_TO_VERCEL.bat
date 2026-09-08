@@ -1,11 +1,30 @@
 @echo off
-title OmniFlow EMS - Vercel Live Deployment
-color 0A
+title OmniFlow EMS - LIVE PRODUCTION DEPLOYMENT LOCKED
+color 0C
 echo ========================================================
-echo OMNIFLOW EMS - LIVE VERCEL DEPLOYMENT TOOL
+echo  [CRITICAL SAFETY LOCK] LIVE PRODUCTION DEPLOYMENT
+echo  Target: https://app.employeemanagementsystems.com
 echo ========================================================
 echo.
+echo  WARNING: This tool deploys directly to LIVE CLIENTS!
+echo  All new developments and tests MUST be tested on:
+echo  https://sandbox.employeemanagementsystems.com
+echo.
+echo  To deploy to SANDBOX safely, close this window and run:
+echo  DEPLOY_TO_SANDBOX.bat
+echo ========================================================
+echo.
+set /p CONFIRM="Type 'DEPLOY_LIVE_CONFIRMED' to proceed to LIVE PRODUCTION: "
+if not "%CONFIRM%"=="DEPLOY_LIVE_CONFIRMED" (
+  echo.
+  echo [SAFETY ABORT] Deployment to Live cancelled. Production is safe.
+  pause
+  exit /b 1
+)
 
+color 0A
+echo.
+echo [CONFIRMED] Proceeding with Live Deployment...
 cd /d "%~dp0"
 
 echo [1/3] Cleaning Vite cache and building frontend locally...
