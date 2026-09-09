@@ -1046,6 +1046,43 @@ export const SupabaseSandboxService = {
     }
   },
 
+  MODULE_TABLE_MAP: {
+    'expenses': 'expenses',
+    'expense_claims': 'expenses',
+    'tasks': 'tasks',
+    'tasks_board': 'tasks',
+    'leaves': 'leaves',
+    'holidays': 'holidays',
+    'notices': 'notices',
+    'notice_board': 'notices',
+    'attendance': 'attendance_logs',
+    'attendance_logs': 'attendance_logs',
+    'employees': 'employees',
+    'contacts': 'contacts',
+    'crm_deals': 'contacts',
+    'recruitment_ats': 'recruitment_ats',
+    'asset_management': 'asset_management',
+    'assets': 'asset_management',
+    'verify_documents': 'verify_documents',
+    'offboarding': 'offboarding',
+    'payroll': 'payroll',
+    'taxes_compliance': 'taxes_compliance',
+    'ff_settlements': 'ff_settlements',
+    'advances_loans': 'advances_loans',
+    'shifts': 'shifts',
+    'rewards': 'rewards',
+    'feedback': 'feedback',
+    'system_feedbacks': 'feedback',
+    'roles_permissions': 'roles_permissions',
+    'permission_matrix': 'roles_permissions',
+    'billing': 'invoices',
+    'invoices': 'invoices',
+    'billing_invoices': 'invoices',
+    'custom_pages': 'custom_pages',
+    'module_configs': 'module_configs',
+    'recycle_bin': 'recycle_bin'
+  },
+
   // =========================================================================
   // 12. UNIVERSAL BRIDGE (All Current & Future Modules Auto-Persistence)
   // =========================================================================
@@ -1055,7 +1092,7 @@ export const SupabaseSandboxService = {
     const docId = String(recordId || recordData?.id || `rec_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`);
 
     try {
-      // Route 1: Dedicated Tables
+      // Route 1: Specific specialized modules with custom logic
       if (cleanMod === 'expenses' || cleanMod === 'expense_claims') {
         if (recordId) {
           return await this.updateExpense(recordId, recordData, numTenant);
@@ -1094,7 +1131,36 @@ export const SupabaseSandboxService = {
         }
       }
 
-      // Route 2: Universal app_records Fallback for Any Module & Any Future Page
+      // Route 2: Dedicated SQL Table from MODULE_TABLE_MAP
+      const dedicatedTable = this.MODULE_TABLE_MAP[cleanMod];
+      if (dedicatedTable) {
+        const payload = {
+          id: docId,
+          tenant_id: numTenant,
+          name: recordData.name || recordData.title || recordData.candidate_name || recordData.asset_name || null,
+          custom_fields: recordData,
+          ...recordData,
+          updated_at: new Date().toISOString()
+        };
+
+        const res = await fetch(`${SUPABASE_URL}/${dedicatedTable}`, {
+          method: 'POST',
+          headers: {
+            ...getHeaders(),
+            'Prefer': 'resolution=merge-duplicates,return=representation'
+          },
+          body: JSON.stringify(payload)
+        });
+        const resData = await res.json();
+        const saved = Array.isArray(resData) ? resData[0] : resData;
+        return {
+          ...recordData,
+          ...(saved || {}),
+          id: docId
+        };
+      }
+
+      // Route 3: Universal app_records Fallback for Any Unmapped/New Module
       const appRecordPayload = {
         id: docId,
         tenant_id: numTenant,
@@ -1124,7 +1190,7 @@ export const SupabaseSandboxService = {
     const cleanMod = String(moduleId || '').toLowerCase().trim();
 
     try {
-      // Route 1: Dedicated Tables
+      // Route 1: Specific specialized modules with custom logic
       if (cleanMod === 'expenses' || cleanMod === 'expense_claims') {
         return await this.fetchExpenses(numTenant);
       } else if (cleanMod === 'tasks' || cleanMod === 'tasks_board') {
@@ -1143,7 +1209,25 @@ export const SupabaseSandboxService = {
         return await this.fetchContacts(numTenant);
       }
 
-      // Route 2: Universal app_records for Any Module & Any Future Page
+      // Route 2: Dedicated SQL Table from MODULE_TABLE_MAP
+      const dedicatedTable = this.MODULE_TABLE_MAP[cleanMod];
+      if (dedicatedTable) {
+        const res = await fetch(`${SUPABASE_URL}/${dedicatedTable}?tenant_id=eq.${numTenant}&order=updated_at.desc`, {
+          headers: getHeaders()
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            return data.map(item => ({
+              ...(item.custom_fields || {}),
+              ...item,
+              id: item.id
+            }));
+          }
+        }
+      }
+
+      // Route 3: Universal app_records for Any Future Page
       const res = await fetch(`${SUPABASE_URL}/app_records?tenant_id=eq.${numTenant}&module_id=eq.${cleanMod}&order=updated_at.desc`, {
         headers: getHeaders()
       });
@@ -1182,6 +1266,15 @@ export const SupabaseSandboxService = {
         await this.deleteEmployee(docId, numTenant);
       } else if (cleanMod === 'contacts' || cleanMod === 'crm_deals') {
         await this.deleteContact(docId, numTenant);
+      }
+
+      // Delete from dedicated table if exists
+      const dedicatedTable = this.MODULE_TABLE_MAP[cleanMod];
+      if (dedicatedTable) {
+        await fetch(`${SUPABASE_URL}/${dedicatedTable}?tenant_id=eq.${numTenant}&id=eq.${docId}`, {
+          method: 'DELETE',
+          headers: getHeaders()
+        }).catch(() => {});
       }
 
       // Also ensure deletion from app_records if present
