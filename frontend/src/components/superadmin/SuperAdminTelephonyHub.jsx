@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Phone, Users, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw, Edit3, Settings, Play, Power, ExternalLink, Search, X, Save, Smartphone, Cloud, Info } from 'lucide-react';
+import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
 
 export default function SuperAdminTelephonyHub({ showToast }) {
   const [tenants, setTenants] = useState([]);
@@ -33,6 +34,25 @@ export default function SuperAdminTelephonyHub({ showToast }) {
 
   const fetchTenants = async () => {
     setLoading(true);
+    if (isSandboxEnvironment()) {
+      try {
+        const tList = await SupabaseSandboxService.fetchTenants();
+        if (Array.isArray(tList) && tList.length > 0) {
+          setTenants(tList.map(t => ({
+            tenant_id: t.id,
+            company_name: t.company_name || `Tenant #${t.id}`,
+            provider: 'sim_runo',
+            is_enabled: 1,
+            monthly_quota_minutes: 500,
+            notes: 'PostgreSQL Supabase Managed'
+          })));
+          setLoading(false);
+          return;
+        }
+      } catch (sbErr) {
+        console.warn('Sandbox telephony fetch notice:', sbErr);
+      }
+    }
     try {
       const res = await fetch('/api/superadmin/telephony/tenants');
       const data = await res.json();

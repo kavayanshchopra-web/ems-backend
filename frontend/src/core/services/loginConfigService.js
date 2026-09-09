@@ -5,6 +5,7 @@
  */
 
 import { db, doc, getDoc, setDoc } from '../../firebase';
+import { isSandboxEnvironment, SupabaseSandboxService } from './supabaseSandboxService';
 
 export const DEFAULT_LOGIN_CONFIG = {
   heroTagline: 'WELCOME TO OMNIFLOW',
@@ -63,12 +64,22 @@ export const loginConfigService = {
    * Load active login configuration (Cached Local -> Cloud Firestore fallback)
    */
   async getLoginConfig() {
+    // 0. Sandbox Supabase fallback
+    if (isSandboxEnvironment()) {
+      try {
+        const records = await SupabaseSandboxService.fetchUniversalRecords('system_config', 1);
+        const found = Array.isArray(records) ? records.find(r => r.id === 'login_page') : null;
+        if (found) {
+          return { ...DEFAULT_LOGIN_CONFIG, ...found };
+        }
+      } catch (sbErr) {}
+    }
+
     // 1. Check local cache first for zero-latency render
     try {
       const cached = localStorage.getItem(STORAGE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached);
-        // Async background sync with cloud
         this.fetchCloudConfigBackground();
         return { ...DEFAULT_LOGIN_CONFIG, ...parsed };
       }
@@ -125,6 +136,13 @@ export const loginConfigService = {
       updatedAt: new Date().toISOString(),
       updatedBy: authUser.email || 'superadmin'
     };
+
+    // Save to Sandbox Supabase
+    if (isSandboxEnvironment()) {
+      try {
+        await SupabaseSandboxService.saveUniversalRecord('system_config', { id: 'login_page', ...merged }, 1, 'login_page');
+      } catch (sbErr) {}
+    }
 
     // Save to Firestore
     if (db) {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, CheckCircle2, AlertCircle, Clock, Search, Eye, Check, X, FileText, Building, User, Phone, Mail, MapPin, ExternalLink, RefreshCw } from 'lucide-react';
+import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
 
 export default function SuperAdminKycHub({ showToast }) {
   const [submissions, setSubmissions] = useState([]);
@@ -12,6 +13,18 @@ export default function SuperAdminKycHub({ showToast }) {
 
   const fetchSubmissions = async () => {
     setLoading(true);
+    if (isSandboxEnvironment()) {
+      try {
+        const docs = await SupabaseSandboxService.fetchUniversalRecords('verify_documents', 'all');
+        if (Array.isArray(docs)) {
+          setSubmissions(docs);
+          setLoading(false);
+          return;
+        }
+      } catch (sbErr) {
+        console.warn('Sandbox KYC fetch notice:', sbErr);
+      }
+    }
     try {
       const res = await fetch('/api/superadmin/kyc/all');
       const data = await res.json();

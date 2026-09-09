@@ -1,8 +1,10 @@
-﻿/**
+/**
  * Autonomous System Audit Engine (AuditEngine)
  * Automatically captures and logs all record mutations, field updates, calling events,
  * WhatsApp activity, and security changes with Before vs After diffs.
  */
+
+import { isSandboxEnvironment, SupabaseSandboxService } from '../../services/supabaseSandboxService';
 
 class SystemAuditEngine {
   constructor() {
@@ -74,6 +76,24 @@ class SystemAuditEngine {
       if (localQueue.length > 500) localQueue.length = 500;
       localStorage.setItem('omniflow_audit_queue', JSON.stringify(localQueue));
     } catch (e) {}
+
+    // Sandbox Supabase persistence
+    if (isSandboxEnvironment()) {
+      try {
+        SupabaseSandboxService.saveUniversalRecord('audit_logs', {
+          id: `audit_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          tenant_id: Number(tId) || 1,
+          user_id: logEntry.userId,
+          action: logEntry.action,
+          entity_type: logEntry.module,
+          entity_id: logEntry.resourceName,
+          details: logEntry.details || logEntry.newValue,
+          ip_address: '127.0.0.1',
+          created_at: logEntry.created_at,
+          custom_fields: logEntry
+        }, Number(tId) || 1).catch(() => {});
+      } catch (sbErr) {}
+    }
 
     // Async flush to backend API
     this.sendToBackend(logEntry);

@@ -1064,6 +1064,7 @@ export const SupabaseSandboxService = {
     'asset_management': 'asset_management',
     'assets': 'asset_management',
     'verify_documents': 'verify_documents',
+    'kyc': 'verify_documents',
     'offboarding': 'offboarding',
     'payroll': 'payroll',
     'taxes_compliance': 'taxes_compliance',
@@ -1079,8 +1080,56 @@ export const SupabaseSandboxService = {
     'invoices': 'invoices',
     'billing_invoices': 'invoices',
     'custom_pages': 'custom_pages',
+    'custom_modules': 'custom_pages',
     'module_configs': 'module_configs',
-    'recycle_bin': 'recycle_bin'
+    'recycle_bin': 'recycle_bin',
+    'trash_vault': 'recycle_bin',
+    'audit_logs': 'audit_logs',
+    'system_audit_logs': 'audit_logs',
+    'call_logs': 'call_logs',
+    'telecalling': 'call_logs',
+    'chatbot_rules': 'chatbot_rules',
+    'chatbot': 'chatbot_rules',
+    'whatsapp_sessions': 'whatsapp_sessions',
+    'channels': 'whatsapp_sessions',
+    'scheduled_messages': 'scheduled_messages',
+    'tenant_settings': 'tenant_settings',
+    'settings': 'tenant_settings'
+  },
+
+  TABLE_COLUMNS: {
+    recruitment_ats: ['id', 'tenant_id', 'candidate_name', 'name', 'email', 'phone', 'role', 'position', 'stage', 'status', 'experience', 'resume_url', 'rating', 'notes', 'custom_fields', 'created_at', 'updated_at'],
+    asset_management: ['id', 'tenant_id', 'asset_name', 'name', 'asset_code', 'category', 'serial_number', 'assigned_to', 'employee_name', 'status', 'purchase_date', 'value', 'notes', 'custom_fields', 'created_at', 'updated_at'],
+    verify_documents: ['id', 'tenant_id', 'employee_id', 'employee_name', 'name', 'doc_type', 'doc_number', 'file_url', 'status', 'verified_by', 'notes', 'custom_fields', 'created_at', 'updated_at'],
+    offboarding: ['id', 'tenant_id', 'employee_id', 'employee_name', 'name', 'resignation_date', 'last_working_day', 'reason', 'status', 'clearance_status', 'handover_to', 'custom_fields', 'created_at', 'updated_at'],
+    payroll: ['id', 'tenant_id', 'employee_id', 'employee_name', 'name', 'month', 'year', 'basic_salary', 'deductions', 'bonus', 'net_salary', 'status', 'payment_date', 'payslip_url', 'custom_fields', 'created_at', 'updated_at'],
+    taxes_compliance: ['id', 'tenant_id', 'employee_id', 'employee_name', 'name', 'financial_year', 'tax_slab', 'pf_deduction', 'esi_deduction', 'tds', 'status', 'custom_fields', 'created_at', 'updated_at'],
+    ff_settlements: ['id', 'tenant_id', 'employee_id', 'employee_name', 'name', 'settlement_date', 'settlement_amount', 'gratuity', 'leave_encashment', 'deductions', 'net_payable', 'status', 'custom_fields', 'created_at', 'updated_at'],
+    advances_loans: ['id', 'tenant_id', 'employee_id', 'employee_name', 'name', 'loan_amount', 'amount', 'emi_amount', 'duration_months', 'remaining_amount', 'reason', 'status', 'custom_fields', 'created_at', 'updated_at'],
+    shifts: ['id', 'tenant_id', 'shift_name', 'name', 'start_time', 'end_time', 'work_days', 'grace_period_mins', 'is_active', 'custom_fields', 'created_at', 'updated_at'],
+    rewards: ['id', 'tenant_id', 'employee_id', 'employee_name', 'name', 'title', 'badge', 'points', 'reason', 'awarded_by', 'date', 'custom_fields', 'created_at', 'updated_at'],
+    feedback: ['id', 'tenant_id', 'employee_id', 'employee_name', 'name', 'category', 'message', 'rating', 'status', 'resolved_by', 'custom_fields', 'created_at', 'updated_at'],
+    roles_permissions: ['id', 'tenant_id', 'role_name', 'name', 'permissions', 'is_custom', 'custom_fields', 'created_at', 'updated_at'],
+    invoices: ['id', 'tenant_id', 'invoice_number', 'name', 'plan_name', 'amount', 'currency', 'status', 'payment_id', 'invoice_url', 'custom_fields', 'created_at', 'updated_at'],
+    custom_pages: ['id', 'tenant_id', 'page_slug', 'page_title', 'title', 'name', 'icon', 'category', 'route', 'config', 'is_active', 'custom_fields', 'created_at', 'updated_at'],
+    module_configs: ['id', 'tenant_id', 'module_id', 'config', 'custom_fields', 'created_at', 'updated_at'],
+    recycle_bin: ['id', 'tenant_id', 'original_id', 'name', 'category', 'module_tab', 'entity_data', 'deleted_at', 'custom_fields'],
+    system_dropdowns: ['id', 'tenant_id', 'category', 'value', 'label', 'is_active', 'sort_order', 'custom_fields', 'created_at'],
+    audit_logs: ['id', 'tenant_id', 'user_id', 'action', 'entity_type', 'entity_id', 'details', 'ip_address', 'custom_fields', 'created_at'],
+    call_logs: ['id', 'tenant_id', 'agent_name', 'agent_id', 'agent_role', 'customer_name', 'customer_phone', 'phone', 'call_type', 'type', 'channel', 'status', 'duration', 'duration_seconds', 'recording_url', 'disposition', 'notes', 'timestamp', 'created_at', 'custom_fields'],
+    chatbot_rules: ['id', 'tenant_id', 'keyword', 'reply_text', 'match_type', 'is_active', 'custom_fields', 'created_at'],
+    whatsapp_sessions: ['id', 'tenant_id', 'phone_name', 'phone_number', 'status', 'qr_code', 'profile_pic_url', 'custom_fields', 'created_at', 'updated_at'],
+    scheduled_messages: ['id', 'tenant_id', 'session_id', 'contact_id', 'message_text', 'scheduled_at', 'status', 'error_message', 'custom_fields', 'created_at'],
+    expenses: ['id', 'tenant_id', 'employee_id', 'category', 'amount', 'status', 'description', 'receipt_url', 'date', 'title', 'employee_name', 'notes', 'custom_fields', 'name', 'created_at'],
+    tasks: ['id', 'tenant_id', 'title', 'description', 'assigned_to', 'status', 'priority', 'due_date', 'assigned_to_name', 'custom_fields', 'name', 'created_at', 'updated_at'],
+    leaves: ['id', 'tenant_id', 'employee_id', 'leave_type', 'start_date', 'end_date', 'status', 'reason', 'employee_name', 'custom_fields', 'name', 'created_at'],
+    holidays: ['id', 'tenant_id', 'name', 'date', 'type', 'description', 'custom_fields', 'created_at'],
+    notices: ['id', 'tenant_id', 'title', 'content', 'priority', 'published_by', 'custom_fields', 'name', 'created_at'],
+    attendance_logs: ['id', 'tenant_id', 'employee_id', 'check_in_time', 'check_out_time', 'date', 'status', 'work_mode', 'location_lat', 'location_lng', 'notes', 'employee_name', 'custom_fields', 'created_at'],
+    contacts: ['id', 'tenant_id', 'name', 'custom_name', 'phone', 'phone_normalized', 'email', 'notes', 'pipeline_stage', 'labels', 'profile_pic_url', 'is_archived', 'custom_fields', 'deal_value', 'email_normalized', 'created_at', 'updated_at'],
+    employees: ['id', 'tenant_id', 'first_name', 'last_name', 'name', 'email', 'phone', 'role', 'department', 'salary', 'status', 'joining_date', 'user_id', 'metadata', 'custom_fields', 'created_at', 'updated_at'],
+    tenant_settings: ['tenant_id', 'pipeline_stages', 'tags', 'business_hours', 'custom_fields', 'created_at', 'updated_at'],
+    app_records: ['id', 'tenant_id', 'module_id', 'data', 'custom_fields', 'created_at', 'updated_at']
   },
 
   // =========================================================================
@@ -1134,14 +1183,26 @@ export const SupabaseSandboxService = {
       // Route 2: Dedicated SQL Table from MODULE_TABLE_MAP
       const dedicatedTable = this.MODULE_TABLE_MAP[cleanMod];
       if (dedicatedTable) {
+        const allowedCols = this.TABLE_COLUMNS[dedicatedTable];
         const payload = {
           id: docId,
           tenant_id: numTenant,
-          name: recordData.name || recordData.title || recordData.candidate_name || recordData.asset_name || null,
           custom_fields: recordData,
-          ...recordData,
           updated_at: new Date().toISOString()
         };
+
+        if (allowedCols && Array.isArray(allowedCols)) {
+          for (const col of allowedCols) {
+            if (recordData[col] !== undefined) {
+              payload[col] = recordData[col];
+            }
+          }
+          if (allowedCols.includes('name') && !payload.name) {
+            payload.name = recordData.name || recordData.title || recordData.candidate_name || recordData.asset_name || recordData.shift_name || docId;
+          }
+        } else {
+          Object.assign(payload, recordData);
+        }
 
         const res = await fetch(`${SUPABASE_URL}/${dedicatedTable}`, {
           method: 'POST',
@@ -1166,6 +1227,7 @@ export const SupabaseSandboxService = {
         tenant_id: numTenant,
         module_id: cleanMod,
         data: recordData,
+        custom_fields: recordData,
         updated_at: new Date().toISOString()
       };
 
@@ -1188,6 +1250,7 @@ export const SupabaseSandboxService = {
   async fetchUniversalRecords(moduleId, tenantId = 1) {
     const numTenant = Number(tenantId) || 1;
     const cleanMod = String(moduleId || '').toLowerCase().trim();
+    const isAllTenants = (tenantId === 'all' || tenantId === 'platform_superadmin');
 
     try {
       // Route 1: Specific specialized modules with custom logic
@@ -1212,7 +1275,11 @@ export const SupabaseSandboxService = {
       // Route 2: Dedicated SQL Table from MODULE_TABLE_MAP
       const dedicatedTable = this.MODULE_TABLE_MAP[cleanMod];
       if (dedicatedTable) {
-        const res = await fetch(`${SUPABASE_URL}/${dedicatedTable}?tenant_id=eq.${numTenant}&order=updated_at.desc`, {
+        const filterUrl = isAllTenants
+          ? `${SUPABASE_URL}/${dedicatedTable}?order=updated_at.desc`
+          : `${SUPABASE_URL}/${dedicatedTable}?tenant_id=eq.${numTenant}&order=updated_at.desc`;
+
+        const res = await fetch(filterUrl, {
           headers: getHeaders()
         });
         if (res.ok) {
@@ -1228,13 +1295,18 @@ export const SupabaseSandboxService = {
       }
 
       // Route 3: Universal app_records for Any Future Page
-      const res = await fetch(`${SUPABASE_URL}/app_records?tenant_id=eq.${numTenant}&module_id=eq.${cleanMod}&order=updated_at.desc`, {
+      const filterUrl = isAllTenants
+        ? `${SUPABASE_URL}/app_records?module_id=eq.${cleanMod}&order=updated_at.desc`
+        : `${SUPABASE_URL}/app_records?tenant_id=eq.${numTenant}&module_id=eq.${cleanMod}&order=updated_at.desc`;
+
+      const res = await fetch(filterUrl, {
         headers: getHeaders()
       });
       if (!res.ok) return null;
       const data = await res.json();
       if (!Array.isArray(data)) return null;
       return data.map(r => ({
+        ...(r.custom_fields || {}),
         ...(r.data || {}),
         id: r.id,
         createdAt: r.created_at,

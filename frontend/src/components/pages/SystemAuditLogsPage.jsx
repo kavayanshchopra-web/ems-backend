@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, 
   Search, 
@@ -21,6 +21,7 @@ import {
   Download
 } from 'lucide-react';
 import AuditEngine from '../../core/engines/AuditEngine/AuditEngine';
+import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
 
 export default function SystemAuditLogsPage({
   authUser,
@@ -44,6 +45,18 @@ export default function SystemAuditLogsPage({
 
   const fetchLogs = async () => {
     setLoading(true);
+    if (isSandboxEnvironment()) {
+      try {
+        const sbLogs = await SupabaseSandboxService.fetchUniversalRecords('audit_logs', selectedTenantId === 'all' ? 'all' : selectedTenantId);
+        if (Array.isArray(sbLogs) && sbLogs.length > 0) {
+          setLogs(sbLogs);
+          setLoading(false);
+          return;
+        }
+      } catch (sbErr) {
+        console.warn('Sandbox audit fetch notice:', sbErr);
+      }
+    }
     try {
       const params = new URLSearchParams();
       if (selectedTenantId !== 'all') params.append('tenantId', selectedTenantId);

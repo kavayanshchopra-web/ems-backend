@@ -8,6 +8,7 @@ import { db } from '../../firebase';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import FirebaseCloudEngine from '../engines/FirebaseCloudEngine';
 import { DEFAULT_PLANS, DEFAULT_PRICING_CONFIG, DEFAULT_MODULE_PRICING } from '../engines/SubscriptionEngine';
+import { isSandboxEnvironment, SupabaseSandboxService } from './supabaseSandboxService';
 
 const LOCAL_STORAGE_KEY = 'omniflow_onboarding_config_cache';
 
@@ -86,6 +87,21 @@ class OnboardingConfigService {
       return this._cachedConfig;
     }
 
+    // 0. Sandbox Supabase fetch
+    if (isSandboxEnvironment()) {
+      try {
+        const records = await SupabaseSandboxService.fetchUniversalRecords('system_config', 1);
+        const docData = Array.isArray(records) ? records.find(r => r.id === 'onboarding_plans' || r._id === 'onboarding_plans') : null;
+        if (docData && docData.config) {
+          this._cachedConfig = {
+            ...this.getDefaultConfig(),
+            ...docData.config
+          };
+          return this._cachedConfig;
+        }
+      } catch (sbErr) {}
+    }
+
     // 1. Try LocalStorage cache for instant 0ms startup
     try {
       const cached = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -151,6 +167,17 @@ class OnboardingConfigService {
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(this._cachedConfig));
     } catch (e) {}
+
+    // Sandbox Supabase persistence
+    if (isSandboxEnvironment()) {
+      try {
+        await SupabaseSandboxService.saveUniversalRecord('system_config', {
+          id: 'onboarding_plans',
+          config: this._cachedConfig,
+          updatedAt: new Date().toISOString()
+        }, 1, 'onboarding_plans');
+      } catch (sbErr) {}
+    }
 
     // Direct Firestore document set
     if (db) {
