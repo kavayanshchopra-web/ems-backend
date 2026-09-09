@@ -532,6 +532,669 @@ export const SupabaseSandboxService = {
       console.error('[Supabase Sandbox] deleteCallLog error:', err);
       return false;
     }
+  },
+
+  // 5. EXPENSES & CLAIMS
+  async fetchExpenses(tenantId = 1) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/expenses?tenant_id=eq.${Number(tenantId)}&order=created_at.desc`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []).map(exp => ({
+        ...exp,
+        id: String(exp.id),
+        title: exp.title || `${exp.category || 'Expense'} - ₹${exp.amount || 0}`,
+        employee: exp.employee_name || 'Staff',
+        employee_name: exp.employee_name || 'Staff',
+        category: exp.category || 'Other',
+        amount: Number(exp.amount) || 0,
+        expenseDate: exp.date || (exp.created_at ? exp.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
+        status: exp.status || 'Submitted',
+        notes: exp.description || exp.notes || '',
+        description: exp.description || '',
+        receipt: exp.receipt_url || '',
+        receipt_url: exp.receipt_url || '',
+        createdAt: exp.created_at,
+        updatedAt: exp.created_at,
+        ...(exp.custom_fields || {})
+      }));
+    } catch (err) {
+      console.error('[Supabase Sandbox] fetchExpenses error:', err);
+      return [];
+    }
+  },
+
+  async createExpense(expData, tenantId = 1) {
+    try {
+      const payload = {
+        tenant_id: Number(tenantId) || 1,
+        title: expData.title || expData.name || 'Expense Claim',
+        category: expData.category || 'Other',
+        amount: parseFloat(expData.amount) || 0,
+        status: expData.status || 'Submitted',
+        employee_name: expData.employee || expData.employee_name || 'Staff',
+        description: expData.notes || expData.description || '',
+        notes: expData.notes || expData.description || '',
+        receipt_url: expData.receipt || expData.receipt_url || null,
+        date: expData.expenseDate || expData.date || new Date().toISOString().split('T')[0],
+        custom_fields: expData
+      };
+
+      const res = await fetch(`${SUPABASE_URL}/expenses`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to create expense in Supabase');
+      const saved = Array.isArray(data) ? data[0] : data;
+      return {
+        ...expData,
+        ...saved,
+        id: String(saved.id)
+      };
+    } catch (err) {
+      console.error('[Supabase Sandbox] createExpense error:', err);
+      throw err;
+    }
+  },
+
+  async updateExpense(id, expData, tenantId = 1) {
+    try {
+      const payload = {
+        title: expData.title,
+        category: expData.category,
+        amount: parseFloat(expData.amount) || 0,
+        status: expData.status,
+        employee_name: expData.employee || expData.employee_name,
+        description: expData.notes || expData.description,
+        notes: expData.notes || expData.description,
+        receipt_url: expData.receipt || expData.receipt_url,
+        date: expData.expenseDate || expData.date,
+        custom_fields: expData
+      };
+      Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+
+      const res = await fetch(`${SUPABASE_URL}/expenses?id=eq.${id}&tenant_id=eq.${Number(tenantId)}`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to update expense in Supabase');
+      const saved = Array.isArray(data) ? data[0] : data;
+      return { ...expData, ...saved, id: String(saved.id || id) };
+    } catch (err) {
+      console.error('[Supabase Sandbox] updateExpense error:', err);
+      throw err;
+    }
+  },
+
+  async deleteExpense(id, tenantId = 1) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/expenses?id=eq.${id}&tenant_id=eq.${Number(tenantId)}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      return res.ok;
+    } catch (err) {
+      console.error('[Supabase Sandbox] deleteExpense error:', err);
+      return false;
+    }
+  },
+
+  // 6. TASKS
+  async fetchTasks(tenantId = 1) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/tasks?tenant_id=eq.${Number(tenantId)}&order=created_at.desc`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []).map(t => ({
+        ...t,
+        id: String(t.id),
+        title: t.title || 'Task',
+        description: t.description || '',
+        status: t.status || 'Pending',
+        priority: t.priority || 'Medium',
+        assignedTo: t.assigned_to_name || 'Staff',
+        dueDate: t.due_date,
+        createdAt: t.created_at,
+        updatedAt: t.updated_at,
+        ...(t.custom_fields || {})
+      }));
+    } catch (err) {
+      console.error('[Supabase Sandbox] fetchTasks error:', err);
+      return [];
+    }
+  },
+
+  async createTask(taskData, tenantId = 1) {
+    try {
+      const payload = {
+        tenant_id: Number(tenantId) || 1,
+        title: taskData.title || taskData.name || 'New Task',
+        description: taskData.description || '',
+        status: taskData.status || 'Pending',
+        priority: taskData.priority || 'Medium',
+        assigned_to_name: taskData.assignedTo || taskData.assigned_to_name || null,
+        due_date: taskData.dueDate || taskData.due_date || null,
+        custom_fields: taskData
+      };
+      const res = await fetch(`${SUPABASE_URL}/tasks`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to create task in Supabase');
+      const saved = Array.isArray(data) ? data[0] : data;
+      return { ...taskData, ...saved, id: String(saved.id) };
+    } catch (err) {
+      console.error('[Supabase Sandbox] createTask error:', err);
+      throw err;
+    }
+  },
+
+  async updateTask(id, taskData, tenantId = 1) {
+    try {
+      const payload = {
+        title: taskData.title,
+        description: taskData.description,
+        status: taskData.status,
+        priority: taskData.priority,
+        assigned_to_name: taskData.assignedTo || taskData.assigned_to_name,
+        due_date: taskData.dueDate || taskData.due_date,
+        updated_at: new Date().toISOString(),
+        custom_fields: taskData
+      };
+      Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+      const res = await fetch(`${SUPABASE_URL}/tasks?id=eq.${id}&tenant_id=eq.${Number(tenantId)}`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to update task in Supabase');
+      const saved = Array.isArray(data) ? data[0] : data;
+      return { ...taskData, ...saved, id: String(saved.id || id) };
+    } catch (err) {
+      console.error('[Supabase Sandbox] updateTask error:', err);
+      throw err;
+    }
+  },
+
+  async deleteTask(id, tenantId = 1) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/tasks?id=eq.${id}&tenant_id=eq.${Number(tenantId)}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      return res.ok;
+    } catch (err) {
+      console.error('[Supabase Sandbox] deleteTask error:', err);
+      return false;
+    }
+  },
+
+  // 7. LEAVES
+  async fetchLeaves(tenantId = 1) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/leaves?tenant_id=eq.${Number(tenantId)}&order=created_at.desc`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []).map(l => ({
+        ...l,
+        id: String(l.id),
+        type: l.leave_type || 'Casual Leave',
+        leave_type: l.leave_type || 'Casual Leave',
+        startDate: l.start_date,
+        start_date: l.start_date,
+        endDate: l.end_date,
+        end_date: l.end_date,
+        status: l.status || 'Pending',
+        reason: l.reason || '',
+        employee_name: l.employee_name || 'Staff',
+        createdAt: l.created_at,
+        ...(l.custom_fields || {})
+      }));
+    } catch (err) {
+      console.error('[Supabase Sandbox] fetchLeaves error:', err);
+      return [];
+    }
+  },
+
+  async createLeave(leaveData, tenantId = 1) {
+    try {
+      const payload = {
+        tenant_id: Number(tenantId) || 1,
+        leave_type: leaveData.type || leaveData.leave_type || 'Casual Leave',
+        start_date: leaveData.startDate || leaveData.start_date || new Date().toISOString().split('T')[0],
+        end_date: leaveData.endDate || leaveData.end_date || new Date().toISOString().split('T')[0],
+        status: leaveData.status || 'Pending',
+        reason: leaveData.reason || '',
+        employee_name: leaveData.employee || leaveData.employee_name || 'Staff',
+        custom_fields: leaveData
+      };
+      const res = await fetch(`${SUPABASE_URL}/leaves`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to create leave in Supabase');
+      const saved = Array.isArray(data) ? data[0] : data;
+      return { ...leaveData, ...saved, id: String(saved.id) };
+    } catch (err) {
+      console.error('[Supabase Sandbox] createLeave error:', err);
+      throw err;
+    }
+  },
+
+  async updateLeave(id, leaveData, tenantId = 1) {
+    try {
+      const payload = {
+        status: leaveData.status,
+        reason: leaveData.reason,
+        custom_fields: leaveData
+      };
+      Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+      const res = await fetch(`${SUPABASE_URL}/leaves?id=eq.${id}&tenant_id=eq.${Number(tenantId)}`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to update leave in Supabase');
+      const saved = Array.isArray(data) ? data[0] : data;
+      return { ...leaveData, ...saved, id: String(saved.id || id) };
+    } catch (err) {
+      console.error('[Supabase Sandbox] updateLeave error:', err);
+      throw err;
+    }
+  },
+
+  async deleteLeave(id, tenantId = 1) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/leaves?id=eq.${id}&tenant_id=eq.${Number(tenantId)}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      return res.ok;
+    } catch (err) {
+      console.error('[Supabase Sandbox] deleteLeave error:', err);
+      return false;
+    }
+  },
+
+  // 8. HOLIDAYS
+  async fetchHolidays(tenantId = 1) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/holidays?tenant_id=eq.${Number(tenantId)}&order=date.asc`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []).map(h => ({
+        ...h,
+        id: String(h.id),
+        name: h.name,
+        date: h.date,
+        type: h.type || 'Public',
+        description: h.description || '',
+        ...(h.custom_fields || {})
+      }));
+    } catch (err) {
+      console.error('[Supabase Sandbox] fetchHolidays error:', err);
+      return [];
+    }
+  },
+
+  async createHoliday(holidayData, tenantId = 1) {
+    try {
+      const payload = {
+        tenant_id: Number(tenantId) || 1,
+        name: holidayData.name || holidayData.title || 'Holiday',
+        date: holidayData.date || new Date().toISOString().split('T')[0],
+        type: holidayData.type || 'Public',
+        description: holidayData.description || '',
+        custom_fields: holidayData
+      };
+      const res = await fetch(`${SUPABASE_URL}/holidays`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to create holiday');
+      const saved = Array.isArray(data) ? data[0] : data;
+      return { ...holidayData, ...saved, id: String(saved.id) };
+    } catch (err) {
+      console.error('[Supabase Sandbox] createHoliday error:', err);
+      throw err;
+    }
+  },
+
+  async deleteHoliday(id, tenantId = 1) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/holidays?id=eq.${id}&tenant_id=eq.${Number(tenantId)}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      return res.ok;
+    } catch (err) {
+      console.error('[Supabase Sandbox] deleteHoliday error:', err);
+      return false;
+    }
+  },
+
+  // 9. NOTICES / NOTICE BOARD
+  async fetchNotices(tenantId = 1) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/notices?tenant_id=eq.${Number(tenantId)}&order=created_at.desc`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []).map(n => ({
+        ...n,
+        id: String(n.id),
+        title: n.title,
+        content: n.content,
+        priority: n.priority || 'Normal',
+        publishedBy: n.published_by || 'Admin',
+        createdAt: n.created_at,
+        ...(n.custom_fields || {})
+      }));
+    } catch (err) {
+      console.error('[Supabase Sandbox] fetchNotices error:', err);
+      return [];
+    }
+  },
+
+  async createNotice(noticeData, tenantId = 1) {
+    try {
+      const payload = {
+        tenant_id: Number(tenantId) || 1,
+        title: noticeData.title || 'Notice',
+        content: noticeData.content || '',
+        priority: noticeData.priority || 'Normal',
+        published_by: noticeData.publishedBy || noticeData.published_by || 'Admin',
+        custom_fields: noticeData
+      };
+      const res = await fetch(`${SUPABASE_URL}/notices`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to create notice');
+      const saved = Array.isArray(data) ? data[0] : data;
+      return { ...noticeData, ...saved, id: String(saved.id) };
+    } catch (err) {
+      console.error('[Supabase Sandbox] createNotice error:', err);
+      throw err;
+    }
+  },
+
+  async deleteNotice(id, tenantId = 1) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/notices?id=eq.${id}&tenant_id=eq.${Number(tenantId)}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      return res.ok;
+    } catch (err) {
+      console.error('[Supabase Sandbox] deleteNotice error:', err);
+      return false;
+    }
+  },
+
+  // 10. ATTENDANCE LOGS
+  async fetchAttendance(tenantId = 1) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/attendance_logs?tenant_id=eq.${Number(tenantId)}&order=created_at.desc&limit=200`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []).map(a => ({
+        ...a,
+        id: String(a.id),
+        date: a.date,
+        status: a.status || 'PRESENT',
+        checkIn: a.check_in_time,
+        checkOut: a.check_out_time,
+        workMode: a.work_mode || 'OFFICE',
+        employee_name: a.employee_name || 'Staff',
+        notes: a.notes || '',
+        ...(a.custom_fields || {})
+      }));
+    } catch (err) {
+      console.error('[Supabase Sandbox] fetchAttendance error:', err);
+      return [];
+    }
+  },
+
+  async createAttendance(attData, tenantId = 1) {
+    try {
+      const payload = {
+        tenant_id: Number(tenantId) || 1,
+        date: attData.date || new Date().toISOString().split('T')[0],
+        status: attData.status || 'PRESENT',
+        check_in_time: attData.check_in_time || attData.checkIn || new Date().toISOString(),
+        check_out_time: attData.check_out_time || attData.checkOut || null,
+        work_mode: attData.work_mode || attData.workMode || 'OFFICE',
+        employee_name: attData.employee_name || attData.name || 'Staff',
+        notes: attData.notes || '',
+        custom_fields: attData
+      };
+      const res = await fetch(`${SUPABASE_URL}/attendance_logs`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to create attendance log');
+      const saved = Array.isArray(data) ? data[0] : data;
+      return { ...attData, ...saved, id: String(saved.id) };
+    } catch (err) {
+      console.error('[Supabase Sandbox] createAttendance error:', err);
+      throw err;
+    }
+  },
+
+  // 11. SYSTEM DROPDOWNS
+  async fetchSystemDropdowns(tenantId = 1) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/system_dropdowns?tenant_id=eq.${Number(tenantId)}&order=sort_order.asc`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error('[Supabase Sandbox] fetchSystemDropdowns error:', err);
+      return [];
+    }
+  },
+
+  async saveSystemDropdown(dropdownData, tenantId = 1) {
+    try {
+      const payload = {
+        tenant_id: Number(tenantId) || 1,
+        category: dropdownData.category || 'general',
+        value: dropdownData.value || dropdownData.label,
+        label: dropdownData.label || dropdownData.value,
+        is_active: dropdownData.is_active !== false,
+        sort_order: dropdownData.sort_order || 0
+      };
+      const res = await fetch(`${SUPABASE_URL}/system_dropdowns`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      return Array.isArray(data) ? data[0] : data;
+    } catch (err) {
+      console.error('[Supabase Sandbox] saveSystemDropdown error:', err);
+      throw err;
+    }
+  },
+
+  // =========================================================================
+  // 12. UNIVERSAL BRIDGE (All Current & Future Modules Auto-Persistence)
+  // =========================================================================
+  async saveUniversalRecord(moduleId, recordData, tenantId = 1, recordId = null) {
+    const numTenant = Number(tenantId) || 1;
+    const cleanMod = String(moduleId || '').toLowerCase().trim();
+    const docId = String(recordId || recordData?.id || `rec_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`);
+
+    try {
+      // Route 1: Dedicated Tables
+      if (cleanMod === 'expenses' || cleanMod === 'expense_claims') {
+        if (recordId) {
+          return await this.updateExpense(recordId, recordData, numTenant);
+        } else {
+          return await this.createExpense(recordData, numTenant);
+        }
+      } else if (cleanMod === 'tasks' || cleanMod === 'tasks_board') {
+        if (recordId) {
+          return await this.updateTask(recordId, recordData, numTenant);
+        } else {
+          return await this.createTask(recordData, numTenant);
+        }
+      } else if (cleanMod === 'leaves') {
+        if (recordId) {
+          return await this.updateLeave(recordId, recordData, numTenant);
+        } else {
+          return await this.createLeave(recordData, numTenant);
+        }
+      } else if (cleanMod === 'holidays') {
+        return await this.createHoliday(recordData, numTenant);
+      } else if (cleanMod === 'notices' || cleanMod === 'notice_board') {
+        return await this.createNotice(recordData, numTenant);
+      } else if (cleanMod === 'attendance' || cleanMod === 'attendance_logs') {
+        return await this.createAttendance(recordData, numTenant);
+      } else if (cleanMod === 'employees') {
+        if (recordId) {
+          return await this.updateEmployee(recordId, recordData, numTenant);
+        } else {
+          return await this.createEmployee(recordData, numTenant);
+        }
+      } else if (cleanMod === 'contacts' || cleanMod === 'crm_deals') {
+        if (recordId) {
+          return await this.updateContact(recordId, recordData, numTenant);
+        } else {
+          return await this.createContact(recordData, numTenant);
+        }
+      }
+
+      // Route 2: Universal app_records Fallback for Any Module & Any Future Page
+      const appRecordPayload = {
+        id: docId,
+        tenant_id: numTenant,
+        module_id: cleanMod,
+        data: recordData,
+        updated_at: new Date().toISOString()
+      };
+
+      const res = await fetch(`${SUPABASE_URL}/app_records`, {
+        method: 'POST',
+        headers: {
+          ...getHeaders(),
+          'Prefer': 'resolution=merge-duplicates,return=representation'
+        },
+        body: JSON.stringify(appRecordPayload)
+      });
+      const resData = await res.json();
+      return Array.isArray(resData) ? (resData[0]?.data || recordData) : (resData?.data || recordData);
+    } catch (err) {
+      console.warn(`[Supabase Sandbox Universal] saveUniversalRecord notice (${moduleId}):`, err);
+      return recordData;
+    }
+  },
+
+  async fetchUniversalRecords(moduleId, tenantId = 1) {
+    const numTenant = Number(tenantId) || 1;
+    const cleanMod = String(moduleId || '').toLowerCase().trim();
+
+    try {
+      // Route 1: Dedicated Tables
+      if (cleanMod === 'expenses' || cleanMod === 'expense_claims') {
+        return await this.fetchExpenses(numTenant);
+      } else if (cleanMod === 'tasks' || cleanMod === 'tasks_board') {
+        return await this.fetchTasks(numTenant);
+      } else if (cleanMod === 'leaves') {
+        return await this.fetchLeaves(numTenant);
+      } else if (cleanMod === 'holidays') {
+        return await this.fetchHolidays(numTenant);
+      } else if (cleanMod === 'notices' || cleanMod === 'notice_board') {
+        return await this.fetchNotices(numTenant);
+      } else if (cleanMod === 'attendance' || cleanMod === 'attendance_logs') {
+        return await this.fetchAttendance(numTenant);
+      } else if (cleanMod === 'employees') {
+        return await this.fetchEmployees(numTenant);
+      } else if (cleanMod === 'contacts' || cleanMod === 'crm_deals') {
+        return await this.fetchContacts(numTenant);
+      }
+
+      // Route 2: Universal app_records for Any Module & Any Future Page
+      const res = await fetch(`${SUPABASE_URL}/app_records?tenant_id=eq.${numTenant}&module_id=eq.${cleanMod}&order=updated_at.desc`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!Array.isArray(data)) return null;
+      return data.map(r => ({
+        ...(r.data || {}),
+        id: r.id,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at
+      }));
+    } catch (err) {
+      console.warn(`[Supabase Sandbox Universal] fetchUniversalRecords notice (${moduleId}):`, err);
+      return null;
+    }
+  },
+
+  async deleteUniversalRecord(moduleId, recordId, tenantId = 1) {
+    const numTenant = Number(tenantId) || 1;
+    const cleanMod = String(moduleId || '').toLowerCase().trim();
+    const docId = String(recordId);
+
+    try {
+      if (cleanMod === 'expenses' || cleanMod === 'expense_claims') {
+        await this.deleteExpense(docId, numTenant);
+      } else if (cleanMod === 'tasks' || cleanMod === 'tasks_board') {
+        await this.deleteTask(docId, numTenant);
+      } else if (cleanMod === 'leaves') {
+        await this.deleteLeave(docId, numTenant);
+      } else if (cleanMod === 'holidays') {
+        await this.deleteHoliday(docId, numTenant);
+      } else if (cleanMod === 'notices' || cleanMod === 'notice_board') {
+        await this.deleteNotice(docId, numTenant);
+      } else if (cleanMod === 'employees') {
+        await this.deleteEmployee(docId, numTenant);
+      } else if (cleanMod === 'contacts' || cleanMod === 'crm_deals') {
+        await this.deleteContact(docId, numTenant);
+      }
+
+      // Also ensure deletion from app_records if present
+      await fetch(`${SUPABASE_URL}/app_records?tenant_id=eq.${numTenant}&module_id=eq.${cleanMod}&id=eq.${docId}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      }).catch(() => {});
+
+      return true;
+    } catch (err) {
+      console.warn(`[Supabase Sandbox Universal] deleteUniversalRecord notice (${moduleId}):`, err);
+      return false;
+    }
   }
 };
 

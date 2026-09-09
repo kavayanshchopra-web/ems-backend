@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
 import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
+import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
 
 export default function TasksPage({
   API_URL,
@@ -29,10 +30,24 @@ export default function TasksPage({
   }, [companyId]);
 
   const fetchTaskList = async () => {
+    if (isSandboxEnvironment()) {
+      try {
+        const safeTenant = Number(companyId) || 1;
+        const sbTasks = await SupabaseSandboxService.fetchTasks(safeTenant);
+        if (Array.isArray(sbTasks) && sbTasks.length > 0) {
+          setTaskList(sbTasks);
+          if (parentSetTasks) parentSetTasks(sbTasks);
+          return;
+        }
+      } catch (err) {
+        console.warn('[TasksPage] Sandbox fetch notice:', err);
+      }
+    }
+
     let cloudList = [];
     try {
       cloudList = await FirebaseCloudEngine.fetchRecords('tasks', companyId);
-      if (Array.isArray(cloudList)) {
+      if (Array.isArray(cloudList) && cloudList.length > 0) {
         setTaskList(cloudList);
         if (parentSetTasks) parentSetTasks(cloudList);
         return;
@@ -65,7 +80,12 @@ export default function TasksPage({
     if (Array.isArray(newTasks)) {
       newTasks.forEach(t => {
         if (t && t.id) {
-          FirebaseCloudEngine.saveRecord('tasks', t, companyId);
+          if (isSandboxEnvironment()) {
+            const safeTenant = Number(companyId) || 1;
+            SupabaseSandboxService.saveUniversalRecord('tasks', t, safeTenant, t.id).catch(console.warn);
+          } else {
+            FirebaseCloudEngine.saveRecord('tasks', t, companyId);
+          }
         }
       });
     }

@@ -15,6 +15,7 @@ import {
   Check,
   X
 } from 'lucide-react';
+import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
 
 export default function LeavesPage({
   leaves = [],
@@ -40,6 +41,17 @@ export default function LeavesPage({
     }
     return [];
   });
+
+  useEffect(() => {
+    if (isSandboxEnvironment()) {
+      const numTenant = Number(currentTenantId) || 1;
+      SupabaseSandboxService.fetchLeaves(numTenant).then(sbLeaves => {
+        if (Array.isArray(sbLeaves) && sbLeaves.length > 0) {
+          setLocalLeaves(sbLeaves);
+        }
+      }).catch(console.warn);
+    }
+  }, [currentTenantId]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -78,6 +90,10 @@ export default function LeavesPage({
   const handleUpdateStatus = (id, newStatus) => {
     const updated = localLeaves.map(l => l.id === id ? { ...l, status: newStatus } : l);
     setLocalLeaves(updated);
+    if (isSandboxEnvironment()) {
+      const numTenant = Number(currentTenantId) || 1;
+      SupabaseSandboxService.updateLeave(id, { status: newStatus }, numTenant).catch(console.warn);
+    }
     showToast?.(`Leave application ${newStatus === 'Approved' ? 'APPROVED ✅' : 'REJECTED ❌'}`, newStatus === 'Approved' ? 'success' : 'error');
   };
 
@@ -108,6 +124,13 @@ export default function LeavesPage({
       status: 'Pending',
       applied_at: new Date().toISOString()
     };
+
+    if (isSandboxEnvironment()) {
+      const numTenant = Number(currentTenantId) || 1;
+      SupabaseSandboxService.createLeave(newApp, numTenant).then(saved => {
+        if (saved && saved.id) newApp.id = String(saved.id);
+      }).catch(console.warn);
+    }
 
     setLocalLeaves([newApp, ...localLeaves]);
     setShowApplyModal(false);

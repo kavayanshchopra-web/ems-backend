@@ -68,7 +68,7 @@ export default function ActionEngine({
 
     // DIRECT SUPABASE POSTGRESQL FOR SANDBOX ENVIRONMENT
     if (isSandboxEnvironment()) {
-      const numericTenantId = Number(activeTenantId) || 999;
+      const numericTenantId = Number(activeTenantId) || 1;
       if (isEmployeesModule) {
         if (showEditModal && selectedRecord && selectedRecord.id) {
           try {
@@ -136,6 +136,42 @@ export default function ActionEngine({
             return;
           } catch (sbErr) {
             showToast(sbErr.message || 'Failed to save contact to Supabase SQL', 'error');
+            return;
+          }
+        }
+      } else {
+        // Universal Supabase persistence for all other modules (Expenses, Tasks, Leaves, Holidays, Notices, etc.)
+        if (showEditModal && selectedRecord && selectedRecord.id) {
+          try {
+            const saved = await SupabaseSandboxService.saveUniversalRecord(moduleConfig.moduleId, normalizedData, numericTenantId, selectedRecord.id);
+            const updatedList = records.map(r => r.id === selectedRecord.id ? { ...r, ...(typeof saved === 'object' ? saved : {}), ...normalizedData } : r);
+            setRecords(updatedList);
+            showToast(`🎉 Record updated directly in Supabase SQL!`, 'success');
+            setShowEditModal(false);
+            return;
+          } catch (sbErr) {
+            showToast(sbErr.message || 'Failed to update in Supabase SQL', 'error');
+            return;
+          }
+        } else {
+          try {
+            const saved = await SupabaseSandboxService.saveUniversalRecord(moduleConfig.moduleId, normalizedData, numericTenantId);
+            const newRec = {
+              ...(typeof saved === 'object' ? saved : {}),
+              ...normalizedData,
+              id: (saved && saved.id) ? String(saved.id) : (normalizedData.id || `rec_${Date.now()}`),
+              createdAt: now,
+              updatedAt: now,
+              archived: false,
+              lifecycleStatus: 'ACTIVE',
+              tenantId: numericTenantId
+            };
+            setRecords([newRec, ...records]);
+            showToast(`🎉 Record saved directly to Supabase SQL!`, 'success');
+            setShowAddModal(false);
+            return;
+          } catch (sbErr) {
+            showToast(sbErr.message || 'Failed to save to Supabase SQL', 'error');
             return;
           }
         }
@@ -404,12 +440,8 @@ export default function ActionEngine({
     };
 
     if (isSandboxEnvironment()) {
-      const numericTenantId = Number(authUser?.tenantId || authUser?.companyId || authUser?.tenant_id) || 999;
-      if (moduleConfig.moduleId === 'employees') {
-        SupabaseSandboxService.deleteEmployee(record.id, numericTenantId).catch(console.error);
-      } else if (moduleConfig.moduleId === 'contacts' || isCrmModule) {
-        SupabaseSandboxService.deleteContact(record.id, numericTenantId).catch(console.error);
-      }
+      const numericTenantId = Number(authUser?.tenantId || authUser?.companyId || authUser?.tenant_id) || 1;
+      SupabaseSandboxService.deleteUniversalRecord(moduleConfig.moduleId, record.id, numericTenantId).catch(console.error);
     } else if (moduleConfig.moduleId && record.id) {
       FirebaseCloudEngine.deleteRecord(moduleConfig.moduleId, record.id);
     }

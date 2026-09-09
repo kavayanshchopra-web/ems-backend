@@ -18,6 +18,7 @@ import {
   query,
   where
 } from 'firebase/firestore';
+import { isSandboxEnvironment, SupabaseSandboxService } from '../services/supabaseSandboxService';
 
 class FirebaseCloudEngine {
   static _memoryCache = new Map();
@@ -106,6 +107,18 @@ class FirebaseCloudEngine {
     }
     this.setCachedRecords(collectionName, tenantId, updated);
 
+    // Direct Supabase Sandbox SQL Persistence
+    if (isSandboxEnvironment()) {
+      try {
+        const numTenant = Number(activeTenantId) || 1;
+        SupabaseSandboxService.saveUniversalRecord(collectionName, payload, numTenant, docId).catch(err => {
+          console.warn(`[FirebaseCloudEngine Sandbox Save] ${collectionName}:`, err);
+        });
+      } catch (sbErr) {
+        console.warn(`[FirebaseCloudEngine Sandbox Save Sync Notice] ${collectionName}:`, sbErr);
+      }
+    }
+
     if (db) {
       try {
         const cleanPayload = JSON.parse(JSON.stringify(payload, (key, value) => value === undefined ? '' : value));
@@ -126,6 +139,20 @@ class FirebaseCloudEngine {
   static async fetchRecords(collectionName, tenantId = null) {
     const activeTenantId = (tenantId === 'all' || tenantId === 'platform_superadmin') ? tenantId : this.getTenantId(tenantId);
     const cached = this.getCachedRecords(collectionName, tenantId);
+
+    // Direct Supabase Sandbox SQL Fetch
+    if (isSandboxEnvironment()) {
+      try {
+        const numTenant = Number(activeTenantId) || 1;
+        const sbData = await SupabaseSandboxService.fetchUniversalRecords(collectionName, numTenant);
+        if (Array.isArray(sbData) && sbData.length > 0) {
+          this.setCachedRecords(collectionName, tenantId, sbData);
+          return sbData;
+        }
+      } catch (sbErr) {
+        console.warn(`[FirebaseCloudEngine Sandbox Fetch Notice] ${collectionName}:`, sbErr);
+      }
+    }
 
     // If we have cached records, initiate background refresh and return cached immediately
     if (db) {
@@ -173,6 +200,18 @@ class FirebaseCloudEngine {
     const current = this.getCachedRecords(collectionName, tenantId) || [];
     const filtered = current.filter(r => String(r.id) !== docId);
     this.setCachedRecords(collectionName, tenantId, filtered);
+
+    // Direct Supabase Sandbox SQL Deletion
+    if (isSandboxEnvironment()) {
+      try {
+        const numTenant = Number(this.getTenantId(tenantId)) || 1;
+        SupabaseSandboxService.deleteUniversalRecord(collectionName, docId, numTenant).catch(err => {
+          console.warn(`[FirebaseCloudEngine Sandbox Delete] ${collectionName}:`, err);
+        });
+      } catch (sbErr) {
+        console.warn(`[FirebaseCloudEngine Sandbox Delete Sync Notice] ${collectionName}:`, sbErr);
+      }
+    }
 
     if (db) {
       try {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
 import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
+import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
 
 export default function NoticeBoardPage({
   API_URL,
@@ -23,10 +24,23 @@ export default function NoticeBoardPage({
   }, [companyId]);
 
   const fetchNotices = async () => {
+    if (isSandboxEnvironment()) {
+      try {
+        const safeTenant = Number(companyId) || 1;
+        const sbNotices = await SupabaseSandboxService.fetchNotices(safeTenant);
+        if (Array.isArray(sbNotices) && sbNotices.length > 0) {
+          setNotices(sbNotices);
+          return;
+        }
+      } catch (err) {
+        console.warn('[NoticeBoardPage] Sandbox fetch notice:', err);
+      }
+    }
+
     let cloudList = [];
     try {
       cloudList = await FirebaseCloudEngine.fetchRecords('notice_board', companyId);
-      if (Array.isArray(cloudList)) {
+      if (Array.isArray(cloudList) && cloudList.length > 0) {
         setNotices(cloudList);
         return;
       }
@@ -54,7 +68,12 @@ export default function NoticeBoardPage({
     if (Array.isArray(newNotices)) {
       newNotices.forEach(n => {
         if (n && n.id) {
-          FirebaseCloudEngine.saveRecord('notice_board', n, companyId);
+          if (isSandboxEnvironment()) {
+            const safeTenant = Number(companyId) || 1;
+            SupabaseSandboxService.saveUniversalRecord('notices', n, safeTenant, n.id).catch(console.warn);
+          } else {
+            FirebaseCloudEngine.saveRecord('notice_board', n, companyId);
+          }
         }
       });
     }

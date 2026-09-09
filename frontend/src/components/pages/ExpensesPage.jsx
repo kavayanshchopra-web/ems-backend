@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
 import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
+import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
 
 export default function ExpensesPage({
   API_URL,
@@ -29,10 +30,24 @@ export default function ExpensesPage({
   }, [companyId]);
 
   const fetchExpenseList = async () => {
+    if (isSandboxEnvironment()) {
+      try {
+        const safeTenant = Number(companyId) || 1;
+        const sbExpenses = await SupabaseSandboxService.fetchExpenses(safeTenant);
+        if (Array.isArray(sbExpenses) && sbExpenses.length > 0) {
+          setExpenseList(sbExpenses);
+          if (parentSetExpenses) parentSetExpenses(sbExpenses);
+          return;
+        }
+      } catch (err) {
+        console.warn('[ExpensesPage] Sandbox fetch notice:', err);
+      }
+    }
+
     let cloudList = [];
     try {
       cloudList = await FirebaseCloudEngine.fetchRecords('expenses', companyId);
-      if (Array.isArray(cloudList)) {
+      if (Array.isArray(cloudList) && cloudList.length > 0) {
         setExpenseList(cloudList);
         if (parentSetExpenses) parentSetExpenses(cloudList);
         return;
@@ -65,7 +80,12 @@ export default function ExpensesPage({
     if (Array.isArray(newExpenses)) {
       newExpenses.forEach(exp => {
         if (exp && exp.id) {
-          FirebaseCloudEngine.saveRecord('expenses', exp, companyId);
+          if (isSandboxEnvironment()) {
+            const safeTenant = Number(companyId) || 1;
+            SupabaseSandboxService.saveUniversalRecord('expenses', exp, safeTenant, exp.id).catch(console.warn);
+          } else {
+            FirebaseCloudEngine.saveRecord('expenses', exp, companyId);
+          }
         }
       });
     }

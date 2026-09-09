@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
 import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
+import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
 
 export default function HolidaysPage({
   API_URL,
@@ -23,10 +24,23 @@ export default function HolidaysPage({
   }, [companyId]);
 
   const fetchHolidays = async () => {
+    if (isSandboxEnvironment()) {
+      try {
+        const safeTenant = Number(companyId) || 1;
+        const sbHolidays = await SupabaseSandboxService.fetchHolidays(safeTenant);
+        if (Array.isArray(sbHolidays) && sbHolidays.length > 0) {
+          setHolidays(sbHolidays);
+          return;
+        }
+      } catch (err) {
+        console.warn('[HolidaysPage] Sandbox fetch notice:', err);
+      }
+    }
+
     let cloudList = [];
     try {
       cloudList = await FirebaseCloudEngine.fetchRecords('holidays', companyId);
-      if (Array.isArray(cloudList)) {
+      if (Array.isArray(cloudList) && cloudList.length > 0) {
         setHolidays(cloudList);
         return;
       }
@@ -54,7 +68,12 @@ export default function HolidaysPage({
     if (Array.isArray(newHolidays)) {
       newHolidays.forEach(h => {
         if (h && h.id) {
-          FirebaseCloudEngine.saveRecord('holidays', h, companyId);
+          if (isSandboxEnvironment()) {
+            const safeTenant = Number(companyId) || 1;
+            SupabaseSandboxService.saveUniversalRecord('holidays', h, safeTenant, h.id).catch(console.warn);
+          } else {
+            FirebaseCloudEngine.saveRecord('holidays', h, companyId);
+          }
         }
       });
     }

@@ -36,6 +36,7 @@ import {
   Check,
   Camera
 } from 'lucide-react';
+import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
 
 export default function AttendancePage({ API_URL, authUser, showToast, employees = [], setActiveTab }) {
   // Check if current authenticated user has HR / Management privileges
@@ -127,6 +128,20 @@ export default function AttendancePage({ API_URL, authUser, showToast, employees
 
   const fetchLogs = async () => {
     setLoading(true);
+    if (isSandboxEnvironment()) {
+      try {
+        const currentTenantId = Number(authUser?.companyId || authUser?.tenantId || authUser?.tenant_id) || 1;
+        const sbLogs = await SupabaseSandboxService.fetchAttendance(currentTenantId);
+        if (Array.isArray(sbLogs) && sbLogs.length > 0) {
+          setAttendanceLogs(sbLogs);
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.warn('[AttendancePage] Sandbox fetch notice:', err);
+      }
+    }
+
     let logs = [];
     try {
       const savedLogs = localStorage.getItem('omniflow_attendance_logs');
@@ -226,6 +241,17 @@ export default function AttendancePage({ API_URL, authUser, showToast, employees
 
       localStorage.setItem('omniflow_attendance_today', JSON.stringify(newStatus));
 
+      if (isSandboxEnvironment()) {
+        const numTenant = Number(authUser?.companyId || authUser?.tenantId || authUser?.tenant_id) || 1;
+        SupabaseSandboxService.createAttendance({
+          employee_name: newStatus.user_name,
+          check_in_time: newStatus.check_in_time,
+          status: 'PRESENT',
+          work_mode: 'OFFICE',
+          notes: `Check-in via ${validPunchMethod}`
+        }, numTenant).catch(console.warn);
+      }
+
       const localLogs = JSON.parse(localStorage.getItem('omniflow_attendance_logs') || '[]');
       const updatedLogs = [newStatus, ...localLogs.filter(l => l.id !== newStatus.id)];
       localStorage.setItem('omniflow_attendance_logs', JSON.stringify(updatedLogs));
@@ -308,6 +334,18 @@ export default function AttendancePage({ API_URL, authUser, showToast, employees
       }
 
       localStorage.setItem('omniflow_attendance_today', JSON.stringify(updatedStatus));
+
+      if (isSandboxEnvironment()) {
+        const numTenant = Number(authUser?.companyId || authUser?.tenantId || authUser?.tenant_id) || 1;
+        SupabaseSandboxService.createAttendance({
+          employee_name: updatedStatus.user_name || authUser?.name || 'Staff',
+          check_in_time: updatedStatus.check_in_time,
+          check_out_time: updatedStatus.check_out_time,
+          status: 'PRESENT',
+          work_mode: 'OFFICE',
+          notes: `Check-out: ${updatedStatus.total_hours} hrs`
+        }, numTenant).catch(console.warn);
+      }
 
       const localLogs = JSON.parse(localStorage.getItem('omniflow_attendance_logs') || '[]');
       const updatedLogs = [updatedStatus, ...localLogs.filter(l => l.id !== updatedStatus.id)];
