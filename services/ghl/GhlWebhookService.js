@@ -8,7 +8,8 @@ import {
   getGhlSyncLogByIdempotencyKey,
   getEmsEntityByGhlId,
   archiveContact,
-  deleteGhlEntityLink
+  deleteGhlEntityLink,
+  createCallLog
 } from '../../db.js';
 
 /**
@@ -27,15 +28,19 @@ export class GhlWebhookService {
    * @returns {boolean}
    */
   verifySignature(rawBody, signatureHeader, secretOverride = null) {
-    const webhookSecret = secretOverride || process.env.GHL_WEBHOOK_SECRET;
+    const webhookSecret = secretOverride !== undefined && secretOverride !== null ? secretOverride : process.env.GHL_WEBHOOK_SECRET;
 
-    // If no webhook secret is configured, allow the webhook payload if locationId is valid
+    // If no webhook secret is configured, fail-closed in production
     if (!webhookSecret) {
+      if (process.env.NODE_ENV === 'production') {
+        return false;
+      }
       return true;
     }
 
     if (!signatureHeader || typeof signatureHeader !== 'string') {
-      return true; // Graceful fallback if GHL doesn't sign standard marketplace events
+      if (process.env.NODE_ENV === 'production') return false;
+      return true; // Graceful fallback in non-prod
     }
 
     try {
@@ -90,6 +95,14 @@ export class GhlWebhookService {
       eventType = 'OpportunityUpdate';
     } else if (lowerType.includes('opportunitydelete') || lowerType === 'opportunitydeleted') {
       eventType = 'OpportunityDelete';
+    } else if (lowerType.includes('inboundmessage') || lowerType === 'inboundmessage') {
+      eventType = 'InboundMessage';
+    } else if (lowerType.includes('outboundmessage') || lowerType === 'outboundmessage') {
+      eventType = 'OutboundMessage';
+    } else if (lowerType.includes('call') || lowerType.includes('inboundcall') || lowerType.includes('outboundcall')) {
+      eventType = 'Call';
+    } else if (lowerType.includes('conversationupdate') || lowerType.includes('conversationunreadupdate')) {
+      eventType = 'ConversationUpdate';
     }
 
     // Location ID resolution
@@ -154,13 +167,10 @@ export class GhlWebhookService {
 
     // 3. Resolve HighLevel Location to EMS Tenant
     let integration = await getGhlIntegrationByLocation(locationId);
-    let tenantId;
     if (!integration || !integration.tenant_id) {
-      console.log(`[GhlWebhookService] Webhook for location "${locationId}" not pre-registered in SQLite, accepting for real-time delivery...`);
-      tenantId = 1;
-    } else {
-      tenantId = integration.tenant_id;
+      throw new GhlApiError(`HighLevel location "${locationId}" is not connected to any EMS account`, 'UNKNOWN_LOCATION', 404);
     }
+    const tenantId = integration.tenant_id;
 
     // 4. Deterministic Idempotency Check
     const entityIdForIdemp = ghlOpportunityId || ghlContactId || 'generic';
@@ -310,6 +320,117 @@ export class GhlWebhookService {
           ghlOpportunityId: oppId,
           emsContactId
         };
+      } else if (eventType === 'Call' || eventType === 'InboundMessage' || eventType === 'OutboundMessage' || eventType === 'ConversationUpdate') {
+        const msgData = contactData?.message || contactData || {};
+        const isCallEvent = eventType === 'Call' || 
+          msgData.type === 'Call' || 
+          msgData.messageType === 'Call' || 
+          Boolean(msgData.call) || 
+          Boolean(msgData.recordingUrl) ||
+          Boolean(contactData.recordingUrl);
+
+        if (isCallEvent) {
+          // Resolve Call details from GHL payload
+          const callObj = msgData.call || contactData.call || {};
+          const durationSeconds = Number(callObj.duration || msgData.duration || contactData.duration || 0);
+          const recordingUrl = callObj.recordingUrl || msgData.recordingUrl || contactData.recordingUrl || (Array.isArray(msgData.attachments) ? msgData.attachments[0] : '') || '';
+          const direction = (callObj.direction || msgData.direction || contactData.direction || 'INBOUND').toUpperCase();
+          const disposition = callObj.status || msgData.status || contactData.status || 'Completed';
+
+          // Resolve contact phone
+          let callerPhone = contactData.phone || contactData.phoneNumber || contactData.customerPhone || msgData.phone || '';
+          let callerName = contactData.name || contactData.contactName || contactData.fullName || 'Customer';
+
+          if (!callerPhone && ghlContactId) {
+            try {
+              const existingLink = await getEmsEntityByGhlId(tenantId, locationId, 'contact', ghlContactId);
+              if (existingLink && existingLink.ems_entity_id) {
+                callerPhone = existingLink.ems_entity_id;
+              }
+            } catch (e) {}
+          }
+
+          const callLogData = {
+            tenantId,
+            staffId: '1',
+            staffName: 'HighLevel Sync',
+            customerName: callerName,
+            customerPhone: callerPhone || ghlContactId,
+            channel: 'GHL',
+            type: direction.includes('OUT') ? 'OUTGOING' : 'INCOMING',
+            durationSeconds,
+            recordingUrl,
+            disposition,
+            notes: msgData.body || `Call synchronized from GoHighLevel`
+          };
+
+          let savedCall = null;
+          try {
+            savedCall = await createCallLog(tenantId, callLogData);
+          } catch (dbErr) {
+            console.warn('[GhlWebhookService] Call log save notice:', dbErr.message);
+          }
+
+          await createGhlSyncLog(tenantId, {
+            locationId,
+            direction: 'INBOUND',
+            entityType: 'call_recording',
+            emsEntityId: callerPhone || ghlContactId,
+            ghlEntityId: ghlContactId,
+            eventType: `Webhook${eventType}`,
+            status: 'SUCCESS',
+            httpStatus: 200,
+            payload: { eventType, durationSeconds, hasRecording: Boolean(recordingUrl) },
+            idempotencyKey
+          });
+
+          return {
+            status: 'success',
+            eventType,
+            locationId,
+            ghlContactId,
+            callLog: savedCall || callLogData
+          };
+        } else {
+          // Inbound or Outbound text chat message
+          const msgBody = msgData.body || msgData.text || msgData.message || contactData.body || '';
+          const isOutbound = eventType === 'OutboundMessage' || msgData.direction === 'outbound';
+          const msgPhone = contactData.phone || contactData.phoneNumber || msgData.phone || '';
+
+          const formattedMessage = {
+            id: eventId || `ghl_msg_${Date.now()}`,
+            contactId: msgPhone || ghlContactId,
+            fromMe: isOutbound,
+            from_me: isOutbound ? 1 : 0,
+            textContent: msgBody,
+            text_content: msgBody,
+            mediaUrl: (Array.isArray(msgData.attachments) ? msgData.attachments[0] : null) || null,
+            mediaType: 'text',
+            timestamp: Math.floor(Date.now() / 1000),
+            tenantId
+          };
+
+          await createGhlSyncLog(tenantId, {
+            locationId,
+            direction: 'INBOUND',
+            entityType: 'message',
+            emsEntityId: msgPhone || ghlContactId,
+            ghlEntityId: ghlContactId,
+            eventType: `Webhook${eventType}`,
+            status: 'SUCCESS',
+            httpStatus: 200,
+            payload: { eventType, isOutbound },
+            idempotencyKey
+          });
+
+          return {
+            status: 'success',
+            eventType,
+            locationId,
+            ghlContactId,
+            message: formattedMessage
+          };
+        }
       } else {
         // Unknown or unhandled event type — log and safely acknowledge
         await createGhlSyncLog(tenantId, {

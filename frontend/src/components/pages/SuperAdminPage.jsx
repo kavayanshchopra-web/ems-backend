@@ -683,8 +683,8 @@ export default function SuperAdminPage({
                 }}
               >
                 <option value="ALL">🌐 All Sources ({superadminCompanies?.length || 0})</option>
-                <option value="GHL">⚡ GoHighLevel Only ({superadminCompanies?.filter(c => c.source === 'gohighlevel' || c.locationId || c.tenant_id?.startsWith('ghl_') || c.tenant_id?.startsWith('org_loc_')).length || 0})</option>
-                <option value="DIRECT">🏢 Direct Signups ({superadminCompanies?.filter(c => c.source !== 'gohighlevel' && !c.locationId && !c.tenant_id?.startsWith('ghl_') && !c.tenant_id?.startsWith('org_loc_')).length || 0})</option>
+                <option value="GHL">⚡ GoHighLevel Only ({superadminCompanies?.filter(c => c.source === 'gohighlevel' || c.locationId || String(c.tenant_id || '').startsWith('ghl_') || String(c.tenant_id || '').startsWith('org_loc_')).length || 0})</option>
+                <option value="DIRECT">🏢 Direct Signups ({superadminCompanies?.filter(c => c.source !== 'gohighlevel' && !c.locationId && !String(c.tenant_id || '').startsWith('ghl_') && !String(c.tenant_id || '').startsWith('org_loc_')).length || 0})</option>
               </select>
 
               <div className="superadmin-search-wrapper" style={{ position: 'relative', width: '250px' }}>
@@ -768,7 +768,7 @@ export default function SuperAdminPage({
                 header: 'Source / Platform ⇅',
                 accessor: 'source',
                 render: (c) => {
-                  const isGhl = c.source === 'gohighlevel' || Boolean(c.locationId) || c.tenant_id?.startsWith('ghl_') || c.tenant_id?.startsWith('org_loc_');
+                  const isGhl = c.source === 'gohighlevel' || Boolean(c.locationId) || String(c.tenant_id || '').startsWith('ghl_') || String(c.tenant_id || '').startsWith('org_loc_');
                   if (isGhl) {
                     return (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
@@ -1109,7 +1109,7 @@ export default function SuperAdminPage({
               }
             ]}
             data={(superadminCompanies || []).filter(c => {
-              const isGhl = c.source === 'gohighlevel' || Boolean(c.locationId) || c.tenant_id?.startsWith('ghl_') || c.tenant_id?.startsWith('org_loc_');
+              const isGhl = c.source === 'gohighlevel' || Boolean(c.locationId) || String(c.tenant_id || '').startsWith('ghl_') || String(c.tenant_id || '').startsWith('org_loc_');
               if (companySourceFilter === 'GHL' && !isGhl) return false;
               if (companySourceFilter === 'DIRECT' && isGhl) return false;
 

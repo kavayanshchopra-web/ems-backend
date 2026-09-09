@@ -7,6 +7,8 @@ import { PhoneCall, Smartphone } from 'lucide-react';
 import { db } from '../../firebase';
 import { collection, onSnapshot, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { GhlOAuthService } from '../../core/services/ghlOAuthService';
+import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
+import TenantStorage from '../../core/services/TenantStorage';
 
 export default function TelecallingView({
   authUser,
@@ -23,20 +25,44 @@ export default function TelecallingView({
   onManageStages = () => {},
   onOpenPositionModal = () => {}
 }) {
-  const companyId = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 'org_default';
+  const companyId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id || 'org_default';
   const { config } = useModuleRegistry(companyId, 'telecalling');
   
   const [isVoxbayOpen, setIsVoxbayOpen] = useState(false);
   const [internalLogs, setInternalLogs] = useState(() => {
+    if (isSandboxEnvironment()) {
+      try { localStorage.removeItem('omniflow_cached_call_logs'); } catch (e) {}
+      const cached = TenantStorage.getItem('call_logs', companyId, []);
+      if (Array.isArray(cached) && cached.length > 0) return cached;
+      if (Array.isArray(callLogs)) {
+        const tenantStr = String(companyId);
+        return callLogs.filter(c => String(c.tenant_id || c.tenantId) === tenantStr);
+      }
+      return [];
+    }
     if (Array.isArray(callLogs) && callLogs.length > 0) return callLogs;
+    const cached = TenantStorage.getItem('call_logs', companyId, null);
+    if (Array.isArray(cached)) return cached;
     try {
-      const cached = localStorage.getItem('omniflow_cached_call_logs');
-      return cached ? JSON.parse(cached) : [];
+      const globalCached = localStorage.getItem('omniflow_cached_call_logs');
+      return globalCached ? JSON.parse(globalCached) : [];
     } catch (e) {
       return [];
     }
   });
   const activeProvider = localStorage.getItem('active_telephony_provider') || 'sim_runo';
+
+  // Synchronize internal state whenever parent callLogs or companyId changes
+  useEffect(() => {
+    if (Array.isArray(callLogs)) {
+      if (isSandboxEnvironment()) {
+        const tenantStr = String(companyId);
+        setInternalLogs(callLogs.filter(c => String(c.tenant_id || c.tenantId) === tenantStr));
+      } else {
+        setInternalLogs(callLogs);
+      }
+    }
+  }, [callLogs, companyId]);
 
   const [crmContactMap, setCrmContactMap] = useState(() => {
     try {
@@ -62,8 +88,21 @@ export default function TelecallingView({
     return new Map();
   });
 
-  // 1. Direct Real-Time Multi-Collection Firestore Listener for Companion App & Web Call Logs
+  // 1. Direct Real-Time Multi-Collection Firestore Listener / Supabase Sandbox Loader
   useEffect(() => {
+    if (isSandboxEnvironment()) {
+      try { localStorage.removeItem('omniflow_cached_call_logs'); } catch (e) {}
+      const tenantNum = Number(companyId) || 999;
+      SupabaseSandboxService.fetchCallLogs(tenantNum).then(logs => {
+        setInternalLogs(logs);
+        if (typeof setCallLogs === 'function') setCallLogs(logs);
+        TenantStorage.setItem('call_logs', logs, companyId);
+      }).catch(err => {
+        console.error('[Telecalling] Sandbox call_logs fetch error:', err);
+      });
+      return;
+    }
+
     let unsubs = [];
 
     const mergeRecords = (newDocs) => {
@@ -78,7 +117,7 @@ export default function TelecallingView({
           return timeB - timeA;
         });
         try {
-          localStorage.setItem('omniflow_cached_call_logs', JSON.stringify(merged.slice(0, 300)));
+          TenantStorage.setItem('call_logs', merged, companyId);
         } catch (e) {}
 
         // Background auto-sync new calls to GoHighLevel
@@ -232,22 +271,32 @@ export default function TelecallingView({
         try { u(); } catch (e) {}
       });
     };
-  }, []);
+  }, [companyId]);
 
   // Format and merge all sources (parent props + internal live state + CRM contact resolution)
   const activeRecords = useMemo(() => {
     const combined = new Map();
-    
+    const currentTenantStr = String(companyId);
+
+    const isMatchingTenant = (c) => {
+      if (!c) return false;
+      if (isSandboxEnvironment()) {
+        const itemTenant = String(c.tenant_id || c.tenantId || '');
+        return itemTenant === currentTenantStr;
+      }
+      return !c.tenantId || String(c.tenantId) === currentTenantStr;
+    };
+
     // Add parent callLogs
     if (Array.isArray(callLogs)) {
-      callLogs.forEach(c => {
+      callLogs.filter(isMatchingTenant).forEach(c => {
         if (c && c.id) combined.set(String(c.id), c);
       });
     }
 
-    // Add internal live Firestore logs
+    // Add internal live logs
     if (Array.isArray(internalLogs)) {
-      internalLogs.forEach(c => {
+      internalLogs.filter(isMatchingTenant).forEach(c => {
         if (c && c.id) combined.set(String(c.id), c);
       });
     }
@@ -298,6 +347,7 @@ export default function TelecallingView({
         status: log.disposition || log.status || 'Interested',
         notes: log.notes || (activeProvider === 'voxbay' ? 'Voxbay Live Call' : 'SIM Companion Call'),
         timestamp: log.timestamp || (log._createdAt ? new Date(log._createdAt).toLocaleString() : new Date().toISOString()),
+        tenantId: log.tenant_id || log.tenantId || companyId,
         _createdAt: log._createdAt || Date.now()
       };
     }).sort((a, b) => {
@@ -305,37 +355,52 @@ export default function TelecallingView({
       const timeB = Number(b._createdAt || 0);
       return timeB - timeA;
     });
-  }, [callLogs, internalLogs, crmContactMap, authUser, activeProvider]);
+  }, [callLogs, internalLogs, crmContactMap, authUser, activeProvider, companyId]);
 
-  const handleUpdateRecords = (newRecords) => {
+  const handleUpdateRecords = async (newRecords) => {
     setInternalLogs(newRecords);
     if (typeof setCallLogs === 'function') setCallLogs(newRecords);
-    if (Array.isArray(newRecords)) {
-      newRecords.forEach(rec => {
-        if (rec && rec.id) {
-          FirebaseCloudEngine.saveRecord('call_logs', rec, companyId);
+    TenantStorage.setItem('call_logs', newRecords, companyId);
+
+    if (isSandboxEnvironment()) {
+      if (Array.isArray(newRecords) && newRecords.length > 0) {
+        const newest = newRecords[0];
+        if (newest && newest.id) {
+          try {
+            await SupabaseSandboxService.createCallLog(newest, companyId);
+          } catch (e) {
+            console.error('[Telecalling] Sandbox call_log save error:', e);
+          }
         }
-      });
+      }
+    } else {
+      if (Array.isArray(newRecords)) {
+        newRecords.forEach(rec => {
+          if (rec && rec.id) {
+            FirebaseCloudEngine.saveRecord('call_logs', rec, companyId);
+          }
+        });
+      }
     }
   };
 
-  const handleCallLogged = (newCall) => {
-    const updated = [
-      {
-        id: `CALL-${Date.now()}`,
-        name: newCall.contactName || newCall.customerName || newCall.name || 'Customer',
-        agentName: authUser?.name || 'Staff 1',
-        phone: newCall.phoneNumber || newCall.customerPhone || newCall.phone || '—',
-        channel: newCall.channel || (activeProvider === 'voxbay' ? 'VOXBAY' : 'SIM'),
-        type: newCall.type || 'OUTGOING',
-        duration: typeof newCall.duration === 'string' ? newCall.duration : '00:30',
-        recording: newCall.recording || newCall.recordingUrl || '',
-        status: newCall.status || 'Interested',
-        notes: newCall.notes || (activeProvider === 'voxbay' ? 'Voxbay Cloud Call' : 'SIM Companion Call'),
-        _createdAt: Date.now()
-      },
-      ...activeRecords
-    ];
+  const handleCallLogged = async (newCall) => {
+    const newCallItem = {
+      id: `CALL-${Date.now()}`,
+      name: newCall.contactName || newCall.customerName || newCall.name || 'Customer',
+      agentName: authUser?.name || 'Staff 1',
+      phone: newCall.phoneNumber || newCall.customerPhone || newCall.phone || '—',
+      channel: newCall.channel || (activeProvider === 'voxbay' ? 'VOXBAY' : 'SIM'),
+      type: newCall.type || 'OUTGOING',
+      duration: typeof newCall.duration === 'string' ? newCall.duration : '00:30',
+      recording: newCall.recording || newCall.recordingUrl || '',
+      status: newCall.status || 'Interested',
+      notes: newCall.notes || (activeProvider === 'voxbay' ? 'Voxbay Cloud Call' : 'SIM Companion Call'),
+      tenantId: companyId,
+      tenant_id: Number(companyId) || 999,
+      _createdAt: Date.now()
+    };
+    const updated = [newCallItem, ...activeRecords];
     handleUpdateRecords(updated);
     if (showToast) showToast('📞 Call logged and recording synced successfully!', 'success');
 
@@ -370,14 +435,22 @@ export default function TelecallingView({
     const targetId = typeof recordOrId === 'object' ? (recordOrId.id || recordOrId.originalId) : recordOrId;
     if (!targetId) return;
 
-    // 1. Delete from active Firestore collections
-    try {
-      if (db) {
-        await deleteDoc(doc(db, 'callLogs', String(targetId)));
-        await deleteDoc(doc(db, 'call_logs', String(targetId)));
+    if (isSandboxEnvironment()) {
+      try {
+        await SupabaseSandboxService.deleteCallLog(targetId, companyId);
+      } catch (e) {
+        console.warn('Sandbox call_log delete notice:', e);
       }
-    } catch (e) {
-      console.warn('Firestore callLog delete notice:', e);
+    } else {
+      // 1. Delete from active Firestore collections
+      try {
+        if (db) {
+          await deleteDoc(doc(db, 'callLogs', String(targetId)));
+          await deleteDoc(doc(db, 'call_logs', String(targetId)));
+        }
+      } catch (e) {
+        console.warn('Firestore callLog delete notice:', e);
+      }
     }
 
     // 2. Move to Universal Recycle Bin / Archive
@@ -398,6 +471,7 @@ export default function TelecallingView({
     if (typeof setCallLogs === 'function') {
       setCallLogs(prev => prev.filter(r => r.id !== targetId));
     }
+    TenantStorage.setItem('call_logs', (activeRecords || []).filter(r => r.id !== targetId), companyId);
     if (showToast) showToast('🗑️ Call log moved to Trash Archive', 'info');
   };
 

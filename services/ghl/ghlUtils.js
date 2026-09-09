@@ -17,7 +17,7 @@ export function normalizePhoneToE164(rawPhone, defaultCountryCode = '91') {
   if (!rawPhone || typeof rawPhone !== 'string') return null;
 
   // 1. Skip WhatsApp Groups, Broadcasts, and group JIDs
-  if (rawPhone.includes('@g.us') || rawPhone.includes('@broadcast') || rawPhone.includes('status@') || (rawPhone.includes('-') && rawPhone.length > 15)) {
+  if (rawPhone.includes('@g.us') || rawPhone.includes('@broadcast') || rawPhone.includes('@newsletter') || rawPhone.includes('status@')) {
     return null; // Groups are not individual contacts
   }
 

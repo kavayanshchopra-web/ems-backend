@@ -60,10 +60,10 @@ export function getActiveFirebaseConfig() {
   if (typeof window !== 'undefined') {
     const host = (window.location.hostname || '').toLowerCase();
     const isProduction = 
-      host === 'app.employeemanagementsystems.com' || 
+      (host === 'app.employeemanagementsystems.com' || 
       host === 'employeemanagementsystems.com' || 
-      host.endsWith('.employeemanagementsystems.com') ||
-      host === 'ems-crm-sandy.vercel.app';
+      (host.endsWith('.employeemanagementsystems.com') && !host.includes('sandbox')) ||
+      host === 'ems-crm-sandy.vercel.app');
 
     if (!isProduction) {
       return sandboxFirebaseConfig; // Sandbox Project: [ems-sandbox-60598] for localhost & Vercel Sandbox Previews

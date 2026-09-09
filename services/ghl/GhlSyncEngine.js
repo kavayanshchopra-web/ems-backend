@@ -8,6 +8,7 @@ import {
 import { 
   getGhlIntegrationByTenant,
   getGhlIntegrationByLocation,
+  getAllActiveGhlIntegrations,
   getContact, 
   getAllContacts,
   saveContact,
@@ -65,6 +66,10 @@ export class GhlSyncEngine {
     if (!integration && typeof tenantId === 'string') {
       integration = await getGhlIntegrationByLocation(tenantId);
     }
+    if (!integration && !tenantId) {
+      const allActive = await getAllActiveGhlIntegrations();
+      if (allActive && allActive.length > 0) integration = allActive[0];
+    }
     if (!integration || !integration.is_active || !integration.location_id) {
       throw new GhlApiError('GoHighLevel integration is not active or connected for this tenant', 'GHL_NOT_CONNECTED', 400);
     }
@@ -102,9 +107,23 @@ export class GhlSyncEngine {
       };
     }
 
-    // 4. Prepare HighLevel standard contact payload
-    const normalizedPhone = normalizePhoneToE164(emsContact.id) || normalizePhoneToE164(emsContact.phone_computed) || null;
-    const displayName = (emsContact.custom_name || emsContact.name || '').trim();
+    // 4. Prepare HighLevel standard contact payload with multi-field phone resolution
+    const phoneCandidate = emsContact.phone 
+      || emsContact.phoneNumber 
+      || emsContact.customerPhone 
+      || emsContact.rawPhone 
+      || emsContact.phone_computed 
+      || emsContact.id 
+      || emsContactId 
+      || '';
+    
+    const normalizedPhone = normalizePhoneToE164(String(phoneCandidate)) 
+      || normalizePhoneToE164(String(emsContact.phone || '')) 
+      || normalizePhoneToE164(String(emsContact.phone_computed || '')) 
+      || normalizePhoneToE164(String(emsContact.id || '')) 
+      || null;
+
+    const displayName = (emsContact.custom_name || emsContact.name || emsContact.contactName || emsContact.customerName || '').trim();
     const { firstName, lastName, name } = splitFullName(displayName);
 
     const contactPayload = {
@@ -113,7 +132,7 @@ export class GhlSyncEngine {
       lastName: lastName || undefined,
       email: (emsContact.email || '').trim() || undefined,
       phone: normalizedPhone || undefined,
-      tags: Array.isArray(emsContact.labels) ? emsContact.labels : undefined
+      tags: Array.isArray(emsContact.labels) ? emsContact.labels : (Array.isArray(emsContact.tags) ? emsContact.tags : undefined)
     };
 
     let ghlContactId = existingLink ? existingLink.ghl_entity_id : null;
@@ -874,6 +893,9 @@ export class GhlSyncEngine {
       }
     }
 
+    return summary;
+  }
+
   /**
    * Synchronize an EMS Call Record & Recording to GoHighLevel Conversation & Timeline.
    * Works for both Voxbay PBX Cloud calls and Runo-style Mobile SIM Companion recordings.
@@ -890,6 +912,10 @@ export class GhlSyncEngine {
       let integration = await getGhlIntegrationByTenant(tenantId);
       if (!integration && typeof tenantId === 'string') {
         integration = await getGhlIntegrationByLocation(tenantId);
+      }
+      if (!integration && !tenantId) {
+        const allActive = await getAllActiveGhlIntegrations();
+        if (allActive && allActive.length > 0) integration = allActive[0];
       }
       if (!integration || !integration.is_active || !integration.location_id) {
         return { status: 'skipped', reason: 'ghl_not_connected_or_inactive' };
@@ -945,7 +971,23 @@ export class GhlSyncEngine {
       }
 
       // 4. Extract Duration, Recording, and Meta
-      const durationSeconds = Number(callLog.durationSeconds || callLog.duration_seconds || (typeof callLog.duration === 'number' ? callLog.duration : 0));
+      let durationSeconds = 30;
+      const rawDur = callLog.durationSeconds ?? callLog.duration_seconds ?? callLog.duration ?? 0;
+      if (typeof rawDur === 'number' && !isNaN(rawDur)) {
+        durationSeconds = Math.max(0, Math.round(rawDur));
+      } else if (typeof rawDur === 'string') {
+        const s = rawDur.trim().toLowerCase();
+        if (/^\d+\s*s?$/.test(s)) {
+          durationSeconds = parseInt(s, 10) || 30;
+        } else if (s.includes(':')) {
+          const parts = s.split(':').map(p => parseInt(p, 10) || 0);
+          if (parts.length === 2) durationSeconds = parts[0] * 60 + parts[1];
+          else if (parts.length === 3) durationSeconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        } else {
+          const p = parseInt(s.replace(/\D/g, ''), 10);
+          durationSeconds = isNaN(p) ? 30 : p;
+        }
+      }
       const recordingUrl = callLog.recordingUrl || callLog.recording_url || callLog.recording || callLog.audioUrl || '';
       const channel = callLog.channel || (callLog.isSimCall ? 'SIM_COMPANION' : 'VOXBAY');
       const staffName = callLog.staffName || callLog.staff_name || callLog.agentName || 'Agent';
@@ -992,6 +1034,93 @@ export class GhlSyncEngine {
       console.error('[GhlSyncEngine] syncCallRecordToGhl error:', err);
       return { status: 'error', error: err.message };
     }
+  }
+
+  /**
+   * Synchronize an entire EMS Conversation (Contact + WhatsApp Messages + Call Records) to GoHighLevel.
+   * 
+   * @param {number|string} tenantId 
+   * @param {Object} params
+   * @param {Object} params.contact - EMS Contact object (name, phone, etc.)
+   * @param {Array} [params.messages=[]] - List of WhatsApp messages
+   * @param {Array} [params.callLogs=[]] - List of Call logs
+   * @returns {Promise<Object>}
+   */
+  async syncConversationToGhl(tenantId, { contact, messages = [], callLogs = [] } = {}) {
+    if (!tenantId) throw new GhlApiError('tenantId is required', 'GHL_VALIDATION_ERROR', 400);
+    if (!contact) throw new GhlApiError('contact is required', 'GHL_VALIDATION_ERROR', 400);
+
+    let integration = await getGhlIntegrationByTenant(tenantId);
+    if (!integration && typeof tenantId === 'string') {
+      integration = await getGhlIntegrationByLocation(tenantId);
+    }
+    if (!integration && !tenantId) {
+      const allActive = await getAllActiveGhlIntegrations();
+      if (allActive && allActive.length > 0) integration = allActive[0];
+    }
+    if (!integration || !integration.is_active || !integration.location_id) {
+      throw new GhlApiError('GoHighLevel is not connected for this tenant', 'GHL_NOT_CONNECTED', 400);
+    }
+    const locationId = integration.location_id;
+
+    // 1. Ensure Contact is synced / updated on GHL with correct phone number
+    const contactRes = await this.syncContactToGhl(tenantId, contact.id || contact.phone, contact);
+    const ghlContactId = contactRes.ghlContactId;
+    if (!ghlContactId) {
+      throw new GhlApiError('Could not sync contact to HighLevel', 'GHL_SYNC_ERROR', 500);
+    }
+
+    const summary = {
+      ghlContactId,
+      locationId,
+      messagesSynced: 0,
+      callsSynced: 0,
+      errors: []
+    };
+
+    // 2. Sync Call Logs to GHL Conversations & Activity Timeline
+    if (Array.isArray(callLogs) && callLogs.length > 0) {
+      for (const call of callLogs) {
+        try {
+          const res = await this.syncCallRecordToGhl(tenantId, {
+            ...call,
+            customerPhone: call.customerPhone || call.phoneNumber || contact.phone || contact.id,
+            customerName: call.customerName || contact.custom_name || contact.name
+          });
+          if (res && (res.status === 'success' || res.ghlContactId)) {
+            summary.callsSynced++;
+          }
+        } catch (callErr) {
+          summary.errors.push({ type: 'call', id: call.id, error: callErr.message });
+        }
+      }
+    }
+
+    // 3. Sync Recent Messages to GHL Conversations Inbox
+    if (Array.isArray(messages) && messages.length > 0) {
+      // Sync the most recent 25 messages to avoid rate limits
+      const recentMessages = messages.slice(-25);
+      for (const msg of recentMessages) {
+        try {
+          const direction = msg.fromMe || msg.is_from_me || msg.direction === 'outbound' ? 'outbound' : 'inbound';
+          const text = msg.text || msg.body || msg.caption || msg.message || '';
+          if (!text && !msg.mediaUrl && !msg.media_url) continue;
+
+          await ghlApiClient.createConversationChatMessage(locationId, {
+            contactId: ghlContactId,
+            message: text,
+            direction,
+            status: msg.status || 'delivered',
+            mediaUrl: msg.mediaUrl || msg.media_url || ''
+          });
+          summary.messagesSynced++;
+        } catch (msgErr) {
+          summary.errors.push({ type: 'message', id: msg.id, error: msgErr.message });
+        }
+      }
+    }
+
+    return summary;
   }
 }
 

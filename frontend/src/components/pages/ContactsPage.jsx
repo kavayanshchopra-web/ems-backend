@@ -12,6 +12,7 @@ import { db } from '../../firebase';
 import { collection, onSnapshot, doc, deleteDoc, query, where } from 'firebase/firestore';
 import { RefreshCw, Zap, Trash2 } from 'lucide-react';
 import { normalizePhone10, formatPhoneDisplay, toE164Phone } from '../../core/utils/phoneUtils';
+import { SupabaseSandboxService, isSandboxEnvironment } from '../../core/services/supabaseSandboxService';
 
 export default function ContactsPage({
   authUser = null,
@@ -200,9 +201,22 @@ export default function ContactsPage({
   useEffect(() => {
     let unsubs = [];
 
+    // A0. Direct Supabase Sandbox Fetch
+    if (isSandboxEnvironment()) {
+      const safeTenant = Number(companyId) || 1;
+      SupabaseSandboxService.fetchContacts(safeTenant)
+        .then(sbContacts => {
+          if (sbContacts && sbContacts.length > 0) {
+            setInternalRecords(prev => processAndMergeRecords(prev, sbContacts));
+            TenantStorage.setItem('contacts', sbContacts, safeTenant);
+          }
+        })
+        .catch(e => console.warn('[ContactsPage] Sandbox fetch notice:', e));
+    }
+
     // A. Listen exclusively to Firestore 'contacts' collection for this tenant
     try {
-      if (db && companyId && companyId !== 'org_unassigned') {
+      if (!isSandboxEnvironment() && db && companyId && companyId !== 'org_unassigned') {
         const qContacts = query(collection(db, 'contacts'), where('tenantId', '==', String(companyId)));
         const unsub1 = onSnapshot(qContacts, (snapshot) => {
           const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -313,9 +327,14 @@ export default function ContactsPage({
     if (typeof setPropContacts === 'function') setPropContacts(newRecords);
 
     if (Array.isArray(newRecords)) {
+      const safeTenant = Number(companyId) || 1;
       newRecords.forEach(rec => {
         if (rec && rec.id) {
-          FirebaseCloudEngine.saveRecord('contacts', rec, companyId);
+          if (isSandboxEnvironment()) {
+            SupabaseSandboxService.createContact(rec, safeTenant).catch(e => console.warn('[Sandbox] Contact sync notice:', e));
+          } else {
+            FirebaseCloudEngine.saveRecord('contacts', rec, companyId);
+          }
         }
       });
     }
@@ -326,12 +345,21 @@ export default function ContactsPage({
     const targetId = typeof recordOrId === 'object' ? (recordOrId.id || recordOrId.originalId) : recordOrId;
     if (!targetId) return;
 
-    try {
-      if (db) {
-        await deleteDoc(doc(db, 'contacts', String(targetId)));
+    if (isSandboxEnvironment()) {
+      const safeTenant = Number(companyId) || 1;
+      try {
+        await SupabaseSandboxService.deleteContact(targetId, safeTenant);
+      } catch (e) {
+        console.warn('Sandbox contact delete notice:', e);
       }
-    } catch (e) {
-      console.warn('Firestore contact delete notice:', e);
+    } else {
+      try {
+        if (db) {
+          await deleteDoc(doc(db, 'contacts', String(targetId)));
+        }
+      } catch (e) {
+        console.warn('Firestore contact delete notice:', e);
+      }
     }
 
     const rec = (internalRecords || []).find(r => r.id === targetId) || (typeof recordOrId === 'object' ? recordOrId : { id: targetId });

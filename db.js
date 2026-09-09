@@ -2464,12 +2464,18 @@ export async function ensureTenantRowExists(tenantId, companyName = '') {
 
   // If string (e.g. 'org_6e625WqmbKCdRrvted' or locationId)
   const strId = String(tenantId).trim();
-  const existing = await db.get(`SELECT id FROM tenants WHERE company_name = ?`, [strId]);
+  const existing = await db.get(`SELECT id FROM tenants WHERE company_name = ? OR tenant_slug = ?`, [strId, strId]);
   if (existing) {
     return existing.id;
   }
   const ins = await db.run(`INSERT INTO tenants (company_name) VALUES (?)`, [strId]);
-  return ins.lastID;
+  const newId = ins.lastID;
+  const clean = strId.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 25);
+  const slug = `TEN-${String(newId).padStart(4, '0')}-${clean || 'ORGANIZATION'}`;
+  try {
+    await db.run(`UPDATE tenants SET tenant_slug = ? WHERE id = ?`, [slug, newId]);
+  } catch (e) {}
+  return newId;
 }
 
 export async function saveGhlIntegration(tenantId, data = {}) {

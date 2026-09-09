@@ -30,6 +30,8 @@ import {
 
 import GhlOAuthService from '../../core/services/ghlOAuthService.js';
 import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine.js';
+import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService.js';
+import TenantStorage from '../../core/services/TenantStorage.js';
 
 const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 const LIVE_BACKEND = 'https://api.employeemanagementsystems.com';
@@ -125,24 +127,29 @@ export default function IntegrationsPage({
       }
       setEmsContactsCount(totalContacts);
 
-      // 2. Calculate EMS call records count across all 4 sources (Companion App, Dashboard, SQLite, localStorage)
+      // 2. Calculate EMS call records count across all sources (strictly scoped to tenant)
       const allCalls = new Map();
-      try {
-        const cached = localStorage.getItem('omniflow_cached_call_logs');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed)) parsed.forEach(c => c && c.id && allCalls.set(String(c.id), c));
-        }
-      } catch (e) {}
+      if (isSandboxEnvironment()) {
+        try {
+          const tenantNum = Number(companyId) || 999;
+          const sbLogs = await SupabaseSandboxService.fetchCallLogs(tenantNum);
+          sbLogs.forEach(c => c && c.id && allCalls.set(String(c.id), c));
+        } catch (e) {}
+      } else {
+        try {
+          const cached = TenantStorage.getItem('call_logs', companyId, []);
+          if (Array.isArray(cached)) cached.forEach(c => c && c.id && allCalls.set(String(c.id), c));
+        } catch (e) {}
 
-      try {
-        if (db) {
-          const snap1 = await getDocs(collection(db, 'callLogs'));
-          snap1.forEach(d => allCalls.set(String(d.id), { id: d.id, ...d.data() }));
-          const snap2 = await getDocs(collection(db, 'call_logs'));
-          snap2.forEach(d => allCalls.set(String(d.id), { id: d.id, ...d.data() }));
-        }
-      } catch (e) {}
+        try {
+          if (db && companyId && companyId !== 'all') {
+            const snap1 = await getDocs(query(collection(db, 'callLogs'), where('tenantId', '==', String(companyId))));
+            snap1.forEach(d => allCalls.set(String(d.id), { id: d.id, ...d.data() }));
+            const snap2 = await getDocs(query(collection(db, 'call_logs'), where('tenantId', '==', String(companyId))));
+            snap2.forEach(d => allCalls.set(String(d.id), { id: d.id, ...d.data() }));
+          }
+        } catch (e) {}
+      }
 
       const totalCallsCount = Math.max(allCalls.size, 35);
       setEmsCallsCount(totalCallsCount);
@@ -966,17 +973,14 @@ export default function IntegrationsPage({
       // 2. Fetch and merge ALL call log sources (Firestore callLogs + call_logs + SQLite API + localStorage)
       const allCallsMap = new Map();
 
-      // Source A: Local Storage cache
+      // Source A: Tenant Storage cache
       try {
-        const cached = localStorage.getItem('omniflow_cached_call_logs');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed)) {
-            parsed.forEach(c => {
-              const k = c.id || `${(c.customerPhone || c.phone || '').replace(/\D/g, '')}_${c.timestamp || c._createdAt || ''}`;
-              if (k) allCallsMap.set(String(k), c);
-            });
-          }
+        const cached = TenantStorage.getItem('call_logs', companyId, []);
+        if (Array.isArray(cached)) {
+          cached.forEach(c => {
+            const k = c.id || `${(c.customerPhone || c.phone || '').replace(/\D/g, '')}_${c.timestamp || c._createdAt || ''}`;
+            if (k) allCallsMap.set(String(k), c);
+          });
         }
       } catch (e) {}
 
@@ -1050,7 +1054,7 @@ export default function IntegrationsPage({
       // Update local state and cache
       setEmsCallsCount(Math.max(callLogs.length, 35));
       try {
-        localStorage.setItem('omniflow_cached_call_logs', JSON.stringify(callLogs.slice(0, 300)));
+        TenantStorage.setItem('call_logs', callLogs.slice(0, 300), companyId);
       } catch (e) {}
 
       if (!Array.isArray(callLogs) || callLogs.length === 0) {

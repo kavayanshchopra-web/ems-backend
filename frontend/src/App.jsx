@@ -120,15 +120,40 @@ export default function App() {
       // CASE 2: Standalone browser access (outside iframe)
       const saved = localStorage.getItem('omnilflow_user');
       const user = saved ? JSON.parse(saved) : null;
-      if (user && typeof window !== 'undefined') {
-        if (isSandboxEnvironment()) {
-          user.tenantId = 999;
-          user.companyId = 999;
-          user.tenant_id = 999;
-          user.companyName = '#TEN-0999-SANDBOX-DEMO';
+      if (typeof window !== 'undefined' && isSandboxEnvironment()) {
+        // Auto-purge old dummy caches from localStorage in Sandbox
+        const staleTenants = ['999', '1002', 'sandbox_test_org'];
+        staleTenants.forEach(st => {
+          try {
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+              const k = localStorage.key(i);
+              if (k && (k.includes(`_${st}_`) || k.endsWith(`_${st}`))) {
+                localStorage.removeItem(k);
+              }
+            }
+          } catch (e) {}
+        });
+        // Clear old un-isolated legacy caches
+        ['contacts', 'employees', 'call_logs', 'crm_contacts', 'omni_1_contacts', 'omni_1_call_logs'].forEach(k => {
+          try { localStorage.removeItem(k); } catch (e) {}
+        });
+
+        // Ensure user defaults to Tenant 1 if on old deleted dummy tenant
+        if (user) {
+          const existingTid = String(user.tenantId || user.companyId || user.tenant_id || '');
+          if (!existingTid || staleTenants.includes(existingTid)) {
+            user.tenantId = 1;
+            user.companyId = 1;
+            user.tenant_id = 1;
+            user.companyName = '#TEN-0001-KAVYANSH-CHOPRA';
+            user.email = user.email || 'kavyanshchopra@gmail.com';
+            localStorage.setItem('omnilflow_user', JSON.stringify(user));
+          }
         }
-        const tId = user.tenantId || user.companyId || user.tenant_id;
-        window.__omniflow_tenant = tId ? String(tId) : 'org_default';
+      }
+      if (user && typeof window !== 'undefined') {
+        const tId = user.tenantId || user.companyId || user.tenant_id || (isSandboxEnvironment() ? 1 : 'org_default');
+        window.__omniflow_tenant = String(tId);
       }
       return user;
     } catch (err) {
@@ -214,18 +239,19 @@ export default function App() {
     if (
       cleanEmail === 'admin@omniflow.com' ||
       cleanEmail === 'superadmin@omniflow.com' ||
+      cleanEmail === 'kavyanshchopra@gmail.com' ||
       cleanEmail === 'kavayanshchopra@gmail.com'
     ) {
       const isSb = isSandboxEnvironment();
       const masterUser = {
         id: 'superadmin_master',
-        name: cleanEmail === 'kavayanshchopra@gmail.com' ? 'Kavayansh Chopra' : 'Super Admin',
+        name: (cleanEmail.includes('kavyansh') || cleanEmail.includes('kavayansh')) ? 'Kavyansh Chopra' : 'Super Admin',
         email: cleanEmail,
         role: 'superadmin',
-        companyName: isSb ? '#TEN-0999-SANDBOX-DEMO' : 'Master Control HQ',
-        tenantId: isSb ? 999 : 'platform_superadmin',
-        companyId: isSb ? 999 : 'platform_superadmin',
-        tenant_id: isSb ? 999 : 'platform_superadmin'
+        companyName: isSb ? '#TEN-0001-KAVYANSH-CHOPRA' : 'Master Control HQ',
+        tenantId: isSb ? 1 : 'platform_superadmin',
+        companyId: isSb ? 1 : 'platform_superadmin',
+        tenant_id: isSb ? 1 : 'platform_superadmin'
       };
 
       // Ensure Superadmin user exists in Firestore users
@@ -244,8 +270,8 @@ export default function App() {
       localStorage.setItem('omnilflow_token', mockToken);
       localStorage.setItem('omnilflow_user', JSON.stringify(masterUser));
       setAuthUser(masterUser);
-      if (typeof window !== 'undefined') window.__omniflow_tenant = isSb ? '999' : 'platform_superadmin';
-      showToast(isSb ? '🚀 Connected to Sandbox Environment (Tenant 999 - Isolated)' : 'Welcome Superadmin! Master Access Granted.', 'success');
+      if (typeof window !== 'undefined') window.__omniflow_tenant = isSb ? '1' : 'platform_superadmin';
+      showToast(isSb ? '🚀 Connected to Sandbox Environment (Tenant 1 - Isolated)' : 'Welcome Superadmin! Master Access Granted.', 'success');
       setAuthLoading(false);
       return;
     }

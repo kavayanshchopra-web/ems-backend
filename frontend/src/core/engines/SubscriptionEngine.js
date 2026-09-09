@@ -15,6 +15,7 @@ import {
   setDoc, 
   getDoc 
 } from '../../firebase';
+import { isSandboxEnvironment, SupabaseSandboxService } from '../services/supabaseSandboxService';
 
 const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 const LIVE_BACKEND = 'https://api.employeemanagementsystems.com';
@@ -555,6 +556,36 @@ class SubscriptionEngine {
     const now = new Date();
     const trialDays = payload.trialDays || 7;
     const expiryDate = new Date(now.getTime() + (isTrial ? trialDays * 86400000 : 30 * 86400000)).toISOString();
+
+    // 0. Direct Supabase Sandbox Registration
+    if (isSandboxEnvironment()) {
+      try {
+        const tenant = await SupabaseSandboxService.createTenant({
+          companyName: payload.companyName,
+          adminEmail: payload.email,
+          adminName: payload.adminName,
+          planId: payload.planId || 'starter'
+        });
+        const user = {
+          id: `user_${tenant.id || Date.now()}`,
+          email: payload.email,
+          name: payload.adminName || payload.companyName,
+          role: 'owner',
+          tenantId: tenant.id || 999,
+          tenant_id: tenant.id || 999,
+          companyId: tenant.id || 999,
+          companyName: tenant.company_name || payload.companyName,
+          subscription_status: 'active'
+        };
+        const mockToken = `sb_token_${tenant.id || 999}_${Date.now()}`;
+        localStorage.setItem('omnilflow_token', mockToken);
+        localStorage.setItem('token', mockToken);
+        localStorage.setItem('omnilflow_user', JSON.stringify(user));
+        return { success: true, user, tenant, token: mockToken };
+      } catch (sbErr) {
+        console.warn('[SubscriptionEngine] Sandbox register fallback:', sbErr);
+      }
+    }
 
     // 1. Try Node/Express REST API first if reachable
     try {
@@ -1138,6 +1169,20 @@ class SubscriptionEngine {
    * SuperAdmin: Direct Provision Company (bypassing payment gates)
    */
   static async createDirectCompany(payload) {
+    if (isSandboxEnvironment()) {
+      try {
+        const tenant = await SupabaseSandboxService.createTenant({
+          companyName: payload.companyName,
+          adminEmail: payload.adminEmail,
+          adminName: payload.adminName,
+          planId: payload.planId || 'pro'
+        });
+        return { success: true, tenant, message: 'VIP Company created in Supabase Sandbox!' };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    }
+
     try {
       const res = await fetch(`${API_URL}/superadmin/create-direct-company`, {
         method: 'POST',

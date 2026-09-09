@@ -163,7 +163,9 @@ export async function authMiddleware(req, res, next) {
     req.path === '/health' ||
     req.path === '/billing/webhook' ||
     req.path.includes('/integrations/marketplace/') ||
-    req.path.includes('/integrations/ghl/') ||
+    req.path.includes('/integrations/ghl/oauth/callback') ||
+    req.path.includes('/integrations/ghl/webhook') ||
+    req.path.includes('/integrations/ghl/delivery') ||
     req.path.includes('/integrations/webhook/') ||
     req.path.includes('/integrations/oauth/') ||
     req.path.includes('/integrations/logs') ||
@@ -174,8 +176,8 @@ export async function authMiddleware(req, res, next) {
     req.path.startsWith('/calls') ||
     req.path.startsWith('/telecalling')
   ) {
-    const headerTenant = req.headers['x-tenant-id'] || req.headers['x-company-id'] || req.query.tenant_id || null;
-    const authHeader = req.headers['authorization'];
+    const headerTenant = req.headers?.['x-tenant-id'] || req.headers?.['x-company-id'] || req.query?.tenant_id || null;
+    const authHeader = req.headers?.['authorization'];
     const token = authHeader ? authHeader.split(' ')[1] : null;
     if (token) {
       try {
@@ -203,9 +205,9 @@ export async function authMiddleware(req, res, next) {
     return next();
   }
 
-  const authHeader = req.headers['authorization'];
+  const authHeader = req.headers?.['authorization'];
   const token = authHeader ? authHeader.split(' ')[1] : null;
-  const headerTenant = req.headers['x-tenant-id'] || req.headers['x-company-id'] || req.query.tenant_id || null;
+  const headerTenant = req.headers?.['x-tenant-id'] || req.headers?.['x-company-id'] || req.query?.tenant_id || null;
 
   if (token) {
     try {
@@ -1654,6 +1656,39 @@ export default function setupRoutes(io) {
     }
 
     try {
+      const db = await getDb();
+
+      // 1. Strict Duplicate Email Validation
+      if (email && String(email).trim()) {
+        const cleanEmail = String(email).trim().toLowerCase();
+        const existingEmp = await db.get(
+          `SELECT id, first_name, last_name FROM employees WHERE tenant_id = ? AND LOWER(TRIM(email)) = ?`,
+          [req.user.tenant_id, cleanEmail]
+        );
+        if (existingEmp) {
+          return res.status(400).json({
+            error: `Duplicate Error: Is email address (${email}) se pehle se employee account (${existingEmp.first_name || ''} ${existingEmp.last_name || ''}) exist karta hai. 1 Gmail se 2 accounts nahi ban sakte!`
+          });
+        }
+      }
+
+      // 2. Strict Duplicate Phone Validation
+      if (phone && String(phone).trim()) {
+        const cleanDigits = String(phone).replace(/\D/g, '');
+        if (cleanDigits.length >= 7) {
+          const last10 = cleanDigits.slice(-10);
+          const existingEmpPhone = await db.get(
+            `SELECT id, first_name, last_name, phone FROM employees WHERE tenant_id = ? AND phone IS NOT NULL AND (phone LIKE ? OR phone LIKE ?)`,
+            [req.user.tenant_id, `%${last10}%`, `%${cleanDigits}%`]
+          );
+          if (existingEmpPhone) {
+            return res.status(400).json({
+              error: `Duplicate Error: Is phone number (${phone}) se pehle se employee account (${existingEmpPhone.first_name || ''} ${existingEmpPhone.last_name || ''}) exist karta hai!`
+            });
+          }
+        }
+      }
+
       // Plan limit check
       const currentCount = await getEmployeesCount(req.user.tenant_id);
       const plan = await getTenantPlanDetails(req.user.tenant_id);
@@ -1706,6 +1741,39 @@ export default function setupRoutes(io) {
     }
 
     try {
+      const db = await getDb();
+
+      // Check Duplicate Email on other employees
+      if (email && String(email).trim()) {
+        const cleanEmail = String(email).trim().toLowerCase();
+        const existingEmp = await db.get(
+          `SELECT id, first_name, last_name FROM employees WHERE tenant_id = ? AND LOWER(TRIM(email)) = ? AND id != ?`,
+          [req.user.tenant_id, cleanEmail, id]
+        );
+        if (existingEmp) {
+          return res.status(400).json({
+            error: `Duplicate Error: Is email address (${email}) se pehle se doosra employee (${existingEmp.first_name || ''} ${existingEmp.last_name || ''}) maujood hai!`
+          });
+        }
+      }
+
+      // Check Duplicate Phone on other employees
+      if (phone && String(phone).trim()) {
+        const cleanDigits = String(phone).replace(/\D/g, '');
+        if (cleanDigits.length >= 7) {
+          const last10 = cleanDigits.slice(-10);
+          const existingEmpPhone = await db.get(
+            `SELECT id, first_name, last_name, phone FROM employees WHERE tenant_id = ? AND id != ? AND phone IS NOT NULL AND (phone LIKE ? OR phone LIKE ?)`,
+            [req.user.tenant_id, id, `%${last10}%`, `%${cleanDigits}%`]
+          );
+          if (existingEmpPhone) {
+            return res.status(400).json({
+              error: `Duplicate Error: Is phone number (${phone}) se pehle se doosra employee (${existingEmpPhone.first_name || ''} ${existingEmpPhone.last_name || ''}) maujood hai!`
+            });
+          }
+        }
+      }
+
       const updated = await updateEmployee(req.user.tenant_id, id, {
         firstName,
         lastName,

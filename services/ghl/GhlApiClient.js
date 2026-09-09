@@ -477,12 +477,18 @@ export class GhlApiClient {
       audioDisplayLine = `🎙️ Audio: [HD Audio saved on EMS Companion App]`;
     }
 
+    // Clean notes from any embedded base64 strings
+    let cleanNotes = String(notes || '').trim();
+    if (cleanNotes.includes('data:audio/')) {
+      cleanNotes = cleanNotes.replace(/data:audio\/[a-zA-Z0-9+=/;,\s]+/g, '[HD Audio Stream]');
+    }
+
     const bodyText = [
       `📞 ${normDirection.toUpperCase()} CALL (${channel})`,
       `⏱️ Duration: ${durStr}`,
       `👤 Staff: ${staffName}`,
       `📊 Status: ${normStatus}`,
-      notes ? `📝 Notes: ${notes}` : null,
+      cleanNotes ? `📝 Notes: ${cleanNotes}` : null,
       audioDisplayLine
     ].filter(Boolean).join('\n');
 
@@ -494,12 +500,15 @@ export class GhlApiClient {
       console.warn(`[GhlApiClient] resolve conversation notice: ${convErr.message}`);
     }
 
+    let ghlRes = null;
+
     // 2. Post call summary message to the contact's GHL conversation thread
+    // Note: /conversations/messages/inbound accepts attachments and records the event without requiring Twilio carrier SMS routing
     try {
       ghlRes = await this._request({
         locationId,
         method: 'POST',
-        path: '/conversations/messages',
+        path: '/conversations/messages/inbound',
         body: {
           type: 'SMS',
           contactId,
@@ -507,12 +516,30 @@ export class GhlApiClient {
           message: bodyText,
           body: bodyText,
           status: 'delivered',
-          direction: normDirection,
+          direction: 'inbound',
           ...(isValidAudioUrl ? { attachments: [recordingUrl] } : {})
         }
       });
-    } catch (convErr) {
-      console.warn(`[GhlApiClient] /conversations/messages Call notice: ${convErr.message}`);
+    } catch (inboundErr) {
+      try {
+        ghlRes = await this._request({
+          locationId,
+          method: 'POST',
+          path: '/conversations/messages',
+          body: {
+            type: 'SMS',
+            contactId,
+            ...(conversationId ? { conversationId } : {}),
+            message: bodyText,
+            body: bodyText,
+            status: 'delivered',
+            direction: normDirection,
+            ...(isValidAudioUrl ? { attachments: [recordingUrl] } : {})
+          }
+        });
+      } catch (convErr) {
+        console.warn(`[GhlApiClient] /conversations/messages Call notice: ${convErr.message}`);
+      }
     }
 
     // 3. Always attach Contact Note so recording link and duration is guaranteed to appear in HighLevel contact activity feed
@@ -589,7 +616,7 @@ export class GhlApiClient {
       conversationId = await this.resolveOrCreateConversation(locationId, contactId);
     } catch (e) {}
 
-    // 2. Post to /conversations/messages
+    // 2. Post to /conversations/messages/inbound or /conversations/messages
     const payload = {
       type: 'SMS',
       contactId,
@@ -602,15 +629,25 @@ export class GhlApiClient {
     };
 
     try {
+      const endpoint = direction.toLowerCase() === 'inbound' ? '/conversations/messages/inbound' : '/conversations/messages';
       return await this._request({
         locationId,
         method: 'POST',
-        path: '/conversations/messages',
+        path: endpoint,
         body: payload
       });
-    } catch (convErr) {
-      console.warn(`[GhlApiClient] /conversations/messages note: ${convErr.message}. Fallback to Contact Note.`);
-      return await this.addContactNote(locationId, contactId, bodyText);
+    } catch (inboundErr) {
+      try {
+        return await this._request({
+          locationId,
+          method: 'POST',
+          path: '/conversations/messages',
+          body: payload
+        });
+      } catch (convErr) {
+        console.warn(`[GhlApiClient] /conversations/messages note: ${convErr.message}. Fallback to Contact Note.`);
+        return await this.addContactNote(locationId, contactId, bodyText);
+      }
     }
   }
 

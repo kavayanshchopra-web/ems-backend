@@ -42,6 +42,8 @@ import { normalizePhone10, formatPhoneDisplay, toE164Phone, isSamePhone } from '
 import { db } from '../../firebase';
 import { collection, onSnapshot, doc, getDocs, setDoc, query, where, deleteDoc } from 'firebase/firestore';
 import GhlOAuthService from '../../core/services/ghlOAuthService';
+import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
+import TenantStorage from '../../core/services/TenantStorage';
 
 // Robust unwrap helper for Firestore REST API, Web SDK, SQLite, or Socket.IO call records
 function unwrapCallRecord(raw) {
@@ -345,10 +347,12 @@ export default function ConversationsPage({
   const [allCallLogs, setAllCallLogs] = useState(() => {
     try {
       if (typeof window !== 'undefined') {
-        const cached = localStorage.getItem('omniflow_cached_call_logs');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        const tId = companyId || authUser?.tenantId || authUser?.companyId || authUser?.tenant_id;
+        const cached = TenantStorage.getItem('call_logs', tId, null);
+        if (Array.isArray(cached) && cached.length > 0) return cached;
+        if (!isSandboxEnvironment()) {
+          const legacy = localStorage.getItem('omniflow_cached_call_logs');
+          if (legacy) return JSON.parse(legacy);
         }
       }
     } catch (e) {}
@@ -389,6 +393,15 @@ export default function ConversationsPage({
 
   // 2. Fetch / Stream Call Logs (Firestore + SQLite with live caching)
   useEffect(() => {
+    if (isSandboxEnvironment()) {
+      const tenantNum = Number(companyId) || 999;
+      SupabaseSandboxService.fetchCallLogs(tenantNum).then(logs => {
+        setAllCallLogs(logs);
+        TenantStorage.setItem('call_logs', logs, companyId);
+      }).catch(err => console.error('[ConversationsPage] Sandbox call_logs error:', err));
+      return;
+    }
+
     let unsubs = [];
 
     const handleNewCallDocs = (docs) => {
@@ -407,7 +420,7 @@ export default function ConversationsPage({
           return timeB - timeA;
         });
         try {
-          localStorage.setItem('omniflow_cached_call_logs', JSON.stringify(merged.slice(0, 300)));
+          TenantStorage.setItem('call_logs', merged.slice(0, 300), companyId);
         } catch (e) {}
         return merged;
       });
@@ -971,7 +984,7 @@ export default function ConversationsPage({
             return timeB - timeA;
           });
           try {
-            localStorage.setItem('omniflow_cached_call_logs', JSON.stringify(merged.slice(0, 300)));
+            TenantStorage.setItem('call_logs', merged.slice(0, 300), companyId);
           } catch (e) {}
           return merged;
         });

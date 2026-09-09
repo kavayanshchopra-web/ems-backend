@@ -15,6 +15,7 @@ import FirebaseCloudEngine from '../FirebaseCloudEngine';
 import GhlSyncBridge from '../../services/ghlSyncBridge';
 import { AuditEngine } from '../AuditEngine/AuditEngine';
 import { db, doc, setDoc, createEmployeeAuthAccount } from '../../../firebase.js';
+import { isSandboxEnvironment, SupabaseSandboxService } from '../../services/supabaseSandboxService';
 
 export default function ActionEngine({
   moduleConfig = {},
@@ -47,7 +48,7 @@ export default function ActionEngine({
 }) {
   const [internalRecordToArchive, setInternalRecordToArchive] = useState(null);
 
-  const handleSaveRecord = (formData) => {
+  const handleSaveRecord = async (formData) => {
     const now = new Date().toISOString();
     const entityName = LabelEngine.getEntityName(moduleConfig);
     const activeTenantId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id || FirebaseCloudEngine.getTenantId();
@@ -59,10 +60,87 @@ export default function ActionEngine({
     };
 
     const isCrmModule = moduleConfig.moduleId === 'crm_deals' || moduleConfig.moduleId === 'crm_leads' || moduleConfig.moduleId === 'crm' || moduleConfig.moduleId === 'contacts';
+    const isEmployeesModule = moduleConfig.moduleId === 'employees';
     const API_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
       ? 'http://localhost:5000/api'
       : 'https://api.employeemanagementsystems.com/api';
     const token = typeof window !== 'undefined' ? localStorage.getItem('omnilflow_token') : null;
+
+    // DIRECT SUPABASE POSTGRESQL FOR SANDBOX ENVIRONMENT
+    if (isSandboxEnvironment()) {
+      const numericTenantId = Number(activeTenantId) || 999;
+      if (isEmployeesModule) {
+        if (showEditModal && selectedRecord && selectedRecord.id) {
+          try {
+            const saved = await SupabaseSandboxService.updateEmployee(selectedRecord.id, normalizedData, numericTenantId);
+            const updatedList = records.map(r => r.id === selectedRecord.id ? { ...r, ...saved, ...normalizedData } : r);
+            setRecords(updatedList);
+            showToast(`🎉 Updated employee "${saved.name || normalizedData.name}" directly in Supabase SQL!`, 'success');
+            setShowEditModal(false);
+            return;
+          } catch (sbErr) {
+            showToast(sbErr.message || 'Failed to update employee in Supabase SQL', 'error');
+            return;
+          }
+        } else {
+          try {
+            const saved = await SupabaseSandboxService.createEmployee(normalizedData, numericTenantId);
+            const newRec = {
+              ...saved,
+              ...normalizedData,
+              id: saved.id,
+              name: saved.name || normalizedData.name,
+              createdAt: now,
+              updatedAt: now,
+              archived: false,
+              lifecycleStatus: 'ACTIVE',
+              tenantId: numericTenantId
+            };
+            setRecords([newRec, ...records]);
+            showToast(`🎉 Employee "${newRec.name}" saved directly to Supabase SQL!`, 'success');
+            setShowAddModal(false);
+            return;
+          } catch (sbErr) {
+            showToast(sbErr.message || 'Failed to save to Supabase SQL', 'error');
+            return;
+          }
+        }
+      } else if (moduleConfig.moduleId === 'contacts' || isCrmModule) {
+        if (showEditModal && selectedRecord && selectedRecord.id) {
+          try {
+            const saved = await SupabaseSandboxService.updateContact(selectedRecord.id, normalizedData, numericTenantId);
+            const updatedList = records.map(r => r.id === selectedRecord.id ? { ...r, ...saved, ...normalizedData } : r);
+            setRecords(updatedList);
+            showToast(`🎉 Contact updated directly in Supabase SQL!`, 'success');
+            setShowEditModal(false);
+            return;
+          } catch (sbErr) {
+            showToast(sbErr.message || 'Failed to update contact in Supabase SQL', 'error');
+            return;
+          }
+        } else {
+          try {
+            const saved = await SupabaseSandboxService.createContact(normalizedData, numericTenantId);
+            const newRec = {
+              ...saved,
+              ...normalizedData,
+              createdAt: now,
+              updatedAt: now,
+              archived: false,
+              lifecycleStatus: 'ACTIVE',
+              tenantId: numericTenantId
+            };
+            setRecords([newRec, ...records]);
+            showToast(`🎉 Contact saved directly to Supabase SQL!`, 'success');
+            setShowAddModal(false);
+            return;
+          } catch (sbErr) {
+            showToast(sbErr.message || 'Failed to save contact to Supabase SQL', 'error');
+            return;
+          }
+        }
+      }
+    }
 
     // Strict Duplicate Prevention on Phone Number & Gmail ID for Contacts/CRM
     if (isCrmModule) {
@@ -325,7 +403,14 @@ export default function ActionEngine({
       archivedAt: new Date().toISOString()
     };
 
-    if (moduleConfig.moduleId && record.id) {
+    if (isSandboxEnvironment()) {
+      const numericTenantId = Number(authUser?.tenantId || authUser?.companyId || authUser?.tenant_id) || 999;
+      if (moduleConfig.moduleId === 'employees') {
+        SupabaseSandboxService.deleteEmployee(record.id, numericTenantId).catch(console.error);
+      } else if (moduleConfig.moduleId === 'contacts' || isCrmModule) {
+        SupabaseSandboxService.deleteContact(record.id, numericTenantId).catch(console.error);
+      }
+    } else if (moduleConfig.moduleId && record.id) {
       FirebaseCloudEngine.deleteRecord(moduleConfig.moduleId, record.id);
     }
 

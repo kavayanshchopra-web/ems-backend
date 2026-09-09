@@ -810,7 +810,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   }, [tenantSubscription, authUser]);
   // Telecalling & SIM Call Recordings State Hub
   const [callLogs, setCallLogs] = useState(() => {
-    const tId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id;
+    const tId = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || authUser?.tenantId || authUser?.companyId || authUser?.tenant_id;
     return TenantStorage.getItem('call_logs', tId, []);
   });
   // Universal Bin (DLP Vault) & Soft-Delete State Hub
@@ -883,7 +883,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   // GLOBAL REAL-TIME GOHIGHLEVEL (GHL) CALL & CONVERSATION SYNC ENGINE
   // =========================================================================
   useEffect(() => {
-    if (!db) return;
+    if (!db || isSandboxEnvironment()) return;
     const unsubs = [];
     let syncedSet = new Set();
     try {
@@ -1238,6 +1238,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       notes: notes,
       simSlot: 'SIM 1 (Work)'
     };
+    if (isSandboxEnvironment()) {
+      try {
+        const savedLog = await SupabaseSandboxService.createCallLog(fallbackLog, activeTenantKey);
+        setCallLogs(prev => [savedLog, ...prev]);
+        TenantStorage.setItem('call_logs', [savedLog, ...callLogs], activeTenantKey);
+      } catch (sbErr) {
+        console.error('[DashboardShell] Sandbox endClickToCall error:', sbErr);
+        setCallLogs(prev => [fallbackLog, ...prev]);
+      }
+      setTimeout(() => {
+        setShowClickToCallModal(false);
+        setActiveCallStatus('idle');
+      }, 1200);
+      return;
+    }
+
     try {
       const res = await fetch(`${API_URL}/telecalling/sync-log`, {
         method: 'POST',
@@ -1278,6 +1294,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   // Universal Call Logs & Recordings Loader (Strictly Tenant-Scoped)
   useEffect(() => {
     if (!activeTenantKey || activeTenantKey === 'org_unassigned') return;
+
+    if (isSandboxEnvironment()) {
+      try { localStorage.removeItem('omniflow_cached_call_logs'); } catch (e) {}
+      const tenantNum = Number(activeTenantKey) || 1;
+      SupabaseSandboxService.fetchCallLogs(tenantNum).then(logs => {
+        setCallLogs(logs);
+        TenantStorage.setItem('call_logs', logs, activeTenantKey);
+      }).catch(err => console.error('[DashboardShell] Supabase call_logs fetch error:', err));
+      return;
+    }
+
     const token = localStorage.getItem('omnilflow_token');
 
     // 1. Fetch from Backend SQLite API with tenant header
@@ -3680,6 +3707,23 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   };
   const fetchSuperadminUsers = async (search = '') => {
+    if (isSandboxEnvironment()) {
+      try {
+        const sbUsers = await SupabaseSandboxService.fetchUsers();
+        let list = Array.isArray(sbUsers) ? sbUsers : [];
+        if (search) {
+          list = list.filter(u =>
+            (u.name || '').toLowerCase().includes(search.toLowerCase()) ||
+            (u.email || '').toLowerCase().includes(search.toLowerCase())
+          );
+        }
+        setSuperadminUsers(list);
+        setSuperadminMetrics(prev => ({ ...prev, totalUsers: list.length }));
+        return;
+      } catch (sbErr) {
+        console.warn('Sandbox fetch users error:', sbErr);
+      }
+    }
     try {
       if (db) {
         const qSnap = await getDocs(collection(db, 'users'));
@@ -3714,11 +3758,51 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.error(err);
     }
     setSuperadminUsers([
-      { id: '1', name: 'Kavayansh Chopra', email: 'kavayanshchopra@gmail.com', role: 'superadmin', companyName: 'Master Control HQ', createdAt: '2026-07-19' },
-      { id: '2', name: 'OmniFlow Global Admin', email: 'admin@omniflow.com', role: 'superadmin', companyName: 'OmniFlow SaaS', createdAt: '2026-07-19' }
+      { id: '1', name: 'Kavyansh Chopra', email: 'kavyanshchopra@gmail.com', role: 'superadmin', companyName: '#TEN-0001-KAVYANSH-CHOPRA', createdAt: '2026-09-08' }
     ]);
   };
   const fetchSuperadminCompanies = async () => {
+    // 0. Direct Supabase Tenants for Sandbox
+    if (isSandboxEnvironment()) {
+      try {
+        const tenants = await SupabaseSandboxService.fetchTenants();
+        const mapped = tenants.map(t => {
+          let formattedSlug = 'TEN-0001-KAVYANSH-CHOPRA';
+          if (t.id === 1 || t.id === '1') {
+            formattedSlug = 'TEN-0001-KAVYANSH-CHOPRA';
+          } else if (t.id === 999 || t.id === '999') {
+            formattedSlug = 'TEN-0999-SANDBOX-DEMO';
+          } else {
+            const clean = String(t.company_name || 'ORG').toUpperCase().replace(/[^A-Z0-9]+/g, '-').slice(0, 20);
+            formattedSlug = `TEN-${String(t.id).padStart(4, '0')}-${clean}`;
+          }
+          const planName = (t.plan_id || 'enterprise').toUpperCase();
+          const isTrial = t.plan_id === 'trial';
+          return {
+            id: t.id,
+            tenant_id: String(t.id),
+            tenant_slug: formattedSlug,
+            formattedTenantId: formattedSlug,
+            company_name: t.company_name,
+            user_count: 1,
+            emp_count: t.emp_count || 0,
+            status: t.subscription_status || 'active',
+            subscription_status: t.subscription_status || 'active',
+            plan_id: t.plan_id || 'enterprise',
+            plan_name: planName,
+            is_trial: isTrial,
+            trial_days: 7,
+            source: 'direct'
+          };
+        });
+        setSuperadminCompanies(mapped);
+        setSuperadminMetrics(prev => ({ ...prev, companies: mapped.length }));
+        return;
+      } catch (sbErr) {
+        console.warn('Sandbox fetch tenants error:', sbErr);
+      }
+    }
+
     try {
       if (db) {
         // Build map of connected GHL locations
@@ -3752,8 +3836,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         qSnap.forEach(docDoc => {
           if (docDoc.id === 'platform_superadmin') return;
           const c = docDoc.data();
-          const ghlLoc = ghlMap[docDoc.id] || c.locationId || c.ghlLocationId || c.ghl_location_id || (docDoc.id?.startsWith('org_loc_') ? docDoc.id.replace('org_loc_', '') : null);
-          const isGhl = Boolean(c.source === 'gohighlevel' || ghlLoc || docDoc.id?.startsWith('ghl_') || docDoc.id?.startsWith('org_loc_'));
+          const docIdStr = String(docDoc.id || '');
+          const ghlLoc = ghlMap[docDoc.id] || c.locationId || c.ghlLocationId || c.ghl_location_id || (docIdStr.startsWith('org_loc_') ? docIdStr.replace('org_loc_', '') : null);
+          const isGhl = Boolean(c.source === 'gohighlevel' || ghlLoc || docIdStr.startsWith('ghl_') || docIdStr.startsWith('org_loc_'));
 
           const sub = subMap[docDoc.id] || {};
           const expiryDate = sub.expiry_date || c.subscription_expiry || null;
@@ -4035,7 +4120,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   }, [activeTab, authUser, selectedCountry]);
   useEffect(() => {
-    if (activeTab === 'superadmin_plans' && authUser && authUser.role === 'superadmin') {
+    if ((activeTab === 'superadmin_plans' || activeTab === 'superadmin') && authUser && authUser.role === 'superadmin') {
       fetchSuperadminPlans();
       fetchSuperadminMetrics();
       fetchSuperadminUsers(superadminUsersQuery);
@@ -4148,12 +4233,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setIsEmployeesLoading(true);
     setEmployeesError(null);
     try {
+      const currentTenantId = Number(effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id) || 1;
       if (isSandboxEnvironment()) {
-        const sandboxEmps = await SupabaseSandboxService.fetchEmployees(999);
+        const sandboxEmps = await SupabaseSandboxService.fetchEmployees(currentTenantId);
         setEmployees(sandboxEmps);
+        try { TenantStorage.setItem('employees', sandboxEmps, currentTenantId); } catch (e) {}
         return;
       }
-      const currentTenantId = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id;
       const cloudRecords = await FirebaseCloudEngine.fetchRecords('employees', currentTenantId);
       if (Array.isArray(cloudRecords)) {
         const cleaned = cloudRecords.filter(e => !isDummyRecord(e));
@@ -4172,7 +4258,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     e.preventDefault();
     setIsEmployeesLoading(true);
     const isEdit = !!newEmployeeForm.id;
-    const currentTenantId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id;
+    const currentTenantId = Number(effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id) || 1;
     const activeTenantId = FirebaseCloudEngine.getTenantId(currentTenantId);
 
     const cleanEmpEmail = (newEmployeeForm.email || '').toLowerCase().trim();
@@ -4206,14 +4292,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       try {
         let savedEmp;
         if (isEdit) {
-          savedEmp = await SupabaseSandboxService.updateEmployee(newEmployeeForm.id, newEmployeeForm, 999);
+          savedEmp = await SupabaseSandboxService.updateEmployee(newEmployeeForm.id, newEmployeeForm, currentTenantId);
         } else {
-          savedEmp = await SupabaseSandboxService.createEmployee(newEmployeeForm, 999);
+          savedEmp = await SupabaseSandboxService.createEmployee(newEmployeeForm, currentTenantId);
         }
         await fetchEmployees();
         setShowAddEmployeeModal(false);
         setNewEmployeeForm({ firstName: '', lastName: '', email: '', phone: '', role: 'employee', department: 'Engineering', salary: '', status: 'active' });
-        showToast(`🎉 Employee "${savedEmp.first_name || ''} ${savedEmp.last_name || ''}" saved directly to Supabase SQL!`, 'success');
+        showToast(`🎉 Employee "${savedEmp.name || savedEmp.first_name || ''}" saved directly to Supabase SQL!`, 'success');
       } catch (sbErr) {
         showToast(sbErr.message || 'Failed to save to Supabase SQL', 'error');
       } finally {
@@ -4642,7 +4728,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.warn('Firestore soft delete failed:', fbErr.message);
     }
     if (isSandboxEnvironment()) {
-      await SupabaseSandboxService.deleteEmployee(id, 999);
+      const currentTenantId = Number(effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id) || 1;
+      await SupabaseSandboxService.deleteEmployee(id, currentTenantId);
       await fetchEmployees();
       showToast('Employee removed from Supabase SQL', 'info');
       return;
@@ -4675,6 +4762,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       const updated = (prev || []).filter(c => c.id !== companyId && c.tenant_id !== companyId);
       return updated;
     });
+    if (isSandboxEnvironment()) {
+      try {
+        await SupabaseSandboxService.deleteTenant(companyId);
+      } catch (e) {}
+    }
     try {
       if (db) {
         await deleteDoc(doc(db, 'companies', String(companyId)));
@@ -5606,7 +5698,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     isFetchingContactsRef.current = true;
     try {
       if (isSandboxEnvironment()) {
-        const sbContacts = await SupabaseSandboxService.fetchContacts(999);
+        const currentTenantId = Number(effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id) || 1;
+        const sbContacts = await SupabaseSandboxService.fetchContacts(currentTenantId);
         setContacts(sbContacts);
         return;
       }
@@ -5815,10 +5908,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     if (isSandboxEnvironment()) {
       try {
         setIsCreatingNewChat(true);
+        const currentTenantId = Number(effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id) || 1;
         const newLead = await SupabaseSandboxService.createContact({
           name: newChatName.trim() || newChatPhone.trim(),
           phone: newChatPhone.trim()
-        }, 999);
+        }, currentTenantId);
         await fetchContacts();
         setActiveContact(newLead);
         setNewChatPhone('');
@@ -7645,7 +7739,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {activeTab === 'telecalling' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Telecalling...</div>}>
             <TelecallingView
-              authUser={authUser}
+              authUser={effectiveAuthUser || authUser}
               showToast={showToast}
               callLogs={callLogs}
               setCallLogs={setCallLogs}
@@ -7953,7 +8047,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {activeTab === 'employees' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Employees...</div>}>
             <EmployeesPage
-              authUser={authUser}
+              authUser={effectiveAuthUser}
               employees={employees}
               setEmployees={setEmployees}
               systemDropdowns={systemDropdowns}
