@@ -569,14 +569,14 @@ export default function SchemaFieldRenderer({
 
                   // Multi-source tenantId resolution (authUser is NOT passed to this component)
                   // Priority: window.__omniflow_tenant > localStorage omnilflow_user > 'acme_corp'
-                  let resolvedTenantId = 'acme_corp';
+                  let resolvedTenantId = '1';
                   try {
                     if (typeof window !== 'undefined' && window.__omniflow_tenant) {
-                      resolvedTenantId = window.__omniflow_tenant;
+                      resolvedTenantId = String(window.__omniflow_tenant);
                     } else {
                       const storedUser = JSON.parse(localStorage.getItem('omnilflow_user') || 'null');
-                      if (storedUser?.tenantId) resolvedTenantId = storedUser.tenantId;
-                      else if (storedUser?.companyId) resolvedTenantId = storedUser.companyId;
+                      if (storedUser?.tenantId) resolvedTenantId = String(storedUser.tenantId);
+                      else if (storedUser?.companyId) resolvedTenantId = String(storedUser.companyId);
                     }
                   } catch (_) {}
 

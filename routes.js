@@ -3591,10 +3591,23 @@ export default function setupRoutes(io) {
           const cleanBase64 = rawBase64.replace(/^data:audio\/\w+;base64,/, '');
           const audioBuffer = Buffer.from(cleanBase64, 'base64');
           const fileName = `rec_${Date.now()}_${String(targetPhone).replace(/\D/g, '')}.mp3`;
-          const filePath = path.join(recordingsDir, fileName);
-          const reqHost = req.get('host');
-          const domain = process.env.API_BASE_URL || (reqHost ? `${req.protocol}://${reqHost}` : 'https://ems-backend-9hig.onrender.com');
-          finalRecordingUrl = `${domain}/media/recordings/${fileName}`;
+          
+          try {
+            const { uploadBufferToSupabaseStorage } = await import('./services/supabaseStorageService.js');
+            finalRecordingUrl = await uploadBufferToSupabaseStorage({
+              bucket: 'omniflow-vault',
+              filePath: `tenants/${activeTenantId || 1}/calls/${fileName}`,
+              buffer: audioBuffer,
+              contentType: 'audio/mpeg'
+            });
+          } catch (storageErr) {
+            console.warn('[SyncLog] Supabase Storage upload fallback to local disk:', storageErr.message);
+            const filePath = path.join(recordingsDir, fileName);
+            fs.writeFileSync(filePath, audioBuffer);
+            const reqHost = req.get('host');
+            const domain = process.env.API_BASE_URL || (reqHost ? `${req.protocol}://${reqHost}` : 'https://ems-backend-9hig.onrender.com');
+            finalRecordingUrl = `${domain}/media/recordings/${fileName}`;
+          }
         } catch (audioErr) {
           console.warn('[SyncLog] Audio base64 decode notice:', audioErr.message);
         }

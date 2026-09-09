@@ -86,7 +86,7 @@ export default function ClientVisitModal({
                 if (file) {
                   try {
                     const res = await MediaStorageEngine.uploadMedia({
-                      tenantId: authUser?.companyId || authUser?.tenantId || 'acme_corp',
+                      tenantId: authUser?.companyId || authUser?.tenantId || '1',
                       category: 'client_visits',
                       entityId: 'site_proof',
                       file: file

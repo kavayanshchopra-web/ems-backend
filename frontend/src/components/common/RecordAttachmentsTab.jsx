@@ -3,6 +3,7 @@ import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/fire
 import { db } from '../../firebase.js';
 import MediaStorageEngine from '../../core/engines/MediaStorageEngine.js';
 import StorageQuotaEngine from '../../core/engines/StorageQuotaEngine.js';
+import SupabaseSandboxService, { isSandboxEnvironment } from '../../core/services/supabaseSandboxService.js';
 import Button from '../ui/Button.jsx';
 import { Upload, Link as LinkIcon, FileText, Image as ImageIcon, Trash2, Eye, Download, Plus, Loader2 } from 'lucide-react';
 
@@ -30,17 +31,34 @@ export default function RecordAttachmentsTab({
     }
     setLoading(true);
     try {
-      const q = query(
-        collection(db, 'media_vault'),
-        where('entityId', '==', String(entityId))
-      );
-      const snap = await getDocs(q);
-      const list = [];
-      snap.forEach(d => {
-        list.push({ id: d.id, ...d.data() });
-      });
-      list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-      setAttachments(list);
+      if (isSandboxEnvironment()) {
+        const rows = await SupabaseSandboxService.fetchMediaVault(tenantId, null, entityId);
+        const list = rows.map(r => ({
+          id: r.id,
+          fileName: r.file_name || r.original_file_name || 'Attached File',
+          originalFileName: r.original_file_name,
+          downloadUrl: r.file_url,
+          fileUrl: r.file_url,
+          fileSize: Number(r.file_size || 0),
+          mimeType: r.mime_type,
+          category: r.category,
+          entityId: r.entity_id,
+          createdAt: r.created_at
+        }));
+        setAttachments(list);
+      } else {
+        const q = query(
+          collection(db, 'media_vault'),
+          where('entityId', '==', String(entityId))
+        );
+        const snap = await getDocs(q);
+        const list = [];
+        snap.forEach(d => {
+          list.push({ id: d.id, ...d.data() });
+        });
+        list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        setAttachments(list);
+      }
     } catch (e) {
       console.warn('Failed to load attachments:', e);
     } finally {

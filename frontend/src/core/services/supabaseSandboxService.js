@@ -6,7 +6,9 @@
  */
 
 const SUPABASE_URL = 'https://mucgmzldgvtblmsurtgo.supabase.co/rest/v1';
+const SUPABASE_STORAGE_URL = 'https://mucgmzldgvtblmsurtgo.supabase.co/storage/v1';
 const SUPABASE_KEY = 'sb_publishable_xRGskG_bEbCJebUMT_XPHA_vjwf1Lr1';
+const STORAGE_BUCKET = 'omniflow-vault';
 
 const getHeaders = () => ({
   'apikey': SUPABASE_KEY,
@@ -1358,6 +1360,124 @@ export const SupabaseSandboxService = {
       return true;
     } catch (err) {
       console.warn(`[Supabase Sandbox Universal] deleteUniversalRecord notice (${moduleId}):`, err);
+      return false;
+    }
+  },
+
+  // 16. UNIVERSAL MEDIA STORAGE
+  async uploadFileToStorage(file, { tenantId = '1', category = 'general', entityId = '', subCategory = '', customFields = {} } = {}) {
+    try {
+      if (!file) throw new Error('No file provided for upload');
+      const cleanTenant = String(tenantId || '1').toLowerCase();
+      const safeCat = String(category || 'general').toLowerCase().replace(/[^a-z0-9_]/g, '_');
+      const safeEntity = String(entityId || 'general_entity').toLowerCase().replace(/[^a-z0-9_]/g, '_');
+      const safeSubCat = subCategory ? `${String(subCategory).replace(/[^a-z0-9_]/g, '_')}/` : '';
+      const rawName = file.name || 'file';
+      const safeFileName = rawName.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filePath = `tenants/${cleanTenant}/${safeCat}/${safeEntity}/${safeSubCat}${Date.now()}_${safeFileName}`;
+
+      const uploadUrl = `${SUPABASE_STORAGE_URL}/object/${STORAGE_BUCKET}/${filePath}`;
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': file.type || 'application/octet-stream',
+          'x-upsert': 'true'
+        },
+        body: file
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || `Storage upload failed with HTTP ${res.status}`);
+      }
+
+      const publicUrl = `${SUPABASE_STORAGE_URL}/object/public/${STORAGE_BUCKET}/${filePath}`;
+      const mediaId = `mv_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+
+      // Record in public.media_vault table
+      const mediaRecord = {
+        id: mediaId,
+        tenant_id: cleanTenant,
+        file_name: safeFileName,
+        original_file_name: rawName,
+        file_url: publicUrl,
+        file_size: file.size || 0,
+        mime_type: file.type || 'application/octet-stream',
+        category: safeCat,
+        entity_id: safeEntity,
+        sub_category: subCategory || null,
+        compressed: !!customFields.compressed,
+        custom_fields: customFields || {}
+      };
+
+      await fetch(`${SUPABASE_URL}/media_vault`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(mediaRecord)
+      }).catch(dbErr => console.warn('[Supabase Storage] media_vault index non-fatal warning:', dbErr));
+
+      return {
+        id: mediaId,
+        downloadUrl: publicUrl,
+        fileUrl: publicUrl,
+        fileName: safeFileName,
+        originalFileName: rawName,
+        fileSize: file.size,
+        mimeType: file.type,
+        path: filePath
+      };
+    } catch (err) {
+      console.error('[Supabase Storage] uploadFileToStorage error:', err);
+      throw err;
+    }
+  },
+
+  async fetchMediaVault(tenantId = '1', category = null, entityId = null) {
+    try {
+      const cleanTenant = String(tenantId || '1').toLowerCase();
+      let query = `${SUPABASE_URL}/media_vault?tenant_id=eq.${cleanTenant}&order=created_at.desc`;
+      if (category) {
+        query += `&category=eq.${String(category).toLowerCase()}`;
+      }
+      if (entityId) {
+        query += `&entity_id=eq.${String(entityId).toLowerCase()}`;
+      }
+      const res = await fetch(query, { headers: getHeaders() });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error('[Supabase Storage] fetchMediaVault error:', err);
+      return [];
+    }
+  },
+
+  async deleteMediaVaultItem(mediaId, tenantId = '1', fileUrl = null) {
+    try {
+      const cleanTenant = String(tenantId || '1').toLowerCase();
+      if (fileUrl && fileUrl.includes(`/${STORAGE_BUCKET}/`)) {
+        const filePath = fileUrl.split(`/${STORAGE_BUCKET}/`)[1];
+        if (filePath) {
+          await fetch(`${SUPABASE_STORAGE_URL}/object/${STORAGE_BUCKET}/${filePath}`, {
+            method: 'DELETE',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`
+            }
+          }).catch(() => {});
+        }
+      }
+      if (mediaId) {
+        await fetch(`${SUPABASE_URL}/media_vault?id=eq.${mediaId}&tenant_id=eq.${cleanTenant}`, {
+          method: 'DELETE',
+          headers: getHeaders()
+        }).catch(() => {});
+      }
+      return true;
+    } catch (err) {
+      console.warn('[Supabase Storage] deleteMediaVaultItem error:', err);
       return false;
     }
   }

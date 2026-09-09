@@ -126,7 +126,7 @@ export default function ExpenseModal({
                         const file = e.target.files[0];
                         try {
                           const res = await MediaStorageEngine.uploadMedia({
-                            tenantId: authUser?.companyId || authUser?.tenantId || 'acme_corp',
+                            tenantId: authUser?.companyId || authUser?.tenantId || '1',
                             category: 'expenses',
                             entityId: 'toll_receipt',
                             file: file

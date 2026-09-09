@@ -7,6 +7,7 @@ import MediaStorageEngine from '../../core/engines/MediaStorageEngine.js';
 import IndexedDBStorage from '../../core/engines/IndexedDBStorage.js';
 import { db } from '../../firebase.js';
 import { collection, query, where, getDocs, deleteDoc, doc, addDoc } from 'firebase/firestore';
+import SupabaseSandboxService, { isSandboxEnvironment } from '../../core/services/supabaseSandboxService.js';
 import {
   HardDrive,
   Upload,
@@ -170,29 +171,51 @@ export default function MediaStorageView({ authUser, showToast }) {
   const loadData = async (forceRefresh = false) => {
     setLoading(true);
     try {
-      // 1. Load ALL Media Vault Files (no tenantId filter — avoids mismatch bugs)
-      const allVaultSnap = await getDocs(collection(db, 'media_vault'));
       const list = [];
       const seenDocIds = new Set();
 
-      allVaultSnap.forEach((d) => {
-        if (!seenDocIds.has(d.id)) {
-          seenDocIds.add(d.id);
-          const data = d.data();
-          // Purge dummy legacy records with # or 250000 bytes
-          const isDummy = !data.downloadUrl || data.downloadUrl === '#' || data.fileSize === 250000;
-          if (isDummy) {
-            deleteDoc(doc(db, 'media_vault', d.id)).catch(() => {});
-          } else {
-            // Clean fileName: if fileName is a base64/very long string, use originalFileName instead
-            let cleanFileName = data.fileName || data.originalFileName || 'Uploaded File';
-            if (cleanFileName.startsWith('data:') || cleanFileName.length > 200) {
-              cleanFileName = data.originalFileName || `File_${d.id.substring(0, 8)}`;
-            }
-            list.push({ id: d.id, ...data, fileName: cleanFileName });
+      if (isSandboxEnvironment()) {
+        const sbRows = await SupabaseSandboxService.fetchMediaVault(cleanTenant);
+        sbRows.forEach((r) => {
+          if (!seenDocIds.has(r.id)) {
+            seenDocIds.add(r.id);
+            list.push({
+              id: r.id,
+              fileName: r.file_name || r.original_file_name || 'Uploaded File',
+              originalFileName: r.original_file_name || r.file_name,
+              downloadUrl: r.file_url,
+              fileUrl: r.file_url,
+              fileSize: Number(r.file_size || 0),
+              mimeType: r.mime_type || 'application/octet-stream',
+              category: r.category || 'general',
+              entityId: r.entity_id || '',
+              createdAt: r.created_at || new Date().toISOString(),
+              tenantId: r.tenant_id,
+              compressed: !!r.compressed,
+              isExternal: r.mime_type === 'external/link' || (r.file_url && r.file_url.includes('google.com'))
+            });
           }
-        }
-      });
+        });
+      } else {
+        // 1. Load ALL Media Vault Files from Firestore
+        const allVaultSnap = await getDocs(collection(db, 'media_vault'));
+        allVaultSnap.forEach((d) => {
+          if (!seenDocIds.has(d.id)) {
+            seenDocIds.add(d.id);
+            const data = d.data();
+            const isDummy = !data.downloadUrl || data.downloadUrl === '#' || data.fileSize === 250000;
+            if (isDummy) {
+              deleteDoc(doc(db, 'media_vault', d.id)).catch(() => {});
+            } else {
+              let cleanFileName = data.fileName || data.originalFileName || 'Uploaded File';
+              if (cleanFileName.startsWith('data:') || cleanFileName.length > 200) {
+                cleanFileName = data.originalFileName || `File_${d.id.substring(0, 8)}`;
+              }
+              list.push({ id: d.id, ...data, fileName: cleanFileName });
+            }
+          }
+        });
+      }
 
       const isMediaFileVal = (val) => {
         if (!val || typeof val !== 'string' || val === '—' || val.trim() === '') return false;
@@ -310,21 +333,25 @@ export default function MediaStorageView({ authUser, showToast }) {
     if (!window.confirm(`Delete "${item.fileName}" permanently and reclaim storage space?`)) return;
 
     try {
-      if (!item.isExternal && item.storagePath) {
-        await MediaStorageEngine.deleteMedia(cleanTenant, item.storagePath, item.fileSize || 0);
-      }
-      if (!item.id.startsWith('emp_doc_')) {
-        await deleteDoc(doc(db, 'media_vault', item.id));
+      if (isSandboxEnvironment() || item.id.startsWith('mv_')) {
+        await MediaStorageEngine.deleteMedia(cleanTenant, item.fileUrl || item.downloadUrl, item.fileSize || 0, item.id);
       } else {
-        // Remove from local fallback employees
-        const localEmps = TenantStorage.getItem('employees', cleanTenant, []);
-        const updatedEmps = localEmps.map(emp => {
-          if (emp.media === item.fileName || emp.documents === item.fileName) {
-            return { ...emp, media: '', documents: '' };
-          }
-          return emp;
-        });
-        TenantStorage.setItem('employees', updatedEmps, cleanTenant);
+        if (!item.isExternal && item.storagePath) {
+          await MediaStorageEngine.deleteMedia(cleanTenant, item.storagePath, item.fileSize || 0);
+        }
+        if (!item.id.startsWith('emp_doc_')) {
+          await deleteDoc(doc(db, 'media_vault', item.id));
+        } else {
+          // Remove from local fallback employees
+          const localEmps = TenantStorage.getItem('employees', cleanTenant, []);
+          const updatedEmps = localEmps.map(emp => {
+            if (emp.media === item.fileName || emp.documents === item.fileName) {
+              return { ...emp, media: '', documents: '' };
+            }
+            return emp;
+          });
+          TenantStorage.setItem('employees', updatedEmps, cleanTenant);
+        }
       }
 
       if (showToast) showToast(`🗑️ File deleted and quota reclaimed!`, 'success');
