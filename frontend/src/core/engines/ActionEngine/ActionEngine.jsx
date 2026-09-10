@@ -66,6 +66,34 @@ export default function ActionEngine({
       : 'https://api.employeemanagementsystems.com/api';
     const token = typeof window !== 'undefined' ? localStorage.getItem('omnilflow_token') : null;
 
+    // Strict Duplicate Prevention on Phone Number & Gmail ID for Contacts/CRM (Applies to both Sandbox & Production)
+    if (isCrmModule) {
+      const cleanPhoneDigits = (normalizedData.phone || '').replace(/\D/g, '');
+      const normPhone10 = cleanPhoneDigits.length >= 7 ? cleanPhoneDigits.slice(-10) : '';
+      const cleanEmail = (normalizedData.email || '').toLowerCase().trim();
+
+      const existingDup = (records || []).find(r => {
+        if (!r) return false;
+        if (showEditModal && selectedRecord && r.id === selectedRecord.id) return false;
+
+        const rPhoneDigits = String(r.phone || r.phoneNumber || r.id || '').replace(/\D/g, '');
+        const rNormPhone10 = rPhoneDigits.length >= 7 ? rPhoneDigits.slice(-10) : '';
+        const rEmail = String(r.email || '').toLowerCase().trim();
+
+        const phoneMatch = normPhone10 && rNormPhone10 && normPhone10 === rNormPhone10;
+        const emailMatch = cleanEmail && rEmail && cleanEmail === rEmail;
+        return phoneMatch || emailMatch;
+      });
+
+      if (existingDup && !showEditModal) {
+        const dupName = existingDup.name || existingDup.contactName || existingDup.customerName || existingDup.phone || 'Existing Contact';
+        if (showToast) {
+          showToast(`⚠️ Duplicate Blocked: A contact with this Phone or Email already exists ("${dupName}")`, 'error');
+        }
+        return; // Prevent duplicate insertion
+      }
+    }
+
     // DIRECT SUPABASE POSTGRESQL FOR SANDBOX ENVIRONMENT
     if (isSandboxEnvironment()) {
       const numericTenantId = Number(activeTenantId) || 1;
@@ -113,6 +141,9 @@ export default function ActionEngine({
             setRecords(updatedList);
             showToast(`🎉 Contact updated directly in Supabase SQL!`, 'success');
             setShowEditModal(false);
+
+            // Trigger real-time GHL outbound update
+            GhlSyncBridge.pushSingleContactAuto(numericTenantId, { ...selectedRecord, ...normalizedData }).catch(() => {});
             return;
           } catch (sbErr) {
             showToast(sbErr.message || 'Failed to update contact in Supabase SQL', 'error');
@@ -120,19 +151,50 @@ export default function ActionEngine({
           }
         } else {
           try {
-            const saved = await SupabaseSandboxService.createContact(normalizedData, numericTenantId);
+            const cleanDigits = (normalizedData.phone || '').replace(/\D/g, '');
+            const normPhone10 = cleanDigits.length >= 7 ? cleanDigits.slice(-10) : '';
+            const formattedPhone = normPhone10 
+              ? `+91 ${normPhone10.slice(0, 5)} ${normPhone10.slice(5)}` 
+              : (normalizedData.phone || '');
+
+            const saved = await SupabaseSandboxService.createContact({
+              ...normalizedData,
+              phone: cleanDigits || normalizedData.phone
+            }, numericTenantId);
+
             const newRec = {
               ...saved,
               ...normalizedData,
+              phone: formattedPhone,
+              rawPhone: cleanDigits,
+              _dedupKey: normPhone10 ? `phone_${normPhone10}` : (normalizedData.email ? `email_${normalizedData.email.trim().toLowerCase()}` : `id_${saved.id}`),
               createdAt: now,
               updatedAt: now,
               archived: false,
               lifecycleStatus: 'ACTIVE',
               tenantId: numericTenantId
             };
-            setRecords([newRec, ...records]);
-            showToast(`🎉 Contact saved directly to Supabase SQL!`, 'success');
+
+            // Deduplicate against existing records to ensure single card rendered
+            const existingFiltered = (records || []).filter(r => {
+              if (!r) return false;
+              if (r.id === newRec.id) return false;
+              if (newRec._dedupKey && r._dedupKey === newRec._dedupKey) return false;
+              const rDigits = String(r.phone || r.phoneNumber || r.id || '').replace(/\D/g, '');
+              const r10 = rDigits.length >= 7 ? rDigits.slice(-10) : '';
+              if (normPhone10 && r10 && normPhone10 === r10) return false;
+              return true;
+            });
+
+            setRecords([newRec, ...existingFiltered]);
+            showToast(`🎉 Contact "${newRec.name}" saved directly to Supabase SQL!`, 'success');
             setShowAddModal(false);
+
+            // Auto-trigger GHL Outbound push in Sandbox
+            GhlSyncBridge.pushSingleContactAuto(numericTenantId, newRec).catch(err => {
+              console.warn('[GHL Sandbox Outbound Push]', err);
+            });
+
             return;
           } catch (sbErr) {
             showToast(sbErr.message || 'Failed to save contact to Supabase SQL', 'error');
@@ -175,34 +237,6 @@ export default function ActionEngine({
             return;
           }
         }
-      }
-    }
-
-    // Strict Duplicate Prevention on Phone Number & Gmail ID for Contacts/CRM
-    if (isCrmModule) {
-      const cleanPhoneDigits = (normalizedData.phone || '').replace(/\D/g, '');
-      const normPhone10 = cleanPhoneDigits.length >= 7 ? cleanPhoneDigits.slice(-10) : '';
-      const cleanEmail = (normalizedData.email || '').toLowerCase().trim();
-
-      const existingDup = (records || []).find(r => {
-        if (!r) return false;
-        if (showEditModal && selectedRecord && r.id === selectedRecord.id) return false;
-
-        const rPhoneDigits = String(r.phone || r.phoneNumber || r.id || '').replace(/\D/g, '');
-        const rNormPhone10 = rPhoneDigits.length >= 7 ? rPhoneDigits.slice(-10) : '';
-        const rEmail = String(r.email || '').toLowerCase().trim();
-
-        const phoneMatch = normPhone10 && rNormPhone10 && normPhone10 === rNormPhone10;
-        const emailMatch = cleanEmail && rEmail && cleanEmail === rEmail;
-        return phoneMatch || emailMatch;
-      });
-
-      if (existingDup && !showEditModal) {
-        const dupName = existingDup.name || existingDup.contactName || existingDup.customerName || existingDup.phone || 'Existing Contact';
-        if (showToast) {
-          showToast(`⚠️ Duplicate Blocked: A contact with this Phone or Email already exists ("${dupName}")`, 'error');
-        }
-        return; // Prevent duplicate insertion
       }
     }
 

@@ -65,8 +65,16 @@ export default function ContactsPage({
     // 1. Add existing valid items into dedupMap
     (currentList || []).forEach(item => {
       if (!item) return;
-      const key = item._dedupKey || item.id;
-      if (key) dedupMap.set(key, item);
+      let key = item._dedupKey;
+      if (!key) {
+        const rDigits = String(item.phone || item.phoneNumber || item.id || '').replace(/\D/g, '');
+        const rNorm10 = rDigits.length >= 7 ? rDigits.slice(-10) : '';
+        const rEmail = String(item.email || '').trim().toLowerCase();
+        if (rNorm10) key = `phone_${rNorm10}`;
+        else if (rEmail && rEmail.includes('@')) key = `email_${rEmail}`;
+        else key = item.id;
+      }
+      if (key) dedupMap.set(key, { ...item, _dedupKey: key });
     });
 
     // 2. Process and sanitize each incoming document

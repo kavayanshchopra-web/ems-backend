@@ -35,26 +35,32 @@ class GhlSyncBridge {
     }
 
     try {
-      if (db) {
-        // Find GHL credentials for this tenant
-        const q = query(collection(db, 'integrations_ghl_oauth'), where('companyId', '==', String(tenantId)));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          const loc = snap.docs[0].data();
-          if (loc && loc.accessToken && loc.locationId) {
-            const res = await GhlOAuthService.createOrUpdateContactDirectly({
-              locationId: loc.locationId,
-              accessToken: loc.accessToken,
-              contact: {
-                ...record,
-                phone: cleanPhone,
-                name: record.name || record.customer_name || record.title || 'EMS Lead'
-              }
-            });
-            console.log('⚡ [Auto GHL Outbound Push Success]', record.name || record.title, res);
-            return res;
+      // Use resilient getInstalledLocations to resolve credentials across company ID variants/fallbacks
+      const installed = await GhlOAuthService.getInstalledLocations(tenantId);
+      const loc = (installed || []).find(l => l.accessToken && l.locationId) || (installed && installed[0]);
+
+      if (loc && loc.accessToken && loc.locationId) {
+        let pushPhone = cleanPhone;
+        if (pushPhone && !pushPhone.startsWith('+')) {
+          if (pushPhone.length === 10) {
+            pushPhone = `+91${pushPhone}`;
+          } else {
+            pushPhone = `+${pushPhone}`;
           }
         }
+
+        const res = await GhlOAuthService.createOrUpdateContactDirectly({
+          locationId: loc.locationId,
+          accessToken: loc.accessToken,
+          contact: {
+            ...record,
+            phone: pushPhone,
+            email: record.email || undefined,
+            name: record.name || record.customer_name || record.title || 'EMS Lead'
+          }
+        });
+        console.log('⚡ [Auto GHL Outbound Push Success]', record.name || record.title, res);
+        return res;
       }
     } catch (err) {
       console.warn('[Auto GHL Outbound Push Error]', err.message);

@@ -258,17 +258,24 @@ export const SupabaseSandboxService = {
     try {
       const cleanPhone = (contactData.phone || '').replace(/\D/g, '');
       const contactId = contactData.id || (cleanPhone ? `${cleanPhone}@s.whatsapp.net` : `lead_${Date.now()}@temp.net`);
+      const email = (contactData.email || '').trim().toLowerCase() || null;
       const payload = {
         id: contactId,
         tenant_id: Number(tenantId) || 1,
-        name: contactData.name || cleanPhone || 'New Lead',
-        custom_name: contactData.name || cleanPhone || 'New Lead',
+        name: contactData.name || contactData.custom_name || cleanPhone || 'New Lead',
+        custom_name: contactData.name || contactData.custom_name || cleanPhone || 'New Lead',
         phone: cleanPhone || contactData.phone,
-        phone_normalized: cleanPhone.slice(-10),
-        pipeline_stage: contactData.pipeline_stage || 'new',
+        phone_normalized: cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone,
+        email: email,
+        pipeline_stage: contactData.pipeline_stage || contactData.stage || 'new',
         is_archived: false,
         labels: contactData.labels || [],
         notes: contactData.notes || '',
+        deal_value: String(contactData.deal_value || contactData.dealValue || contactData.amount || 0),
+        custom_fields: {
+          source: contactData.source || 'Manual Entry',
+          ...(contactData.custom_fields || {})
+        },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -368,6 +375,8 @@ export const SupabaseSandboxService = {
         name: contactData.name || contactData.custom_name,
         custom_name: contactData.name || contactData.custom_name,
         phone: contactData.phone,
+        email: contactData.email ? contactData.email.trim().toLowerCase() : undefined,
+        deal_value: contactData.deal_value !== undefined ? String(contactData.deal_value) : (contactData.dealValue !== undefined ? String(contactData.dealValue) : undefined),
         pipeline_stage: contactData.pipeline_stage || contactData.stage,
         labels: contactData.labels,
         notes: contactData.notes,
