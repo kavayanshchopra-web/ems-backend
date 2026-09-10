@@ -10,6 +10,7 @@ import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
 import TenantStorage from '../../core/services/TenantStorage';
 import { db } from '../../firebase';
 import { collection, onSnapshot, doc, deleteDoc, query, where } from 'firebase/firestore';
+import { RefreshCw, Zap, Trash2 } from 'lucide-react';
 import { normalizePhone10, formatPhoneDisplay, toE164Phone } from '../../core/utils/phoneUtils';
 import { SupabaseSandboxService, isSandboxEnvironment } from '../../core/services/supabaseSandboxService';
 import GhlOAuthService from '../../core/services/ghlOAuthService';
