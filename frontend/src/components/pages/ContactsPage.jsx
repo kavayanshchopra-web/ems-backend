@@ -10,9 +10,10 @@ import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
 import TenantStorage from '../../core/services/TenantStorage';
 import { db } from '../../firebase';
 import { collection, onSnapshot, doc, deleteDoc, query, where } from 'firebase/firestore';
-import { RefreshCw, Zap, Trash2 } from 'lucide-react';
 import { normalizePhone10, formatPhoneDisplay, toE164Phone } from '../../core/utils/phoneUtils';
 import { SupabaseSandboxService, isSandboxEnvironment } from '../../core/services/supabaseSandboxService';
+import GhlOAuthService from '../../core/services/ghlOAuthService';
+import GhlSyncBridge from '../../core/services/ghlSyncBridge';
 
 export default function ContactsPage({
   authUser = null,
@@ -216,14 +217,23 @@ export default function ContactsPage({
     // A0. Direct Supabase Sandbox Fetch
     if (isSandboxEnvironment()) {
       const safeTenant = Number(companyId) || 1;
-      SupabaseSandboxService.fetchContacts(safeTenant)
-        .then(sbContacts => {
-          if (sbContacts) {
-            setInternalRecords(processAndMergeRecords([], sbContacts));
-            TenantStorage.setItem('contacts', sbContacts, safeTenant);
-          }
-        })
-        .catch(e => console.warn('[ContactsPage] Sandbox fetch notice:', e));
+      const fetchSandboxContacts = () => {
+        SupabaseSandboxService.fetchContacts(safeTenant)
+          .then(sbContacts => {
+            if (sbContacts) {
+              setInternalRecords(processAndMergeRecords([], sbContacts));
+              TenantStorage.setItem('contacts', sbContacts, safeTenant);
+            }
+          })
+          .catch(e => console.warn('[ContactsPage] Sandbox fetch notice:', e));
+      };
+
+      fetchSandboxContacts();
+
+      // Auto-refresh when tab gains focus
+      const handleFocus = () => fetchSandboxContacts();
+      window.addEventListener('focus', handleFocus);
+      unsubs.push(() => window.removeEventListener('focus', handleFocus));
     }
 
     // A. Listen exclusively to Firestore 'contacts' collection for this tenant
@@ -289,7 +299,51 @@ export default function ContactsPage({
     if (showToast) showToast('🔄 Starting GoHighLevel 2-Way Synchronization...', 'info');
 
     try {
-      // Step A: Import from GHL into EMS
+      if (isSandboxEnvironment()) {
+        const safeTenant = Number(companyId) || 1;
+        const installed = await GhlOAuthService.getInstalledLocations(safeTenant);
+        const loc = (installed || []).find(l => l.accessToken && l.locationId) || (installed && installed[0]);
+
+        if (!loc || !loc.accessToken || !loc.locationId) {
+          throw new Error('HighLevel sub-account is not connected. Please connect via Integrations.');
+        }
+
+        // Direct pull from HighLevel Cloud API with the active token
+        const fetched = await GhlOAuthService.fetchContactsDirectly({
+          locationId: loc.locationId,
+          accessToken: loc.accessToken,
+          limit: 100,
+          maxTotal: 5000
+        });
+
+        const ghlContacts = Array.isArray(fetched) ? fetched : (fetched?.contacts || []);
+        if (ghlContacts.length > 0) {
+          await SupabaseSandboxService.bulkUpsertContacts(ghlContacts, safeTenant);
+        }
+
+        // Push any local contacts that were created in EMS to GHL
+        let pushedCount = 0;
+        for (const rec of (internalRecords || [])) {
+          if (rec && rec.source !== 'GoHighLevel' && !String(rec.id).startsWith('ghl_')) {
+            await GhlSyncBridge.pushSingleContactAuto(safeTenant, rec).catch(() => {});
+            pushedCount++;
+          }
+        }
+
+        // Refresh state directly from Supabase Sandbox
+        const freshSb = await SupabaseSandboxService.fetchContacts(safeTenant);
+        if (freshSb && freshSb.length > 0) {
+          setInternalRecords(processAndMergeRecords([], freshSb));
+          TenantStorage.setItem('contacts', freshSb, safeTenant);
+        }
+
+        if (showToast) {
+          showToast(`✅ GHL 2-Way Sync Complete! Synced to GHL: ${pushedCount}, Imported from GHL: ${ghlContacts.length}`, 'success');
+        }
+        return;
+      }
+
+      // Step A: Import from GHL into EMS (Production mode)
       const importRes = await fetch(`${API_URL}/v1/integrations/ghl/contacts/import-all`, {
         method: 'POST',
         headers: {
