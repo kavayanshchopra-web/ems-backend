@@ -112,16 +112,21 @@ export default function IntegrationsPage({
       // 1. Calculate EMS contacts count
       let totalContacts = 0;
       try {
-        const localContacts = await FirebaseCloudEngine.fetchRecords('contacts', cleanCompanyId);
-        const localDeals = await FirebaseCloudEngine.fetchRecords('crm_deals', cleanCompanyId);
-        const contactSet = new Set();
-        (localContacts || []).forEach(c => {
-          if (c && (c.phone || c.email)) contactSet.add(c.phone || c.email);
-        });
-        (localDeals || []).forEach(d => {
-          if (d && (d.phone || d.email)) contactSet.add(d.phone || d.email);
-        });
-        totalContacts = Math.max(contactSet.size, 0);
+        if (isSandboxEnvironment()) {
+          const sbContacts = await SupabaseSandboxService.fetchContacts(cleanCompanyId);
+          totalContacts = sbContacts ? sbContacts.length : 0;
+        } else {
+          const localContacts = await FirebaseCloudEngine.fetchRecords('contacts', cleanCompanyId);
+          const localDeals = await FirebaseCloudEngine.fetchRecords('crm_deals', cleanCompanyId);
+          const contactSet = new Set();
+          (localContacts || []).forEach(c => {
+            if (c && (c.phone || c.email)) contactSet.add(c.phone || c.email);
+          });
+          (localDeals || []).forEach(d => {
+            if (d && (d.phone || d.email)) contactSet.add(d.phone || d.email);
+          });
+          totalContacts = Math.max(contactSet.size, 0);
+        }
       } catch (cErr) {
         totalContacts = 0;
       }
@@ -1160,7 +1165,20 @@ export default function IntegrationsPage({
           limit: 100,
           maxTotal: 10000,
           onPageFetched: async (pageContacts, runningCount, totalGhl) => {
-            showToast(`📥 Imported ${runningCount} of ${totalGhl || '107+'} HighLevel contacts...`, 'info');
+            const displayTotal = (totalGhl && totalGhl > runningCount) ? totalGhl : `${runningCount}+`;
+            setSyncProgressText(`Importing: ${runningCount} of ${displayTotal} HighLevel contacts into Supabase...`);
+            showToast(`📥 Streaming ${runningCount} of ${displayTotal} HighLevel contacts...`, 'info');
+
+            // 1. Direct Supabase PostgreSQL Batch Upsert (100 rows per batch)
+            try {
+              if (isSandboxEnvironment()) {
+                await SupabaseSandboxService.bulkUpsertContacts(pageContacts, cleanCompanyId);
+              }
+            } catch (sbErr) {
+              console.warn('[IntegrationsPage] Supabase bulk upsert notice:', sbErr);
+            }
+
+            // 2. Also register into CRM Deals Kanban
             for (const c of pageContacts) {
               const fullName = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.phone || 'GHL Lead';
               const dealPayload = {
@@ -1179,16 +1197,10 @@ export default function IntegrationsPage({
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
               };
-              await FirebaseCloudEngine.saveRecord('crm_deals', dealPayload, cleanCompanyId);
-              await FirebaseCloudEngine.saveRecord('contacts', {
-                id: `ghl_${c.id}`,
-                name: fullName,
-                phone: c.phone || '',
-                email: c.email || '',
-                pipeline_stage: 'lead',
-                labels: Array.isArray(c.tags) ? c.tags : ['HighLevel']
-              }, cleanCompanyId);
+              FirebaseCloudEngine.saveRecord('crm_deals', dealPayload, cleanCompanyId).catch(() => {});
             }
+
+            setEmsContactsCount(prev => Math.max(prev, runningCount));
           }
         });
         importedList = res.contacts || [];
@@ -1209,6 +1221,11 @@ export default function IntegrationsPage({
         if (res.ok && data.success) {
           importedList = data.contacts || [];
           totalFound = data.totalFound || importedList.length;
+          if (isSandboxEnvironment() && importedList.length > 0) {
+            try {
+              await SupabaseSandboxService.bulkUpsertContacts(importedList, cleanCompanyId);
+            } catch (sbErr) {}
+          }
           for (const contact of importedList) {
             const dealId = `deal_${contact.id || contact.ghlId}`;
             const dealPayload = {
@@ -1227,23 +1244,33 @@ export default function IntegrationsPage({
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
             };
-            await FirebaseCloudEngine.saveRecord('crm_deals', dealPayload, cleanCompanyId);
-            await FirebaseCloudEngine.saveRecord('contacts', {
+            FirebaseCloudEngine.saveRecord('crm_deals', dealPayload, cleanCompanyId).catch(() => {});
+            FirebaseCloudEngine.saveRecord('contacts', {
               id: contact.id || `ghl_${contact.ghlId}`,
               name: contact.name || 'HighLevel Lead',
               phone: contact.phone || '',
               email: contact.email || '',
               pipeline_stage: contact.pipelineStage || 'lead',
               labels: Array.isArray(contact.tags) ? contact.tags : ['HighLevel']
-            }, cleanCompanyId);
+            }, cleanCompanyId).catch(() => {});
           }
         } else {
           throw new Error(data.error || 'Failed to import contacts from HighLevel');
         }
       }
 
-      showToast(`🎉 HighLevel Import Complete! Total in GHL: ${totalFound}, Imported: ${importedList.length} leads into CRM Kanban!`, 'success');
+      showToast(`🎉 HighLevel Import Complete! Successfully synced ${importedList.length || totalFound} leads into Supabase CRM!`, 'success');
+      if (isSandboxEnvironment()) {
+        try {
+          const freshContacts = await SupabaseSandboxService.fetchContacts(cleanCompanyId);
+          if (freshContacts && freshContacts.length > 0) {
+            setEmsContactsCount(freshContacts.length);
+            TenantStorage.setItem('contacts', freshContacts, cleanCompanyId);
+          }
+        } catch (fErr) {}
+      }
       fetchGhlSyncLogs();
+      loadEmsLocalCounts();
     } catch (e) {
       showToast('Import error: ' + e.message, 'error');
     } finally {

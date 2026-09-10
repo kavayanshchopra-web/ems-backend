@@ -119,7 +119,7 @@ export class GhlOAuthService {
     let page = 0;
     let totalInGhl = 0;
 
-    while (hasMore && allContacts.length < maxTotal && page < 50) {
+    while (hasMore && allContacts.length < maxTotal && page < 150) {
       page++;
       const url = new URL('https://services.leadconnectorhq.com/contacts/');
       url.searchParams.append('locationId', locationId);
@@ -147,7 +147,12 @@ export class GhlOAuthService {
 
       const data = await res.json();
       const contacts = data.contacts || [];
-      totalInGhl = data.total || (totalInGhl > 0 ? totalInGhl : contacts.length);
+      const trueTotal = Number(data.meta?.total || (data.total > contacts.length ? data.total : 0)) || 0;
+      if (trueTotal > 0) {
+        totalInGhl = trueTotal;
+      } else if (!totalInGhl) {
+        totalInGhl = contacts.length;
+      }
 
       if (!contacts.length) {
         hasMore = false;
@@ -165,35 +170,40 @@ export class GhlOAuthService {
         }
       }
 
-      // If no new contacts were returned, stop immediately
+      // If no new contacts were returned, stop immediately to avoid loop
       if (newContactsInThisPage === 0) {
         hasMore = false;
         break;
       }
 
       if (onPageFetched && pageUniqueContacts.length > 0) {
-        onPageFetched(pageUniqueContacts, allContacts.length, totalInGhl);
+        await onPageFetched(pageUniqueContacts, allContacts.length, totalInGhl);
       }
 
-      // Stop if all contacts have been fetched
-      if (totalInGhl > 0 && allContacts.length >= totalInGhl) {
+      // Stop if known true total has been reached
+      if (trueTotal > 0 && allContacts.length >= trueTotal) {
         hasMore = false;
         break;
       }
 
-      // Stop if page was not full
+      // Stop if page was not full (last page)
       if (contacts.length < limit) {
         hasMore = false;
         break;
       }
 
       if (data.meta && (data.meta.startAfter || data.meta.startAfterId)) {
-        startAfter = data.meta.startAfter;
-        startAfterId = data.meta.startAfterId;
+        startAfter = data.meta.startAfter || data.meta.startAfterId;
+        startAfterId = data.meta.startAfterId || data.meta.startAfter;
       } else {
         const lastContact = contacts[contacts.length - 1];
         startAfter = lastContact.dateAdded;
         startAfterId = lastContact.id;
+      }
+
+      if (!startAfter && !startAfterId) {
+        hasMore = false;
+        break;
       }
     }
 

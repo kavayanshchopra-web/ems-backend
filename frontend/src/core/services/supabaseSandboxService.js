@@ -264,6 +264,67 @@ export const SupabaseSandboxService = {
     }
   },
 
+  async bulkUpsertContacts(contactsList, tenantId = 1) {
+    if (!Array.isArray(contactsList) || contactsList.length === 0) return [];
+    try {
+      const BATCH_SIZE = 100;
+      const allResults = [];
+      const numTenant = Number(tenantId) || 1;
+
+      for (let i = 0; i < contactsList.length; i += BATCH_SIZE) {
+        const batch = contactsList.slice(i, i + BATCH_SIZE);
+        const payload = batch.map(c => {
+          const rawPhone = String(c.phone || c.phoneNumber || '').trim();
+          const cleanPhone = rawPhone.replace(/\D/g, '');
+          const contactId = c.id && String(c.id).includes('@')
+            ? String(c.id)
+            : (cleanPhone.length >= 10 ? `${cleanPhone}@s.whatsapp.net` : `ghl_${c.id || Date.now()}`);
+
+          const fullName = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.customer_name || cleanPhone || 'Lead';
+          const email = (c.email || '').trim().toLowerCase() || null;
+          const labels = Array.isArray(c.tags) ? c.tags : (Array.isArray(c.labels) ? c.labels : ['HighLevel']);
+
+          return {
+            id: contactId,
+            tenant_id: numTenant,
+            name: fullName,
+            custom_name: fullName,
+            phone: rawPhone || cleanPhone,
+            phone_normalized: cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone,
+            email: email,
+            pipeline_stage: c.pipeline_stage || c.pipelineStage || 'lead',
+            is_archived: false,
+            labels: labels,
+            notes: c.notes || `Imported from GoHighLevel (GHL ID: ${c.id || ''})`,
+            deal_value: String(c.deal_value || c.monetaryValue || 0),
+            created_at: c.dateAdded || new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+        });
+
+        const res = await fetch(`${SUPABASE_URL}/contacts`, {
+          method: 'POST',
+          headers: {
+            ...getHeaders(),
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          const data = await res.json().catch(() => []);
+          allResults.push(...(Array.isArray(data) ? data : payload));
+        } else {
+          console.warn('[Supabase Sandbox] bulkUpsertContacts batch status:', res.status);
+        }
+      }
+      return allResults;
+    } catch (err) {
+      console.error('[Supabase Sandbox] bulkUpsertContacts error:', err);
+      return [];
+    }
+  },
+
   async updateContact(id, contactData, tenantId = 1) {
     try {
       const payload = {
