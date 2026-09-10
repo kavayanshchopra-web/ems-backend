@@ -231,10 +231,14 @@ export default function ContactsPage({
 
       fetchSandboxContacts();
 
-      // Auto-refresh when tab gains focus
+      // Auto-refresh when tab gains focus or live inbound contact received
       const handleFocus = () => fetchSandboxContacts();
       window.addEventListener('focus', handleFocus);
-      unsubs.push(() => window.removeEventListener('focus', handleFocus));
+      window.addEventListener('ghl_inbound_contact_received', handleFocus);
+      unsubs.push(() => {
+        window.removeEventListener('focus', handleFocus);
+        window.removeEventListener('ghl_inbound_contact_received', handleFocus);
+      });
     }
 
     // A. Listen exclusively to Firestore 'contacts' collection for this tenant

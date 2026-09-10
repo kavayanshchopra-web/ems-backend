@@ -1398,6 +1398,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           const cleanEmail = contact.email || '';
           const contactId = data.contactId || data.id || data.ghlContactId || `ghl_${Date.now()}`;
           const currentCompany = authUser?.companyId || authUser?.tenantId || 'default_tenant';
+          const safeTenant = Number(authUser?.tenantId || authUser?.tenant_id || authUser?.companyId) || 1;
+
+          // Ingest into Supabase Sandbox if in Sandbox environment
+          if (isSandboxEnvironment()) {
+            await SupabaseSandboxService.bulkUpsertContacts([contact], safeTenant).catch(e => console.warn('[GHL Inbound Supabase Notice]', e));
+            window.dispatchEvent(new CustomEvent('ghl_inbound_contact_received', { detail: [contact] }));
+          }
 
           // Ingest into Firestore as GoHighLevel source (Loop-safe)
           await FirebaseCloudEngine.saveRecord('crm_deals', {
@@ -1448,69 +1455,84 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   // Live HighLevel Inbound Background Auto-Poller (Stream from HighLevel every 10s)
   useEffect(() => {
     const currentCompany = authUser?.companyId || authUser?.tenantId || 'default_tenant';
+    const safeTenant = Number(authUser?.tenantId || authUser?.tenant_id || authUser?.companyId) || 1;
     let isMounted = true;
     let pollTimer = null;
     const knownContactIds = new Set();
 
     const checkGhlInboundStream = async () => {
       try {
-        if (!db) return;
-        const q = query(collection(db, 'integrations_ghl_oauth'), where('companyId', '==', String(currentCompany)));
-        const snap = await getDocs(q);
-        if (snap.empty) return;
-        const loc = snap.docs[0].data();
+        const installed = await GhlOAuthService.getInstalledLocations(currentCompany);
+        const loc = (installed || []).find(l => l.accessToken && l.locationId) || (installed && installed[0]);
         if (!loc || !loc.accessToken || !loc.locationId) return;
 
-        // Fetch latest 20 contacts directly from HighLevel
+        // Fetch latest 30 contacts directly from HighLevel
         const recentContacts = await GhlOAuthService.pollRecentContacts({
           locationId: loc.locationId,
           accessToken: loc.accessToken,
-          limit: 20
+          limit: 30
         });
 
         if (!Array.isArray(recentContacts) || recentContacts.length === 0) return;
 
-        // Fetch existing deals to prevent duplicate ingestion
-        const existingDeals = await FirebaseCloudEngine.fetchRecords('crm_deals', currentCompany);
-        const existingDealIds = new Set((existingDeals || []).map(d => String(d.id)));
-
-        for (const c of recentContacts) {
-          const dealId = `deal_${c.id}`;
-          if (!existingDealIds.has(dealId) && !knownContactIds.has(c.id)) {
-            knownContactIds.add(c.id);
-            const fullName = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.phone || 'HighLevel Lead';
-            const cleanPhone = (c.phone || '').replace(/[^0-9+]/g, '');
-
-            const dealPayload = {
-              id: dealId,
-              title: `${fullName} - HighLevel Lead`,
-              customer_name: fullName,
-              phone: cleanPhone,
-              email: c.email || '',
-              deal_stage: 'New Lead',
-              pipeline_stage: 'lead',
-              amount: 0,
-              deal_value: 0,
-              notes: `Live Inbound Sync from HighLevel (Contact ID: ${c.id})`,
-              tags: Array.isArray(c.tags) ? c.tags : ['HighLevel'],
-              source: 'GoHighLevel',
-              createdAt: c.dateAdded || new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            };
-
-            await FirebaseCloudEngine.saveRecord('crm_deals', dealPayload, currentCompany);
-            await FirebaseCloudEngine.saveRecord('contacts', {
-              id: `ghl_${c.id}`,
-              name: fullName,
-              phone: cleanPhone,
-              email: c.email || '',
-              pipeline_stage: 'lead',
-              labels: Array.isArray(c.tags) ? c.tags : ['HighLevel'],
-              source: 'GoHighLevel'
-            }, currentCompany);
-
+        // If in sandbox environment, sync new contacts directly into Supabase Sandbox
+        if (isSandboxEnvironment()) {
+          const freshGhlContacts = [];
+          for (const c of recentContacts) {
+            if (c && c.id && !knownContactIds.has(c.id)) {
+              knownContactIds.add(c.id);
+              freshGhlContacts.push(c);
+            }
+          }
+          if (freshGhlContacts.length > 0) {
+            await SupabaseSandboxService.bulkUpsertContacts(freshGhlContacts, safeTenant).catch(e => console.warn('[Supabase Poller Notice]', e));
+            window.dispatchEvent(new CustomEvent('ghl_inbound_contact_received', { detail: freshGhlContacts }));
             if (isMounted) {
-              showToast(`⚡ Live Inbound Sync: ${fullName} added from HighLevel!`, 'success');
+              const latestName = freshGhlContacts[0]?.name || freshGhlContacts[0]?.firstName || 'Contact';
+              showToast(`⚡ Live Inbound Sync: ${latestName} synced from HighLevel!`, 'success');
+            }
+          }
+        }
+
+        // Fetch existing deals to prevent duplicate ingestion into Firestore
+        if (db) {
+          const existingDeals = await FirebaseCloudEngine.fetchRecords('crm_deals', currentCompany).catch(() => []);
+          const existingDealIds = new Set((existingDeals || []).map(d => String(d.id)));
+
+          for (const c of recentContacts) {
+            const dealId = `deal_${c.id}`;
+            if (!existingDealIds.has(dealId) && !knownContactIds.has(c.id)) {
+              knownContactIds.add(c.id);
+              const fullName = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.phone || 'HighLevel Lead';
+              const cleanPhone = (c.phone || '').replace(/[^0-9+]/g, '');
+
+              const dealPayload = {
+                id: dealId,
+                title: `${fullName} - HighLevel Lead`,
+                customer_name: fullName,
+                phone: cleanPhone,
+                email: c.email || '',
+                deal_stage: 'New Lead',
+                pipeline_stage: 'lead',
+                amount: 0,
+                deal_value: 0,
+                notes: `Live Inbound Sync from HighLevel (Contact ID: ${c.id})`,
+                tags: Array.isArray(c.tags) ? c.tags : ['HighLevel'],
+                source: 'GoHighLevel',
+                createdAt: c.dateAdded || new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              };
+
+              await FirebaseCloudEngine.saveRecord('crm_deals', dealPayload, currentCompany).catch(() => {});
+              await FirebaseCloudEngine.saveRecord('contacts', {
+                id: `ghl_${c.id}`,
+                name: fullName,
+                phone: cleanPhone,
+                email: c.email || '',
+                pipeline_stage: 'lead',
+                labels: Array.isArray(c.tags) ? c.tags : ['HighLevel'],
+                source: 'GoHighLevel'
+              }, currentCompany).catch(() => {});
             }
           }
         }
