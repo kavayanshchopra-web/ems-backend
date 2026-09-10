@@ -1486,6 +1486,30 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           }
           if (freshGhlContacts.length > 0) {
             await SupabaseSandboxService.bulkUpsertContacts(freshGhlContacts, safeTenant).catch(e => console.warn('[Supabase Poller Notice]', e));
+            
+            // Simultaneously persist to Master PostgreSQL DB via Backend CRM sync API
+            for (const c of freshGhlContacts) {
+              const cleanP = (c.phone || '').replace(/[^0-9+]/g, '');
+              const fName = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.phone || 'HighLevel Lead';
+              fetch(`${DEFAULT_GATEWAY}/api/contacts/crm-sync`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-tenant-id': String(safeTenant)
+                },
+                body: JSON.stringify({
+                  name: fName,
+                  customName: fName,
+                  phone: cleanP,
+                  email: c.email || null,
+                  stage: 'lead',
+                  notes: `Live Inbound Sync from HighLevel (Contact ID: ${c.id})`,
+                  labels: Array.isArray(c.tags) ? c.tags : ['HighLevel'],
+                  dealValue: 0
+                })
+              }).catch(() => {});
+            }
+
             window.dispatchEvent(new CustomEvent('ghl_inbound_contact_received', { detail: freshGhlContacts }));
             if (isMounted) {
               const latestName = freshGhlContacts[0]?.name || freshGhlContacts[0]?.firstName || 'Contact';
