@@ -3045,6 +3045,44 @@ export default function setupRoutes(io) {
           eventType: result.eventType,
           contact: result.contactData || req.body?.data || req.body
         });
+
+        // Bridge directly to Supabase Sandbox PostgreSQL for instant 0-second visibility
+        try {
+          const c = result.contactData || req.body?.data || req.body;
+          if (c && (c.id || c.phone || c.email)) {
+            const rawPhone = String(c.phone || c.phoneNumber || '').trim();
+            const cleanPhone = rawPhone.replace(/\D/g, '');
+            const cid = cleanPhone.length >= 10 ? `${cleanPhone}@s.whatsapp.net` : `ghl_${c.id || Date.now()}`;
+            const cName = (c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.contactName || c.phone || 'HighLevel Lead');
+            fetch('https://mucgmzldgvtblmsurtgo.supabase.co/rest/v1/contacts', {
+              method: 'POST',
+              headers: {
+                'apikey': 'sb_publishable_xRGskG_bEbCJebUMT_XPHA_vjwf1Lr1',
+                'Authorization': 'Bearer sb_publishable_xRGskG_bEbCJebUMT_XPHA_vjwf1Lr1',
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates,return=representation'
+              },
+              body: JSON.stringify({
+                id: cid,
+                tenant_id: 1,
+                name: cName,
+                custom_name: cName,
+                phone: cleanPhone || c.phone,
+                phone_normalized: cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone,
+                email: (c.email || '').trim().toLowerCase() || null,
+                pipeline_stage: 'lead',
+                is_archived: false,
+                labels: Array.isArray(c.tags) ? c.tags : ['HighLevel'],
+                notes: `Live Inbound Sync from HighLevel (Contact ID: ${c.id || ''})`,
+                deal_value: '0',
+                custom_fields: { source: 'GoHighLevel', ghlContactId: c.id },
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+            }).catch(sbErr => console.warn('[Supabase Sandbox Webhook Bridge]', sbErr.message));
+          }
+        } catch (e) {}
+
         if (result.emsContactId) {
           getContact(result.emsContactId, 1).then(c => {
             if (c) io.emit('contact_update', c);

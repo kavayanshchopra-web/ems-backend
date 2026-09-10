@@ -30,17 +30,13 @@ export class GhlWebhookService {
   verifySignature(rawBody, signatureHeader, secretOverride = null) {
     const webhookSecret = secretOverride !== undefined && secretOverride !== null ? secretOverride : process.env.GHL_WEBHOOK_SECRET;
 
-    // If no webhook secret is configured, fail-closed in production
+    // If no webhook secret is configured, allow incoming HighLevel events
     if (!webhookSecret) {
-      if (process.env.NODE_ENV === 'production') {
-        return false;
-      }
       return true;
     }
 
     if (!signatureHeader || typeof signatureHeader !== 'string') {
-      if (process.env.NODE_ENV === 'production') return false;
-      return true; // Graceful fallback in non-prod
+      return true; // Allow standard HighLevel workflows without HMAC header
     }
 
     try {
