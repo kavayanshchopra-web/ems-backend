@@ -130,6 +130,10 @@ export default function ContactsPage({
       }
 
       // F. BUILD SANITIZED CRM RECORD
+      const extractedGhlId = d.ghlContactId || d.ghl_contact_id || d.custom_fields?.ghlContactId || d.customFields?.ghlContactId || (rawId.startsWith('ghl_') ? rawId.replace('ghl_', '') : null);
+      const isFromGhl = Boolean(extractedGhlId || d.custom_fields?.source === 'GoHighLevel' || (d.notes && String(d.notes).includes('GoHighLevel')));
+      const resolvedSource = d.source || (isFromGhl ? 'GoHighLevel' : (rawId.includes('@s.whatsapp.net') ? 'WhatsApp Inbound' : (d.simCall ? 'SIM Dialer' : 'Manual Entry')));
+
       const cleanRec = {
         id: rawId || `CON-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         name: rawName,
@@ -137,9 +141,9 @@ export default function ContactsPage({
         email: cleanEmail,
         tags: Array.isArray(d.tags) ? d.tags.join(', ') : (d.tags || d.labels ? (Array.isArray(d.labels) ? d.labels.join(', ') : String(d.labels)) : ''),
         status: d.status || d.stage || d.pipelineStage || 'New Leads',
-        source: d.source || (d.ghlContactId ? 'GoHighLevel' : (rawId.includes('@s.whatsapp.net') ? 'WhatsApp Inbound' : (d.simCall ? 'SIM Dialer' : 'Manual Entry'))),
+        source: resolvedSource,
         assignedTo: d.assignedTo || d.agentName || authUser?.name || 'Staff 1',
-        ghlContactId: d.ghlContactId || d.ghl_entity_id || (rawId.startsWith('ghl_') ? rawId.replace('ghl_', '') : null),
+        ghlContactId: extractedGhlId,
         notes: d.notes || d.customFields?.notes || '',
         createdAt: d.createdAt || d._createdAt || d.lastMessageTime || new Date().toISOString(),
         updatedAt: d.updatedAt || new Date().toISOString(),
@@ -164,7 +168,6 @@ export default function ContactsPage({
           ...(existing.tags ? existing.tags.split(',').map(t => t.trim()) : []),
           ...(cleanRec.tags ? cleanRec.tags.split(',').map(t => t.trim()) : [])
         ]);
-        const mergedTags = Array.from(tagsSet).filter(Boolean).join(', ');
 
         dedupMap.set(dedupKey, {
           ...existing,
@@ -172,16 +175,17 @@ export default function ContactsPage({
           name: betterName,
           phone: betterPhone,
           email: betterEmail,
-          tags: mergedTags,
           ghlContactId: betterGhlId,
-          _dedupKey: dedupKey
+          source: (existing.source === 'GoHighLevel' || cleanRec.source === 'GoHighLevel') ? 'GoHighLevel' : (existing.source || cleanRec.source),
+          tags: Array.from(tagsSet).filter(Boolean).join(', '),
+          updatedAt: new Date().toISOString()
         });
       } else {
         dedupMap.set(dedupKey, cleanRec);
       }
     });
 
-    // Sort by recent timestamp
+    // 3. Re-sort deterministically: newest first
     const sorted = Array.from(dedupMap.values()).sort((a, b) => {
       const timeA = new Date(a.createdAt || a.updatedAt || 0).getTime();
       const timeB = new Date(b.createdAt || b.updatedAt || 0).getTime();
@@ -206,8 +210,8 @@ export default function ContactsPage({
       const safeTenant = Number(companyId) || 1;
       SupabaseSandboxService.fetchContacts(safeTenant)
         .then(sbContacts => {
-          if (sbContacts && sbContacts.length > 0) {
-            setInternalRecords(prev => processAndMergeRecords(prev, sbContacts));
+          if (sbContacts) {
+            setInternalRecords(processAndMergeRecords([], sbContacts));
             TenantStorage.setItem('contacts', sbContacts, safeTenant);
           }
         })
@@ -229,25 +233,27 @@ export default function ContactsPage({
       console.warn('[ContactsPage] Firestore setup error:', e);
     }
 
-    // B. Fetch Contacts from SQLite API & Merge Deterministically
-    fetch(`${API_URL}/contacts`, {
-      headers: {
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        'x-tenant-id': String(companyId)
-      }
-    })
-      .then(res => res.json())
-      .then(data => {
-        const incoming = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
-        if (incoming.length > 0) {
-          setInternalRecords(prev => processAndMergeRecords(prev, incoming));
-          TenantStorage.setItem('contacts', incoming, companyId);
-        } else {
-          // If empty state returned from backend, ensure clean state without cross-tenant pollution
-          setInternalRecords(prev => prev.filter(r => r.tenantId === companyId));
+    // B. Fetch Contacts from SQLite API & Merge Deterministically (Production only)
+    if (!isSandboxEnvironment()) {
+      fetch(`${API_URL}/contacts`, {
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': String(companyId)
         }
       })
-      .catch(() => {});
+        .then(res => res.json())
+        .then(data => {
+          const incoming = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
+          if (incoming.length > 0) {
+            setInternalRecords(prev => processAndMergeRecords(prev, incoming));
+            TenantStorage.setItem('contacts', incoming, companyId);
+          } else {
+            // If empty state returned from backend, ensure clean state without cross-tenant pollution
+            setInternalRecords(prev => prev.filter(r => r.tenantId === companyId));
+          }
+        })
+        .catch(() => {});
+    }
 
     // C. Check GHL Integration Status
     fetch(`${API_URL}/v1/integrations/ghl/status`, {

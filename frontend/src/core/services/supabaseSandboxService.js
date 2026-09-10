@@ -203,12 +203,30 @@ export const SupabaseSandboxService = {
   // 2. CONTACTS / LEADS
   async fetchContacts(tenantId = 1) {
     try {
-      const res = await fetch(`${SUPABASE_URL}/contacts?tenant_id=eq.${tenantId}&order=updated_at.desc`, {
-        headers: getHeaders()
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      return (Array.isArray(data) ? data : []).map(c => ({
+      const numTenant = Number(tenantId) || 1;
+      let allContacts = [];
+      const limit = 1000;
+      let offset = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const res = await fetch(`${SUPABASE_URL}/contacts?tenant_id=eq.${numTenant}&order=updated_at.desc&limit=${limit}&offset=${offset}`, {
+          headers: getHeaders()
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const batch = Array.isArray(data) ? data : [];
+        allContacts.push(...batch);
+
+        if (batch.length < limit) {
+          hasMore = false;
+        } else {
+          offset += limit;
+          if (offset >= 30000) hasMore = false;
+        }
+      }
+
+      return allContacts.map(c => ({
         ...c,
         id: c.id,
         name: c.name || c.custom_name || c.phone,
@@ -219,6 +237,20 @@ export const SupabaseSandboxService = {
     } catch (err) {
       console.error('[Supabase Sandbox] fetchContacts error:', err);
       return [];
+    }
+  },
+
+  async deleteAllContacts(tenantId = 1) {
+    try {
+      const numTenant = Number(tenantId) || 1;
+      const res = await fetch(`${SUPABASE_URL}/contacts?tenant_id=eq.${numTenant}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      return res.ok;
+    } catch (err) {
+      console.error('[Supabase Sandbox] deleteAllContacts error:', err);
+      return false;
     }
   },
 
@@ -283,6 +315,7 @@ export const SupabaseSandboxService = {
           const fullName = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.customer_name || cleanPhone || 'Lead';
           const email = (c.email || '').trim().toLowerCase() || null;
           const labels = Array.isArray(c.tags) ? c.tags : (Array.isArray(c.labels) ? c.labels : ['HighLevel']);
+          const ghlId = String(c.id || c.ghlId || '').replace(/^ghl_/, '');
 
           return {
             id: contactId,
@@ -295,8 +328,12 @@ export const SupabaseSandboxService = {
             pipeline_stage: c.pipeline_stage || c.pipelineStage || 'lead',
             is_archived: false,
             labels: labels,
-            notes: c.notes || `Imported from GoHighLevel (GHL ID: ${c.id || ''})`,
+            notes: c.notes || (ghlId ? `Imported from GoHighLevel (GHL ID: ${ghlId})` : ''),
             deal_value: String(c.deal_value || c.monetaryValue || 0),
+            custom_fields: {
+              source: 'GoHighLevel',
+              ghlContactId: ghlId
+            },
             created_at: c.dateAdded || new Date().toISOString(),
             updated_at: new Date().toISOString()
           };
