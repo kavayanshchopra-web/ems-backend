@@ -167,32 +167,54 @@
 
   <div class="images-grid">
 
-    <!-- 1. HOME SCREEN (CLEAN NAME + NO REFRESH BUTTON) -->
+    <!-- 1. HOME SCREEN (EXACT LEADCONNECTOR LAYOUT IN TEAL GREEN THEME) -->
     <div class="mockup-card">
       <div class="mockup-title">
         📱 1. Home Dashboard
-        <span class="tag">Final Runo Style</span>
+        <span class="tag">LeadConnector + Teal Theme</span>
       </div>
 
       <div class="image-wrapper">
-        <img src="omniflow_home_runo_final.jpg" alt="OmniFlow EMS Home Screen">
+        <img src="teal_leadconnector_home.jpg" alt="OmniFlow EMS Home Screen in Teal Theme">
       </div>
 
       <div class="feature-list">
-        <div class="feature-item"><span class="dot"></span> <strong>Header</strong>: Clean short Company Name ('Reliable Solutions'), Alerts, Avatar</div>
-        <div class="feature-item"><span class="dot"></span> <strong>Greeting</strong>: 'Welcome, Rahul' (No refresh button, auto background sync)</div>
-        <div class="feature-item"><span class="dot"></span> <strong>4 Metrics</strong>: Attendance (On Duty), Deals (₹4.85L), WA (14), Tasks (3)</div>
-        <div class="feature-item"><span class="dot"></span> <strong>Pinned Apps</strong>: Attendance, WA, Dialer, Staff + Bookmark (+)</div>
-        <div class="feature-item"><span class="dot"></span> <strong>8 Quick Actions</strong>: Punch, Contact, Call, Chat, Leave, Task, Deal, Expense</div>
-        <div class="feature-item"><span class="dot"></span> <strong>Exact 5 Tabs</strong>: Home • Recent • Dialer • Contact • All Apps</div>
+        <div class="feature-item"><span class="dot"></span> <strong>Header</strong>: Dynamic Company Avatar, <strong>Logged-in Company Name ⌄</strong> (Dynamic from Login / Tenant), Location, Red Alert Bell, Settings Gear</div>
+        <div class="feature-item"><span class="dot"></span> <strong>Greeting</strong>: <strong>Welcome, {User}</strong> (Dynamic from Auth) with Teal circular sync arrow</div>
+        <div class="feature-item"><span class="dot"></span> <strong>2x2 Metrics</strong>: Tasks ('All caught up'), Pipeline ('₹5K'), Unread ('5,287'), Appointments ('0')</div>
+        <div class="feature-item"><span class="dot"></span> <strong>Pinned Apps</strong>: Contacts, Opportunities, Dialer, POS with Edit ✏️ pencil icon</div>
+        <div class="feature-item"><span class="dot"></span> <strong>Quick Actions</strong>: Circular outline buttons (Add Contact, Call, Message, Payment, etc.)</div>
+        <div class="feature-item"><span class="dot"></span> <strong>Floating Action</strong>: Deep Teal (#064e43) AI Sparkle button in bottom right</div>
+        <div class="feature-item"><span class="dot"></span> <strong>Exact 5 Tabs</strong>: Home (Active with Teal Green Pill) • Recent • Dialer • Contact • Apps</div>
       </div>
     </div>
 
-    <!-- 2. BOOKMARK / PIN APPS MODAL -->
+    <!-- 2. ALL APPS DIRECTORY (EXACT LEADCONNECTOR LAYOUT IN TEAL GREEN THEME) -->
     <div class="mockup-card">
       <div class="mockup-title">
-        🔖 2. Bookmark / Pin Selector
-        <span class="tag">Custom Sheet</span>
+        🎛️ 2. All Apps Directory
+        <span class="tag">LeadConnector + Teal Theme</span>
+      </div>
+
+      <div class="image-wrapper">
+        <img src="teal_leadconnector_apps.jpg" alt="OmniFlow EMS Apps Directory in Teal Theme">
+      </div>
+
+      <div class="feature-list">
+        <div class="feature-item"><span class="dot"></span> <strong>Header</strong>: Dynamic Company Avatar, <strong>Logged-in Company Name ⌄</strong> (Dynamic from Login / Tenant), Location, Bell, Settings Gear</div>
+        <div class="feature-item"><span class="dot"></span> <strong>Live Search</strong>: '🔍 Search Apps' clean white rounded search bar</div>
+        <div class="feature-item"><span class="dot"></span> <strong>Insights & Productivity</strong>: Dashboard, Calendar, Tasks, Ask AI</div>
+        <div class="feature-item"><span class="dot"></span> <strong>Communication</strong>: Conversations, Dialer, Contacts, Notifications</div>
+        <div class="feature-item"><span class="dot"></span> <strong>Sales & Operations</strong>: POS, Estimates, Invoices, Products, Opportunities, Documents</div>
+        <div class="feature-item"><span class="dot"></span> <strong>Exact 5 Tabs</strong>: Home • Recent • Dialer • Contact • Apps (Active with Teal Green Pill)</div>
+      </div>
+    </div>
+
+    <!-- 3. BOOKMARK / PIN APPS MODAL -->
+    <div class="mockup-card">
+      <div class="mockup-title">
+        🔖 3. Bookmark / Pin Selector
+        <span class="tag">Customize Modal</span>
       </div>
 
       <div class="image-wrapper">
@@ -200,31 +222,35 @@
       </div>
 
       <div class="feature-list">
-        <div class="feature-item"><span class="dot"></span> <strong>Trigger</strong>: Tapping ✏️ or <code>[+ Bookmark]</code> opens this sheet</div>
-        <div class="feature-item"><span class="dot"></span> <strong>Search</strong>: "Search apps to pin..." real-time filter</div>
-        <div class="feature-item"><span class="dot"></span> <strong>Toggle Switches</strong>: Select any app to pin/unpin from Home</div>
-        <div class="feature-item"><span class="dot"></span> <strong>PostgreSQL Guard</strong>: Only active company/role modules appear</div>
-        <div class="feature-item"><span class="dot"></span> <strong>Emerald CTA</strong>: "Save Pinned Apps" updates Home immediately</div>
+        <div class="feature-item"><span class="dot"></span> <strong>Trigger</strong>: Tapping <code>[+ Bookmark]</code> opens this customizable sheet</div>
+        <div class="feature-item"><span class="dot"></span> <strong>Search Filter</strong>: "Search apps to pin..." fast instant filter</div>
+        <div class="feature-item"><span class="dot"></span> <strong>Toggle Switches</strong>: Select any app to pin/unpin from Home screen</div>
+        <div class="feature-item"><span class="dot"></span> <strong>Engine Guard</strong>: Only active company & permitted role modules appear</div>
+        <div class="feature-item"><span class="dot"></span> <strong>Emerald CTA</strong>: "Save Pinned Apps" updates Home shortcuts immediately</div>
       </div>
     </div>
 
-    <!-- 3. ALL APPS DIRECTORY -->
-    <div class="mockup-card">
+    <!-- 4. EXISTING PHONE SUITE (RECENT, DIALER, CONTACT) -->
+    <div class="mockup-card" style="flex: 1 1 760px; max-width: 820px;">
       <div class="mockup-title">
-        🎛️ 3. All Apps Directory
-        <span class="tag">37 Modules</span>
+        📞 4. Existing Untouched Phone Suite (Recent • Dialer • Contacts)
+        <span class="tag">100% Preserved</span>
       </div>
 
       <div class="image-wrapper">
-        <img src="omniflow_ems_apps_screen.jpg" alt="OmniFlow EMS Apps Directory">
+        <img src="omniflow_phone_suite_trio.jpg" alt="OmniFlow EMS Phone Suite Trio">
       </div>
 
-      <div class="feature-list">
-        <div class="feature-item"><span class="dot"></span> <strong>Live Search</strong>: Type to search across all 37 modules</div>
-        <div class="feature-item"><span class="dot"></span> <strong>HR & Workforce</strong>: Employees, ATS, Verify Docs, Assets, Exit</div>
-        <div class="feature-item"><span class="dot"></span> <strong>Payroll & Finance</strong>: Salary, Expenses, Loans, Taxes, F&F</div>
-        <div class="feature-item"><span class="dot"></span> <strong>CRM & WhatsApp</strong>: Chats, Dialer, Contacts, Deals, Web</div>
-        <div class="feature-item"><span class="dot"></span> <strong>Operations</strong>: Attendance, Roster, Leaves, Tasks, GPS</div>
+      <div class="feature-list" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+        <div>
+          <div class="feature-item"><span class="dot"></span> <strong>Recent Calls Tab</strong>: Filter pills (All, Missed, In, Out), call cards, audio playback badge</div>
+        </div>
+        <div>
+          <div class="feature-item"><span class="dot"></span> <strong>Dialer Tab</strong>: Luxury touch dialpad, instant DTMF, glowing green call button</div>
+        </div>
+        <div>
+          <div class="feature-item"><span class="dot"></span> <strong>Contacts Tab</strong>: Company contact directory, instant search, direct call & WhatsApp</div>
+        </div>
       </div>
     </div>
 
