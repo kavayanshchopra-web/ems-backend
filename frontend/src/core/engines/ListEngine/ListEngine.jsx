@@ -519,6 +519,318 @@ export default function ListEngine({
     );
   };
 
+  const renderMobileCard = (record, idx) => {
+    if (!record) return null;
+    const isSelected = (selectedIds || []).includes(record.id);
+    let recordName = getValString(
+      record.name || record.fullName || record.employeeName || record.candidateName || record.customerName || record.title,
+      ''
+    );
+    if (!recordName || recordName === 'Employee Directory' || recordName === 'Candidate' || recordName === 'Customer') {
+      if (record.email) {
+        const parts = getValString(record.email).split('@');
+        if (parts[0]) {
+          recordName = parts[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        }
+      } else if (record.phone) {
+        recordName = getValString(record.phone);
+      }
+    }
+    if (!recordName) {
+      recordName = LabelEngine.getEntityName(moduleConfig) || 'Record';
+    }
+
+    const recordStatus = getValString(record.status || record.stage || record.pipeline_stage || record.disposition);
+    const displayId = record.displayId || record.tag || formatCandidateId(record.id, idx, moduleConfig);
+    const avatarGradient = getAvatarGradient(recordName, isArchivedView);
+    const phoneStr = getValString(record.phone || record.phoneNumber || record.customerPhone);
+    const emailStr = getValString(record.email);
+    const durationStr = getValString(record.duration);
+    const callTypeStr = getValString(record.type || record.callType || record.direction);
+    const audioSrc = record.recording || record.recordingUrl || record.audio || record.audioUrl;
+    const createdAtVal = record._createdAt || record.createdAt || record.timestamp;
+    const dateFormatted = createdAtVal ? formatDate(createdAtVal) : '';
+    const agentName = getValString(record.agentName || record.assignedTo || record.owner || record.agent);
+    const notesStr = getValString(record.notes || record.note || record.description);
+
+    const isIncoming = callTypeStr.toUpperCase().includes('INCOMING');
+    const isOutgoing = callTypeStr.toUpperCase().includes('OUTGOING');
+    const isMissed = callTypeStr.toUpperCase().includes('MISSED') || callTypeStr.toUpperCase().includes('REJECTED');
+
+    return (
+      <div
+        key={record.id || idx}
+        className="mobile-record-card"
+        onClick={() => onViewRecord(record)}
+        style={{
+          background: isSelected ? '#f0fdf4' : '#ffffff',
+          border: isSelected ? '1.5px solid #0d9488' : '1px solid #e2e8f0',
+          borderRadius: '12px',
+          padding: '12px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '9px',
+          cursor: 'pointer',
+          transition: 'all 0.15s ease'
+        }}
+      >
+        {/* Top Header: Checkbox + Avatar + Title + Status / Call Type */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => {
+                e.stopPropagation();
+                handleSelectRow(record.id);
+              }}
+              style={{ accentColor: isArchivedView ? '#f59e0b' : '#0d9488', width: '16px', height: '16px', flexShrink: 0, cursor: 'pointer' }}
+            />
+            <div
+              style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '50%',
+                background: avatarGradient,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                fontWeight: '800',
+                fontSize: '13px',
+                flexShrink: 0
+              }}
+            >
+              {(recordName[0] || 'C').toUpperCase()}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: '700', fontSize: '13.5px', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {recordName}
+              </div>
+              <div style={{ fontSize: '10.5px', color: isArchivedView ? '#b45309' : '#0d9488', fontFamily: 'monospace', fontWeight: '700' }}>
+                ID: {displayId}
+              </div>
+            </div>
+          </div>
+
+          {/* Status & Call Direction Badges */}
+          <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px' }}>
+            {callTypeStr ? (
+              <span style={{
+                padding: '2px 7px',
+                borderRadius: '6px',
+                fontSize: '10px',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                background: isIncoming ? 'rgba(16,185,129,0.12)' : (isOutgoing ? 'rgba(59,130,246,0.12)' : 'rgba(239,68,68,0.12)'),
+                color: isIncoming ? '#059669' : (isOutgoing ? '#2563eb' : '#dc2626')
+              }}>
+                {isIncoming ? '↙ In' : (isOutgoing ? '↗ Out' : '✕ Missed')} {durationStr && `• ${durationStr}`}
+              </span>
+            ) : null}
+            {recordStatus && (
+              <span style={{
+                padding: '2px 7px',
+                borderRadius: '6px',
+                fontSize: '10.5px',
+                fontWeight: '700',
+                background: 'rgba(13,148,136,0.1)',
+                color: '#0d9488',
+                border: '1px solid rgba(13,148,136,0.2)'
+              }}>
+                {recordStatus}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Middle: Phone & Quick Actions Bar */}
+        {phoneStr && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: '#f8fafc',
+            padding: '6px 10px',
+            borderRadius: '8px',
+            border: '1px solid #f1f5f9'
+          }}>
+            <span style={{ fontSize: '12px', fontWeight: '600', color: '#334155', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span>📞</span> {phoneStr}
+            </span>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button
+                type="button"
+                title="Quick Call Lead"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.openGlobalDialer) {
+                    window.openGlobalDialer(phoneStr, recordName, true);
+                  }
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  background: '#10b981',
+                  color: '#ffffff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  boxShadow: '0 1px 3px rgba(16,185,129,0.3)'
+                }}
+              >
+                📞 Call
+              </button>
+              <a
+                href={`https://wa.me/${phoneStr.replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                title="Chat on WhatsApp"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  background: '#25D366',
+                  color: '#ffffff',
+                  textDecoration: 'none',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  boxShadow: '0 1px 3px rgba(37,211,102,0.3)'
+                }}
+              >
+                💬 WA
+              </a>
+            </div>
+          </div>
+        )}
+
+        {/* Email if present */}
+        {emailStr && !phoneStr && (
+          <div style={{ fontSize: '11.5px', color: '#475569', fontWeight: '600' }}>
+            📧 {emailStr}
+          </div>
+        )}
+
+        {/* Audio Recording Player on Mobile */}
+        {audioSrc && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'rgba(13,148,136,0.06)',
+              border: '1px solid rgba(13,148,136,0.2)',
+              borderRadius: '8px',
+              padding: '6px 8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <span style={{ fontSize: '11px', fontWeight: '700', color: '#0d9488', flexShrink: 0 }}>
+              🎙️ Audio
+            </span>
+            <audio
+              controls
+              preload="none"
+              src={audioSrc}
+              style={{ height: '30px', flex: 1, minWidth: 0 }}
+            />
+            <a
+              href={audioSrc}
+              download="call_recording.mp4"
+              title="Download Audio"
+              style={{
+                padding: '4px 7px',
+                borderRadius: '5px',
+                background: '#0d9488',
+                color: '#ffffff',
+                fontSize: '10px',
+                textDecoration: 'none',
+                fontWeight: '700',
+                flexShrink: 0
+              }}
+            >
+              ⬇️
+            </a>
+          </div>
+        )}
+
+        {/* Bottom Footer: Agent / Notes + Date + Action Buttons */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          fontSize: '10.5px',
+          color: '#64748b',
+          borderTop: '1px dashed #e2e8f0',
+          paddingTop: '6px',
+          gap: '8px'
+        }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>
+            {agentName ? `👤 ${agentName}` : (notesStr ? `📝 ${notesStr}` : (dateFormatted || ''))}
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+            {dateFormatted && !agentName && !notesStr ? null : <span>{dateFormatted}</span>}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewRecord(record);
+              }}
+              style={{
+                padding: '2px 6px',
+                borderRadius: '4px',
+                border: '1px solid #cbd5e1',
+                background: '#ffffff',
+                color: '#0d9488',
+                fontSize: '10.5px',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
+            >
+              View
+            </button>
+            {canManage && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isArchivedView) {
+                    if (window.confirm(`Permanently delete "${recordName}"?`)) {
+                      if (typeof softDeleteRecord === 'function') softDeleteRecord(record.recycleBinId || record.id);
+                    }
+                  } else {
+                    if (typeof softDeleteRecord === 'function') softDeleteRecord(record);
+                  }
+                }}
+                style={{
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  border: '1px solid #fecdd3',
+                  background: '#fff1f2',
+                  color: '#dc2626',
+                  fontSize: '10.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                {isArchivedView ? 'Delete' : 'Archive'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
       <style>{`
@@ -584,120 +896,137 @@ export default function ListEngine({
           </div>
         )}
 
-        {/* SCROLLABLE TABLE AREA WITH STICKY HEADER */}
-        <div
-          className="list-table-scroll"
-          ref={scrollRef}
-          onMouseDown={handleMouseDown}
-          onMouseLeave={handleMouseLeaveOrUp}
-          onMouseUp={handleMouseLeaveOrUp}
-          onMouseMove={handleMouseMoveDrag}
-          style={{
-            overflowX: 'auto',
-            overflowY: 'auto',
-            maxHeight: 'calc(100vh - 145px)',
-            position: 'relative',
-            cursor: isDragScrolling ? 'grabbing' : 'grab',
-            userSelect: isDragScrolling ? 'none' : 'auto'
-          }}
-        >
-          <table className="std-table" style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse', borderSpacing: 0 }}>
-            <thead
-              ref={theadRef}
-              style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f8fafc', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', cursor: 'ew-resize' }}
-            >
-              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-                <th style={{ padding: '12px 18px', width: '40px', textAlign: 'center', background: '#f8fafc', position: 'sticky', top: 0, zIndex: 20 }}>
-                  <input
-                    type="checkbox"
-                    checked={paginatedRecords.length > 0 && selectedIds.length === paginatedRecords.length}
-                    onChange={handleSelectAll}
-                    style={{ accentColor: isArchivedView ? '#f59e0b' : '#0d9488', cursor: 'pointer', width: '16px', height: '16px' }}
-                  />
-                </th>
-                {visibleCols.map((col) => {
-                  const resolvedWidth = getColWidth(col);
-                  const widthStyle = { width: `${resolvedWidth}px`, minWidth: `${resolvedWidth}px`, maxWidth: `${resolvedWidth}px` };
-                  const alignStyle = col.align ? { textAlign: col.align } : {};
-                  const targetSortKey = col.fieldKey || col.id;
-                  const isSorted = sortKey === targetSortKey;
-
-                  return (
-                    <th
-                      key={col.id}
-                      className="th-sort-hover"
-                      onClick={() => {
-                        if (isSorted) {
-                          onSortChange(targetSortKey, sortDir === 'asc' ? 'desc' : 'asc');
-                        } else {
-                          onSortChange(targetSortKey, 'asc');
-                        }
-                      }}
-                      style={{
-                        padding: '12px 14px',
-                        fontSize: '11px',
-                        fontWeight: '800',
-                        color: isSorted ? '#0d9488' : '#475569',
-                        textTransform: 'uppercase',
-                        background: isSorted ? 'rgba(13,148,136,0.06)' : '#f8fafc',
-                        cursor: 'pointer',
-                        userSelect: 'none',
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 20,
-                        transition: 'background 0.15s ease',
-                        boxSizing: 'border-box',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        ...widthStyle,
-                        ...alignStyle
-                      }}
-                    >
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', width: '100%', overflow: 'hidden' }}>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {LabelEngine.translateFieldLabel ? LabelEngine.translateFieldLabel(fieldsMap.get(col.fieldKey)?.label || fieldsMap.get(col.id)?.label || col.label) : (fieldsMap.get(col.fieldKey)?.label || fieldsMap.get(col.id)?.label || col.label)}
-                        </span>
-                        {isSorted ? (
-                          sortDir === 'asc' ? <ArrowUp size={13} color="#0d9488" style={{ flexShrink: 0 }} /> : <ArrowDown size={13} color="#0d9488" style={{ flexShrink: 0 }} />
-                        ) : (
-                          <ArrowUpDown size={12} style={{ opacity: 0.3, flexShrink: 0 }} />
-                        )}
-                      </div>
-
-                      {/* INTERACTIVE COLUMN DRAG RESIZER HANDLE */}
-                      <div
-                        className="col-resizer-handle"
-                        onMouseDown={(e) => handleResizeMouseDown(e, col.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        title="Drag left/right to resize column"
-                      />
-                    </th>
-                  );
-                })}
-                {isArchivedView && canManage && (
-                  <th style={{ padding: '12px 18px', fontSize: '11px', fontWeight: '800', color: '#b45309', textTransform: 'uppercase', textAlign: 'right', width: '220px', background: '#fffbeb', position: 'sticky', top: 0, zIndex: 20 }}>
-                    Archived Actions
-                  </th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedRecords.filter(r => !!r).length === 0 ? (
-                <tr>
-                  <td colSpan={visibleCols.length + (isArchivedView && canManage ? 2 : 1)} style={{ padding: '32px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
-                    <EmptyState
-                      icon="📦"
-                      title={emptyTitle}
-                      description={emptyDesc}
+        {/* 1. DESKTOP TABLE VIEW (ACTIVE ON SCREENS > 768px) */}
+        <div className="desktop-table-view">
+          <div
+            className="list-table-scroll"
+            ref={scrollRef}
+            onMouseDown={handleMouseDown}
+            onMouseLeave={handleMouseLeaveOrUp}
+            onMouseUp={handleMouseLeaveOrUp}
+            onMouseMove={handleMouseMoveDrag}
+            style={{
+              overflowX: 'auto',
+              overflowY: 'auto',
+              maxHeight: 'calc(100vh - 145px)',
+              position: 'relative',
+              cursor: isDragScrolling ? 'grabbing' : 'grab',
+              userSelect: isDragScrolling ? 'none' : 'auto'
+            }}
+          >
+            <table className="std-table" style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse', borderSpacing: 0 }}>
+              <thead
+                ref={theadRef}
+                style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f8fafc', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', cursor: 'ew-resize' }}
+              >
+                <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
+                  <th style={{ padding: '12px 18px', width: '40px', textAlign: 'center', background: '#f8fafc', position: 'sticky', top: 0, zIndex: 20 }}>
+                    <input
+                      type="checkbox"
+                      checked={paginatedRecords.length > 0 && selectedIds.length === paginatedRecords.length}
+                      onChange={handleSelectAll}
+                      style={{ accentColor: isArchivedView ? '#f59e0b' : '#0d9488', cursor: 'pointer', width: '16px', height: '16px' }}
                     />
-                  </td>
+                  </th>
+                  {visibleCols.map((col) => {
+                    const resolvedWidth = getColWidth(col);
+                    const widthStyle = { width: `${resolvedWidth}px`, minWidth: `${resolvedWidth}px`, maxWidth: `${resolvedWidth}px` };
+                    const alignStyle = col.align ? { textAlign: col.align } : {};
+                    const targetSortKey = col.fieldKey || col.id;
+                    const isSorted = sortKey === targetSortKey;
+
+                    return (
+                      <th
+                        key={col.id}
+                        className="th-sort-hover"
+                        onClick={() => {
+                          if (isSorted) {
+                            onSortChange(targetSortKey, sortDir === 'asc' ? 'desc' : 'asc');
+                          } else {
+                            onSortChange(targetSortKey, 'asc');
+                          }
+                        }}
+                        style={{
+                          padding: '12px 14px',
+                          fontSize: '11px',
+                          fontWeight: '800',
+                          color: isSorted ? '#0d9488' : '#475569',
+                          textTransform: 'uppercase',
+                          background: isSorted ? 'rgba(13,148,136,0.06)' : '#f8fafc',
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          position: 'sticky',
+                          top: 0,
+                          zIndex: 20,
+                          transition: 'background 0.15s ease',
+                          boxSizing: 'border-box',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          ...widthStyle,
+                          ...alignStyle
+                        }}
+                      >
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', width: '100%', overflow: 'hidden' }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {LabelEngine.translateFieldLabel ? LabelEngine.translateFieldLabel(fieldsMap.get(col.fieldKey)?.label || fieldsMap.get(col.id)?.label || col.label) : (fieldsMap.get(col.fieldKey)?.label || fieldsMap.get(col.id)?.label || col.label)}
+                          </span>
+                          {isSorted ? (
+                            sortDir === 'asc' ? <ArrowUp size={13} color="#0d9488" style={{ flexShrink: 0 }} /> : <ArrowDown size={13} color="#0d9488" style={{ flexShrink: 0 }} />
+                          ) : (
+                            <ArrowUpDown size={12} style={{ opacity: 0.3, flexShrink: 0 }} />
+                          )}
+                        </div>
+
+                        {/* INTERACTIVE COLUMN DRAG RESIZER HANDLE */}
+                        <div
+                          className="col-resizer-handle"
+                          onMouseDown={(e) => handleResizeMouseDown(e, col.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          title="Drag left/right to resize column"
+                        />
+                      </th>
+                    );
+                  })}
+                  {isArchivedView && canManage && (
+                    <th style={{ padding: '12px 18px', fontSize: '11px', fontWeight: '800', color: '#b45309', textTransform: 'uppercase', textAlign: 'right', width: '220px', background: '#fffbeb', position: 'sticky', top: 0, zIndex: 20 }}>
+                      Archived Actions
+                    </th>
+                  )}
                 </tr>
-              ) : (
-                paginatedRecords.filter(r => !!r).map((record, idx) => renderRow(record, idx))
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {paginatedRecords.filter(r => !!r).length === 0 ? (
+                  <tr>
+                    <td colSpan={visibleCols.length + (isArchivedView && canManage ? 2 : 1)} style={{ padding: '32px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
+                      <EmptyState
+                        icon="📦"
+                        title={emptyTitle}
+                        description={emptyDesc}
+                      />
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedRecords.filter(r => !!r).map((record, idx) => renderRow(record, idx))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* 2. MOBILE CARDS VIEW (ACTIVE ON PHONE SCREENS <= 768px) */}
+        <div className="mobile-cards-view">
+          {paginatedRecords.filter(r => !!r).length === 0 ? (
+            <div style={{ padding: '32px 16px', textAlign: 'center' }}>
+              <EmptyState
+                icon="📦"
+                title={emptyTitle}
+                description={emptyDesc}
+              />
+            </div>
+          ) : (
+            paginatedRecords.filter(r => !!r).map((record, idx) => renderMobileCard(record, idx))
+          )}
         </div>
       </div>
     </div>

@@ -50,12 +50,15 @@ export const UniversalAudioPlayer = ({ src }) => {
       try {
         const parts = src.split(',');
         const mimeMatch = parts[0].match(/:(.*?);/);
-        const mime = mimeMatch ? mimeMatch[1] : 'audio/mp4';
+        let mime = mimeMatch ? mimeMatch[1] : 'audio/mp4';
         const bstr = atob(parts[1]);
         let n = bstr.length;
         const u8arr = new Uint8Array(n);
         while (n--) {
           u8arr[n] = bstr.charCodeAt(n);
+        }
+        if (mime === 'audio/3gpp' || mime === 'audio/3gp') {
+          mime = 'audio/mp4';
         }
         const blob = new Blob([u8arr], { type: mime });
         const url = URL.createObjectURL(blob);
@@ -82,6 +85,12 @@ export const UniversalAudioPlayer = ({ src }) => {
         controls
         src={blobUrl || src}
         preload="auto"
+        onError={(e) => {
+          console.warn('[AudioPlayer] Audio playback notice, retrying with direct source:', e);
+          if (blobUrl && audioRef.current && audioRef.current.src !== src) {
+            audioRef.current.src = src;
+          }
+        }}
         style={{ height: '26px', width: '165px', borderRadius: '6px' }}
       />
       {blobUrl && (

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 
 const DashboardShell = lazy(() => import('./components/DashboardShell'));
+const MobileLeadConnectorView = lazy(() => import('./components/mobile/MobileLeadConnectorView'));
 import CompanyRegistrationWizard from './components/CompanyRegistrationWizard';
 import PaymentGateScreen from './components/PaymentGateScreen';
 import OmniFlowLoginPage from './components/auth/OmniFlowLoginPage';
@@ -69,6 +70,16 @@ export default function App() {
 
   // Global Toast Notification state
   const [toast, setToast] = useState({ message: '', type: 'success', visible: false });
+
+  // Mobile viewport and pre-auth view toggle
+  const [isMobileScreen, setIsMobileScreen] = useState(() => typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
+  const [mobileShowLogin, setMobileShowLogin] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobileScreen(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type, visible: true });
@@ -698,8 +709,50 @@ export default function App() {
       );
     }
 
+    if (isMobileScreen && !mobileShowLogin && activeTab !== 'register') {
+      return (
+        <Suspense fallback={
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#064e43', color: '#ffffff', fontWeight: '700' }}>
+            Loading OmniFlow Mobile...
+          </div>
+        }>
+          <MobileLeadConnectorView
+            authUser={null}
+            canNav={() => true}
+            onRequireAuth={() => setMobileShowLogin(true)}
+            onNavigateTab={() => setMobileShowLogin(true)}
+            onOpenModal={() => setMobileShowLogin(true)}
+          />
+        </Suspense>
+      );
+    }
+
     return (
-      <div className="auth-page" style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
+      <div className="auth-page" style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
+        {isMobileScreen && (
+          <div style={{ position: 'fixed', top: '12px', left: '14px', zIndex: 10001 }}>
+            <button
+              type="button"
+              onClick={() => setMobileShowLogin(false)}
+              style={{
+                background: '#064e43',
+                color: '#ffffff',
+                border: '1px solid rgba(255,255,255,0.3)',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+              }}
+            >
+              ← Guest Dialer
+            </button>
+          </div>
+        )}
         {toast.visible && (
           <div style={{
             position: 'fixed',

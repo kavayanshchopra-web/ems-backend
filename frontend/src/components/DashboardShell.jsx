@@ -61,6 +61,7 @@ const LiveTourOverlay = lazy(() => import('./modals/LiveTourOverlay'));
 const ClickToCallModal = lazy(() => import('./modals/ClickToCallModal'));
 const MobileAppGuideModal = lazy(() => import('./modals/MobileAppGuideModal'));
 const MobilePreviewSimulatorOverlay = lazy(() => import('./modals/MobilePreviewSimulatorOverlay'));
+const MobileLeadConnectorView = lazy(() => import('./mobile/MobileLeadConnectorView'));
 const ConfirmModal = lazy(() => import('./modals/ConfirmModal'));
 const CustomInputModal = lazy(() => import('./modals/CustomInputModal'));
 const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage'));
@@ -722,6 +723,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [simPermissions, setSimPermissions] = useState({ calendar: false, location: false, notifications: false, battery: false, phone: false, overlay: false });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  const [isMobileViewport, setIsMobileViewport] = useState(() => typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
+  useEffect(() => {
+    const handleResize = () => setIsMobileViewport(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('ems_theme') || 'emerald');
   const isGhlEmbedded = useMemo(() => {
     if (typeof window === 'undefined') return false;
@@ -1650,7 +1657,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     const processAndSave = (audioBlob) => {
       const localAudioUrl = audioBlob && audioBlob.size > 100
         ? URL.createObjectURL(audioBlob)
-        : 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+        : '';
       const newRecord = {
         id: `call_${Date.now()}`,
         agentName: authUser?.name || authUser?.email || 'Telecaller Agent',
@@ -6707,11 +6714,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     <div className="app-layout">
       <div
         className={`sidebar-overlay ${mobileSidebarOpen ? 'active' : ''}`}
+        style={isMobileViewport ? { display: 'none' } : {}}
         onClick={() => setMobileSidebarOpen(false)}
       />
       <aside
         className={`sidebar ${!desktopSidebarOpen ? 'collapsed' : ''} ${mobileSidebarOpen ? 'mobile-open' : ''}`}
-        style={isGhlEmbedded && !ghlSidebarOpen ? { display: 'none' } : {}}
+        style={isMobileViewport ? { display: 'none' } : (isGhlEmbedded && !ghlSidebarOpen ? { display: 'none' } : {})}
       >
         {/* EMS-style Sidebar Branding - Removed OmniFlow EMS text as requested */}
         <div className="sidebar-logo" style={{ padding: '20px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-start' }}>
@@ -7088,7 +7096,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       <div className="app-main-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', minWidth: 0 }}>
         {/* Top Header Navigation */}
         {/* EMS-style white top header with search */}
-        <header className="top-header" style={{ background: 'var(--sidebar-bg, #064e43)', color: '#ffffff', borderBottom: '1px solid rgba(255, 255, 255, 0.12)', padding: isGhlEmbedded ? '4px 12px' : '8px 18px', height: isGhlEmbedded ? '42px' : '52px', minHeight: isGhlEmbedded ? '42px' : '52px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
+        <header className="top-header" style={isMobileViewport ? { display: 'none' } : { background: 'var(--sidebar-bg, #064e43)', color: '#ffffff', borderBottom: '1px solid rgba(255, 255, 255, 0.12)', padding: isGhlEmbedded ? '4px 12px' : '8px 18px', height: isGhlEmbedded ? '42px' : '52px', minHeight: isGhlEmbedded ? '42px' : '52px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
           <button
             type="button"
             onClick={() => {
@@ -7687,8 +7695,46 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </button>
           </div>
         )}
-        {/* Content Area Routing Container */}
-        <main className="main-content" style={{ flex: 1, overflowY: 'auto', position: 'relative', padding: isGhlEmbedded ? '6px' : '0' }}>
+        <main className="main-content" style={{ flex: 1, overflowY: 'auto', position: 'relative', padding: isMobileViewport ? '0' : (isGhlEmbedded ? '6px' : '0') }}>
+          {/* Mobile Sticky Navigation Header when browsing inner modules */}
+          {isMobileViewport && activeTab !== 'admin_dashboard' && activeTab !== 'dashboards' && activeTab !== 'mobile_home' && (
+            <div style={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 1000,
+              background: 'linear-gradient(135deg, #064e43 0%, #0d9488 100%)',
+              color: '#ffffff',
+              padding: '10px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              boxShadow: '0 2px 10px rgba(6, 78, 67, 0.25)'
+            }}>
+              <button
+                type="button"
+                onClick={() => setActiveTab('admin_dashboard')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'rgba(255,255,255,0.18)',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  color: '#ffffff',
+                  padding: '5px 12px',
+                  borderRadius: '8px',
+                  fontSize: '12.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                <ArrowLeft size={16} /> Home
+              </button>
+              <span style={{ fontSize: '13.5px', fontWeight: '800', textTransform: 'capitalize', color: '#ffffff', letterSpacing: '-0.2px' }}>
+                {(activeTab || '').replace(/_/g, ' ')}
+              </span>
+              <div style={{ width: '48px' }} />
+            </div>
+          )}
           {/* Unified Omnichannel Inbox & Staff WhatsApp Web Live Hub (Persistent Background Bridge) */}
           <div style={{
             display: 'flex',
@@ -8052,32 +8098,64 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-        {/* Company Overview (Admin Dashboard) */}
-        {(activeTab === 'admin_dashboard' || activeTab === 'dashboards') && (
-          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Overview...</div>}>
-            <CompanyOverviewView
-              authUser={authUser}
-              employees={employees}
-              atsCandidates={atsCandidates}
-              tasks={tasks}
-              leaves={leaves}
-              callLogs={callLogs}
-              notices={notices}
-              holidays={holidays}
-              assets={assets}
-              kycDocuments={kycDocuments}
-              offboardingCases={offboardingCases}
-              clientVisits={clientVisits}
-              attendanceLogs={attendanceLogs}
-              liveLocations={liveLocations}
-              activeCurrency={activeCurrency}
-              t={t}
-              showToast={showToast}
-              setActiveTab={setActiveTab}
-              setShowAddNoticeModal={setShowAddNoticeModal}
-              setNewNoticeForm={setNewNoticeForm}
-            />
-          </Suspense>
+        {/* Company Overview (Admin Dashboard) & LeadConnector Mobile View */}
+        {(activeTab === 'admin_dashboard' || activeTab === 'dashboards' || activeTab === 'mobile_home') && (
+          isMobileViewport ? (
+            <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#064e43', fontWeight: 'bold' }}>Loading OmniFlow Mobile...</div>}>
+              <MobileLeadConnectorView
+                authUser={authUser}
+                canNav={canNav}
+                onNavigateTab={(tabKey) => {
+                  if (tabKey === 'dialer') {
+                    setActiveTab('telecalling');
+                  } else {
+                    setActiveTab(tabKey);
+                  }
+                }}
+                onOpenModal={(modalName) => {
+                  if (modalName === 'punch_attendance') setActiveTab('my_attendance');
+                  else if (modalName === 'add_contact') {
+                    if (typeof setShowAddContactModal === 'function') setShowAddContactModal(true);
+                    else setActiveTab('contacts');
+                  }
+                  else if (modalName === 'make_call' || modalName === 'click_to_call') setGlobalVoxbayOpen(true);
+                  else if (modalName === 'new_chat') setShowNewChatModal(true);
+                  else if (modalName === 'apply_leave') setShowAddLeaveModal(true);
+                  else if (modalName === 'add_task') setShowAddTaskModal(true);
+                  else if (modalName === 'add_expense') setShowExpenseModal(true);
+                }}
+                callLogs={callLogs}
+                contacts={contacts}
+                unreadMessageCount={14}
+                pipelineValue={LabelEngine.getCurrencySymbol ? `${LabelEngine.getCurrencySymbol(activeCurrency)}4,85,000` : '₹4,85,000'}
+              />
+            </Suspense>
+          ) : (
+            <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Overview...</div>}>
+              <CompanyOverviewView
+                authUser={authUser}
+                employees={employees}
+                atsCandidates={atsCandidates}
+                tasks={tasks}
+                leaves={leaves}
+                callLogs={callLogs}
+                notices={notices}
+                holidays={holidays}
+                assets={assets}
+                kycDocuments={kycDocuments}
+                offboardingCases={offboardingCases}
+                clientVisits={clientVisits}
+                attendanceLogs={attendanceLogs}
+                liveLocations={liveLocations}
+                activeCurrency={activeCurrency}
+                t={t}
+                showToast={showToast}
+                setActiveTab={setActiveTab}
+                setShowAddNoticeModal={setShowAddNoticeModal}
+                setNewNoticeForm={setNewNoticeForm}
+              />
+            </Suspense>
+          )
         )}
         {/* Task Analytics (Manager Dashboard) */}
         {activeTab === 'manager_dashboard' && (

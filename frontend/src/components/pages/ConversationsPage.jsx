@@ -93,7 +93,44 @@ function TimelineAudioPlayer({ src, duration = 0 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [totalDuration, setTotalDuration] = useState(duration || 0);
+  const [blobUrl, setBlobUrl] = useState(null);
   const audioRef = useRef(null);
+
+  useEffect(() => {
+    if (!src || src === '[no audio]' || src === '[on device]') {
+      setBlobUrl(null);
+      return;
+    }
+
+    if (src.startsWith('blob:') || src.startsWith('http://') || src.startsWith('https://')) {
+      setBlobUrl(src);
+      return;
+    }
+
+    if (src.startsWith('data:')) {
+      try {
+        const parts = src.split(',');
+        const mimeMatch = parts[0].match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : 'audio/mp4';
+        const bstr = atob(parts[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: mime || 'audio/mp4' });
+        const url = URL.createObjectURL(blob);
+        setBlobUrl(url);
+        return () => {
+          URL.revokeObjectURL(url);
+        };
+      } catch (e) {
+        setBlobUrl(src);
+      }
+    } else {
+      setBlobUrl(src);
+    }
+  }, [src]);
 
   const formatTime = (secs) => {
     const s = Math.floor(secs || 0);
@@ -169,7 +206,7 @@ function TimelineAudioPlayer({ src, duration = 0 }) {
     }}>
       <audio
         ref={audioRef}
-        src={src}
+        src={blobUrl || src}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={handleEnded}

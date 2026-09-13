@@ -401,13 +401,14 @@ export default function LayoutToolbar({
 
         {/* B. CENTER: SEARCH INPUT WITH INTEGRATED MINI GREEN FILTER ARROW BOX + PRESET TABS */}
         <div className="toolbar-search-input-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', flex: 1 }}>
-          <div style={{ position: 'relative' }}>
+          <div className="toolbar-search-box-wrapper" style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
             <SearchInput
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               onClear={() => onSearchChange('')}
               placeholder={PlaceholderEngine.getSearchPlaceholder(moduleConfig)}
-              width="300px"
+              width="100%"
+              style={{ width: '100%' }}
               rightElement={
                 <button
                   type="button"

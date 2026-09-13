@@ -3310,4 +3310,101 @@ h1, h2, h3, h4, h5, h6 {
     width: 0 !important;
     height: 0 !important;
   }
+
+  /* ── Universal Module Header & Toolbar Mobile Responsiveness ── */
+  .module-header-strip {
+    padding: 8px 10px !important;
+    gap: 8px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .module-header-actions {
+    margin-left: 0 !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  .module-header-actions > * {
+    flex: 1 1 auto !important;
+  }
+  .module-header-actions button {
+    justify-content: center !important;
+  }
+
+  /* ── Search & Filter Strip Mobile ── */
+  .module-search-filter-strip {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 8px !important;
+  }
+  .toolbar-search-input-group {
+    width: 100% !important;
+    flex: 1 1 100% !important;
+    justify-content: stretch !important;
+  }
+  .toolbar-search-input-group > div {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .toolbar-search-input-group input {
+    width: 100% !important;
+    font-size: 12px !important;
+  }
+  .toolbar-cols-page-group {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+  .toolbar-views-group {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* ── Desktop Table vs Mobile Cards Switch ── */
+  .desktop-table-view {
+    display: none !important;
+  }
+  .mobile-cards-view {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    padding: 10px 8px !important;
+    background: #f8fafc !important;
+    max-height: calc(100vh - 160px) !important;
+    overflow-y: auto !important;
+  }
+
+  /* ── Kanban Stage Tabs Mobile ── */
+  .kanban-mobile-tabs {
+    display: flex !important;
+    overflow-x: auto !important;
+    gap: 6px !important;
+    padding: 8px 6px !important;
+    background: #ffffff !important;
+    border-radius: 8px !important;
+    border: 1px solid #e2e8f0 !important;
+    margin-bottom: 8px !important;
+  }
+  .kanban-mobile-tabs::-webkit-scrollbar {
+    display: none !important;
+  }
+  .kanban-mobile-column-wrapper {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* ── Default Desktop View Controls ── */
+@media (min-width: 769px) {
+  .desktop-table-view {
+    display: block !important;
+  }
+  .mobile-cards-view {
+    display: none !important;
+  }
+  .kanban-mobile-tabs {
+    display: none !important;
+  }
 }

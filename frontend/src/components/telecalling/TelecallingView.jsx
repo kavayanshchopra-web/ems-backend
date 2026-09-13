@@ -306,10 +306,12 @@ export default function TelecallingView({
 
     return allList.map((log, index) => {
       const durSecs = Number(log.durationSeconds || log.duration || 0);
-      let formattedDur = '00:30';
+      const isMissed = String(log.type || log.callType || '').toUpperCase() === 'MISSED' || 
+                       String(log.disposition || log.status || '').toUpperCase() === 'MISSED CALL';
+      let formattedDur = '0s';
       if (durSecs > 0) {
         formattedDur = durSecs >= 60 ? `${Math.floor(durSecs / 60)}m ${durSecs % 60}s` : `${durSecs}s`;
-      } else if (typeof log.duration === 'string') {
+      } else if (typeof log.duration === 'string' && log.duration && log.duration !== '00:30') {
         formattedDur = log.duration;
       }
 
@@ -334,17 +336,28 @@ export default function TelecallingView({
         resolvedCustomerName = custPhone !== '—' ? custPhone : 'Customer';
       }
 
+      const simSlotText = log.simSlot || log.sim_slot || '';
+      const rawChannel = log.channel || (activeProvider === 'voxbay' ? 'VOXBAY' : 'SIM');
+      const channelDisplay = simSlotText && !rawChannel.includes('(') ? `${rawChannel} (${simSlotText})` : rawChannel;
+
+      // Filter out dummy soundhelix audio URLs and suppress audio player for missed calls
+      let cleanRecording = log.recordingUrl || log.recording || log.audioUrl || '';
+      if (isMissed || durSecs === 0 || cleanRecording.includes('soundhelix.com') || cleanRecording.includes('[no audio]')) {
+        cleanRecording = '';
+      }
+
       return {
         id: log.id || `CALL-${String(index + 1).padStart(4, '0')}`,
         name: resolvedCustomerName,
         customerName: resolvedCustomerName,
         agentName: log.agentName || authUser?.name || 'Mobile Agent',
         phone: custPhone,
-        channel: log.channel || (activeProvider === 'voxbay' ? 'VOXBAY' : 'SIM'),
-        type: log.type || log.callType || 'OUTGOING',
+        channel: channelDisplay,
+        simSlot: simSlotText,
+        type: isMissed ? 'MISSED' : (log.type || log.callType || 'OUTGOING'),
         duration: formattedDur,
-        recording: log.recordingUrl || log.recording || log.audioUrl || '',
-        status: log.disposition || log.status || 'Interested',
+        recording: cleanRecording,
+        status: isMissed ? 'Missed Call' : (log.disposition || log.status || 'Interested'),
         notes: log.notes || (activeProvider === 'voxbay' ? 'Voxbay Live Call' : 'SIM Companion Call'),
         timestamp: log.timestamp || (log._createdAt ? new Date(log._createdAt).toLocaleString() : new Date().toISOString()),
         tenantId: log.tenant_id || log.tenantId || companyId,
