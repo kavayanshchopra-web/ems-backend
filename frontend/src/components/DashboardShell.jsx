@@ -7145,98 +7145,50 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         </div>
       </aside>
       {/* Main Container Wrapper (Header Top + Content Below) */}
-      <div className="app-main-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', minWidth: 0, paddingBottom: isMobileScreen ? '64px' : '0px' }}>
+      <div className="app-main-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', minWidth: 0 }}>
         {/* Top Header Navigation */}
         {/* EMS-style white top header with search */}
         <header className="top-header" style={{ background: 'var(--sidebar-bg, #064e43)', color: '#ffffff', borderBottom: '1px solid rgba(255, 255, 255, 0.12)', padding: isGhlEmbedded ? '4px 12px' : '8px 18px', height: isGhlEmbedded ? '42px' : '52px', minHeight: isGhlEmbedded ? '42px' : '52px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
-          {isMobileScreen ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={() => handleMobileNav('__home__')}
-                style={{
-                  background: 'rgba(255,255,255,0.15)',
-                  border: '1px solid rgba(255,255,255,0.25)',
-                  borderRadius: '8px',
-                  color: '#ffffff',
-                  padding: '5px 12px',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                ‹ Home
-              </button>
-              <div style={{ fontSize: '13px', fontWeight: '800', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab === 'contacts' ? 'CONTACTS' : (activeTab || '').replace(/_/g, ' '))))}
-              </div>
-              <button
-                type="button"
-                onClick={() => handleMobileNav('__all_apps__')}
-                style={{
-                  background: 'rgba(255,255,255,0.15)',
-                  border: '1px solid rgba(255,255,255,0.25)',
-                  borderRadius: '8px',
-                  color: '#ffffff',
-                  padding: '5px 10px',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                <Grid size={13} /> Apps
-              </button>
-            </div>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  if (isGhlEmbedded) {
-                    setGhlSidebarOpen(prev => !prev);
-                  } else {
-                    setDesktopSidebarOpen(prev => !prev);
-                    setMobileSidebarOpen(prev => !prev);
-                  }
-                }}
-                title="Toggle Navigation Menu"
-                style={{
-                  marginRight: '14px',
-                  padding: '5px 12px',
-                  borderRadius: '7px',
-                  background: (isGhlEmbedded ? ghlSidebarOpen : desktopSidebarOpen) ? '#0d9488' : 'rgba(255,255,255,0.15)',
-                  border: '1px solid rgba(255,255,255,0.25)',
-                  color: '#14d2cb',
-                  fontSize: '12px',
-                  fontWeight: '800',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-                  flexShrink: 0
-                }}
-              >
-                <Menu size={16} style={{ color: '#14d2cb' }} />
-                <span style={{ fontSize: '12px', color: '#ffffff', fontWeight: '800' }}>
-                  {(isGhlEmbedded ? ghlSidebarOpen : desktopSidebarOpen) ? 'Hide Menu' : 'Menu'}
-                </span>
-              </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (isGhlEmbedded) {
+                setGhlSidebarOpen(prev => !prev);
+              } else {
+                setDesktopSidebarOpen(prev => !prev);
+                setMobileSidebarOpen(prev => !prev);
+              }
+            }}
+            title="Toggle Navigation Menu"
+            style={{
+              marginRight: '14px',
+              padding: '5px 12px',
+              borderRadius: '7px',
+              background: (isGhlEmbedded ? ghlSidebarOpen : desktopSidebarOpen) ? '#0d9488' : 'rgba(255,255,255,0.15)',
+              border: '1px solid rgba(255,255,255,0.25)',
+              color: '#14d2cb',
+              fontSize: '12px',
+              fontWeight: '800',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+              flexShrink: 0
+            }}
+          >
+            <Menu size={16} style={{ color: '#14d2cb' }} />
+            <span style={{ fontSize: '12px', color: '#ffffff', fontWeight: '800' }}>
+              {(isGhlEmbedded ? ghlSidebarOpen : desktopSidebarOpen) ? 'Hide Menu' : 'Menu'}
+            </span>
+          </button>
 
-              {/* Desktop Page Title (Aligned equal from left with content cards) */}
-              <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '0px', marginRight: '20px', flexShrink: 0 }}>
-                <span style={{ fontSize: '14px', fontWeight: '800', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                     {activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' '))))}
-                </span>
-              </div>
-            </>
-          )}
+          {/* Desktop Page Title (Aligned equal from left with content cards) */}
+          <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '0px', marginRight: '20px', flexShrink: 0 }}>
+            <span style={{ fontSize: '14px', fontWeight: '800', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                 {activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' '))))}
+            </span>
+          </div>
 
           {/* Center Header Expiry & 7-Day Free Trial Notice Pill */}
           {(() => {
@@ -8857,114 +8809,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             setInputModal={setInputModal}
           />
         </Suspense>
-      )}
-      {/* Universal Mobile Fixed 5-Tab Navigation Bar (Home • Recent • Dialer • Contact • All Apps) */}
-      {isMobileScreen && (
-        <nav style={{
-          position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: '64px',
-          background: '#ffffff',
-          borderTop: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-around',
-          padding: '4px 8px',
-          zIndex: 9999,
-          boxShadow: '0 -2px 10px rgba(0,0,0,0.06)'
-        }}>
-          <div
-            onClick={() => handleMobileNav('__home__')}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              padding: '6px 14px',
-              borderRadius: '20px',
-              color: '#64748b'
-            }}
-          >
-            <Home size={20} strokeWidth={1.8} />
-            <span style={{ fontSize: '11px', fontWeight: '600', marginTop: '2px' }}>Home</span>
-          </div>
-
-          <div
-            onClick={() => handleMobileNav('telecalling')}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              padding: '6px 12px',
-              borderRadius: '20px',
-              background: activeTab === 'telecalling' ? 'rgba(13, 148, 136, 0.14)' : 'transparent',
-              color: activeTab === 'telecalling' ? '#064e43' : '#64748b'
-            }}
-          >
-            <Clock size={20} strokeWidth={activeTab === 'telecalling' ? 2.2 : 1.8} />
-            <span style={{ fontSize: '11px', fontWeight: activeTab === 'telecalling' ? '800' : '600', marginTop: '2px' }}>Recent</span>
-          </div>
-
-          <div
-            onClick={() => {
-              handleMobileNav('telecalling');
-              setGlobalVoxbayOpen(true);
-            }}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              padding: '6px 12px',
-              borderRadius: '20px',
-              color: '#64748b'
-            }}
-          >
-            <Phone size={20} strokeWidth={1.8} />
-            <span style={{ fontSize: '11px', fontWeight: '600', marginTop: '2px' }}>Dialer</span>
-          </div>
-
-          <div
-            onClick={() => handleMobileNav('contacts')}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              padding: '6px 12px',
-              borderRadius: '20px',
-              background: activeTab === 'contacts' ? 'rgba(13, 148, 136, 0.14)' : 'transparent',
-              color: activeTab === 'contacts' ? '#064e43' : '#64748b'
-            }}
-          >
-            <Users size={20} strokeWidth={activeTab === 'contacts' ? 2.2 : 1.8} />
-            <span style={{ fontSize: '11px', fontWeight: activeTab === 'contacts' ? '800' : '600', marginTop: '2px' }}>Contact</span>
-          </div>
-
-          <div
-            onClick={() => handleMobileNav('__all_apps__')}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              padding: '6px 14px',
-              borderRadius: '20px',
-              color: '#64748b'
-            }}
-          >
-            <Grid size={20} strokeWidth={1.8} />
-            <span style={{ fontSize: '11px', fontWeight: '600', marginTop: '2px' }}>All Apps</span>
-          </div>
-        </nav>
       )}
     </div>
   );
