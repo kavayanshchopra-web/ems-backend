@@ -685,6 +685,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     try {
       if (auth) await signOut(auth);
     } catch (e) {}
+    try {
+      const bridge = window.AndroidApp || window.OmniFlowNative;
+      if (bridge && typeof bridge.clearUserProfile === 'function') {
+        bridge.clearUserProfile();
+      }
+    } catch (e) {}
     TenantStorage.clearAll();
     FirebaseCloudEngine.clearMemoryCache();
     FirebaseCloudEngine.purgeAllLocalCaches();
@@ -760,6 +766,29 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }
     }
   }, [isAndroidApp]);
+
+  // Two-Way Web -> Native Android Auth Bridge (Syncs logged-in user profile & tenant to Native Dialer)
+  useEffect(() => {
+    const user = effectiveAuthUser || authUser;
+    if (user && typeof window !== 'undefined') {
+      const bridge = window.AndroidApp || window.OmniFlowNative;
+      if (bridge && typeof bridge.syncUserProfile === 'function') {
+        try {
+          bridge.syncUserProfile(JSON.stringify({
+            tenantId: user.tenantId || user.companyId || user.tenant_id || 1,
+            employeeId: user.employeeId || user.id || '',
+            name: user.name || user.fullName || '',
+            email: user.email || '',
+            role: user.role || 'employee',
+            department: user.department || ''
+          }));
+          console.log('📱 [AndroidApp Bridge] User profile dispatched to Native Android App:', user.email, 'Tenant:', user.tenantId);
+        } catch (e) {
+          console.warn('[AndroidApp Bridge] syncUserProfile error:', e);
+        }
+      }
+    }
+  }, [effectiveAuthUser, authUser]);
 
   // Mobile App Launcher State & Viewport Engine
   const [mobileActiveView, setMobileActiveView] = useState(() => {

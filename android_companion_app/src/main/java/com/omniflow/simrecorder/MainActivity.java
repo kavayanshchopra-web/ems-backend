@@ -55,6 +55,54 @@ public class MainActivity extends AppCompatActivity {
         public void dial(String phoneNumber) {
             new Handler(Looper.getMainLooper()).post(() -> performDirectCall(phoneNumber));
         }
+
+        @JavascriptInterface
+        public void syncUserProfile(String profileJson) {
+            try {
+                if (profileJson == null || profileJson.trim().isEmpty()) return;
+                org.json.JSONObject obj = new org.json.JSONObject(profileJson);
+                int tenantId = obj.optInt("tenantId", obj.optInt("companyId", obj.optInt("tenant_id", 1)));
+                String employeeId = obj.optString("employeeId", obj.optString("id", ""));
+                String name = obj.optString("name", "Mobile Telecaller");
+                String email = obj.optString("email", "");
+                String role = obj.optString("role", "employee");
+                String department = obj.optString("department", "");
+
+                SharedPreferences prefs = mContext.getSharedPreferences("omniflow", Context.MODE_PRIVATE);
+                prefs.edit()
+                    .putInt("tenant_id", tenantId)
+                    .putString("tenant_id_str", String.valueOf(tenantId))
+                    .putString("agent_id", employeeId)
+                    .putString("agent_name", name)
+                    .putString("agent_email", email)
+                    .putString("agent_role", role)
+                    .putString("agent_department", department)
+                    .apply();
+
+                Log.d("WebAppInterface", "✅ User profile synced to Native Android: Tenant=" + tenantId + ", Agent=" + name + " (" + email + "), Role=" + role + ", EmpId=" + employeeId);
+            } catch (Exception e) {
+                Log.e("WebAppInterface", "❌ syncUserProfile error: " + e.getMessage());
+            }
+        }
+
+        @JavascriptInterface
+        public void clearUserProfile() {
+            try {
+                SharedPreferences prefs = mContext.getSharedPreferences("omniflow", Context.MODE_PRIVATE);
+                prefs.edit()
+                    .remove("tenant_id")
+                    .remove("tenant_id_str")
+                    .remove("agent_id")
+                    .remove("agent_name")
+                    .remove("agent_email")
+                    .remove("agent_role")
+                    .remove("agent_department")
+                    .apply();
+                Log.d("WebAppInterface", "🧹 User profile cleared from Native Android");
+            } catch (Exception e) {
+                Log.e("WebAppInterface", "❌ clearUserProfile error: " + e.getMessage());
+            }
+        }
     }
 
     @Override

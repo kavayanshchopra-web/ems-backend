@@ -14,6 +14,7 @@ export default function TelecallingView({
   authUser,
   callLogs = [],
   setCallLogs = () => {},
+  employees = [],
   systemDropdowns = null,
   activePipelineStages = [],
   recycleBinItems = [],
@@ -392,7 +393,15 @@ export default function TelecallingView({
         displayId: persistentSeqId,
         name: resolvedCustomerName,
         customerName: resolvedCustomerName,
-        agentName: log.agentName || authUser?.name || 'Mobile Agent',
+        agentName: log.agent_name || log.agentName || authUser?.name || 'Mobile Agent',
+        agent_name: log.agent_name || log.agentName || authUser?.name || 'Mobile Agent',
+        agentId: log.agent_id || log.agentId || '',
+        agent_id: log.agent_id || log.agentId || '',
+        agentEmail: log.agent_email || log.agentEmail || log.custom_fields?.agent_email || '',
+        agent_email: log.agent_email || log.agentEmail || log.custom_fields?.agent_email || '',
+        agentRole: log.agent_role || log.agentRole || '',
+        agent_role: log.agent_role || log.agentRole || '',
+        custom_fields: log.custom_fields || {},
         phone: custPhone,
         channel: channelDisplay,
         simSlot: simSlotText,
@@ -414,7 +423,53 @@ export default function TelecallingView({
       const timeB = Number(b._createdAt || 0);
       return timeB - timeA;
     });
-  }, [callLogs, internalLogs, crmContactMap, authUser, activeProvider, companyId]);
+
+    // 🔒 Strict Hierarchical Role-Based Visibility Engine
+    const userRole = String(authUser?.role || '').toLowerCase().trim();
+    const userEmail = String(authUser?.email || '').toLowerCase().trim();
+    const userName = String(authUser?.name || '').toLowerCase().trim();
+    const userEmpId = String(authUser?.employeeId || authUser?.id || '').toLowerCase().trim();
+    const userDept = String(authUser?.department || '').toLowerCase().trim();
+
+    return mapped.filter(item => {
+      // 1. Superadmin / Owner / Admin / Company Admin: Sees all calls of the company/tenant
+      if (userRole === 'superadmin' || userRole === 'owner' || userRole === 'admin' || userRole === 'company_admin') {
+        return true;
+      }
+
+      const itemAgentName = String(item.agentName || item.agent_name || '').toLowerCase().trim();
+      const itemAgentId = String(item.agentId || item.agent_id || '').toLowerCase().trim();
+      const itemAgentEmail = String(item.agentEmail || item.agent_email || item.custom_fields?.agent_email || '').toLowerCase().trim();
+
+      const isOwnCall = Boolean(
+        (userEmail && itemAgentEmail && itemAgentEmail === userEmail) ||
+        (userEmpId && itemAgentId && (itemAgentId === userEmpId || itemAgentId.endsWith(`_${userEmpId}`) || userEmpId.endsWith(`_${itemAgentId}`))) ||
+        (userName && itemAgentName && (itemAgentName === userName || itemAgentName.includes(userName) || userName.includes(itemAgentName)))
+      );
+
+      // 2. Manager: Sees own calls + all calls made by employees in the same department
+      if (userRole === 'manager') {
+        if (isOwnCall) return true;
+        if (Array.isArray(employees) && userDept) {
+          const matchedEmp = employees.find(e => {
+            const eEmail = String(e.email || '').toLowerCase().trim();
+            const eName = String(e.name || `${e.first_name || ''} ${e.last_name || ''}`).toLowerCase().trim();
+            const eId = String(e.id || '').toLowerCase().trim();
+            return (itemAgentEmail && eEmail === itemAgentEmail) ||
+                   (itemAgentId && (eId === itemAgentId || eId.endsWith(`_${itemAgentId}`))) ||
+                   (itemAgentName && eName === itemAgentName);
+          });
+          if (matchedEmp && String(matchedEmp.department || '').toLowerCase().trim() === userDept) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      // 3. Employee (Default): STRICTLY own calls ONLY
+      return isOwnCall;
+    });
+  }, [callLogs, internalLogs, crmContactMap, authUser, activeProvider, companyId, employees]);
 
   const handleUpdateRecords = async (newRecords) => {
     setInternalLogs(newRecords);

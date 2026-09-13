@@ -248,6 +248,8 @@ export const SupabaseSandboxService = {
         const u = Array.isArray(uList) && uList.length > 0 ? uList[0] : null;
         if (u && (u.password_hash === password || u.password_hash === 'sandbox_hash' || !u.password_hash)) {
           let compName = 'My Workspace';
+          let empId = u.id;
+          let dept = '';
           try {
             const tRes = await fetch(`${SUPABASE_URL}/tenants?id=eq.${u.tenant_id}`, { headers: getHeaders() });
             if (tRes.ok) {
@@ -255,11 +257,25 @@ export const SupabaseSandboxService = {
               if (tData[0]?.company_name) compName = tData[0].company_name;
             }
           } catch (e) {}
+
+          try {
+            const empRes = await fetch(`${SUPABASE_URL}/employees?email=eq.${encodeURIComponent(cleanEmail)}`, { headers: getHeaders() });
+            if (empRes.ok) {
+              const emps = await empRes.json();
+              if (emps && emps[0]) {
+                empId = emps[0].id;
+                dept = emps[0].department || '';
+              }
+            }
+          } catch (e) {}
+
           return {
             id: `sb_user_${u.id}`,
+            employeeId: empId,
             email: cleanEmail,
             name: u.full_name || u.email?.split('@')[0] || 'Staff User',
             role: u.role || 'employee',
+            department: dept,
             tenantId: u.tenant_id || 1,
             companyId: u.tenant_id || 1,
             tenant_id: u.tenant_id || 1,
@@ -676,7 +692,13 @@ export const SupabaseSandboxService = {
         name: log.customer_name || log.phone || 'Customer',
         customerName: log.customer_name || log.phone || 'Customer',
         agentName: log.agent_name || 'Telecaller Agent',
+        agent_name: log.agent_name || 'Telecaller Agent',
+        agentId: log.agent_id || '',
+        agent_id: log.agent_id || '',
         agentRole: log.agent_role || 'telecaller',
+        agent_role: log.agent_role || 'telecaller',
+        agentEmail: log.custom_fields?.agent_email || log.agent_email || '',
+        agent_email: log.custom_fields?.agent_email || log.agent_email || '',
         phone: log.phone || log.customer_phone || '—',
         channel: log.channel || 'SIM',
         type: log.call_type || log.type || 'OUTGOING',
@@ -690,7 +712,9 @@ export const SupabaseSandboxService = {
         notes: log.notes || '',
         timestamp: log.timestamp || log.created_at,
         _createdAt: new Date(log.created_at || log.timestamp).getTime(),
-        tenantId: log.tenant_id
+        tenantId: log.tenant_id,
+        tenant_id: log.tenant_id,
+        custom_fields: log.custom_fields || {}
       }));
     } catch (err) {
       console.error('[Supabase Sandbox] fetchCallLogs error:', err);

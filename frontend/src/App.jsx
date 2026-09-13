@@ -269,6 +269,19 @@ export default function App() {
       const mockToken = 'superadmin_master_token_override';
       localStorage.setItem('omnilflow_token', mockToken);
       localStorage.setItem('omnilflow_user', JSON.stringify(masterUser));
+      try {
+        const bridge = window.AndroidApp || window.OmniFlowNative;
+        if (bridge && typeof bridge.syncUserProfile === 'function') {
+          bridge.syncUserProfile(JSON.stringify({
+            tenantId: masterUser.tenantId || 1,
+            employeeId: masterUser.id,
+            name: masterUser.name,
+            email: masterUser.email,
+            role: masterUser.role,
+            department: ''
+          }));
+        }
+      } catch (e) {}
       setAuthUser(masterUser);
       if (typeof window !== 'undefined') window.__omniflow_tenant = isSb ? '1' : 'platform_superadmin';
       showToast(isSb ? '🚀 Connected to Sandbox Environment (Tenant 1 - Isolated)' : 'Welcome Superadmin! Master Access Granted.', 'success');
@@ -447,6 +460,19 @@ export default function App() {
           }).catch(() => {});
         }
 
+        try {
+          const bridge = window.AndroidApp || window.OmniFlowNative;
+          if (bridge && typeof bridge.syncUserProfile === 'function') {
+            bridge.syncUserProfile(JSON.stringify({
+              tenantId: userData.tenantId || userData.companyId || 1,
+              employeeId: userData.employeeId || userData.id || '',
+              name: userData.name || '',
+              email: userData.email || '',
+              role: userData.role || 'employee',
+              department: userData.department || ''
+            }));
+          }
+        } catch (e) {}
         setAuthUser(userData);
         if (typeof window !== 'undefined') window.__omniflow_tenant = finalTenantId;
         showToast('Signed in successfully!', 'success');
