@@ -201,9 +201,15 @@ export const SupabaseSandboxService = {
   },
 
   // 2. CONTACTS / LEADS
-  async fetchContacts(tenantId = 1) {
+  async fetchContacts(tenantId = null) {
     try {
-      const numTenant = Number(tenantId) || 1;
+      if (!tenantId || tenantId === 'org_unassigned' || tenantId === 'default_tenant') {
+        return [];
+      }
+      const numTenant = Number(tenantId);
+      if (isNaN(numTenant) || !numTenant) {
+        return [];
+      }
       let allContacts = [];
       const limit = 1000;
       let offset = 0;
@@ -232,7 +238,10 @@ export const SupabaseSandboxService = {
         name: c.name || c.custom_name || c.phone,
         phone_computed: c.phone || (c.id ? c.id.replace(/@.*/, '') : ''),
         pipeline_stage: c.pipeline_stage || 'new',
-        unread_count: 0
+        unread_count: 0,
+        tenantId: c.tenant_id,
+        tenant_id: c.tenant_id,
+        companyId: c.tenant_id
       }));
     } catch (err) {
       console.error('[Supabase Sandbox] fetchContacts error:', err);

@@ -1450,8 +1450,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           const cleanPhone = (contact.phone || '').replace(/[^0-9+]/g, '');
           const cleanEmail = contact.email || '';
           const contactId = data.contactId || data.id || data.ghlContactId || `ghl_${Date.now()}`;
-          const currentCompany = authUser?.companyId || authUser?.tenantId || 'default_tenant';
-          const safeTenant = Number(authUser?.tenantId || authUser?.tenant_id || authUser?.companyId) || 1;
+          const currentCompany = String(effectiveAuthUser?.companyId || effectiveAuthUser?.tenantId || authUser?.companyId || authUser?.tenantId || '');
+          const safeTenant = Number(currentCompany);
+          if (!safeTenant || isNaN(safeTenant)) return;
 
           // Ingest into Supabase Sandbox if in Sandbox environment
           if (isSandboxEnvironment()) {
@@ -1936,8 +1937,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [offboardingCases, setOffboardingCases] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [contacts, setContacts] = useState(() => {
-    const tId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id;
-    return TenantStorage.getItem('contacts', tId, []);
+    const tId = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || authUser?.tenantId || authUser?.companyId || authUser?.tenant_id;
+    if (!tId || tId === 'org_unassigned' || tId === 'default_tenant') return [];
+    const cached = TenantStorage.getItem('contacts', tId, []);
+    return (cached || []).filter(c => {
+      const cT = String(c.tenant_id ?? c.tenantId ?? '');
+      return cT && cT === String(tId);
+    });
   });
   const [activeContact, setActiveContact] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -4337,7 +4343,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setIsEmployeesLoading(true);
     setEmployeesError(null);
     try {
-      const currentTenantId = Number(effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id) || 1;
+      const rawT = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || authUser?.tenantId || authUser?.companyId || authUser?.tenant_id;
+      const currentTenantId = (rawT && rawT !== 'org_unassigned' && rawT !== 'default_tenant') ? Number(rawT) : null;
+      if (!currentTenantId) {
+        setEmployees([]);
+        return;
+      }
       if (isSandboxEnvironment()) {
         const sandboxEmps = await SupabaseSandboxService.fetchEmployees(currentTenantId);
         setEmployees(sandboxEmps);
@@ -4362,7 +4373,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     e.preventDefault();
     setIsEmployeesLoading(true);
     const isEdit = !!newEmployeeForm.id;
-    const currentTenantId = Number(effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id) || 1;
+    const rawT = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || authUser?.tenantId || authUser?.companyId || authUser?.tenant_id;
+    const currentTenantId = (rawT && rawT !== 'org_unassigned' && rawT !== 'default_tenant') ? Number(rawT) : null;
+    if (!currentTenantId) return;
     const activeTenantId = FirebaseCloudEngine.getTenantId(currentTenantId);
 
     const cleanEmpEmail = (newEmployeeForm.email || '').toLowerCase().trim();
@@ -4832,7 +4845,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       console.warn('Firestore soft delete failed:', fbErr.message);
     }
     if (isSandboxEnvironment()) {
-      const currentTenantId = Number(effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id) || 1;
+      const rawT = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || authUser?.tenantId || authUser?.companyId || authUser?.tenant_id;
+      const currentTenantId = (rawT && rawT !== 'org_unassigned' && rawT !== 'default_tenant') ? Number(rawT) : null;
+      if (!currentTenantId) return;
       await SupabaseSandboxService.deleteEmployee(id, currentTenantId);
       await fetchEmployees();
       showToast('Employee removed from Supabase SQL', 'info');
@@ -5801,13 +5816,26 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     if (isFetchingContactsRef.current) return;
     isFetchingContactsRef.current = true;
     try {
-      if (isSandboxEnvironment()) {
-        const currentTenantId = Number(effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id) || 1;
-        const sbContacts = await SupabaseSandboxService.fetchContacts(currentTenantId);
-        setContacts(sbContacts);
+      const activeTenant = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || authUser?.tenantId || authUser?.companyId || authUser?.tenant_id;
+      if (!activeTenant || activeTenant === 'org_unassigned' || activeTenant === 'default_tenant') {
+        setContacts([]);
         return;
       }
-      const activeTenant = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || 'org_unassigned';
+
+      if (isSandboxEnvironment()) {
+        const currentTenantId = Number(activeTenant);
+        if (!currentTenantId || isNaN(currentTenantId)) {
+          setContacts([]);
+          return;
+        }
+        const sbContacts = await SupabaseSandboxService.fetchContacts(currentTenantId);
+        const strictlyTenant = (sbContacts || []).filter(c => {
+          const cT = String(c.tenant_id ?? c.tenantId ?? '');
+          return cT && cT === String(currentTenantId);
+        });
+        setContacts(strictlyTenant);
+        return;
+      }
       const token = localStorage.getItem('omnilflow_token');
       const res = await fetch(`${API_URL}/contacts`, {
         headers: {
@@ -5818,8 +5846,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       if (res.ok) {
         const data = await res.json();
         const incoming = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
-        setContacts(incoming);
-        TenantStorage.setItem('contacts', incoming, activeTenant);
+        const strictlyTenant = incoming.filter(c => {
+          const cT = String(c.tenant_id ?? c.tenantId ?? '');
+          return cT && cT === String(activeTenant);
+        });
+        setContacts(strictlyTenant);
+        TenantStorage.setItem('contacts', strictlyTenant, activeTenant);
       } else {
         setContacts([]);
       }
@@ -6012,7 +6044,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     if (isSandboxEnvironment()) {
       try {
         setIsCreatingNewChat(true);
-        const currentTenantId = Number(effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id) || 1;
+        const rawT = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || authUser?.tenantId || authUser?.companyId || authUser?.tenant_id;
+        const currentTenantId = (rawT && rawT !== 'org_unassigned' && rawT !== 'default_tenant') ? Number(rawT) : null;
+        if (!currentTenantId) throw new Error('No active company selected.');
         const newLead = await SupabaseSandboxService.createContact({
           name: newChatName.trim() || newChatPhone.trim(),
           phone: newChatPhone.trim()

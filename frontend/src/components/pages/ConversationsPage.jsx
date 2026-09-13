@@ -351,31 +351,38 @@ export default function ConversationsPage({
     }));
   };
 
-  // 1. Master State with Immediate Hydration from Props or localStorage Cache
+  // 1. Master State strictly scoped to companyId
   const [conversationsList, setConversationsList] = useState(() => {
     if (Array.isArray(propContacts) && propContacts.length > 0) {
-      return formatContactRoster(propContacts);
+      const filtered = propContacts.filter(p => {
+        const t = String(p.tenant_id ?? p.tenantId ?? '');
+        return t && t === String(companyId);
+      });
+      return formatContactRoster(filtered);
     }
-    try {
-      if (typeof window !== 'undefined') {
-        const cached = localStorage.getItem('omniflow_cached_contacts');
-        if (cached) return formatContactRoster(JSON.parse(cached));
-      }
-    } catch (e) {}
-    return [];
+    const cached = TenantStorage.getItem('contacts', companyId, []);
+    const filtered = (cached || []).filter(p => {
+      const t = String(p.tenant_id ?? p.tenantId ?? '');
+      return t && t === String(companyId);
+    });
+    return formatContactRoster(filtered);
   });
 
   const [activeContact, setActiveContact] = useState(() => {
     let initialList = [];
     if (Array.isArray(propContacts) && propContacts.length > 0) {
-      initialList = formatContactRoster(propContacts);
+      const filtered = propContacts.filter(p => {
+        const t = String(p.tenant_id ?? p.tenantId ?? '');
+        return t && t === String(companyId);
+      });
+      initialList = formatContactRoster(filtered);
     } else {
-      try {
-        if (typeof window !== 'undefined') {
-          const cached = localStorage.getItem('omniflow_cached_contacts');
-          if (cached) initialList = formatContactRoster(JSON.parse(cached));
-        }
-      } catch (e) {}
+      const cached = TenantStorage.getItem('contacts', companyId, []);
+      const filtered = (cached || []).filter(p => {
+        const t = String(p.tenant_id ?? p.tenantId ?? '');
+        return t && t === String(companyId);
+      });
+      initialList = formatContactRoster(filtered);
     }
     return initialList.length > 0 ? initialList[0] : null;
   });
@@ -414,19 +421,23 @@ export default function ConversationsPage({
 
   // Sync prop contacts when parent updates
   useEffect(() => {
-    if (Array.isArray(propContacts) && propContacts.length > 0) {
-      const formatted = formatContactRoster(propContacts);
+    if (Array.isArray(propContacts)) {
+      const tenantScoped = propContacts.filter(p => {
+        const t = String(p.tenant_id ?? p.tenantId ?? '');
+        return t && t === String(companyId);
+      });
+      const formatted = formatContactRoster(tenantScoped);
       setConversationsList(formatted);
       if (!activeContact && formatted.length > 0) {
         setActiveContact(formatted[0]);
       } else if (activeContact) {
         const updatedActive = formatted.find(c => c.id === activeContact.id || (c.normPhone10 && c.normPhone10 === activeContact.normPhone10));
-        if (updatedActive) {
-          setActiveContact(prev => ({ ...prev, ...updatedActive }));
-        }
+        setActiveContact(updatedActive || (formatted.length > 0 ? formatted[0] : null));
+      } else if (formatted.length === 0) {
+        setActiveContact(null);
       }
     }
-  }, [propContacts]);
+  }, [propContacts, companyId]);
 
   // 2. Fetch / Stream Call Logs (Firestore + SQLite with live caching)
   useEffect(() => {
@@ -522,7 +533,7 @@ export default function ConversationsPage({
         if (hasChanges) {
           const sorted = updatedList.sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
           try {
-            localStorage.setItem('omniflow_cached_contacts', JSON.stringify(sorted.slice(0, 200)));
+            localStorage.setItem(`omniflow_cached_contacts_${companyId}`, JSON.stringify(sorted.slice(0, 200)));
           } catch (e) {}
           return sorted;
         }
@@ -657,7 +668,10 @@ export default function ConversationsPage({
             setActiveContact(cleanRoster[0]);
           }
         } else if (Array.isArray(propContacts) && propContacts.length > 0) {
-          const filteredProps = propContacts.filter(p => !p.tenantId || p.tenantId === companyId);
+          const filteredProps = propContacts.filter(p => {
+            const t = String(p.tenant_id ?? p.tenantId ?? '');
+            return t && t === String(companyId);
+          });
           if (filteredProps.length > 0) {
             setConversationsList(formatContactRoster(filteredProps));
             if (!activeContact) {
@@ -701,7 +715,10 @@ export default function ConversationsPage({
 
     const queryPhone = norm10 ? `91${norm10}` : cleanPhone;
     fetch(`${API_URL}/contacts/${encodeURIComponent(contactId)}/messages?limit=200&phone=${encodeURIComponent(queryPhone)}`, {
-      headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        'x-tenant-id': String(companyId)
+      }
     })
       .then(res => res.json())
       .then(data => {

@@ -40,17 +40,28 @@ export default function ContactsPage({
   // Initialize records strictly scoped to the active tenant
   const [internalRecords, setInternalRecords] = useState(() => {
     if (Array.isArray(propContacts) && propContacts.length > 0) {
-      return propContacts.filter(r => !r.tenantId || r.tenantId === companyId);
+      return propContacts.filter(r => {
+        const itemTenant = String(r.tenant_id ?? r.tenantId ?? '');
+        return itemTenant && itemTenant === String(companyId);
+      });
     }
-    return TenantStorage.getItem('contacts', companyId, []);
+    const cached = TenantStorage.getItem('contacts', companyId, []);
+    return (cached || []).filter(r => {
+      const itemTenant = String(r.tenant_id ?? r.tenantId ?? '');
+      return itemTenant && itemTenant === String(companyId);
+    });
   });
 
   // Sync when propContacts arrives or updates from parent
   useEffect(() => {
-    if (Array.isArray(propContacts) && propContacts.length > 0) {
-      setInternalRecords(prev => processAndMergeRecords(prev, propContacts));
+    if (Array.isArray(propContacts)) {
+      const tenantScoped = propContacts.filter(r => {
+        const itemTenant = String(r.tenant_id ?? r.tenantId ?? '');
+        return itemTenant && itemTenant === String(companyId);
+      });
+      setInternalRecords(processAndMergeRecords([], tenantScoped));
     }
-  }, [propContacts]);
+  }, [propContacts, companyId]);
 
   const isDesktop = typeof window !== 'undefined' && (Boolean(window.electronAPI) || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
   const API_URL = isDesktop
@@ -221,13 +232,18 @@ export default function ContactsPage({
       const safeTenant = (resolvedTenant && resolvedTenant !== 'org_unassigned' && resolvedTenant !== 'default_tenant') ? Number(resolvedTenant) : null;
       
       const fetchSandboxContacts = () => {
-        if (!safeTenant) return;
+        if (!safeTenant) {
+          setInternalRecords([]);
+          return;
+        }
         SupabaseSandboxService.fetchContacts(safeTenant)
           .then(sbContacts => {
-            if (sbContacts) {
-              setInternalRecords(processAndMergeRecords([], sbContacts));
-              TenantStorage.setItem('contacts', sbContacts, safeTenant);
-            }
+            const scoped = (sbContacts || []).filter(r => {
+              const itemTenant = String(r.tenant_id ?? r.tenantId ?? '');
+              return itemTenant && itemTenant === String(safeTenant);
+            });
+            setInternalRecords(processAndMergeRecords([], scoped));
+            TenantStorage.setItem('contacts', scoped, safeTenant);
           })
           .catch(e => console.warn('[ContactsPage] Sandbox fetch notice:', e));
       };
@@ -270,13 +286,12 @@ export default function ContactsPage({
         .then(res => res.json())
         .then(data => {
           const incoming = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
-          if (incoming.length > 0) {
-            setInternalRecords(prev => processAndMergeRecords(prev, incoming));
-            TenantStorage.setItem('contacts', incoming, companyId);
-          } else {
-            // If empty state returned from backend, ensure clean state without cross-tenant pollution
-            setInternalRecords(prev => prev.filter(r => r.tenantId === companyId));
-          }
+          const strictlyTenant = incoming.filter(r => {
+            const itemTenant = String(r.tenant_id ?? r.tenantId ?? '');
+            return itemTenant && itemTenant === String(companyId);
+          });
+          setInternalRecords(processAndMergeRecords([], strictlyTenant));
+          TenantStorage.setItem('contacts', strictlyTenant, companyId);
         })
         .catch(() => {});
     }
