@@ -301,10 +301,61 @@ export default function TelecallingView({
       });
     }
 
-    const allList = Array.from(combined.values());
-    if (allList.length === 0) return [];
+    // Sort all raw logs chronologically ascending (oldest to newest)
+    const sortedRaw = Array.from(combined.values()).sort((a, b) => {
+      const tA = Number(a._createdAt || (a.created_at ? new Date(a.created_at).getTime() : 0)) || 0;
+      const tB = Number(b._createdAt || (b.created_at ? new Date(b.created_at).getTime() : 0)) || 0;
+      return tA - tB;
+    });
 
-    return allList.map((log, index) => {
+    if (sortedRaw.length === 0) return [];
+
+    // Intelligent Deduplication: Merge Stage 1 (instant 0ms) and Stage 2 (follow-up/audio) for the same call
+    const deduplicated = [];
+    sortedRaw.forEach(item => {
+      const phoneDigits = String(item.customerPhone || item.phoneNumber || item.phone || item.customer_phone || '').replace(/\D/g, '').slice(-10);
+      const itemTime = Number(item._createdAt || (item.created_at ? new Date(item.created_at).getTime() : 0)) || 0;
+
+      // Check if this is a companion call update within 15 minutes (900,000ms)
+      const existingIdx = deduplicated.findIndex(d => {
+        const dPhone = String(d.customerPhone || d.phoneNumber || d.phone || d.customer_phone || '').replace(/\D/g, '').slice(-10);
+        if (!phoneDigits || dPhone !== phoneDigits) return false;
+        const dTime = Number(d._createdAt || (d.created_at ? new Date(d.created_at).getTime() : 0)) || 0;
+        return Math.abs(itemTime - dTime) < 900000;
+      });
+
+      if (existingIdx !== -1) {
+        const existing = deduplicated[existingIdx];
+        const hasRecA = !!(existing.recordingUrl || existing.recording || existing.audioUrl);
+        const hasRecB = !!(item.recordingUrl || item.recording || item.audioUrl);
+        const durA = Number(existing.durationSeconds || existing.duration || 0);
+        const durB = Number(item.durationSeconds || item.duration || 0);
+        const dispA = existing.disposition || existing.status || '';
+        const dispB = item.disposition || item.status || '';
+
+        const resolvedRec = (hasRecB ? (item.recordingUrl || item.recording || item.audioUrl) : (existing.recordingUrl || existing.recording || existing.audioUrl)) || '';
+        const resolvedDisp = (dispB && !dispB.toLowerCase().includes('pending')) ? dispB : (dispA || 'Interested');
+
+        deduplicated[existingIdx] = {
+          ...existing,
+          ...item,
+          id: existing.id || item.id,
+          recordingUrl: resolvedRec,
+          recording: resolvedRec,
+          audioUrl: resolvedRec,
+          disposition: resolvedDisp,
+          status: resolvedDisp,
+          durationSeconds: Math.max(durA, durB),
+          duration: Math.max(durA, durB) > 0 ? `${Math.floor(Math.max(durA, durB) / 60)}m ${Math.max(durA, durB) % 60}s` : (item.duration || existing.duration),
+          notes: (item.notes && !item.notes.includes('Pending')) ? item.notes : existing.notes
+        };
+      } else {
+        deduplicated.push(item);
+      }
+    });
+
+    // Map chronologically so older calls keep lower sequence numbers and newest call gets highest sequential ID
+    return deduplicated.map((log, seqIdx) => {
       const durSecs = Number(log.durationSeconds || log.duration || 0);
       const isMissed = String(log.type || log.callType || '').toUpperCase() === 'MISSED' || 
                        String(log.disposition || log.status || '').toUpperCase() === 'MISSED CALL';
@@ -315,7 +366,7 @@ export default function TelecallingView({
         formattedDur = log.duration;
       }
 
-      const custPhone = log.customerPhone || log.phoneNumber || log.phone || '—';
+      const custPhone = log.customerPhone || log.phoneNumber || log.phone || log.customer_phone || '—';
       const rawName = String(log.customerName || log.contactName || log.name || '').trim();
       const cleanPhoneDigits = String(custPhone).replace(/\D/g, '');
       const normPhone10 = cleanPhoneDigits.length >= 7 ? cleanPhoneDigits.slice(-10) : '';
@@ -346,8 +397,11 @@ export default function TelecallingView({
         cleanRecording = '';
       }
 
+      const persistentSeqId = `CALL-${String(seqIdx + 1).padStart(4, '0')}`;
+
       return {
-        id: log.id || `CALL-${String(index + 1).padStart(4, '0')}`,
+        id: log.id || persistentSeqId,
+        displayId: persistentSeqId,
         name: resolvedCustomerName,
         customerName: resolvedCustomerName,
         agentName: log.agentName || authUser?.name || 'Mobile Agent',
@@ -357,13 +411,17 @@ export default function TelecallingView({
         type: isMissed ? 'MISSED' : (log.type || log.callType || 'OUTGOING'),
         duration: formattedDur,
         recording: cleanRecording,
+        recordingUrl: cleanRecording,
+        audioUrl: cleanRecording,
         status: isMissed ? 'Missed Call' : (log.disposition || log.status || 'Interested'),
+        disposition: isMissed ? 'Missed Call' : (log.disposition || log.status || 'Interested'),
         notes: log.notes || (activeProvider === 'voxbay' ? 'Voxbay Live Call' : 'SIM Companion Call'),
         timestamp: log.timestamp || (log._createdAt ? new Date(log._createdAt).toLocaleString() : new Date().toISOString()),
         tenantId: log.tenant_id || log.tenantId || companyId,
-        _createdAt: log._createdAt || Date.now()
+        _createdAt: log._createdAt || (log.created_at ? new Date(log.created_at).getTime() : Date.now())
       };
     }).sort((a, b) => {
+      // Sort newest calls to top of table
       const timeA = Number(a._createdAt || 0);
       const timeB = Number(b._createdAt || 0);
       return timeB - timeA;

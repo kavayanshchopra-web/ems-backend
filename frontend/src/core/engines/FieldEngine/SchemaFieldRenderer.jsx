@@ -79,36 +79,40 @@ export const UniversalAudioPlayer = ({ src }) => {
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(135deg, #f0fdf4 0%, #e6fffa 100%)', padding: '3px 8px', borderRadius: '10px', border: '1px solid #99f6e4', minWidth: '200px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(135deg, #f0fdf4 0%, #e6fffa 100%)', padding: '3px 8px', borderRadius: '10px', border: '1px solid #99f6e4', minWidth: '210px' }}>
       <audio
         ref={audioRef}
         controls
+        crossOrigin="anonymous"
         src={blobUrl || src}
-        preload="auto"
+        preload="metadata"
         onError={(e) => {
           console.warn('[AudioPlayer] Audio playback notice, retrying with direct source:', e);
           if (blobUrl && audioRef.current && audioRef.current.src !== src) {
             audioRef.current.src = src;
           }
         }}
-        style={{ height: '26px', width: '165px', borderRadius: '6px' }}
+        style={{ height: '28px', width: '165px', borderRadius: '6px' }}
       />
-      {blobUrl && (
+      {(blobUrl || src) && (
         <a
-          href={blobUrl}
+          href={blobUrl || src}
+          target="_blank"
+          rel="noopener noreferrer"
           download="call_recording.mp4"
-          title="Download Audio"
+          title="Download / Play in new tab"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '3px 6px',
+            padding: '4px 7px',
             borderRadius: '6px',
             background: '#0d9488',
             color: '#ffffff',
             fontSize: '11px',
             textDecoration: 'none',
-            fontWeight: '600'
+            fontWeight: '700',
+            flexShrink: 0
           }}
         >
           ⬇️
