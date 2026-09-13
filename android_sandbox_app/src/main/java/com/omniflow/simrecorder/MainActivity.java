@@ -1,0 +1,1774 @@
+package com.omniflow.simrecorder;
+
+import android.Manifest;
+import android.app.role.RoleManager;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.GradientDrawable;
+import android.media.AudioManager;
+import android.media.ToneGenerator;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.provider.CallLog;
+import android.provider.ContactsContract;
+import android.telecom.TelecomManager;
+import android.text.Editable;
+import android.text.TextUtils;
+import android.text.TextWatcher;
+import android.util.Log;
+import android.view.Gravity;
+import android.view.HapticFeedbackConstants;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.ViewGroup;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.AbsListView;
+import android.widget.BaseAdapter;
+import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ListView;
+import android.widget.ProgressBar;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import android.widget.Toast;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+
+/**
+ * MainActivity -- Native Wotel Hub with Luxury Card Design & Brand Theme:
+ * Tabs: [Recents] [Dialer] [Contacts] [CRM Login]
+ */
+public class MainActivity extends AppCompatActivity {
+
+    private static final String TAG = "OmniFlowMain";
+    public static final String DASHBOARD_URL = "https://sandbox.employeemanagementsystems.com?app=android";
+    private static final int PERMISSION_REQ_CODE = 1001;
+    public static boolean isCallInitiatedFromApp = false;
+
+    // Filter modes for Recent Calls
+    private static final int FILTER_ALL = 0;
+    private static final int FILTER_MISSED = 1;
+    private static final int FILTER_INCOMING = 2;
+    private static final int FILTER_OUTGOING = 3;
+    private int currentCallFilter = FILTER_ALL;
+    private String currentCallSearch = "";
+
+    // View Containers
+    private LinearLayout headerBar;
+    private FrameLayout contentContainer;
+    private LinearLayout recentCallsLayout;
+    private ScrollView dialerScrollView;
+    private LinearLayout contactsLayout;
+    private FrameLayout crmLayout;
+
+    // Bottom Navigation Bar Views (5 tabs: Home, Recents, Dialer, Contacts, All Apps)
+    private LinearLayout[] navTabs = new LinearLayout[5];
+    private ImageView[] navIcons = new ImageView[5];
+    private TextView[] navLabels = new TextView[5];
+
+    // Recent Calls Data & UI
+    private ListView lvRecentCalls;
+    private CallLogAdapter callLogAdapter;
+    private List<CallLogEntry> allCallLogs = new ArrayList<>();
+    private List<CallLogEntry> filteredCallLogs = new ArrayList<>();
+    private EditText etRecentSearch;
+    private TextView[] filterChips = new TextView[4];
+    private TextView tvEmptyCalls;
+    private ProgressBar pbLoadingCalls;
+
+    // Contacts Data & UI
+    private ListView lvContacts;
+    private ContactsAdapter contactsAdapter;
+    private List<ContactEntry> allContacts = new ArrayList<>();
+    private List<ContactEntry> filteredContacts = new ArrayList<>();
+    private EditText etContactSearch;
+    private TextView tvEmptyContacts;
+    private ProgressBar pbLoadingContacts;
+
+    // Dialer Views
+    private TextView tvDialDisplay;
+    private TextView btnBackspace;
+    private StringBuilder dialNumber = new StringBuilder();
+
+    // Dialer Audio & Haptics
+    private ToneGenerator toneGenerator;
+    private final Object toneGeneratorLock = new Object();
+    private Vibrator vibrator;
+
+    // CRM WebView
+    private WebView webView;
+    private ProgressBar progressBar;
+
+    public static class CallLogEntry {
+        public String name = "";
+        public String number = "";
+        public int type = CallLog.Calls.OUTGOING_TYPE;
+        public long duration = 0;
+        public long date = 0;
+        public String simSlot = "SIM 1";
+        public String initials = "";
+        public int avatarColor = Color.parseColor("#064E43");
+    }
+
+    public static class ContactEntry {
+        public String name = "";
+        public String number = "";
+        public String initials = "";
+        public int avatarColor = Color.parseColor("#064E43");
+    }
+
+    public class WebAppInterface {
+        Context mContext;
+        WebAppInterface(Context c) {
+            mContext = c;
+        }
+
+        @JavascriptInterface
+        public void makeDirectCall(String phoneNumber) {
+            new Handler(Looper.getMainLooper()).post(() -> performDirectCall(phoneNumber));
+        }
+
+        @JavascriptInterface
+        public void dial(String phoneNumber) {
+            new Handler(Looper.getMainLooper()).post(() -> performDirectCall(phoneNumber));
+        }
+
+        @JavascriptInterface
+        public boolean isAndroidApp() {
+            return true;
+        }
+
+        @JavascriptInterface
+        public void switchNativeTab(int tabIndex) {
+            new Handler(Looper.getMainLooper()).post(() -> switchTab(tabIndex));
+        }
+    }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        float density = getResources().getDisplayMetrics().density;
+
+        // Root layout: Top Header + Middle Content + Bottom Navigation Bar
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(Color.parseColor("#F8FAFC"));
+
+        // 1. TOP HEADER BAR: Deep Forest Teal (#064E43) Brand Bar (NO REFRESH BUTTON)
+        headerBar = new LinearLayout(this);
+        headerBar.setOrientation(LinearLayout.VERTICAL);
+        headerBar.setBackgroundColor(Color.parseColor("#064E43"));
+        headerBar.setPadding((int)(20 * density), (int)(14 * density), (int)(20 * density), (int)(14 * density));
+
+        TextView tvLogo = new TextView(this);
+        tvLogo.setText("OmniFlow");
+        tvLogo.setTextColor(Color.WHITE);
+        tvLogo.setTextSize(21f);
+        tvLogo.setTypeface(null, Typeface.BOLD);
+        headerBar.addView(tvLogo);
+
+        TextView tvSubHeader = new TextView(this);
+        tvSubHeader.setText("Active SIM Telecaller");
+        tvSubHeader.setTextColor(Color.parseColor("#99F6E4")); // Soft mint
+        tvSubHeader.setTextSize(11f);
+        headerBar.addView(tvSubHeader);
+
+        root.addView(headerBar);
+
+        // 2. MIDDLE CONTENT CONTAINER (Houses the screens)
+        contentContainer = new FrameLayout(this);
+        LinearLayout.LayoutParams contentParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f
+        );
+        contentContainer.setLayoutParams(contentParams);
+
+        // Screen 0 & 4: CRM WebView (Serves Home and All Apps views)
+        setupCrmLayout(density);
+        crmLayout.setVisibility(View.VISIBLE);
+        contentContainer.addView(crmLayout);
+
+        // Screen 1: Recent Calls (Native Java)
+        setupRecentCallsLayout(density);
+        recentCallsLayout.setVisibility(View.GONE);
+        contentContainer.addView(recentCallsLayout);
+
+        // Screen 2: Dialer (Native Java)
+        setupDialerLayout(density);
+        dialerScrollView.setVisibility(View.GONE);
+        contentContainer.addView(dialerScrollView);
+
+        // Screen 3: Contacts (Native Java)
+        setupContactsLayout(density);
+        contactsLayout.setVisibility(View.GONE);
+        contentContainer.addView(contactsLayout);
+
+        root.addView(contentContainer);
+
+        // 3. BOTTOM NAVIGATION BAR: [Home] [Recents] [Dialer] [Contacts] [All Apps]
+        setupBottomNavBar(root, density);
+
+        setContentView(root);
+
+        // Initialize Native DTMF Sound & Haptics Engine
+        initToneAndHaptics();
+
+        // Default to Home tab
+        switchTab(0);
+
+        // Start background recording & monitoring services
+        startMonitorService();
+
+        // Check & request runtime permissions
+        checkAndRequestPermissions();
+
+        // Check Overlay Permission
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(this)) {
+            try {
+                Intent intent = new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:" + getPackageName()));
+                startActivity(intent);
+                Toast.makeText(this, "Please enable 'Appear on top' to show floating call card.", Toast.LENGTH_LONG).show();
+            } catch (Exception e) {
+                Log.w(TAG, "Could not open overlay settings: " + e.getMessage());
+            }
+        }
+
+        // Handle dial intent if opened from external dialer or tel: link
+        handleDialIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleDialIntent(intent);
+    }
+
+    private void handleDialIntent(Intent intent) {
+        if (intent == null) return;
+        String action = intent.getAction();
+        if (Intent.ACTION_DIAL.equals(action) || Intent.ACTION_VIEW.equals(action)) {
+            Uri data = intent.getData();
+            if (data != null && "tel".equalsIgnoreCase(data.getScheme())) {
+                String number = data.getSchemeSpecificPart();
+                if (number != null && !number.trim().isEmpty()) {
+                    try {
+                        number = java.net.URLDecoder.decode(number, "UTF-8");
+                    } catch (Exception ignored) {}
+                    switchTab(1); // Switch to Dialer tab
+                    dialNumber.setLength(0);
+                    dialNumber.append(number);
+                    if (tvDialDisplay != null) {
+                        updateDialDisplay();
+                    }
+                }
+            }
+        }
+    }
+
+    private void checkDefaultDialer() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            TelecomManager telecomManager = (TelecomManager) getSystemService(Context.TELECOM_SERVICE);
+            if (telecomManager != null && !getPackageName().equals(telecomManager.getDefaultDialerPackage())) {
+                promptDefaultDialer();
+            }
+        }
+    }
+
+    private void promptDefaultDialer() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            RoleManager roleManager = (RoleManager) getSystemService(Context.ROLE_SERVICE);
+            if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_DIALER) && !roleManager.isRoleHeld(RoleManager.ROLE_DIALER)) {
+                Intent intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_DIALER);
+                try {
+                    startActivity(intent);
+                    return;
+                } catch (Exception ignored) {}
+            }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                Intent intent = new Intent(TelecomManager.ACTION_CHANGE_DEFAULT_DIALER);
+                intent.putExtra(TelecomManager.EXTRA_CHANGE_DEFAULT_DIALER_PACKAGE_NAME, getPackageName());
+                startActivity(intent);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    // ==========================================
+    // DIALER SOUND & HAPTIC FEEDBACK ENGINE
+    // ==========================================
+    private void initToneAndHaptics() {
+        try {
+            synchronized (toneGeneratorLock) {
+                toneGenerator = new ToneGenerator(AudioManager.STREAM_DTMF, 85);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Could not initialize ToneGenerator: " + e.getMessage());
+            toneGenerator = null;
+        }
+        try {
+            vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        } catch (Exception ignored) {}
+    }
+
+    private void triggerKeyFeedback(View view, String digit) {
+        playToneForDigit(digit);
+        triggerHaptic(view);
+    }
+
+    private void playToneForDigit(String digit) {
+        if (digit == null || digit.isEmpty()) return;
+        int tone = -1;
+        switch (digit.charAt(0)) {
+            case '0': tone = ToneGenerator.TONE_DTMF_0; break;
+            case '1': tone = ToneGenerator.TONE_DTMF_1; break;
+            case '2': tone = ToneGenerator.TONE_DTMF_2; break;
+            case '3': tone = ToneGenerator.TONE_DTMF_3; break;
+            case '4': tone = ToneGenerator.TONE_DTMF_4; break;
+            case '5': tone = ToneGenerator.TONE_DTMF_5; break;
+            case '6': tone = ToneGenerator.TONE_DTMF_6; break;
+            case '7': tone = ToneGenerator.TONE_DTMF_7; break;
+            case '8': tone = ToneGenerator.TONE_DTMF_8; break;
+            case '9': tone = ToneGenerator.TONE_DTMF_9; break;
+            case '*': tone = ToneGenerator.TONE_DTMF_S; break;
+            case '#': tone = ToneGenerator.TONE_DTMF_P; break;
+            default:  tone = ToneGenerator.TONE_DTMF_0; break;
+        }
+
+        synchronized (toneGeneratorLock) {
+            if (toneGenerator != null && tone != -1) {
+                try {
+                    toneGenerator.startTone(tone, 140);
+                } catch (Exception e) {
+                    Log.w(TAG, "Tone playback error: " + e.getMessage());
+                }
+            }
+        }
+    }
+
+    private void playCallFeedback(View view) {
+        synchronized (toneGeneratorLock) {
+            if (toneGenerator != null) {
+                try {
+                    toneGenerator.startTone(ToneGenerator.TONE_PROP_PROMPT, 180);
+                } catch (Exception ignored) {}
+            }
+        }
+        if (vibrator != null && vibrator.hasVibrator()) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(VibrationEffect.createOneShot(35, VibrationEffect.DEFAULT_AMPLITUDE));
+                } else {
+                    vibrator.vibrate(35);
+                }
+            } catch (Exception ignored) {}
+        }
+        if (view != null) {
+            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+        }
+    }
+
+    private void playBackspaceFeedback(View view) {
+        try {
+            AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            if (am != null) {
+                am.playSoundEffect(AudioManager.FX_KEYPRESS_DELETE, 1.0f);
+            }
+        } catch (Exception ignored) {}
+        triggerHaptic(view);
+    }
+
+    private void triggerHaptic(View view) {
+        if (view != null) {
+            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+        }
+        if (vibrator != null && vibrator.hasVibrator()) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(VibrationEffect.createOneShot(18, VibrationEffect.DEFAULT_AMPLITUDE));
+                } else {
+                    vibrator.vibrate(18);
+                }
+            } catch (Exception ignored) {}
+        }
+    }
+
+    // ==========================================
+    // BOTTOM NAVIGATION BAR (CRISP VECTOR ICONS + BRAND TINT)
+    // 5 TABS: [Home] [Recents] [Dialer] [Contacts] [All Apps]
+    // ==========================================
+    private void setupBottomNavBar(LinearLayout root, float density) {
+        LinearLayout bottomBar = new LinearLayout(this);
+        bottomBar.setOrientation(LinearLayout.HORIZONTAL);
+        bottomBar.setBackgroundColor(Color.WHITE);
+        bottomBar.setPadding(0, (int)(8 * density), 0, (int)(8 * density));
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            bottomBar.setElevation(12 * density);
+        }
+
+        String[] labels = {"Home", "Recents", "Dialer", "Contacts", "All Apps"};
+        int[] iconRes = {
+            R.drawable.ic_nav_home,
+            R.drawable.ic_nav_recents,
+            R.drawable.ic_nav_dialer,
+            R.drawable.ic_nav_contacts,
+            R.drawable.ic_nav_apps
+        };
+
+        for (int i = 0; i < 5; i++) {
+            final int tabIndex = i;
+            LinearLayout tab = new LinearLayout(this);
+            tab.setOrientation(LinearLayout.VERTICAL);
+            tab.setGravity(Gravity.CENTER);
+            tab.setPadding(0, (int)(3 * density), 0, (int)(3 * density));
+
+            ImageView icon = new ImageView(this);
+            icon.setImageResource(iconRes[i]);
+            icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams((int)(22 * density), (int)(22 * density));
+            icon.setLayoutParams(iconParams);
+
+            TextView label = new TextView(this);
+            label.setText(labels[i]);
+            label.setTextSize(10.5f);
+            label.setTypeface(null, Typeface.BOLD);
+            label.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lp.setMargins(0, (int)(3 * density), 0, 0);
+            label.setLayoutParams(lp);
+
+            tab.addView(icon);
+            tab.addView(label);
+
+            tab.setOnClickListener(v -> switchTab(tabIndex));
+
+            navTabs[i] = tab;
+            navIcons[i] = icon;
+            navLabels[i] = label;
+
+            bottomBar.addView(tab, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f));
+        }
+
+        root.addView(bottomBar);
+    }
+
+    private void switchTab(int index) {
+        crmLayout.setVisibility((index == 0 || index == 4) ? View.VISIBLE : View.GONE);
+        recentCallsLayout.setVisibility(index == 1 ? View.VISIBLE : View.GONE);
+        dialerScrollView.setVisibility(index == 2 ? View.VISIBLE : View.GONE);
+        contactsLayout.setVisibility(index == 3 ? View.VISIBLE : View.GONE);
+
+        // Native top brand header is visible only on Native Phone tabs (Recents, Dialer, Contacts).
+        // Home (0) and All Apps (4) use the rich web launcher header.
+        if (headerBar != null) {
+            headerBar.setVisibility((index == 0 || index == 4) ? View.GONE : View.VISIBLE);
+        }
+
+        for (int i = 0; i < 5; i++) {
+            boolean isActive = (i == index);
+            int color = isActive ? Color.parseColor("#064E43") : Color.parseColor("#94A3B8");
+            if (navLabels[i] != null) navLabels[i].setTextColor(color);
+            if (navIcons[i] != null) {
+                navIcons[i].setColorFilter(color);
+            }
+            if (navTabs[i] != null) navTabs[i].setAlpha(isActive ? 1.0f : 0.65f);
+        }
+
+        if (index == 0) {
+            if (webView != null) {
+                webView.evaluateJavascript("if (window.setOmniFlowMobileView) { window.setOmniFlowMobileView('home'); }", null);
+            }
+        } else if (index == 1) {
+            loadRecentCalls();
+        } else if (index == 3) {
+            loadContacts();
+        } else if (index == 4) {
+            if (webView != null) {
+                webView.evaluateJavascript("if (window.setOmniFlowMobileView) { window.setOmniFlowMobileView('all_apps'); }", null);
+            }
+        }
+    }
+
+    // ==========================================
+    // TAB 0: RECENT CALLS (SEARCH + FILTER CHIPS + LUXURY CARDS)
+    // ==========================================
+    private void setupRecentCallsLayout(float density) {
+        recentCallsLayout = new LinearLayout(this);
+        recentCallsLayout.setOrientation(LinearLayout.VERTICAL);
+        recentCallsLayout.setBackgroundColor(Color.parseColor("#F1F5F9"));
+
+        // 1. Search Bar: "🔍 Search calls..."
+        LinearLayout searchContainer = new LinearLayout(this);
+        searchContainer.setOrientation(LinearLayout.HORIZONTAL);
+        searchContainer.setGravity(Gravity.CENTER_VERTICAL);
+        searchContainer.setPadding((int)(14 * density), (int)(10 * density), (int)(14 * density), (int)(6 * density));
+
+        etRecentSearch = new EditText(this);
+        etRecentSearch.setHint("\uD83D\uDD0D  Search calls...");
+        etRecentSearch.setHintTextColor(Color.parseColor("#94A3B8"));
+        etRecentSearch.setTextColor(Color.parseColor("#0F172A"));
+        etRecentSearch.setTextSize(14f);
+        etRecentSearch.setPadding((int)(14 * density), (int)(10 * density), (int)(14 * density), (int)(10 * density));
+        GradientDrawable searchBg = new GradientDrawable();
+        searchBg.setColor(Color.WHITE);
+        searchBg.setCornerRadius(14 * density);
+        searchBg.setStroke((int)(1 * density), Color.parseColor("#E2E8F0"));
+        etRecentSearch.setBackground(searchBg);
+        searchContainer.addView(etRecentSearch, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        recentCallsLayout.addView(searchContainer);
+
+        etRecentSearch.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                currentCallSearch = s.toString();
+                applyCallLogFilters();
+            }
+            @Override
+            public void afterTextChanged(Editable s) {}
+        });
+
+        // 2. Horizontal Filter Chips: [All Calls] [Missed] [Incoming] [Outgoing]
+        HorizontalScrollView chipScroll = new HorizontalScrollView(this);
+        chipScroll.setHorizontalScrollBarEnabled(false);
+        chipScroll.setPadding((int)(14 * density), (int)(4 * density), (int)(14 * density), (int)(8 * density));
+        chipScroll.setClipToPadding(false);
+
+        LinearLayout chipRow = new LinearLayout(this);
+        chipRow.setOrientation(LinearLayout.HORIZONTAL);
+
+        String[] chipTitles = {"All Calls", "Missed", "Incoming", "Outgoing"};
+        for (int i = 0; i < 4; i++) {
+            final int filterIndex = i;
+            TextView chip = new TextView(this);
+            chip.setText(chipTitles[i]);
+            chip.setTextSize(12.5f);
+            chip.setTypeface(null, Typeface.BOLD);
+            chip.setGravity(Gravity.CENTER);
+            chip.setPadding((int)(14 * density), (int)(6 * density), (int)(14 * density), (int)(6 * density));
+
+            LinearLayout.LayoutParams chipParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            chipParams.setMargins(0, 0, (int)(8 * density), 0);
+            chip.setLayoutParams(chipParams);
+
+            chip.setOnClickListener(v -> {
+                currentCallFilter = filterIndex;
+                updateFilterChipStyles(density);
+                applyCallLogFilters();
+            });
+
+            filterChips[i] = chip;
+            chipRow.addView(chip);
+        }
+        updateFilterChipStyles(density);
+        chipScroll.addView(chipRow);
+        recentCallsLayout.addView(chipScroll);
+
+        // Loading & Empty States
+        pbLoadingCalls = new ProgressBar(this);
+        pbLoadingCalls.setVisibility(View.GONE);
+        LinearLayout.LayoutParams pbParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        pbParams.gravity = Gravity.CENTER;
+        pbParams.setMargins(0, (int)(30 * density), 0, 0);
+        recentCallsLayout.addView(pbLoadingCalls, pbParams);
+
+        tvEmptyCalls = new TextView(this);
+        tvEmptyCalls.setText("Loading recent calls from phone...");
+        tvEmptyCalls.setTextColor(Color.parseColor("#64748B"));
+        tvEmptyCalls.setTextSize(14f);
+        tvEmptyCalls.setGravity(Gravity.CENTER);
+        tvEmptyCalls.setVisibility(View.GONE);
+        LinearLayout.LayoutParams emptyParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        emptyParams.setMargins(0, (int)(30 * density), 0, 0);
+        recentCallsLayout.addView(tvEmptyCalls, emptyParams);
+
+        // Recent Calls List
+        lvRecentCalls = new ListView(this);
+        lvRecentCalls.setDivider(null);
+        lvRecentCalls.setDividerHeight(0);
+        lvRecentCalls.setSelector(new ColorDrawable(Color.TRANSPARENT));
+        lvRecentCalls.setPadding(0, (int)(4 * density), 0, (int)(16 * density));
+        lvRecentCalls.setClipToPadding(false);
+        lvRecentCalls.setClipChildren(false);
+
+        callLogAdapter = new CallLogAdapter();
+        lvRecentCalls.setAdapter(callLogAdapter);
+
+        recentCallsLayout.addView(lvRecentCalls, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+    }
+
+    private void updateFilterChipStyles(float density) {
+        for (int i = 0; i < 4; i++) {
+            boolean isSelected = (i == currentCallFilter);
+            GradientDrawable bg = new GradientDrawable();
+            bg.setCornerRadius(16 * density);
+            if (isSelected) {
+                bg.setColor(Color.parseColor("#064E43")); // Deep Forest Teal (Brand theme)
+                filterChips[i].setTextColor(Color.WHITE);
+            } else {
+                bg.setColor(Color.WHITE);
+                bg.setStroke((int)(1 * density), Color.parseColor("#CBD5E1"));
+                filterChips[i].setTextColor(Color.parseColor("#475569"));
+            }
+            filterChips[i].setBackground(bg);
+        }
+    }
+
+    private void applyCallLogFilters() {
+        filteredCallLogs.clear();
+        String query = currentCallSearch.toLowerCase().trim();
+
+        for (CallLogEntry entry : allCallLogs) {
+            // Type filter
+            boolean matchesType = true;
+            if (currentCallFilter == FILTER_MISSED) {
+                matchesType = (entry.type == CallLog.Calls.MISSED_TYPE || entry.type == CallLog.Calls.REJECTED_TYPE);
+            } else if (currentCallFilter == FILTER_INCOMING) {
+                matchesType = (entry.type == CallLog.Calls.INCOMING_TYPE);
+            } else if (currentCallFilter == FILTER_OUTGOING) {
+                matchesType = (entry.type == CallLog.Calls.OUTGOING_TYPE);
+            }
+
+            if (!matchesType) continue;
+
+            // Search filter
+            if (!TextUtils.isEmpty(query)) {
+                boolean matchesSearch = entry.name.toLowerCase().contains(query) ||
+                    entry.number.replaceAll("[^0-9]", "").contains(query);
+                if (!matchesSearch) continue;
+            }
+
+            filteredCallLogs.add(entry);
+        }
+
+        if (callLogAdapter != null) callLogAdapter.notifyDataSetChanged();
+        if (tvEmptyCalls != null) {
+            if (filteredCallLogs.isEmpty()) {
+                tvEmptyCalls.setText("No calls matching current filter.");
+                tvEmptyCalls.setVisibility(View.VISIBLE);
+            } else {
+                tvEmptyCalls.setVisibility(View.GONE);
+            }
+        }
+    }
+
+    private void loadRecentCalls() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
+            if (tvEmptyCalls != null) {
+                tvEmptyCalls.setText("Call log permission required.\nTap here to grant permission.");
+                tvEmptyCalls.setVisibility(View.VISIBLE);
+                tvEmptyCalls.setOnClickListener(v -> checkAndRequestPermissions());
+            }
+            return;
+        }
+
+        if (pbLoadingCalls != null) pbLoadingCalls.setVisibility(View.VISIBLE);
+        if (tvEmptyCalls != null) tvEmptyCalls.setVisibility(View.GONE);
+
+        new Thread(() -> {
+            List<CallLogEntry> list = new ArrayList<>();
+            // Vibrant multicolor palette for contact avatars
+            int[] avatarPalette = {
+                Color.parseColor("#E11D48"), // Vivid Rose Pink
+                Color.parseColor("#2563EB"), // Royal Blue
+                Color.parseColor("#0284C7"), // Sky Blue
+                Color.parseColor("#7C3AED"), // Vibrant Purple
+                Color.parseColor("#EA580C"), // Vibrant Orange
+                Color.parseColor("#0D9488"), // Teal
+                Color.parseColor("#059669"), // Emerald Green
+                Color.parseColor("#D97706"), // Amber
+                Color.parseColor("#4F46E5"), // Deep Indigo
+                Color.parseColor("#C026D3")  // Magenta
+            };
+
+            try {
+                Cursor cursor = getContentResolver().query(
+                    CallLog.Calls.CONTENT_URI,
+                    null,
+                    null,
+                    null,
+                    CallLog.Calls.DATE + " DESC"
+                );
+
+                if (cursor != null) {
+                    int numIdx = cursor.getColumnIndex(CallLog.Calls.NUMBER);
+                    int nameIdx = cursor.getColumnIndex(CallLog.Calls.CACHED_NAME);
+                    int typeIdx = cursor.getColumnIndex(CallLog.Calls.TYPE);
+                    int durIdx = cursor.getColumnIndex(CallLog.Calls.DURATION);
+                    int dateIdx = cursor.getColumnIndex(CallLog.Calls.DATE);
+
+                    int count = 0;
+                    while (cursor.moveToNext() && count < 100) {
+                        count++;
+                        CallLogEntry entry = new CallLogEntry();
+                        entry.number = numIdx != -1 ? cursor.getString(numIdx) : "";
+                        String rawName = nameIdx != -1 ? cursor.getString(nameIdx) : "";
+
+                        if (TextUtils.isEmpty(rawName) && !TextUtils.isEmpty(entry.number)) {
+                            rawName = resolveContactName(MainActivity.this, entry.number);
+                        }
+                        entry.name = rawName != null ? rawName : "";
+
+                        entry.type = typeIdx != -1 ? cursor.getInt(typeIdx) : CallLog.Calls.OUTGOING_TYPE;
+                        entry.duration = durIdx != -1 ? cursor.getLong(durIdx) : 0;
+                        entry.date = dateIdx != -1 ? cursor.getLong(dateIdx) : System.currentTimeMillis();
+
+                        // Accurate SIM 1 vs SIM 2 detection
+                        entry.simSlot = CallRecordingService.resolveSimSlotFromCursor(MainActivity.this, cursor);
+
+                        // Initials & avatar color
+                        String targetForInitials = !TextUtils.isEmpty(entry.name) ? entry.name : entry.number;
+                        entry.initials = extractInitials(targetForInitials);
+                        entry.avatarColor = avatarPalette[Math.abs(targetForInitials.hashCode()) % avatarPalette.length];
+
+                        list.add(entry);
+                    }
+                    cursor.close();
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error fetching call logs: " + e.getMessage());
+            }
+
+            runOnUiThread(() -> {
+                if (pbLoadingCalls != null) pbLoadingCalls.setVisibility(View.GONE);
+                allCallLogs.clear();
+                allCallLogs.addAll(list);
+                applyCallLogFilters();
+            });
+        }).start();
+    }
+
+    private static String extractInitials(String str) {
+        if (TextUtils.isEmpty(str)) return "\uD83D\uDCDE";
+        String clean = str.trim();
+        String[] parts = clean.split("\\s+");
+        if (parts.length >= 2 && parts[0].length() > 0 && parts[1].length() > 0) {
+            return (parts[0].substring(0, 1) + parts[1].substring(0, 1)).toUpperCase();
+        } else if (clean.length() >= 2) {
+            return clean.substring(0, 2).toUpperCase();
+        }
+        return clean.toUpperCase();
+    }
+
+    public static String resolveContactName(Context context, String phoneNumber) {
+        if (context == null || TextUtils.isEmpty(phoneNumber)) return "";
+        try {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+                Uri uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phoneNumber));
+                try (Cursor c = context.getContentResolver().query(uri, new String[]{ContactsContract.PhoneLookup.DISPLAY_NAME}, null, null, null)) {
+                    if (c != null && c.moveToFirst()) {
+                        int nameIdx = c.getColumnIndex(ContactsContract.PhoneLookup.DISPLAY_NAME);
+                        if (nameIdx != -1) {
+                            String res = c.getString(nameIdx);
+                            if (!TextUtils.isEmpty(res)) return res;
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return "";
+    }
+
+    private class CallLogAdapter extends BaseAdapter {
+        @Override
+        public int getCount() { return filteredCallLogs.size(); }
+        @Override
+        public Object getItem(int position) { return filteredCallLogs.get(position); }
+        @Override
+        public long getItemId(int position) { return position; }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            float density = getResources().getDisplayMetrics().density;
+            CallLogEntry entry = filteredCallLogs.get(position);
+
+            // 1. Root wrapper guaranteeing exact card gaps and side margins in ListView
+            FrameLayout itemContainer = new FrameLayout(MainActivity.this);
+            itemContainer.setLayoutParams(new AbsListView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ));
+            itemContainer.setPadding((int)(14 * density), (int)(5 * density), (int)(14 * density), (int)(5 * density));
+            itemContainer.setClipToPadding(false);
+            itemContainer.setClipChildren(false);
+
+            // 2. Floating luxury card with rounded corners, subtle border and drop shadow
+            LinearLayout card = new LinearLayout(MainActivity.this);
+            card.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ));
+            card.setOrientation(LinearLayout.HORIZONTAL);
+            card.setGravity(Gravity.CENTER_VERTICAL);
+            card.setPadding((int)(14 * density), (int)(12 * density), (int)(14 * density), (int)(12 * density));
+
+            GradientDrawable cardBg = new GradientDrawable();
+            cardBg.setColor(Color.WHITE);
+            cardBg.setCornerRadius(16 * density);
+            cardBg.setStroke((int)(1 * density), Color.parseColor("#E2E8F0"));
+            card.setBackground(cardBg);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                card.setElevation(3 * density);
+            }
+
+            // A. Left: Circular Initials Avatar (44dp x 44dp)
+            TextView tvAvatar = new TextView(MainActivity.this);
+            tvAvatar.setText(entry.initials);
+            tvAvatar.setTextColor(Color.WHITE);
+            tvAvatar.setTextSize(14f);
+            tvAvatar.setTypeface(null, Typeface.BOLD);
+            tvAvatar.setGravity(Gravity.CENTER);
+            GradientDrawable avBg = new GradientDrawable();
+            avBg.setColor(entry.avatarColor);
+            avBg.setShape(GradientDrawable.OVAL);
+            tvAvatar.setBackground(avBg);
+            LinearLayout.LayoutParams avParams = new LinearLayout.LayoutParams((int)(44 * density), (int)(44 * density));
+            avParams.setMargins(0, 0, (int)(12 * density), 0);
+            tvAvatar.setLayoutParams(avParams);
+            card.addView(tvAvatar);
+
+            // B. Middle: Name, Phone, Status Details
+            LinearLayout infoCol = new LinearLayout(MainActivity.this);
+            infoCol.setOrientation(LinearLayout.VERTICAL);
+
+            // Row 1: Caller Name
+            TextView tvTitle = new TextView(MainActivity.this);
+            String titleText = (!TextUtils.isEmpty(entry.name)) ? entry.name : entry.number;
+            tvTitle.setText(titleText);
+            tvTitle.setTextColor(Color.parseColor("#0F172A"));
+            tvTitle.setTextSize(15f);
+            tvTitle.setTypeface(null, Typeface.BOLD);
+            tvTitle.setSingleLine(true);
+            tvTitle.setEllipsize(TextUtils.TruncateAt.END);
+            infoCol.addView(tvTitle);
+
+            // Row 2: Call Direction Icon + Timestamp + Duration
+            LinearLayout subRow = new LinearLayout(MainActivity.this);
+            subRow.setOrientation(LinearLayout.HORIZONTAL);
+            subRow.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams subParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            subParams.setMargins(0, (int)(3 * density), 0, 0);
+            subRow.setLayoutParams(subParams);
+
+            TextView tvTypeIcon = new TextView(MainActivity.this);
+            tvTypeIcon.setTextSize(11.5f);
+            tvTypeIcon.setTypeface(null, Typeface.BOLD);
+
+            String typeStr;
+            if (entry.type == CallLog.Calls.INCOMING_TYPE) {
+                typeStr = "\u2199 Incoming";
+                tvTypeIcon.setTextColor(Color.parseColor("#10B981")); // Emerald
+            } else if (entry.type == CallLog.Calls.OUTGOING_TYPE) {
+                typeStr = "\u2197 Outgoing";
+                tvTypeIcon.setTextColor(Color.parseColor("#0284C7")); // Blue
+            } else {
+                typeStr = "\u2715 Missed";
+                tvTypeIcon.setTextColor(Color.parseColor("#EF4444")); // Red
+            }
+            tvTypeIcon.setText(typeStr);
+            subRow.addView(tvTypeIcon);
+
+            String timeFormatted = new SimpleDateFormat("hh:mm a", Locale.getDefault()).format(new Date(entry.date));
+            String durationStr = "";
+            if (entry.duration > 0) {
+                long m = entry.duration / 60;
+                long s = entry.duration % 60;
+                durationStr = " \u2022 " + (m > 0 ? m + "m " : "") + s + "s";
+            }
+
+            TextView tvTime = new TextView(MainActivity.this);
+            tvTime.setText(" \u2022 " + timeFormatted + durationStr);
+            tvTime.setTextColor(Color.parseColor("#64748B"));
+            tvTime.setTextSize(11.5f);
+            subRow.addView(tvTime);
+
+            infoCol.addView(subRow);
+            card.addView(infoCol, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f));
+
+            // C. SIM Slot Pill Badge (SIM 1 / SIM 2)
+            TextView tvSim = new TextView(MainActivity.this);
+            tvSim.setText(entry.simSlot != null ? entry.simSlot : "SIM 1");
+            tvSim.setTextColor(Color.WHITE);
+            tvSim.setTextSize(9.5f);
+            tvSim.setTypeface(null, Typeface.BOLD);
+            tvSim.setPadding((int)(7 * density), (int)(3 * density), (int)(7 * density), (int)(3 * density));
+            GradientDrawable simBg = new GradientDrawable();
+            if ("SIM 2".equalsIgnoreCase(entry.simSlot)) {
+                simBg.setColor(Color.parseColor("#4F46E5")); // Distinct Indigo for SIM 2
+            } else {
+                simBg.setColor(Color.parseColor("#064E43")); // Deep Forest Teal for SIM 1
+            }
+            simBg.setCornerRadius(6 * density);
+            tvSim.setBackground(simBg);
+            LinearLayout.LayoutParams simParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            simParams.setMargins((int)(8 * density), 0, (int)(10 * density), 0);
+            tvSim.setLayoutParams(simParams);
+            card.addView(tvSim);
+
+            // D. Right: Circular Emerald Quick-Call Button (42dp x 42dp with vector white handset)
+            ImageView btnCall = new ImageView(MainActivity.this);
+            btnCall.setImageResource(R.drawable.ic_phone_white);
+            btnCall.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+            int callPad = (int)(11 * density);
+            btnCall.setPadding(callPad, callPad, callPad, callPad);
+            GradientDrawable callBg = new GradientDrawable();
+            callBg.setColor(Color.parseColor("#10B981"));
+            callBg.setShape(GradientDrawable.OVAL);
+            btnCall.setBackground(callBg);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                btnCall.setElevation(2 * density);
+            }
+            LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams((int)(42 * density), (int)(42 * density));
+            btnCall.setLayoutParams(btnParams);
+            btnCall.setOnClickListener(v -> performDirectCall(entry.number));
+            card.addView(btnCall);
+
+            // E. Swipe-to-Call Gesture Listener
+            card.setOnTouchListener(new View.OnTouchListener() {
+                private float startX;
+                private float startY;
+                private boolean isSwiping = false;
+
+                @Override
+                public boolean onTouch(View v, MotionEvent event) {
+                    switch (event.getAction()) {
+                        case MotionEvent.ACTION_DOWN:
+                            startX = event.getX();
+                            startY = event.getY();
+                            isSwiping = false;
+                            return false;
+
+                        case MotionEvent.ACTION_MOVE:
+                            float dx = event.getX() - startX;
+                            float dy = Math.abs(event.getY() - startY);
+                            if (dx > 25 * density && dy < 35 * density) {
+                                isSwiping = true;
+                                card.setTranslationX(Math.min(dx, 80 * density));
+                                cardBg.setColor(Color.parseColor("#DCFCE7"));
+                                cardBg.setStroke((int)(1.5f * density), Color.parseColor("#10B981"));
+                                return true;
+                            }
+                            break;
+
+                        case MotionEvent.ACTION_UP:
+                        case MotionEvent.ACTION_CANCEL:
+                            float finalDx = event.getX() - startX;
+                            card.animate().translationX(0).setDuration(150).start();
+                            cardBg.setColor(Color.WHITE);
+                            cardBg.setStroke((int)(1 * density), Color.parseColor("#E2E8F0"));
+
+                            if (isSwiping && finalDx > 65 * density) {
+                                String targetName = !TextUtils.isEmpty(entry.name) ? entry.name : entry.number;
+                                Toast.makeText(MainActivity.this, "📞 Calling " + targetName + "...", Toast.LENGTH_SHORT).show();
+                                performDirectCall(entry.number);
+                                return true;
+                            }
+                            break;
+                    }
+                    return false;
+                }
+            });
+
+            card.setOnClickListener(v -> performDirectCall(entry.number));
+
+            itemContainer.addView(card);
+            return itemContainer;
+        }
+    }
+
+    // ==========================================
+    // TAB 1: NATIVE PRO DIALER PAD
+    // ==========================================
+    private void setupDialerLayout(float density) {
+        dialerScrollView = new ScrollView(this);
+        dialerScrollView.setFillViewport(true);
+        dialerScrollView.setBackgroundColor(Color.WHITE);
+
+        LinearLayout dialerContainer = new LinearLayout(this);
+        dialerContainer.setOrientation(LinearLayout.VERTICAL);
+        dialerContainer.setGravity(Gravity.CENTER_HORIZONTAL);
+        dialerContainer.setPadding((int)(20 * density), (int)(16 * density), (int)(20 * density), (int)(20 * density));
+
+        // Dial Display Row
+        LinearLayout displayRow = new LinearLayout(this);
+        displayRow.setOrientation(LinearLayout.HORIZONTAL);
+        displayRow.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams dispParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int)(64 * density));
+        dispParams.setMargins(0, (int)(8 * density), 0, (int)(10 * density));
+        displayRow.setLayoutParams(dispParams);
+
+        tvDialDisplay = new TextView(this);
+        tvDialDisplay.setHint("Dial a number");
+        tvDialDisplay.setHintTextColor(Color.parseColor("#94A3B8"));
+        tvDialDisplay.setTextColor(Color.parseColor("#0F172A"));
+        tvDialDisplay.setTextSize(28f);
+        tvDialDisplay.setTypeface(null, Typeface.BOLD);
+        tvDialDisplay.setGravity(Gravity.CENTER);
+        tvDialDisplay.setSingleLine(true);
+        tvDialDisplay.setEllipsize(TextUtils.TruncateAt.START);
+        displayRow.addView(tvDialDisplay, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f));
+
+        btnBackspace = new TextView(this);
+        btnBackspace.setText("\u232B");
+        btnBackspace.setTextColor(Color.parseColor("#475569"));
+        btnBackspace.setTextSize(20f);
+        btnBackspace.setGravity(Gravity.CENTER);
+        btnBackspace.setVisibility(View.INVISIBLE);
+        GradientDrawable bsBg = new GradientDrawable();
+        bsBg.setColor(Color.parseColor("#F1F5F9"));
+        bsBg.setCornerRadius(20 * density);
+        btnBackspace.setBackground(bsBg);
+        LinearLayout.LayoutParams bsParams = new LinearLayout.LayoutParams((int)(44 * density), (int)(44 * density));
+        bsParams.setMargins((int)(8 * density), 0, (int)(4 * density), 0);
+        btnBackspace.setLayoutParams(bsParams);
+
+        btnBackspace.setOnClickListener(v -> {
+            if (dialNumber.length() > 0) {
+                playBackspaceFeedback(v);
+                dialNumber.deleteCharAt(dialNumber.length() - 1);
+                updateDialDisplay();
+            }
+        });
+        btnBackspace.setOnLongClickListener(v -> {
+            playBackspaceFeedback(v);
+            dialNumber.setLength(0);
+            updateDialDisplay();
+            return true;
+        });
+        displayRow.addView(btnBackspace);
+
+        dialerContainer.addView(displayRow);
+
+        View sep = new View(this);
+        sep.setBackgroundColor(Color.parseColor("#E2E8F0"));
+        LinearLayout.LayoutParams sepParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int)(1 * density));
+        sepParams.setMargins((int)(24 * density), 0, (int)(24 * density), (int)(14 * density));
+        dialerContainer.addView(sep, sepParams);
+
+        // 3x4 Pro Keypad Grid
+        String[][] keyDigits = {
+            {"1", "2", "3"},
+            {"4", "5", "6"},
+            {"7", "8", "9"},
+            {"*", "0", "#"}
+        };
+        String[][] keySubtitles = {
+            {" ", "ABC", "DEF"},
+            {"GHI", "JKL", "MNO"},
+            {"PQRS", "TUV", "WXYZ"},
+            {" ", "+", " "}
+        };
+
+        int keySize = (int)(72 * density);
+
+        for (int r = 0; r < 4; r++) {
+            LinearLayout keyRow = new LinearLayout(this);
+            keyRow.setOrientation(LinearLayout.HORIZONTAL);
+            keyRow.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            rowParams.setMargins(0, (int)(5 * density), 0, (int)(5 * density));
+            keyRow.setLayoutParams(rowParams);
+
+            for (int c = 0; c < 3; c++) {
+                final String digit = keyDigits[r][c];
+                final String sub = keySubtitles[r][c];
+
+                LinearLayout keyBtn = new LinearLayout(this);
+                keyBtn.setOrientation(LinearLayout.VERTICAL);
+                keyBtn.setGravity(Gravity.CENTER);
+
+                GradientDrawable keyBg = new GradientDrawable();
+                keyBg.setColor(Color.parseColor("#F8FAFC"));
+                keyBg.setCornerRadius(keySize / 2f);
+                keyBg.setStroke((int)(1 * density), Color.parseColor("#E2E8F0"));
+                keyBtn.setBackground(keyBg);
+
+                TextView tvDigit = new TextView(this);
+                tvDigit.setText(digit);
+                tvDigit.setTextColor(Color.parseColor("#0F172A"));
+                tvDigit.setTextSize(23f);
+                tvDigit.setTypeface(null, Typeface.BOLD);
+                tvDigit.setGravity(Gravity.CENTER);
+                keyBtn.addView(tvDigit);
+
+                if (!sub.trim().isEmpty()) {
+                    TextView tvSub = new TextView(this);
+                    tvSub.setText(sub);
+                    tvSub.setTextColor(Color.parseColor("#64748B"));
+                    tvSub.setTextSize(9.5f);
+                    tvSub.setTypeface(null, Typeface.BOLD);
+                    tvSub.setGravity(Gravity.CENTER);
+                    keyBtn.addView(tvSub);
+                }
+
+                LinearLayout.LayoutParams keyParams = new LinearLayout.LayoutParams(keySize, keySize);
+                keyParams.setMargins((int)(16 * density), 0, (int)(16 * density), 0);
+                keyBtn.setLayoutParams(keyParams);
+
+                keyBtn.setOnTouchListener((v, event) -> {
+                    if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                        keyBg.setColor(Color.parseColor("#E2E8F0"));
+                    } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
+                        keyBg.setColor(Color.parseColor("#F8FAFC"));
+                    }
+                    return false;
+                });
+
+                keyBtn.setOnClickListener(v -> {
+                    triggerKeyFeedback(v, digit);
+                    dialNumber.append(digit);
+                    updateDialDisplay();
+                });
+
+                if (digit.equals("0")) {
+                    keyBtn.setOnLongClickListener(v -> {
+                        triggerKeyFeedback(v, "0");
+                        dialNumber.append("+");
+                        updateDialDisplay();
+                        return true;
+                    });
+                }
+
+                keyRow.addView(keyBtn);
+            }
+            dialerContainer.addView(keyRow);
+        }
+
+        // Circular Call Button
+        TextView btnDialCall = new TextView(this);
+        btnDialCall.setText("\uD83D\uDCDE");
+        btnDialCall.setTextColor(Color.WHITE);
+        btnDialCall.setTextSize(24f);
+        btnDialCall.setGravity(Gravity.CENTER);
+
+        GradientDrawable dialBg = new GradientDrawable();
+        dialBg.setColor(Color.parseColor("#10B981"));
+        dialBg.setCornerRadius(34 * density);
+        btnDialCall.setBackground(dialBg);
+
+        LinearLayout.LayoutParams callParams = new LinearLayout.LayoutParams((int)(68 * density), (int)(68 * density));
+        callParams.setMargins(0, (int)(18 * density), 0, (int)(10 * density));
+        btnDialCall.setLayoutParams(callParams);
+
+        btnDialCall.setOnClickListener(v -> {
+            String num = dialNumber.toString().trim();
+            if (!num.isEmpty()) {
+                playCallFeedback(v);
+                performDirectCall(num);
+            } else {
+                Toast.makeText(this, "Please enter a phone number", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        dialerContainer.addView(btnDialCall);
+        dialerScrollView.addView(dialerContainer);
+    }
+
+    private void updateDialDisplay() {
+        if (tvDialDisplay != null) {
+            tvDialDisplay.setText(dialNumber.toString());
+        }
+        if (btnBackspace != null) {
+            btnBackspace.setVisibility(dialNumber.length() > 0 ? View.VISIBLE : View.INVISIBLE);
+        }
+    }
+
+    // ==========================================
+    // TAB 2: PHONE CONTACTS (BRAND TEAL #064E43 AVATARS)
+    // ==========================================
+    private void setupContactsLayout(float density) {
+        contactsLayout = new LinearLayout(this);
+        contactsLayout.setOrientation(LinearLayout.VERTICAL);
+        contactsLayout.setBackgroundColor(Color.parseColor("#F1F5F9"));
+
+        // Search Bar container
+        LinearLayout searchContainer = new LinearLayout(this);
+        searchContainer.setOrientation(LinearLayout.HORIZONTAL);
+        searchContainer.setGravity(Gravity.CENTER_VERTICAL);
+        searchContainer.setPadding((int)(14 * density), (int)(10 * density), (int)(14 * density), (int)(8 * density));
+
+        etContactSearch = new EditText(this);
+        etContactSearch.setHint("\uD83D\uDD0D  Search contacts...");
+        etContactSearch.setHintTextColor(Color.parseColor("#94A3B8"));
+        etContactSearch.setTextColor(Color.parseColor("#0F172A"));
+        etContactSearch.setTextSize(14f);
+        etContactSearch.setPadding((int)(14 * density), (int)(10 * density), (int)(14 * density), (int)(10 * density));
+        GradientDrawable searchBg = new GradientDrawable();
+        searchBg.setColor(Color.WHITE);
+        searchBg.setCornerRadius(14 * density);
+        searchBg.setStroke((int)(1 * density), Color.parseColor("#E2E8F0"));
+        etContactSearch.setBackground(searchBg);
+        searchContainer.addView(etContactSearch, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        contactsLayout.addView(searchContainer);
+
+        etContactSearch.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                filterContacts(s.toString());
+            }
+            @Override
+            public void afterTextChanged(Editable s) {}
+        });
+
+        pbLoadingContacts = new ProgressBar(this);
+        pbLoadingContacts.setVisibility(View.GONE);
+        LinearLayout.LayoutParams pbParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        pbParams.gravity = Gravity.CENTER;
+        pbParams.setMargins(0, (int)(30 * density), 0, 0);
+        contactsLayout.addView(pbLoadingContacts, pbParams);
+
+        tvEmptyContacts = new TextView(this);
+        tvEmptyContacts.setText("No contacts found.");
+        tvEmptyContacts.setTextColor(Color.parseColor("#64748B"));
+        tvEmptyContacts.setTextSize(15f);
+        tvEmptyContacts.setGravity(Gravity.CENTER);
+        tvEmptyContacts.setVisibility(View.GONE);
+        LinearLayout.LayoutParams emptyParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        emptyParams.setMargins(0, (int)(40 * density), 0, 0);
+        contactsLayout.addView(tvEmptyContacts, emptyParams);
+
+        lvContacts = new ListView(this);
+        lvContacts.setDivider(null);
+        lvContacts.setDividerHeight(0);
+        lvContacts.setSelector(new ColorDrawable(Color.TRANSPARENT));
+        lvContacts.setPadding(0, (int)(4 * density), 0, (int)(16 * density));
+        lvContacts.setClipToPadding(false);
+        lvContacts.setClipChildren(false);
+
+        contactsAdapter = new ContactsAdapter();
+        lvContacts.setAdapter(contactsAdapter);
+
+        contactsLayout.addView(lvContacts, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    private void loadContacts() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            if (tvEmptyContacts != null) {
+                tvEmptyContacts.setText("Contacts permission required.\nTap here to grant.");
+                tvEmptyContacts.setVisibility(View.VISIBLE);
+                tvEmptyContacts.setOnClickListener(v -> checkAndRequestPermissions());
+            }
+            return;
+        }
+
+        if (pbLoadingContacts != null) pbLoadingContacts.setVisibility(View.VISIBLE);
+        if (tvEmptyContacts != null) tvEmptyContacts.setVisibility(View.GONE);
+
+        new Thread(() -> {
+            List<ContactEntry> list = new ArrayList<>();
+            int[] contactColors = {
+                Color.parseColor("#E11D48"), // Rose
+                Color.parseColor("#2563EB"), // Royal Blue
+                Color.parseColor("#0284C7"), // Sky Blue
+                Color.parseColor("#7C3AED"), // Purple
+                Color.parseColor("#EA580C"), // Orange
+                Color.parseColor("#0D9488"), // Teal
+                Color.parseColor("#059669"), // Emerald Green
+                Color.parseColor("#D97706"), // Amber
+                Color.parseColor("#4F46E5"), // Indigo
+                Color.parseColor("#C026D3")  // Magenta
+            };
+
+            try {
+                Uri uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI;
+                String[] projection = {
+                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                    ContactsContract.CommonDataKinds.Phone.NUMBER
+                };
+
+                Cursor cursor = getContentResolver().query(
+                    uri,
+                    projection,
+                    null,
+                    null,
+                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC"
+                );
+
+                if (cursor != null) {
+                    int nameIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME);
+                    int numIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);
+
+                    while (cursor.moveToNext()) {
+                        String name = nameIdx != -1 ? cursor.getString(nameIdx) : "";
+                        String number = numIdx != -1 ? cursor.getString(numIdx) : "";
+
+                        if (!TextUtils.isEmpty(name) && !TextUtils.isEmpty(number)) {
+                            ContactEntry entry = new ContactEntry();
+                            entry.name = name;
+                            entry.number = number;
+
+                            String[] parts = name.trim().split("\\s+");
+                            if (parts.length >= 2 && parts[0].length() > 0 && parts[1].length() > 0) {
+                                entry.initials = (parts[0].substring(0, 1) + parts[1].substring(0, 1)).toUpperCase();
+                            } else if (name.length() >= 2) {
+                                entry.initials = name.substring(0, 2).toUpperCase();
+                            } else {
+                                entry.initials = name.toUpperCase();
+                            }
+
+                            entry.avatarColor = contactColors[Math.abs(name.hashCode()) % contactColors.length];
+                            list.add(entry);
+                        }
+                    }
+                    cursor.close();
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error loading contacts: " + e.getMessage());
+            }
+
+            runOnUiThread(() -> {
+                if (pbLoadingContacts != null) pbLoadingContacts.setVisibility(View.GONE);
+                allContacts.clear();
+                allContacts.addAll(list);
+                filteredContacts.clear();
+                filteredContacts.addAll(list);
+                if (contactsAdapter != null) contactsAdapter.notifyDataSetChanged();
+
+                if (filteredContacts.isEmpty() && tvEmptyContacts != null) {
+                    tvEmptyContacts.setText("No contacts found on device.");
+                    tvEmptyContacts.setVisibility(View.VISIBLE);
+                } else if (tvEmptyContacts != null) {
+                    tvEmptyContacts.setVisibility(View.GONE);
+                }
+            });
+        }).start();
+    }
+
+    private void filterContacts(String query) {
+        filteredContacts.clear();
+        if (TextUtils.isEmpty(query)) {
+            filteredContacts.addAll(allContacts);
+        } else {
+            String lower = query.toLowerCase().trim();
+            for (ContactEntry c : allContacts) {
+                if (c.name.toLowerCase().contains(lower) || c.number.replaceAll("[^0-9]", "").contains(lower)) {
+                    filteredContacts.add(c);
+                }
+            }
+        }
+        if (contactsAdapter != null) contactsAdapter.notifyDataSetChanged();
+        if (tvEmptyContacts != null) {
+            tvEmptyContacts.setVisibility(filteredContacts.isEmpty() ? View.VISIBLE : View.GONE);
+            tvEmptyContacts.setText("No matching contacts for '" + query + "'");
+        }
+    }
+
+    private class ContactsAdapter extends BaseAdapter {
+        @Override
+        public int getCount() { return filteredContacts.size(); }
+        @Override
+        public Object getItem(int position) { return filteredContacts.get(position); }
+        @Override
+        public long getItemId(int position) { return position; }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            float density = getResources().getDisplayMetrics().density;
+            ContactEntry entry = filteredContacts.get(position);
+
+            // 1. Root wrapper guaranteeing exact 10dp card gap and 14dp side margins in ListView
+            FrameLayout itemContainer = new FrameLayout(MainActivity.this);
+            itemContainer.setLayoutParams(new AbsListView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ));
+            itemContainer.setPadding((int)(14 * density), (int)(5 * density), (int)(14 * density), (int)(5 * density));
+            itemContainer.setClipToPadding(false);
+            itemContainer.setClipChildren(false);
+
+            // 2. Floating luxury card with rounded corners, subtle border and elevation
+            LinearLayout card = new LinearLayout(MainActivity.this);
+            card.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ));
+            card.setOrientation(LinearLayout.HORIZONTAL);
+            card.setGravity(Gravity.CENTER_VERTICAL);
+            card.setPadding((int)(14 * density), (int)(12 * density), (int)(14 * density), (int)(12 * density));
+
+            GradientDrawable cardBg = new GradientDrawable();
+            cardBg.setColor(Color.WHITE);
+            cardBg.setCornerRadius(16 * density);
+            cardBg.setStroke((int)(1 * density), Color.parseColor("#E2E8F0"));
+            card.setBackground(cardBg);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                card.setElevation(3 * density);
+            }
+
+            // A. Left: Circular Initials Avatar (44dp x 44dp) with vibrant color
+            TextView tvAvatar = new TextView(MainActivity.this);
+            tvAvatar.setText(entry.initials);
+            tvAvatar.setTextColor(Color.WHITE);
+            tvAvatar.setTextSize(14f);
+            tvAvatar.setTypeface(null, Typeface.BOLD);
+            tvAvatar.setGravity(Gravity.CENTER);
+            GradientDrawable avBg = new GradientDrawable();
+            avBg.setColor(entry.avatarColor);
+            avBg.setShape(GradientDrawable.OVAL);
+            tvAvatar.setBackground(avBg);
+            LinearLayout.LayoutParams avParams = new LinearLayout.LayoutParams((int)(44 * density), (int)(44 * density));
+            avParams.setMargins(0, 0, (int)(12 * density), 0);
+            tvAvatar.setLayoutParams(avParams);
+            card.addView(tvAvatar);
+
+            // B. Middle: Name + Phone
+            LinearLayout textCol = new LinearLayout(MainActivity.this);
+            textCol.setOrientation(LinearLayout.VERTICAL);
+
+            TextView tvName = new TextView(MainActivity.this);
+            tvName.setText(entry.name);
+            tvName.setTextColor(Color.parseColor("#0F172A"));
+            tvName.setTextSize(15.5f);
+            tvName.setTypeface(null, Typeface.BOLD);
+            tvName.setSingleLine(true);
+            tvName.setEllipsize(TextUtils.TruncateAt.END);
+            textCol.addView(tvName);
+
+            TextView tvPhone = new TextView(MainActivity.this);
+            tvPhone.setText(entry.number);
+            tvPhone.setTextColor(Color.parseColor("#64748B"));
+            tvPhone.setTextSize(12.5f);
+            LinearLayout.LayoutParams phoneParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            phoneParams.setMargins(0, (int)(2 * density), 0, 0);
+            tvPhone.setLayoutParams(phoneParams);
+            textCol.addView(tvPhone);
+
+            card.addView(textCol, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f));
+
+            // C. Right: Circular Emerald Quick-Call Button (42dp x 42dp with vector white handset)
+            ImageView btnCall = new ImageView(MainActivity.this);
+            btnCall.setImageResource(R.drawable.ic_phone_white);
+            btnCall.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+            int callPad = (int)(11 * density);
+            btnCall.setPadding(callPad, callPad, callPad, callPad);
+            GradientDrawable callBg = new GradientDrawable();
+            callBg.setColor(Color.parseColor("#10B981"));
+            callBg.setShape(GradientDrawable.OVAL);
+            btnCall.setBackground(callBg);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                btnCall.setElevation(2 * density);
+            }
+            LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams((int)(42 * density), (int)(42 * density));
+            btnParams.setMargins((int)(10 * density), 0, 0, 0);
+            btnCall.setLayoutParams(btnParams);
+            btnCall.setOnClickListener(v -> performDirectCall(entry.number));
+            card.addView(btnCall);
+
+            card.setOnClickListener(v -> performDirectCall(entry.number));
+
+            itemContainer.addView(card);
+            return itemContainer;
+        }
+    }
+
+    // ==========================================
+    // TAB 3: CRM LOGIN / PORTAL (WEBVIEW)
+    // ==========================================
+    private void setupCrmLayout(float density) {
+        crmLayout = new FrameLayout(this);
+        crmLayout.setBackgroundColor(Color.parseColor("#0F172A"));
+
+        webView = new WebView(this);
+        FrameLayout.LayoutParams webParams = new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT
+        );
+        webView.setLayoutParams(webParams);
+
+        WebSettings webSettings = webView.getSettings();
+        webSettings.setJavaScriptEnabled(true);
+        webSettings.setDomStorageEnabled(true);
+        webSettings.setDatabaseEnabled(true);
+        webSettings.setAllowFileAccess(true);
+        webSettings.setAllowContentAccess(true);
+        webSettings.setMediaPlaybackRequiresUserGesture(false);
+        webSettings.setUseWideViewPort(true);
+        webSettings.setLoadWithOverviewMode(true);
+        webSettings.setSupportZoom(false);
+        webSettings.setBuiltInZoomControls(false);
+        webSettings.setDisplayZoomControls(false);
+        webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        webSettings.setUserAgentString(webSettings.getUserAgentString() + " OmniFlowAndroidApp/1.0");
+
+        webView.addJavascriptInterface(new WebAppInterface(this), "AndroidApp");
+        webView.addJavascriptInterface(new WebAppInterface(this), "OmniFlowNative");
+
+        progressBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        progressBar.setMax(100);
+        progressBar.setProgress(0);
+        progressBar.setVisibility(View.GONE);
+        FrameLayout.LayoutParams pbParams = new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, (int)(4 * density)
+        );
+        progressBar.setLayoutParams(pbParams);
+
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onProgressChanged(WebView view, int newProgress) {
+                if (newProgress < 100) {
+                    progressBar.setVisibility(View.VISIBLE);
+                    progressBar.setProgress(newProgress);
+                } else {
+                    progressBar.setVisibility(View.GONE);
+                }
+            }
+        });
+
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                Uri uri = request.getUrl();
+                String url = uri != null ? uri.toString() : "";
+                if (url.startsWith("tel:")) {
+                    String cleanPhone = url.replace("tel:", "").trim();
+                    performDirectCall(cleanPhone);
+                    return true;
+                }
+                if (url.startsWith("mailto:") || url.startsWith("whatsapp:")) {
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                        startActivity(intent);
+                        return true;
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error launching external intent: " + e.getMessage());
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                webView.evaluateJavascript(
+                    "(function() { " +
+                    "  var meta = document.querySelector('meta[name=\"viewport\"]');" +
+                    "  if (!meta) {" +
+                    "    meta = document.createElement('meta');" +
+                    "    meta.name = 'viewport';" +
+                    "    document.head.appendChild(meta);" +
+                    "  }" +
+                    "  meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';" +
+                    "})();", null
+                );
+            }
+        });
+
+        crmLayout.addView(webView);
+        crmLayout.addView(progressBar);
+
+        SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
+        String targetUrl = prefs.getString("dashboard_url", DASHBOARD_URL);
+        if (!targetUrl.contains("app=android")) {
+            targetUrl += (targetUrl.contains("?") ? "&" : "?") + "app=android";
+        }
+        webView.loadUrl(targetUrl);
+    }
+
+    // ==========================================
+    // DIRECT GSM SIM CALLING
+    // ==========================================
+    public void performDirectCall(String phoneNumber) {
+        if (phoneNumber == null || phoneNumber.trim().isEmpty()) return;
+        String cleanPhone = phoneNumber.replaceAll("[^0-9+]", "").trim();
+        if (cleanPhone.isEmpty()) return;
+
+        playCallFeedback(null);
+
+        Uri callUri = Uri.parse("tel:" + cleanPhone);
+        Log.d(TAG, "🎯 performDirectCall triggered for: " + cleanPhone);
+        isCallInitiatedFromApp = true;
+
+        TelecomManager telecomManager = (TelecomManager) getSystemService(Context.TELECOM_SERVICE);
+        String defaultDialer = (telecomManager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+            ? telecomManager.getDefaultDialerPackage() : null;
+
+        if (defaultDialer != null && defaultDialer.equals(getPackageName())) {
+            defaultDialer = null;
+        }
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED) {
+            try {
+                Intent callIntent = new Intent(Intent.ACTION_CALL, callUri);
+                callIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                if (defaultDialer != null && !defaultDialer.isEmpty()) {
+                    callIntent.setPackage(defaultDialer);
+                }
+                startActivity(callIntent);
+                return;
+            } catch (Exception e) {
+                Log.w(TAG, "Direct package call failed, trying generic ACTION_CALL: " + e.getMessage());
+            }
+
+            try {
+                Intent callIntent = new Intent(Intent.ACTION_CALL, callUri);
+                callIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(callIntent);
+                return;
+            } catch (Exception e) {
+                Log.w(TAG, "Generic ACTION_CALL failed: " + e.getMessage());
+            }
+        }
+
+        try {
+            Intent dialIntent = new Intent(Intent.ACTION_DIAL, callUri);
+            dialIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            if (defaultDialer != null && !defaultDialer.isEmpty()) {
+                dialIntent.setPackage(defaultDialer);
+            }
+            startActivity(dialIntent);
+        } catch (Exception e) {
+            try {
+                Intent fallback = new Intent(Intent.ACTION_DIAL, callUri);
+                fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(fallback);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    private void startMonitorService() {
+        try {
+            Intent recIntent = new Intent(this, CallRecordingService.class);
+            Intent bridgeIntent = new Intent(this, SimBridgeService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(recIntent);
+                try {
+                    startForegroundService(bridgeIntent);
+                } catch (Exception ignored) {}
+            } else {
+                startService(recIntent);
+                startService(bridgeIntent);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error starting background services: " + e.getMessage());
+        }
+    }
+
+    private void checkAndRequestPermissions() {
+        List<String> needed = new ArrayList<>();
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
+            needed.add(Manifest.permission.READ_CALL_LOG);
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            needed.add(Manifest.permission.READ_CONTACTS);
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
+            needed.add(Manifest.permission.CALL_PHONE);
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+            needed.add(Manifest.permission.READ_PHONE_STATE);
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            needed.add(Manifest.permission.RECORD_AUDIO);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                needed.add(Manifest.permission.POST_NOTIFICATIONS);
+            }
+        }
+
+        if (!needed.isEmpty()) {
+            ActivityCompat.requestPermissions(this, needed.toArray(new String[0]), PERMISSION_REQ_CODE);
+        } else {
+            loadRecentCalls();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == PERMISSION_REQ_CODE) {
+            loadRecentCalls();
+            loadContacts();
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
+        boolean callInProgress = prefs.getBoolean("call_in_progress", false);
+        long callStartTime = prefs.getLong("call_start_time", 0);
+        long timeSinceCall = System.currentTimeMillis() - callStartTime;
+
+        // If a call was made or ended OUTSIDE OmniFlow (native phone dialer/incoming call),
+        // DO NOT hijack the screen — immediately send MainActivity to back!
+        if (!isCallInitiatedFromApp && (callInProgress || (callStartTime > 0 && timeSinceCall < 10000))) {
+            Log.d(TAG, "External phone call detected — moving task to back immediately");
+            moveTaskToBack(true);
+            return;
+        }
+
+        // Reset flag after resume
+        isCallInitiatedFromApp = false;
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) {
+            loadRecentCalls();
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (crmLayout.getVisibility() == View.VISIBLE && webView != null && webView.canGoBack()) {
+            webView.goBack();
+        } else if (crmLayout.getVisibility() == View.GONE) {
+            switchTab(0);
+        } else {
+            super.onBackPressed();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        synchronized (toneGeneratorLock) {
+            if (toneGenerator != null) {
+                try {
+                    toneGenerator.release();
+                } catch (Exception ignored) {}
+                toneGenerator = null;
+            }
+        }
+        if (webView != null) {
+            webView.destroy();
+        }
+    }
+}

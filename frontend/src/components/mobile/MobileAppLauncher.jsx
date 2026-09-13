@@ -132,6 +132,17 @@ export default function MobileAppLauncher({
     return DEFAULT_PINNED_IDS;
   });
 
+  const isAndroidApp = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    const urlParams = new URLSearchParams(window.location.search);
+    return !!(
+      window.AndroidApp ||
+      window.OmniFlowNative ||
+      (navigator.userAgent && navigator.userAgent.includes('OmniFlowAndroidApp')) ||
+      urlParams.get('app') === 'android'
+    );
+  }, []);
+
   // Dynamic Company & User Branding (strictly dynamic based on logged in tenant/user)
   const companyName = useMemo(() => {
     if (authUser?.companyName && authUser.companyName.trim()) return authUser.companyName.trim();
@@ -232,7 +243,7 @@ export default function MobileAppLauncher({
       background: '#f8fafc',
       color: '#0f172a',
       fontFamily: "'Inter', -apple-system, sans-serif",
-      paddingBottom: '85px',
+      paddingBottom: isAndroidApp ? '20px' : '85px',
       boxSizing: 'border-box',
       display: 'flex',
       flexDirection: 'column'
@@ -629,7 +640,13 @@ export default function MobileAppLauncher({
               </div>
 
               <div
-                onClick={() => onNavigate('telecalling')}
+                onClick={() => {
+                  if (window.AndroidApp && typeof window.AndroidApp.switchNativeTab === 'function') {
+                    window.AndroidApp.switchNativeTab(2);
+                  } else {
+                    onNavigate('telecalling');
+                  }
+                }}
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
               >
                 <div style={{
@@ -907,7 +924,7 @@ export default function MobileAppLauncher({
         title="OmniFlow AI Assistant"
         style={{
           position: 'fixed',
-          bottom: '80px',
+          bottom: isAndroidApp ? '20px' : '80px',
           right: '18px',
           width: '50px',
           height: '50px',
@@ -926,127 +943,129 @@ export default function MobileAppLauncher({
         <Sparkles size={24} />
       </button>
 
-      {/* ── FIXED BOTTOM NAVIGATION BAR (Exact 5 Tabs) ── */}
-      <nav style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: '64px',
-        background: '#ffffff',
-        borderTop: '1px solid #e2e8f0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-around',
-        padding: '4px 8px',
-        zIndex: 70,
-        boxShadow: '0 -2px 10px rgba(0,0,0,0.03)'
-      }}>
-        {/* 1. Home Tab */}
-        <div
-          onClick={() => onNavigate('__home__')}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            padding: '6px 14px',
-            borderRadius: '20px',
-            background: currentView === 'home' ? 'rgba(13, 148, 136, 0.14)' : 'transparent',
-            color: currentView === 'home' ? '#064e43' : '#64748b'
-          }}
-        >
-          <Home size={20} strokeWidth={currentView === 'home' ? 2.2 : 1.8} />
-          <span style={{ fontSize: '11px', fontWeight: currentView === 'home' ? '800' : '600', marginTop: '2px' }}>
-            Home
-          </span>
-        </div>
+      {/* ── FIXED BOTTOM NAVIGATION BAR: Only rendered for web preview; in Android Companion App the native bottom bar is used ── */}
+      {!isAndroidApp && (
+        <nav style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: '64px',
+          background: '#ffffff',
+          borderTop: '1px solid #e2e8f0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-around',
+          padding: '4px 8px',
+          zIndex: 70,
+          boxShadow: '0 -2px 10px rgba(0,0,0,0.03)'
+        }}>
+          {/* 1. Home Tab */}
+          <div
+            onClick={() => onNavigate('__home__')}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              padding: '6px 14px',
+              borderRadius: '20px',
+              background: currentView === 'home' ? 'rgba(13, 148, 136, 0.14)' : 'transparent',
+              color: currentView === 'home' ? '#064e43' : '#64748b'
+            }}
+          >
+            <Home size={20} strokeWidth={currentView === 'home' ? 2.2 : 1.8} />
+            <span style={{ fontSize: '11px', fontWeight: currentView === 'home' ? '800' : '600', marginTop: '2px' }}>
+              Home
+            </span>
+          </div>
 
-        {/* 2. Recent Tab (Untouched Telecalling) */}
-        <div
-          onClick={() => onNavigate('telecalling')}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            padding: '6px 12px',
-            borderRadius: '20px',
-            background: 'transparent',
-            color: '#64748b'
-          }}
-        >
-          <Clock size={20} strokeWidth={1.8} />
-          <span style={{ fontSize: '11px', fontWeight: '600', marginTop: '2px' }}>
-            Recent
-          </span>
-        </div>
+          {/* 2. Recent Tab (Untouched Telecalling) */}
+          <div
+            onClick={() => onNavigate('telecalling')}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              background: 'transparent',
+              color: '#64748b'
+            }}
+          >
+            <Clock size={20} strokeWidth={1.8} />
+            <span style={{ fontSize: '11px', fontWeight: '600', marginTop: '2px' }}>
+              Recent
+            </span>
+          </div>
 
-        {/* 3. Dialer Tab (Untouched Dialer) */}
-        <div
-          onClick={() => onNavigate('telecalling')}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            padding: '6px 12px',
-            borderRadius: '20px',
-            background: 'transparent',
-            color: '#64748b'
-          }}
-        >
-          <Phone size={20} strokeWidth={1.8} />
-          <span style={{ fontSize: '11px', fontWeight: '600', marginTop: '2px' }}>
-            Dialer
-          </span>
-        </div>
+          {/* 3. Dialer Tab (Untouched Dialer) */}
+          <div
+            onClick={() => onNavigate('telecalling')}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              background: 'transparent',
+              color: '#64748b'
+            }}
+          >
+            <Phone size={20} strokeWidth={1.8} />
+            <span style={{ fontSize: '11px', fontWeight: '600', marginTop: '2px' }}>
+              Dialer
+            </span>
+          </div>
 
-        {/* 4. Contact Tab (Untouched Contacts) */}
-        <div
-          onClick={() => onNavigate('contacts')}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            padding: '6px 12px',
-            borderRadius: '20px',
-            background: 'transparent',
-            color: '#64748b'
-          }}
-        >
-          <Users size={20} strokeWidth={1.8} />
-          <span style={{ fontSize: '11px', fontWeight: '600', marginTop: '2px' }}>
-            Contact
-          </span>
-        </div>
+          {/* 4. Contact Tab (Untouched Contacts) */}
+          <div
+            onClick={() => onNavigate('contacts')}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              background: 'transparent',
+              color: '#64748b'
+            }}
+          >
+            <Users size={20} strokeWidth={1.8} />
+            <span style={{ fontSize: '11px', fontWeight: '600', marginTop: '2px' }}>
+              Contact
+            </span>
+          </div>
 
-        {/* 5. All Apps Tab */}
-        <div
-          onClick={() => onNavigate('__all_apps__')}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            padding: '6px 14px',
-            borderRadius: '20px',
-            background: currentView === 'all_apps' ? 'rgba(13, 148, 136, 0.14)' : 'transparent',
-            color: currentView === 'all_apps' ? '#064e43' : '#64748b'
-          }}
-        >
-          <Grid size={20} strokeWidth={currentView === 'all_apps' ? 2.2 : 1.8} />
-          <span style={{ fontSize: '11px', fontWeight: currentView === 'all_apps' ? '800' : '600', marginTop: '2px' }}>
-            All Apps
-          </span>
-        </div>
-      </nav>
+          {/* 5. All Apps Tab */}
+          <div
+            onClick={() => onNavigate('__all_apps__')}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              padding: '6px 14px',
+              borderRadius: '20px',
+              background: currentView === 'all_apps' ? 'rgba(13, 148, 136, 0.14)' : 'transparent',
+              color: currentView === 'all_apps' ? '#064e43' : '#64748b'
+            }}
+          >
+            <Grid size={20} strokeWidth={currentView === 'all_apps' ? 2.2 : 1.8} />
+            <span style={{ fontSize: '11px', fontWeight: currentView === 'all_apps' ? '800' : '600', marginTop: '2px' }}>
+              All Apps
+            </span>
+          </div>
+        </nav>
+      )}
 
       {/* ── MODAL: BOOKMARK / PIN APPS CUSTOMIZER SHEET ── */}
       {isBookmarkModalOpen && (

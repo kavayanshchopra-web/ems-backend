@@ -737,18 +737,54 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setMobileSidebarOpen(false);
   }, [activeTab]);
 
-  // Mobile App Launcher State & Viewport Engine (< 768px)
-  const [isMobileScreen, setIsMobileScreen] = useState(() => {
-    return typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+  // Companion App Detection Engine: ONLY true inside Android App
+  const [isAndroidApp, setIsAndroidApp] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const urlParams = new URLSearchParams(window.location.search);
+    return !!(
+      window.AndroidApp ||
+      window.OmniFlowNative ||
+      (navigator.userAgent && navigator.userAgent.includes('OmniFlowAndroidApp')) ||
+      urlParams.get('app') === 'android'
+    );
   });
-  const [mobileActiveView, setMobileActiveView] = useState('home'); // 'home' | 'all_apps' | 'page'
 
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobileScreen(window.innerWidth < 768);
+    if (!isAndroidApp && typeof window !== 'undefined') {
+      if (
+        window.AndroidApp ||
+        window.OmniFlowNative ||
+        (navigator.userAgent && navigator.userAgent.includes('OmniFlowAndroidApp'))
+      ) {
+        setIsAndroidApp(true);
+      }
+    }
+  }, [isAndroidApp]);
+
+  // Mobile App Launcher State & Viewport Engine
+  const [mobileActiveView, setMobileActiveView] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const v = urlParams.get('view');
+      if (v === 'all_apps' || v === 'home') return v;
+    }
+    return 'home';
+  });
+
+  // Global listener for Android Companion App bottom tabs
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.setOmniFlowMobileView = (view) => {
+        if (view === 'home' || view === 'all_apps') {
+          setMobileActiveView(view);
+        }
+      };
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete window.setOmniFlowMobileView;
+      }
     };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const handleMobileNav = (target) => {
@@ -6732,8 +6768,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     return true;
   };
-  // Mobile App Launcher Mode (< 768px): Home Dashboard & All Apps Catalog
-  if (isMobileScreen && (mobileActiveView === 'home' || mobileActiveView === 'all_apps')) {
+  // Mobile App Launcher Mode: Strictly active inside Android Companion App ONLY
+  if (isAndroidApp && (mobileActiveView === 'home' || mobileActiveView === 'all_apps')) {
     return (
       <div className="mobile-app-shell" style={{ minHeight: '100vh', background: '#f8fafc' }}>
         <MobileAppLauncher
@@ -7182,6 +7218,31 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               {(isGhlEmbedded ? ghlSidebarOpen : desktopSidebarOpen) ? 'Hide Menu' : 'Menu'}
             </span>
           </button>
+
+          {isAndroidApp && (
+            <button
+              type="button"
+              onClick={() => setMobileActiveView('all_apps')}
+              title="Return to App Directory"
+              style={{
+                marginRight: '12px',
+                padding: '5px 12px',
+                borderRadius: '7px',
+                background: 'rgba(255,255,255,0.18)',
+                border: '1px solid rgba(255,255,255,0.25)',
+                color: '#ffffff',
+                fontSize: '12px',
+                fontWeight: '800',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                flexShrink: 0
+              }}
+            >
+              ‹ Apps
+            </button>
+          )}
 
           {/* Desktop Page Title (Aligned equal from left with content cards) */}
           <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '0px', marginRight: '20px', flexShrink: 0 }}>
