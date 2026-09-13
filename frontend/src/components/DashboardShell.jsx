@@ -4413,6 +4413,21 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         } else {
           savedEmp = await SupabaseSandboxService.createEmployee(newEmployeeForm, currentTenantId);
         }
+        if (newEmployeeForm.password && newEmployeeForm.email) {
+          try {
+            const regUsers = JSON.parse(localStorage.getItem('omniflow_registered_users') || '[]');
+            const filtered = regUsers.filter(u => u.email !== newEmployeeForm.email.toLowerCase().trim());
+            filtered.push({
+              email: newEmployeeForm.email.toLowerCase().trim(),
+              password: newEmployeeForm.password,
+              role: newEmployeeForm.role || 'employee',
+              name: `${newEmployeeForm.firstName || ''} ${newEmployeeForm.lastName || ''}`.trim(),
+              tenantId: currentTenantId,
+              companyId: currentTenantId
+            });
+            localStorage.setItem('omniflow_registered_users', JSON.stringify(filtered));
+          } catch (e) {}
+        }
         await fetchEmployees();
         setShowAddEmployeeModal(false);
         setNewEmployeeForm({ firstName: '', lastName: '', email: '', phone: '', role: 'employee', department: 'Engineering', salary: '', status: 'active' });

@@ -103,6 +103,21 @@ export default function ActionEngine({
             const saved = await SupabaseSandboxService.updateEmployee(selectedRecord.id, normalizedData, numericTenantId);
             const updatedList = records.map(r => r.id === selectedRecord.id ? { ...r, ...saved, ...normalizedData } : r);
             setRecords(updatedList);
+            if (formData.password && normalizedData.email) {
+              try {
+                const regUsers = JSON.parse(localStorage.getItem('omniflow_registered_users') || '[]');
+                const filtered = regUsers.filter(u => u.email !== normalizedData.email.toLowerCase().trim());
+                filtered.push({
+                  email: normalizedData.email.toLowerCase().trim(),
+                  password: formData.password,
+                  role: normalizedData.role || 'employee',
+                  name: normalizedData.name,
+                  tenantId: numericTenantId,
+                  companyId: numericTenantId
+                });
+                localStorage.setItem('omniflow_registered_users', JSON.stringify(filtered));
+              } catch (e) {}
+            }
             showToast(`🎉 Updated employee "${saved.name || normalizedData.name}" directly in Supabase SQL!`, 'success');
             setShowEditModal(false);
             return;
@@ -125,6 +140,21 @@ export default function ActionEngine({
               tenantId: numericTenantId
             };
             setRecords([newRec, ...records]);
+            if (formData.password && normalizedData.email) {
+              try {
+                const regUsers = JSON.parse(localStorage.getItem('omniflow_registered_users') || '[]');
+                const filtered = regUsers.filter(u => u.email !== normalizedData.email.toLowerCase().trim());
+                filtered.push({
+                  email: normalizedData.email.toLowerCase().trim(),
+                  password: formData.password,
+                  role: normalizedData.role || 'employee',
+                  name: normalizedData.name,
+                  tenantId: numericTenantId,
+                  companyId: numericTenantId
+                });
+                localStorage.setItem('omniflow_registered_users', JSON.stringify(filtered));
+              } catch (e) {}
+            }
             showToast(`🎉 Employee "${newRec.name}" saved directly to Supabase SQL!`, 'success');
             setShowAddModal(false);
             return;

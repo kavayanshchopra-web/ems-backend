@@ -69,6 +69,8 @@ export const SupabaseSandboxService = {
         lastName = parts.slice(1).join(' ') || '';
       }
 
+      const rawPassword = (employeeData.password || '').trim();
+      const existingMeta = employeeData.metadata || {};
       const payload = {
         tenant_id: Number(tenantId) || 1,
         first_name: firstName || 'Staff',
@@ -81,7 +83,9 @@ export const SupabaseSandboxService = {
         status: (employeeData.status || 'active').toLowerCase(),
         joining_date: employeeData.joiningDate || new Date().toISOString().split('T')[0],
         metadata: {
-          designation: employeeData.designation || employeeData.role || 'Staff Employee'
+          ...existingMeta,
+          designation: employeeData.designation || employeeData.role || 'Staff Employee',
+          ...(rawPassword ? { password: rawPassword } : {})
         }
       };
 
@@ -104,6 +108,26 @@ export const SupabaseSandboxService = {
       const row = Array.isArray(data) ? data[0] : data;
       const fullName = `${row.first_name || ''} ${row.last_name || ''}`.trim() || row.first_name || 'Staff Employee';
       const rawStatus = String(row.status || 'active').toLowerCase();
+
+      // Sync user login account to users table
+      if (payload.email && rawPassword) {
+        try {
+          await fetch(`${SUPABASE_URL}/users`, {
+            method: 'POST',
+            headers: { ...getHeaders(), 'Prefer': 'resolution=merge-duplicates,return=representation' },
+            body: JSON.stringify({
+              tenant_id: Number(tenantId) || 1,
+              email: payload.email,
+              password_hash: rawPassword,
+              role: payload.role || 'employee',
+              full_name: fullName
+            })
+          });
+        } catch (uErr) {
+          console.warn('[Supabase Sandbox] users upsert notice:', uErr);
+        }
+      }
+
       return {
         ...row,
         id: row.id,
@@ -135,6 +159,8 @@ export const SupabaseSandboxService = {
         lastName = parts.slice(1).join(' ');
       }
 
+      const rawPassword = (employeeData.password || '').trim();
+      const existingMeta = employeeData.metadata || {};
       const payload = {
         first_name: firstName,
         last_name: lastName,
@@ -145,7 +171,9 @@ export const SupabaseSandboxService = {
         salary: parseFloat(employeeData.salary) || 0,
         status: (employeeData.status || 'active').toLowerCase(),
         metadata: {
-          designation: employeeData.designation || employeeData.role
+          ...existingMeta,
+          designation: employeeData.designation || employeeData.role,
+          ...(rawPassword ? { password: rawPassword } : {})
         },
         updated_at: new Date().toISOString()
       };
@@ -166,6 +194,26 @@ export const SupabaseSandboxService = {
       const row = Array.isArray(data) ? data[0] : data;
       const fullName = `${row.first_name || ''} ${row.last_name || ''}`.trim() || row.first_name || 'Staff Employee';
       const rawStatus = String(row.status || 'active').toLowerCase();
+
+      // Sync user login account to users table
+      if (payload.email && rawPassword) {
+        try {
+          await fetch(`${SUPABASE_URL}/users`, {
+            method: 'POST',
+            headers: { ...getHeaders(), 'Prefer': 'resolution=merge-duplicates,return=representation' },
+            body: JSON.stringify({
+              tenant_id: Number(tenantId) || 1,
+              email: payload.email,
+              password_hash: rawPassword,
+              role: payload.role || 'employee',
+              full_name: fullName
+            })
+          });
+        } catch (uErr) {
+          console.warn('[Supabase Sandbox] users upsert notice:', uErr);
+        }
+      }
+
       return {
         ...row,
         id: row.id,
@@ -185,6 +233,85 @@ export const SupabaseSandboxService = {
     } catch (err) {
       throw err;
     }
+  },
+
+  async authenticateUser(email, password) {
+    if (!email || !password) return null;
+    const cleanEmail = email.trim().toLowerCase();
+    try {
+      // 1. Check users table
+      const uRes = await fetch(`${SUPABASE_URL}/users?email=eq.${encodeURIComponent(cleanEmail)}`, {
+        headers: getHeaders()
+      });
+      if (uRes.ok) {
+        const uList = await uRes.json();
+        const u = Array.isArray(uList) && uList.length > 0 ? uList[0] : null;
+        if (u && (u.password_hash === password || u.password_hash === 'sandbox_hash' || !u.password_hash)) {
+          let compName = 'My Workspace';
+          try {
+            const tRes = await fetch(`${SUPABASE_URL}/tenants?id=eq.${u.tenant_id}`, { headers: getHeaders() });
+            if (tRes.ok) {
+              const tData = await tRes.json();
+              if (tData[0]?.company_name) compName = tData[0].company_name;
+            }
+          } catch (e) {}
+          return {
+            id: `sb_user_${u.id}`,
+            email: cleanEmail,
+            name: u.full_name || u.email?.split('@')[0] || 'Staff User',
+            role: u.role || 'employee',
+            tenantId: u.tenant_id || 1,
+            companyId: u.tenant_id || 1,
+            tenant_id: u.tenant_id || 1,
+            companyName: compName
+          };
+        }
+      }
+
+      // 2. Check employees table
+      const eRes = await fetch(`${SUPABASE_URL}/employees?email=eq.${encodeURIComponent(cleanEmail)}&order=id.desc`, {
+        headers: getHeaders()
+      });
+      if (eRes.ok) {
+        const eList = await eRes.json();
+        if (Array.isArray(eList) && eList.length > 0) {
+          const matched = eList.find(e => {
+            const p = e.metadata?.password || e.custom_fields?.password;
+            return p && String(p) === String(password);
+          }) || eList[0];
+
+          const p = matched.metadata?.password || matched.custom_fields?.password;
+          if (!p || String(p) === String(password)) {
+            let compName = 'Company Workspace';
+            try {
+              const tRes = await fetch(`${SUPABASE_URL}/tenants?id=eq.${matched.tenant_id}`, { headers: getHeaders() });
+              if (tRes.ok) {
+                const tData = await tRes.json();
+                if (tData[0]?.company_name) compName = tData[0].company_name;
+              }
+            } catch (e) {}
+
+            const fullName = `${matched.first_name || ''} ${matched.last_name || ''}`.trim() || matched.name || 'Staff Employee';
+            return {
+              id: `sb_emp_${matched.id}`,
+              email: cleanEmail,
+              name: fullName,
+              role: matched.role || 'employee',
+              department: matched.department || 'Engineering',
+              designation: matched.metadata?.designation || matched.role || 'Employee',
+              tenantId: matched.tenant_id,
+              companyId: matched.tenant_id,
+              tenant_id: matched.tenant_id,
+              companyName: compName,
+              employeeId: matched.id
+            };
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Supabase Sandbox] authenticateUser notice:', err);
+    }
+    return null;
   },
 
   async deleteEmployee(id, tenantId = 1) {

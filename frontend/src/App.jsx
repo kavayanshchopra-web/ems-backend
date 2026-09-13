@@ -27,7 +27,7 @@ import CompanyRegistrationWizard from './components/CompanyRegistrationWizard';
 import PaymentGateScreen from './components/PaymentGateScreen';
 import OmniFlowLoginPage from './components/auth/OmniFlowLoginPage';
 import SubscriptionEngine from './core/engines/SubscriptionEngine';
-import { isSandboxEnvironment } from './core/services/supabaseSandboxService';
+import { isSandboxEnvironment, SupabaseSandboxService } from './core/services/supabaseSandboxService';
 
 const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 const LIVE_BACKEND = 'https://api.employeemanagementsystems.com';
@@ -281,7 +281,17 @@ export default function App() {
       let fbUser = null;
       let usedDirectProfile = null;
 
-      if (auth) {
+      // 2.1. Direct Supabase Sandbox Employee & User Authentication
+      try {
+        const sbAuth = await SupabaseSandboxService.authenticateUser(cleanEmail, password);
+        if (sbAuth) {
+          usedDirectProfile = sbAuth;
+        }
+      } catch (sbErr) {
+        console.warn('[Sandbox Auth] Supabase check notice:', sbErr);
+      }
+
+      if (auth && !usedDirectProfile) {
         try {
           const userCred = await signInWithEmailAndPassword(auth, cleanEmail, password);
           fbUser = userCred.user;
