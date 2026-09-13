@@ -149,26 +149,13 @@ export default function TelecallingView({
           });
 
           if (pendingCalls.length > 0) {
-            const cleanComp = String(companyId || localStorage.getItem('omnilflow_current_company') || 'org_default');
-            GhlOAuthService.getInstalledLocations(cleanComp).then(async (installed) => {
-              let directLoc = installed?.find(l => l.accessToken) || installed?.[0];
-              
-              if (!directLoc || !directLoc.accessToken) {
-                try {
-                  const allDocs = await getDocs(collection(db, 'integrations_ghl_oauth'));
-                  allDocs.forEach(d => {
-                    const data = d.data();
-                    if (data && data.accessToken && (!directLoc || !directLoc.accessToken)) {
-                      directLoc = { id: d.id, ...data };
-                    }
-                  });
-                } catch (e) {}
-              }
+            const cleanComp = String(companyId || localStorage.getItem('omnilflow_current_company') || '');
+            if (cleanComp && cleanComp !== 'org_default' && cleanComp !== 'default_tenant') {
+              GhlOAuthService.getInstalledLocations(cleanComp).then(async (installed) => {
+                let directLoc = installed?.find(l => l.accessToken && l.locationId);
+                if (!directLoc || !directLoc.accessToken || !directLoc.locationId) return;
 
-              const activeLocationId = directLoc?.locationId || 
-                new URLSearchParams(window.location.search).get('location_id') || 
-                new URLSearchParams(window.location.search).get('locationId') || 
-                '1g4rrRuP0ubwpF6vqWka';
+                const activeLocationId = directLoc.locationId;
 
               if (directLoc && directLoc.accessToken) {
                 for (const call of pendingCalls) {
@@ -187,7 +174,8 @@ export default function TelecallingView({
               }
             }).catch(() => {});
           }
-        } catch (e) {}
+        }
+      } catch (e) {}
 
         return merged;
       });
@@ -477,28 +465,19 @@ export default function TelecallingView({
 
     // Asynchronously push to linked GoHighLevel if connected
     try {
-      const cleanComp = String(companyId || 'org_default');
-      GhlOAuthService.getInstalledLocations(cleanComp).then(async (installed) => {
-        let directLoc = installed?.find(l => l.accessToken) || installed?.[0];
-        if (!directLoc || !directLoc.accessToken) {
-          try {
-            const allDocs = await getDocs(collection(db, 'integrations_ghl_oauth'));
-            allDocs.forEach(d => {
-              const data = d.data();
-              if (data && data.accessToken && (!directLoc || !directLoc.accessToken)) {
-                directLoc = { id: d.id, ...data };
-              }
-            });
-          } catch (e) {}
-        }
-        if (directLoc && directLoc.accessToken) {
-          GhlOAuthService.createConversationCallDirectly({
-            locationId: directLoc.locationId || '1g4rrRuP0ubwpF6vqWka',
-            accessToken: directLoc.accessToken,
-            callLog: updated[0]
-          }).catch(err => console.warn('[Telecalling Live GHL Push notice]', err));
-        }
-      }).catch(() => {});
+      const cleanComp = String(companyId || '');
+      if (cleanComp && cleanComp !== 'org_default' && cleanComp !== 'default_tenant') {
+        GhlOAuthService.getInstalledLocations(cleanComp).then(async (installed) => {
+          let directLoc = installed?.find(l => l.accessToken && l.locationId);
+          if (directLoc && directLoc.accessToken && directLoc.locationId) {
+            GhlOAuthService.createConversationCallDirectly({
+              locationId: directLoc.locationId,
+              accessToken: directLoc.accessToken,
+              callLog: updated[0]
+            }).catch(err => console.warn('[Telecalling Live GHL Push notice]', err));
+          }
+        }).catch(() => {});
+      }
     } catch (e) {}
   };
 

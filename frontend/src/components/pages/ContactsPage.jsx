@@ -217,8 +217,11 @@ export default function ContactsPage({
 
     // A0. Direct Supabase Sandbox Fetch
     if (isSandboxEnvironment()) {
-      const safeTenant = Number(companyId) || 1;
+      const resolvedTenant = authUser?.tenantId || authUser?.tenant_id || authUser?.companyId || companyId;
+      const safeTenant = (resolvedTenant && resolvedTenant !== 'org_unassigned' && resolvedTenant !== 'default_tenant') ? Number(resolvedTenant) : null;
+      
       const fetchSandboxContacts = () => {
+        if (!safeTenant) return;
         SupabaseSandboxService.fetchContacts(safeTenant)
           .then(sbContacts => {
             if (sbContacts) {
@@ -278,17 +281,24 @@ export default function ContactsPage({
         .catch(() => {});
     }
 
-    // C. Check GHL Integration Status
-    fetch(`${API_URL}/v1/integrations/ghl/status`, {
-      headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data?.integration?.is_active) {
-          setGhlLocationStatus(data.integration.location_id || 'Connected');
+    // C. Check GHL Integration Status strictly for this company
+    const checkGhlStatus = async () => {
+      try {
+        const cleanComp = String(companyId || '');
+        if (cleanComp && cleanComp !== 'org_unassigned' && cleanComp !== 'default_tenant') {
+          const installed = await GhlOAuthService.getInstalledLocations(cleanComp);
+          const activeLoc = (installed || []).find(l => l.accessToken && l.locationId);
+          if (activeLoc && String(activeLoc.companyId || activeLoc.tenantId) === cleanComp) {
+            setGhlLocationStatus(activeLoc.locationId || 'Connected');
+            return;
+          }
         }
-      })
-      .catch(() => {});
+        setGhlLocationStatus(null);
+      } catch (e) {
+        setGhlLocationStatus(null);
+      }
+    };
+    checkGhlStatus();
 
     return () => {
       unsubs.forEach(u => {
@@ -305,12 +315,16 @@ export default function ContactsPage({
 
     try {
       if (isSandboxEnvironment()) {
-        const safeTenant = Number(companyId) || 1;
+        const resolvedTenant = authUser?.tenantId || authUser?.tenant_id || authUser?.companyId || companyId;
+        const safeTenant = (resolvedTenant && resolvedTenant !== 'org_unassigned' && resolvedTenant !== 'default_tenant') ? Number(resolvedTenant) : null;
+        if (!safeTenant) {
+          throw new Error('Please select an active company to sync contacts.');
+        }
         const installed = await GhlOAuthService.getInstalledLocations(safeTenant);
-        const loc = (installed || []).find(l => l.accessToken && l.locationId) || (installed && installed[0]);
+        const loc = (installed || []).find(l => l.accessToken && l.locationId);
 
         if (!loc || !loc.accessToken || !loc.locationId) {
-          throw new Error('HighLevel sub-account is not connected. Please connect via Integrations.');
+          throw new Error('HighLevel sub-account is not connected for this company. Please connect via Integrations.');
         }
 
         // Direct pull from HighLevel Cloud API with the active token

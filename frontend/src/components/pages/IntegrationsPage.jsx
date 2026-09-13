@@ -180,7 +180,8 @@ export default function IntegrationsPage({
   }, [ghlSyncLogs]);
   const fetchGhlSyncLogs = async () => {
     try {
-      const activeLocId = (detectedLocationId || manualLocationId || ghlLocations[0]?.locationId || '1g4rrRuP0ubwpF6vqWka').trim();
+      const activeLocId = (detectedLocationId || manualLocationId || ghlLocations[0]?.locationId || '').trim();
+      if (!activeLocId) return;
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
 
       // 1. Fetch live cloud audit logs from Firestore
@@ -746,25 +747,22 @@ export default function IntegrationsPage({
     showToast('🚀 Synchronizing EMS contacts to HighLevel...', 'info');
     try {
       let loc = ghlLocations[0];
-      const targetLocId = loc?.locationId || detectedLocationId || manualLocationId || '1g4rrRuP0ubwpF6vqWka';
-
       if (!loc || !loc.accessToken) {
         try {
           const installed = await GhlOAuthService.getInstalledLocations(cleanCompanyId);
           if (installed && installed.length > 0) {
             loc = installed.find(l => l.accessToken) || installed[0];
           }
-          if (!loc || !loc.accessToken) {
-            const allDocs = await getDocs(collection(db, 'integrations_ghl_oauth'));
-            allDocs.forEach(d => {
-              const data = d.data();
-              if (data && data.accessToken && (!loc || !loc.accessToken)) {
-                loc = { id: d.id, ...data };
-              }
-            });
-          }
         } catch (lErr) {}
       }
+
+      if (!loc || !loc.accessToken) {
+        showToast('⚠️ No active HighLevel sub-account connected for this company. Please connect your sub-account first.', 'error');
+        setSyncingAction(null);
+        return;
+      }
+
+      const targetLocId = loc.locationId;
 
       // 1. Fetch all local contacts from Firestore
       const localContacts = await FirebaseCloudEngine.fetchRecords('contacts', cleanCompanyId);
@@ -921,25 +919,22 @@ export default function IntegrationsPage({
     showToast('🎙️ Gathering and Synchronizing Call Recordings to GoHighLevel...', 'info');
     try {
       let loc = ghlLocations[0];
-      const targetLocId = loc?.locationId || detectedLocationId || manualLocationId || '1g4rrRuP0ubwpF6vqWka';
-      
       if (!loc || !loc.accessToken) {
         try {
           const installed = await GhlOAuthService.getInstalledLocations(cleanCompanyId);
           if (installed && installed.length > 0) {
             loc = installed.find(l => l.accessToken) || installed[0];
           }
-          if (!loc || !loc.accessToken) {
-            const allDocs = await getDocs(collection(db, 'integrations_ghl_oauth'));
-            allDocs.forEach(d => {
-              const data = d.data();
-              if (data && data.accessToken && (!loc || !loc.accessToken)) {
-                loc = { id: d.id, ...data };
-              }
-            });
-          }
         } catch (lErr) {}
       }
+
+      if (!loc || !loc.accessToken) {
+        showToast('⚠️ No active HighLevel sub-account connected for this company. Please connect your sub-account first.', 'error');
+        setSyncingAction(null);
+        return;
+      }
+
+      const targetLocId = loc.locationId;
 
       // 1. Build Contact Map from Firestore & Local CRM to resolve phone numbers to customer names (e.g. 9646378478 -> rahul)
       const contactMap = new Map();
@@ -1133,25 +1128,22 @@ export default function IntegrationsPage({
     showToast('📥 Connecting to HighLevel API to import contacts...', 'info');
     try {
       let loc = ghlLocations[0];
-      const targetLocId = loc?.locationId || detectedLocationId || manualLocationId || '1g4rrRuP0ubwpF6vqWka';
-
       if (!loc || !loc.accessToken) {
         try {
           const installed = await GhlOAuthService.getInstalledLocations(cleanCompanyId);
           if (installed && installed.length > 0) {
             loc = installed.find(l => l.accessToken) || installed[0];
           }
-          if (!loc || !loc.accessToken) {
-            const allDocs = await getDocs(collection(db, 'integrations_ghl_oauth'));
-            allDocs.forEach(d => {
-              const data = d.data();
-              if (data && data.accessToken && (!loc || !loc.accessToken)) {
-                loc = { id: d.id, ...data };
-              }
-            });
-          }
         } catch (lErr) {}
       }
+
+      if (!loc || !loc.accessToken) {
+        showToast('⚠️ No active HighLevel sub-account connected for this company. Please connect your sub-account first.', 'error');
+        setSyncingAction(null);
+        return;
+      }
+
+      const targetLocId = loc.locationId;
 
       let importedList = [];
       let totalFound = 0;
@@ -1283,25 +1275,22 @@ export default function IntegrationsPage({
     showToast('📥 Fetching & Importing all Pipelines & Deals from HighLevel...', 'info');
     try {
       let loc = ghlLocations[0];
-      const targetLocId = loc?.locationId || detectedLocationId || manualLocationId || '1g4rrRuP0ubwpF6vqWka';
-
       if (!loc || !loc.accessToken) {
         try {
           const installed = await GhlOAuthService.getInstalledLocations(cleanCompanyId);
           if (installed && installed.length > 0) {
             loc = installed.find(l => l.accessToken) || installed[0];
           }
-          if (!loc || !loc.accessToken) {
-            const allDocs = await getDocs(collection(db, 'integrations_ghl_oauth'));
-            allDocs.forEach(d => {
-              const data = d.data();
-              if (data && data.accessToken && (!loc || !loc.accessToken)) {
-                loc = { id: d.id, ...data };
-              }
-            });
-          }
         } catch (lErr) {}
       }
+
+      if (!loc || !loc.accessToken) {
+        showToast('⚠️ No active HighLevel sub-account connected for this company. Please connect your sub-account first.', 'error');
+        setSyncingAction(null);
+        return;
+      }
+
+      const targetLocId = loc.locationId;
 
       let oppsList = [];
       let totalFound = 0;

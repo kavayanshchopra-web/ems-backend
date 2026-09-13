@@ -80,27 +80,53 @@ export class GhlOAuthService {
 
   /**
    * Fetch all installed GHL sub-account locations for a tenant company
+   * STRICT TENANT ISOLATION: Never returns cross-tenant or unassigned GHL locations
    */
   static async getInstalledLocations(companyId = 'default_tenant') {
     try {
-      const q = query(collection(db, 'integrations_ghl_oauth'), where('companyId', '==', companyId));
-      const snap = await getDocs(q);
-      const list = [];
-      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
-      if (list.length > 0) return list;
+      if (!companyId || companyId === 'default_tenant' || companyId === 'org_unassigned') {
+        return [];
+      }
 
-      // Fallback: Query all docs in integrations_ghl_oauth if companyId differed
-      const allSnap = await getDocs(collection(db, 'integrations_ghl_oauth'));
-      allSnap.forEach(d => {
-        const data = d.data();
-        if (data && data.accessToken) {
-          list.push({ id: d.id, ...data });
-        }
+      const cleanStrId = String(companyId).trim();
+      const cleanNumId = Number(companyId);
+      const list = [];
+      const seenIds = new Set();
+
+      // 1. Query by string companyId
+      try {
+        const qStr = query(collection(db, 'integrations_ghl_oauth'), where('companyId', '==', cleanStrId));
+        const snapStr = await getDocs(qStr);
+        snapStr.forEach(d => {
+          if (!seenIds.has(d.id)) {
+            seenIds.add(d.id);
+            list.push({ id: d.id, ...d.data() });
+          }
+        });
+      } catch (e) {}
+
+      // 2. Query by numeric companyId (if numeric)
+      if (!isNaN(cleanNumId)) {
+        try {
+          const qNum = query(collection(db, 'integrations_ghl_oauth'), where('companyId', '==', cleanNumId));
+          const snapNum = await getDocs(qNum);
+          snapNum.forEach(d => {
+            if (!seenIds.has(d.id)) {
+              seenIds.add(d.id);
+              list.push({ id: d.id, ...d.data() });
+            }
+          });
+        } catch (e) {}
+      }
+
+      // STRICT MULTI-TENANT ISOLATION: Filter strictly by tenant companyId
+      return list.filter(item => {
+        const itemComp = String(item.companyId || item.tenantId || '').trim();
+        return itemComp === cleanStrId && Boolean(item.accessToken);
       });
-      return list;
     } catch (e) {
-      const saved = JSON.parse(localStorage.getItem(`omnilflow_ghl_installed_${companyId}`) || '[]');
-      return saved;
+      console.warn('[GhlOAuthService] getInstalledLocations notice:', e);
+      return [];
     }
   }
 
@@ -813,8 +839,8 @@ export class GhlOAuthService {
       const id = `sync_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
       const logDoc = {
         id,
-        location_id: locationId || '1g4rrRuP0ubwpF6vqWka',
-        locationId: locationId || '1g4rrRuP0ubwpF6vqWka',
+        location_id: locationId || '',
+        locationId: locationId || '',
         tenant_id: tenantId,
         tenantId,
         direction: 'OUTBOUND',

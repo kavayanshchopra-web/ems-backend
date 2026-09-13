@@ -981,26 +981,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       if (pendingCalls.length === 0) return;
 
       try {
-        const cleanComp = String(authUser?.tenantId || authUser?.companyId || authUser?.tenant_id || localStorage.getItem('omnilflow_current_company') || 'org_default');
+        const cleanComp = String(authUser?.tenantId || authUser?.companyId || authUser?.tenant_id || localStorage.getItem('omnilflow_current_company') || '');
+        if (!cleanComp || cleanComp === 'org_default' || cleanComp === 'default_tenant') return;
         const installed = await GhlOAuthService.getInstalledLocations(cleanComp);
-        let directLoc = installed?.find(l => l.accessToken) || installed?.[0];
+        let directLoc = installed?.find(l => l.accessToken && l.locationId);
 
-        if (!directLoc || !directLoc.accessToken) {
-          try {
-            const allDocs = await getDocs(collection(db, 'integrations_ghl_oauth'));
-            allDocs.forEach(d => {
-              const data = d.data();
-              if (data && data.accessToken && (!directLoc || !directLoc.accessToken)) {
-                directLoc = { id: d.id, ...data };
-              }
-            });
-          } catch (e) {}
-        }
+        if (!directLoc || !directLoc.accessToken || !directLoc.locationId) return;
 
-        const activeLocationId = directLoc?.locationId || 
-          new URLSearchParams(window.location.search).get('location_id') || 
-          new URLSearchParams(window.location.search).get('locationId') || 
-          '1g4rrRuP0ubwpF6vqWka';
+        const activeLocationId = directLoc.locationId;
 
         if (directLoc && directLoc.accessToken && activeLocationId) {
           for (const call of pendingCalls) {
@@ -1519,8 +1507,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
   // Live HighLevel Inbound Background Auto-Poller (Stream from HighLevel every 10s)
   useEffect(() => {
-    const currentCompany = authUser?.companyId || authUser?.tenantId || 'default_tenant';
-    const safeTenant = Number(authUser?.tenantId || authUser?.tenant_id || authUser?.companyId) || 1;
+    const rawTenant = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id;
+    if (!rawTenant || rawTenant === 'default_tenant' || rawTenant === 'org_unassigned') return;
+
+    const currentCompany = String(rawTenant);
+    const safeTenant = Number(rawTenant) || rawTenant;
     let isMounted = true;
     let pollTimer = null;
     const knownContactIds = new Set();
@@ -1528,8 +1519,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     const checkGhlInboundStream = async () => {
       try {
         const installed = await GhlOAuthService.getInstalledLocations(currentCompany);
-        const loc = (installed || []).find(l => l.accessToken && l.locationId) || (installed && installed[0]);
+        const loc = (installed || []).find(l => l.accessToken && l.locationId);
+        // STRICT ISOLATION: Location must explicitly belong to current company
         if (!loc || !loc.accessToken || !loc.locationId) return;
+        if (String(loc.companyId || loc.tenantId) !== currentCompany) return;
 
         // Fetch latest 30 contacts directly from HighLevel
         const recentContacts = await GhlOAuthService.pollRecentContacts({

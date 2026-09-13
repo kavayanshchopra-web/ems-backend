@@ -558,27 +558,13 @@ export default function ConversationsPage({
         });
 
         if (pendingCalls.length > 0) {
-          const cleanComp = String(companyId || localStorage.getItem('omnilflow_current_company') || 'org_default');
-          GhlOAuthService.getInstalledLocations(cleanComp).then(async (installed) => {
-            let directLoc = installed?.find(l => l.accessToken) || installed?.[0];
-            
-            // Resilient fallback across all integrations_ghl_oauth docs if companyId differed
-            if (!directLoc || !directLoc.accessToken) {
-              try {
-                const allDocs = await getDocs(collection(db, 'integrations_ghl_oauth'));
-                allDocs.forEach(d => {
-                  const data = d.data();
-                  if (data && data.accessToken && (!directLoc || !directLoc.accessToken)) {
-                    directLoc = { id: d.id, ...data };
-                  }
-                });
-              } catch (e) {}
-            }
+          const cleanComp = String(companyId || localStorage.getItem('omnilflow_current_company') || '');
+          if (cleanComp && cleanComp !== 'org_default' && cleanComp !== 'default_tenant') {
+            GhlOAuthService.getInstalledLocations(cleanComp).then(async (installed) => {
+              let directLoc = installed?.find(l => l.accessToken && l.locationId);
+              if (!directLoc || !directLoc.accessToken || !directLoc.locationId) return;
 
-            const activeLocationId = directLoc?.locationId || 
-              new URLSearchParams(window.location.search).get('location_id') || 
-              new URLSearchParams(window.location.search).get('locationId') || 
-              '1g4rrRuP0ubwpF6vqWka';
+              const activeLocationId = directLoc.locationId;
 
             if (directLoc && directLoc.accessToken) {
               for (const call of pendingCalls) {
@@ -602,7 +588,8 @@ export default function ConversationsPage({
             }
           }).catch(() => {});
         }
-      } catch (ghlAutoErr) {
+      }
+    } catch (ghlAutoErr) {
         console.warn('[GHL Auto-Sync notice]', ghlAutoErr);
       }
     };
@@ -1458,28 +1445,18 @@ export default function ConversationsPage({
       // 2. Resolve installed GHL Location & Token
       let directLoc = null;
       try {
-        const cleanComp = String(companyId || localStorage.getItem('omnilflow_current_company') || 'org_default');
-        const installed = await GhlOAuthService.getInstalledLocations(cleanComp);
-        if (installed && installed.length > 0) {
-          directLoc = installed.find(l => l.accessToken) || installed[0];
-        }
-        if (!directLoc || !directLoc.accessToken) {
-          const allDocs = await getDocs(collection(db, 'integrations_ghl_oauth'));
-          allDocs.forEach(d => {
-            const data = d.data();
-            if (data && data.accessToken && (!directLoc || !directLoc.accessToken)) {
-              directLoc = { id: d.id, ...data };
-            }
-          });
+        const cleanComp = String(companyId || localStorage.getItem('omnilflow_current_company') || '');
+        if (cleanComp && cleanComp !== 'org_default' && cleanComp !== 'default_tenant') {
+          const installed = await GhlOAuthService.getInstalledLocations(cleanComp);
+          if (installed && installed.length > 0) {
+            directLoc = installed.find(l => l.accessToken && l.locationId);
+          }
         }
       } catch (locErr) {
         console.warn('[GHL Location Resolve Notice]', locErr);
       }
 
-      const activeLocationId = directLoc?.locationId || 
-        new URLSearchParams(window.location.search).get('location_id') || 
-        new URLSearchParams(window.location.search).get('locationId') || 
-        '1g4rrRuP0ubwpF6vqWka';
+      const activeLocationId = directLoc?.locationId;
 
       // 3. Direct Client-to-GHL Push for instantaneous sync & contact notes
       let directCallsSynced = 0;
