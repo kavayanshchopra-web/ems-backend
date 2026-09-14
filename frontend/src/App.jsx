@@ -409,8 +409,23 @@ export default function App() {
           } catch (e) {}
         }
 
+        // Ensure numeric Supabase Tenant ID for Sandbox
+        let numericTenantId = Number(tenantId);
+        if (isNaN(numericTenantId) || numericTenantId <= 0) {
+          try {
+            numericTenantId = await SupabaseSandboxService.ensureTenantForAccount({
+              tenantSlug: tenantId,
+              companyName: storedCompanyName,
+              ownerEmail: cleanEmail
+            });
+          } catch (tErr) {
+            console.warn('[App Auth] ensureTenantForAccount note:', tErr);
+            numericTenantId = 1;
+          }
+        }
+
         const ghlCtx = getGhlContext();
-        const finalTenantId = tenantId;
+        const finalTenantId = numericTenantId || 1;
         const userData = {
           id: fbUser?.uid || usedDirectProfile?.id || usedDirectProfile?.uid || `user_${Date.now()}`,
           email: cleanEmail,
@@ -420,6 +435,9 @@ export default function App() {
           tenantId: finalTenantId,
           companyId: finalTenantId,
           tenant_id: finalTenantId,
+          tenantSlug: tenantId,
+          employeeId: usedDirectProfile?.employeeId || usedDirectProfile?.id || fbUser?.uid || '',
+          department: usedDirectProfile?.department || '',
           locationId: ghlCtx.locationId || usedDirectProfile?.locationId || null
         };
 
@@ -600,15 +618,30 @@ export default function App() {
         const companySlug = (companyName || ghlCtx.locationName || 'workspace').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
         const uniqueTenantId = `org_${companySlug || 'tenant'}_${fbUser.uid.slice(0, 8)}`;
 
+        let numericTenantId = 1;
+        try {
+          numericTenantId = await SupabaseSandboxService.ensureTenantForAccount({
+            tenantSlug: uniqueTenantId,
+            companyName: companyName || ghlCtx.locationName || 'My Workspace',
+            ownerEmail: cleanEmail
+          });
+        } catch (tErr) {
+          console.warn('[App Register] ensureTenantForAccount note:', tErr);
+          numericTenantId = 1;
+        }
+
         const userData = {
           id: fbUser.uid,
           email: fbUser.email,
           name: companyName ? `${companyName} Owner` : (ghlCtx.locationName || fbUser.email.split('@')[0]),
           role: userRole,
           companyName: companyName || ghlCtx.locationName || 'My Workspace',
-          tenantId: uniqueTenantId,
-          companyId: uniqueTenantId,
-          tenant_id: uniqueTenantId,
+          tenantId: numericTenantId,
+          companyId: numericTenantId,
+          tenant_id: numericTenantId,
+          tenantSlug: uniqueTenantId,
+          employeeId: fbUser.uid,
+          department: '',
           locationId: ghlCtx.locationId || null
         };
 

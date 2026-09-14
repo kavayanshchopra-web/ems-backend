@@ -774,15 +774,21 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       const bridge = window.AndroidApp || window.OmniFlowNative;
       if (bridge && typeof bridge.syncUserProfile === 'function') {
         try {
+          const rawT = user.tenantId || user.companyId || user.tenant_id;
+          let numT = Number(rawT);
+          if (isNaN(numT) || numT <= 0) {
+            numT = 1;
+          }
           bridge.syncUserProfile(JSON.stringify({
-            tenantId: user.tenantId || user.companyId || user.tenant_id || 1,
+            tenantId: numT,
+            tenantSlug: String(user.tenantSlug || rawT || ''),
             employeeId: user.employeeId || user.id || '',
             name: user.name || user.fullName || '',
             email: user.email || '',
             role: user.role || 'employee',
             department: user.department || ''
           }));
-          console.log('📱 [AndroidApp Bridge] User profile dispatched to Native Android App:', user.email, 'Tenant:', user.tenantId);
+          console.log('📱 [AndroidApp Bridge] User profile dispatched to Native Android App:', user.email, 'Numeric Tenant:', numT);
         } catch (e) {
           console.warn('[AndroidApp Bridge] syncUserProfile error:', e);
         }
@@ -1379,8 +1385,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
     if (isSandboxEnvironment()) {
       try { localStorage.removeItem('omniflow_cached_call_logs'); } catch (e) {}
+      const isSuperAdmin = effectiveAuthUser?.role === 'superadmin' && !effectiveAuthUser?.isImpersonating;
       const tenantNum = Number(activeTenantKey) || 1;
-      SupabaseSandboxService.fetchCallLogs(tenantNum).then(logs => {
+      const fetchPromise = isSuperAdmin
+        ? SupabaseSandboxService.fetchAllCallLogs()
+        : SupabaseSandboxService.fetchCallLogs(tenantNum);
+
+      fetchPromise.then(logs => {
         setCallLogs(logs);
         TenantStorage.setItem('call_logs', logs, activeTenantKey);
       }).catch(err => console.error('[DashboardShell] Supabase call_logs fetch error:', err));
@@ -3619,14 +3630,28 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         const userRole = (cleanEmail === 'admin@omniflow.com' || cleanEmail === 'kavayanshchopra@gmail.com') ? 'superadmin' : 'owner';
         const companySlug = (companyName || 'workspace').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
         const uniqueTenantId = `org_${companySlug || 'tenant'}_${fbUser.uid.slice(0, 8)}`;
+
+        let numericTenantId = 1;
+        try {
+          numericTenantId = await SupabaseSandboxService.ensureTenantForAccount({
+            tenantSlug: uniqueTenantId,
+            companyName: companyName || 'My Workspace',
+            ownerEmail: cleanEmail
+          });
+        } catch (tErr) {
+          console.warn('[DashboardShell Register] ensureTenantForAccount note:', tErr);
+          numericTenantId = 1;
+        }
+
         const userData = {
           id: fbUser.uid,
           email: fbUser.email,
           role: userRole,
           companyName: companyName || 'My Workspace',
-          tenantId: uniqueTenantId,
-          companyId: uniqueTenantId,
-          tenant_id: uniqueTenantId
+          tenantId: numericTenantId,
+          companyId: numericTenantId,
+          tenant_id: numericTenantId,
+          tenantSlug: uniqueTenantId
         };
         if (db) {
           try {

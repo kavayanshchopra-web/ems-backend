@@ -26,7 +26,15 @@ export default function TelecallingView({
   onManageStages = () => {},
   onOpenPositionModal = () => {}
 }) {
-  const companyId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id || 'org_default';
+  const rawCompanyId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id || '1';
+  let numericCompanyId = Number(rawCompanyId);
+  if (isNaN(numericCompanyId) || numericCompanyId <= 0) {
+    numericCompanyId = 1;
+  }
+  const companyId = String(numericCompanyId);
+  const isSuperAdmin = authUser?.role === 'superadmin' && !authUser?.isImpersonating;
+  const isOwnerOrManager = authUser?.role === 'owner' || authUser?.role === 'admin' || authUser?.role === 'manager';
+
   const { config } = useModuleRegistry(companyId, 'telecalling');
   
   const [isVoxbayOpen, setIsVoxbayOpen] = useState(false);
@@ -36,8 +44,7 @@ export default function TelecallingView({
       const cached = TenantStorage.getItem('call_logs', companyId, []);
       if (Array.isArray(cached) && cached.length > 0) return cached;
       if (Array.isArray(callLogs)) {
-        const tenantStr = String(companyId);
-        return callLogs.filter(c => String(c.tenant_id || c.tenantId) === tenantStr);
+        return isSuperAdmin ? callLogs : callLogs.filter(c => String(c.tenant_id || c.tenantId) === companyId);
       }
       return [];
     }
@@ -57,13 +64,12 @@ export default function TelecallingView({
   useEffect(() => {
     if (Array.isArray(callLogs)) {
       if (isSandboxEnvironment()) {
-        const tenantStr = String(companyId);
-        setInternalLogs(callLogs.filter(c => String(c.tenant_id || c.tenantId) === tenantStr));
+        setInternalLogs(isSuperAdmin ? callLogs : callLogs.filter(c => String(c.tenant_id || c.tenantId) === companyId));
       } else {
         setInternalLogs(callLogs);
       }
     }
-  }, [callLogs, companyId]);
+  }, [callLogs, companyId, isSuperAdmin]);
 
   const [crmContactMap, setCrmContactMap] = useState(() => {
     try {
@@ -93,8 +99,11 @@ export default function TelecallingView({
   useEffect(() => {
     if (isSandboxEnvironment()) {
       try { localStorage.removeItem('omniflow_cached_call_logs'); } catch (e) {}
-      const tenantNum = Number(companyId) || 999;
-      SupabaseSandboxService.fetchCallLogs(tenantNum).then(logs => {
+      const fetchPromise = isSuperAdmin 
+        ? SupabaseSandboxService.fetchAllCallLogs() 
+        : SupabaseSandboxService.fetchCallLogs(numericCompanyId);
+
+      fetchPromise.then(logs => {
         setInternalLogs(logs);
         if (typeof setCallLogs === 'function') setCallLogs(logs);
         TenantStorage.setItem('call_logs', logs, companyId);
@@ -267,25 +276,46 @@ export default function TelecallingView({
     const combined = new Map();
     const currentTenantStr = String(companyId);
 
-    const isMatchingTenant = (c) => {
+    const isMatchingTenantAndRole = (c) => {
       if (!c) return false;
-      if (isSandboxEnvironment()) {
+
+      // 1. Tenant Scoping
+      if (!isSuperAdmin) {
         const itemTenant = String(c.tenant_id || c.tenantId || '');
-        return itemTenant === currentTenantStr;
+        if (itemTenant && itemTenant !== currentTenantStr) return false;
       }
-      return !c.tenantId || String(c.tenantId) === currentTenantStr;
+
+      // 2. Role Check: Super Admin, Company Owner & Manager can audit ALL recordings of the company
+      if (isSuperAdmin || isOwnerOrManager) {
+        return true;
+      }
+
+      // 3. Employee / Telecaller: Strictly view own calls only
+      const userEmpId = String(authUser?.employeeId || authUser?.id || '').trim().toLowerCase();
+      const userEmail = String(authUser?.email || '').trim().toLowerCase();
+      const userName = String(authUser?.name || authUser?.fullName || '').trim().toLowerCase();
+
+      const callAgentId = String(c.agent_id || c.agentId || '').trim().toLowerCase();
+      const callAgentEmail = String(c.agentEmail || c.agent_email || c.custom_fields?.agent_email || '').trim().toLowerCase();
+      const callAgentName = String(c.agentName || c.agent_name || '').trim().toLowerCase();
+
+      const matchesId = userEmpId && callAgentId && (userEmpId === callAgentId || userEmpId === `sb_emp_${callAgentId}` || userEmpId === `sb_user_${callAgentId}`);
+      const matchesEmail = userEmail && callAgentEmail && userEmail === callAgentEmail;
+      const matchesName = userName && callAgentName && (userName === callAgentName || callAgentName.includes(userName) || userName.includes(callAgentName));
+
+      return matchesId || matchesEmail || matchesName;
     };
 
     // Add parent callLogs
     if (Array.isArray(callLogs)) {
-      callLogs.filter(isMatchingTenant).forEach(c => {
+      callLogs.filter(isMatchingTenantAndRole).forEach(c => {
         if (c && c.id) combined.set(String(c.id), c);
       });
     }
 
     // Add internal live logs
     if (Array.isArray(internalLogs)) {
-      internalLogs.filter(isMatchingTenant).forEach(c => {
+      internalLogs.filter(isMatchingTenantAndRole).forEach(c => {
         if (c && c.id) combined.set(String(c.id), c);
       });
     }

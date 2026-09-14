@@ -643,6 +643,62 @@ export const SupabaseSandboxService = {
     }
   },
 
+  async ensureTenantForAccount({ tenantSlug, companyName, ownerEmail }) {
+    try {
+      if (!ownerEmail && !tenantSlug) return 1;
+      const cleanEmail = (ownerEmail || '').trim().toLowerCase();
+      const cleanSlug = (tenantSlug || '').trim();
+
+      // 1. If numeric string already, check if valid tenant exists
+      if (/^\d+$/.test(cleanSlug)) {
+        return Number(cleanSlug);
+      }
+
+      // 2. Lookup by tenant_slug
+      if (cleanSlug) {
+        const slugRes = await fetch(`${SUPABASE_URL}/tenants?tenant_slug=eq.${encodeURIComponent(cleanSlug)}`, { headers: getHeaders() });
+        if (slugRes.ok) {
+          const rows = await slugRes.json();
+          if (rows && rows[0] && rows[0].id) {
+            return Number(rows[0].id);
+          }
+        }
+      }
+
+      // 3. Lookup by owner_email
+      if (cleanEmail) {
+        const emailRes = await fetch(`${SUPABASE_URL}/tenants?owner_email=eq.${encodeURIComponent(cleanEmail)}`, { headers: getHeaders() });
+        if (emailRes.ok) {
+          const rows = await emailRes.json();
+          if (rows && rows[0] && rows[0].id) {
+            return Number(rows[0].id);
+          }
+        }
+      }
+
+      // 4. Create new tenant in Supabase SQL with integer id
+      const createRes = await fetch(`${SUPABASE_URL}/tenants`, {
+        method: 'POST',
+        headers: { ...getHeaders(), 'Prefer': 'return=representation' },
+        body: JSON.stringify({
+          company_name: companyName || (cleanEmail ? cleanEmail.split('@')[0] : 'My Company'),
+          tenant_slug: cleanSlug || `org_${Date.now()}`,
+          owner_email: cleanEmail || null,
+          subscription_status: 'active',
+          plan_id: 'starter'
+        })
+      });
+      if (createRes.ok) {
+        const data = await createRes.json();
+        const row = Array.isArray(data) ? data[0] : data;
+        if (row && row.id) return Number(row.id);
+      }
+    } catch (err) {
+      console.warn('[Supabase Sandbox] ensureTenantForAccount error:', err);
+    }
+    return 1;
+  },
+
   async deleteTenant(id) {
     try {
       const res = await fetch(`${SUPABASE_URL}/tenants?id=eq.${id}`, {
@@ -718,6 +774,49 @@ export const SupabaseSandboxService = {
       }));
     } catch (err) {
       console.error('[Supabase Sandbox] fetchCallLogs error:', err);
+      return [];
+    }
+  },
+
+  async fetchAllCallLogs() {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/call_logs?order=created_at.desc&limit=500`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []).map(log => ({
+        ...log,
+        id: log.id,
+        name: log.customer_name || log.phone || 'Customer',
+        customerName: log.customer_name || log.phone || 'Customer',
+        agentName: log.agent_name || 'Telecaller Agent',
+        agent_name: log.agent_name || 'Telecaller Agent',
+        agentId: log.agent_id || '',
+        agent_id: log.agent_id || '',
+        agentRole: log.agent_role || 'telecaller',
+        agent_role: log.agent_role || 'telecaller',
+        agentEmail: log.custom_fields?.agent_email || log.agent_email || '',
+        agent_email: log.custom_fields?.agent_email || log.agent_email || '',
+        phone: log.phone || log.customer_phone || '—',
+        channel: log.channel || 'SIM',
+        type: log.call_type || log.type || 'OUTGOING',
+        callType: log.call_type || log.type || 'OUTGOING',
+        duration: log.duration || '00:30',
+        durationSeconds: log.duration_seconds || 30,
+        recording: log.recording_url || '',
+        recordingUrl: log.recording_url || '',
+        status: log.disposition || log.status || 'Interested',
+        disposition: log.disposition || log.status || 'Interested',
+        notes: log.notes || '',
+        timestamp: log.timestamp || log.created_at,
+        _createdAt: new Date(log.created_at || log.timestamp).getTime(),
+        tenantId: log.tenant_id,
+        tenant_id: log.tenant_id,
+        custom_fields: log.custom_fields || {}
+      }));
+    } catch (err) {
+      console.error('[Supabase Sandbox] fetchAllCallLogs error:', err);
       return [];
     }
   },
