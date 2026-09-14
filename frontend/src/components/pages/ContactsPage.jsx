@@ -483,53 +483,7 @@ export default function ContactsPage({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <LayoutEngine
-        customHeaderActions={
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {/* GHL Connection Status Badge */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '5px 10px',
-              borderRadius: '6px',
-              background: ghlLocationStatus ? 'rgba(13, 148, 136, 0.12)' : 'rgba(100, 116, 139, 0.1)',
-              border: ghlLocationStatus ? '1px solid rgba(13, 148, 136, 0.3)' : '1px solid rgba(100, 116, 139, 0.2)',
-              color: ghlLocationStatus ? '#0d9488' : '#64748b',
-              fontSize: '11px',
-              fontWeight: '700'
-            }}>
-              <Zap size={13} style={{ color: ghlLocationStatus ? '#0d9488' : '#94a3b8' }} />
-              <span>{ghlLocationStatus ? 'GHL Connected' : 'GHL Standby'}</span>
-            </div>
-
-            {/* 2-Way GHL Sync Button */}
-            <button
-              type="button"
-              onClick={handleTriggerGhl2WaySync}
-              disabled={isSyncingGhl}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '7px 14px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                border: '1px solid #1d4ed8',
-                color: '#ffffff',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: isSyncingGhl ? 'not-allowed' : 'pointer',
-                boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)',
-                opacity: isSyncingGhl ? 0.7 : 1,
-                transition: 'all 0.2s ease'
-              }}
-              title="Synchronize all contacts bidirectionally with GoHighLevel"
-            >
-              <RefreshCw size={13} className={isSyncingGhl ? 'animate-spin' : ''} style={{ animation: isSyncingGhl ? 'spin 1s linear infinite' : 'none' }} />
-              <span>{isSyncingGhl ? 'Syncing with GHL...' : 'Sync with GoHighLevel'}</span>
-            </button>
-          </div>
-        }
+        customHeaderActions={<></>}
         moduleConfig={config}
         records={internalRecords}
         setRecords={handleUpdateRecords}

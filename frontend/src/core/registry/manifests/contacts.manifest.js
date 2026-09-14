@@ -66,15 +66,13 @@ export const CONTACTS_MANIFEST = {
   
   summaryWidgets: [
     { id: 'total_contacts', label: 'TOTAL CONTACTS', metricType: 'TOTAL', bg: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', icon: '👥', enabled: true, order: 1 },
-    { id: 'ghl_synced', label: 'GHL SYNCED', metricType: 'FILTER_COUNT', filterField: 'ghlContactId', bg: 'rgba(37, 99, 235, 0.1)', color: '#2563eb', icon: '⚡', enabled: true, order: 2 },
-    { id: 'whatsapp_leads', label: 'WHATSAPP LEADS', metricType: 'FILTER_COUNT', filterField: 'source', filterValue: 'WhatsApp Inbound', bg: 'rgba(5, 150, 105, 0.1)', color: '#059669', icon: '💬', enabled: true, order: 3 },
-    { id: 'new_leads', label: 'NEW LEADS', metricType: 'STAGE_COUNT', stageName: 'New Lead', bg: 'rgba(217, 119, 6, 0.1)', color: '#d97706', icon: '🎯', enabled: true, order: 4 }
+    { id: 'whatsapp_leads', label: 'WHATSAPP LEADS', metricType: 'FILTER_COUNT', filterField: 'source', filterValue: 'WhatsApp Inbound', bg: 'rgba(5, 150, 105, 0.1)', color: '#059669', icon: '💬', enabled: true, order: 2 },
+    { id: 'new_leads', label: 'NEW LEADS', metricType: 'STAGE_COUNT', stageName: 'New Lead', bg: 'rgba(217, 119, 6, 0.1)', color: '#d97706', icon: '🎯', enabled: true, order: 3 }
   ],
   defaultSummaryWidgets: [
     { id: 'total_contacts', label: 'TOTAL CONTACTS', metricType: 'TOTAL', bg: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', icon: '👥', enabled: true, order: 1 },
-    { id: 'ghl_synced', label: 'GHL SYNCED', metricType: 'FILTER_COUNT', filterField: 'ghlContactId', bg: 'rgba(37, 99, 235, 0.1)', color: '#2563eb', icon: '⚡', enabled: true, order: 2 },
-    { id: 'whatsapp_leads', label: 'WHATSAPP LEADS', metricType: 'FILTER_COUNT', filterField: 'source', filterValue: 'WhatsApp Inbound', bg: 'rgba(5, 150, 105, 0.1)', color: '#059669', icon: '💬', enabled: true, order: 3 },
-    { id: 'new_leads', label: 'NEW LEADS', metricType: 'STAGE_COUNT', stageName: 'New Lead', bg: 'rgba(217, 119, 6, 0.1)', color: '#d97706', icon: '🎯', enabled: true, order: 4 }
+    { id: 'whatsapp_leads', label: 'WHATSAPP LEADS', metricType: 'FILTER_COUNT', filterField: 'source', filterValue: 'WhatsApp Inbound', bg: 'rgba(5, 150, 105, 0.1)', color: '#059669', icon: '💬', enabled: true, order: 2 },
+    { id: 'new_leads', label: 'NEW LEADS', metricType: 'STAGE_COUNT', stageName: 'New Lead', bg: 'rgba(217, 119, 6, 0.1)', color: '#d97706', icon: '🎯', enabled: true, order: 3 }
   ],
   
   defaultColumns: [

@@ -155,9 +155,13 @@ class MasterModuleRegistry {
       fields = mergedFields;
     }
 
-    const summaryWidgets = storedConfig.summaryWidgets && storedConfig.summaryWidgets.length > 0
+    let summaryWidgets = storedConfig.summaryWidgets && storedConfig.summaryWidgets.length > 0
       ? storedConfig.summaryWidgets
-      : manifest.defaultSummaryWidgets;
+      : (manifest.defaultSummaryWidgets || manifest.summaryWidgets || []);
+
+    if (moduleId === 'contacts' && Array.isArray(summaryWidgets)) {
+      summaryWidgets = summaryWidgets.filter(w => w && w.id !== 'ghl_synced');
+    }
 
     // Auto-sync columns to guarantee 1:1 match with fields
     const rawCols = (storedConfig.columns && storedConfig.columns.length > 0)
