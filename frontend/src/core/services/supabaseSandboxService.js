@@ -813,16 +813,24 @@ export const SupabaseSandboxService = {
   async saveGhlIntegration(tenantId, locRecord) {
     try {
       const numTenant = Number(tenantId) || 1;
+      const rawAccess = (locRecord.accessToken || locRecord.access_token || '').trim();
+      const rawRefresh = (locRecord.refreshToken || locRecord.refresh_token || rawAccess || 'direct_key').trim();
       const payload = {
         tenant_id: numTenant,
         location_id: locRecord.locationId || locRecord.location_id,
         user_id: locRecord.userId || locRecord.user_id || null,
-        access_token: locRecord.accessToken || locRecord.access_token,
-        refresh_token: locRecord.refreshToken || locRecord.refresh_token || null,
+        access_token: rawAccess,
+        refresh_token: rawRefresh,
         token_type: locRecord.tokenType || 'Bearer',
         expires_in: locRecord.expiresIn || 86400,
-        scope: locRecord.scope || '',
+        expires_at: locRecord.expiresAt || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        scope: locRecord.scope || 'contacts,conversations,opportunities,workflows,locations',
         user_type: locRecord.userType || 'Location',
+        is_active: 1,
+        sync_contacts: 1,
+        sync_conversations: 1,
+        sync_calls: 1,
+        sync_opportunities: 1,
         updated_at: new Date().toISOString()
       };
 
@@ -831,9 +839,14 @@ export const SupabaseSandboxService = {
         headers: { ...getHeaders(), 'Prefer': 'resolution=merge-duplicates,return=representation' },
         body: JSON.stringify(payload)
       });
-      return res.ok;
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        console.error('[Supabase] saveGhlIntegration HTTP error:', res.status, errText);
+        return false;
+      }
+      return true;
     } catch (err) {
-      console.error('[Supabase Sandbox] saveGhlIntegration error:', err);
+      console.error('[Supabase] saveGhlIntegration error:', err);
       return false;
     }
   },
@@ -841,27 +854,29 @@ export const SupabaseSandboxService = {
   async getGhlIntegrations(tenantId) {
     try {
       const numTenant = Number(tenantId) || 1;
-      const res = await fetch(`${SUPABASE_URL}/ghl_integrations?tenant_id=eq.${numTenant}`, {
+      const res = await fetch(`${SUPABASE_URL}/ghl_integrations?tenant_id=eq.${numTenant}&order=id.desc`, {
         headers: getHeaders()
       });
       if (!res.ok) return [];
       const data = await res.json();
       return (Array.isArray(data) ? data : []).map(r => ({
+        id: r.id,
         companyId: r.tenant_id,
         tenantId: r.tenant_id,
         locationId: r.location_id,
         userId: r.user_id,
         accessToken: r.access_token,
         refreshToken: r.refresh_token,
-        tokenType: r.token_type,
-        expiresIn: r.expires_in,
-        scope: r.scope,
-        userType: r.user_type,
-        installedAt: r.installed_at,
-        updatedAt: r.updated_at
+        tokenType: r.token_type || 'Bearer',
+        expiresIn: r.expires_in || 86400,
+        scope: r.scope || 'contacts,conversations,opportunities,workflows,locations',
+        userType: r.user_type || 'Location',
+        installedAt: r.created_at || r.updated_at,
+        updatedAt: r.updated_at,
+        status: r.access_token ? 'connected' : 'reauth_required'
       }));
     } catch (err) {
-      console.error('[Supabase Sandbox] getGhlIntegrations error:', err);
+      console.error('[Supabase] getGhlIntegrations error:', err);
       return [];
     }
   },
