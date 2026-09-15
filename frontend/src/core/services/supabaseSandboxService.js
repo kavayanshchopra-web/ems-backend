@@ -18,9 +18,8 @@ const getHeaders = () => ({
 });
 
 export const isSandboxEnvironment = () => {
-  if (typeof window === 'undefined') return false;
-  const host = window.location.hostname;
-  return host.includes('sandbox') || host.includes('vercel.app') || window.location.search.includes('sandbox=true');
+  // Universal Pure PostgreSQL Supabase Mode across all domains (app.employeemanagementsystems.com, sandbox, etc.)
+  return true;
 };
 
 export const SupabaseSandboxService = {

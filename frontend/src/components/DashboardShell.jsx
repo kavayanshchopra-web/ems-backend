@@ -4419,24 +4419,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setEmployeesError(null);
     try {
       const rawT = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || authUser?.tenantId || authUser?.companyId || authUser?.tenant_id;
-      const currentTenantId = (rawT && rawT !== 'org_unassigned' && rawT !== 'default_tenant') ? Number(rawT) : null;
-      if (!currentTenantId) {
-        setEmployees([]);
-        return;
-      }
-      if (isSandboxEnvironment()) {
-        const sandboxEmps = await SupabaseSandboxService.fetchEmployees(currentTenantId);
-        setEmployees(sandboxEmps);
-        try { TenantStorage.setItem('employees', sandboxEmps, currentTenantId); } catch (e) {}
-        return;
-      }
-      const cloudRecords = await FirebaseCloudEngine.fetchRecords('employees', currentTenantId);
-      if (Array.isArray(cloudRecords)) {
-        const cleaned = cloudRecords.filter(e => !isDummyRecord(e));
-        setEmployees(cleaned);
-      } else {
-        setEmployees([]);
-      }
+      const numT = Number(rawT);
+      const currentTenantId = (!isNaN(numT) && numT > 0) ? numT : 1;
+
+      const sandboxEmps = await SupabaseSandboxService.fetchEmployees(currentTenantId);
+      setEmployees(sandboxEmps);
+      try { TenantStorage.setItem('employees', sandboxEmps, currentTenantId); } catch (e) {}
+      return;
     } catch (fbErr) {
       console.warn('Employees query error:', fbErr.message);
       setEmployees([]);
@@ -4449,9 +4438,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setIsEmployeesLoading(true);
     const isEdit = !!newEmployeeForm.id;
     const rawT = effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || effectiveAuthUser?.tenant_id || authUser?.tenantId || authUser?.companyId || authUser?.tenant_id;
-    const currentTenantId = (rawT && rawT !== 'org_unassigned' && rawT !== 'default_tenant') ? Number(rawT) : null;
-    if (!currentTenantId) return;
-    const activeTenantId = FirebaseCloudEngine.getTenantId(currentTenantId);
+    const numT = Number(rawT);
+    const currentTenantId = (!isNaN(numT) && numT > 0) ? numT : 1;
+    const activeTenantId = currentTenantId;
 
     const cleanEmpEmail = (newEmployeeForm.email || '').toLowerCase().trim();
     const cleanPhoneDigits = (newEmployeeForm.phone || '').replace(/\D/g, '');
