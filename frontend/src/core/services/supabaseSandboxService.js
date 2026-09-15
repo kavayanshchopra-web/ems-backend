@@ -5,12 +5,27 @@
  * 100% Isolated from Live Production
  */
 
-const SUPABASE_URL = 'https://mucgmzldgvtblmsurtgo.supabase.co/rest/v1';
-const SUPABASE_STORAGE_URL = 'https://mucgmzldgvtblmsurtgo.supabase.co/storage/v1';
-const SUPABASE_KEY = 'sb_publishable_xRGskG_bEbCJebUMT_XPHA_vjwf1Lr1';
-const STORAGE_BUCKET = 'omniflow-vault';
+const isSandboxDomain = typeof window !== 'undefined' && (
+  window.location.hostname.includes('sandbox') ||
+  window.location.hostname.includes('staging') ||
+  (localStorage.getItem('ems_db_env') === 'sandbox')
+);
 
-const getHeaders = () => ({
+export const SUPABASE_URL = isSandboxDomain
+  ? 'https://mucgmzldgvtblmsurtgo.supabase.co/rest/v1'
+  : 'https://pdjaajbhrvglwukoacuh.supabase.co/rest/v1';
+
+export const SUPABASE_STORAGE_URL = isSandboxDomain
+  ? 'https://mucgmzldgvtblmsurtgo.supabase.co/storage/v1'
+  : 'https://pdjaajbhrvglwukoacuh.supabase.co/storage/v1';
+
+export const SUPABASE_KEY = isSandboxDomain
+  ? 'sb_publishable_xRGskG_bEbCJebUMT_XPHA_vjwf1Lr1'
+  : 'sb_publishable_q8SBMvAwczXP0yfDfIMZsQ_ahP5YYq3';
+
+export const STORAGE_BUCKET = 'omniflow-vault';
+
+export const getHeaders = () => ({
   'apikey': SUPABASE_KEY,
   'Authorization': `Bearer ${SUPABASE_KEY}`,
   'Content-Type': 'application/json',

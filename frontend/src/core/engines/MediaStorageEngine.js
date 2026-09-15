@@ -7,7 +7,7 @@ import { doc, getDoc, setDoc, updateDoc, collection, addDoc, getDocs, deleteDoc 
 import StorageQuotaEngine from './StorageQuotaEngine.js';
 import IndexedDBStorage from './IndexedDBStorage.js';
 import SmartMediaCompressor from './SmartMediaCompressor.js';
-import SupabaseSandboxService, { isSandboxEnvironment } from '../services/supabaseSandboxService.js';
+import SupabaseSandboxService, { isSandboxEnvironment, SUPABASE_URL, getHeaders } from '../services/supabaseSandboxService.js';
 
 const DISALLOWED_EXTENSIONS = ['.exe', '.bat', '.sh', '.php', '.js', '.vbs', '.cmd', '.msi', '.jar'];
 
@@ -278,13 +278,9 @@ export class MediaStorageEngine {
         custom_fields: { ...metadata, isExternal: true }
       };
 
-      await fetch(`https://mucgmzldgvtblmsurtgo.supabase.co/rest/v1/media_vault`, {
+      await fetch(`${SUPABASE_URL}/media_vault`, {
         method: 'POST',
-        headers: {
-          'apikey': 'sb_publishable_xRGskG_bEbCJebUMT_XPHA_vjwf1Lr1',
-          'Authorization': `Bearer sb_publishable_xRGskG_bEbCJebUMT_XPHA_vjwf1Lr1`,
-          'Content-Type': 'application/json'
-        },
+        headers: getHeaders(),
         body: JSON.stringify(mediaRecord)
       }).catch(() => {});
 
