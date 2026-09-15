@@ -248,76 +248,38 @@ export default function ContactsPage({
   useEffect(() => {
     let unsubs = [];
 
-    // A0. Direct Supabase Sandbox Fetch
-    if (isSandboxEnvironment()) {
-      const resolvedTenant = authUser?.tenantId || authUser?.tenant_id || authUser?.companyId || companyId;
-      const safeTenant = (resolvedTenant && resolvedTenant !== 'org_unassigned' && resolvedTenant !== 'default_tenant') ? Number(resolvedTenant) : null;
-      
-      const fetchSandboxContacts = () => {
-        if (!safeTenant) {
-          setInternalRecords([]);
-          return;
-        }
-        SupabaseSandboxService.fetchContacts(safeTenant)
-          .then(sbContacts => {
-            const tenantMatches = (sbContacts || []).filter(r => {
-              const itemTenant = String(r.tenant_id ?? r.tenantId ?? '');
-              return itemTenant && itemTenant === String(safeTenant);
-            });
-            TenantStorage.setItem('contacts', tenantMatches, safeTenant);
-            const scoped = tenantMatches.filter(isContactVisibleToUser);
-            setInternalRecords(processAndMergeRecords([], scoped));
-          })
-          .catch(e => console.warn('[ContactsPage] Sandbox fetch notice:', e));
-      };
-
-      fetchSandboxContacts();
-
-      // Auto-refresh when tab gains focus or live inbound contact received
-      const handleFocus = () => fetchSandboxContacts();
-      window.addEventListener('focus', handleFocus);
-      window.addEventListener('ghl_inbound_contact_received', handleFocus);
-      unsubs.push(() => {
-        window.removeEventListener('focus', handleFocus);
-        window.removeEventListener('ghl_inbound_contact_received', handleFocus);
-      });
-    }
-
-    // A. Listen exclusively to Firestore 'contacts' collection for this tenant
-    try {
-      if (!isSandboxEnvironment() && db && companyId && companyId !== 'org_unassigned') {
-        const qContacts = query(collection(db, 'contacts'), where('tenantId', '==', String(companyId)));
-        const unsub1 = onSnapshot(qContacts, (snapshot) => {
-          const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-          setInternalRecords(prev => processAndMergeRecords(prev, docs));
-          TenantStorage.setItem('contacts', docs, companyId);
-        }, (err) => console.warn('[ContactsPage] Firestore contacts listener notice:', err));
-        unsubs.push(unsub1);
+    // A0. Universal Direct Supabase PostgreSQL Fetch (Zero Firebase / Zero SQLite)
+    const resolvedTenant = authUser?.tenantId || authUser?.tenant_id || authUser?.companyId || companyId;
+    const safeTenant = (resolvedTenant && resolvedTenant !== 'org_unassigned' && resolvedTenant !== 'default_tenant') ? Number(resolvedTenant) : 1;
+    
+    const fetchUniversalContacts = () => {
+      if (!safeTenant) {
+        setInternalRecords([]);
+        return;
       }
-    } catch (e) {
-      console.warn('[ContactsPage] Firestore setup error:', e);
-    }
-
-    // B. Fetch Contacts from SQLite API & Merge Deterministically (Production only)
-    if (!isSandboxEnvironment()) {
-      fetch(`${API_URL}/contacts`, {
-        headers: {
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-          'x-tenant-id': String(companyId)
-        }
-      })
-        .then(res => res.json())
-        .then(data => {
-          const incoming = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
-          const strictlyTenant = incoming.filter(r => {
+      SupabaseSandboxService.fetchContacts(safeTenant)
+        .then(sbContacts => {
+          const tenantMatches = (sbContacts || []).filter(r => {
             const itemTenant = String(r.tenant_id ?? r.tenantId ?? '');
-            return itemTenant && itemTenant === String(companyId);
+            return itemTenant && itemTenant === String(safeTenant);
           });
-          setInternalRecords(processAndMergeRecords([], strictlyTenant));
-          TenantStorage.setItem('contacts', strictlyTenant, companyId);
+          TenantStorage.setItem('contacts', tenantMatches, safeTenant);
+          const scoped = tenantMatches.filter(isContactVisibleToUser);
+          setInternalRecords(processAndMergeRecords([], scoped));
         })
-        .catch(() => {});
-    }
+        .catch(e => console.warn('[ContactsPage] Supabase fetch notice:', e));
+    };
+
+    fetchUniversalContacts();
+
+    // Auto-refresh when tab gains focus or live inbound contact received
+    const handleFocus = () => fetchUniversalContacts();
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('ghl_inbound_contact_received', handleFocus);
+    unsubs.push(() => {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('ghl_inbound_contact_received', handleFocus);
+    });
 
     // C. Check GHL Integration Status strictly for this company
     const checkGhlStatus = async () => {

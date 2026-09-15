@@ -79,27 +79,8 @@ let auth = null;
 let db = null;
 let storage = null;
 
-export function isSandboxHost() {
-  if (typeof window !== 'undefined') {
-    const host = (window.location.hostname || '').toLowerCase();
-    return host.includes('sandbox') || host.includes('vercel.app') || window.location.search.includes('sandbox=true');
-  }
-  return false;
-}
-
-if (!isSandboxHost()) {
-  try {
-    app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-    auth = getAuth(app);
-    db = getFirestore(app);
-    storage = getStorage(app);
-    console.log(`☁️ Connected to Firebase Project: [${firebaseConfig.projectId}]`);
-  } catch (e) {
-    console.error('Firebase Cloud setup error:', e);
-  }
-} else {
-  console.log('⚡ Sandbox Environment Active: Firebase completely disabled (Pure PostgreSQL mode)');
-}
+// Complete Firebase Disconnection (Pure PostgreSQL Supabase Mode Everywhere)
+console.log('⚡ Firebase completely unlinked & disabled: Pure PostgreSQL Supabase mode active everywhere');
 
 export {
   app,

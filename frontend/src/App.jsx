@@ -258,311 +258,67 @@ export default function App() {
 
     const cleanEmail = (email || '').toLowerCase().trim();
 
-    // 1. Direct Supabase PostgreSQL Auth for Sandbox (Pure SQL + JWT, Zero Firebase)
-    if (isSandboxEnvironment()) {
-      try {
-        const sbRes = await SupabaseSandboxService.loginWithEmailPassword(cleanEmail, password);
-        if (sbRes && sbRes.success && sbRes.user) {
-          const user = sbRes.user;
-          const token = sbRes.token || 'jwt_sandbox_token';
-          const isMasterSuperAdmin = (user.role === 'superadmin');
-
-          const userData = {
-            id: user.id,
-            email: user.email,
-            name: user.name || (user.email.split('@')[0]),
-            role: isMasterSuperAdmin ? 'superadmin' : (user.role || 'owner'),
-            companyName: isMasterSuperAdmin ? '#TEN-0001-KAVAYANSH-CHOPRA' : (user.company_name || `Tenant #${user.tenant_id}`),
-            tenantId: isMasterSuperAdmin ? 1 : Number(user.tenant_id),
-            companyId: isMasterSuperAdmin ? 1 : Number(user.tenant_id),
-            tenant_id: isMasterSuperAdmin ? 1 : Number(user.tenant_id),
-            employeeId: String(user.id)
-          };
-
-          try {
-            FirebaseCloudEngine.purgeAllLocalCaches();
-          } catch (e) {}
-
-          localStorage.setItem('omnilflow_token', token);
-          localStorage.setItem('omnilflow_user', JSON.stringify(userData));
-          localStorage.setItem('omnilflow_current_company', String(userData.tenantId));
-
-          try {
-            const bridge = window.AndroidApp || window.OmniFlowNative;
-            if (bridge && typeof bridge.syncUserProfile === 'function') {
-              bridge.syncUserProfile(JSON.stringify({
-                tenantId: userData.tenantId,
-                employeeId: userData.id,
-                name: userData.name,
-                email: userData.email,
-                role: userData.role,
-                department: ''
-              }));
-            }
-          } catch (e) {}
-
-          setAuthUser(userData);
-          if (typeof window !== 'undefined') window.__omniflow_tenant = String(userData.tenantId);
-          setActiveTab(userData.role === 'superadmin' ? 'superadmin_plans' : 'inbox');
-          showToast('⚡ Signed in successfully via PostgreSQL!', 'success');
-          setAuthLoading(false);
-          return;
-        } else {
-          setAuthLoading(false);
-          setAuthError(sbRes?.error || 'Invalid email or password');
-          showToast(sbRes?.error || 'Invalid email or password', 'error');
-          return;
-        }
-      } catch (err) {
-        setAuthLoading(false);
-        setAuthError(err.message || 'Login failed');
-        showToast(err.message || 'Login failed', 'error');
-        return;
-      }
-    }
-
-    // 2. Production Firebase Authentication
+    // Universal Supabase PostgreSQL Auth (Pure SQL + JWT, Zero Firebase Everywhere)
     try {
-      let fbUser = null;
-      let usedDirectProfile = null;
+      const sbRes = await SupabaseSandboxService.loginWithEmailPassword(cleanEmail, password);
+      if (sbRes && sbRes.success && sbRes.user) {
+        const user = sbRes.user;
+        const token = sbRes.token || 'jwt_auth_token';
+        const isMasterSuperAdmin = (user.role === 'superadmin' || cleanEmail === 'kavayanshchopra@gmail.com');
 
-      // 2.1. Direct Supabase Sandbox Employee & User Authentication
-      try {
-        const sbAuth = await SupabaseSandboxService.authenticateUser(cleanEmail, password);
-        if (sbAuth) {
-          usedDirectProfile = sbAuth;
-        }
-      } catch (sbErr) {
-        console.warn('[Sandbox Auth] Supabase check notice:', sbErr);
-      }
-
-      if (auth && !usedDirectProfile) {
-        try {
-          const userCred = await signInWithEmailAndPassword(auth, cleanEmail, password);
-          fbUser = userCred.user;
-        } catch (signInErr) {
-          console.warn('Firebase direct signIn note:', signInErr.code, signInErr.message);
-
-          // Check if this is a company employee in Firestore
-          if (db && (signInErr.code === 'auth/user-not-found' || signInErr.code === 'auth/invalid-credential')) {
-            try {
-              let foundProfile = null;
-              // Check user_profiles
-              const qProf = query(collection(db, 'user_profiles'), where('email', '==', cleanEmail));
-              const snapProf = await getDocs(qProf);
-              if (!snapProf.empty) {
-                foundProfile = snapProf.docs[0].data();
-              } else {
-                // Check users collection
-                const qUsers = query(collection(db, 'users'), where('email', '==', cleanEmail));
-                const snapUsers = await getDocs(qUsers);
-                if (!snapUsers.empty) {
-                  foundProfile = snapUsers.docs[0].data();
-                } else {
-                  // Check employees collection
-                  const qEmps = query(collection(db, 'employees'), where('email', '==', cleanEmail));
-                  const snapEmps = await getDocs(qEmps);
-                  if (!snapEmps.empty) {
-                    foundProfile = snapEmps.docs[0].data();
-                  }
-                }
-              }
-
-              if (foundProfile) {
-                usedDirectProfile = foundProfile;
-                // Auto-create in Firebase Auth so future logins work with native Auth
-                try {
-                  const newCred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
-                  fbUser = newCred.user;
-                } catch (createErr) {
-                  console.warn('Employee auto-create in Firebase Auth note:', createErr.message);
-                }
-              }
-            } catch (queryErr) {
-              console.warn('Firestore employee lookup error:', queryErr.message);
-            }
-          }
-
-          // Check local registry fallback
-          if (!fbUser && !usedDirectProfile) {
-            try {
-              const regUsers = JSON.parse(localStorage.getItem('omniflow_registered_users') || '[]');
-              const matched = regUsers.find(u => u && u.email && u.email.toLowerCase() === cleanEmail && u.password === password);
-              if (matched) {
-                usedDirectProfile = matched;
-              }
-            } catch (e) {}
-          }
-
-          // Check Backend API login fallback
-          if (!fbUser && !usedDirectProfile) {
-            try {
-              const res = await fetch(`${API_URL}/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: cleanEmail, password })
-              });
-              if (res.ok) {
-                const apiData = await res.json();
-                if (apiData?.user) {
-                  usedDirectProfile = {
-                    ...apiData.user,
-                    tenantId: apiData.user.tenantId || apiData.user.tenant_id,
-                    companyName: apiData.tenant?.company_name || 'My Workspace'
-                  };
-                }
-              }
-            } catch (apiErr) {}
-          }
-
-          if (!fbUser && !usedDirectProfile) {
-            throw signInErr;
-          }
-        }
-      }
-
-      if (fbUser || usedDirectProfile) {
-        let tenantId = usedDirectProfile?.tenantId || usedDirectProfile?.companyId || (fbUser ? `org_${fbUser.uid.slice(0, 10)}` : 'org_default');
-        let storedRole = usedDirectProfile?.role || (cleanEmail === 'admin@omniflow.com' || cleanEmail === 'kavayanshchopra@gmail.com' || cleanEmail === 'kavyanshchopra@gmail.com' || cleanEmail === 'superadmin@omniflow.com' ? 'superadmin' : 'owner');
-        let storedCompanyName = usedDirectProfile?.companyName || 'My Workspace';
-        let storedName = usedDirectProfile?.name || (usedDirectProfile?.first_name ? `${usedDirectProfile.first_name} ${usedDirectProfile.last_name || ''}`.trim() : (cleanEmail.split('@')[0]));
-
-        const isMasterSuperAdmin = (
-          cleanEmail === 'admin@omniflow.com' ||
-          cleanEmail === 'superadmin@omniflow.com' ||
-          cleanEmail === 'kavyanshchopra@gmail.com' ||
-          cleanEmail === 'kavayanshchopra@gmail.com' ||
-          storedRole === 'superadmin'
-        );
-
-        if (isMasterSuperAdmin) {
-          storedRole = 'superadmin';
-          storedCompanyName = isSandboxEnvironment() ? '#TEN-0001-KAVYANSH-CHOPRA' : 'Master Control HQ';
-        }
-
-        // Check if organization profile exists in Firestore if we have fbUser
-        if (db && fbUser && !usedDirectProfile) {
-          try {
-            const orgDoc = await getDoc(doc(db, 'user_profiles', fbUser.uid));
-            if (orgDoc.exists()) {
-              const data = orgDoc.data();
-              if (data.tenantId) tenantId = data.tenantId;
-              if (data.role && !isMasterSuperAdmin) storedRole = data.role;
-              if (data.companyName && !isMasterSuperAdmin) storedCompanyName = data.companyName;
-              if (data.name) storedName = data.name;
-            }
-          } catch (e) {}
-        }
-
-        // Ensure numeric Supabase Tenant ID for Sandbox
-        let numericTenantId = isMasterSuperAdmin ? 1 : Number(tenantId);
-        if (isSandboxEnvironment() && !isMasterSuperAdmin) {
-          // Check if this user exists in Supabase users table!
-          const allUsers = await SupabaseSandboxService.fetchUsers();
-          const matchUser = (allUsers || []).find(u => u.email && u.email.toLowerCase().trim() === cleanEmail);
-          if (!matchUser) {
-            if (auth) await signOut(auth).catch(() => {});
-            throw new Error('Access Denied: Account not registered in Sandbox. Only registered Sandbox accounts or Super Admin are allowed.');
-          }
-
-          numericTenantId = Number(matchUser.tenant_id);
-          // Guard: Verify tenant actually exists in Supabase
-          if (numericTenantId && numericTenantId > 0) {
-            const exists = await SupabaseSandboxService.checkTenantExists(numericTenantId);
-            if (!exists) {
-              if (auth) await signOut(auth).catch(() => {});
-              throw new Error('Your company account or tenant has been deleted. Please contact your system administrator.');
-            }
-          } else {
-            if (auth) await signOut(auth).catch(() => {});
-            throw new Error('Company tenant not found. Please contact support.');
-          }
-        }
-
-        const ghlCtx = getGhlContext();
-        const finalTenantId = isMasterSuperAdmin ? 1 : (numericTenantId || 1);
         const userData = {
-          id: fbUser?.uid || usedDirectProfile?.id || usedDirectProfile?.uid || `user_${Date.now()}`,
-          email: cleanEmail,
-          name: storedName,
-          role: storedRole,
-          companyName: storedCompanyName,
-          tenantId: finalTenantId,
-          companyId: finalTenantId,
-          tenant_id: finalTenantId,
-          tenantSlug: tenantId,
-          employeeId: usedDirectProfile?.employeeId || usedDirectProfile?.id || fbUser?.uid || '',
-          department: usedDirectProfile?.department || '',
-          locationId: ghlCtx.locationId || usedDirectProfile?.locationId || null
+          id: user.id,
+          email: user.email,
+          name: user.name || (user.email.split('@')[0]),
+          role: isMasterSuperAdmin ? 'superadmin' : (user.role || 'owner'),
+          companyName: isMasterSuperAdmin ? 'OmniFlow HQ' : (user.company_name || `Tenant #${user.tenant_id}`),
+          tenantId: isMasterSuperAdmin ? 1 : Number(user.tenant_id),
+          companyId: isMasterSuperAdmin ? 1 : Number(user.tenant_id),
+          tenant_id: isMasterSuperAdmin ? 1 : Number(user.tenant_id),
+          tenantSlug: user.tenant_slug || (isMasterSuperAdmin ? 'TEN-0001-KAVAYANSH-CHOPRA' : `TEN-${user.tenant_id}`),
+          employeeId: String(user.id)
         };
 
-        FirebaseCloudEngine.purgeAllLocalCaches();
-        const userToken = fbUser?.accessToken || 'firebase_token';
-        localStorage.setItem('omnilflow_token', userToken);
+        try {
+          FirebaseCloudEngine.purgeAllLocalCaches();
+        } catch (e) {}
+
+        localStorage.setItem('omnilflow_token', token);
+        localStorage.setItem('token', token);
         localStorage.setItem('omnilflow_user', JSON.stringify(userData));
-        localStorage.setItem('omnilflow_current_company', finalTenantId);
-
-        // If inside an iframe / GHL sub-account, save iframe-specific session & bind to sub-account
-        if (ghlCtx.isEmbedded) {
-          sessionStorage.setItem('omnilflow_iframe_user', JSON.stringify(userData));
-          sessionStorage.setItem('omnilflow_iframe_token', userToken);
-        }
-
-        if (ghlCtx.locationId) {
-          localStorage.setItem(`omnilflow_user_ghl_${ghlCtx.locationId}`, JSON.stringify(userData));
-          localStorage.setItem(`omnilflow_token_ghl_${ghlCtx.locationId}`, userToken);
-
-          if (db) {
-            try {
-              await setDoc(doc(db, 'companies', finalTenantId), {
-                ghl_location_id: ghlCtx.locationId,
-                updatedAt: new Date().toISOString()
-              }, { merge: true });
-              await setDoc(doc(db, 'user_profiles', userData.id), {
-                locationId: ghlCtx.locationId,
-                updatedAt: new Date().toISOString()
-              }, { merge: true });
-            } catch (e) {}
-          }
-
-          // Also notify backend to link location
-          fetch(`${API_URL}/v1/integrations/ghl/link-location`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Tenant-Id': String(finalTenantId) },
-            body: JSON.stringify({ companyId: finalTenantId, locationId: ghlCtx.locationId })
-          }).catch(() => {});
-        }
+        localStorage.setItem('omnilflow_current_company', String(userData.tenantId));
 
         try {
           const bridge = window.AndroidApp || window.OmniFlowNative;
           if (bridge && typeof bridge.syncUserProfile === 'function') {
             bridge.syncUserProfile(JSON.stringify({
-              tenantId: userData.tenantId || userData.companyId || 1,
-              employeeId: userData.employeeId || userData.id || '',
-              name: userData.name || '',
-              email: userData.email || '',
-              role: userData.role || 'employee',
-              department: userData.department || ''
+              tenantId: userData.tenantId,
+              employeeId: userData.id,
+              name: userData.name,
+              email: userData.email,
+              role: userData.role,
+              department: ''
             }));
           }
         } catch (e) {}
+
         setAuthUser(userData);
-        if (typeof window !== 'undefined') window.__omniflow_tenant = finalTenantId;
-        showToast('Signed in successfully!', 'success');
+        if (typeof window !== 'undefined') window.__omniflow_tenant = String(userData.tenantId);
+        setActiveTab(userData.role === 'superadmin' ? 'superadmin_plans' : 'contacts');
+        showToast('⚡ Signed in successfully via PostgreSQL!', 'success');
         setAuthLoading(false);
         return;
+      } else {
+        setAuthLoading(false);
+        setAuthError(sbRes?.error || 'Invalid email or password');
+        showToast(sbRes?.error || 'Invalid email or password', 'error');
+        return;
       }
-    } catch (fbErr) {
-      console.error('Firebase login error:', fbErr);
-      let errMsg = fbErr.message || 'Login failed';
-      if (fbErr.code === 'auth/user-not-found' || fbErr.code === 'auth/invalid-credential' || fbErr.code === 'auth/wrong-password') {
-        errMsg = 'Invalid email or password. Please check your credentials.';
-      } else if (fbErr.code === 'auth/too-many-requests') {
-        errMsg = 'Too many failed login attempts. Please try again later or reset password.';
-      }
-      setAuthError(errMsg);
-    } finally {
+    } catch (err) {
       setAuthLoading(false);
+      setAuthError(err.message || 'Login failed');
+      showToast(err.message || 'Login failed', 'error');
+      return;
     }
   };
 
