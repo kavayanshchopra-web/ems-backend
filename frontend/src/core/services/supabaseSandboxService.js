@@ -607,7 +607,7 @@ export const SupabaseSandboxService = {
     }
   },
 
-  async createTenant({ companyName, adminEmail, adminName, planId = 'starter' }) {
+  async createTenant({ companyName, adminEmail, adminName, adminPassword, planId = 'starter' }) {
     try {
       const res = await fetch(`${SUPABASE_URL}/tenants`, {
         method: 'POST',
@@ -630,7 +630,7 @@ export const SupabaseSandboxService = {
           body: JSON.stringify({
             tenant_id: tenant.id,
             email: (adminEmail || '').trim().toLowerCase(),
-            password_hash: 'sandbox_hash',
+            password_hash: adminPassword ? String(adminPassword).trim() : 'admin123',
             role: 'owner',
             full_name: adminName || companyName
           })
@@ -701,13 +701,167 @@ export const SupabaseSandboxService = {
 
   async deleteTenant(id) {
     try {
-      const res = await fetch(`${SUPABASE_URL}/tenants?id=eq.${id}`, {
+      const numericId = Number(id);
+      if (isNaN(numericId) || numericId <= 0) return false;
+
+      // 1. Explicitly cascade delete from all primary client-side tables
+      const childTables = [
+        'contacts', 'call_logs', 'employees', 'tasks', 'shifts', 
+        'attendance_logs', 'invoices', 'custom_pages', 'advances_loans', 
+        'app_records', 'asset_management', 'audit_logs', 'chatbot_rules', 
+        'expenses', 'feedback', 'ff_settlements', 'holidays', 'leaves', 
+        'messages', 'module_configs', 'notices', 'offboarding', 'payroll', 
+        'recruitment_ats', 'recycle_bin', 'rewards', 'roles_permissions', 
+        'scheduled_messages', 'system_dropdowns', 'taxes_compliance', 
+        'tenant_settings', 'verify_documents', 'webhook_logs', 'whatsapp_sessions'
+      ];
+
+      await Promise.allSettled(
+        childTables.map(tbl =>
+          fetch(`${SUPABASE_URL}/${tbl}?tenant_id=eq.${numericId}`, {
+            method: 'DELETE',
+            headers: getHeaders()
+          })
+        )
+      );
+
+      // media_vault uses text tenant_id
+      await fetch(`${SUPABASE_URL}/media_vault?tenant_id=eq.${numericId}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      }).catch(() => {});
+
+      // delete users belonging to tenant (except superadmins)
+      await fetch(`${SUPABASE_URL}/users?tenant_id=eq.${numericId}&role=neq.superadmin`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      }).catch(() => {});
+
+      // 2. Delete tenant from tenants table (also triggers PostgreSQL trigger_cascade_delete_tenant)
+      const res = await fetch(`${SUPABASE_URL}/tenants?id=eq.${numericId}`, {
         method: 'DELETE',
         headers: getHeaders()
       });
       return res.ok;
     } catch (err) {
       console.error('[Supabase Sandbox] deleteTenant error:', err);
+      return false;
+    }
+  },
+
+  async checkTenantExists(id) {
+    try {
+      const numericId = Number(id);
+      if (isNaN(numericId) || numericId <= 0) return false;
+      const res = await fetch(`${SUPABASE_URL}/tenants?id=eq.${numericId}&select=id`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      return Array.isArray(data) && data.length > 0;
+    } catch (err) {
+      console.error('[Supabase Sandbox] checkTenantExists error:', err);
+      return false;
+    }
+  },
+
+  /**
+   * Pure PostgreSQL Direct Authentication (Zero Firebase)
+   */
+  async loginWithEmailPassword(email, password) {
+    try {
+      const cleanEmail = (email || '').toLowerCase().trim();
+      const res = await fetch(`${SUPABASE_URL}/rpc/authenticate_user`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          p_email: cleanEmail,
+          p_password: password
+        })
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Authentication server error: ${errText}`);
+      }
+
+      const data = await res.json();
+      return data;
+    } catch (err) {
+      console.error('[Supabase Sandbox] Direct PostgreSQL Auth Error:', err);
+      return { success: false, error: err.message || 'Login failed' };
+    }
+  },
+
+  /**
+   * Direct PostgreSQL GHL Integrations Hub (Zero Firestore)
+   */
+  async saveGhlIntegration(tenantId, locRecord) {
+    try {
+      const numTenant = Number(tenantId) || 1;
+      const payload = {
+        tenant_id: numTenant,
+        location_id: locRecord.locationId || locRecord.location_id,
+        user_id: locRecord.userId || locRecord.user_id || null,
+        access_token: locRecord.accessToken || locRecord.access_token,
+        refresh_token: locRecord.refreshToken || locRecord.refresh_token || null,
+        token_type: locRecord.tokenType || 'Bearer',
+        expires_in: locRecord.expiresIn || 86400,
+        scope: locRecord.scope || '',
+        user_type: locRecord.userType || 'Location',
+        updated_at: new Date().toISOString()
+      };
+
+      const res = await fetch(`${SUPABASE_URL}/ghl_integrations`, {
+        method: 'POST',
+        headers: { ...getHeaders(), 'Prefer': 'resolution=merge-duplicates,return=representation' },
+        body: JSON.stringify(payload)
+      });
+      return res.ok;
+    } catch (err) {
+      console.error('[Supabase Sandbox] saveGhlIntegration error:', err);
+      return false;
+    }
+  },
+
+  async getGhlIntegrations(tenantId) {
+    try {
+      const numTenant = Number(tenantId) || 1;
+      const res = await fetch(`${SUPABASE_URL}/ghl_integrations?tenant_id=eq.${numTenant}`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []).map(r => ({
+        companyId: r.tenant_id,
+        tenantId: r.tenant_id,
+        locationId: r.location_id,
+        userId: r.user_id,
+        accessToken: r.access_token,
+        refreshToken: r.refresh_token,
+        tokenType: r.token_type,
+        expiresIn: r.expires_in,
+        scope: r.scope,
+        userType: r.user_type,
+        installedAt: r.installed_at,
+        updatedAt: r.updated_at
+      }));
+    } catch (err) {
+      console.error('[Supabase Sandbox] getGhlIntegrations error:', err);
+      return [];
+    }
+  },
+
+  async deleteGhlIntegration(tenantId, locationId) {
+    try {
+      const numTenant = Number(tenantId) || 1;
+      const res = await fetch(`${SUPABASE_URL}/ghl_integrations?tenant_id=eq.${numTenant}&location_id=eq.${encodeURIComponent(locationId)}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      return res.ok;
+    } catch (err) {
+      console.error('[Supabase Sandbox] deleteGhlIntegration error:', err);
       return false;
     }
   },
@@ -1844,6 +1998,90 @@ export const SupabaseSandboxService = {
       return true;
     } catch (err) {
       console.warn('[Supabase Storage] deleteMediaVaultItem error:', err);
+      return false;
+    }
+  },
+
+  // 13. AUTHENTICATION & DIRECT POSTGRESQL LOGIN
+  async loginWithEmailPassword(email, password) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rpc/authenticate_user`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          p_email: (email || '').toLowerCase().trim(),
+          p_password: String(password || '').trim()
+        })
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        return { success: false, error: text || 'Authentication failed' };
+      }
+      const data = await res.json();
+      return data;
+    } catch (err) {
+      console.error('[Supabase Sandbox] loginWithEmailPassword error:', err);
+      return { success: false, error: err.message || 'Network error' };
+    }
+  },
+
+  // 14. GHL (GoHighLevel) DIRECT SQL INTEGRATIONS
+  async saveGhlIntegration(tenantId, locRecord) {
+    try {
+      const cleanTenant = Number(tenantId || 1);
+      const payload = {
+        tenant_id: cleanTenant,
+        location_id: locRecord.locationId || locRecord.location_id,
+        user_id: locRecord.userId || locRecord.user_id || null,
+        access_token: locRecord.accessToken || locRecord.access_token,
+        refresh_token: locRecord.refreshToken || locRecord.refresh_token,
+        token_type: locRecord.tokenType || locRecord.token_type || 'Bearer',
+        expires_in: locRecord.expiresIn || locRecord.expires_in || 86400,
+        scope: locRecord.scope || '',
+        user_type: locRecord.userType || locRecord.user_type || 'Location',
+        updated_at: new Date().toISOString()
+      };
+      const res = await fetch(`${SUPABASE_URL}/ghl_integrations?on_conflict=tenant_id,location_id`, {
+        method: 'POST',
+        headers: {
+          ...getHeaders(),
+          'Prefer': 'resolution=merge-duplicates,return=representation'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error('[Supabase Sandbox] saveGhlIntegration error:', err);
+      return null;
+    }
+  },
+
+  async getGhlIntegrations(tenantId) {
+    try {
+      const cleanTenant = Number(tenantId || 1);
+      const res = await fetch(`${SUPABASE_URL}/ghl_integrations?tenant_id=eq.${cleanTenant}&order=updated_at.desc`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error('[Supabase Sandbox] getGhlIntegrations error:', err);
+      return [];
+    }
+  },
+
+  async deleteGhlIntegration(tenantId, locationId) {
+    try {
+      const cleanTenant = Number(tenantId || 1);
+      const res = await fetch(`${SUPABASE_URL}/ghl_integrations?tenant_id=eq.${cleanTenant}&location_id=eq.${locationId}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      return res.ok;
+    } catch (err) {
+      console.error('[Supabase Sandbox] deleteGhlIntegration error:', err);
       return false;
     }
   }

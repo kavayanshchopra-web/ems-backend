@@ -275,7 +275,60 @@ export default function ConversationsPage({
   activePipelineStages = [],
   showToast = () => {}
 }) {
-  const companyId = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 'org_default';
+  const rawCompanyId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id || '1';
+  let numericCompanyId = Number(rawCompanyId);
+  if (isNaN(numericCompanyId) || numericCompanyId <= 0) {
+    numericCompanyId = 1;
+  }
+  const companyId = String(numericCompanyId);
+
+  const userRole = String(authUser?.role || 'employee').toLowerCase().trim();
+  const userEmpId = String(authUser?.employeeId || authUser?.id || '').toLowerCase().trim();
+  const userEmail = String(authUser?.email || '').toLowerCase().trim();
+  const userName = String(authUser?.name || authUser?.fullName || '').toLowerCase().trim();
+  const isOwnerOrAdmin = ['superadmin', 'super_admin', 'owner', 'admin', 'company_admin'].includes(userRole);
+
+  // Model A RBAC Scoping Helper: Determines whether a lead/contact is visible to active user
+  const isContactVisibleToUser = (c, callLogsList = []) => {
+    if (!c) return false;
+
+    // 1. Strict Tenant Isolation
+    const itemTenant = String(c.tenant_id ?? c.tenantId ?? '');
+    if (itemTenant && itemTenant !== companyId) return false;
+
+    // 2. Company Owner, Super Admin, Company Admin have supervisory overview of all company leads
+    if (isOwnerOrAdmin) return true;
+
+    // 3. Employee Role: Strictly sees only assigned leads OR leads where employee has called/received a call
+    // A. Check Assigned Lead
+    const assignedVal = String(c.assigned_to || c.assignedTo || c.employee || c.agent || '').toLowerCase().trim();
+    if (assignedVal) {
+      if (userEmpId && (assignedVal === userEmpId || assignedVal.includes(userEmpId))) return true;
+      if (userEmail && assignedVal === userEmail) return true;
+      if (userName && (assignedVal === userName || assignedVal.includes(userName) || userName.includes(assignedVal))) return true;
+    }
+
+    // B. Check if employee has call/recording interaction with this phone number
+    const contactPhone10 = c.normPhone10 || String(c.phone || c.rawPhone || c.customerPhone || c.id || '').replace(/\D/g, '').slice(-10);
+    const logsToCheck = (Array.isArray(callLogsList) && callLogsList.length > 0) ? callLogsList : (allCallLogs || []);
+    if (contactPhone10 && Array.isArray(logsToCheck) && logsToCheck.length > 0) {
+      const hasMyCall = logsToCheck.some(call => {
+        const cPhone = String(call.customerPhone || call.customer_phone || call.phoneNumber || call.phone || '').replace(/\D/g, '');
+        if (!cPhone.endsWith(contactPhone10)) return false;
+
+        const aId = String(call.agent_id || call.agentId || '').toLowerCase().trim();
+        const aEmail = String(call.agentEmail || call.agent_email || call.custom_fields?.agent_email || '').toLowerCase().trim();
+        const aName = String(call.agentName || call.agent_name || '').toLowerCase().trim();
+
+        return (userEmpId && aId && (aId === userEmpId || aId.endsWith(`_${userEmpId}`))) ||
+               (userEmail && aEmail && aEmail === userEmail) ||
+               (userName && aName && (aName === userName || aName.includes(userName) || userName.includes(aName)));
+      });
+      if (hasMyCall) return true;
+    }
+
+    return false;
+  };
 
   const formatContactRoster = (rawList) => {
     if (!Array.isArray(rawList)) return [];
@@ -317,7 +370,9 @@ export default function ConversationsPage({
         stage: c.pipelineStage || c.stage || c.status || 'New Leads',
         source: c.source || (c.ghlContactId ? 'GoHighLevel' : 'WhatsApp'),
         ghlContactId: c.ghlContactId || null,
-        tags: Array.isArray(c.labels) ? c.labels : (Array.isArray(c.tags) ? c.tags : [])
+        tags: Array.isArray(c.labels) ? c.labels : (Array.isArray(c.tags) ? c.tags : []),
+        assigned_to: c.assigned_to || c.assignedTo || c.employee || c.agent || '',
+        tenant_id: c.tenant_id ?? c.tenantId ?? companyId
       };
 
       if (dedupMap.has(key)) {
@@ -332,7 +387,8 @@ export default function ConversationsPage({
           name: betterName,
           phone: (existing.phone && existing.phone !== '—') ? existing.phone : formattedPhone,
           lastMessage: rec.lastMessage || existing.lastMessage,
-          lastMessageTime: Math.max(new Date(existing.lastMessageTime || 0).getTime(), new Date(rec.lastMessageTime || 0).getTime())
+          lastMessageTime: Math.max(new Date(existing.lastMessageTime || 0).getTime(), new Date(rec.lastMessageTime || 0).getTime()),
+          assigned_to: rec.assigned_to || existing.assigned_to
         });
       } else {
         dedupMap.set(key, rec);
@@ -351,40 +407,28 @@ export default function ConversationsPage({
     }));
   };
 
-  // 1. Master State strictly scoped to companyId
+  // 1. Master State strictly scoped to companyId and Model A role
   const [conversationsList, setConversationsList] = useState(() => {
+    let source = [];
     if (Array.isArray(propContacts) && propContacts.length > 0) {
-      const filtered = propContacts.filter(p => {
-        const t = String(p.tenant_id ?? p.tenantId ?? '');
-        return t && t === String(companyId);
-      });
-      return formatContactRoster(filtered);
+      source = propContacts;
+    } else {
+      source = TenantStorage.getItem('contacts', companyId, []) || [];
     }
-    const cached = TenantStorage.getItem('contacts', companyId, []);
-    const filtered = (cached || []).filter(p => {
-      const t = String(p.tenant_id ?? p.tenantId ?? '');
-      return t && t === String(companyId);
-    });
-    return formatContactRoster(filtered);
+    const scoped = (source || []).filter(c => isContactVisibleToUser(c));
+    return formatContactRoster(scoped);
   });
 
   const [activeContact, setActiveContact] = useState(() => {
-    let initialList = [];
+    let source = [];
     if (Array.isArray(propContacts) && propContacts.length > 0) {
-      const filtered = propContacts.filter(p => {
-        const t = String(p.tenant_id ?? p.tenantId ?? '');
-        return t && t === String(companyId);
-      });
-      initialList = formatContactRoster(filtered);
+      source = propContacts;
     } else {
-      const cached = TenantStorage.getItem('contacts', companyId, []);
-      const filtered = (cached || []).filter(p => {
-        const t = String(p.tenant_id ?? p.tenantId ?? '');
-        return t && t === String(companyId);
-      });
-      initialList = formatContactRoster(filtered);
+      source = TenantStorage.getItem('contacts', companyId, []) || [];
     }
-    return initialList.length > 0 ? initialList[0] : null;
+    const scoped = (source || []).filter(c => isContactVisibleToUser(c));
+    const roster = formatContactRoster(scoped);
+    return roster.length > 0 ? roster[0] : null;
   });
 
   const [activeMessages, setActiveMessages] = useState([]);
@@ -419,25 +463,25 @@ export default function ConversationsPage({
     : 'https://api.employeemanagementsystems.com/api';
   const token = typeof window !== 'undefined' ? (localStorage.getItem('omnilflow_token') || localStorage.getItem('token')) : null;
 
-  // Sync prop contacts when parent updates
+  // Sync prop contacts when parent updates (scoped by Model A)
   useEffect(() => {
-    if (Array.isArray(propContacts)) {
-      const tenantScoped = propContacts.filter(p => {
-        const t = String(p.tenant_id ?? p.tenantId ?? '');
-        return t && t === String(companyId);
-      });
+    if (Array.isArray(propContacts) && propContacts.length > 0) {
+      const tenantScoped = propContacts.filter(p => isContactVisibleToUser(p, allCallLogs));
       const formatted = formatContactRoster(tenantScoped);
-      setConversationsList(formatted);
-      if (!activeContact && formatted.length > 0) {
-        setActiveContact(formatted[0]);
-      } else if (activeContact) {
-        const updatedActive = formatted.find(c => c.id === activeContact.id || (c.normPhone10 && c.normPhone10 === activeContact.normPhone10));
-        setActiveContact(updatedActive || (formatted.length > 0 ? formatted[0] : null));
-      } else if (formatted.length === 0) {
+      if (formatted.length > 0) {
+        setConversationsList(formatted);
+        if (!activeContact) {
+          setActiveContact(formatted[0]);
+        } else {
+          const updatedActive = formatted.find(c => c.id === activeContact.id || (c.normPhone10 && c.normPhone10 === activeContact.normPhone10));
+          setActiveContact(updatedActive || formatted[0]);
+        }
+      } else if (!isOwnerOrAdmin) {
+        setConversationsList([]);
         setActiveContact(null);
       }
     }
-  }, [propContacts, companyId]);
+  }, [propContacts, companyId, userRole, userEmpId, userEmail, userName, allCallLogs]);
 
   // 2. Fetch / Stream Call Logs (Firestore + SQLite with live caching)
   useEffect(() => {
@@ -479,6 +523,17 @@ export default function ConversationsPage({
         let hasChanges = false;
 
         unwrapped.forEach(call => {
+          // If active user is an employee, only auto-link if this was their own call!
+          if (!isOwnerOrAdmin) {
+            const aId = String(call.agent_id || call.agentId || '').toLowerCase().trim();
+            const aEmail = String(call.agentEmail || call.agent_email || call.custom_fields?.agent_email || '').toLowerCase().trim();
+            const aName = String(call.agentName || call.agent_name || '').toLowerCase().trim();
+            const isMyCall = (userEmpId && aId && (aId === userEmpId || aId.endsWith(`_${userEmpId}`))) ||
+                             (userEmail && aEmail && aEmail === userEmail) ||
+                             (userName && aName && (aName === userName || aName.includes(userName) || userName.includes(aName)));
+            if (!isMyCall) return;
+          }
+
           const rawPhone = String(call.customerPhone || call.phoneNumber || '').replace(/\D/g, '');
           const norm10 = rawPhone.length >= 7 ? rawPhone.slice(-10) : '';
           if (!norm10) return;
@@ -648,50 +703,86 @@ export default function ConversationsPage({
     };
   }, [API_URL, token, companyId]);
 
-  // 3. Load Contacts & Build Active Conversations Roster
+  // 3. Load Contacts & Build Active Conversations Roster (Sandbox Supabase + REST Fallback with Model A Scoping)
   useEffect(() => {
-    const fetchContacts = async () => {
+    let isCancelled = false;
+
+    const loadContacts = async () => {
       try {
-        const res = await fetch(`${API_URL}/contacts`, {
-          headers: {
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-            'x-tenant-id': String(companyId)
+        let rawList = [];
+
+        // A. Direct Supabase Sandbox Fetch
+        if (isSandboxEnvironment()) {
+          const tenantNum = Number(companyId) || 1;
+          const sbContacts = await SupabaseSandboxService.fetchContacts(tenantNum);
+          if (Array.isArray(sbContacts) && sbContacts.length > 0) {
+            rawList = sbContacts;
+            TenantStorage.setItem('contacts', sbContacts, companyId);
           }
-        });
-        const data = await res.json();
-        const rawList = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
-        const cleanRoster = formatContactRoster(rawList);
+        }
+
+        // B. REST API / SQLite Fallback if not sandbox or if sandbox returned empty
+        if (rawList.length === 0) {
+          try {
+            const res = await fetch(`${API_URL}/contacts`, {
+              headers: {
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+                'x-tenant-id': String(companyId)
+              }
+            });
+            if (res.ok) {
+              const data = await res.json();
+              rawList = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
+            }
+          } catch (apiErr) {
+            console.warn('[ConversationsPage] REST API contacts fetch notice:', apiErr);
+          }
+        }
+
+        // C. Fallback to parent propContacts or cached contacts
+        if (rawList.length === 0 && Array.isArray(propContacts) && propContacts.length > 0) {
+          rawList = propContacts;
+        }
+        if (rawList.length === 0) {
+          const cached = TenantStorage.getItem('contacts', companyId, []);
+          if (Array.isArray(cached) && cached.length > 0) rawList = cached;
+        }
+
+        if (isCancelled) return;
+
+        // D. Filter by Tenant and Model A Role-Based Scope
+        const scopedRaw = (rawList || []).filter(c => isContactVisibleToUser(c, allCallLogs));
+        const cleanRoster = formatContactRoster(scopedRaw);
 
         if (cleanRoster.length > 0) {
           setConversationsList(cleanRoster);
           if (!activeContact) {
             setActiveContact(cleanRoster[0]);
-          }
-        } else if (Array.isArray(propContacts) && propContacts.length > 0) {
-          const filteredProps = propContacts.filter(p => {
-            const t = String(p.tenant_id ?? p.tenantId ?? '');
-            return t && t === String(companyId);
-          });
-          if (filteredProps.length > 0) {
-            setConversationsList(formatContactRoster(filteredProps));
-            if (!activeContact) {
-              setActiveContact(formatContactRoster(filteredProps)[0]);
-            }
           } else {
+            const stillExists = cleanRoster.find(c => c.id === activeContact.id || (c.normPhone10 && c.normPhone10 === activeContact.normPhone10));
+            setActiveContact(stillExists || cleanRoster[0]);
+          }
+        } else {
+          // If employee with no assigned leads / calls
+          if (!isOwnerOrAdmin) {
+            setConversationsList([]);
+            setActiveContact(null);
+          } else if (rawList.length === 0) {
             setConversationsList([]);
             setActiveContact(null);
           }
-        } else {
-          setConversationsList([]);
-          setActiveContact(null);
         }
       } catch (err) {
-        console.warn('[ConversationsPage] Contacts fetch error:', err);
+        console.warn('[ConversationsPage] Contacts load error:', err);
       }
     };
 
-    fetchContacts();
-  }, [API_URL, token, companyId]);
+    loadContacts();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [API_URL, token, companyId, userRole, userEmpId, userEmail, userName, allCallLogs]);
 
   // 4. Fetch WhatsApp Messages for Active Contact (with instant cache preview)
   useEffect(() => {
@@ -1805,7 +1896,7 @@ export default function ConversationsPage({
                     fontWeight: '800',
                     flexShrink: 0
                   }}>
-                    {contact.name.charAt(0).toUpperCase()}
+                    {(contact.name || contact.phone || 'Contact').charAt(0).toUpperCase()}
                   </div>
 
                   {/* Info */}
@@ -1895,7 +1986,7 @@ export default function ConversationsPage({
                   fontSize: '14px',
                   fontWeight: '800'
                 }}>
-                  {activeContact.name.charAt(0).toUpperCase()}
+                  {(activeContact.name || activeContact.phone || 'Contact').charAt(0).toUpperCase()}
                 </div>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2285,7 +2376,7 @@ export default function ConversationsPage({
               margin: '0 auto 10px',
               boxShadow: '0 4px 10px rgba(13, 148, 136, 0.25)'
             }}>
-              {activeContact.name.charAt(0).toUpperCase()}
+              {(activeContact.name || activeContact.phone || 'Contact').charAt(0).toUpperCase()}
             </div>
             <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: '0 0 2px 0' }}>
               {activeContact.name}

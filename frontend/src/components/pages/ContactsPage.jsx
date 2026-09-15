@@ -31,37 +31,59 @@ export default function ContactsPage({
   onManageStages = () => {},
   onOpenChatWithLead = null
 }) {
-  const companyId = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 'org_unassigned';
+  const rawCompanyId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id || '1';
+  let numericCompanyId = Number(rawCompanyId);
+  if (isNaN(numericCompanyId) || numericCompanyId <= 0) {
+    numericCompanyId = 1;
+  }
+  const companyId = String(numericCompanyId);
   const { config } = useModuleRegistry(companyId, 'contacts');
 
   const [isSyncingGhl, setIsSyncingGhl] = useState(false);
   const [ghlLocationStatus, setGhlLocationStatus] = useState(null);
 
-  // Initialize records strictly scoped to the active tenant
-  const [internalRecords, setInternalRecords] = useState(() => {
-    if (Array.isArray(propContacts) && propContacts.length > 0) {
-      return propContacts.filter(r => {
-        const itemTenant = String(r.tenant_id ?? r.tenantId ?? '');
-        return itemTenant && itemTenant === String(companyId);
-      });
+  const userRole = String(authUser?.role || 'employee').toLowerCase().trim();
+  const userEmpId = String(authUser?.employeeId || authUser?.id || '').toLowerCase().trim();
+  const userEmail = String(authUser?.email || '').toLowerCase().trim();
+  const userName = String(authUser?.name || authUser?.fullName || '').toLowerCase().trim();
+  const isOwnerOrAdmin = ['superadmin', 'super_admin', 'owner', 'admin', 'company_admin', 'manager'].includes(userRole);
+
+  const isContactVisibleToUser = (r) => {
+    if (!r) return false;
+    const itemTenant = String(r.tenant_id ?? r.tenantId ?? '');
+    if (itemTenant && itemTenant !== companyId) return false;
+
+    // Owners, Admins, Managers have full visibility of all company contacts
+    if (isOwnerOrAdmin) return true;
+
+    // Employees strictly see assigned contacts only
+    const assignedVal = String(r.assigned_to || r.assignedTo || r.employee || r.agent || '').toLowerCase().trim();
+    if (assignedVal) {
+      if (userEmpId && (assignedVal === userEmpId || assignedVal.includes(userEmpId))) return true;
+      if (userEmail && assignedVal === userEmail) return true;
+      if (userName && (assignedVal === userName || assignedVal.includes(userName) || userName.includes(assignedVal))) return true;
     }
-    const cached = TenantStorage.getItem('contacts', companyId, []);
-    return (cached || []).filter(r => {
-      const itemTenant = String(r.tenant_id ?? r.tenantId ?? '');
-      return itemTenant && itemTenant === String(companyId);
-    });
+    return false;
+  };
+
+  // Initialize records strictly scoped to active tenant and Model A role
+  const [internalRecords, setInternalRecords] = useState(() => {
+    let source = [];
+    if (Array.isArray(propContacts) && propContacts.length > 0) {
+      source = propContacts;
+    } else if (!isSandboxEnvironment()) {
+      source = TenantStorage.getItem('contacts', companyId, []) || [];
+    }
+    return (source || []).filter(isContactVisibleToUser);
   });
 
   // Sync when propContacts arrives or updates from parent
   useEffect(() => {
     if (Array.isArray(propContacts)) {
-      const tenantScoped = propContacts.filter(r => {
-        const itemTenant = String(r.tenant_id ?? r.tenantId ?? '');
-        return itemTenant && itemTenant === String(companyId);
-      });
-      setInternalRecords(processAndMergeRecords([], tenantScoped));
+      const tenantScoped = propContacts.filter(isContactVisibleToUser);
+      setInternalRecords(tenantScoped);
     }
-  }, [propContacts, companyId]);
+  }, [propContacts, companyId, userRole, userEmpId, userEmail, userName]);
 
   const isDesktop = typeof window !== 'undefined' && (Boolean(window.electronAPI) || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
   const API_URL = isDesktop
@@ -238,12 +260,13 @@ export default function ContactsPage({
         }
         SupabaseSandboxService.fetchContacts(safeTenant)
           .then(sbContacts => {
-            const scoped = (sbContacts || []).filter(r => {
+            const tenantMatches = (sbContacts || []).filter(r => {
               const itemTenant = String(r.tenant_id ?? r.tenantId ?? '');
               return itemTenant && itemTenant === String(safeTenant);
             });
+            TenantStorage.setItem('contacts', tenantMatches, safeTenant);
+            const scoped = tenantMatches.filter(isContactVisibleToUser);
             setInternalRecords(processAndMergeRecords([], scoped));
-            TenantStorage.setItem('contacts', scoped, safeTenant);
           })
           .catch(e => console.warn('[ContactsPage] Sandbox fetch notice:', e));
       };

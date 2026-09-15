@@ -620,18 +620,26 @@ export default function IntegrationsPage({
     try {
       const cleanToken = subAccountApiKey.trim();
       
-      // Save directly to Firestore for direct client-side synchronization
+      // Save token (PostgreSQL in Sandbox, Firestore in Production)
       if (cleanToken) {
         try {
-          const locDoc = {
-            companyId: cleanCompanyId,
-            locationId: locIdToLink,
-            accessToken: cleanToken,
-            status: 'connected',
-            installedAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
-          await setDoc(doc(db, 'integrations_ghl_oauth', `${cleanCompanyId}_${locIdToLink}`), locDoc);
+          if (isSandboxEnvironment()) {
+            await SupabaseSandboxService.saveGhlIntegration(cleanCompanyId, {
+              locationId: locIdToLink,
+              accessToken: cleanToken,
+              companyId: cleanCompanyId
+            });
+          } else if (db) {
+            const locDoc = {
+              companyId: cleanCompanyId,
+              locationId: locIdToLink,
+              accessToken: cleanToken,
+              status: 'connected',
+              installedAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+            await setDoc(doc(db, 'integrations_ghl_oauth', `${cleanCompanyId}_${locIdToLink}`), locDoc);
+          }
         } catch (fErr) {}
       }
 
@@ -727,7 +735,11 @@ export default function IntegrationsPage({
 
       if (targetLocId) {
         try {
-          await deleteDoc(doc(db, 'integrations_ghl_oauth', `${cleanCompanyId}_${targetLocId}`));
+          if (isSandboxEnvironment()) {
+            await SupabaseSandboxService.deleteGhlIntegration(cleanCompanyId, targetLocId);
+          } else if (db) {
+            await deleteDoc(doc(db, 'integrations_ghl_oauth', `${cleanCompanyId}_${targetLocId}`));
+          }
         } catch (fErr) {}
       }
       try {

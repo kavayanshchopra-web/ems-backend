@@ -4,6 +4,7 @@
 import { db, storage } from '../../firebase.js';
 import { collection, query, where, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { SupabaseSandboxService, isSandboxEnvironment } from './supabaseSandboxService.js';
 
 const GHL_OAUTH_TOKEN_URL = 'https://services.leadconnectorhq.com/oauth/token';
 
@@ -68,8 +69,12 @@ export class GhlOAuthService {
         updatedAt: new Date().toISOString()
       };
 
-      // Save installed location token in Firestore
-      await setDoc(doc(db, 'integrations_ghl_oauth', `${companyId}_${locationRecord.locationId}`), locationRecord);
+      // Save installed location token
+      if (isSandboxEnvironment()) {
+        await SupabaseSandboxService.saveGhlIntegration(companyId, locationRecord);
+      } else {
+        await setDoc(doc(db, 'integrations_ghl_oauth', `${companyId}_${locationRecord.locationId}`), locationRecord);
+      }
 
       return locationRecord;
     } catch (err) {
@@ -86,6 +91,10 @@ export class GhlOAuthService {
     try {
       if (!companyId || companyId === 'default_tenant' || companyId === 'org_unassigned') {
         return [];
+      }
+
+      if (isSandboxEnvironment()) {
+        return await SupabaseSandboxService.getGhlIntegrations(companyId);
       }
 
       const cleanStrId = String(companyId).trim();
@@ -883,12 +892,18 @@ export class GhlOAuthService {
   /**
    * Revoke & Disconnect a GHL sub-account location
    */
-  static async disconnectLocation(docId) {
+  static async disconnectLocation(docId, tenantId, locationId) {
+    if (isSandboxEnvironment() && tenantId && locationId) {
+      await SupabaseSandboxService.deleteGhlIntegration(tenantId, locationId);
+      return;
+    }
     if (!docId) return;
-    try {
-      await deleteDoc(doc(db, 'integrations_ghl_oauth', docId));
-    } catch (e) {
-      console.warn('Local location delete:', e);
+    if (db) {
+      try {
+        await deleteDoc(doc(db, 'integrations_ghl_oauth', docId));
+      } catch (e) {
+        console.warn('Local location delete:', e);
+      }
     }
   }
 }

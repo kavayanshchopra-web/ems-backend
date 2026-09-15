@@ -3,7 +3,7 @@ import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
 import VoxbayCloudDialerModal from './VoxbayCloudDialerModal';
-import { PhoneCall, Smartphone } from 'lucide-react';
+import { PhoneCall, Smartphone, Users } from 'lucide-react';
 import { db } from '../../firebase';
 import { collection, onSnapshot, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { GhlOAuthService } from '../../core/services/ghlOAuthService';
@@ -37,6 +37,7 @@ export default function TelecallingView({
 
   const { config } = useModuleRegistry(companyId, 'telecalling');
   
+  const [selectedAgentFilter, setSelectedAgentFilter] = useState('ALL');
   const [isVoxbayOpen, setIsVoxbayOpen] = useState(false);
   const [internalLogs, setInternalLogs] = useState(() => {
     if (isSandboxEnvironment()) {
@@ -44,11 +45,13 @@ export default function TelecallingView({
       const cached = TenantStorage.getItem('call_logs', companyId, []);
       if (Array.isArray(cached) && cached.length > 0) return cached;
       if (Array.isArray(callLogs)) {
-        return isSuperAdmin ? callLogs : callLogs.filter(c => String(c.tenant_id || c.tenantId) === companyId);
+        return callLogs.filter(c => !c.tenant_id && !c.tenantId || String(c.tenant_id || c.tenantId) === String(companyId));
       }
       return [];
     }
-    if (Array.isArray(callLogs) && callLogs.length > 0) return callLogs;
+    if (Array.isArray(callLogs) && callLogs.length > 0) {
+      return callLogs.filter(c => !c.tenant_id && !c.tenantId || String(c.tenant_id || c.tenantId) === String(companyId));
+    }
     const cached = TenantStorage.getItem('call_logs', companyId, null);
     if (Array.isArray(cached)) return cached;
     try {
@@ -63,13 +66,9 @@ export default function TelecallingView({
   // Synchronize internal state whenever parent callLogs or companyId changes
   useEffect(() => {
     if (Array.isArray(callLogs)) {
-      if (isSandboxEnvironment()) {
-        setInternalLogs(isSuperAdmin ? callLogs : callLogs.filter(c => String(c.tenant_id || c.tenantId) === companyId));
-      } else {
-        setInternalLogs(callLogs);
-      }
+      setInternalLogs(callLogs.filter(c => !c.tenant_id && !c.tenantId || String(c.tenant_id || c.tenantId) === String(companyId)));
     }
-  }, [callLogs, companyId, isSuperAdmin]);
+  }, [callLogs, companyId]);
 
   const [crmContactMap, setCrmContactMap] = useState(() => {
     try {
@@ -95,13 +94,44 @@ export default function TelecallingView({
     return new Map();
   });
 
+  // Dynamic Agent list for Company Owner & Manager filtering
+  const availableAgents = useMemo(() => {
+    const map = new Map();
+    if (authUser?.name) {
+      map.set(authUser.name.toLowerCase().trim(), {
+        key: authUser.name,
+        label: `${authUser.name} (${authUser.role === 'owner' ? 'Owner' : 'Me'})`
+      });
+    }
+    if (Array.isArray(employees)) {
+      employees.forEach(emp => {
+        const name = emp.name || `${emp.first_name || ''} ${emp.last_name || ''}`.trim();
+        if (name) {
+          map.set(name.toLowerCase().trim(), {
+            key: name,
+            label: `${name} (${emp.role || 'Employee'})`
+          });
+        }
+      });
+    }
+    (internalLogs || []).forEach(log => {
+      const aName = log.agent_name || log.agentName;
+      if (aName && aName !== 'Mobile Agent' && aName !== 'Mobile Telecaller') {
+        const lower = aName.toLowerCase().trim();
+        if (!map.has(lower)) {
+          map.set(lower, { key: aName, label: aName });
+        }
+      }
+    });
+    return Array.from(map.values());
+  }, [authUser, employees, internalLogs]);
+
   // 1. Direct Real-Time Multi-Collection Firestore Listener / Supabase Sandbox Loader
   useEffect(() => {
     if (isSandboxEnvironment()) {
       try { localStorage.removeItem('omniflow_cached_call_logs'); } catch (e) {}
-      const fetchPromise = isSuperAdmin 
-        ? SupabaseSandboxService.fetchAllCallLogs() 
-        : SupabaseSandboxService.fetchCallLogs(numericCompanyId);
+      const currentTenantId = numericCompanyId || 1;
+      const fetchPromise = SupabaseSandboxService.fetchCallLogs(currentTenantId);
 
       fetchPromise.then(logs => {
         setInternalLogs(logs);
@@ -214,9 +244,9 @@ export default function TelecallingView({
       });
     };
 
-    // A. Listen to 'callLogs' (Android Companion App Collection)
+    // A. Listen to 'callLogs' (Android Companion App Collection - Production only)
     try {
-      if (db) {
+      if (!isSandboxEnvironment() && db) {
         const q1 = collection(db, 'callLogs');
         const unsub1 = onSnapshot(q1, (snapshot) => {
           const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -327,20 +357,28 @@ export default function TelecallingView({
       return tA - tB;
     });
 
-    if (sortedRaw.length === 0) return [];
-
-    // Intelligent Deduplication: Merge Stage 1 (instant 0ms) and Stage 2 (follow-up/audio) for the same call
+    // Intelligent Deduplication: ONLY merge Stage 1 (instant pending placeholder) and Stage 2 (audio completion) of the EXACT SAME CALL
     const deduplicated = [];
     sortedRaw.forEach(item => {
+      const itemId = String(item.id || '');
       const phoneDigits = String(item.customerPhone || item.phoneNumber || item.phone || item.customer_phone || '').replace(/\D/g, '').slice(-10);
       const itemTime = Number(item._createdAt || (item.created_at ? new Date(item.created_at).getTime() : 0)) || 0;
+      const itemAgent = String(item.agent_name || item.agentName || '').toLowerCase().trim();
 
-      // Check if this is a companion call update within 15 minutes (900,000ms)
+      // Only match if exact same ID OR (same phone AND same agent AND within 20 seconds of each other)
       const existingIdx = deduplicated.findIndex(d => {
+        const dId = String(d.id || '');
+        if (itemId && dId && itemId === dId) return true;
+
         const dPhone = String(d.customerPhone || d.phoneNumber || d.phone || d.customer_phone || '').replace(/\D/g, '').slice(-10);
         if (!phoneDigits || dPhone !== phoneDigits) return false;
+
+        const dAgent = String(d.agent_name || d.agentName || '').toLowerCase().trim();
+        if (dAgent && itemAgent && dAgent !== itemAgent) return false; // Different agents = NEVER merge!
+
         const dTime = Number(d._createdAt || (d.created_at ? new Date(d.created_at).getTime() : 0)) || 0;
-        return Math.abs(itemTime - dTime) < 900000;
+        // Same call event: Within 20 seconds of each other (Stage 1 placeholder vs Stage 2 audio completion)
+        return Math.abs(itemTime - dTime) < 20000;
       });
 
       if (existingIdx !== -1) {
@@ -462,14 +500,27 @@ export default function TelecallingView({
     const userDept = String(authUser?.department || '').toLowerCase().trim();
 
     return mapped.filter(item => {
-      // 1. Superadmin / Owner / Admin / Company Admin: Sees all calls of the company/tenant
-      if (userRole === 'superadmin' || userRole === 'owner' || userRole === 'admin' || userRole === 'company_admin') {
-        return true;
+      // 0. Strict Tenant Isolation: Exclude any call belonging to another company
+      const itemTenant = item.tenant_id || item.tenantId;
+      if (itemTenant && numericCompanyId && String(itemTenant) !== String(numericCompanyId)) {
+        return false;
       }
 
       const itemAgentName = String(item.agentName || item.agent_name || '').toLowerCase().trim();
       const itemAgentId = String(item.agentId || item.agent_id || '').toLowerCase().trim();
       const itemAgentEmail = String(item.agentEmail || item.agent_email || item.custom_fields?.agent_email || '').toLowerCase().trim();
+
+      // Check agent filter if user has selected a specific agent
+      const matchesSelectedAgent = () => {
+        if (!selectedAgentFilter || selectedAgentFilter === 'ALL') return true;
+        const filterLower = selectedAgentFilter.toLowerCase().trim();
+        return itemAgentName === filterLower || itemAgentId === filterLower || itemAgentEmail === filterLower;
+      };
+
+      // 1. Superadmin / Owner / Admin / Company Admin: Sees all calls of the current company/tenant (with optional agent filter)
+      if (userRole === 'superadmin' || userRole === 'owner' || userRole === 'admin' || userRole === 'company_admin') {
+        return matchesSelectedAgent();
+      }
 
       const isOwnCall = Boolean(
         (userEmail && itemAgentEmail && itemAgentEmail === userEmail) ||
@@ -479,6 +530,7 @@ export default function TelecallingView({
 
       // 2. Manager: Sees own calls + all calls made by employees in the same department
       if (userRole === 'manager') {
+        if (!matchesSelectedAgent()) return false;
         if (isOwnCall) return true;
         if (Array.isArray(employees) && userDept) {
           const matchedEmp = employees.find(e => {
@@ -499,7 +551,7 @@ export default function TelecallingView({
       // 3. Employee (Default): STRICTLY own calls ONLY
       return isOwnCall;
     });
-  }, [callLogs, internalLogs, crmContactMap, authUser, activeProvider, companyId, employees]);
+  }, [callLogs, internalLogs, crmContactMap, authUser, activeProvider, companyId, employees, selectedAgentFilter]);
 
   const handleUpdateRecords = async (newRecords) => {
     setInternalLogs(newRecords);
@@ -620,34 +672,66 @@ export default function TelecallingView({
     }
   };
 
+  const currentUserRole = String(authUser?.role || '').toLowerCase().trim();
+  const canFilterAgents = currentUserRole === 'superadmin' || currentUserRole === 'owner' || currentUserRole === 'admin' || currentUserRole === 'company_admin' || currentUserRole === 'manager';
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Main Standard LayoutEngine Table */}
       <div style={{ flex: 1 }}>
         <LayoutEngine
           customHeaderActions={
-            <button
-              type="button"
-              onClick={handleHeaderDialClick}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '7px',
-                padding: '7px 14px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
-                border: '1px solid #0d9488',
-                color: '#ffffff',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              {activeProvider === 'voxbay' ? <PhoneCall size={14} /> : <Smartphone size={14} />}
-              <span>{activeProvider === 'voxbay' ? 'Dial via Voxbay Cloud' : 'Call Lead (SIM Dialer)'}</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {canFilterAgents && availableAgents.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Users size={14} style={{ color: '#64748b' }} />
+                  <select
+                    value={selectedAgentFilter}
+                    onChange={(e) => setSelectedAgentFilter(e.target.value)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      color: '#0f172a',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      outline: 'none',
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                    }}
+                    title="Filter calls by Telecaller / Agent"
+                  >
+                    <option value="ALL">All Agents ({availableAgents.length})</option>
+                    {availableAgents.map(ag => (
+                      <option key={ag.key} value={ag.key}>{ag.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleHeaderDialClick}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+                  border: '1px solid #0d9488',
+                  color: '#ffffff',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {activeProvider === 'voxbay' ? <PhoneCall size={14} /> : <Smartphone size={14} />}
+                <span>{activeProvider === 'voxbay' ? 'Dial via Voxbay Cloud' : 'Call Lead (SIM Dialer)'}</span>
+              </button>
+            </div>
           }
           moduleConfig={config}
           records={activeRecords}

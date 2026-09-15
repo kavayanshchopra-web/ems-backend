@@ -1050,22 +1050,24 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       }
     };
 
-    try {
-      // 1. Listen to Companion App 'callLogs'
-      const unsub1 = onSnapshot(collection(db, 'callLogs'), (snap) => {
-        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        handleNewCallDocs(docs);
-      }, (err) => console.warn('[DashboardShell] callLogs live listener notice:', err));
-      unsubs.push(unsub1);
+    if (!isSandboxEnvironment() && db) {
+      try {
+        // 1. Listen to Companion App 'callLogs'
+        const unsub1 = onSnapshot(collection(db, 'callLogs'), (snap) => {
+          const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          handleNewCallDocs(docs);
+        }, (err) => console.warn('[DashboardShell] callLogs live listener notice:', err));
+        unsubs.push(unsub1);
 
-      // 2. Listen to Web / CRM 'call_logs'
-      const unsub2 = onSnapshot(collection(db, 'call_logs'), (snap) => {
-        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        handleNewCallDocs(docs);
-      }, (err) => console.warn('[DashboardShell] call_logs live listener notice:', err));
-      unsubs.push(unsub2);
-    } catch (e) {
-      console.warn('[DashboardShell] GHL Live Call Sync Subscription Error:', e);
+        // 2. Listen to Web / CRM 'call_logs'
+        const unsub2 = onSnapshot(collection(db, 'call_logs'), (snap) => {
+          const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          handleNewCallDocs(docs);
+        }, (err) => console.warn('[DashboardShell] call_logs live listener notice:', err));
+        unsubs.push(unsub2);
+      } catch (e) {
+        console.warn('[DashboardShell] GHL Live Call Sync Subscription Error:', e);
+      }
     }
 
     return () => {
@@ -1385,11 +1387,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
     if (isSandboxEnvironment()) {
       try { localStorage.removeItem('omniflow_cached_call_logs'); } catch (e) {}
-      const isSuperAdmin = effectiveAuthUser?.role === 'superadmin' && !effectiveAuthUser?.isImpersonating;
       const tenantNum = Number(activeTenantKey) || 1;
-      const fetchPromise = isSuperAdmin
-        ? SupabaseSandboxService.fetchAllCallLogs()
-        : SupabaseSandboxService.fetchCallLogs(tenantNum);
+      const fetchPromise = SupabaseSandboxService.fetchCallLogs(tenantNum);
 
       fetchPromise.then(logs => {
         setCallLogs(logs);
@@ -1412,7 +1411,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         if (data?.logs && Array.isArray(data.logs) && data.logs.length > 0) {
           setCallLogs(prev => {
             const map = new Map();
-            prev.filter(p => isSuperAdminHQ || !p.tenantId || p.tenantId === activeTenantKey).forEach(p => map.set(String(p.id), p));
+            prev.filter(p => !p.tenantId || String(p.tenantId) === String(activeTenantKey)).forEach(p => map.set(String(p.id), p));
             data.logs.forEach(l => map.set(String(l.id), l));
             return Array.from(map.values());
           });
@@ -1420,14 +1419,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       })
       .catch(() => {});
 
-    // 2. Fetch from FirebaseCloudEngine 'call_logs' (Strictly active tenant unless Superadmin HQ)
-    const callLogTarget = isSuperAdminHQ ? 'all' : activeTenantKey;
+    // 2. Fetch from FirebaseCloudEngine 'call_logs' (Strictly active tenant)
+    const callLogTarget = activeTenantKey;
     FirebaseCloudEngine.fetchRecords('call_logs', callLogTarget)
       .then(records => {
         if (Array.isArray(records)) {
           setCallLogs(prev => {
             const map = new Map();
-            prev.filter(p => isSuperAdminHQ || !p.tenantId || p.tenantId === activeTenantKey).forEach(p => map.set(String(p.id), p));
+            prev.filter(p => !p.tenantId || String(p.tenantId) === String(activeTenantKey)).forEach(p => map.set(String(p.id), p));
             records.forEach(r => map.set(String(r.id), r));
             return Array.from(map.values());
           });
@@ -1435,43 +1434,41 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       })
       .catch(() => {});
 
-    // 3. Real-time Firestore onSnapshot scoped strictly to tenant
-    try {
-      const q1 = isSuperAdminHQ
-        ? collection(db, 'callLogs')
-        : query(collection(db, 'callLogs'), where('tenantId', '==', String(activeTenantKey)));
-      const unsub1 = onSnapshot(q1, (snapshot) => {
-        const live = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        if (live.length > 0) {
-          setCallLogs(prev => {
-            const map = new Map();
-            prev.filter(p => isSuperAdminHQ || !p.tenantId || p.tenantId === activeTenantKey).forEach(p => map.set(String(p.id), p));
-            live.forEach(r => map.set(String(r.id), r));
-            return Array.from(map.values()).sort((a, b) => (b._createdAt || b.createdAt || 0) - (a._createdAt || a.createdAt || 0));
-          });
-        }
-      }, (err) => console.warn('[Firestore] callLogs snapshot note:', err));
+    // 3. Real-time Firestore onSnapshot scoped strictly to tenant (Production only)
+    if (!isSandboxEnvironment() && db) {
+      try {
+        const q1 = query(collection(db, 'callLogs'), where('tenantId', '==', String(activeTenantKey)));
+        const unsub1 = onSnapshot(q1, (snapshot) => {
+          const live = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          if (live.length > 0) {
+            setCallLogs(prev => {
+              const map = new Map();
+              prev.filter(p => !p.tenantId || String(p.tenantId) === String(activeTenantKey)).forEach(p => map.set(String(p.id), p));
+              live.forEach(r => map.set(String(r.id), r));
+              return Array.from(map.values()).sort((a, b) => (b._createdAt || b.createdAt || 0) - (a._createdAt || a.createdAt || 0));
+            });
+          }
+        }, (err) => console.warn('[Firestore] callLogs snapshot note:', err));
 
-      const q2 = isSuperAdminHQ
-        ? collection(db, 'call_logs')
-        : query(collection(db, 'call_logs'), where('tenantId', '==', String(activeTenantKey)));
-      const unsub2 = onSnapshot(q2, (snapshot) => {
-        const live = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        if (live.length > 0) {
-          setCallLogs(prev => {
-            const map = new Map();
-            prev.filter(p => isSuperAdminHQ || !p.tenantId || p.tenantId === activeTenantKey).forEach(p => map.set(String(p.id), p));
-            live.forEach(r => map.set(String(r.id), r));
-            return Array.from(map.values()).sort((a, b) => (b._createdAt || b.createdAt || 0) - (a._createdAt || a.createdAt || 0));
-          });
-        }
-      }, (err) => console.warn('[Firestore] call_logs snapshot note:', err));
+        const q2 = query(collection(db, 'call_logs'), where('tenantId', '==', String(activeTenantKey)));
+        const unsub2 = onSnapshot(q2, (snapshot) => {
+          const live = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          if (live.length > 0) {
+            setCallLogs(prev => {
+              const map = new Map();
+              prev.filter(p => !p.tenantId || String(p.tenantId) === String(activeTenantKey)).forEach(p => map.set(String(p.id), p));
+              live.forEach(r => map.set(String(r.id), r));
+              return Array.from(map.values()).sort((a, b) => (b._createdAt || b.createdAt || 0) - (a._createdAt || a.createdAt || 0));
+            });
+          }
+        }, (err) => console.warn('[Firestore] call_logs snapshot note:', err));
 
-      return () => {
-        try { unsub1(); } catch (e) {}
-        try { unsub2(); } catch (e) {}
-      };
-    } catch (e) {}
+        return () => {
+          try { unsub1(); } catch (e) {}
+          try { unsub2(); } catch (e) {}
+        };
+      } catch (e) {}
+    }
   }, [activeTenantKey, isSuperAdminHQ]);
 
   useEffect(() => {
@@ -3505,29 +3502,53 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     setAuthLoading(true);
     setAuthError(null);
     const cleanEmail = (email || '').toLowerCase().trim();
-    // 1. Instant Master Superadmin Fallback
-    if ((cleanEmail === 'admin@omniflow.com' || cleanEmail === 'kavayanshchopra@gmail.com') && password === 'admin123') {
-      const mockSuperUser = {
-        id: 1,
-        email: cleanEmail,
-        role: 'superadmin',
-        tenantId: 1
-      };
-      const mockToken = 'superadmin_master_token_override';
-      localStorage.setItem('omnilflow_token', mockToken);
-      localStorage.setItem('omnilflow_user', JSON.stringify(mockSuperUser));
-      setAuthUser(mockSuperUser);
-      setActiveTab('superadmin_plans');
-      showToast('??? Welcome Superadmin! Master Access Granted.', 'success');
-      setAuthLoading(false);
-      return;
+    // 1. Direct Supabase PostgreSQL Auth for Sandbox (Zero Firebase)
+    if (isSandboxEnvironment()) {
+      try {
+        const sbRes = await SupabaseSandboxService.loginWithEmailPassword(cleanEmail, password);
+        if (sbRes && sbRes.success && sbRes.user) {
+          const user = sbRes.user;
+          const isSuperAdminUser = (user.role === 'superadmin');
+          const userData = {
+            id: user.id,
+            email: user.email,
+            name: user.name || (user.email.split('@')[0]),
+            role: isSuperAdminUser ? 'superadmin' : (user.role || 'owner'),
+            companyName: isSuperAdminUser ? '#TEN-0001-KAVAYANSH-CHOPRA' : (user.company_name || `Tenant #${user.tenant_id}`),
+            tenantId: isSuperAdminUser ? 1 : Number(user.tenant_id),
+            companyId: isSuperAdminUser ? 1 : Number(user.tenant_id),
+            tenant_id: isSuperAdminUser ? 1 : Number(user.tenant_id),
+            employeeId: String(user.id)
+          };
+          localStorage.setItem('omnilflow_token', sbRes.token || 'sandbox_jwt');
+          localStorage.setItem('omnilflow_user', JSON.stringify(userData));
+          localStorage.setItem('omnilflow_current_company', String(userData.tenantId));
+          setAuthUser(userData);
+          if (typeof window !== 'undefined') window.__omniflow_tenant = String(userData.tenantId);
+          setActiveTab(userData.role === 'superadmin' ? 'superadmin_plans' : 'inbox');
+          showToast('⚡ Signed in successfully via PostgreSQL!', 'success');
+          setAuthLoading(false);
+          return;
+        } else {
+          setAuthLoading(false);
+          setAuthError(sbRes?.error || 'Invalid email or password');
+          showToast(sbRes?.error || 'Invalid email or password', 'error');
+          return;
+        }
+      } catch (sbLoginErr) {
+        setAuthLoading(false);
+        setAuthError(sbLoginErr.message || 'Login failed');
+        showToast(sbLoginErr.message || 'Login failed', 'error');
+        return;
+      }
     }
-    // 2. Firebase Cloud Auth Login
+
+    // 3. Firebase Cloud Auth Login (Production only)
     try {
       if (auth) {
         const userCred = await signInWithEmailAndPassword(auth, cleanEmail, password);
         const fbUser = userCred.user;
-        const isSuperAdminUser = (cleanEmail === 'admin@omniflow.com' || cleanEmail === 'kavayanshchopra@gmail.com');
+        const isSuperAdminUser = (cleanEmail === 'admin@omniflow.com' || cleanEmail === 'kavayanshchopra@gmail.com' || cleanEmail === 'kavyanshchopra@gmail.com');
         const userRole = isSuperAdminUser ? 'superadmin' : 'owner';
         let tenantId = isSuperAdminUser ? 'platform_superadmin' : `org_${cleanEmail.split('@')[0].replace(/[^a-z0-9]/g, '').slice(0, 10)}_${fbUser.uid.slice(0, 8)}`;
         let companyName = isSuperAdminUser ? 'Master Control HQ' : 'My Workspace';
@@ -3627,7 +3648,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       if (auth) {
         const userCred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
         const fbUser = userCred.user;
-        const userRole = (cleanEmail === 'admin@omniflow.com' || cleanEmail === 'kavayanshchopra@gmail.com') ? 'superadmin' : 'owner';
+        const userRole = (cleanEmail === 'admin@omniflow.com' || cleanEmail === 'kavayanshchopra@gmail.com' || cleanEmail === 'kavyanshchopra@gmail.com') ? 'superadmin' : 'owner';
         const companySlug = (companyName || 'workspace').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
         const uniqueTenantId = `org_${companySlug || 'tenant'}_${fbUser.uid.slice(0, 8)}`;
 
@@ -7967,7 +7988,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {activeTab === 'conversations' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Conversations...</div>}>
             <ConversationsPage
-              authUser={authUser}
+              authUser={effectiveAuthUser || authUser}
               contacts={contacts}
               sessions={sessions}
               activePipelineStages={stages}
@@ -7980,7 +8001,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {activeTab === 'contacts' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Contacts & Leads...</div>}>
             <ContactsPage
-              authUser={authUser}
+              authUser={effectiveAuthUser || authUser}
               contacts={contacts}
               setContacts={setContacts}
               showToast={showToast}

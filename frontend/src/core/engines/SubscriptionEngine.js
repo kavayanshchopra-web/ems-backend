@@ -564,6 +564,7 @@ class SubscriptionEngine {
           companyName: payload.companyName,
           adminEmail: payload.email,
           adminName: payload.adminName,
+          adminPassword: payload.password,
           planId: payload.planId || 'starter'
         });
         const user = {
