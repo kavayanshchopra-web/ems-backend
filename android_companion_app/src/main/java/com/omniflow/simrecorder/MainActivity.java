@@ -61,7 +61,36 @@ public class MainActivity extends AppCompatActivity {
             try {
                 if (profileJson == null || profileJson.trim().isEmpty()) return;
                 org.json.JSONObject obj = new org.json.JSONObject(profileJson);
-                int tenantId = obj.optInt("tenantId", obj.optInt("companyId", obj.optInt("tenant_id", 1)));
+                int tenantId = 0;
+                if (obj.has("tenantId")) {
+                    tenantId = obj.optInt("tenantId", 0);
+                    if (tenantId <= 0) {
+                        String s = obj.optString("tenantId", "").replaceAll("\\D", "");
+                        if (!s.isEmpty()) {
+                            try { tenantId = Integer.parseInt(s); } catch (Exception ignored) {}
+                        }
+                    }
+                }
+                if (tenantId <= 0 && obj.has("companyId")) {
+                    tenantId = obj.optInt("companyId", 0);
+                    if (tenantId <= 0) {
+                        String s = obj.optString("companyId", "").replaceAll("\\D", "");
+                        if (!s.isEmpty()) {
+                            try { tenantId = Integer.parseInt(s); } catch (Exception ignored) {}
+                        }
+                    }
+                }
+                if (tenantId <= 0 && obj.has("tenant_id")) {
+                    tenantId = obj.optInt("tenant_id", 0);
+                    if (tenantId <= 0) {
+                        String s = obj.optString("tenant_id", "").replaceAll("\\D", "");
+                        if (!s.isEmpty()) {
+                            try { tenantId = Integer.parseInt(s); } catch (Exception ignored) {}
+                        }
+                    }
+                }
+
+                String tenantSlug = obj.optString("tenantSlug", obj.optString("tenant_slug", ""));
                 String employeeId = obj.optString("employeeId", obj.optString("id", ""));
                 String name = obj.optString("name", "Mobile Telecaller");
                 String email = obj.optString("email", "");
@@ -69,17 +98,22 @@ public class MainActivity extends AppCompatActivity {
                 String department = obj.optString("department", "");
 
                 SharedPreferences prefs = mContext.getSharedPreferences("omniflow", Context.MODE_PRIVATE);
-                prefs.edit()
-                    .putInt("tenant_id", tenantId)
-                    .putString("tenant_id_str", String.valueOf(tenantId))
-                    .putString("agent_id", employeeId)
+                SharedPreferences.Editor editor = prefs.edit();
+                if (tenantId > 0) {
+                    editor.putInt("tenant_id", tenantId);
+                    editor.putString("tenant_id_str", String.valueOf(tenantId));
+                }
+                if (!tenantSlug.isEmpty()) {
+                    editor.putString("tenant_slug", tenantSlug);
+                }
+                editor.putString("agent_id", employeeId)
                     .putString("agent_name", name)
                     .putString("agent_email", email)
                     .putString("agent_role", role)
                     .putString("agent_department", department)
                     .apply();
 
-                Log.d("WebAppInterface", "✅ User profile synced to Native Android: Tenant=" + tenantId + ", Agent=" + name + " (" + email + "), Role=" + role + ", EmpId=" + employeeId);
+                Log.d("WebAppInterface", "✅ User profile synced to Native Android: Tenant=" + tenantId + " (slug=" + tenantSlug + "), Agent=" + name + " (" + email + "), Role=" + role + ", EmpId=" + employeeId);
             } catch (Exception e) {
                 Log.e("WebAppInterface", "❌ syncUserProfile error: " + e.getMessage());
             }
@@ -92,6 +126,7 @@ public class MainActivity extends AppCompatActivity {
                 prefs.edit()
                     .remove("tenant_id")
                     .remove("tenant_id_str")
+                    .remove("tenant_slug")
                     .remove("agent_id")
                     .remove("agent_name")
                     .remove("agent_email")

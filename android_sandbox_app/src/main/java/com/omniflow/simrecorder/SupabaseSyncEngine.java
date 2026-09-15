@@ -33,7 +33,7 @@ public class SupabaseSyncEngine {
     public static final String SUPABASE_STORAGE_URL = "https://mucgmzldgvtblmsurtgo.supabase.co/storage/v1";
     public static final String SUPABASE_KEY = "sb_publishable_xRGskG_bEbCJebUMT_XPHA_vjwf1Lr1";
     public static final String STORAGE_BUCKET = "omniflow-vault";
-    public static final int DEFAULT_TENANT_ID = 1;
+    public static final int DEFAULT_TENANT_ID = 0;
 
     public static int getTenantId(Context context) {
         if (context != null) {
@@ -43,7 +43,10 @@ public class SupabaseSyncEngine {
                 if (t > 0) return t;
                 String tStr = prefs.getString("tenant_id_str", null);
                 if (tStr != null && !tStr.trim().isEmpty()) {
-                    try { return Integer.parseInt(tStr.trim()); } catch (Exception ignored) {}
+                    try {
+                        int parsed = Integer.parseInt(tStr.trim());
+                        if (parsed > 0) return parsed;
+                    } catch (Exception ignored) {}
                 }
             } catch (Exception ignored) {}
         }
@@ -161,6 +164,10 @@ public class SupabaseSyncEngine {
                         : ("Lead (" + norm10 + ")");
 
                 int dynamicTenantId = getTenantId(context);
+                if (dynamicTenantId <= 0) {
+                    Log.w(TAG, "⚠️ [Stage 1 SupabaseSync] Aborting sync: No valid logged-in tenant found! (tenantId=" + dynamicTenantId + ")");
+                    return;
+                }
                 String resolvedAgent = getAgentName(context, agentName);
                 String dynamicAgentId = getAgentId(context);
                 String dynamicAgentEmail = getAgentEmail(context);
@@ -328,6 +335,10 @@ public class SupabaseSyncEngine {
                         : ("Lead (" + norm10 + ")");
 
                 int dynamicTenantId = getTenantId(context);
+                if (dynamicTenantId <= 0) {
+                    Log.w(TAG, "⚠️ [Stage 2 SupabaseSync] Aborting sync: No valid logged-in tenant found! (tenantId=" + dynamicTenantId + ")");
+                    return;
+                }
                 String resolvedAgent = getAgentName(context, agentName);
                 String dynamicAgentId = getAgentId(context);
                 String dynamicAgentEmail = getAgentEmail(context);
@@ -427,43 +438,7 @@ public class SupabaseSyncEngine {
                     }
                     patchConn.disconnect();
 
-                    // If not found to PATCH by ID (e.g. ID discrepancy), try PATCH by customer_phone in recent logs!
-                    if (!patched) {
-                        try {
-                            String encPhone = java.net.URLEncoder.encode(targetPhone, "UTF-8");
-                            URL ppUrl = new URL(SUPABASE_REST_URL + "/call_logs?customer_phone=eq." + encPhone + "&tenant_id=eq." + dynamicTenantId + "&order=created_at.desc&limit=1");
-                            HttpURLConnection ppConn = (HttpURLConnection) ppUrl.openConnection();
-                            ppConn.setRequestMethod("PATCH");
-                            ppConn.setRequestProperty("apikey", SUPABASE_KEY);
-                            ppConn.setRequestProperty("Authorization", "Bearer " + SUPABASE_KEY);
-                            ppConn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-                            ppConn.setRequestProperty("Prefer", "return=representation");
-                            ppConn.setDoOutput(true);
-                            ppConn.setConnectTimeout(8000);
-                            ppConn.setReadTimeout(8000);
-                            try (OutputStream os = ppConn.getOutputStream()) {
-                                os.write(patchBytes);
-                                os.flush();
-                            }
-                            if (ppConn.getResponseCode() == 200) {
-                                try (BufferedReader r = new BufferedReader(new InputStreamReader(ppConn.getInputStream()))) {
-                                    StringBuilder sb = new StringBuilder();
-                                    String line;
-                                    while ((line = r.readLine()) != null) sb.append(line);
-                                    JSONArray arr = new JSONArray(sb.toString());
-                                    patched = (arr.length() > 0);
-                                    if (patched) {
-                                        Log.d(TAG, "✅ [Stage 2 SupabaseSync] Found and merged into existing recent call log by phone: " + targetPhone);
-                                    }
-                                }
-                            }
-                            ppConn.disconnect();
-                        } catch (Exception patchPhoneErr) {
-                            Log.w(TAG, "Notice on phone PATCH merge: " + patchPhoneErr.getMessage());
-                        }
-                    }
-
-                    // If still not found to PATCH, INSERT it!
+                    // If not found to PATCH by ID, INSERT it as a new distinct call log!
                     if (!patched) {
                         updatePayload.put("id", actualCallId);
                         updatePayload.put("tenant_id", dynamicTenantId);

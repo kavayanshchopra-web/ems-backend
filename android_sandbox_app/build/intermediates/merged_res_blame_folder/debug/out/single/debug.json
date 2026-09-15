@@ -1,0 +1,66 @@
+[
+    {
+        "merged": "com.omniflow.simrecorder-merged_res-29:/drawable_ic_nav_apps.xml.flat",
+        "source": "com.omniflow.simrecorder-main-31:/drawable/ic_nav_apps.xml"
+    },
+    {
+        "merged": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-merged_res-29:\\mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-main-31:\\mipmap-xxxhdpi\\ic_launcher.png"
+    },
+    {
+        "merged": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-merged_res-29:\\drawable_ic_nav_recents.xml.flat",
+        "source": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-main-31:\\drawable\\ic_nav_recents.xml"
+    },
+    {
+        "merged": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-merged_res-29:\\drawable_ic_phone_white.xml.flat",
+        "source": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-main-31:\\drawable\\ic_phone_white.xml"
+    },
+    {
+        "merged": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-merged_res-29:\\mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-main-31:\\mipmap-xhdpi\\ic_launcher.png"
+    },
+    {
+        "merged": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-merged_res-29:\\mipmap-xxhdpi_ic_launcher.png.flat",
+        "source": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-main-31:\\mipmap-xxhdpi\\ic_launcher.png"
+    },
+    {
+        "merged": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-merged_res-29:\\mipmap-hdpi_ic_launcher.png.flat",
+        "source": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-main-31:\\mipmap-hdpi\\ic_launcher.png"
+    },
+    {
+        "merged": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-merged_res-29:\\drawable_ic_nav_dialer.xml.flat",
+        "source": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-main-31:\\drawable\\ic_nav_dialer.xml"
+    },
+    {
+        "merged": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-merged_res-29:\\mipmap-ldpi_ic_launcher.png.flat",
+        "source": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-main-31:\\mipmap-ldpi\\ic_launcher.png"
+    },
+    {
+        "merged": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-merged_res-29:\\drawable_launch_background.xml.flat",
+        "source": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-main-31:\\drawable\\launch_background.xml"
+    },
+    {
+        "merged": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-merged_res-29:\\drawable_ic_nav_contacts.xml.flat",
+        "source": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-main-31:\\drawable\\ic_nav_contacts.xml"
+    },
+    {
+        "merged": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-merged_res-29:\\drawable_ic_nav_crm.xml.flat",
+        "source": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-main-31:\\drawable\\ic_nav_crm.xml"
+    },
+    {
+        "merged": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-merged_res-29:\\mipmap-mdpi_ic_launcher.png.flat",
+        "source": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-main-31:\\mipmap-mdpi\\ic_launcher.png"
+    },
+    {
+        "merged": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-merged_res-29:\\mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-main-31:\\mipmap-anydpi-v26\\ic_launcher.xml"
+    },
+    {
+        "merged": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-merged_res-29:\\drawable_ic_launcher_foreground.xml.flat",
+        "source": "C:\\Users\\Lenovo\\.gradle\\daemon\\8.0\\com.omniflow.simrecorder-main-31:\\drawable\\ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "com.omniflow.simrecorder-merged_res-29:/drawable_ic_nav_home.xml.flat",
+        "source": "com.omniflow.simrecorder-main-31:/drawable/ic_nav_home.xml"
+    }
+]

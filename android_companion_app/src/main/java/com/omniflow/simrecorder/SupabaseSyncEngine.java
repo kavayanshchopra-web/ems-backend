@@ -33,7 +33,7 @@ public class SupabaseSyncEngine {
     public static final String SUPABASE_STORAGE_URL = "https://mucgmzldgvtblmsurtgo.supabase.co/storage/v1";
     public static final String SUPABASE_KEY = "sb_publishable_xRGskG_bEbCJebUMT_XPHA_vjwf1Lr1";
     public static final String STORAGE_BUCKET = "omniflow-vault";
-    public static final int DEFAULT_TENANT_ID = 1;
+    public static final int DEFAULT_TENANT_ID = 0;
 
     public static int getTenantId(Context context) {
         if (context != null) {
@@ -43,7 +43,10 @@ public class SupabaseSyncEngine {
                 if (t > 0) return t;
                 String tStr = prefs.getString("tenant_id_str", null);
                 if (tStr != null && !tStr.trim().isEmpty()) {
-                    try { return Integer.parseInt(tStr.trim()); } catch (Exception ignored) {}
+                    try {
+                        int parsed = Integer.parseInt(tStr.trim());
+                        if (parsed > 0) return parsed;
+                    } catch (Exception ignored) {}
                 }
             } catch (Exception ignored) {}
         }
@@ -161,6 +164,10 @@ public class SupabaseSyncEngine {
                         : ("Lead (" + norm10 + ")");
 
                 int dynamicTenantId = getTenantId(context);
+                if (dynamicTenantId <= 0) {
+                    Log.w(TAG, "⚠️ [Stage 1 SupabaseSync] Aborting sync: No valid logged-in tenant found! (tenantId=" + dynamicTenantId + ")");
+                    return;
+                }
                 String resolvedAgent = getAgentName(context, agentName);
                 String dynamicAgentId = getAgentId(context);
                 String dynamicAgentEmail = getAgentEmail(context);
@@ -328,6 +335,10 @@ public class SupabaseSyncEngine {
                         : ("Lead (" + norm10 + ")");
 
                 int dynamicTenantId = getTenantId(context);
+                if (dynamicTenantId <= 0) {
+                    Log.w(TAG, "⚠️ [Stage 2 SupabaseSync] Aborting sync: No valid logged-in tenant found! (tenantId=" + dynamicTenantId + ")");
+                    return;
+                }
                 String resolvedAgent = getAgentName(context, agentName);
                 String dynamicAgentId = getAgentId(context);
                 String dynamicAgentEmail = getAgentEmail(context);

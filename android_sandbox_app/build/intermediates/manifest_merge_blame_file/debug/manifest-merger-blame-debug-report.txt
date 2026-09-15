@@ -1,0 +1,283 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.omniflow.sandbox"
+4    android:versionCode="17"
+5    android:versionName="1.5.2-sandbox" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="24"
+9        android:targetSdkVersion="34" />
+10
+11    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+11-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:5:5-75
+11-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:5:22-72
+12    <uses-permission android:name="android.permission.CALL_PHONE" />
+12-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:6:5-69
+12-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:6:22-66
+13    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+13-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:7:5-71
+13-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:7:22-68
+14    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+14-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:8:5-72
+14-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:8:22-69
+15    <uses-permission android:name="android.permission.READ_CONTACTS" />
+15-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:9:5-72
+15-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:9:22-69
+16    <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS" />
+16-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:10:5-81
+16-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:10:22-78
+17    <uses-permission android:name="android.permission.INTERNET" />
+17-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:11:5-67
+17-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:11:22-64
+18    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+18-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:12:5-79
+18-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:12:22-76
+19    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+19-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:13:5-77
+19-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:13:22-74
+20    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+20-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:14:5-88
+20-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:14:22-85
+21    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+21-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:15:5-87
+21-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:15:22-84
+22    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+22-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:16:5-77
+22-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:16:22-74
+23    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+23-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:17:5-78
+23-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:17:22-75
+24    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+24-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:18:5-81
+24-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:18:22-78
+25    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+25-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:19:5-80
+25-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:19:22-77
+26    <uses-permission
+26-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:20:5-108
+27        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+27-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:20:22-78
+28        android:maxSdkVersion="29" />
+28-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:20:79-105
+29    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+29-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:21:5-82
+29-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:21:22-79
+30    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+30-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:22:5-75
+30-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:22:22-72
+31    <uses-permission android:name="android.permission.CAMERA" />
+31-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:23:5-65
+31-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:23:22-62
+32
+33    <uses-feature
+33-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:24:5-85
+34        android:name="android.hardware.camera"
+34-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:24:19-57
+35        android:required="false" />
+35-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:24:58-82
+36
+37    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+37-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:25:5-95
+37-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:25:22-92
+38    <uses-permission android:name="android.permission.VIBRATE" />
+38-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:26:5-66
+38-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:26:22-63
+39
+40    <uses-feature
+40-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:28:5-30:36
+41        android:name="android.hardware.camera.front"
+41-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:29:9-53
+42        android:required="false" /> <!-- TODO replace above two with next line after Android 4.2 -->
+42-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:30:9-33
+43    <!-- <uses-feature android:name="android.hardware.camera.any"/> -->
+44    <uses-feature
+44-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:33:5-35:36
+45        android:name="android.hardware.camera.autofocus"
+45-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:34:9-57
+46        android:required="false" />
+46-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:35:9-33
+47    <uses-feature
+47-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:36:5-38:36
+48        android:name="android.hardware.camera.flash"
+48-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:37:9-53
+49        android:required="false" />
+49-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:38:9-33
+50    <uses-feature
+50-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:39:5-41:36
+51        android:name="android.hardware.screen.landscape"
+51-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:40:9-57
+52        android:required="false" />
+52-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:41:9-33
+53    <uses-feature
+53-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:42:5-44:36
+54        android:name="android.hardware.wifi"
+54-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:43:9-45
+55        android:required="false" />
+55-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:44:9-33
+56
+57    <permission
+57-->[androidx.core:core:1.9.0] C:\Users\Lenovo\.gradle\caches\transforms-3\543740e42155bb89dcbd6bdda0f43b68\transformed\core-1.9.0\AndroidManifest.xml:22:5-24:47
+58        android:name="com.omniflow.sandbox.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+58-->[androidx.core:core:1.9.0] C:\Users\Lenovo\.gradle\caches\transforms-3\543740e42155bb89dcbd6bdda0f43b68\transformed\core-1.9.0\AndroidManifest.xml:23:9-81
+59        android:protectionLevel="signature" />
+59-->[androidx.core:core:1.9.0] C:\Users\Lenovo\.gradle\caches\transforms-3\543740e42155bb89dcbd6bdda0f43b68\transformed\core-1.9.0\AndroidManifest.xml:24:9-44
+60
+61    <uses-permission android:name="com.omniflow.sandbox.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+61-->[androidx.core:core:1.9.0] C:\Users\Lenovo\.gradle\caches\transforms-3\543740e42155bb89dcbd6bdda0f43b68\transformed\core-1.9.0\AndroidManifest.xml:26:5-97
+61-->[androidx.core:core:1.9.0] C:\Users\Lenovo\.gradle\caches\transforms-3\543740e42155bb89dcbd6bdda0f43b68\transformed\core-1.9.0\AndroidManifest.xml:26:22-94
+62
+63    <application
+63-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:29:5-92:19
+64        android:allowBackup="true"
+64-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:30:9-35
+65        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+65-->[androidx.core:core:1.9.0] C:\Users\Lenovo\.gradle\caches\transforms-3\543740e42155bb89dcbd6bdda0f43b68\transformed\core-1.9.0\AndroidManifest.xml:28:18-86
+66        android:debuggable="true"
+67        android:extractNativeLibs="false"
+68        android:icon="@mipmap/ic_launcher"
+68-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:31:9-43
+69        android:label="OmniFlow Telecalling"
+69-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:32:9-45
+70        android:requestLegacyExternalStorage="true"
+70-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:34:9-52
+71        android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+71-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:35:9-65
+72        android:usesCleartextTraffic="true" >
+72-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:33:9-44
+73        <activity
+73-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:37:9-45:20
+74            android:name="com.omniflow.simrecorder.PermissionsActivity"
+74-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:38:13-48
+75            android:configChanges="orientation|keyboardHidden|screenSize"
+75-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:40:13-74
+76            android:exported="true" >
+76-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:39:13-36
+77            <intent-filter>
+77-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:41:13-44:29
+78                <action android:name="android.intent.action.MAIN" />
+78-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:42:17-69
+78-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:42:25-66
+79
+80                <category android:name="android.intent.category.LAUNCHER" />
+80-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:43:17-77
+80-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:43:27-74
+81            </intent-filter>
+82        </activity>
+83        <activity
+83-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:47:9-51:77
+84            android:name="com.omniflow.simrecorder.MainActivity"
+84-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:48:13-41
+85            android:configChanges="orientation|keyboardHidden|screenSize"
+85-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:51:13-74
+86            android:exported="true"
+86-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:49:13-36
+87            android:launchMode="singleTask" />
+87-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:50:13-44
+88        <activity
+88-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:53:9-59:77
+89            android:name="com.omniflow.simrecorder.PostCallDispositionActivity"
+89-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:54:13-56
+90            android:configChanges="orientation|keyboardHidden|screenSize"
+90-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:59:13-74
+91            android:excludeFromRecents="true"
+91-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:56:13-46
+92            android:exported="false"
+92-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:55:13-37
+93            android:noHistory="true"
+93-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:57:13-37
+94            android:theme="@style/Theme.AppCompat.Dialog" />
+94-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:58:13-58
+95
+96        <receiver
+96-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:61:9-69:20
+97            android:name="com.omniflow.simrecorder.CallStateReceiver"
+97-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:62:13-46
+98            android:enabled="true"
+98-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:63:13-35
+99            android:exported="true" >
+99-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:64:13-36
+100            <intent-filter>
+100-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:65:13-68:29
+101                <action android:name="android.intent.action.PHONE_STATE" />
+101-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:66:17-76
+101-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:66:25-73
+102                <action android:name="android.intent.action.NEW_OUTGOING_CALL" />
+102-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:67:17-82
+102-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:67:25-79
+103            </intent-filter>
+104        </receiver>
+105
+106        <!-- Boot Receiver — restart service after phone reboot -->
+107        <receiver
+107-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:72:9-78:20
+108            android:name="com.omniflow.simrecorder.BootReceiver"
+108-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:73:13-41
+109            android:exported="false" >
+109-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:74:13-37
+110            <intent-filter>
+110-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:75:13-77:29
+111                <action android:name="android.intent.action.BOOT_COMPLETED" />
+111-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:76:17-79
+111-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:76:25-76
+112            </intent-filter>
+113        </receiver>
+114
+115        <!-- Foreground Recording Service -->
+116        <service
+116-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:81:9-84:58
+117            android:name="com.omniflow.simrecorder.CallRecordingService"
+117-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:82:13-49
+118            android:exported="false"
+118-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:83:13-37
+119            android:foregroundServiceType="microphone" />
+119-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:84:13-55
+120
+121        <!-- Foreground SIM Bridge Service -->
+122        <service
+122-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:87:9-90:56
+123            android:name="com.omniflow.simrecorder.SimBridgeService"
+123-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:88:13-45
+124            android:exported="false"
+124-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:89:13-37
+125            android:foregroundServiceType="dataSync" />
+125-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:90:13-53
+126
+127        <activity
+127-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:47:9-53:63
+128            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+128-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:48:13-74
+129            android:clearTaskOnLaunch="true"
+129-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:49:13-45
+130            android:screenOrientation="sensorLandscape"
+130-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:50:13-56
+131            android:stateNotNeeded="true"
+131-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:51:13-42
+132            android:theme="@style/zxing_CaptureTheme"
+132-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:52:13-54
+133            android:windowSoftInputMode="stateAlwaysHidden" />
+133-->[com.journeyapps:zxing-android-embedded:4.3.0] C:\Users\Lenovo\.gradle\caches\transforms-3\c68c4351e62fbff08f07c9084b29a6e8\transformed\jetified-zxing-android-embedded-4.3.0\AndroidManifest.xml:53:13-60
+134
+135        <provider
+135-->[androidx.emoji2:emoji2:1.2.0] C:\Users\Lenovo\.gradle\caches\transforms-3\78e0f475248ccf690a14f03fa1cc16c2\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:24:9-32:20
+136            android:name="androidx.startup.InitializationProvider"
+136-->[androidx.emoji2:emoji2:1.2.0] C:\Users\Lenovo\.gradle\caches\transforms-3\78e0f475248ccf690a14f03fa1cc16c2\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:25:13-67
+137            android:authorities="com.omniflow.sandbox.androidx-startup"
+137-->[androidx.emoji2:emoji2:1.2.0] C:\Users\Lenovo\.gradle\caches\transforms-3\78e0f475248ccf690a14f03fa1cc16c2\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:26:13-68
+138            android:exported="false" >
+138-->[androidx.emoji2:emoji2:1.2.0] C:\Users\Lenovo\.gradle\caches\transforms-3\78e0f475248ccf690a14f03fa1cc16c2\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:27:13-37
+139            <meta-data
+139-->[androidx.emoji2:emoji2:1.2.0] C:\Users\Lenovo\.gradle\caches\transforms-3\78e0f475248ccf690a14f03fa1cc16c2\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:29:13-31:52
+140                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+140-->[androidx.emoji2:emoji2:1.2.0] C:\Users\Lenovo\.gradle\caches\transforms-3\78e0f475248ccf690a14f03fa1cc16c2\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:30:17-75
+141                android:value="androidx.startup" />
+141-->[androidx.emoji2:emoji2:1.2.0] C:\Users\Lenovo\.gradle\caches\transforms-3\78e0f475248ccf690a14f03fa1cc16c2\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:31:17-49
+142            <meta-data
+142-->[androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\Lenovo\.gradle\caches\transforms-3\a08e537b82c7c1ecb0346f490fbd9592\transformed\jetified-lifecycle-process-2.4.1\AndroidManifest.xml:31:13-33:52
+143                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+143-->[androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\Lenovo\.gradle\caches\transforms-3\a08e537b82c7c1ecb0346f490fbd9592\transformed\jetified-lifecycle-process-2.4.1\AndroidManifest.xml:32:17-78
+144                android:value="androidx.startup" />
+144-->[androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\Lenovo\.gradle\caches\transforms-3\a08e537b82c7c1ecb0346f490fbd9592\transformed\jetified-lifecycle-process-2.4.1\AndroidManifest.xml:33:17-49
+145        </provider>
+146    </application>
+147
+148</manifest>
