@@ -72,43 +72,50 @@ public class CallStateReceiver extends BroadcastReceiver {
             Log.d(TAG, "PHONE_STATE changed: " + stateStr);
 
             if (TelephonyManager.EXTRA_STATE_RINGING.equals(stateStr)) {
-                prefs.edit().putBoolean("is_incoming", true).apply();
+                prefs.edit()
+                    .putBoolean("is_incoming", true)
+                    .putBoolean("call_answered", false)
+                    .apply();
                 Log.d(TAG, "Incoming Call Ringing...");
 
-                // Show In-Call Floating Caller Card immediately on ringing
+                // Show In-Call Floating Caller Card immediately on ringing (Do NOT record mic yet while ringtone is playing)
                 String number = (incomingNumber != null && !incomingNumber.isEmpty()) ? incomingNumber : prefs.getString("active_call_number", "");
                 if (number == null || number.isEmpty()) {
                     number = fetchLatestCallNumber(context);
                 }
-                Intent startIntent = new Intent(context, CallRecordingService.class);
-                startIntent.setAction(CallRecordingService.ACTION_START_RECORDING);
-                startIntent.putExtra("phone_number", (number != null && !number.isEmpty()) ? number : "Customer");
-                startIntent.putExtra("call_type", "INCOMING");
-                startIntent.putExtra("start_time", System.currentTimeMillis());
+                Intent showCardIntent = new Intent(context, CallRecordingService.class);
+                showCardIntent.setAction(CallRecordingService.ACTION_SHOW_IN_CALL_CARD);
+                showCardIntent.putExtra("phone_number", (number != null && !number.isEmpty()) ? number : "Customer");
+                showCardIntent.putExtra("call_type", "INCOMING");
+                showCardIntent.putExtra("start_time", System.currentTimeMillis());
 
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        context.startForegroundService(startIntent);
+                        context.startForegroundService(showCardIntent);
                     } else {
-                        context.startService(startIntent);
+                        context.startService(showCardIntent);
                     }
                 } catch (Exception e) {
                     Log.w(TAG, "Notice starting service on RINGING: " + e.getMessage());
                 }
             } else if (TelephonyManager.EXTRA_STATE_OFFHOOK.equals(stateStr)) {
-                Log.d(TAG, "Call Active (OFFHOOK). Starting/Confirming CallRecordingService...");
+                Log.d(TAG, "Call Active (OFFHOOK). Starting CallRecordingService...");
                 long callStartTime = System.currentTimeMillis();
 
                 String number = prefs.getString("active_call_number", "");
-                if (number.isEmpty()) {
-                    number = fetchLatestCallNumber(context);
+                if (number == null || number.isEmpty() || number.equalsIgnoreCase("Customer")) {
+                    String latest = fetchLatestCallNumber(context);
+                    if (latest != null && !latest.isEmpty() && !latest.equalsIgnoreCase("Customer")) {
+                        number = latest;
+                    }
                 }
                 boolean isIncoming = prefs.getBoolean("is_incoming", false);
 
                 prefs.edit()
                     .putBoolean("call_in_progress", true)
+                    .putBoolean("call_answered", true)
                     .putLong("call_start_time", callStartTime)
-                    .putString("active_call_number", number)
+                    .putString("active_call_number", (number != null && !number.isEmpty()) ? number : "Customer")
                     .apply();
 
                 Intent startIntent = new Intent(context, CallRecordingService.class);
@@ -130,16 +137,18 @@ public class CallStateReceiver extends BroadcastReceiver {
                 Log.d(TAG, "Call Ended (IDLE). Triggering Stop Recording & Audio Scan...");
 
                 String number = prefs.getString("active_call_number", "");
-                if (number == null || number.isEmpty()) {
+                if (number == null || number.isEmpty() || number.equalsIgnoreCase("Customer")) {
                     number = fetchLatestCallNumber(context);
                 }
                 boolean isIncoming = prefs.getBoolean("is_incoming", false);
+                boolean wasAnswered = prefs.getBoolean("call_answered", false);
+                boolean wasMissed = isIncoming && !wasAnswered;
 
-                // Always send stop recording intent so audio is scanned and uploaded
                 Intent stopIntent = new Intent(context, CallRecordingService.class);
                 stopIntent.setAction(CallRecordingService.ACTION_STOP_RECORDING);
                 stopIntent.putExtra("phone_number", (number != null && !number.isEmpty()) ? number : "Customer");
-                stopIntent.putExtra("call_type", isIncoming ? "INCOMING" : "OUTGOING");
+                stopIntent.putExtra("call_type", wasMissed ? "MISSED" : (isIncoming ? "INCOMING" : "OUTGOING"));
+                stopIntent.putExtra("was_missed", wasMissed);
 
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -155,6 +164,7 @@ public class CallStateReceiver extends BroadcastReceiver {
                 prefs.edit()
                     .putBoolean("call_in_progress", false)
                     .putBoolean("is_incoming", false)
+                    .putBoolean("call_answered", false)
                     .putString("active_call_number", "")
                     .apply();
             }

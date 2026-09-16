@@ -309,9 +309,17 @@ public class CallRecordingService extends Service {
         if (details.phoneNumber.isEmpty()) {
             details.phoneNumber = (fallbackPhone != null && !fallbackPhone.isEmpty()) ? fallbackPhone : "Customer";
         }
-        if (details.duration == 0 && "INCOMING".equalsIgnoreCase(details.callType)) {
-            details.callType = "MISSED";
-            details.isMissedOrRejected = true;
+        if (details.duration <= 0) {
+            if (fallbackDur > 0) {
+                details.duration = fallbackDur;
+                details.isMissedOrRejected = false;
+                if ("MISSED".equalsIgnoreCase(details.callType)) {
+                    details.callType = (fallbackType != null && !fallbackType.equalsIgnoreCase("MISSED")) ? fallbackType : "INCOMING";
+                }
+            } else if ("INCOMING".equalsIgnoreCase(details.callType)) {
+                details.callType = "MISSED";
+                details.isMissedOrRejected = true;
+            }
         }
 
         return details;
@@ -452,13 +460,23 @@ public class CallRecordingService extends Service {
         final String fallbackPhone = this.phoneNumber;
         final String fallbackType = wasMissedIntent ? "MISSED" : this.callType;
 
-        // Optimized 200ms delay: gives native phone dialer time to minimize while launching popup with zero UI lag
+        // Optimized 600ms delay: gives native phone dialer time to minimize and Android CallLog time to write duration
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             ResolvedCallDetails details = resolveCallDetailsFromCallLog(fallbackPhone, fallbackType, fallbackDuration);
             if (wasMissedIntent) {
                 details.callType = "MISSED";
                 details.isMissedOrRejected = true;
                 details.duration = 0;
+            } else {
+                if (details.duration <= 0 && fallbackDuration > 0) {
+                    details.duration = fallbackDuration;
+                }
+                if (details.duration > 0) {
+                    details.isMissedOrRejected = false;
+                    if ("MISSED".equalsIgnoreCase(details.callType)) {
+                        details.callType = (fallbackType != null && !fallbackType.equalsIgnoreCase("MISSED")) ? fallbackType : "INCOMING";
+                    }
+                }
             }
 
             final String finalPhone = details.phoneNumber;
@@ -469,7 +487,7 @@ public class CallRecordingService extends Service {
 
             Log.d(TAG, "🎯 [Post-Call Resolved] Type: " + finalType + ", Duration: " + finalDuration + "s, SIM: " + finalSimSlot + ", Phone: " + finalPhone);
 
-            if (details.isMissedOrRejected || finalDuration == 0) {
+            if ((details.isMissedOrRejected || finalDuration == 0) && wasMissedIntent) {
                 if (recordingFilePath != null) {
                     try {
                         File partial = new File(recordingFilePath);
@@ -484,7 +502,7 @@ public class CallRecordingService extends Service {
 
             // Pop up instantly without blocking the Main Looper on heavy file scans!
             showPostCallDispositionDialog(finalPhone, details.customerName, finalType, finalSimSlot, finalDuration, null, finalCallId);
-        }, 200);
+        }, 600);
     }
 
     private void uploadMissedCallToCRM(String phone, String custName, String type, String simSlot, String cId) {
