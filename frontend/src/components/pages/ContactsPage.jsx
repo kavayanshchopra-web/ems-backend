@@ -321,16 +321,19 @@ export default function ContactsPage({
           throw new Error('Please select an active company to sync contacts.');
         }
         const installed = await GhlOAuthService.getInstalledLocations(safeTenant);
-        const loc = (installed || []).find(l => l.accessToken && l.locationId);
+        const loc = (installed || []).find(l => (l.accessToken || l.access_token) && (l.locationId || l.location_id));
 
-        if (!loc || !loc.accessToken || !loc.locationId) {
+        if (!loc || !(loc.accessToken || loc.access_token) || !(loc.locationId || loc.location_id)) {
           throw new Error('HighLevel sub-account is not connected for this company. Please connect via Integrations.');
         }
 
+        const activeLocationId = loc.locationId || loc.location_id;
+        const activeAccessToken = loc.accessToken || loc.access_token;
+
         // Direct pull from HighLevel Cloud API with the active token
         const fetched = await GhlOAuthService.fetchContactsDirectly({
-          locationId: loc.locationId,
-          accessToken: loc.accessToken,
+          locationId: activeLocationId,
+          accessToken: activeAccessToken,
           limit: 100,
           maxTotal: 5000
         });

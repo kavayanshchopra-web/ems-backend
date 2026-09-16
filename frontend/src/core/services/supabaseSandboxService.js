@@ -2098,7 +2098,27 @@ export const SupabaseSandboxService = {
       });
       if (!res.ok) return [];
       const data = await res.json();
-      return Array.isArray(data) ? data : [];
+      return (Array.isArray(data) ? data : []).map(r => ({
+        id: r.id,
+        companyId: r.tenant_id,
+        tenantId: r.tenant_id,
+        locationId: r.location_id,
+        location_id: r.location_id,
+        userId: r.user_id,
+        user_id: r.user_id,
+        accessToken: r.access_token,
+        access_token: r.access_token,
+        refreshToken: r.refresh_token,
+        refresh_token: r.refresh_token,
+        tokenType: r.token_type || 'Bearer',
+        expiresIn: r.expires_in || 86400,
+        scope: r.scope || 'contacts,conversations,opportunities,workflows,locations',
+        userType: r.user_type || 'Location',
+        installedAt: r.created_at || r.updated_at,
+        updatedAt: r.updated_at,
+        status: r.access_token ? 'connected' : 'reauth_required',
+        ...r
+      }));
     } catch (err) {
       console.error('[Supabase Sandbox] getGhlIntegrations error:', err);
       return [];

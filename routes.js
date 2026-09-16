@@ -3046,7 +3046,7 @@ export default function setupRoutes(io) {
           contact: result.contactData || req.body?.data || req.body
         });
 
-        // Bridge directly to Supabase Sandbox PostgreSQL for instant 0-second visibility
+        // Bridge directly to Supabase Live PostgreSQL for instant 0-second visibility & strict tenant isolation
         try {
           const c = result.contactData || req.body?.data || req.body;
           if (c && (c.id || c.phone || c.email)) {
@@ -3054,17 +3054,33 @@ export default function setupRoutes(io) {
             const cleanPhone = rawPhone.replace(/\D/g, '');
             const cid = cleanPhone.length >= 10 ? `${cleanPhone}@s.whatsapp.net` : `ghl_${c.id || Date.now()}`;
             const cName = (c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.contactName || c.phone || 'HighLevel Lead');
-            fetch('https://mucgmzldgvtblmsurtgo.supabase.co/rest/v1/contacts', {
+            const locId = result.locationId || req.body?.locationId || req.body?.location_id || c.locationId || c.location_id;
+
+            // Resolve target tenant dynamically from locationId
+            let targetTenant = 100002;
+            if (locId) {
+              try {
+                const integration = await getGhlIntegrationByLocation(locId);
+                if (integration && (integration.tenant_id || integration.tenantId)) {
+                  targetTenant = Number(integration.tenant_id || integration.tenantId);
+                }
+              } catch (locErr) {
+                console.warn('[handleGhlWebhook] Location lookup notice:', locErr.message);
+              }
+            }
+
+            // Post to Live Supabase DB (pdjaajbhrvglwukoacuh) with STRICT tenant isolation
+            fetch('https://pdjaajbhrvglwukoacuh.supabase.co/rest/v1/contacts', {
               method: 'POST',
               headers: {
-                'apikey': 'sb_publishable_xRGskG_bEbCJebUMT_XPHA_vjwf1Lr1',
-                'Authorization': 'Bearer sb_publishable_xRGskG_bEbCJebUMT_XPHA_vjwf1Lr1',
+                'apikey': 'sb_publishable_q8SBMvAwczXP0yfDfIMZsQ_ahP5YYq3',
+                'Authorization': 'Bearer sb_publishable_q8SBMvAwczXP0yfDfIMZsQ_ahP5YYq3',
                 'Content-Type': 'application/json',
                 'Prefer': 'resolution=merge-duplicates,return=representation'
               },
               body: JSON.stringify({
                 id: cid,
-                tenant_id: 1,
+                tenant_id: targetTenant,
                 name: cName,
                 custom_name: cName,
                 phone: cleanPhone || c.phone,
@@ -3073,13 +3089,13 @@ export default function setupRoutes(io) {
                 pipeline_stage: 'lead',
                 is_archived: false,
                 labels: Array.isArray(c.tags) ? c.tags : ['HighLevel'],
-                notes: `Live Inbound Sync from HighLevel (Contact ID: ${c.id || ''})`,
+                notes: `Live Inbound Sync from HighLevel (Location: ${locId || 'Unknown'}, Contact ID: ${c.id || ''})`,
                 deal_value: '0',
-                custom_fields: { source: 'GoHighLevel', ghlContactId: c.id },
+                custom_fields: { source: 'GoHighLevel', ghlContactId: c.id, locationId: locId },
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
               })
-            }).catch(sbErr => console.warn('[Supabase Sandbox Webhook Bridge]', sbErr.message));
+            }).catch(sbErr => console.warn('[Supabase Live Webhook Bridge]', sbErr.message));
           }
         } catch (e) {}
 

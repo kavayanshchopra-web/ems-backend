@@ -1678,6 +1678,16 @@ public class MainActivity extends AppCompatActivity {
         crmLayout.addView(progressBar);
 
         SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
+        if (!prefs.contains("agent_id") || prefs.getString("agent_id", "").trim().isEmpty()) {
+            try {
+                android.webkit.WebStorage.getInstance().deleteAllData();
+                android.webkit.CookieManager.getInstance().removeAllCookies(null);
+                webView.clearCache(true);
+                webView.clearFormData();
+                webView.clearHistory();
+                Log.d(TAG, "🧹 Clean install / unauthenticated launch: purged leftover WebView session");
+            } catch (Exception ignored) {}
+        }
         String targetUrl = prefs.getString("dashboard_url", DASHBOARD_URL);
         if (!targetUrl.contains("app=android")) {
             targetUrl += (targetUrl.contains("?") ? "&" : "?") + "app=android";

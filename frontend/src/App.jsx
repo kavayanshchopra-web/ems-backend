@@ -113,7 +113,25 @@ export default function App() {
           return user;
         }
 
-        // Inside an iframe, NEVER fall back to global localStorage (prevents old account leakage across sub-accounts!)
+        // Inside an iframe, check location session first, then iframe session, and finally recover from active session if valid
+        const savedGlobal = localStorage.getItem('omnilflow_user');
+        if (savedGlobal) {
+          try {
+            const u = JSON.parse(savedGlobal);
+            if (u && (u.tenantId || u.companyId || u.tenant_id)) {
+              if (ghlCtx.locationId) {
+                localStorage.setItem(`omnilflow_user_ghl_${ghlCtx.locationId}`, JSON.stringify(u));
+              }
+              sessionStorage.setItem('omnilflow_iframe_user', JSON.stringify(u));
+              if (typeof window !== 'undefined') {
+                const tId = u.tenantId || u.companyId || u.tenant_id;
+                window.__omniflow_tenant = tId ? String(tId) : 'org_default';
+              }
+              return u;
+            }
+          } catch (e) {}
+        }
+
         return null;
       }
 
@@ -288,6 +306,17 @@ export default function App() {
         localStorage.setItem('omnilflow_user', JSON.stringify(userData));
         localStorage.setItem('omnilflow_current_company', String(userData.tenantId));
 
+        // Save GHL Location-Specific Session so navigating GHL sub-account pages never logs out
+        const gCtx = getGhlContext();
+        if (gCtx.locationId) {
+          localStorage.setItem(`omnilflow_user_ghl_${gCtx.locationId}`, JSON.stringify(userData));
+          localStorage.setItem(`omnilflow_token_ghl_${gCtx.locationId}`, token);
+        }
+        if (gCtx.isEmbedded) {
+          sessionStorage.setItem('omnilflow_iframe_user', JSON.stringify(userData));
+          sessionStorage.setItem('omnilflow_iframe_token', token);
+        }
+
         try {
           const bridge = window.AndroidApp || window.OmniFlowNative;
           if (bridge && typeof bridge.syncUserProfile === 'function') {
@@ -361,6 +390,14 @@ export default function App() {
       const token = await fbUser.getIdToken();
       localStorage.setItem('omnilflow_token', token);
       localStorage.setItem('omnilflow_user', JSON.stringify(appUser));
+      if (ghlCtx.locationId) {
+        localStorage.setItem(`omnilflow_user_ghl_${ghlCtx.locationId}`, JSON.stringify(appUser));
+        localStorage.setItem(`omnilflow_token_ghl_${ghlCtx.locationId}`, token);
+      }
+      if (ghlCtx.isEmbedded) {
+        sessionStorage.setItem('omnilflow_iframe_user', JSON.stringify(appUser));
+        sessionStorage.setItem('omnilflow_iframe_token', token);
+      }
       setAuthUser(appUser);
       if (typeof window !== 'undefined') window.__omniflow_tenant = String(uniqueTenantId);
       showToast(`Welcome ${appUser.name || appUser.email}!`, 'success');

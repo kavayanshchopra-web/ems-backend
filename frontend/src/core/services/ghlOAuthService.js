@@ -93,8 +93,19 @@ export class GhlOAuthService {
         return [];
       }
 
-      if (isSandboxEnvironment()) {
-        return await SupabaseSandboxService.getGhlIntegrations(companyId);
+      // 1. Query PostgreSQL Supabase first (Live & Sandbox environments)
+      try {
+        const sbList = await SupabaseSandboxService.getGhlIntegrations(companyId);
+        if (Array.isArray(sbList) && sbList.length > 0) {
+          const cleanStrId = String(companyId).trim();
+          const filtered = sbList.filter(item => {
+            const itemComp = String(item.companyId || item.tenantId || '').trim();
+            return (!itemComp || itemComp === cleanStrId) && Boolean(item.accessToken || item.access_token);
+          });
+          if (filtered.length > 0) return filtered;
+        }
+      } catch (sbErr) {
+        console.warn('[GhlOAuthService] Supabase getGhlIntegrations notice:', sbErr);
       }
 
       const cleanStrId = String(companyId).trim();
