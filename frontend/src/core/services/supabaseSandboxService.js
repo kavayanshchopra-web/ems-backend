@@ -398,7 +398,8 @@ export const SupabaseSandboxService = {
         unread_count: 0,
         tenantId: c.tenant_id,
         tenant_id: c.tenant_id,
-        companyId: c.tenant_id
+        companyId: c.tenant_id,
+        is_archived: (c.is_archived === true || c.is_archived === 1 || c.is_archived === '1') ? 1 : 0
       }));
     } catch (err) {
       console.error('[Supabase Sandbox] fetchContacts error:', err);
@@ -434,7 +435,7 @@ export const SupabaseSandboxService = {
         phone_normalized: cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone,
         email: email,
         pipeline_stage: contactData.pipeline_stage || contactData.stage || 'new',
-        is_archived: false,
+        is_archived: Boolean(contactData.is_archived),
         labels: contactData.labels || [],
         notes: contactData.notes || '',
         deal_value: String(contactData.deal_value || contactData.dealValue || contactData.amount || 0),
@@ -499,7 +500,7 @@ export const SupabaseSandboxService = {
             phone_normalized: cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone,
             email: email,
             pipeline_stage: c.pipeline_stage || c.pipelineStage || 'lead',
-            is_archived: false,
+            is_archived: Boolean(c.is_archived),
             labels: labels,
             notes: c.notes || (ghlId ? `Imported from GoHighLevel (GHL ID: ${ghlId})` : ''),
             deal_value: String(c.deal_value || c.monetaryValue || 0),
@@ -548,6 +549,9 @@ export const SupabaseSandboxService = {
         notes: contactData.notes,
         updated_at: new Date().toISOString()
       };
+      if (contactData.is_archived !== undefined) {
+        payload.is_archived = Boolean(contactData.is_archived);
+      }
       Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
 
       const res = await fetch(`${SUPABASE_URL}/contacts?id=eq.${id}&tenant_id=eq.${Number(tenantId)}`, {

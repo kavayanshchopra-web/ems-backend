@@ -6626,7 +6626,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const handleToggleArchive = async (contactId) => {
     const contact = contacts.find(c => c.id === contactId);
     if (!contact) return;
-    const isCurrentlyArchived = contact.is_archived === 1;
+    const isCurrentlyArchived = contact.is_archived === 1 || contact.is_archived === true || contact.is_archived === '1';
     try {
       const res = await fetch(`${API_URL}/contacts/${contactId}/archive`, {
         method: 'PUT',
@@ -6721,11 +6721,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     if (!matchesSearch) return false;
     // 2. Archive & Unread & Group/DM Filters
     const isGroup = c.id.endsWith('@g.us');
+    const isContactArchived = c.is_archived === 1 || c.is_archived === true || c.is_archived === '1';
     if (chatTypeFilter === 'archived') {
-      if (c.is_archived !== 1) return false;
+      if (!isContactArchived) return false;
     } else {
       // Exclude archived chats from regular lists
-      if (c.is_archived === 1) return false;
+      if (isContactArchived) return false;
       if (chatTypeFilter === 'dm' && isGroup) return false;
       if (chatTypeFilter === 'group' && !isGroup) return false;
       if (chatTypeFilter === 'unread' && !(c.unread_count > 0)) return false;
