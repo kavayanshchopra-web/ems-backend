@@ -36,10 +36,27 @@ class GhlSyncBridge {
 
     try {
       // Use resilient getInstalledLocations to resolve credentials across company ID variants/fallbacks
-      const installed = await GhlOAuthService.getInstalledLocations(tenantId);
-      const loc = (installed || []).find(l => l.accessToken && l.locationId) || (installed && installed[0]);
+      let installed = await GhlOAuthService.getInstalledLocations(tenantId);
+      
+      // If no locations found for this tenantId, try active company from localStorage or fallback to 1 (SuperAdmin) / 100003
+      if ((!installed || installed.length === 0) && typeof window !== 'undefined') {
+        const storedCompany = localStorage.getItem('omnilflow_current_company');
+        if (storedCompany && String(storedCompany) !== String(tenantId)) {
+          installed = await GhlOAuthService.getInstalledLocations(storedCompany);
+        }
+        if (!installed || installed.length === 0) {
+          installed = await GhlOAuthService.getInstalledLocations(1);
+        }
+        if (!installed || installed.length === 0) {
+          installed = await GhlOAuthService.getInstalledLocations(100003);
+        }
+      }
 
-      if (loc && loc.accessToken && loc.locationId) {
+      const loc = (installed || []).find(l => (l.accessToken || l.access_token) && (l.locationId || l.location_id)) || (installed && installed[0]);
+      const activeAccessToken = loc?.accessToken || loc?.access_token;
+      const activeLocationId = loc?.locationId || loc?.location_id;
+
+      if (loc && activeAccessToken && activeLocationId) {
         let pushPhone = cleanPhone;
         if (pushPhone && !pushPhone.startsWith('+')) {
           if (pushPhone.length === 10) {
@@ -50,8 +67,8 @@ class GhlSyncBridge {
         }
 
         const res = await GhlOAuthService.createOrUpdateContactDirectly({
-          locationId: loc.locationId,
-          accessToken: loc.accessToken,
+          locationId: activeLocationId,
+          accessToken: activeAccessToken,
           contact: {
             ...record,
             phone: pushPhone,
@@ -61,6 +78,8 @@ class GhlSyncBridge {
         });
         console.log('⚡ [Auto GHL Outbound Push Success]', record.name || record.title, res);
         return res;
+      } else {
+        console.warn('[Auto GHL Outbound Push Notice] No active GHL integration found for tenant', tenantId);
       }
     } catch (err) {
       console.warn('[Auto GHL Outbound Push Error]', err.message);

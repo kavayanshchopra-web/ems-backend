@@ -100,7 +100,9 @@ export class GhlOAuthService {
           const cleanStrId = String(companyId).trim();
           const filtered = sbList.filter(item => {
             const itemComp = String(item.companyId || item.tenantId || '').trim();
-            return (!itemComp || itemComp === cleanStrId) && Boolean(item.accessToken || item.access_token);
+            const token = item.accessToken || item.access_token || '';
+            const isValidToken = token && !token.includes(':') && (token.startsWith('pit-') || token.length > 30);
+            return (!itemComp || itemComp === cleanStrId || cleanStrId === '1') && isValidToken;
           });
           if (filtered.length > 0) return filtered;
         }
@@ -375,7 +377,6 @@ export class GhlOAuthService {
 
     const rawPhone = String(contact.phone || contact.phoneNumber || contact.customerPhone || contact.id || '').trim();
     const cleanDigits = rawPhone.replace(/\D/g, '');
-    const normPhone10 = cleanDigits.length >= 7 ? cleanDigits.slice(-10) : cleanDigits;
 
     let phone = rawPhone.replace(/[^0-9+]/g, '');
     if (phone.includes('@')) phone = phone.split('@')[0];
@@ -383,70 +384,26 @@ export class GhlOAuthService {
       if (phone.length === 10) phone = `+91${phone}`;
       else if (phone.length === 11 && phone.startsWith('0')) phone = `+91${phone.slice(1)}`;
       else if (phone.length === 12 && phone.startsWith('91')) phone = `+${phone}`;
+      else phone = `+${phone}`;
     }
 
-    // Step A: Search for existing contact by phone query in HighLevel first!
-    if (normPhone10 && normPhone10.length >= 7) {
-      try {
-        const searchUrl = `https://services.leadconnectorhq.com/contacts/?locationId=${encodeURIComponent(locationId)}&query=${encodeURIComponent(normPhone10)}`;
-        const searchRes = await fetch(searchUrl, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Version': '2021-07-28',
-            'Accept': 'application/json'
-          }
-        });
-        if (searchRes.ok) {
-          const searchData = await searchRes.json();
-          if (Array.isArray(searchData?.contacts) && searchData.contacts.length > 0) {
-            const matched = searchData.contacts.find(c => {
-              const cDigits = String(c.phone || '').replace(/\D/g, '');
-              return cDigits.endsWith(normPhone10) || cDigits.includes(normPhone10);
-            }) || searchData.contacts[0];
+    const cleanEmail = (contact.email && String(contact.email).includes('@')) ? String(contact.email).trim() : undefined;
+    const rawTags = contact.labels || contact.tags || ['EMS Lead'];
+    const tags = Array.isArray(rawTags) ? rawTags : (typeof rawTags === 'string' ? rawTags.split(',').map(s => s.trim()).filter(Boolean) : ['EMS Lead']);
 
-            if (matched && matched.id) {
-              // If matched contact in GHL is missing name or is just phone number, update it to real customer name
-              if (rawName && rawName.toLowerCase() !== 'customer' && (!matched.name || matched.name.replace(/\D/g, '') === normPhone10 || matched.name.includes('0'))) {
-                try {
-                  await fetch(`https://services.leadconnectorhq.com/contacts/${matched.id}`, {
-                    method: 'PUT',
-                    headers: {
-                      'Authorization': `Bearer ${accessToken}`,
-                      'Version': '2021-07-28',
-                      'Content-Type': 'application/json',
-                      'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({
-                      name: rawName,
-                      firstName: firstName || rawName,
-                      lastName: lastName || undefined,
-                      ...(contact.email ? { email: contact.email } : {})
-                    })
-                  });
-                } catch (putErr) {}
-              }
-
-              return { contact: matched, id: matched.id };
-            }
-          }
-        }
-      } catch (searchErr) {
-        console.warn('[GhlOAuthService Contact Search Notice]', searchErr);
-      }
-    }
-
-    // Step B: Upsert contact if not found by search
+    // Build payload for HighLevel official v2 API
     const payload = {
       locationId,
       name: rawName || undefined,
       firstName: firstName || undefined,
       lastName: lastName || undefined,
-      email: (contact.email || '').trim() || undefined,
+      email: cleanEmail,
       phone: phone || undefined,
-      tags: Array.isArray(contact.labels || contact.tags) ? (contact.labels || contact.tags) : ['EMS CRM']
+      tags: tags.length > 0 ? tags : ['EMS Lead']
     };
 
     try {
+      // Primary: Official HighLevel atomic upsert endpoint (deduplicates on phone or email automatically)
       const res = await fetch(`https://services.leadconnectorhq.com/contacts/upsert`, {
         method: 'POST',
         headers: {
@@ -458,43 +415,55 @@ export class GhlOAuthService {
         body: JSON.stringify(payload)
       });
 
-      if (!res.ok) {
-        const fallbackRes = await fetch(`https://services.leadconnectorhq.com/contacts/`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Version': '2021-07-28',
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        });
-        const data = await fallbackRes.json().catch(() => ({}));
-        if (data && (data.contact?.id || data.id)) {
-          await this.recordSyncAuditLog({
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const ghlId = data.contact?.id || data.id;
+        console.log('⚡ [HighLevel Live Outbound Push Success]:', ghlId, rawName || phone);
+        if (ghlId) {
+          this.recordSyncAuditLog({
             locationId,
             action: 'PUSH_CONTACT',
             status: 'SUCCESS',
             emsEntityId: contact.id || phone,
-            ghlEntityId: data.contact?.id || data.id,
-            details: `Provisioned contact "${rawName || phone}" on HighLevel`
-          });
+            ghlEntityId: ghlId,
+            details: `Pushed contact "${rawName || phone}" to HighLevel`
+          }).catch(() => {});
         }
         return data;
       }
 
-      const data = await res.json();
-      if (data && (data.contact?.id || data.id)) {
-        await this.recordSyncAuditLog({
+      // Fallback: POST /contacts/ if upsert returned an error
+      const errText = await res.text().catch(() => '');
+      console.warn('[HighLevel Upsert Notice - Trying /contacts/ fallback]:', res.status, errText);
+
+      const fallbackRes = await fetch(`https://services.leadconnectorhq.com/contacts/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Version': '2021-07-28',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const fallbackData = await fallbackRes.json().catch(() => ({}));
+      const fallbackId = fallbackData.contact?.id || fallbackData.id;
+      if (fallbackRes.ok && fallbackId) {
+        console.log('⚡ [HighLevel Live Outbound Push (Fallback) Success]:', fallbackId, rawName || phone);
+        this.recordSyncAuditLog({
           locationId,
           action: 'PUSH_CONTACT',
           status: 'SUCCESS',
           emsEntityId: contact.id || phone,
-          ghlEntityId: data.contact?.id || data.id,
+          ghlEntityId: fallbackId,
           details: `Provisioned contact "${rawName || phone}" on HighLevel`
-        });
+        }).catch(() => {});
+        return fallbackData;
+      } else {
+        console.warn('[HighLevel Outbound Push Failed]:', fallbackRes.status, fallbackData);
+        return null;
       }
-      return data;
     } catch (e) {
       console.warn('[GhlOAuthService direct push error]', e.message);
       return null;

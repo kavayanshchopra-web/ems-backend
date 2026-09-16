@@ -73,6 +73,7 @@ import MediaStorageView from './storage/MediaStorageView';
 import SearchInput from './ui/SearchInput';
 import MediaStorageEngine from '../core/engines/MediaStorageEngine';
 import LayoutEngine from '../core/engines/LayoutEngine/LayoutEngine';
+import GhlSyncBridge from '../core/services/ghlSyncBridge';
 import { useModuleRegistry } from '../core/registry/useModuleRegistry';
 import { isSandboxEnvironment, SupabaseSandboxService } from '../core/services/supabaseSandboxService';
 import { PermissionEngine, STANDARD_ACTIONS, ACCESS_SCOPES, DEFAULT_ROLES } from '../core/engines/PermissionEngine/permissionEngine';
@@ -6130,6 +6131,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           name: newChatName.trim() || newChatPhone.trim(),
           phone: newChatPhone.trim()
         }, currentTenantId);
+        GhlSyncBridge.pushSingleContactAuto(currentTenantId, newLead).catch(() => {});
         await fetchContacts();
         setActiveContact(newLead);
         setNewChatPhone('');

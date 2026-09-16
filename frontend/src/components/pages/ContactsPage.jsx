@@ -425,6 +425,9 @@ export default function ContactsPage({
           } else {
             FirebaseCloudEngine.saveRecord('contacts', rec, companyId);
           }
+          if (rec.source !== 'GoHighLevel' && !String(rec.id).startsWith('ghl_')) {
+            GhlSyncBridge.pushSingleContactAuto(safeTenant, rec).catch(() => {});
+          }
         }
       });
     }
