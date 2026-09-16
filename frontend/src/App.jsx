@@ -93,42 +93,30 @@ export default function App() {
         if (ghlCtx.locationId) {
           const savedLocUser = localStorage.getItem(`omnilflow_user_ghl_${ghlCtx.locationId}`);
           if (savedLocUser) {
-            const user = JSON.parse(savedLocUser);
+            try {
+              const user = JSON.parse(savedLocUser);
+              if (user && typeof window !== 'undefined') {
+                const tId = user.tenantId || user.companyId || user.tenant_id;
+                window.__omniflow_tenant = tId ? String(tId) : 'org_default';
+              }
+              return user;
+            } catch (e) {}
+          }
+          // Strict isolation: When installing in a new GHL sub-account, DO NOT borrow any old or global session.
+          // Return null so the clean Sign-In / Sign-Up (Registration) screen is presented.
+          return null;
+        }
+
+        // Generic embedded fallback only when no specific locationId is available
+        const savedIframeUser = sessionStorage.getItem('omnilflow_iframe_user');
+        if (savedIframeUser) {
+          try {
+            const user = JSON.parse(savedIframeUser);
             if (user && typeof window !== 'undefined') {
               const tId = user.tenantId || user.companyId || user.tenant_id;
               window.__omniflow_tenant = tId ? String(tId) : 'org_default';
             }
             return user;
-          }
-        }
-
-        // Check per-tab/per-iframe session storage
-        const savedIframeUser = sessionStorage.getItem('omnilflow_iframe_user');
-        if (savedIframeUser) {
-          const user = JSON.parse(savedIframeUser);
-          if (user && typeof window !== 'undefined') {
-            const tId = user.tenantId || user.companyId || user.tenant_id;
-            window.__omniflow_tenant = tId ? String(tId) : 'org_default';
-          }
-          return user;
-        }
-
-        // Inside an iframe, check location session first, then iframe session, and finally recover from active session if valid
-        const savedGlobal = localStorage.getItem('omnilflow_user');
-        if (savedGlobal) {
-          try {
-            const u = JSON.parse(savedGlobal);
-            if (u && (u.tenantId || u.companyId || u.tenant_id)) {
-              if (ghlCtx.locationId) {
-                localStorage.setItem(`omnilflow_user_ghl_${ghlCtx.locationId}`, JSON.stringify(u));
-              }
-              sessionStorage.setItem('omnilflow_iframe_user', JSON.stringify(u));
-              if (typeof window !== 'undefined') {
-                const tId = u.tenantId || u.companyId || u.tenant_id;
-                window.__omniflow_tenant = tId ? String(tId) : 'org_default';
-              }
-              return u;
-            }
           } catch (e) {}
         }
 

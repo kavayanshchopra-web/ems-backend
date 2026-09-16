@@ -252,22 +252,25 @@ export default function IntegrationsPage({
       try {
         const sbLocations = await SupabaseSandboxService.getGhlIntegrations(cleanCompanyId);
         if (sbLocations && sbLocations.length > 0) {
+          // Strictly match activeLocId if provided, so new sub-accounts don't adopt old sub-accounts
           const matchingLoc = activeLocId ? sbLocations.find(l => l.locationId === activeLocId) : sbLocations[0];
-          const tokenToUse = (matchingLoc?.accessToken || '').trim() || (typeof window !== 'undefined' ? (localStorage.getItem(`omnilflow_ghl_token_${cleanCompanyId}_${matchingLoc?.locationId}`) || '') : '');
-          if (matchingLoc && tokenToUse) {
-            setGhlLocations([{
-              id: matchingLoc.id || `ghl_${matchingLoc.locationId}`,
-              locationId: matchingLoc.locationId,
-              accessToken: tokenToUse,
-              companyId: cleanCompanyId,
-              tenantId: cleanCompanyId,
-              locationName: `Active Sub-Account (${matchingLoc.locationId})`,
-              scope: matchingLoc.scope || 'contacts, conversations, workflows, locations',
-              installedAt: matchingLoc.installedAt || new Date().toISOString(),
-              status: 'connected'
-            }]);
-            fetchGhlSyncLogs();
-            return;
+          if (matchingLoc) {
+            const tokenToUse = (matchingLoc.accessToken || '').trim() || (typeof window !== 'undefined' ? (localStorage.getItem(`omnilflow_ghl_token_${cleanCompanyId}_${matchingLoc.locationId}`) || '') : '');
+            if (tokenToUse) {
+              setGhlLocations([{
+                id: matchingLoc.id || `ghl_${matchingLoc.locationId}`,
+                locationId: matchingLoc.locationId,
+                accessToken: tokenToUse,
+                companyId: cleanCompanyId,
+                tenantId: cleanCompanyId,
+                locationName: `Active Sub-Account (${matchingLoc.locationId})`,
+                scope: matchingLoc.scope || 'contacts, conversations, workflows, locations',
+                installedAt: matchingLoc.installedAt || new Date().toISOString(),
+                status: 'connected'
+              }]);
+              fetchGhlSyncLogs();
+              return;
+            }
           }
         }
       } catch (sbErr) {
@@ -279,75 +282,64 @@ export default function IntegrationsPage({
         const firestoreLocations = await GhlOAuthService.getInstalledLocations(cleanCompanyId);
         if (firestoreLocations && firestoreLocations.length > 0) {
           const matchingLoc = activeLocId ? firestoreLocations.find(l => l.locationId === activeLocId) : firestoreLocations[0];
-          const tokenToUse = (matchingLoc?.accessToken || '').trim() || (typeof window !== 'undefined' ? (localStorage.getItem(`omnilflow_ghl_token_${cleanCompanyId}_${matchingLoc?.locationId}`) || '') : '');
-          if (matchingLoc && tokenToUse) {
+          if (matchingLoc) {
+            const tokenToUse = (matchingLoc.accessToken || '').trim() || (typeof window !== 'undefined' ? (localStorage.getItem(`omnilflow_ghl_token_${cleanCompanyId}_${matchingLoc.locationId}`) || '') : '');
+            if (tokenToUse) {
+              setGhlLocations([{
+                id: matchingLoc.id || `ghl_${matchingLoc.locationId}`,
+                locationId: matchingLoc.locationId,
+                accessToken: tokenToUse,
+                companyId: cleanCompanyId,
+                tenantId: cleanCompanyId,
+                locationName: `Active Sub-Account (${matchingLoc.locationId})`,
+                scope: matchingLoc.scope || 'contacts, conversations, workflows, locations',
+                installedAt: matchingLoc.installedAt || new Date().toISOString(),
+                status: 'connected'
+              }]);
+              fetchGhlSyncLogs();
+              return;
+            }
+          }
+        }
+      } catch (fErr) {}
+
+      // 3. Query Backend status
+      if (activeLocId) {
+        const token = typeof window !== 'undefined' ? (localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token')) : null;
+        const url = `${API_URL}/v1/integrations/ghl/status?companyId=${encodeURIComponent(cleanCompanyId)}&locationId=${encodeURIComponent(activeLocId)}`;
+        
+        const res = await fetch(url, {
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            'X-Tenant-Id': String(cleanCompanyId),
+            'X-Location-Id': activeLocId
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const storedToken = typeof window !== 'undefined' ? (localStorage.getItem(`omnilflow_ghl_token_${cleanCompanyId}_${data.locationId}`) || '') : '';
+          const effectiveToken = (data.accessToken || storedToken || '').trim();
+          if (data.connected && data.locationId === activeLocId && effectiveToken) {
             setGhlLocations([{
-              id: matchingLoc.id || `ghl_${matchingLoc.locationId}`,
-              locationId: matchingLoc.locationId,
-              accessToken: tokenToUse,
-              companyId: cleanCompanyId,
-              tenantId: cleanCompanyId,
-              locationName: `Active Sub-Account (${matchingLoc.locationId})`,
-              scope: matchingLoc.scope || 'contacts, conversations, workflows, locations',
-              installedAt: matchingLoc.installedAt || new Date().toISOString(),
+              id: `ghl_${data.locationId}`,
+              locationId: data.locationId,
+              accessToken: effectiveToken,
+              companyId: data.companyId || cleanCompanyId,
+              tenantId: data.tenantId || cleanCompanyId,
+              locationName: `Active Sub-Account (${data.locationId})`,
+              scope: data.scope || 'contacts, conversations, workflows, locations',
+              installedAt: data.installedAt || data.updatedAt || new Date().toISOString(),
               status: 'connected'
             }]);
             fetchGhlSyncLogs();
             return;
           }
         }
-      } catch (fErr) {}
-
-      // 3. Query Backend status
-      const token = typeof window !== 'undefined' ? (localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token')) : null;
-      const url = `${API_URL}/v1/integrations/ghl/status?companyId=${encodeURIComponent(cleanCompanyId)}${activeLocId ? `&locationId=${encodeURIComponent(activeLocId)}` : ''}`;
-      
-      const res = await fetch(url, {
-        headers: {
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-          'X-Tenant-Id': String(cleanCompanyId),
-          ...(activeLocId ? { 'X-Location-Id': activeLocId } : {})
-        }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const storedToken = typeof window !== 'undefined' ? (localStorage.getItem(`omnilflow_ghl_token_${cleanCompanyId}_${data.locationId}`) || '') : '';
-        const effectiveToken = (data.accessToken || storedToken || '').trim();
-        if (data.connected && data.locationId) {
-          setGhlLocations([{
-            id: `ghl_${data.locationId}`,
-            locationId: data.locationId,
-            accessToken: effectiveToken,
-            companyId: data.companyId || cleanCompanyId,
-            tenantId: data.tenantId || cleanCompanyId,
-            locationName: `Active Sub-Account (${data.locationId})`,
-            scope: data.scope || 'contacts, conversations, workflows, locations',
-            installedAt: data.installedAt || data.updatedAt || new Date().toISOString(),
-            status: effectiveToken ? 'connected' : 'reauth_required',
-            error: effectiveToken ? null : 'Sub-Account linked, please enter API Key or Token below to activate sync.'
-          }]);
-          fetchGhlSyncLogs();
-        } else if (data.reauthRequired && data.locationId) {
-          setGhlLocations([{
-            id: `ghl_${data.locationId}`,
-            locationId: data.locationId,
-            accessToken: effectiveToken,
-            companyId: data.companyId || cleanCompanyId,
-            tenantId: data.tenantId || cleanCompanyId,
-            locationName: `Sub-Account (${data.locationId})`,
-            scope: data.scope || 'contacts, conversations, workflows, locations',
-            installedAt: data.installedAt || new Date().toISOString(),
-            status: effectiveToken ? 'connected' : 'reauth_required',
-            error: data.error || 'HighLevel API Key or Private Integration Token required.'
-          }]);
-        } else {
-          setGhlLocations([]);
-          setGhlSyncLogs([]);
-        }
-      } else {
-        setGhlLocations([]);
-        setGhlSyncLogs([]);
       }
+
+      // Clean disconnected state for fresh sub-accounts or sub-accounts without token
+      setGhlLocations([]);
+      setGhlSyncLogs([]);
     } catch (e) {
       console.warn('GHL status load error:', e);
       setGhlLocations([]);
@@ -810,13 +802,21 @@ export default function IntegrationsPage({
 
   // Helper to reliably resolve the active GHL location with access token
   const getActiveGhlLocation = async () => {
+    const targetLocId = (detectedLocationId || manualLocationId || '').trim();
+
     let loc = ghlLocations[0];
-    if (loc && (loc.accessToken || '').trim()) return loc;
+    if (loc && (loc.accessToken || '').trim()) {
+      if (!targetLocId || loc.locationId === targetLocId) {
+        return loc;
+      }
+    }
 
     try {
       const sbLocations = await SupabaseSandboxService.getGhlIntegrations(cleanCompanyId);
       if (sbLocations && sbLocations.length > 0) {
-        const found = sbLocations.find(l => (l.accessToken || '').trim()) || sbLocations[0];
+        const found = targetLocId
+          ? sbLocations.find(l => l.locationId === targetLocId && (l.accessToken || '').trim())
+          : sbLocations.find(l => (l.accessToken || '').trim());
         if (found) {
           loc = { ...found };
           if (!loc.accessToken) {
@@ -826,11 +826,13 @@ export default function IntegrationsPage({
       }
     } catch (e) {}
 
-    if (!loc || !loc.accessToken) {
+    if (!loc || !loc.accessToken || (targetLocId && loc.locationId !== targetLocId)) {
       try {
         const installed = await GhlOAuthService.getInstalledLocations(cleanCompanyId);
         if (installed && installed.length > 0) {
-          const found = installed.find(l => (l.accessToken || '').trim()) || installed[0];
+          const found = targetLocId
+            ? installed.find(l => l.locationId === targetLocId && (l.accessToken || '').trim())
+            : installed.find(l => (l.accessToken || '').trim());
           if (found) {
             loc = { ...found };
           }
@@ -838,8 +840,7 @@ export default function IntegrationsPage({
       } catch (e) {}
     }
 
-    const targetLocId = loc?.locationId || detectedLocationId || manualLocationId;
-    if (targetLocId && (!loc || !loc.accessToken)) {
+    if (targetLocId && (!loc || !loc.accessToken || loc.locationId !== targetLocId)) {
       const cached = localStorage.getItem(`omnilflow_ghl_token_${cleanCompanyId}_${targetLocId}`);
       if (cached) {
         loc = {
@@ -853,10 +854,13 @@ export default function IntegrationsPage({
       }
     }
 
-    if (loc && loc.accessToken && (!ghlLocations[0] || !ghlLocations[0].accessToken)) {
-      setGhlLocations([loc]);
+    if (loc && loc.accessToken && (!targetLocId || loc.locationId === targetLocId)) {
+      if (!ghlLocations[0] || !ghlLocations[0].accessToken || ghlLocations[0].locationId !== loc.locationId) {
+        setGhlLocations([loc]);
+      }
+      return loc;
     }
-    return loc;
+    return null;
   };
 
   const handleSyncAllGhlContacts = async () => {

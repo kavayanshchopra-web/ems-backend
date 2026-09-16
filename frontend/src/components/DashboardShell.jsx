@@ -695,8 +695,32 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     TenantStorage.clearAll();
     FirebaseCloudEngine.clearMemoryCache();
     FirebaseCloudEngine.purgeAllLocalCaches();
-    localStorage.clear();
-    sessionStorage.clear();
+
+    // Check if inside GHL sub-account
+    let ghlLocId = '';
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      ghlLocId = urlParams.get('location_id') || urlParams.get('locationId') || urlParams.get('loc_id') || '';
+      if (!ghlLocId && typeof document !== 'undefined' && document.referrer) {
+        const m = document.referrer.match(/\/location\/([a-zA-Z0-9_-]+)/);
+        if (m && m[1]) ghlLocId = m[1];
+      }
+    }
+
+    if (ghlLocId) {
+      // Clear ONLY this specific sub-account session so other sub-accounts aren't affected
+      localStorage.removeItem(`omnilflow_user_ghl_${ghlLocId}`);
+      localStorage.removeItem(`omnilflow_token_ghl_${ghlLocId}`);
+      sessionStorage.removeItem('omnilflow_iframe_user');
+      sessionStorage.removeItem('omnilflow_iframe_token');
+    } else {
+      localStorage.removeItem('omnilflow_user');
+      localStorage.removeItem('omnilflow_token');
+      localStorage.removeItem('token');
+      localStorage.removeItem('omnilflow_current_company');
+      sessionStorage.clear();
+    }
+
     if (typeof setAuthUser === 'function') {
       setAuthUser(null);
     } else {
