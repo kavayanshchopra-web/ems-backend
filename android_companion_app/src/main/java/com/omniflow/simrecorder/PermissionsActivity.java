@@ -25,6 +25,8 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import android.app.role.RoleManager;
+import android.telecom.TelecomManager;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,6 +36,7 @@ public class PermissionsActivity extends AppCompatActivity {
     private static final int OVERLAY_REQ_CODE = 302;
     private static final int BATTERY_REQ_CODE = 303;
     private static final int SAF_FOLDER_REQ_CODE = 304;
+    private static final int DIALER_REQ_CODE = 305;
 
     private TextView tvPhoneStatus;
     private TextView tvNotifStatus;
@@ -260,7 +263,50 @@ public class PermissionsActivity extends AppCompatActivity {
                isBatteryOptimizationGranted() && isOverlayPermissionGranted() && isFolderPermissionGranted();
     }
 
+    private boolean isDefaultDialerGranted() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            TelecomManager telecomManager = (TelecomManager) getSystemService(Context.TELECOM_SERVICE);
+            return telecomManager != null && getPackageName().equals(telecomManager.getDefaultDialerPackage());
+        }
+        return true;
+    }
+
+    private void requestDefaultDialerPermission() {
+        if (isDefaultDialerGranted()) {
+            Toast.makeText(this, "OmniFlow is already your default dialer!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            RoleManager roleManager = (RoleManager) getSystemService(Context.ROLE_SERVICE);
+            if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_DIALER)) {
+                if (!roleManager.isRoleHeld(RoleManager.ROLE_DIALER)) {
+                    Intent intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_DIALER);
+                    try {
+                        startActivityForResult(intent, DIALER_REQ_CODE);
+                        return;
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                Intent intent = new Intent(TelecomManager.ACTION_CHANGE_DEFAULT_DIALER);
+                intent.putExtra(TelecomManager.EXTRA_CHANGE_DEFAULT_DIALER_PACKAGE_NAME, getPackageName());
+                startActivityForResult(intent, DIALER_REQ_CODE);
+            } catch (Exception e) {
+                try {
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS);
+                    startActivity(intent);
+                    Toast.makeText(this, "Please select OmniFlow as default Phone app", Toast.LENGTH_LONG).show();
+                } catch (Exception ignored) {}
+            }
+        }
+    }
+
     private void setBadgedStatus(TextView tv, boolean granted) {
+        if (tv == null) return;
         if (granted) {
             tv.setText("✓");
             tv.setTextColor(Color.parseColor("#10B981")); // Green
@@ -272,9 +318,13 @@ public class PermissionsActivity extends AppCompatActivity {
     }
 
     private boolean isPhonePermissionGranted() {
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED &&
+        boolean basic = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED &&
                ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED &&
                ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return basic && ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED;
+        }
+        return basic;
     }
 
     private boolean isNotificationPermissionGranted() {
@@ -300,6 +350,9 @@ public class PermissionsActivity extends AppCompatActivity {
     }
 
     private boolean isFolderPermissionGranted() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (android.os.Environment.isExternalStorageManager()) return true;
+        }
         SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
         String uriStr = prefs.getString("selected_folder_uri", "");
         return !uriStr.isEmpty();
@@ -329,6 +382,11 @@ public class PermissionsActivity extends AppCompatActivity {
         list.add(Manifest.permission.READ_CONTACTS);
         list.add(Manifest.permission.RECORD_AUDIO);
         list.add(Manifest.permission.PROCESS_OUTGOING_CALLS);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            list.add(Manifest.permission.READ_MEDIA_AUDIO);
+        } else {
+            list.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+        }
         ActivityCompat.requestPermissions(this, list.toArray(new String[0]), PERMISSION_REQ_CODE);
     }
 

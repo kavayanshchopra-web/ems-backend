@@ -29,9 +29,9 @@ public class SupabaseSyncEngine {
 
     private static final String TAG = "SupabaseSyncEngine";
 
-    public static final String SUPABASE_REST_URL = "https://mucgmzldgvtblmsurtgo.supabase.co/rest/v1";
-    public static final String SUPABASE_STORAGE_URL = "https://mucgmzldgvtblmsurtgo.supabase.co/storage/v1";
-    public static final String SUPABASE_KEY = "sb_publishable_xRGskG_bEbCJebUMT_XPHA_vjwf1Lr1";
+    public static final String SUPABASE_REST_URL = "https://pdjaajbhrvglwukoacuh.supabase.co/rest/v1";
+    public static final String SUPABASE_STORAGE_URL = "https://pdjaajbhrvglwukoacuh.supabase.co/storage/v1";
+    public static final String SUPABASE_KEY = "sb_publishable_q8SBMvAwczXP0yfDfIMZsQ_ahP5YYq3";
     public static final String STORAGE_BUCKET = "omniflow-vault";
     public static final int DEFAULT_TENANT_ID = 0;
 
