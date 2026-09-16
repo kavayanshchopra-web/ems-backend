@@ -183,14 +183,19 @@ public class SupabaseSyncEngine {
                 try {
                     String actualCallId = (callId != null && !callId.isEmpty()) ? callId : ("call_" + System.currentTimeMillis() + "_" + norm10);
                     JSONObject callPayload = new JSONObject();
-                    callPayload.put("id", actualCallId);
+                    callPayload.put("call_id", actualCallId);
                     callPayload.put("tenant_id", dynamicTenantId);
                     callPayload.put("customer_phone", targetPhone);
                     callPayload.put("customer_name", resolvedCustName);
+                    callPayload.put("staff_name", resolvedAgent);
                     callPayload.put("agent_name", resolvedAgent);
-                    if (!dynamicAgentId.isEmpty()) callPayload.put("agent_id", dynamicAgentId);
+                    if (!dynamicAgentId.isEmpty()) {
+                        callPayload.put("staff_id", dynamicAgentId);
+                        callPayload.put("agent_id", dynamicAgentId);
+                    }
                     if (!dynamicAgentRole.isEmpty()) callPayload.put("agent_role", dynamicAgentRole);
                     callPayload.put("channel", (simSlot != null && !simSlot.isEmpty()) ? ("SIM (" + simSlot + ")") : "SIM");
+                    callPayload.put("type", resolvedType);
                     callPayload.put("call_type", resolvedType);
                     callPayload.put("duration", durationFormatted);
                     callPayload.put("duration_seconds", dur);
@@ -407,8 +412,8 @@ public class SupabaseSyncEngine {
                         updatePayload.put("recording_url", publicAudioUrl);
                     }
 
-                    // Try PATCH by id
-                    URL patchUrl = new URL(SUPABASE_REST_URL + "/call_logs?id=eq." + actualCallId + "&tenant_id=eq." + dynamicTenantId);
+                    // Try PATCH by call_id
+                    URL patchUrl = new URL(SUPABASE_REST_URL + "/call_logs?call_id=eq." + actualCallId + "&tenant_id=eq." + dynamicTenantId);
                     HttpURLConnection patchConn = (HttpURLConnection) patchUrl.openConnection();
                     patchConn.setRequestMethod("PATCH");
                     patchConn.setRequestProperty("apikey", SUPABASE_KEY);
@@ -476,15 +481,21 @@ public class SupabaseSyncEngine {
 
                     // If still not found to PATCH, INSERT it!
                     if (!patched) {
-                        updatePayload.put("id", actualCallId);
+                        updatePayload.put("call_id", actualCallId);
                         updatePayload.put("tenant_id", dynamicTenantId);
                         updatePayload.put("customer_phone", targetPhone);
                         updatePayload.put("customer_name", resolvedCustName);
+                        updatePayload.put("staff_name", resolvedAgent);
                         updatePayload.put("agent_name", resolvedAgent);
-                        if (!dynamicAgentId.isEmpty()) updatePayload.put("agent_id", dynamicAgentId);
+                        if (!dynamicAgentId.isEmpty()) {
+                            updatePayload.put("staff_id", dynamicAgentId);
+                            updatePayload.put("agent_id", dynamicAgentId);
+                        }
                         if (!dynamicAgentRole.isEmpty()) updatePayload.put("agent_role", dynamicAgentRole);
                         updatePayload.put("channel", (simSlot != null && !simSlot.isEmpty()) ? ("SIM (" + simSlot + ")") : "SIM");
-                        updatePayload.put("call_type", (callType != null && !callType.isEmpty()) ? callType.toUpperCase() : "OUTGOING");
+                        String safeType = (callType != null && !callType.isEmpty()) ? callType.toUpperCase() : "OUTGOING";
+                        updatePayload.put("type", safeType);
+                        updatePayload.put("call_type", safeType);
                         if (!updatePayload.has("recording_url")) updatePayload.put("recording_url", publicAudioUrl);
                         if (!dynamicAgentEmail.isEmpty()) {
                             JSONObject cf = new JSONObject();

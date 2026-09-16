@@ -332,8 +332,7 @@ export default function App() {
         } catch (e) {}
 
         setAuthUser(userData);
-        if (typeof window !== 'undefined') window.__omniflow_tenant = String(userData.tenantId);
-        setActiveTab(userData.role === 'superadmin' ? 'superadmin_plans' : 'contacts');
+        setActiveTab('contacts');
         showToast('⚡ Signed in successfully via PostgreSQL!', 'success');
         setAuthLoading(false);
         return;
