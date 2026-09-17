@@ -452,6 +452,58 @@ export default function ListEngine({
             );
           }
 
+          {/* AUDIO RECORDING COLUMN SPECIFIC OVERRIDE */}
+          if (col.id === 'recording' || col.fieldKey === 'recording') {
+            const recUrl = getValString(record.recording || record.recordingUrl || record.audioUrl).trim();
+            const hasValidRec = recUrl && recUrl.startsWith('http') && !recUrl.includes('soundhelix.com');
+            const isMissedCall = String(record.type || record.callType || '').toUpperCase() === 'MISSED' || 
+                                 String(record.status || record.disposition || '').toUpperCase() === 'MISSED CALL';
+            const callTime = Number(record._createdAt || (record.created_at ? new Date(record.created_at).getTime() : 0)) || 0;
+            const isRecentCall = callTime > 0 && (Date.now() - callTime < 300000); // within last 5 minutes
+
+            if (hasValidRec) {
+              return (
+                <td key={col.id} style={{ padding: '8px 14px', borderBottom: '1px solid #e2e8f0', minWidth: '220px' }}>
+                  <SchemaFieldRenderer
+                    field={fieldDef || { id: 'recording', key: 'recording', label: 'Audio Recording', type: 'audio' }}
+                    value={recUrl}
+                    mode="view"
+                    compact={true}
+                    moduleConfig={moduleConfig}
+                    systemDropdowns={systemDropdowns}
+                  />
+                </td>
+              );
+            }
+
+            if (!isMissedCall && isRecentCall) {
+              return (
+                <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#0d9488', background: 'rgba(13, 148, 136, 0.08)', border: '1px solid rgba(13, 148, 136, 0.25)', padding: '3px 10px', borderRadius: '12px', fontWeight: '700' }}>
+                    <span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#0d9488' }} />
+                    ⏳ Syncing Recording...
+                  </span>
+                </td>
+              );
+            }
+
+            if (isMissedCall) {
+              return (
+                <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0' }}>
+                  <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', fontWeight: '600' }}>
+                    No Recording (Missed)
+                  </span>
+                </td>
+              );
+            }
+
+            return (
+              <td key={col.id} style={{ padding: '12px 18px', fontSize: '12px', color: '#94a3b8', borderBottom: '1px solid #e2e8f0' }}>
+                <span style={{ fontWeight: '600' }}>—</span>
+              </td>
+            );
+          }
+
           {/* GENERIC COLUMN WITH STRICT "—" EMPTY FALLBACK */}
           const rawCellVal = (col.fieldKey && record[col.fieldKey] !== undefined && record[col.fieldKey] !== null)
             ? record[col.fieldKey]

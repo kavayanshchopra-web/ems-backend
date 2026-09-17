@@ -87,6 +87,7 @@ public class CallRecordingService extends Service {
     private String phoneNumber;
     private String callType;
     private long callStartTime;
+    private String currentCallId = null;
 
     private WindowManager windowManager;
     private View inCallCardView;
@@ -309,6 +310,7 @@ public class CallRecordingService extends Service {
         if (details.phoneNumber.isEmpty()) {
             details.phoneNumber = (fallbackPhone != null && !fallbackPhone.isEmpty()) ? fallbackPhone : "Customer";
         }
+        boolean wasAnsweredInPrefs = getSharedPreferences("omniflow", MODE_PRIVATE).getBoolean("call_answered", false);
         if (details.duration <= 0) {
             if (fallbackDur > 0) {
                 details.duration = fallbackDur;
@@ -316,6 +318,10 @@ public class CallRecordingService extends Service {
                 if ("MISSED".equalsIgnoreCase(details.callType)) {
                     details.callType = (fallbackType != null && !fallbackType.equalsIgnoreCase("MISSED")) ? fallbackType : "INCOMING";
                 }
+            } else if (wasAnsweredInPrefs || (callStartTime > 0)) {
+                // Call was OFFHOOK / Answered! Do NOT falsely convert to MISSED!
+                details.isMissedOrRejected = false;
+                details.callType = (fallbackType != null && !fallbackType.equalsIgnoreCase("MISSED")) ? fallbackType : "INCOMING";
             } else if ("INCOMING".equalsIgnoreCase(details.callType)) {
                 details.callType = "MISSED";
                 details.isMissedOrRejected = true;
@@ -355,6 +361,12 @@ public class CallRecordingService extends Service {
             phoneNumber = intent.getStringExtra("phone_number");
             callType = intent.getStringExtra("call_type");
             callStartTime = intent.getLongExtra("start_time", System.currentTimeMillis());
+            String passedId = intent.getStringExtra("call_id");
+            if (passedId != null && !passedId.isEmpty()) {
+                currentCallId = passedId;
+            } else {
+                currentCallId = "call_" + callStartTime + "_" + (phoneNumber != null ? phoneNumber.replaceAll("\\D", "") : "0");
+            }
 
             NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
             if (nm != null) {
@@ -370,6 +382,18 @@ public class CallRecordingService extends Service {
             if (stopType != null && !stopType.isEmpty()) {
                 callType = stopType;
             }
+            String stopPhone = (intent != null) ? intent.getStringExtra("phone_number") : null;
+            if (stopPhone != null && !stopPhone.isEmpty() && !"Customer".equalsIgnoreCase(stopPhone)) {
+                phoneNumber = stopPhone;
+            }
+            String passedStopId = (intent != null) ? intent.getStringExtra("call_id") : null;
+            if (passedStopId != null && !passedStopId.isEmpty()) {
+                currentCallId = passedStopId;
+            }
+            if (currentCallId == null || currentCallId.isEmpty()) {
+                currentCallId = "call_" + System.currentTimeMillis() + "_" + (phoneNumber != null ? phoneNumber.replaceAll("\\D", "") : "0");
+            }
+
             if (wasMissed) {
                 showOrUpdateInCallFloatingCard(phoneNumber, "MISSED", false, true);
             } else {
@@ -474,7 +498,7 @@ public class CallRecordingService extends Service {
             final String finalType = details.callType;
             final long finalDuration = details.duration;
             final String finalSimSlot = details.simSlot;
-            final String finalCallId = "call_" + System.currentTimeMillis() + "_" + (finalPhone != null ? finalPhone.replaceAll("\\D", "") : "0");
+            final String finalCallId = (currentCallId != null && !currentCallId.isEmpty()) ? currentCallId : ("call_" + System.currentTimeMillis() + "_" + (finalPhone != null ? finalPhone.replaceAll("\\D", "") : "0"));
 
             Log.d(TAG, "🎯 [Post-Call Resolved] Type: " + finalType + ", Duration: " + finalDuration + "s, SIM: " + finalSimSlot + ", Phone: " + finalPhone);
 

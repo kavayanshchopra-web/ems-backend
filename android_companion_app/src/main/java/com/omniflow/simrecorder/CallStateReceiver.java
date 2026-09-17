@@ -35,19 +35,25 @@ public class CallStateReceiver extends BroadcastReceiver {
             }
             if (outgoingNumber != null && !outgoingNumber.isEmpty()) {
                 long callStartTime = System.currentTimeMillis();
+                String rawDigits = outgoingNumber.replaceAll("\\D", "");
+                String norm10 = rawDigits.length() >= 10 ? rawDigits.substring(rawDigits.length() - 10) : rawDigits;
+                String uniqueCallId = "call_" + callStartTime + "_" + norm10;
+
                 prefs.edit()
                     .putString("active_call_number", outgoingNumber)
+                    .putString("active_call_id", uniqueCallId)
                     .putBoolean("is_incoming", false)
                     .putBoolean("call_in_progress", true)
                     .putLong("call_start_time", callStartTime)
                     .apply();
-                Log.d(TAG, "NEW_OUTGOING_CALL detected. Starting In-Call Floating Card for: " + outgoingNumber);
+                Log.d(TAG, "NEW_OUTGOING_CALL detected. Starting In-Call Floating Card for: " + outgoingNumber + " [CallID: " + uniqueCallId + "]");
 
                 Intent startIntent = new Intent(context, CallRecordingService.class);
                 startIntent.setAction(CallRecordingService.ACTION_START_RECORDING);
                 startIntent.putExtra("phone_number", outgoingNumber);
                 startIntent.putExtra("call_type", "OUTGOING");
                 startIntent.putExtra("start_time", callStartTime);
+                startIntent.putExtra("call_id", uniqueCallId);
 
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -110,11 +116,16 @@ public class CallStateReceiver extends BroadcastReceiver {
                     }
                 }
                 boolean isIncoming = prefs.getBoolean("is_incoming", false);
+                String rawDigits = (number != null) ? number.replaceAll("\\D", "") : "0";
+                String norm10 = rawDigits.length() >= 10 ? rawDigits.substring(rawDigits.length() - 10) : rawDigits;
+                String activeId = prefs.getString("active_call_id", "");
+                String uniqueCallId = (!activeId.isEmpty()) ? activeId : ("call_" + callStartTime + "_" + norm10);
 
                 prefs.edit()
                     .putBoolean("call_in_progress", true)
                     .putBoolean("call_answered", true)
                     .putLong("call_start_time", callStartTime)
+                    .putString("active_call_id", uniqueCallId)
                     .putString("active_call_number", (number != null && !number.isEmpty()) ? number : "Customer")
                     .apply();
 
@@ -123,6 +134,7 @@ public class CallStateReceiver extends BroadcastReceiver {
                 startIntent.putExtra("phone_number", (number != null && !number.isEmpty()) ? number : "Customer");
                 startIntent.putExtra("call_type", isIncoming ? "INCOMING" : "OUTGOING");
                 startIntent.putExtra("start_time", callStartTime);
+                startIntent.putExtra("call_id", uniqueCallId);
 
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -144,11 +156,19 @@ public class CallStateReceiver extends BroadcastReceiver {
                 boolean wasAnswered = prefs.getBoolean("call_answered", false);
                 boolean wasMissed = isIncoming && !wasAnswered;
 
+                String rawDigits = (number != null) ? number.replaceAll("\\D", "") : "0";
+                String norm10 = rawDigits.length() >= 10 ? rawDigits.substring(rawDigits.length() - 10) : rawDigits;
+                String activeCallId = prefs.getString("active_call_id", "");
+                if (activeCallId == null || activeCallId.isEmpty()) {
+                    activeCallId = "call_" + System.currentTimeMillis() + "_" + norm10;
+                }
+
                 Intent stopIntent = new Intent(context, CallRecordingService.class);
                 stopIntent.setAction(CallRecordingService.ACTION_STOP_RECORDING);
                 stopIntent.putExtra("phone_number", (number != null && !number.isEmpty()) ? number : "Customer");
                 stopIntent.putExtra("call_type", wasMissed ? "MISSED" : (isIncoming ? "INCOMING" : "OUTGOING"));
                 stopIntent.putExtra("was_missed", wasMissed);
+                stopIntent.putExtra("call_id", activeCallId);
 
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -166,6 +186,7 @@ public class CallStateReceiver extends BroadcastReceiver {
                     .putBoolean("is_incoming", false)
                     .putBoolean("call_answered", false)
                     .putString("active_call_number", "")
+                    .putString("active_call_id", "")
                     .apply();
             }
         }

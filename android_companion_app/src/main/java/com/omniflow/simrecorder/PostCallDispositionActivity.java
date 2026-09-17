@@ -560,14 +560,43 @@ public class PostCallDispositionActivity extends AppCompatActivity {
         }
 
         // 3. Scan native directories (Samsung / Xiaomi / Oppo / Vivo)
+        String storageRoot = android.os.Environment.getExternalStorageDirectory().getAbsolutePath();
         String[] dirs = {
-            android.os.Environment.getExternalStorageDirectory().getAbsolutePath() + "/Recordings/Call",
-            android.os.Environment.getExternalStorageDirectory().getAbsolutePath() + "/Recordings",
-            android.os.Environment.getExternalStorageDirectory().getAbsolutePath() + "/Sounds/CallRecordings",
-            android.os.Environment.getExternalStorageDirectory().getAbsolutePath() + "/MIUI/sound_recorder/call_rec",
-            android.os.Environment.getExternalStorageDirectory().getAbsolutePath() + "/ColorOS/CallRecordings",
-            android.os.Environment.getExternalStorageDirectory().getAbsolutePath() + "/Record/Call",
-            android.os.Environment.getExternalStorageDirectory().getAbsolutePath() + "/Music/Recordings/Call"
+            // Xiaomi / MIUI / HyperOS / Poco / Redmi
+            storageRoot + "/MIUI/sound_recorder/call_rec",
+            storageRoot + "/MIUI/sound_recorder",
+            storageRoot + "/sound_recorder/call_rec",
+            "/storage/emulated/0/MIUI/sound_recorder/call_rec",
+            "/storage/emulated/0/MIUI/sound_recorder",
+
+            // Vivo / iQOO (Funtouch OS / Origin OS)
+            storageRoot + "/Record",
+            storageRoot + "/Record/Call",
+            storageRoot + "/Recordings/Record",
+            storageRoot + "/vivoservice/record",
+            "/storage/emulated/0/Record",
+            "/storage/emulated/0/Record/Call",
+            "/storage/emulated/0/Recordings/Record",
+            "/storage/emulated/0/vivoservice/record",
+
+            // Samsung (OneUI)
+            storageRoot + "/Recordings/Call",
+            storageRoot + "/Recordings",
+            storageRoot + "/Voice Recorder",
+            "/storage/emulated/0/Recordings/Call",
+            "/storage/emulated/0/Recordings",
+
+            // Oppo / Realme / OnePlus
+            storageRoot + "/Recordings/CallRecordings",
+            storageRoot + "/Recordings/PhoneCall",
+            storageRoot + "/ColorOS/CallRecordings",
+            storageRoot + "/Music/Recordings/Call",
+            storageRoot + "/Music/Recordings",
+
+            // Generic
+            storageRoot + "/Sounds/CallRecordings",
+            storageRoot + "/Call Recordings",
+            storageRoot + "/Call"
         };
         long newestMod = 0;
         File best = null;
