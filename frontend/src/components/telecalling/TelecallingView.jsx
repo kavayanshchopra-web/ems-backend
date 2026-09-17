@@ -62,6 +62,9 @@ export default function TelecallingView({
     }
   });
   const activeProvider = localStorage.getItem('active_telephony_provider') || 'sim_runo';
+  const [dispositionOverrides, setDispositionOverrides] = useState(() => {
+    return TenantStorage.getItem('telecalling_dispositions', companyId, {});
+  });
 
   // Synchronize internal state whenever parent callLogs or companyId changes
   useEffect(() => {
@@ -379,7 +382,15 @@ export default function TelecallingView({
         const dispB = item.disposition || item.status || '';
 
         const resolvedRec = (hasRecB ? (item.recordingUrl || item.recording || item.audioUrl) : (existing.recordingUrl || existing.recording || existing.audioUrl)) || '';
-        const resolvedDisp = (dispB && !dispB.toLowerCase().includes('pending')) ? dispB : (dispA || 'Interested');
+        // Preserve any custom or active disposition (e.g. Demo Scheduled) rather than falling back to default Interested
+        let resolvedDisp = 'Interested';
+        if (dispB && !dispB.toLowerCase().includes('pending') && dispB !== 'Interested') {
+          resolvedDisp = dispB;
+        } else if (dispA && !dispA.toLowerCase().includes('pending') && dispA !== 'Interested') {
+          resolvedDisp = dispA;
+        } else {
+          resolvedDisp = dispB || dispA || 'Interested';
+        }
 
         // Resolve call type: Preserve OUTGOING or INCOMING if either record has it, do NOT blindly default to INCOMING!
         const typeA = String(existing.type || existing.callType || '').toUpperCase();
@@ -492,10 +503,16 @@ export default function TelecallingView({
       const persistentSeqId = `CALL-${String(seqIdx + 1).padStart(4, '0')}`;
       const resolvedCallType = isMissed ? 'MISSED' : (log.type && log.type !== 'MISSED' ? log.type : (log.callType && log.callType !== 'MISSED' ? log.callType : 'OUTGOING'));
 
+      // Check if user set an explicit override (guaranteed supreme priority)
+      const overrideDisp = dispositionOverrides[String(log.id)] || 
+                           dispositionOverrides[persistentSeqId] || 
+                           (custPhone && dispositionOverrides[String(custPhone)]) || 
+                           (normPhone10 && dispositionOverrides[normPhone10]);
+
       const rawDisposition = String(log.disposition || log.status || '').trim();
-      const resolvedDisposition = rawDisposition && rawDisposition.toUpperCase() !== 'MISSED'
+      const resolvedDisposition = overrideDisp || (rawDisposition && rawDisposition.toUpperCase() !== 'MISSED'
         ? rawDisposition
-        : (isMissed ? 'Missed Call' : 'Interested');
+        : (isMissed ? 'Missed Call' : 'Interested'));
 
       return {
         id: log.id || persistentSeqId,
@@ -588,9 +605,26 @@ export default function TelecallingView({
       // 3. Employee (Default): STRICTLY own calls ONLY
       return isOwnCall;
     });
-  }, [callLogs, internalLogs, crmContactMap, authUser, activeProvider, companyId, employees]);
+  }, [callLogs, internalLogs, crmContactMap, authUser, activeProvider, companyId, employees, dispositionOverrides]);
 
   const handleUpdateRecords = async (newRecords) => {
+    // 1. Immediately update dispositionOverrides with highest priority
+    const newOverrides = { ...dispositionOverrides };
+    if (Array.isArray(newRecords)) {
+      newRecords.forEach(r => {
+        if (r && (r.disposition || r.status)) {
+          const val = r.disposition || r.status;
+          if (r.id) newOverrides[String(r.id)] = val;
+          if (r.displayId) newOverrides[String(r.displayId)] = val;
+          if (r.phone) newOverrides[String(r.phone)] = val;
+          const clean = String(r.phone || '').replace(/\D/g, '').slice(-10);
+          if (clean) newOverrides[clean] = val;
+        }
+      });
+    }
+    setDispositionOverrides(newOverrides);
+    TenantStorage.setItem('telecalling_dispositions', newOverrides, companyId);
+
     setInternalLogs(newRecords);
     if (typeof setCallLogs === 'function') setCallLogs(newRecords);
     TenantStorage.setItem('call_logs', newRecords, companyId);
@@ -602,17 +636,14 @@ export default function TelecallingView({
       if (Array.isArray(newRecords)) {
         for (const rec of newRecords) {
           if (rec && rec.id) {
-            try {
-              const updated = await SupabaseSandboxService.updateCallLog(rec.id, {
+            const rawId = rec.originalId || rec.id;
+            const numId = Number(rawId);
+            if (!isNaN(numId) && numId > 0) {
+              SupabaseSandboxService.updateCallLog(numId, {
                 disposition: rec.disposition || rec.status,
                 status: rec.status || rec.disposition,
                 notes: rec.notes
-              }, companyId);
-              if (!updated) {
-                await SupabaseSandboxService.createCallLog(rec, companyId);
-              }
-            } catch (e) {
-              console.warn('[Telecalling] Sandbox call_log sync notice:', e);
+              }, companyId).catch(() => {});
             }
           }
         }

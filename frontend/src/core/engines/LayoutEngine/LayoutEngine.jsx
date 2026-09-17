@@ -346,7 +346,10 @@ export default function LayoutEngine({
         onMoveStage={(recId, newStage) => {
           let movedRec = null;
           const updated = records.map(r => {
-            if (String(r.id) === String(recId)) {
+            const isMatch = String(r.id) === String(recId) || 
+                            String(r.displayId) === String(recId) || 
+                            (r.originalId && String(r.originalId) === String(recId));
+            if (isMatch) {
               movedRec = { 
                 ...r, 
                 status: newStage, 
