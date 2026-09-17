@@ -61,6 +61,36 @@ public class CallStateReceiver extends BroadcastReceiver {
         return "SIM 1";
     }
 
+    public static String detectActiveSim(Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            try {
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
+                    SubscriptionManager sm = (SubscriptionManager) context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+                    TelephonyManager tm = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
+                    if (sm != null && tm != null) {
+                        List<SubscriptionInfo> subs = sm.getActiveSubscriptionInfoList();
+                        if (subs != null && subs.size() > 1) {
+                            for (SubscriptionInfo sub : subs) {
+                                try {
+                                    TelephonyManager subTm = tm.createForSubscriptionId(sub.getSubscriptionId());
+                                    int state = subTm.getCallState();
+                                    if (state == TelephonyManager.CALL_STATE_OFFHOOK || state == TelephonyManager.CALL_STATE_RINGING) {
+                                        int slot = sub.getSimSlotIndex();
+                                        Log.d(TAG, "🎯 Active call hardware match: subId=" + sub.getSubscriptionId() + ", slot=" + slot + " -> SIM " + (slot + 1));
+                                        return "SIM " + (slot + 1);
+                                    }
+                                } catch (Exception ignored) {}
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "detectActiveSim notice: " + e.getMessage());
+            }
+        }
+        return "SIM 1";
+    }
+
     @Override
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
@@ -74,6 +104,11 @@ public class CallStateReceiver extends BroadcastReceiver {
         }
 
         String broadcastSim = resolveSimSlotFromIntent(context, intent);
+        String liveSim = detectActiveSim(context);
+        String currentDetectedSim = !"SIM 1".equals(liveSim) ? liveSim : broadcastSim;
+        if (currentDetectedSim != null && !"SIM 1".equals(currentDetectedSim)) {
+            prefs.edit().putString("active_call_sim", currentDetectedSim).apply();
+        }
 
         if (action.equals("android.intent.action.NEW_OUTGOING_CALL")) {
             String outgoingNumber = intent.getStringExtra("android.intent.extra.PHONE_NUMBER");
@@ -86,21 +121,23 @@ public class CallStateReceiver extends BroadcastReceiver {
                 String norm10 = rawDigits.length() >= 10 ? rawDigits.substring(rawDigits.length() - 10) : rawDigits;
                 String uniqueCallId = "call_" + callStartTime + "_" + norm10;
 
+                String activeSim = prefs.getString("active_call_sim", currentDetectedSim);
+
                 prefs.edit()
                     .putString("active_call_number", outgoingNumber)
                     .putString("active_call_id", uniqueCallId)
-                    .putString("active_call_sim", broadcastSim)
+                    .putString("active_call_sim", activeSim)
                     .putBoolean("is_incoming", false)
                     .putBoolean("call_in_progress", true)
                     .putLong("call_start_time", callStartTime)
                     .apply();
-                Log.d(TAG, "NEW_OUTGOING_CALL detected for: " + outgoingNumber + " [SIM: " + broadcastSim + ", CallID: " + uniqueCallId + "]");
+                Log.d(TAG, "NEW_OUTGOING_CALL detected for: " + outgoingNumber + " [SIM: " + activeSim + ", CallID: " + uniqueCallId + "]");
 
                 Intent startIntent = new Intent(context, CallRecordingService.class);
                 startIntent.setAction(CallRecordingService.ACTION_START_RECORDING);
                 startIntent.putExtra("phone_number", outgoingNumber);
                 startIntent.putExtra("call_type", "OUTGOING");
-                startIntent.putExtra("sim_slot", broadcastSim);
+                startIntent.putExtra("sim_slot", activeSim);
                 startIntent.putExtra("start_time", callStartTime);
                 startIntent.putExtra("call_id", uniqueCallId);
 
@@ -118,10 +155,6 @@ public class CallStateReceiver extends BroadcastReceiver {
             String stateStr = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
             String incomingNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
 
-            if (broadcastSim != null && !"SIM 1".equals(broadcastSim)) {
-                prefs.edit().putString("active_call_sim", broadcastSim).apply();
-            }
-
             Log.d(TAG, "PHONE_STATE changed: " + stateStr);
 
             if (TelephonyManager.EXTRA_STATE_RINGING.equals(stateStr)) {
@@ -129,18 +162,19 @@ public class CallStateReceiver extends BroadcastReceiver {
                 if (incomingNumber != null && !incomingNumber.isEmpty()) {
                     prefs.edit().putString("active_call_number", incomingNumber).apply();
                 }
+                String activeSim = prefs.getString("active_call_sim", currentDetectedSim);
                 prefs.edit()
                     .putBoolean("is_incoming", true)
                     .putBoolean("call_answered", false)
+                    .putString("active_call_sim", activeSim)
                     .apply();
                 Log.d(TAG, "Incoming Call Ringing...");
 
-                // Show In-Call Floating Caller Card immediately on ringing (Do NOT record mic yet while ringtone is playing)
+                // Show In-Call Floating Caller Card immediately on ringing
                 String number = (incomingNumber != null && !incomingNumber.isEmpty()) ? incomingNumber : prefs.getString("active_call_number", "");
                 if (number == null || number.isEmpty()) {
                     number = fetchLatestCallNumber(context);
                 }
-                String activeSim = prefs.getString("active_call_sim", broadcastSim);
                 Intent showCardIntent = new Intent(context, CallRecordingService.class);
                 showCardIntent.setAction(CallRecordingService.ACTION_SHOW_IN_CALL_CARD);
                 showCardIntent.putExtra("phone_number", (number != null && !number.isEmpty()) ? number : "Customer");
@@ -168,8 +202,18 @@ public class CallStateReceiver extends BroadcastReceiver {
                         number = latest;
                     }
                 }
+
+                // If OFFHOOK is reached WITHOUT prior RINGING, this is 100% guaranteed an OUTGOING call!
                 boolean isIncoming = prefs.getBoolean("is_incoming", false);
-                String activeSim = prefs.getString("active_call_sim", broadcastSim);
+                String callDirection = isIncoming ? "INCOMING" : "OUTGOING";
+
+                // Re-evaluate SIM during active OFFHOOK:
+                String hookSim = detectActiveSim(context);
+                String activeSim = !"SIM 1".equals(hookSim) ? hookSim : prefs.getString("active_call_sim", currentDetectedSim);
+                if (!"SIM 1".equals(activeSim)) {
+                    prefs.edit().putString("active_call_sim", activeSim).apply();
+                }
+
                 String rawDigits = (number != null) ? number.replaceAll("\\D", "") : "0";
                 String norm10 = rawDigits.length() >= 10 ? rawDigits.substring(rawDigits.length() - 10) : rawDigits;
                 String activeId = prefs.getString("active_call_id", "");
@@ -178,15 +222,17 @@ public class CallStateReceiver extends BroadcastReceiver {
                 prefs.edit()
                     .putBoolean("call_in_progress", true)
                     .putBoolean("call_answered", true)
+                    .putBoolean("is_incoming", isIncoming)
                     .putLong("call_start_time", callStartTime)
                     .putString("active_call_id", uniqueCallId)
+                    .putString("active_call_sim", activeSim)
                     .putString("active_call_number", (number != null && !number.isEmpty()) ? number : "Customer")
                     .apply();
 
                 Intent startIntent = new Intent(context, CallRecordingService.class);
                 startIntent.setAction(CallRecordingService.ACTION_START_RECORDING);
                 startIntent.putExtra("phone_number", (number != null && !number.isEmpty()) ? number : "Customer");
-                startIntent.putExtra("call_type", isIncoming ? "INCOMING" : "OUTGOING");
+                startIntent.putExtra("call_type", callDirection);
                 startIntent.putExtra("sim_slot", activeSim);
                 startIntent.putExtra("start_time", callStartTime);
                 startIntent.putExtra("call_id", uniqueCallId);
@@ -210,7 +256,8 @@ public class CallStateReceiver extends BroadcastReceiver {
                 boolean isIncoming = prefs.getBoolean("is_incoming", false);
                 boolean wasAnswered = prefs.getBoolean("call_answered", false);
                 boolean wasMissed = isIncoming && !wasAnswered;
-                String activeSim = prefs.getString("active_call_sim", broadcastSim);
+
+                String activeSim = prefs.getString("active_call_sim", currentDetectedSim);
 
                 String rawDigits = (number != null) ? number.replaceAll("\\D", "") : "0";
                 String norm10 = rawDigits.length() >= 10 ? rawDigits.substring(rawDigits.length() - 10) : rawDigits;
@@ -239,7 +286,7 @@ public class CallStateReceiver extends BroadcastReceiver {
                     Log.e(TAG, "Failed to send stop service signal: " + e.getMessage());
                 }
 
-                // Reset call active flag & direction
+                // Reset call active flag & direction cleanly
                 prefs.edit()
                     .putBoolean("call_in_progress", false)
                     .putBoolean("is_incoming", false)

@@ -121,7 +121,7 @@ public class CallRecordingService extends Service {
         if (cursor == null) return "SIM 1";
 
         // 1. Check Samsung / OEM specific columns
-        String[] possibleCols = {"sim_id", "simnum", "slot_id", "sim_slot", "sub_id", "subscription_id"};
+        String[] possibleCols = {"sim_id", "simnum", "slot_id", "sim_slot", "sub_id", "subscription_id", "sim_index", "sim_code", "phone"};
         for (String col : possibleCols) {
             int idx = cursor.getColumnIndex(col);
             if (idx != -1 && !cursor.isNull(idx)) {
@@ -131,11 +131,10 @@ public class CallRecordingService extends Service {
                         int intVal = -1;
                         try { intVal = Integer.parseInt(strVal.trim()); } catch (Exception ignored) {}
                         
-                        // sim_id / slot_id is typically 0-indexed: 0 -> SIM 1, 1 -> SIM 2
-                        if (col.equals("sim_id") || col.equals("slot_id") || col.equals("sim_slot")) {
-                            if (intVal == 1) return "SIM 2";
+                        // sim_id / slot_id / sim_slot / sim_index is typically 0-indexed: 0 -> SIM 1, 1 -> SIM 2
+                        if (col.equals("sim_id") || col.equals("slot_id") || col.equals("sim_slot") || col.equals("sim_index")) {
+                            if (intVal == 1 || intVal == 2) return "SIM 2";
                             if (intVal == 0) return "SIM 1";
-                            if (intVal == 2) return "SIM 2";
                         }
                         // simnum is 1-indexed: 1 -> SIM 1, 2 -> SIM 2
                         if (col.equals("simnum")) {
@@ -145,7 +144,7 @@ public class CallRecordingService extends Service {
                         // sub_id / subscription_id
                         if (col.equals("sub_id") || col.equals("subscription_id")) {
                             String res = resolveSimSlot(context, strVal.trim());
-                            if (res != null && !res.isEmpty()) return res;
+                            if (res != null && !res.isEmpty() && !"SIM 1".equals(res)) return res;
                         }
                     }
                 } catch (Exception ignored) {}
@@ -157,7 +156,8 @@ public class CallRecordingService extends Service {
         if (accIdx != -1 && !cursor.isNull(accIdx)) {
             String accId = cursor.getString(accIdx);
             if (accId != null && !accId.trim().isEmpty()) {
-                return resolveSimSlot(context, accId.trim());
+                String res = resolveSimSlot(context, accId.trim());
+                if (res != null && !res.isEmpty() && !"SIM 1".equals(res)) return res;
             }
         }
 
@@ -180,6 +180,32 @@ public class CallRecordingService extends Service {
         if (phoneAccountId == null || phoneAccountId.trim().isEmpty()) return "SIM 1";
         String cleanId = phoneAccountId.trim();
 
+        // 1. Check TelecomManager call-capable accounts (Native multi-SIM handles)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
+                    android.telecom.TelecomManager tm = (android.telecom.TelecomManager) context.getSystemService(Context.TELECOM_SERVICE);
+                    if (tm != null) {
+                        List<android.telecom.PhoneAccountHandle> handles = tm.getCallCapablePhoneAccounts();
+                        if (handles != null && handles.size() > 1) {
+                            for (int i = 0; i < handles.size(); i++) {
+                                android.telecom.PhoneAccountHandle h = handles.get(i);
+                                if (h != null && h.getId() != null) {
+                                    String hid = h.getId().trim();
+                                    if (cleanId.equals(hid) || cleanId.contains(hid) || hid.contains(cleanId)) {
+                                        return "SIM " + (i + 1);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                Log.w("OmniFlowSIMCall", "TelecomManager lookup notice: " + e.getMessage());
+            }
+        }
+
+        // 2. Check SubscriptionManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
             try {
                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
@@ -192,7 +218,7 @@ public class CallRecordingService extends Service {
                                 String iccId = sub.getIccId();
                                 int slotIndex = sub.getSimSlotIndex(); // 0 for SIM 1, 1 for SIM 2
 
-                                if (cleanId.equals(subIdStr)) {
+                                if (cleanId.equals(subIdStr) || cleanId.contains(subIdStr) || subIdStr.contains(cleanId)) {
                                     return "SIM " + (slotIndex + 1);
                                 }
                                 if (iccId != null && !iccId.isEmpty() && (cleanId.equals(iccId) || cleanId.contains(iccId) || iccId.contains(cleanId))) {
@@ -222,27 +248,28 @@ public class CallRecordingService extends Service {
         details.phoneNumber = (fallbackPhone != null && !fallbackPhone.isEmpty() && !fallbackPhone.equalsIgnoreCase("Customer") && !fallbackPhone.equalsIgnoreCase("Incoming Call")) ? fallbackPhone : "";
         details.callType = (fallbackType != null && !fallbackType.isEmpty()) ? fallbackType : "OUTGOING";
         details.duration = fallbackDur;
-        details.simSlot = (currentSimSlot != null && !currentSimSlot.isEmpty()) ? currentSimSlot : "SIM 1";
+        
+        String prefSim = getSharedPreferences("omniflow", MODE_PRIVATE).getString("active_call_sim", "");
+        if ("SIM 2".equalsIgnoreCase(currentSimSlot) || "SIM 2".equalsIgnoreCase(prefSim)) {
+            details.simSlot = "SIM 2";
+        } else {
+            details.simSlot = (currentSimSlot != null && !currentSimSlot.isEmpty()) ? currentSimSlot : "SIM 1";
+        }
 
         String cleanFallback = details.phoneNumber.replaceAll("\\D", "");
         String normFallback10 = cleanFallback.length() >= 7 ? cleanFallback.substring(cleanFallback.length() - Math.min(10, cleanFallback.length())) : cleanFallback;
 
+        // Strict date boundary: only consider rows written for THIS call (never borrow an old call from minutes ago!)
+        long minValidCallDate = (callStartTime > 0) ? (callStartTime - 10000) : (System.currentTimeMillis() - 45000);
+
         try {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) {
-                long recentWindow = System.currentTimeMillis() - 120000;
-                String[] projection = new String[]{
-                    CallLog.Calls.NUMBER,
-                    CallLog.Calls.CACHED_NAME,
-                    CallLog.Calls.TYPE,
-                    CallLog.Calls.DURATION,
-                    CallLog.Calls.DATE,
-                    CallLog.Calls.PHONE_ACCOUNT_ID
-                };
-
+                long recentWindow = minValidCallDate;
                 Uri callLogUri = CallLog.Calls.CONTENT_URI;
+                // Query with null projection so ALL OEM-specific columns (sim_id, sub_id, etc.) are returned!
                 try (Cursor cursor = getContentResolver().query(
                     callLogUri,
-                    projection,
+                    null,
                     CallLog.Calls.DATE + " >= ?",
                     new String[]{String.valueOf(recentWindow)},
                     CallLog.Calls.DATE + " DESC LIMIT 10"
@@ -252,8 +279,15 @@ public class CallRecordingService extends Service {
                         int nameIdx = cursor.getColumnIndex(CallLog.Calls.CACHED_NAME);
                         int typeIdx = cursor.getColumnIndex(CallLog.Calls.TYPE);
                         int durIdx = cursor.getColumnIndex(CallLog.Calls.DURATION);
+                        int dateIdx = cursor.getColumnIndex(CallLog.Calls.DATE);
 
                         while (cursor.moveToNext()) {
+                            long rowDate = (dateIdx >= 0) ? cursor.getLong(dateIdx) : 0;
+                            if (rowDate > 0 && rowDate < minValidCallDate) {
+                                // Old call row from before current call started. Skip!
+                                continue;
+                            }
+
                             String num = (numIdx >= 0) ? cursor.getString(numIdx) : "";
                             String cleanNum = (num != null) ? num.replaceAll("\\D", "") : "";
                             boolean matchesPhone = normFallback10.isEmpty() || cleanNum.endsWith(normFallback10) || normFallback10.endsWith(cleanNum);
@@ -278,7 +312,10 @@ public class CallRecordingService extends Service {
                                 if (d > 0) details.duration = d;
                             }
 
-                            if (typeIdx >= 0) {
+                            // Direction Resolution: An OUTGOING call initiated by the user NEVER becomes INCOMING!
+                            if ("OUTGOING".equalsIgnoreCase(fallbackType) || "OUTGOING".equalsIgnoreCase(this.callType)) {
+                                details.callType = "OUTGOING";
+                            } else if (typeIdx >= 0) {
                                 int rawType = cursor.getInt(typeIdx);
                                 switch (rawType) {
                                     case CallLog.Calls.INCOMING_TYPE:
@@ -305,9 +342,12 @@ public class CallRecordingService extends Service {
                                 }
                             }
 
-                            String resolvedSlot = resolveSimSlotFromCursor(this, cursor);
-                            if (resolvedSlot != null && !resolvedSlot.isEmpty()) {
-                                details.simSlot = resolvedSlot;
+                            // SIM Slot Resolution
+                            if (!"SIM 2".equalsIgnoreCase(details.simSlot)) {
+                                String resolvedSlot = resolveSimSlotFromCursor(this, cursor);
+                                if ("SIM 2".equalsIgnoreCase(resolvedSlot)) {
+                                    details.simSlot = "SIM 2";
+                                }
                             }
 
                             if (matchesPhone) break;
@@ -323,9 +363,12 @@ public class CallRecordingService extends Service {
             details.phoneNumber = (fallbackPhone != null && !fallbackPhone.isEmpty()) ? fallbackPhone : "Customer";
         }
 
-        String prefSim = getSharedPreferences("omniflow", MODE_PRIVATE).getString("active_call_sim", "");
-        if ((details.simSlot == null || "SIM 1".equals(details.simSlot)) && prefSim != null && !"SIM 1".equals(prefSim)) {
-            details.simSlot = prefSim;
+        // Final safety locks:
+        if ("SIM 2".equalsIgnoreCase(currentSimSlot) || "SIM 2".equalsIgnoreCase(prefSim)) {
+            details.simSlot = "SIM 2";
+        }
+        if ("OUTGOING".equalsIgnoreCase(fallbackType) || "OUTGOING".equalsIgnoreCase(this.callType)) {
+            details.callType = "OUTGOING";
         }
 
         boolean wasAnsweredInPrefs = getSharedPreferences("omniflow", MODE_PRIVATE).getBoolean("call_answered", false);
@@ -385,6 +428,12 @@ public class CallRecordingService extends Service {
             } else {
                 currentSimSlot = getSharedPreferences("omniflow", MODE_PRIVATE).getString("active_call_sim", "SIM 1");
             }
+            // Live active hardware SIM check during active recording:
+            String activeHardwareSim = CallStateReceiver.detectActiveSim(this);
+            if (!"SIM 1".equals(activeHardwareSim)) {
+                currentSimSlot = activeHardwareSim;
+                getSharedPreferences("omniflow", MODE_PRIVATE).edit().putString("active_call_sim", activeHardwareSim).apply();
+            }
             String passedId = intent.getStringExtra("call_id");
             if (passedId != null && !passedId.isEmpty()) {
                 currentCallId = passedId;
@@ -407,10 +456,16 @@ public class CallRecordingService extends Service {
                 callType = stopType;
             }
             String stopSim = (intent != null) ? intent.getStringExtra("sim_slot") : null;
-            if (stopSim != null && !stopSim.isEmpty()) {
+            if (stopSim != null && !stopSim.isEmpty() && !"SIM 1".equals(stopSim)) {
                 currentSimSlot = stopSim;
             } else if (currentSimSlot == null || "SIM 1".equals(currentSimSlot)) {
                 currentSimSlot = getSharedPreferences("omniflow", MODE_PRIVATE).getString("active_call_sim", "SIM 1");
+            }
+            if ("SIM 1".equals(currentSimSlot)) {
+                String liveSim = CallStateReceiver.detectActiveSim(this);
+                if (!"SIM 1".equals(liveSim)) {
+                    currentSimSlot = liveSim;
+                }
             }
             String stopPhone = (intent != null) ? intent.getStringExtra("phone_number") : null;
             if (stopPhone != null && !stopPhone.isEmpty() && !"Customer".equalsIgnoreCase(stopPhone)) {
@@ -525,9 +580,9 @@ public class CallRecordingService extends Service {
             }
 
             final String finalPhone = details.phoneNumber;
-            final String finalType = details.callType;
+            final String finalType = ("OUTGOING".equalsIgnoreCase(fallbackType) || "OUTGOING".equalsIgnoreCase(this.callType)) ? "OUTGOING" : details.callType;
             final long finalDuration = details.duration;
-            final String finalSimSlot = (details.simSlot != null && !details.simSlot.isEmpty()) ? details.simSlot : currentSimSlot;
+            final String finalSimSlot = ("SIM 2".equalsIgnoreCase(currentSimSlot) || "SIM 2".equalsIgnoreCase(details.simSlot)) ? "SIM 2" : ((details.simSlot != null && !details.simSlot.isEmpty()) ? details.simSlot : "SIM 1");
             final String finalCallId = (currentCallId != null && !currentCallId.isEmpty()) ? currentCallId : ("call_" + System.currentTimeMillis() + "_" + (finalPhone != null ? finalPhone.replaceAll("\\D", "") : "0"));
 
             Log.d(TAG, "🎯 [Post-Call Resolved] Type: " + finalType + ", Duration: " + finalDuration + "s, SIM: " + finalSimSlot + ", Phone: " + finalPhone);
@@ -607,7 +662,7 @@ public class CallRecordingService extends Service {
     }
 
     private void sendStage1InstantLog(String phone, long duration, String type, String cId) {
-        sendStage1InstantLog(phone, duration, type, cId, "SIM 1");
+        sendStage1InstantLog(phone, duration, type, cId, (currentSimSlot != null ? currentSimSlot : "SIM 1"));
     }
 
     private void sendStage1InstantLog(String phone, long duration, String type, String cId, String simSlot) {
@@ -1398,7 +1453,7 @@ public class CallRecordingService extends Service {
      * Features: Zero-lag 0ms dismiss, (X) close button, Calendar follow-up picker
      */
     private void showPostCallDispositionDialog(long durationSeconds, CapturedAudioInfo audioInfo, String callId) {
-        showPostCallDispositionDialog(this.phoneNumber, null, this.callType, "SIM 1", durationSeconds, audioInfo, callId);
+        showPostCallDispositionDialog(this.phoneNumber, null, this.callType, (this.currentSimSlot != null ? this.currentSimSlot : "SIM 1"), durationSeconds, audioInfo, callId);
     }
 
     private void showPostCallDispositionDialog(String phone, String custName, String type, String simSlot, long durationSeconds, CapturedAudioInfo audioInfo, String callId) {
@@ -2056,11 +2111,11 @@ public class CallRecordingService extends Service {
     }
 
     private void uploadToCRM(long durationSeconds, String disposition, String customNotes, CapturedAudioInfo audioInfo) {
-        uploadToCRM(durationSeconds, disposition, customNotes, audioInfo, "", "", "", "SIM 1", phoneNumber, null, callType);
+        uploadToCRM(durationSeconds, disposition, customNotes, audioInfo, "", "", "", (currentSimSlot != null ? currentSimSlot : "SIM 1"), phoneNumber, null, callType);
     }
 
     private void uploadToCRM(long durationSeconds, String disposition, String customNotes, CapturedAudioInfo audioInfo, String callId, String followUpDate, String followUpTime) {
-        uploadToCRM(durationSeconds, disposition, customNotes, audioInfo, callId, followUpDate, followUpTime, "SIM 1", phoneNumber, null, callType);
+        uploadToCRM(durationSeconds, disposition, customNotes, audioInfo, callId, followUpDate, followUpTime, (currentSimSlot != null ? currentSimSlot : "SIM 1"), phoneNumber, null, callType);
     }
 
     private void uploadToCRM(long durationSeconds, String disposition, String customNotes, CapturedAudioInfo audioInfo, String callId, String followUpDate, String followUpTime, String simSlot) {

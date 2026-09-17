@@ -378,6 +378,9 @@ public class PermissionsActivity extends AppCompatActivity {
         List<String> list = new ArrayList<>();
         list.add(Manifest.permission.CALL_PHONE);
         list.add(Manifest.permission.READ_PHONE_STATE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            list.add(Manifest.permission.READ_PHONE_NUMBERS);
+        }
         list.add(Manifest.permission.READ_CALL_LOG);
         list.add(Manifest.permission.READ_CONTACTS);
         list.add(Manifest.permission.RECORD_AUDIO);
