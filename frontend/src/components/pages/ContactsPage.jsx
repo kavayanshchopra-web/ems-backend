@@ -486,11 +486,20 @@ export default function ContactsPage({
     if (showToast) showToast('🗑️ Contact moved to Recycle Bin', 'info');
   };
 
+  const contactModuleConfig = useMemo(() => ({
+    ...(config || {}),
+    name: 'Contacts',
+    moduleTitle: 'Contacts',
+    description: 'Manage and track all customer contacts, calls, and leads.',
+    entityName: 'Contact',
+    entityNamePlural: 'Contacts'
+  }), [config]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <LayoutEngine
         customHeaderActions={<></>}
-        moduleConfig={config}
+        moduleConfig={contactModuleConfig}
         records={internalRecords}
         setRecords={handleUpdateRecords}
         authUser={authUser}
