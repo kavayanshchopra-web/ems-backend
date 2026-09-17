@@ -88,6 +88,7 @@ public class CallRecordingService extends Service {
     private String callType;
     private long callStartTime;
     private String currentCallId = null;
+    private String currentSimSlot = "SIM 1";
 
     private WindowManager windowManager;
     private View inCallCardView;
@@ -221,7 +222,10 @@ public class CallRecordingService extends Service {
         details.phoneNumber = (fallbackPhone != null && !fallbackPhone.isEmpty() && !fallbackPhone.equalsIgnoreCase("Customer") && !fallbackPhone.equalsIgnoreCase("Incoming Call")) ? fallbackPhone : "";
         details.callType = (fallbackType != null && !fallbackType.isEmpty()) ? fallbackType : "OUTGOING";
         details.duration = fallbackDur;
-        details.simSlot = "SIM 1";
+        details.simSlot = (currentSimSlot != null && !currentSimSlot.isEmpty()) ? currentSimSlot : "SIM 1";
+
+        String cleanFallback = details.phoneNumber.replaceAll("\\D", "");
+        String normFallback10 = cleanFallback.length() >= 7 ? cleanFallback.substring(cleanFallback.length() - Math.min(10, cleanFallback.length())) : cleanFallback;
 
         try {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) {
@@ -241,65 +245,73 @@ public class CallRecordingService extends Service {
                     projection,
                     CallLog.Calls.DATE + " >= ?",
                     new String[]{String.valueOf(recentWindow)},
-                    CallLog.Calls.DATE + " DESC LIMIT 1"
+                    CallLog.Calls.DATE + " DESC LIMIT 10"
                 )) {
-                    if (cursor != null && cursor.moveToFirst()) {
+                    if (cursor != null) {
                         int numIdx = cursor.getColumnIndex(CallLog.Calls.NUMBER);
                         int nameIdx = cursor.getColumnIndex(CallLog.Calls.CACHED_NAME);
                         int typeIdx = cursor.getColumnIndex(CallLog.Calls.TYPE);
                         int durIdx = cursor.getColumnIndex(CallLog.Calls.DURATION);
-                        int accountIdx = cursor.getColumnIndex(CallLog.Calls.PHONE_ACCOUNT_ID);
 
-                        if (numIdx >= 0) {
-                            String num = cursor.getString(numIdx);
+                        while (cursor.moveToNext()) {
+                            String num = (numIdx >= 0) ? cursor.getString(numIdx) : "";
+                            String cleanNum = (num != null) ? num.replaceAll("\\D", "") : "";
+                            boolean matchesPhone = normFallback10.isEmpty() || cleanNum.endsWith(normFallback10) || normFallback10.endsWith(cleanNum);
+
+                            if (!matchesPhone && cursor.getPosition() > 0) {
+                                continue;
+                            }
+
                             if (num != null && !num.trim().isEmpty()) {
                                 details.phoneNumber = num.trim();
                             }
-                        }
 
-                        if (nameIdx >= 0) {
-                            String name = cursor.getString(nameIdx);
-                            if (name != null && !name.trim().isEmpty() && !name.equalsIgnoreCase("null")) {
-                                details.customerName = name.trim();
+                            if (nameIdx >= 0) {
+                                String name = cursor.getString(nameIdx);
+                                if (name != null && !name.trim().isEmpty() && !name.equalsIgnoreCase("null")) {
+                                    details.customerName = name.trim();
+                                }
                             }
-                        }
 
-                        if (durIdx >= 0) {
-                            details.duration = cursor.getLong(durIdx);
-                        }
-
-                        if (typeIdx >= 0) {
-                            int rawType = cursor.getInt(typeIdx);
-                            switch (rawType) {
-                                case CallLog.Calls.INCOMING_TYPE:
-                                    details.callType = "INCOMING";
-                                    break;
-                                case CallLog.Calls.OUTGOING_TYPE:
-                                    details.callType = "OUTGOING";
-                                    break;
-                                case CallLog.Calls.MISSED_TYPE:
-                                    details.callType = "MISSED";
-                                    details.isMissedOrRejected = true;
-                                    details.duration = 0;
-                                    break;
-                                case 5: // REJECTED_TYPE
-                                    details.callType = "REJECTED";
-                                    details.isMissedOrRejected = true;
-                                    details.duration = 0;
-                                    break;
-                                case 6: // BLOCKED_TYPE
-                                    details.callType = "BLOCKED";
-                                    details.isMissedOrRejected = true;
-                                    details.duration = 0;
-                                    break;
-                                default:
-                                    details.callType = (fallbackType != null ? fallbackType : "OUTGOING");
-                                    break;
+                            if (durIdx >= 0) {
+                                long d = cursor.getLong(durIdx);
+                                if (d > 0) details.duration = d;
                             }
-                        }
 
-                        String phoneAccountId = accountIdx >= 0 ? cursor.getString(accountIdx) : null;
-                        details.simSlot = resolveSimSlot(this, phoneAccountId);
+                            if (typeIdx >= 0) {
+                                int rawType = cursor.getInt(typeIdx);
+                                switch (rawType) {
+                                    case CallLog.Calls.INCOMING_TYPE:
+                                        details.callType = "INCOMING";
+                                        break;
+                                    case CallLog.Calls.OUTGOING_TYPE:
+                                        details.callType = "OUTGOING";
+                                        break;
+                                    case CallLog.Calls.MISSED_TYPE:
+                                        details.callType = "MISSED";
+                                        details.isMissedOrRejected = true;
+                                        break;
+                                    case 5: // REJECTED_TYPE
+                                        details.callType = "REJECTED";
+                                        details.isMissedOrRejected = true;
+                                        break;
+                                    case 6: // BLOCKED_TYPE
+                                        details.callType = "BLOCKED";
+                                        details.isMissedOrRejected = true;
+                                        break;
+                                    default:
+                                        details.callType = (fallbackType != null ? fallbackType : "OUTGOING");
+                                        break;
+                                }
+                            }
+
+                            String resolvedSlot = resolveSimSlotFromCursor(this, cursor);
+                            if (resolvedSlot != null && !resolvedSlot.isEmpty()) {
+                                details.simSlot = resolvedSlot;
+                            }
+
+                            if (matchesPhone) break;
+                        }
                     }
                 }
             }
@@ -310,18 +322,24 @@ public class CallRecordingService extends Service {
         if (details.phoneNumber.isEmpty()) {
             details.phoneNumber = (fallbackPhone != null && !fallbackPhone.isEmpty()) ? fallbackPhone : "Customer";
         }
+
+        String prefSim = getSharedPreferences("omniflow", MODE_PRIVATE).getString("active_call_sim", "");
+        if ((details.simSlot == null || "SIM 1".equals(details.simSlot)) && prefSim != null && !"SIM 1".equals(prefSim)) {
+            details.simSlot = prefSim;
+        }
+
         boolean wasAnsweredInPrefs = getSharedPreferences("omniflow", MODE_PRIVATE).getBoolean("call_answered", false);
         if (details.duration <= 0) {
             if (fallbackDur > 0) {
                 details.duration = fallbackDur;
                 details.isMissedOrRejected = false;
                 if ("MISSED".equalsIgnoreCase(details.callType)) {
-                    details.callType = (fallbackType != null && !fallbackType.equalsIgnoreCase("MISSED")) ? fallbackType : "INCOMING";
+                    details.callType = (fallbackType != null && !fallbackType.equalsIgnoreCase("MISSED")) ? fallbackType : "OUTGOING";
                 }
             } else if (wasAnsweredInPrefs || (callStartTime > 0)) {
                 // Call was OFFHOOK / Answered! Do NOT falsely convert to MISSED!
                 details.isMissedOrRejected = false;
-                details.callType = (fallbackType != null && !fallbackType.equalsIgnoreCase("MISSED")) ? fallbackType : "INCOMING";
+                details.callType = (fallbackType != null && !fallbackType.equalsIgnoreCase("MISSED")) ? fallbackType : "OUTGOING";
             } else if ("INCOMING".equalsIgnoreCase(details.callType)) {
                 details.callType = "MISSED";
                 details.isMissedOrRejected = true;
@@ -361,6 +379,12 @@ public class CallRecordingService extends Service {
             phoneNumber = intent.getStringExtra("phone_number");
             callType = intent.getStringExtra("call_type");
             callStartTime = intent.getLongExtra("start_time", System.currentTimeMillis());
+            String passedSim = intent.getStringExtra("sim_slot");
+            if (passedSim != null && !passedSim.isEmpty()) {
+                currentSimSlot = passedSim;
+            } else {
+                currentSimSlot = getSharedPreferences("omniflow", MODE_PRIVATE).getString("active_call_sim", "SIM 1");
+            }
             String passedId = intent.getStringExtra("call_id");
             if (passedId != null && !passedId.isEmpty()) {
                 currentCallId = passedId;
@@ -381,6 +405,12 @@ public class CallRecordingService extends Service {
             String stopType = (intent != null) ? intent.getStringExtra("call_type") : null;
             if (stopType != null && !stopType.isEmpty()) {
                 callType = stopType;
+            }
+            String stopSim = (intent != null) ? intent.getStringExtra("sim_slot") : null;
+            if (stopSim != null && !stopSim.isEmpty()) {
+                currentSimSlot = stopSim;
+            } else if (currentSimSlot == null || "SIM 1".equals(currentSimSlot)) {
+                currentSimSlot = getSharedPreferences("omniflow", MODE_PRIVATE).getString("active_call_sim", "SIM 1");
             }
             String stopPhone = (intent != null) ? intent.getStringExtra("phone_number") : null;
             if (stopPhone != null && !stopPhone.isEmpty() && !"Customer".equalsIgnoreCase(stopPhone)) {
@@ -490,14 +520,14 @@ public class CallRecordingService extends Service {
                 }
                 details.isMissedOrRejected = false;
                 if ("MISSED".equalsIgnoreCase(details.callType)) {
-                    details.callType = (fallbackType != null && !fallbackType.equalsIgnoreCase("MISSED")) ? fallbackType : "INCOMING";
+                    details.callType = (fallbackType != null && !fallbackType.equalsIgnoreCase("MISSED")) ? fallbackType : "OUTGOING";
                 }
             }
 
             final String finalPhone = details.phoneNumber;
             final String finalType = details.callType;
             final long finalDuration = details.duration;
-            final String finalSimSlot = details.simSlot;
+            final String finalSimSlot = (details.simSlot != null && !details.simSlot.isEmpty()) ? details.simSlot : currentSimSlot;
             final String finalCallId = (currentCallId != null && !currentCallId.isEmpty()) ? currentCallId : ("call_" + System.currentTimeMillis() + "_" + (finalPhone != null ? finalPhone.replaceAll("\\D", "") : "0"));
 
             Log.d(TAG, "🎯 [Post-Call Resolved] Type: " + finalType + ", Duration: " + finalDuration + "s, SIM: " + finalSimSlot + ", Phone: " + finalPhone);

@@ -385,37 +385,71 @@ export default function TelecallingView({
         const existing = deduplicated[existingIdx];
         const hasRecA = !!(existing.recordingUrl || existing.recording || existing.audioUrl);
         const hasRecB = !!(item.recordingUrl || item.recording || item.audioUrl);
-        const durA = Number(existing.durationSeconds || existing.duration || 0);
-        const durB = Number(item.durationSeconds || item.duration || 0);
+        // Helper to parse seconds from integer, float, or "MM:SS" string without returning NaN
+        const parseSecToNum = (val) => {
+          if (!val && val !== 0) return 0;
+          if (typeof val === 'number') return isNaN(val) ? 0 : val;
+          const s = String(val).trim();
+          if (s.includes(':')) {
+            const parts = s.split(':');
+            if (parts.length === 2) {
+              const m = parseInt(parts[0], 10) || 0;
+              const sec = parseInt(parts[1], 10) || 0;
+              return m * 60 + sec;
+            }
+          }
+          const num = parseFloat(s);
+          return isNaN(num) ? 0 : num;
+        };
+
+        const durA = Math.max(parseSecToNum(existing.durationSeconds), parseSecToNum(existing.duration));
+        const durB = Math.max(parseSecToNum(item.durationSeconds), parseSecToNum(item.duration));
+        const maxDur = Math.max(durA, durB);
         const dispA = existing.disposition || existing.status || '';
         const dispB = item.disposition || item.status || '';
 
         const resolvedRec = (hasRecB ? (item.recordingUrl || item.recording || item.audioUrl) : (existing.recordingUrl || existing.recording || existing.audioUrl)) || '';
         const resolvedDisp = (dispB && !dispB.toLowerCase().includes('pending')) ? dispB : (dispA || 'Interested');
 
-        // Resolve call type: If either record has audio or non-zero duration, call was connected/answered!
+        // Resolve call type: Preserve OUTGOING or INCOMING if either record has it, do NOT blindly default to INCOMING!
         const typeA = String(existing.type || existing.callType || '').toUpperCase();
         const typeB = String(item.type || item.callType || '').toUpperCase();
-        let resolvedType = item.type || existing.type || 'INCOMING';
-        if (resolvedRec || Math.max(durA, durB) > 0) {
-          if (typeA && typeA !== 'MISSED') resolvedType = existing.type || existing.callType;
-          else if (typeB && typeB !== 'MISSED') resolvedType = item.type || item.callType;
-          else resolvedType = 'INCOMING';
+        let resolvedType = 'OUTGOING';
+        if (typeA && typeA !== 'MISSED') resolvedType = existing.type || existing.callType;
+        else if (typeB && typeB !== 'MISSED') resolvedType = item.type || item.callType;
+        else if (item.type && item.type !== 'MISSED') resolvedType = item.type;
+        else if (existing.type && existing.type !== 'MISSED') resolvedType = existing.type;
+
+        // Channel: Preserve SIM 2 if either entry detected SIM 2
+        const chanA = String(existing.channel || '');
+        const chanB = String(item.channel || '');
+        let resolvedChan = item.channel || existing.channel || 'SIM';
+        if (chanA.includes('SIM 2') || chanB.includes('SIM 2')) {
+          resolvedChan = 'SIM (SIM 2)';
+        } else if (chanA.includes('SIM 1') || chanB.includes('SIM 1')) {
+          resolvedChan = 'SIM (SIM 1)';
         }
+
+        const simSlotA = String(existing.simSlot || existing.sim_slot || '');
+        const simSlotB = String(item.simSlot || item.sim_slot || '');
+        const resolvedSlot = (simSlotA.includes('2') || simSlotB.includes('2')) ? 'SIM 2' : (simSlotB || simSlotA || 'SIM 1');
 
         deduplicated[existingIdx] = {
           ...existing,
           ...item,
           type: resolvedType,
           callType: resolvedType,
+          channel: resolvedChan,
+          simSlot: resolvedSlot,
+          sim_slot: resolvedSlot,
           id: existing.id || item.id,
           recordingUrl: resolvedRec,
           recording: resolvedRec,
           audioUrl: resolvedRec,
           disposition: resolvedDisp,
           status: resolvedDisp,
-          durationSeconds: Math.max(durA, durB),
-          duration: Math.max(durA, durB) > 0 ? `${Math.floor(Math.max(durA, durB) / 60)}m ${Math.max(durA, durB) % 60}s` : (item.duration || existing.duration),
+          durationSeconds: maxDur,
+          duration: maxDur > 0 ? `${Math.floor(maxDur / 60)}m ${maxDur % 60}s` : '0s',
           notes: (item.notes && !item.notes.includes('Pending')) ? item.notes : existing.notes
         };
       } else {
@@ -425,7 +459,19 @@ export default function TelecallingView({
 
     // Map chronologically so older calls keep lower sequence numbers and newest call gets highest sequential ID
     return deduplicated.map((log, seqIdx) => {
-      const durSecs = Number(log.durationSeconds || log.duration || 0);
+      // Helper to parse seconds
+      const parseSec = (val) => {
+        if (!val && val !== 0) return 0;
+        if (typeof val === 'number') return isNaN(val) ? 0 : val;
+        const s = String(val).trim();
+        if (s.includes(':')) {
+          const parts = s.split(':');
+          if (parts.length === 2) return (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
+        }
+        const n = parseFloat(s);
+        return isNaN(n) ? 0 : n;
+      };
+      const durSecs = Math.max(parseSec(log.durationSeconds), parseSec(log.duration));
       let cleanRecording = log.recordingUrl || log.recording || log.audioUrl || '';
       if (cleanRecording.includes('soundhelix.com') || cleanRecording.includes('[no audio]')) {
         cleanRecording = '';
@@ -444,7 +490,7 @@ export default function TelecallingView({
       let formattedDur = '0s';
       if (durSecs > 0) {
         formattedDur = durSecs >= 60 ? `${Math.floor(durSecs / 60)}m ${durSecs % 60}s` : `${durSecs}s`;
-      } else if (typeof log.duration === 'string' && log.duration && log.duration !== '00:30' && log.duration !== '00:00') {
+      } else if (typeof log.duration === 'string' && log.duration && log.duration !== '00:30' && log.duration !== '00:00' && log.duration !== '0s') {
         formattedDur = log.duration;
       }
 
@@ -474,7 +520,7 @@ export default function TelecallingView({
       const channelDisplay = simSlotText && !rawChannel.includes('(') ? `${rawChannel} (${simSlotText})` : rawChannel;
 
       const persistentSeqId = `CALL-${String(seqIdx + 1).padStart(4, '0')}`;
-      const resolvedCallType = isMissed ? 'MISSED' : (log.type && log.type !== 'MISSED' ? log.type : (log.callType && log.callType !== 'MISSED' ? log.callType : 'INCOMING'));
+      const resolvedCallType = isMissed ? 'MISSED' : (log.type && log.type !== 'MISSED' ? log.type : (log.callType && log.callType !== 'MISSED' ? log.callType : 'OUTGOING'));
 
       return {
         id: log.id || persistentSeqId,

@@ -931,9 +931,19 @@ export const SupabaseSandboxService = {
       const data = await res.json();
       return (Array.isArray(data) ? data : []).map(log => {
         const hasRecording = !!(log.recording_url && String(log.recording_url).startsWith('http') && !log.recording_url.includes('soundhelix.com'));
-        const durSec = Number(log.duration_seconds || 0);
+        let durSec = Number(log.duration_seconds || 0);
+        if (!durSec && typeof log.duration === 'string') {
+          const parts = log.duration.split(':');
+          if (parts.length === 2) {
+            durSec = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
+          }
+        }
         const rawType = log.call_type || log.type || 'OUTGOING';
-        const resolvedType = (hasRecording || durSec > 0) && String(rawType).toUpperCase() === 'MISSED' ? 'INCOMING' : rawType;
+        let resolvedType = rawType;
+        if ((hasRecording || durSec > 0) && String(rawType).toUpperCase() === 'MISSED') {
+          const text = (String(log.notes || '') + ' ' + String(log.call_id || '')).toUpperCase();
+          resolvedType = (text.includes('INCOMING') || text.includes('INBOUND')) ? 'INCOMING' : 'OUTGOING';
+        }
         const rawDisp = log.disposition || log.status || 'Interested';
         const resolvedDisp = (hasRecording || durSec > 0) && String(rawDisp).toUpperCase() === 'MISSED CALL' ? 'Interested' : rawDisp;
 
@@ -983,9 +993,19 @@ export const SupabaseSandboxService = {
       const data = await res.json();
       return (Array.isArray(data) ? data : []).map(log => {
         const hasRecording = !!(log.recording_url && String(log.recording_url).startsWith('http') && !log.recording_url.includes('soundhelix.com'));
-        const durSec = Number(log.duration_seconds || (log.duration ? 30 : 0));
+        let durSec = Number(log.duration_seconds || 0);
+        if (!durSec && typeof log.duration === 'string') {
+          const parts = log.duration.split(':');
+          if (parts.length === 2) {
+            durSec = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
+          }
+        }
         const rawType = log.call_type || log.type || 'OUTGOING';
-        const resolvedType = (hasRecording || durSec > 0) && String(rawType).toUpperCase() === 'MISSED' ? 'INCOMING' : rawType;
+        let resolvedType = rawType;
+        if ((hasRecording || durSec > 0) && String(rawType).toUpperCase() === 'MISSED') {
+          const text = (String(log.notes || '') + ' ' + String(log.call_id || '')).toUpperCase();
+          resolvedType = (text.includes('INCOMING') || text.includes('INBOUND')) ? 'INCOMING' : 'OUTGOING';
+        }
         const rawDisp = log.disposition || log.status || 'Interested';
         const resolvedDisp = (hasRecording || durSec > 0) && String(rawDisp).toUpperCase() === 'MISSED CALL' ? 'Interested' : rawDisp;
 

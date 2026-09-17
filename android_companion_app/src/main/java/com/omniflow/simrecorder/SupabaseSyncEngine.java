@@ -412,10 +412,13 @@ public class SupabaseSyncEngine {
                         updatePayload.put("recording_url", publicAudioUrl);
                     }
 
-                    String safeType = (callType != null && !callType.isEmpty() && !"MISSED".equalsIgnoreCase(callType)) ? callType.toUpperCase() : "INCOMING";
+                    String safeType = (callType != null && !callType.isEmpty() && !"MISSED".equalsIgnoreCase(callType)) ? callType.toUpperCase() : "OUTGOING";
                     if (dur > 0 || !publicAudioUrl.isEmpty()) {
                         updatePayload.put("type", safeType);
                         updatePayload.put("call_type", safeType);
+                    }
+                    if (simSlot != null && !simSlot.isEmpty()) {
+                        updatePayload.put("channel", "SIM (" + simSlot + ")");
                     }
 
                     // Try PATCH by call_id

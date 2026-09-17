@@ -56,6 +56,7 @@ public class PostCallDispositionActivity extends AppCompatActivity {
     private String selectedDisposition = "Interested";
     private String selectedFollowUpDate = "";
     private String selectedFollowUpTime = "";
+    private String simSlot = "SIM 1";
 
     private EditText etNotes;
     private Button btnSave;
@@ -81,9 +82,13 @@ public class PostCallDispositionActivity extends AppCompatActivity {
             audioPath = intent.getStringExtra("audio_path");
             audioUriStr = intent.getStringExtra("audio_uri");
             callId = intent.getStringExtra("call_id");
+            simSlot = intent.getStringExtra("sim_slot");
         }
         if (phoneNumber == null || phoneNumber.isEmpty()) phoneNumber = "Customer";
         if (callType == null || callType.isEmpty()) callType = "OUTGOING";
+        if (simSlot == null || simSlot.isEmpty()) {
+            simSlot = getSharedPreferences("omniflow", MODE_PRIVATE).getString("active_call_sim", "SIM 1");
+        }
         if (callId == null || callId.isEmpty()) {
             callId = "call_" + System.currentTimeMillis() + "_" + phoneNumber.replaceAll("\\D", "");
         }
@@ -779,7 +784,7 @@ public class PostCallDispositionActivity extends AppCompatActivity {
                 + "\"notes\":\"" + escapeJson(notes) + "\","
                 + "\"recordingBase64\":\"" + (audioBase64 != null ? audioBase64 : "") + "\","
                 + "\"audioBase64\":\"" + (audioBase64 != null ? audioBase64 : "") + "\","
-                + "\"simSlot\":\"SIM 1\""
+                + "\"simSlot\":\"" + escapeJson(simSlot) + "\""
                 + "}";
 
             java.net.URL url = new java.net.URL(apiUrl + "/api/telecalling/sync-log");
