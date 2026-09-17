@@ -650,6 +650,99 @@ export default function ListEngine({
             );
           }
 
+          {/* LEAD SOURCE COLUMN WITH SMART GHL HOVER TOOLTIP & 1-CLICK COPY */}
+          if (col.id === 'source' || col.fieldKey === 'source') {
+            const rawSource = getValString(record.source || record.leadSource || 'Manual Entry').trim();
+            const ghlId = record.ghlContactId || record.ghl_contact_id || (String(record.id).startsWith('ghl_') ? String(record.id).replace('ghl_', '') : null);
+            const isGhl = rawSource.toLowerCase().includes('gohighlevel') || Boolean(ghlId);
+
+            return (
+              <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                {isGhl ? (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '3px 10px',
+                      borderRadius: '12px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      background: 'rgba(16, 185, 129, 0.12)',
+                      color: '#059669',
+                      border: '1px solid rgba(16, 185, 129, 0.28)',
+                      cursor: ghlId ? 'pointer' : 'default',
+                      transition: 'all 0.15s ease'
+                    }}
+                    title={ghlId ? `⚡ GoHighLevel Synced\nGHL Contact ID: ${ghlId}\n(Click to copy ID)` : '⚡ GoHighLevel Synced'}
+                    onClick={(e) => {
+                      if (ghlId && navigator?.clipboard?.writeText) {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(ghlId);
+                        if (typeof showToast === 'function') {
+                          showToast(`📋 Copied GHL Contact ID: ${ghlId}`, 'success');
+                        }
+                      }
+                    }}
+                  >
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                    GoHighLevel
+                    {ghlId && <span style={{ fontSize: '10px', opacity: 0.75, marginLeft: '2px' }} title="Click to copy GHL ID">📋</span>}
+                  </span>
+                ) : (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '3px 10px',
+                      borderRadius: '12px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      background: rawSource.toLowerCase().includes('whatsapp') ? 'rgba(37, 211, 102, 0.12)' : (rawSource.toLowerCase().includes('sim') ? 'rgba(13, 148, 136, 0.12)' : '#f1f5f9'),
+                      color: rawSource.toLowerCase().includes('whatsapp') ? '#15803d' : (rawSource.toLowerCase().includes('sim') ? '#0d9488' : '#475569'),
+                      border: '1px solid rgba(0,0,0,0.08)'
+                    }}
+                  >
+                    {rawSource.toLowerCase().includes('whatsapp') ? '💬 ' : (rawSource.toLowerCase().includes('sim') ? '📞 ' : '')}
+                    {rawSource}
+                  </span>
+                )}
+              </td>
+            );
+          }
+
+          {/* CONTACT NOTES COLUMN (EXCLUDE SYNTHETIC IMPORTED FROM GOHIGHLEVEL STRINGS) */}
+          if (col.id === 'notes' || col.fieldKey === 'notes') {
+            let rawNotes = getValString(record.notes || record.customFields?.notes || '').trim();
+            if (/^Imported from GoHighLevel/i.test(rawNotes)) {
+              rawNotes = '';
+            }
+            const isEmptyNote = !rawNotes || rawNotes === 'undefined' || rawNotes === 'null';
+
+            return (
+              <td key={col.id} style={{ padding: '12px 18px', fontSize: '12px', color: '#334155', borderBottom: '1px solid #e2e8f0', maxWidth: '240px' }}>
+                {isEmptyNote ? (
+                  <span style={{ color: '#94a3b8', fontWeight: '600' }}>—</span>
+                ) : (
+                  <span
+                    title={rawNotes}
+                    style={{
+                      display: 'block',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      color: '#1e293b',
+                      fontWeight: '500'
+                    }}
+                  >
+                    {rawNotes}
+                  </span>
+                )}
+              </td>
+            );
+          }
+
           {/* GENERIC COLUMN WITH STRICT "—" EMPTY FALLBACK */}
           const rawCellVal = (col.fieldKey && record[col.fieldKey] !== undefined && record[col.fieldKey] !== null)
             ? record[col.fieldKey]

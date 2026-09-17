@@ -502,7 +502,7 @@ export const SupabaseSandboxService = {
             pipeline_stage: c.pipeline_stage || c.pipelineStage || 'lead',
             is_archived: Boolean(c.is_archived),
             labels: labels,
-            notes: c.notes || (ghlId ? `Imported from GoHighLevel (GHL ID: ${ghlId})` : ''),
+            notes: (c.notes && !String(c.notes).includes('Imported from GoHighLevel')) ? c.notes : '',
             deal_value: String(c.deal_value || c.monetaryValue || 0),
             custom_fields: {
               source: 'GoHighLevel',

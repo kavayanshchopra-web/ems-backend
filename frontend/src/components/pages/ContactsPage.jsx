@@ -173,9 +173,16 @@ export default function ContactsPage({
       }
 
       // F. BUILD SANITIZED CRM RECORD
-      const extractedGhlId = d.ghlContactId || d.ghl_contact_id || d.custom_fields?.ghlContactId || d.customFields?.ghlContactId || (rawId.startsWith('ghl_') ? rawId.replace('ghl_', '') : null);
+      const fallbackNoteGhlId = (d.notes && typeof d.notes === 'string') ? (d.notes.match(/GHL ID:\s*([a-zA-Z0-9_-]+)/i)?.[1] || d.notes.match(/Contact ID:\s*([a-zA-Z0-9_-]+)/i)?.[1]) : null;
+      const extractedGhlId = d.ghlContactId || d.ghl_contact_id || d.custom_fields?.ghlContactId || d.customFields?.ghlContactId || (rawId.startsWith('ghl_') ? rawId.replace('ghl_', '') : null) || fallbackNoteGhlId;
       const isFromGhl = Boolean(extractedGhlId || d.custom_fields?.source === 'GoHighLevel' || (d.notes && String(d.notes).includes('GoHighLevel')));
       const resolvedSource = d.source || (isFromGhl ? 'GoHighLevel' : (rawId.includes('@s.whatsapp.net') ? 'WhatsApp Inbound' : (d.simCall ? 'SIM Dialer' : 'Manual Entry')));
+
+      // Clean out synthetic automated GHL import text from notes
+      let rawNotes = String(d.notes || d.customFields?.notes || '').trim();
+      if (/^Imported from GoHighLevel/i.test(rawNotes)) {
+        rawNotes = '';
+      }
 
       const cleanRec = {
         id: rawId || `CON-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -187,7 +194,7 @@ export default function ContactsPage({
         source: resolvedSource,
         assignedTo: d.assignedTo || d.agentName || authUser?.name || 'Staff 1',
         ghlContactId: extractedGhlId,
-        notes: d.notes || d.customFields?.notes || '',
+        notes: rawNotes,
         createdAt: d.createdAt || d._createdAt || d.lastMessageTime || new Date().toISOString(),
         updatedAt: d.updatedAt || new Date().toISOString(),
         _dedupKey: dedupKey
@@ -206,6 +213,13 @@ export default function ContactsPage({
         const betterEmail = existing.email || cleanRec.email;
         const betterGhlId = existing.ghlContactId || cleanRec.ghlContactId;
 
+        // Clean notes if either contains synthetic automated GHL text
+        let existingNotes = String(existing.notes || '').trim();
+        if (/^Imported from GoHighLevel/i.test(existingNotes)) existingNotes = '';
+        let cleanRecNotes = String(cleanRec.notes || '').trim();
+        if (/^Imported from GoHighLevel/i.test(cleanRecNotes)) cleanRecNotes = '';
+        const betterNotes = cleanRecNotes || existingNotes || '';
+
         // Combine tags
         const tagsSet = new Set([
           ...(existing.tags ? existing.tags.split(',').map(t => t.trim()) : []),
@@ -219,6 +233,7 @@ export default function ContactsPage({
           phone: betterPhone,
           email: betterEmail,
           ghlContactId: betterGhlId,
+          notes: betterNotes,
           source: (existing.source === 'GoHighLevel' || cleanRec.source === 'GoHighLevel') ? 'GoHighLevel' : (existing.source || cleanRec.source),
           tags: Array.from(tagsSet).filter(Boolean).join(', '),
           updatedAt: new Date().toISOString()

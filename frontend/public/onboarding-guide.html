@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OmniFlow - Permission & Folder Selection Video Guide</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  body {
+    background: #0f172a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+    color: #ffffff;
+  }
+
+  .demo-container {
+    width: 380px;
+    height: 720px;
+    background: #000000;
+    border-radius: 40px;
+    border: 8px solid #1e293b;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.6), 0 0 30px rgba(13, 148, 136, 0.2);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Phone Notch */
+  .notch {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 130px;
+    height: 22px;
+    background: #1e293b;
+    border-radius: 14px;
+    z-index: 100;
+  }
+
+  /* Status Bar */
+  .status-bar {
+    height: 38px;
+    padding: 10px 24px 0;
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #94a3b8;
+    font-weight: 600;
+    z-index: 10;
+  }
+
+  /* Content Views */
+  .screen {
+    position: absolute;
+    top: 38px;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #0f172a;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 16px;
+    transition: all 0.4s ease-in-out;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(40px);
+  }
+
+  .screen.active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+
+  /* Pointer / Finger Cursor */
+  .touch-pointer {
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    background: rgba(20, 210, 203, 0.4);
+    border: 3px solid #14d2cb;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 999;
+    transform: translate(-50%, -50%) scale(0);
+    transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s;
+  }
+
+  .touch-pointer.click {
+    transform: translate(-50%, -50%) scale(1.3);
+    background: rgba(20, 210, 203, 0.7);
+  }
+
+  .touch-pointer.visible {
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  /* Cards and Buttons */
+  .app-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .app-logo {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #0d9488, #059669);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 20px;
+    color: white;
+  }
+
+  .step-pill {
+    background: rgba(13, 148, 136, 0.15);
+    color: #14d2cb;
+    border: 1px solid rgba(20, 210, 203, 0.3);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 800;
+    display: inline-block;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .title {
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 6px;
+    color: #f8fafc;
+  }
+
+  .subtitle {
+    font-size: 12px;
+    color: #94a3b8;
+    line-height: 1.5;
+    margin-bottom: 20px;
+  }
+
+  .card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .card-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .card-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #0d9488 0%, #059669 100%);
+    color: white;
+    font-weight: 800;
+    font-size: 14px;
+    padding: 14px 20px;
+    border-radius: 14px;
+    border: none;
+    width: 100%;
+    margin-top: auto;
+    box-shadow: 0 4px 15px rgba(13, 148, 136, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  /* File Manager Screen */
+  .saf-header {
+    background: #1e293b;
+    margin: -20px -16px 14px -16px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #334155;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .folder-list {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .folder-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    border-radius: 8px;
+    transition: background 0.2s;
+  }
+
+  .folder-item.highlight {
+    background: rgba(20, 210, 203, 0.15);
+    border: 1px solid rgba(20, 210, 203, 0.4);
+  }
+
+  /* Popup Dialog */
+  .dialog-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 500;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+
+  .dialog-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .dialog-box {
+    background: #1e293b;
+    border-radius: 20px;
+    padding: 20px;
+    border: 1px solid #334155;
+    width: 100%;
+    text-align: center;
+  }
+
+  .dialog-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .dialog-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 13px;
+    border: none;
+  }
+
+  .dialog-allow {
+    background: #0d9488;
+    color: white;
+  }
+
+  .dialog-deny {
+    background: #334155;
+    color: #94a3b8;
+  }
+
+  /* Controller bar at bottom of web page */
+  .controls {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .control-btn {
+    background: #1e293b;
+    color: #14d2cb;
+    border: 1px solid #334155;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div class="demo-container">
+  <div class="notch"></div>
+  <div class="status-bar">
+    <span>10:45</span>
+    <span>5G • 98%</span>
+  </div>
+
+  <!-- Touch Cursor -->
+  <div id="cursor" class="touch-pointer"></div>
+
+  <!-- SCREEN 1: OmniFlow App Permission Dashboard -->
+  <div id="screen-1" class="screen active">
+    <div class="app-header">
+      <div class="app-logo">O</div>
+      <div>
+        <h3 style="font-size: 16px; font-weight: 800;">OmniFlow CRM</h3>
+        <p style="font-size: 11px; color: #14d2cb; font-weight: 700;">SIM Recorder & Dialer</p>
+      </div>
+    </div>
+
+    <div class="step-pill">Step 1 of 3: Permissions</div>
+    <div class="title">Setup Call Recording Sync</div>
+    <div class="subtitle">Select your phone's call recordings folder so incoming & outgoing calls auto-sync to CRM.</div>
+
+    <div class="card" id="card-storage">
+      <div class="card-left">
+        <div class="card-icon">📁</div>
+        <div>
+          <div style="font-size: 13px; font-weight: 700;">Recordings Folder</div>
+          <div style="font-size: 11px; color: #94a3b8;">Not selected yet</div>
+        </div>
+      </div>
+      <span style="font-size: 11px; color: #f59e0b; font-weight: 800;">Required</span>
+    </div>
+
+    <div class="card">
+      <div class="card-left">
+        <div class="card-icon">🔋</div>
+        <div>
+          <div style="font-size: 13px; font-weight: 700;">Battery Optimization</div>
+          <div style="font-size: 11px; color: #10b981;">Unrestricted ✓</div>
+        </div>
+      </div>
+      <span style="font-size: 11px; color: #10b981; font-weight: 800;">Active</span>
+    </div>
+
+    <button id="btn-select-folder" class="btn-primary">
+      <span>📂 Select Recordings Folder</span>
+    </button>
+  </div>
+
+  <!-- SCREEN 2: Android File Picker (SAF) -->
+  <div id="screen-2" class="screen">
+    <div class="saf-header">
+      <span style="font-size: 18px;">←</span>
+      <div>
+        <div style="font-size: 13px; font-weight: 700;">Internal Storage</div>
+        <div style="font-size: 10px; color: #94a3b8;">Select Call Recordings Folder</div>
+      </div>
+    </div>
+
+    <div class="step-pill" style="margin-bottom: 12px;">Step 2: Choose Folder</div>
+
+    <div class="folder-list">
+      <div class="folder-item">
+        <span style="font-size: 20px;">📁</span>
+        <div>
+          <div style="font-size: 13px; font-weight: 600;">Alarms</div>
+          <div style="font-size: 10px; color: #64748b;">3 items</div>
+        </div>
+      </div>
+
+      <div class="folder-item">
+        <span style="font-size: 20px;">📁</span>
+        <div>
+          <div style="font-size: 13px; font-weight: 600;">Android</div>
+          <div style="font-size: 10px; color: #64748b;">4 items</div>
+        </div>
+      </div>
+
+      <div class="folder-item">
+        <span style="font-size: 20px;">📁</span>
+        <div>
+          <div style="font-size: 13px; font-weight: 600;">DCIM</div>
+          <div style="font-size: 10px; color: #64748b;">Camera photos</div>
+        </div>
+      </div>
+
+      <!-- Target Folder -->
+      <div class="folder-item" id="target-folder">
+        <span style="font-size: 20px;">📁</span>
+        <div>
+          <div style="font-size: 13.5px; font-weight: 800; color: #14d2cb;">Record_calls / Call</div>
+          <div style="font-size: 10px; color: #94a3b8;">Samsung / Xiaomi / OnePlus Audio</div>
+        </div>
+      </div>
+
+      <div class="folder-item">
+        <span style="font-size: 20px;">📁</span>
+        <div>
+          <div style="font-size: 13px; font-weight: 600;">Music</div>
+          <div style="font-size: 10px; color: #64748b;">Audio tracks</div>
+        </div>
+      </div>
+
+      <div class="folder-item">
+        <span style="font-size: 20px;">📁</span>
+        <div>
+          <div style="font-size: 13px; font-weight: 600;">WhatsApp Audio</div>
+          <div style="font-size: 10px; color: #64748b;">Media files</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SAF Bottom Button -->
+    <button id="btn-use-folder" class="btn-primary" style="background: #2563eb; margin-top: 10px; box-shadow: 0 4px 15px rgba(37,99,235,0.4);">
+      <span>USE THIS FOLDER</span>
+    </button>
+  </div>
+
+  <!-- SCREEN 3: Allow Permission Dialog -->
+  <div id="dialog-allow" class="dialog-overlay">
+    <div class="dialog-box">
+      <div style="font-size: 30px; margin-bottom: 8px;">🔐</div>
+      <h4 style="font-size: 15px; font-weight: 800; margin-bottom: 6px;">Allow access to Record_calls?</h4>
+      <p style="font-size: 11.5px; color: #94a3b8; line-height: 1.4;">This will give OmniFlow permission to read audio files in this folder to auto-sync calls.</p>
+      <div class="dialog-actions">
+        <button class="dialog-btn dialog-deny">Don't allow</button>
+        <button id="btn-confirm-allow" class="dialog-btn dialog-allow">Allow</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 4: Success Confirmed -->
+  <div id="screen-success" class="screen">
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center;">
+      <div style="width: 70px; height: 70px; border-radius: 50%; background: rgba(16, 185, 129, 0.2); border: 2px solid #10b981; display: flex; align-items: center; justify-content: center; font-size: 34px; color: #10b981; margin-bottom: 16px;">
+        ✓
+      </div>
+      <h3 style="font-size: 20px; font-weight: 800; color: #ffffff; margin-bottom: 8px;">Setup Complete!</h3>
+      <p style="font-size: 12.5px; color: #94a3b8; max-width: 260px; line-height: 1.5; margin-bottom: 24px;">
+        Folder <b style="color: #14d2cb;">Record_calls</b> linked successfully. All incoming and outgoing calls will now auto-sync with CRM.
+      </p>
+
+      <div style="width: 100%; background: #1e293b; border-radius: 12px; padding: 14px; text-align: left; border: 1px solid #334155;">
+        <div style="display: flex; align-items: center; gap: 8px; color: #10b981; font-size: 12px; font-weight: 700; margin-bottom: 6px;">
+          <span>✓</span> <span>Folder Permission Granted</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; color: #10b981; font-size: 12px; font-weight: 700;">
+          <span>✓</span> <span>Background Battery Unrestricted</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="controls">
+  <button class="control-btn" id="btn-replay">↺ Replay Guide</button>
+  <button class="control-btn" id="btn-record" style="background: #0d9488; color: #ffffff; border-color: #14d2cb;">⏺ Start Screen Video Record</button>
+  <span style="font-size: 12px; color: #94a3b8;" id="step-indicator">Step: 1/4</span>
+</div>
+
+<script>
+  const cursor = document.getElementById('cursor');
+  const screen1 = document.getElementById('screen-1');
+  const screen2 = document.getElementById('screen-2');
+  const screenSuccess = document.getElementById('screen-success');
+  const dialogAllow = document.getElementById('dialog-allow');
+  const stepIndicator = document.getElementById('step-indicator');
+  const btnRecord = document.getElementById('btn-record');
+
+  let mediaRecorder = null;
+  let recordedChunks = [];
+
+  // One-click screen recording for video download
+  btnRecord.addEventListener('click', async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { displaySurface: "browser" },
+        audio: false
+      });
+      recordedChunks = [];
+      mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'omniflow_folder_permission_guide.webm';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        btnRecord.innerText = '✅ Video Saved!';
+        setTimeout(() => { btnRecord.innerText = '⏺ Record Again'; }, 3000);
+      };
+
+      mediaRecorder.start();
+      btnRecord.innerText = '⏹ Recording... (Stop anytime)';
+      runAnimation();
+
+      // Auto-stop after full walkthrough cycle (13 seconds)
+      setTimeout(() => {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+          mediaRecorder.stop();
+          stream.getTracks().forEach(t => t.stop());
+        }
+      }, 13500);
+
+    } catch (err) {
+      console.error('Screen recording canceled or not permitted:', err);
+    }
+  });
+
+  function moveCursor(x, y, isClick = false) {
+    cursor.classList.add('visible');
+    cursor.style.left = x + 'px';
+    cursor.style.top = y + 'px';
+    if (isClick) {
+      cursor.classList.add('click');
+      setTimeout(() => cursor.classList.remove('click'), 250);
+    }
+  }
+
+  function hideCursor() {
+    cursor.classList.remove('visible');
+  }
+
+  function runAnimation() {
+    // Reset all
+    screen1.classList.add('active');
+    screen2.classList.remove('active');
+    screenSuccess.classList.remove('active');
+    dialogAllow.classList.remove('active');
+    stepIndicator.innerText = "Step 1: Tap Select Folder";
+
+    // 1. Move to Select Folder Button
+    setTimeout(() => {
+      moveCursor(190, 640, false);
+    }, 1000);
+
+    // 2. Click Select Folder
+    setTimeout(() => {
+      moveCursor(190, 640, true);
+    }, 2000);
+
+    // 3. Switch to SAF Screen (Folder List)
+    setTimeout(() => {
+      screen1.classList.remove('active');
+      screen2.classList.add('active');
+      stepIndicator.innerText = "Step 2: Tap Call Recording Folder";
+      moveCursor(190, 310, false);
+      document.getElementById('target-folder').classList.add('highlight');
+    }, 2800);
+
+    // 4. Click Target Folder
+    setTimeout(() => {
+      moveCursor(190, 310, true);
+    }, 3800);
+
+    // 5. Move to 'USE THIS FOLDER' button
+    setTimeout(() => {
+      stepIndicator.innerText = "Step 3: Click 'USE THIS FOLDER'";
+      moveCursor(190, 650, false);
+    }, 4800);
+
+    // 6. Click 'USE THIS FOLDER'
+    setTimeout(() => {
+      moveCursor(190, 650, true);
+    }, 5800);
+
+    // 7. Show Android System Allow Dialog
+    setTimeout(() => {
+      dialogAllow.classList.add('active');
+      stepIndicator.innerText = "Step 4: Tap Allow";
+      moveCursor(260, 420, false);
+    }, 6600);
+
+    // 8. Click Allow Button
+    setTimeout(() => {
+      moveCursor(260, 420, true);
+    }, 7600);
+
+    // 9. Show Success Screen
+    setTimeout(() => {
+      dialogAllow.classList.remove('active');
+      screen2.classList.remove('active');
+      screenSuccess.classList.add('active');
+      hideCursor();
+      stepIndicator.innerText = "Complete! Ready to sync";
+    }, 8500);
+
+    // 10. Loop / Replay after delay
+    setTimeout(() => {
+      runAnimation();
+    }, 13000);
+  }
+
+  document.getElementById('btn-replay').addEventListener('click', () => {
+    runAnimation();
+  });
+
+  window.onload = () => {
+    runAnimation();
+  };
+</script>
+
+</body>
+</html>
