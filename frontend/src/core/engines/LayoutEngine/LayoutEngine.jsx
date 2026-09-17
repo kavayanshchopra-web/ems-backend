@@ -347,7 +347,13 @@ export default function LayoutEngine({
           let movedRec = null;
           const updated = records.map(r => {
             if (String(r.id) === String(recId)) {
-              movedRec = { ...r, status: newStage, stage: newStage, updatedAt: new Date().toISOString() };
+              movedRec = { 
+                ...r, 
+                status: newStage, 
+                stage: newStage, 
+                disposition: newStage, 
+                updatedAt: new Date().toISOString() 
+              };
               return movedRec;
             }
             return r;

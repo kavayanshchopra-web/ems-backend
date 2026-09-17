@@ -418,6 +418,7 @@ export default function TelecallingView({
           audioUrl: resolvedRec,
           disposition: resolvedDisp,
           status: resolvedDisp,
+          stage: resolvedDisp,
           durationSeconds: maxDur,
           duration: maxDur > 0 ? `${Math.floor(maxDur / 60)}m ${maxDur % 60}s` : '0s',
           notes: (item.notes && !item.notes.includes('Pending')) ? item.notes : existing.notes
@@ -447,8 +448,7 @@ export default function TelecallingView({
         cleanRecording = '';
       }
 
-      let isMissed = String(log.type || log.callType || '').toUpperCase() === 'MISSED' || 
-                     String(log.disposition || log.status || '').toUpperCase() === 'MISSED CALL';
+      let isMissed = String(log.type || log.callType || '').toUpperCase() === 'MISSED';
 
       // CRITICAL: If a valid voice recording exists, call was connected and cannot be MISSED!
       if (cleanRecording && cleanRecording.startsWith('http')) {
@@ -492,6 +492,11 @@ export default function TelecallingView({
       const persistentSeqId = `CALL-${String(seqIdx + 1).padStart(4, '0')}`;
       const resolvedCallType = isMissed ? 'MISSED' : (log.type && log.type !== 'MISSED' ? log.type : (log.callType && log.callType !== 'MISSED' ? log.callType : 'OUTGOING'));
 
+      const rawDisposition = String(log.disposition || log.status || '').trim();
+      const resolvedDisposition = rawDisposition && rawDisposition.toUpperCase() !== 'MISSED'
+        ? rawDisposition
+        : (isMissed ? 'Missed Call' : 'Interested');
+
       return {
         id: log.id || persistentSeqId,
         displayId: persistentSeqId,
@@ -517,8 +522,9 @@ export default function TelecallingView({
         recording: cleanRecording,
         recordingUrl: cleanRecording,
         audioUrl: cleanRecording,
-        status: isMissed ? 'Missed Call' : (log.disposition || log.status || 'Interested'),
-        disposition: isMissed ? 'Missed Call' : (log.disposition || log.status || 'Interested'),
+        status: resolvedDisposition,
+        stage: resolvedDisposition,
+        disposition: resolvedDisposition,
         notes: log.notes || (activeProvider === 'voxbay' ? 'Voxbay Live Call' : 'SIM Companion Call'),
         timestamp: log.timestamp || (log._createdAt ? new Date(log._createdAt).toLocaleString() : new Date().toISOString()),
         tenantId: log.tenant_id || log.tenantId || companyId,
@@ -588,15 +594,26 @@ export default function TelecallingView({
     setInternalLogs(newRecords);
     if (typeof setCallLogs === 'function') setCallLogs(newRecords);
     TenantStorage.setItem('call_logs', newRecords, companyId);
+    try {
+      localStorage.setItem('omniflow_cached_call_logs', JSON.stringify(newRecords));
+    } catch (e) {}
 
     if (isSandboxEnvironment()) {
-      if (Array.isArray(newRecords) && newRecords.length > 0) {
-        const newest = newRecords[0];
-        if (newest && newest.id) {
-          try {
-            await SupabaseSandboxService.createCallLog(newest, companyId);
-          } catch (e) {
-            console.error('[Telecalling] Sandbox call_log save error:', e);
+      if (Array.isArray(newRecords)) {
+        for (const rec of newRecords) {
+          if (rec && rec.id) {
+            try {
+              const updated = await SupabaseSandboxService.updateCallLog(rec.id, {
+                disposition: rec.disposition || rec.status,
+                status: rec.status || rec.disposition,
+                notes: rec.notes
+              }, companyId);
+              if (!updated) {
+                await SupabaseSandboxService.createCallLog(rec, companyId);
+              }
+            } catch (e) {
+              console.warn('[Telecalling] Sandbox call_log sync notice:', e);
+            }
           }
         }
       }

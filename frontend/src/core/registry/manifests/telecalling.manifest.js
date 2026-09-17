@@ -55,7 +55,7 @@ export const TELECALLING_MANIFEST = {
     { id: 'type', key: 'type', label: 'Call Type', type: 'dropdown', options: ['OUTGOING', 'INCOMING', 'MISSED', 'REJECTED'], systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, defaultValue: 'OUTGOING', sortOrder: 6 },
     { id: 'duration', key: 'duration', label: 'Duration', type: 'text', systemField: true, required: false, searchable: false, filterable: false, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, placeholder: 'e.g. 2m 45s', sortOrder: 7 },
     { id: 'recording', key: 'recording', label: 'Audio Recording', type: 'audio', systemField: true, required: false, searchable: false, filterable: false, sortable: false, showOnCreate: false, showOnEdit: true, showOnView: true, showOnList: true, sortOrder: 8 },
-    { id: 'status', key: 'status', label: 'Call Disposition', type: 'dropdown', optionsSource: 'status', options: ['Interested', 'Demo Scheduled', 'Follow-up Required', 'Deal Closed', 'Not Interested'], systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, defaultValue: 'Interested', sortOrder: 9 }
+    { id: 'status', key: 'status', label: 'Call Disposition', type: 'dropdown', optionsSource: 'status', options: ['Interested', 'Demo Scheduled', 'Follow-up Required', 'Deal Closed', 'Not Interested', 'Missed Call'], systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, defaultValue: 'Interested', sortOrder: 9 }
   ],
 
   defaultSummaryWidgets: [
@@ -92,7 +92,7 @@ export const TELECALLING_MANIFEST = {
   },
 
   defaultLookupData: {
-    status: ['Interested', 'Demo Scheduled', 'Follow-up Required', 'Deal Closed', 'Not Interested']
+    status: ['Interested', 'Demo Scheduled', 'Follow-up Required', 'Deal Closed', 'Not Interested', 'Missed Call']
   },
 
   defaultStages: [
@@ -100,7 +100,8 @@ export const TELECALLING_MANIFEST = {
     { id: 'demo_scheduled', key: 'DEMO_SCHEDULED', name: 'Demo Scheduled', emoji: '📅', color: '#2563eb', semanticType: 'ACTIVE', sortOrder: 2 },
     { id: 'followup_required', key: 'FOLLOWUP_REQUIRED', name: 'Follow-up Required', emoji: '⏰', color: '#d97706', semanticType: 'ACTIVE', sortOrder: 3 },
     { id: 'deal_closed', key: 'DEAL_CLOSED', name: 'Deal Closed', emoji: '🎉', color: '#10b981', semanticType: 'ACTIVE', sortOrder: 4 },
-    { id: 'not_interested', key: 'NOT_INTERESTED', name: 'Not Interested', emoji: '❌', color: '#ef4444', semanticType: 'EXITED', sortOrder: 5 }
+    { id: 'not_interested', key: 'NOT_INTERESTED', name: 'Not Interested', emoji: '❌', color: '#ef4444', semanticType: 'EXITED', sortOrder: 5 },
+    { id: 'missed_call', key: 'MISSED_CALL', name: 'Missed Call', emoji: '📵', color: '#64748b', semanticType: 'EXITED', sortOrder: 6 }
   ],
 
   defaultIdConfig: {

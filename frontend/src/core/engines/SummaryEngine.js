@@ -75,7 +75,7 @@ export class SummaryEngine {
       const targetStage = String(widget.stageName).toLowerCase();
       return safeRecords.filter(r => {
         if (!r) return false;
-        const recStatus = getValString(r.status || r.stage).toLowerCase();
+        const recStatus = getValString(r.disposition || r.status || r.stage).toLowerCase();
         return recStatus === targetStage || recStatus.includes(targetStage) || targetStage.includes(recStatus);
       }).length;
     }

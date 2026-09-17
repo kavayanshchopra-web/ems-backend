@@ -1115,6 +1115,27 @@ export const SupabaseSandboxService = {
     }
   },
 
+  async updateCallLog(id, updateData = {}, tenantId = 1) {
+    try {
+      const payload = {};
+      if (updateData.disposition !== undefined) payload.disposition = updateData.disposition;
+      if (updateData.status !== undefined) payload.status = updateData.status;
+      if (updateData.notes !== undefined) payload.notes = updateData.notes;
+      if (updateData.recording_url !== undefined) payload.recording_url = updateData.recording_url;
+      if (updateData.recordingUrl !== undefined) payload.recording_url = updateData.recordingUrl;
+      
+      const res = await fetch(`${SUPABASE_URL}/call_logs?id=eq.${id}&tenant_id=eq.${Number(tenantId)}`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify(payload)
+      });
+      return res.ok;
+    } catch (err) {
+      console.warn('[Supabase Sandbox] updateCallLog notice:', err);
+      return false;
+    }
+  },
+
   async deleteCallLog(id, tenantId = 1) {
     try {
       const res = await fetch(`${SUPABASE_URL}/call_logs?id=eq.${id}&tenant_id=eq.${Number(tenantId)}`, {
