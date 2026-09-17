@@ -83,6 +83,14 @@ export default function FilterPanel({
             opts = field.manualOptions.map(getValString);
           }
 
+          if (field.id === 'callTime' || field.type === 'datetime') {
+            opts = ['Today', 'Yesterday', 'Last 7 Days', 'This Month'];
+          } else if (field.id === 'agentName' || field.optionsSource === 'employees' || lookupKey === 'employees') {
+            if (Array.isArray(systemDropdowns?.employees) && systemDropdowns.employees.length > 0) {
+              opts = systemDropdowns.employees.map(e => typeof e === 'string' ? e : getValString(e.name || e.label || e.email));
+            }
+          }
+
           if (opts.length === 0) {
             if (field.optionsSource === 'departments') opts = (systemDropdowns?.departments || []).map(getValString);
             if (field.optionsSource === 'designations') opts = (systemDropdowns?.designations || []).map(getValString);
@@ -105,16 +113,29 @@ export default function FilterPanel({
                 {field.label}
               </label>
               {opts.length > 0 ? (
-                <select
-                  value={currentVal}
-                  onChange={(e) => onFilterChange(field.id, e.target.value)}
-                  style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', outline: 'none', background: '#ffffff' }}
-                >
-                  <option value="all">{PlaceholderEngine.getFilterAllOptionLabel(field)}</option>
-                  {opts.map((opt, i) => (
-                    <option key={i} value={opt}>{opt}</option>
-                  ))}
-                </select>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <select
+                    value={currentVal}
+                    onChange={(e) => onFilterChange(field.id, e.target.value)}
+                    style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', outline: 'none', background: '#ffffff' }}
+                  >
+                    <option value="all">{PlaceholderEngine.getFilterAllOptionLabel(field)}</option>
+                    {opts.map((opt, i) => (
+                      <option key={i} value={opt}>{opt}</option>
+                    ))}
+                    {(field.type === 'datetime' || field.id === 'callTime') && (
+                      <option value="custom_date">Pick Specific Date...</option>
+                    )}
+                  </select>
+                  {(field.type === 'datetime' || field.id === 'callTime') && (currentVal === 'custom_date' || /^\d{4}-\d{2}-\d{2}$/.test(currentVal)) && (
+                    <input
+                      type="date"
+                      value={/^\d{4}-\d{2}-\d{2}$/.test(currentVal) ? currentVal : ''}
+                      onChange={(e) => onFilterChange(field.id, e.target.value)}
+                      style={{ width: '100%', padding: '5px 8px', borderRadius: '6px', border: '1.5px solid #0d9488', fontSize: '12px', outline: 'none', boxSizing: 'border-box' }}
+                    />
+                  )}
+                </div>
               ) : (
                 <input
                   type={field.type === 'date' ? 'date' : 'text'}

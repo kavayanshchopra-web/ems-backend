@@ -70,11 +70,13 @@ export class FilterEngine {
         const recordValStr = String(recordVal).toLowerCase().trim();
 
         if (field.type === 'date' || field.type === 'datetime' || field.id === 'callTime') {
-          const itemTime = Number(record._createdAt || (record.created_at ? new Date(record.created_at).getTime() : 0)) || 0;
+          const itemTime = Number(record._createdAt || (record.callTime ? new Date(record.callTime).getTime() : 0) || (record.created_at ? new Date(record.created_at).getTime() : 0)) || 0;
           if (itemTime > 0) {
             const now = new Date();
             const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
             const startOfYesterday = startOfToday - (24 * 60 * 60 * 1000);
+            const sevenDaysAgo = startOfToday - (6 * 24 * 60 * 60 * 1000);
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
             if (filterValStr === 'today') {
               return itemTime >= startOfToday && itemTime < (startOfToday + 24 * 60 * 60 * 1000);
@@ -82,12 +84,18 @@ export class FilterEngine {
             if (filterValStr === 'yesterday') {
               return itemTime >= startOfYesterday && itemTime < startOfToday;
             }
+            if (filterValStr === 'last 7 days' || filterValStr === 'last_7_days') {
+              return itemTime >= sevenDaysAgo;
+            }
+            if (filterValStr === 'this month' || filterValStr === 'this_month') {
+              return itemTime >= startOfMonth;
+            }
             const itemDate = new Date(itemTime);
             const y = itemDate.getFullYear();
             const m = String(itemDate.getMonth() + 1).padStart(2, '0');
             const d = String(itemDate.getDate()).padStart(2, '0');
             const itemDateStr = `${y}-${m}-${d}`;
-            if (itemDateStr.includes(filterValStr) || filterValStr.includes(itemDateStr)) return true;
+            return itemDateStr === filterValStr || itemDateStr.includes(filterValStr) || filterValStr.includes(itemDateStr);
           }
         }
 
