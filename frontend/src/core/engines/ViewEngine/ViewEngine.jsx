@@ -24,11 +24,13 @@ const getValString = (val, fallback = '') => {
 };
 
 const formatDateStr = (val) => {
-  if (!val) return 'Today';
+  if (!val) {
+    return new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
   try {
     const d = new Date(val);
     if (isNaN(d.getTime())) return String(val);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   } catch (e) {
     return String(val);
   }

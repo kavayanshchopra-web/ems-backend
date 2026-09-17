@@ -43,8 +43,10 @@ const formatDate = (isoStr) => {
 export const formatCallDateTime = (val) => {
   if (!val) {
     const now = new Date();
+    const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     return {
-      dayLabel: 'Today',
+      dayLabel: dateStr,
+      dateStr,
       timeStr: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
       isToday: true,
       isYesterday: false
@@ -71,6 +73,7 @@ export const formatCallDateTime = (val) => {
   if (!dateObj || isNaN(dateObj.getTime())) {
     return {
       dayLabel: String(val),
+      dateStr: String(val),
       timeStr: '',
       isToday: false,
       isYesterday: false
@@ -91,23 +94,17 @@ export const formatCallDateTime = (val) => {
     hour12: true
   });
 
-  let dayLabel = '';
-  if (isToday) {
-    dayLabel = 'Today';
-  } else if (isYesterday) {
-    dayLabel = 'Yesterday';
-  } else {
-    dayLabel = dateObj.toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
-  }
+  const dateStr = dateObj.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
 
   return {
-    dayLabel,
+    dayLabel: dateStr,
+    dateStr,
     timeStr,
-    fullLabel: `${dayLabel}, ${timeStr}`,
+    fullLabel: `${dateStr}, ${timeStr}`,
     isToday,
     isYesterday,
     rawDate: dateObj
@@ -487,15 +484,15 @@ export default function ListEngine({
             return (
               <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '5px',
                       padding: '2px 8px',
                       borderRadius: '6px',
-                      fontSize: '11px',
-                      fontWeight: '800',
+                      fontSize: '11.5px',
+                      fontWeight: '700',
                       letterSpacing: '0.2px',
                       background: formatted.isToday ? 'rgba(13, 148, 136, 0.12)' : (formatted.isYesterday ? 'rgba(217, 119, 6, 0.12)' : '#f1f5f9'),
                       color: formatted.isToday ? '#0d9488' : (formatted.isYesterday ? '#d97706' : '#334155'),
@@ -508,8 +505,34 @@ export default function ListEngine({
                         borderRadius: '50%',
                         background: formatted.isToday ? '#0d9488' : (formatted.isYesterday ? '#d97706' : '#64748b')
                       }} />
-                      {formatted.dayLabel}
+                      {formatted.dateStr}
                     </span>
+                    {formatted.isToday && (
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: '800',
+                        color: '#0d9488',
+                        background: 'rgba(13, 148, 136, 0.1)',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(13, 148, 136, 0.2)'
+                      }}>
+                        Today
+                      </span>
+                    )}
+                    {formatted.isYesterday && (
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: '800',
+                        color: '#d97706',
+                        background: 'rgba(217, 119, 6, 0.1)',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(217, 119, 6, 0.2)'
+                      }}>
+                        Yesterday
+                      </span>
+                    )}
                   </div>
                   <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', paddingLeft: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <span>🕒</span>
