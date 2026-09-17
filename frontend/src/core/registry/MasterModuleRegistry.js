@@ -173,17 +173,18 @@ class MasterModuleRegistry {
     const columns = (fields || []).filter(f => !f.archived && !f.deleted).map((f, idx) => {
       const key = f.key || f.id;
       const matchedCol = safeRawCols.find(c => c && (c.id === f.id || c.fieldKey === key || c.id === key));
+      const manifestCol = (manifest.defaultColumns || []).find(c => c && (c.id === f.id || c.fieldKey === key || c.id === key));
       return {
         id: f.id || key,
         fieldKey: key,
         label: f.label, // 100% sync exact field label from Forms & Fields
-        visible: matchedCol ? matchedCol.visible : (f.showOnList !== false),
-        width: matchedCol?.width || (key === 'name' ? '220px' : key === 'email' ? '200px' : '140px'),
-        align: matchedCol?.align || 'left',
+        visible: matchedCol ? matchedCol.visible : (manifestCol?.visible !== undefined ? manifestCol.visible : (f.showOnList !== false)),
+        width: matchedCol?.width || manifestCol?.width || (key === 'name' ? '220px' : key === 'email' ? '200px' : '140px'),
+        align: matchedCol?.align || manifestCol?.align || 'left',
         sortable: true,
-        sortOrder: f.sortOrder || idx + 1
+        sortOrder: matchedCol?.sortOrder !== undefined ? matchedCol.sortOrder : (manifestCol?.sortOrder !== undefined ? manifestCol.sortOrder : (f.sortOrder || idx + 1))
       };
-    });
+    }).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
     const views = storedConfig.views
       ? storedConfig.views

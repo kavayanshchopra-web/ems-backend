@@ -50,11 +50,12 @@ export const TELECALLING_MANIFEST = {
     { id: 'name', key: 'name', label: 'Lead / Customer', type: 'text', systemField: true, required: true, searchable: true, filterable: false, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, placeholder: 'e.g. Priya Sharma', sortOrder: 1 },
     { id: 'agentName', key: 'agentName', label: 'Telecaller Agent', type: 'text', systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, placeholder: 'e.g. Rahul Verma', sortOrder: 2 },
     { id: 'phone', key: 'phone', label: 'Phone Number', type: 'phone', systemField: true, required: true, searchable: true, filterable: true, sortable: false, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, placeholder: 'e.g. +91 9876543210', sortOrder: 3 },
-    { id: 'channel', key: 'channel', label: 'Channel', type: 'dropdown', options: ['SIM', 'WHATSAPP'], systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, defaultValue: 'SIM', sortOrder: 4 },
-    { id: 'type', key: 'type', label: 'Call Type', type: 'dropdown', options: ['OUTGOING', 'INCOMING', 'MISSED', 'REJECTED'], systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, defaultValue: 'OUTGOING', sortOrder: 5 },
-    { id: 'duration', key: 'duration', label: 'Duration', type: 'text', systemField: true, required: false, searchable: false, filterable: false, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, placeholder: 'e.g. 2m 45s', sortOrder: 6 },
-    { id: 'recording', key: 'recording', label: 'Audio Recording', type: 'audio', systemField: true, required: false, searchable: false, filterable: false, sortable: false, showOnCreate: false, showOnEdit: true, showOnView: true, showOnList: true, sortOrder: 7 },
-    { id: 'status', key: 'status', label: 'Call Disposition', type: 'dropdown', optionsSource: 'status', options: ['Interested', 'Demo Scheduled', 'Follow-up Required', 'Deal Closed', 'Not Interested'], systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, defaultValue: 'Interested', sortOrder: 8 }
+    { id: 'callTime', key: 'callTime', label: 'Date & Time', type: 'datetime', systemField: true, required: false, searchable: false, filterable: true, sortable: true, showOnCreate: false, showOnEdit: false, showOnView: true, showOnList: true, sortOrder: 4 },
+    { id: 'channel', key: 'channel', label: 'Channel', type: 'dropdown', options: ['SIM', 'WHATSAPP'], systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, defaultValue: 'SIM', sortOrder: 5 },
+    { id: 'type', key: 'type', label: 'Call Type', type: 'dropdown', options: ['OUTGOING', 'INCOMING', 'MISSED', 'REJECTED'], systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, defaultValue: 'OUTGOING', sortOrder: 6 },
+    { id: 'duration', key: 'duration', label: 'Duration', type: 'text', systemField: true, required: false, searchable: false, filterable: false, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, placeholder: 'e.g. 2m 45s', sortOrder: 7 },
+    { id: 'recording', key: 'recording', label: 'Audio Recording', type: 'audio', systemField: true, required: false, searchable: false, filterable: false, sortable: false, showOnCreate: false, showOnEdit: true, showOnView: true, showOnList: true, sortOrder: 8 },
+    { id: 'status', key: 'status', label: 'Call Disposition', type: 'dropdown', optionsSource: 'status', options: ['Interested', 'Demo Scheduled', 'Follow-up Required', 'Deal Closed', 'Not Interested'], systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, showOnList: true, defaultValue: 'Interested', sortOrder: 9 }
   ],
 
   defaultSummaryWidgets: [
@@ -67,11 +68,12 @@ export const TELECALLING_MANIFEST = {
     { id: 'name', label: 'Customer / Lead', visible: true, fieldKey: 'name', width: '200px', align: 'left', sortOrder: 1 },
     { id: 'agentName', label: 'Telecaller Agent', visible: true, fieldKey: 'agentName', width: '180px', align: 'left', sortOrder: 2 },
     { id: 'phone', label: 'Phone Number', visible: true, fieldKey: 'phone', width: '150px', align: 'left', sortOrder: 3 },
-    { id: 'channel', label: 'Channel', visible: true, fieldKey: 'channel', width: '120px', align: 'left', sortOrder: 4 },
-    { id: 'type', label: 'Call Type', visible: true, fieldKey: 'type', width: '120px', align: 'left', sortOrder: 5 },
-    { id: 'duration', label: 'Duration', visible: true, fieldKey: 'duration', width: '110px', align: 'left', sortOrder: 6 },
-    { id: 'recording', label: 'Audio Recording', visible: true, fieldKey: 'recording', width: '210px', align: 'left', sortOrder: 7 },
-    { id: 'status', label: 'Call Disposition', visible: true, fieldKey: 'status', width: '160px', align: 'left', sortOrder: 8 }
+    { id: 'callTime', label: 'Date & Time', visible: true, fieldKey: 'callTime', width: '160px', align: 'left', sortOrder: 4 },
+    { id: 'channel', label: 'Channel', visible: true, fieldKey: 'channel', width: '120px', align: 'left', sortOrder: 5 },
+    { id: 'type', label: 'Call Type', visible: true, fieldKey: 'type', width: '120px', align: 'left', sortOrder: 6 },
+    { id: 'duration', label: 'Duration', visible: true, fieldKey: 'duration', width: '110px', align: 'left', sortOrder: 7 },
+    { id: 'recording', label: 'Audio Recording', visible: true, fieldKey: 'recording', width: '210px', align: 'left', sortOrder: 8 },
+    { id: 'status', label: 'Call Disposition', visible: true, fieldKey: 'status', width: '160px', align: 'left', sortOrder: 9 }
   ],
 
   defaultViews: {

@@ -537,6 +537,8 @@ export default function TelecallingView({
         agent_role: log.agent_role || log.agentRole || '',
         custom_fields: log.custom_fields || {},
         phone: custPhone,
+        callTime: log.callTime || log.call_time || log.created_at || log.timestamp || log._createdAt || log.createdAt || Date.now(),
+        createdAt: log.created_at || log.createdAt || log.timestamp || (log._createdAt ? new Date(log._createdAt).toISOString() : new Date().toISOString()),
         channel: channelDisplay,
         simSlot: simSlotText,
         type: resolvedCallType,
@@ -742,6 +744,48 @@ export default function TelecallingView({
   const currentUserRole = String(authUser?.role || '').toLowerCase().trim();
   const canFilterAgents = currentUserRole === 'superadmin' || currentUserRole === 'owner' || currentUserRole === 'admin' || currentUserRole === 'company_admin' || currentUserRole === 'manager';
 
+  // Ensure Date & Time column is always present and properly ordered in telecalling module config
+  const enhancedConfig = useMemo(() => {
+    if (!config) return config;
+    const cols = [...(config.columns || [])];
+    const hasCallTime = cols.some(c => c && (c.id === 'callTime' || c.fieldKey === 'callTime'));
+    if (!hasCallTime) {
+      const phoneIdx = cols.findIndex(c => c && (c.id === 'phone' || c.fieldKey === 'phone'));
+      const insertIdx = phoneIdx !== -1 ? phoneIdx + 1 : 3;
+      cols.splice(insertIdx, 0, {
+        id: 'callTime',
+        fieldKey: 'callTime',
+        label: 'Date & Time',
+        visible: true,
+        width: '160px',
+        align: 'left',
+        sortOrder: 3.5
+      });
+    }
+
+    const fields = [...(config.fields || [])];
+    const hasCallTimeField = fields.some(f => f && (f.id === 'callTime' || f.key === 'callTime'));
+    if (!hasCallTimeField) {
+      fields.splice(3, 0, {
+        id: 'callTime',
+        key: 'callTime',
+        label: 'Date & Time',
+        type: 'datetime',
+        systemField: true,
+        required: false,
+        showOnList: true,
+        showOnView: true,
+        sortOrder: 3.5
+      });
+    }
+
+    return {
+      ...config,
+      fields,
+      columns: cols.map((c, i) => ({ ...c, sortOrder: c.sortOrder || (i + 1) })).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+    };
+  }, [config]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Main Standard LayoutEngine Table */}
@@ -800,7 +844,7 @@ export default function TelecallingView({
               </button>
             </div>
           }
-          moduleConfig={config}
+          moduleConfig={enhancedConfig}
           records={activeRecords}
           setRecords={handleUpdateRecords}
           authUser={authUser}

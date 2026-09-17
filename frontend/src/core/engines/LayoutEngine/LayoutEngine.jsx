@@ -223,9 +223,9 @@ export default function LayoutEngine({
       let valA = a[sortKey];
       let valB = b[sortKey];
 
-      if (sortKey === 'createdAt') {
-        valA = new Date(a?.createdAt || 0).getTime();
-        valB = new Date(b?.createdAt || 0).getTime();
+      if (sortKey === 'createdAt' || sortKey === 'callTime' || sortKey === 'timestamp' || sortKey === '_createdAt') {
+        valA = Number(a?._createdAt || (a?.callTime ? new Date(a.callTime).getTime() : 0) || (a?.createdAt ? new Date(a.createdAt).getTime() : 0)) || 0;
+        valB = Number(b?._createdAt || (b?.callTime ? new Date(b.callTime).getTime() : 0) || (b?.createdAt ? new Date(b.createdAt).getTime() : 0)) || 0;
         return sortDir === 'asc' ? valA - valB : valB - valA;
       }
 

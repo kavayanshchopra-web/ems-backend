@@ -971,6 +971,7 @@ export const SupabaseSandboxService = {
           status: resolvedDisp,
           disposition: resolvedDisp,
           notes: log.notes || '',
+          callTime: log.call_time || log.created_at || log.timestamp,
           timestamp: log.timestamp || log.created_at,
           _createdAt: new Date(log.created_at || log.timestamp).getTime(),
           tenantId: log.tenant_id,

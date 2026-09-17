@@ -40,6 +40,80 @@ const formatDate = (isoStr) => {
   }
 };
 
+export const formatCallDateTime = (val) => {
+  if (!val) {
+    const now = new Date();
+    return {
+      dayLabel: 'Today',
+      timeStr: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+      isToday: true,
+      isYesterday: false
+    };
+  }
+
+  let dateObj = null;
+  if (typeof val === 'number') {
+    dateObj = new Date(val < 10000000000 ? val * 1000 : val);
+  } else if (typeof val === 'string') {
+    const num = Number(val);
+    if (!isNaN(num) && num > 1000000000) {
+      dateObj = new Date(num < 10000000000 ? num * 1000 : num);
+    } else {
+      const parsed = new Date(val);
+      if (!isNaN(parsed.getTime())) {
+        dateObj = parsed;
+      }
+    }
+  } else if (val instanceof Date) {
+    dateObj = val;
+  }
+
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    return {
+      dayLabel: String(val),
+      timeStr: '',
+      isToday: false,
+      isYesterday: false
+    };
+  }
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfYesterday = startOfToday - (24 * 60 * 60 * 1000);
+  const dateTime = dateObj.getTime();
+
+  const isToday = dateTime >= startOfToday && dateTime < (startOfToday + 24 * 60 * 60 * 1000);
+  const isYesterday = dateTime >= startOfYesterday && dateTime < startOfToday;
+
+  const timeStr = dateObj.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+
+  let dayLabel = '';
+  if (isToday) {
+    dayLabel = 'Today';
+  } else if (isYesterday) {
+    dayLabel = 'Yesterday';
+  } else {
+    dayLabel = dateObj.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  }
+
+  return {
+    dayLabel,
+    timeStr,
+    fullLabel: `${dayLabel}, ${timeStr}`,
+    isToday,
+    isYesterday,
+    rawDate: dateObj
+  };
+};
+
 const getAvatarGradient = (nameStr = 'R', isArchived = false) => {
   if (isArchived) return 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
   const char = (nameStr[0] || 'R').toUpperCase();
@@ -133,6 +207,7 @@ export default function ListEngine({
       if (!isNaN(num)) return num;
     }
     if (col.id === 'candidate' || col.id === 'name' || col.id === 'employee') return 240;
+    if (col.id === 'callTime' || col.fieldKey === 'callTime' || col.id === 'call_time' || col.fieldKey === 'call_time') return 160;
     if (col.id === 'contact' || col.id === 'contact_details' || col.id === 'email') return 200;
     if (col.id === 'position' || col.id === 'department' || col.id === 'role') return 140;
     if (col.id === 'salary') return 130;
@@ -401,6 +476,46 @@ export default function ListEngine({
                 ) : (
                   <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '600' }}>—</span>
                 )}
+              </td>
+            );
+          }
+
+          {/* CALL TIME / DATE & TIME COLUMN (TODAY / YESTERDAY / EXACT DATE + TIME) */}
+          if (col.id === 'callTime' || col.fieldKey === 'callTime' || col.id === 'call_time' || col.fieldKey === 'call_time' || col.id === 'callDateTime') {
+            const rawTime = record.callTime || record.call_time || record._createdAt || record.created_at || record.createdAt || record.timestamp;
+            const formatted = formatCallDateTime(rawTime);
+            return (
+              <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: '800',
+                      letterSpacing: '0.2px',
+                      background: formatted.isToday ? 'rgba(13, 148, 136, 0.12)' : (formatted.isYesterday ? 'rgba(217, 119, 6, 0.12)' : '#f1f5f9'),
+                      color: formatted.isToday ? '#0d9488' : (formatted.isYesterday ? '#d97706' : '#334155'),
+                      border: `1px solid ${formatted.isToday ? 'rgba(13, 148, 136, 0.28)' : (formatted.isYesterday ? 'rgba(217, 119, 6, 0.28)' : '#e2e8f0')}`
+                    }}>
+                      <span style={{
+                        display: 'inline-block',
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        background: formatted.isToday ? '#0d9488' : (formatted.isYesterday ? '#d97706' : '#64748b')
+                      }} />
+                      {formatted.dayLabel}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', paddingLeft: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>🕒</span>
+                    <span>{formatted.timeStr}</span>
+                  </span>
+                </div>
               </td>
             );
           }
