@@ -930,10 +930,10 @@ export default function OmniFlowLoginPage({
           .omniflow-saas-container {
             height: 100vh;
             max-height: 100vh;
-            padding: 8px 14px 6px;
+            padding: 6px 12px 4px !important;
             display: flex;
             flex-direction: column;
-            justify-content: flex-start; /* Move page content up */
+            justify-content: flex-start !important; /* Shift content upwards */
             align-items: center;
             width: 100%;
             box-sizing: border-box;
@@ -944,23 +944,23 @@ export default function OmniFlowLoginPage({
             justify-content: space-between;
             align-items: center;
             width: 100%;
-            max-width: 400px;
-            margin-bottom: 2px;
+            max-width: 380px;
+            margin-bottom: 2px !important;
             flex-shrink: 0;
           }
           .omniflow-brand {
-            gap: 8px;
+            gap: 6px;
           }
           .omniflow-brand-divider,
           .omniflow-tagline {
             display: none;
           }
           .omniflow-logo-clover {
-            width: 26px;
-            height: 26px;
+            width: 24px;
+            height: 24px;
           }
           .omniflow-name {
-            font-size: 16px;
+            font-size: 15px;
           }
           .omniflow-signup-top-prompt {
             display: flex !important;
@@ -968,11 +968,11 @@ export default function OmniFlowLoginPage({
             gap: 4px;
           }
           .omniflow-signup-top-text {
-            display: none; /* Hide long prompt on mobile navbar for clean modern look */
+            display: none;
           }
           .omniflow-signup-top-link {
-            padding: 3px 10px;
-            font-size: 11.5px;
+            padding: 2.5px 9px;
+            font-size: 11px;
             border-radius: 9999px;
             background: rgba(13, 180, 158, 0.12);
             border: 1px solid rgba(13, 180, 158, 0.35);
@@ -982,12 +982,13 @@ export default function OmniFlowLoginPage({
           .omniflow-main-content-row {
             display: flex !important;
             flex-direction: column !important;
-            justify-content: flex-start !important; /* Move text & card up */
+            justify-content: flex-start !important; /* Shift text & card up */
             align-items: center;
             width: 100%;
-            max-width: 400px;
-            margin: 0;
-            gap: 4px;
+            max-width: 380px;
+            margin: 0 !important;
+            gap: 2px !important;
+            flex: none !important; /* Prevent expanding down */
             min-height: 0;
           }
           .omniflow-hero-wrap {
@@ -1000,27 +1001,27 @@ export default function OmniFlowLoginPage({
             align-items: center;
             text-align: center;
             width: 100%;
-            margin-bottom: 2px;
+            margin-bottom: 2px !important;
             flex-shrink: 0;
           }
           .omniflow-pill-badge {
-            margin: 0 auto 3px;
-            padding: 2px 8px;
-            font-size: 9.5px;
+            margin: 0 auto 2px !important;
+            padding: 2px 7px !important;
+            font-size: 9px !important;
           }
           .omniflow-headline-h1 {
-            font-size: clamp(17px, 4.8vw, 19.5px);
+            font-size: clamp(15px, 4.2vw, 17.5px) !important;
             line-height: 1.15;
-            letter-spacing: -0.4px;
+            letter-spacing: -0.3px;
             text-align: center;
-            margin: 0 auto 2px;
+            margin: 0 auto 1px !important;
           }
           .omniflow-desc-p {
-            font-size: 10.5px;
-            line-height: 1.3;
+            font-size: 9.5px !important;
+            line-height: 1.25;
             text-align: center;
-            margin: 0 auto 4px;
-            max-width: 290px;
+            margin: 0 auto 3px !important;
+            max-width: 275px;
             color: #475569;
           }
           .omniflow-card-column {
@@ -1041,109 +1042,104 @@ export default function OmniFlowLoginPage({
           }
           .omniflow-white-card-body {
             width: 100%;
-            padding: 12px 14px 10px;
+            padding: 10px 14px 8px !important;
             border-radius: 16px;
             box-shadow: 
-              0 10px 26px -6px rgba(6, 78, 67, 0.15),
+              0 10px 24px -6px rgba(6, 78, 67, 0.15),
               0 0 0 1px rgba(226, 232, 240, 0.9);
           }
           .omniflow-mobile-top-bar {
             display: none !important;
           }
           .omniflow-c-title {
-            font-size: 16px;
+            font-size: 15px !important;
             font-weight: 800;
-            margin-bottom: 1px;
+            margin-bottom: 1px !important;
             text-align: left;
             letter-spacing: -0.3px;
           }
           .omniflow-c-subtitle {
-            font-size: 10.5px;
-            margin-bottom: 6px;
+            font-size: 10px !important;
+            margin-bottom: 5px !important;
             color: #64748b;
             text-align: left;
           }
           .omniflow-form-flow {
-            gap: 5px;
+            gap: 4px !important;
           }
           .omniflow-field-lbl {
-            font-size: 10.5px;
-            margin-bottom: 1px;
+            font-size: 10px !important;
+            margin-bottom: 1px !important;
           }
           .omniflow-iconic-input {
             position: relative;
           }
           .omniflow-input-svg {
-            left: 9px;
-            width: 13px;
-            height: 13px;
+            left: 8px;
+            width: 12px;
+            height: 12px;
           }
           .omniflow-real-input {
-            padding: 6px 10px 6px 28px;
-            font-size: 12px;
-            min-height: 32px;
-            height: 32px;
-            border-radius: 7px;
+            padding: 5px 8px 5px 26px !important;
+            font-size: 11.5px !important;
+            min-height: 30px !important;
+            height: 30px !important;
+            border-radius: 6px;
           }
           .omniflow-eye-action {
-            right: 9px;
+            right: 8px;
           }
           .omniflow-eye-action svg {
-            width: 13px;
-            height: 13px;
+            width: 12px;
+            height: 12px;
           }
           .omniflow-forgot-action {
-            font-size: 10.5px;
+            font-size: 10px !important;
           }
           .omniflow-check-wrap {
             gap: 5px;
-            margin-top: 1px;
+            margin-top: 1px !important;
           }
           .omniflow-check-box {
-            width: 13px;
-            height: 13px;
+            width: 12px;
+            height: 12px;
           }
           .omniflow-check-txt {
-            font-size: 11px;
+            font-size: 10.5px !important;
           }
           .omniflow-solid-teal-btn {
-            padding: 7px 12px;
-            font-size: 13px;
-            min-height: 34px;
-            height: 34px;
+            padding: 6px 12px !important;
+            font-size: 12.5px !important;
+            min-height: 32px !important;
+            height: 32px !important;
             border-radius: 7px;
-            margin-top: 1px;
+            margin-top: 1px !important;
           }
           .omniflow-divider-row {
-            margin: 3px 0;
-            font-size: 9.5px;
+            margin: 2px 0 !important;
+            font-size: 9px !important;
           }
           .omniflow-google-auth-btn {
-            padding: 6px 12px;
-            font-size: 11.5px;
-            min-height: 32px;
-            height: 32px;
+            padding: 5px 12px !important;
+            font-size: 11px !important;
+            min-height: 30px !important;
+            height: 30px !important;
             border-radius: 7px;
           }
           .omniflow-switch-link-footer {
-            margin-top: 4px;
-            font-size: 10.5px;
+            margin-top: 3px !important;
+            font-size: 10px !important;
           }
           .omniflow-mobile-doodle-bottom {
             display: none !important;
           }
-          /* Hide bottom feature pills & showcase preview completely on mobile as requested */
+          /* Hide bottom feature pills & showcase preview completely on mobile */
           .omniflow-feature-pills-row,
           .omniflow-showcase-row {
             display: none !important;
           }
           .omniflow-bottom-bar {
-            justify-content: center;
-            text-align: center;
-            margin: 2px auto 0;
-            font-size: 9.5px;
-            color: #94a3b8;
-            flex-shrink: 0;
+            display: none !important; /* Hide footer to keep content shifted up and clean */
           }
         }
       `}</style>
