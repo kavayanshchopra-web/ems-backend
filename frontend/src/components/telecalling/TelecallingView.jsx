@@ -3,7 +3,7 @@ import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
 import VoxbayCloudDialerModal from './VoxbayCloudDialerModal';
-import { PhoneCall, Smartphone, Users } from 'lucide-react';
+import { PhoneCall, Smartphone, Users, Calendar } from 'lucide-react';
 import { db } from '../../firebase';
 import { collection, onSnapshot, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { GhlOAuthService } from '../../core/services/ghlOAuthService';
@@ -38,6 +38,8 @@ export default function TelecallingView({
   const { config } = useModuleRegistry(companyId, 'telecalling');
   
   const [selectedAgentFilter, setSelectedAgentFilter] = useState('ALL');
+  const [selectedDateFilter, setSelectedDateFilter] = useState('ALL');
+  const [customDateVal, setCustomDateVal] = useState('');
   const [isVoxbayOpen, setIsVoxbayOpen] = useState(false);
   const [internalLogs, setInternalLogs] = useState(() => {
     if (isSandboxEnvironment()) {
@@ -579,6 +581,43 @@ export default function TelecallingView({
       const itemAgentId = String(item.agentId || item.agent_id || '').toLowerCase().trim();
       const itemAgentEmail = String(item.agentEmail || item.agent_email || item.custom_fields?.agent_email || '').toLowerCase().trim();
 
+      // Check date filter (All, Today, Yesterday, Last 7 Days, This Month, Specific Date)
+      const matchesDateFilter = () => {
+        if (!selectedDateFilter || selectedDateFilter === 'ALL') return true;
+        const itemTime = Number(item._createdAt || (item.created_at ? new Date(item.created_at).getTime() : 0)) || 0;
+        if (!itemTime) return false;
+
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const startOfYesterday = startOfToday - (24 * 60 * 60 * 1000);
+        const sevenDaysAgo = startOfToday - (6 * 24 * 60 * 60 * 1000);
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+        if (selectedDateFilter === 'TODAY') {
+          return itemTime >= startOfToday && itemTime < (startOfToday + 24 * 60 * 60 * 1000);
+        }
+        if (selectedDateFilter === 'YESTERDAY') {
+          return itemTime >= startOfYesterday && itemTime < startOfToday;
+        }
+        if (selectedDateFilter === 'LAST_7_DAYS') {
+          return itemTime >= sevenDaysAgo;
+        }
+        if (selectedDateFilter === 'THIS_MONTH') {
+          return itemTime >= startOfMonth;
+        }
+        if (selectedDateFilter === 'CUSTOM' && customDateVal) {
+          const itemDate = new Date(itemTime);
+          const y = itemDate.getFullYear();
+          const m = String(itemDate.getMonth() + 1).padStart(2, '0');
+          const d = String(itemDate.getDate()).padStart(2, '0');
+          const itemDateStr = `${y}-${m}-${d}`;
+          return itemDateStr === customDateVal;
+        }
+        return true;
+      };
+
+      if (!matchesDateFilter()) return false;
+
       // Check agent filter if user has selected a specific agent
       const matchesSelectedAgent = () => {
         if (!selectedAgentFilter || selectedAgentFilter === 'ALL') return true;
@@ -620,7 +659,7 @@ export default function TelecallingView({
       // 3. Employee (Default): STRICTLY own calls ONLY
       return isOwnCall;
     });
-  }, [callLogs, internalLogs, crmContactMap, authUser, activeProvider, companyId, employees, selectedAgentFilter]);
+  }, [callLogs, internalLogs, crmContactMap, authUser, activeProvider, companyId, employees, selectedAgentFilter, selectedDateFilter, customDateVal]);
 
   const handleUpdateRecords = async (newRecords) => {
     setInternalLogs(newRecords);
@@ -820,6 +859,53 @@ export default function TelecallingView({
                   </select>
                 </div>
               )}
+              {/* Quick Date Filter Dropdown */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Calendar size={14} style={{ color: selectedDateFilter !== 'ALL' ? '#0d9488' : '#64748b' }} />
+                <select
+                  value={selectedDateFilter}
+                  onChange={(e) => setSelectedDateFilter(e.target.value)}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    border: selectedDateFilter !== 'ALL' ? '1.5px solid #0d9488' : '1px solid #cbd5e1',
+                    background: selectedDateFilter !== 'ALL' ? 'rgba(13, 148, 136, 0.08)' : '#ffffff',
+                    color: selectedDateFilter !== 'ALL' ? '#0d9488' : '#0f172a',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                  }}
+                  title="Filter calls by Date (Today, Yesterday, Last 7 Days, This Month)"
+                >
+                  <option value="ALL">📅 All Dates</option>
+                  <option value="TODAY">🟢 Today</option>
+                  <option value="YESTERDAY">🟡 Yesterday</option>
+                  <option value="LAST_7_DAYS">⏱️ Last 7 Days</option>
+                  <option value="THIS_MONTH">📆 This Month</option>
+                  <option value="CUSTOM">🔍 Specific Date...</option>
+                </select>
+
+                {selectedDateFilter === 'CUSTOM' && (
+                  <input
+                    type="date"
+                    value={customDateVal}
+                    onChange={(e) => setCustomDateVal(e.target.value)}
+                    style={{
+                      padding: '5px 8px',
+                      borderRadius: '8px',
+                      border: '1.5px solid #0d9488',
+                      background: '#ffffff',
+                      color: '#0f172a',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      outline: 'none'
+                    }}
+                  />
+                )}
+              </div>
+
               <button
                 type="button"
                 onClick={handleHeaderDialClick}

@@ -69,6 +69,28 @@ export class FilterEngine {
         const filterValStr = String(filterVal).toLowerCase().trim();
         const recordValStr = String(recordVal).toLowerCase().trim();
 
+        if (field.type === 'date' || field.type === 'datetime' || field.id === 'callTime') {
+          const itemTime = Number(record._createdAt || (record.created_at ? new Date(record.created_at).getTime() : 0)) || 0;
+          if (itemTime > 0) {
+            const now = new Date();
+            const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+            const startOfYesterday = startOfToday - (24 * 60 * 60 * 1000);
+
+            if (filterValStr === 'today') {
+              return itemTime >= startOfToday && itemTime < (startOfToday + 24 * 60 * 60 * 1000);
+            }
+            if (filterValStr === 'yesterday') {
+              return itemTime >= startOfYesterday && itemTime < startOfToday;
+            }
+            const itemDate = new Date(itemTime);
+            const y = itemDate.getFullYear();
+            const m = String(itemDate.getMonth() + 1).padStart(2, '0');
+            const d = String(itemDate.getDate()).padStart(2, '0');
+            const itemDateStr = `${y}-${m}-${d}`;
+            if (itemDateStr.includes(filterValStr) || filterValStr.includes(itemDateStr)) return true;
+          }
+        }
+
         if (field.type === 'dropdown' || field.type === 'select' || field.type === 'radio') {
           return recordValStr === filterValStr;
         }
