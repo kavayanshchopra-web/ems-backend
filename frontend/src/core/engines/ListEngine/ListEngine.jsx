@@ -188,9 +188,9 @@ export default function ListEngine({
 
   const allCols = moduleConfig.columns || [];
 
-  // Filter out columns hidden via metadata or user popover toggle
+  // Filter out columns hidden via metadata or user popover toggle (and exclude redundant 'id'/'displayId' since we render a dedicated first ID column)
   const visibleCols = allCols
-    .filter(c => c.visible !== false && !hiddenColIds.includes(c.id))
+    .filter(c => c.visible !== false && !hiddenColIds.includes(c.id) && c.id !== 'id' && c.id !== 'displayId' && c.fieldKey !== 'displayId')
     .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
   const fieldsMap = new Map((moduleConfig.fields || []).map(f => [f.id, f]));
@@ -203,12 +203,16 @@ export default function ListEngine({
       const num = parseInt(col.width, 10);
       if (!isNaN(num)) return num;
     }
-    if (col.id === 'candidate' || col.id === 'name' || col.id === 'employee') return 240;
+    if (col.id === 'candidate' || col.id === 'name' || col.id === 'employee') return 210;
+    if (col.id === 'phone') return 160;
     if (col.id === 'callTime' || col.fieldKey === 'callTime' || col.id === 'call_time' || col.fieldKey === 'call_time') return 160;
-    if (col.id === 'contact' || col.id === 'contact_details' || col.id === 'email') return 200;
-    if (col.id === 'position' || col.id === 'department' || col.id === 'role') return 140;
-    if (col.id === 'salary') return 130;
-    if (col.id === 'status') return 130;
+    if (col.id === 'contact' || col.id === 'contact_details' || col.id === 'email') return 190;
+    if (col.id === 'source') return 130;
+    if (col.id === 'tags') return 130;
+    if (col.id === 'assignedTo') return 130;
+    if (col.id === 'position' || col.id === 'department' || col.id === 'role') return 130;
+    if (col.id === 'salary') return 120;
+    if (col.id === 'status' || col.id === 'stage' || col.id === 'disposition') return 140;
     return 140;
   };
 
@@ -341,8 +345,8 @@ export default function ListEngine({
           transition: 'background 0.15s ease-in-out'
         }}
       >
-        {/* CHECKBOX CELL WITH ENHANCED SPACING */}
-        <td style={{ padding: '12px 18px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }} onClick={(e) => e.stopPropagation()}>
+        {/* CHECKBOX CELL WITH COMPACT SPACING */}
+        <td style={{ padding: '6px 10px', textAlign: 'center', borderBottom: '1px solid #e2e8f0', width: '38px', minWidth: '38px', maxWidth: '38px' }} onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
             checked={isSelected}
@@ -350,8 +354,27 @@ export default function ListEngine({
               e.stopPropagation();
               handleSelectRow(record.id);
             }}
-            style={{ accentColor: isArchivedView ? '#f59e0b' : '#0d9488', cursor: 'pointer', width: '16px', height: '16px' }}
+            style={{ accentColor: isArchivedView ? '#f59e0b' : '#0d9488', cursor: 'pointer', width: '15px', height: '15px' }}
           />
+        </td>
+
+        {/* DEDICATED COMPACT ID COLUMN CELL */}
+        <td style={{ padding: '6px 12px', borderBottom: '1px solid #e2e8f0', width: '95px', minWidth: '95px', maxWidth: '95px', whiteSpace: 'nowrap' }}>
+          <span
+            style={{
+              fontSize: '11px',
+              fontFamily: 'monospace',
+              fontWeight: '800',
+              padding: '2px 7px',
+              borderRadius: '5px',
+              background: isArchivedView ? 'rgba(217, 119, 6, 0.1)' : 'rgba(13, 148, 136, 0.08)',
+              color: isArchivedView ? '#b45309' : '#0d9488',
+              border: `1px solid ${isArchivedView ? 'rgba(217, 119, 6, 0.25)' : 'rgba(13, 148, 136, 0.2)'}`,
+              display: 'inline-block'
+            }}
+          >
+            {displayId}
+          </span>
         </td>
 
         {visibleCols.map((col, colIdx) => {
@@ -361,23 +384,23 @@ export default function ListEngine({
           if (col.id === 'tag' || col.fieldKey === 'tag') {
             const tagVal = getValString(record.tag || record.id || displayId);
             return (
-              <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0' }}>
-                <span style={{ fontSize: '11.5px', fontFamily: 'monospace', fontWeight: '800', padding: '4px 10px', borderRadius: '6px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)', display: 'inline-block' }}>
+              <td key={col.id} style={{ padding: '6px 12px', borderBottom: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '11.5px', fontFamily: 'monospace', fontWeight: '800', padding: '2px 8px', borderRadius: '5px', background: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.2)', display: 'inline-block' }}>
                   🏷️ {tagVal}
                 </span>
               </td>
             );
           }
 
-          {/* PRIMARY IDENTITY COLUMN (AVATAR + NAME + ID ONLY) */}
+          {/* PRIMARY IDENTITY COLUMN (COMPACT AVATAR + NAME ONLY, NO STACKED ID) */}
           if (colIdx === 0 || col.id === 'candidate' || col.id === 'deal' || col.id === 'employee' || col.id === 'name') {
             return (
-              <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', maxWidth: '260px' }}>
+              <td key={col.id} style={{ padding: '6px 12px', borderBottom: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', maxWidth: '240px' }}>
                   <div
                     style={{
-                      width: '38px',
-                      height: '38px',
+                      width: '26px',
+                      height: '26px',
                       borderRadius: '50%',
                       background: isArchivedView ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)',
                       color: '#ffffff',
@@ -386,34 +409,29 @@ export default function ListEngine({
                       alignItems: 'center',
                       justifyContent: 'center',
                       textAlign: 'center',
-                      fontSize: '14px',
-                      lineHeight: '38px',
+                      fontSize: '11px',
+                      lineHeight: '26px',
                       padding: 0,
                       margin: 0,
                       flexShrink: 0,
-                      boxShadow: '0 2px 5px rgba(0,0,0,0.12)',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
                       userSelect: 'none'
                     }}
                   >
                     {(recordName[0] || 'R').toUpperCase()}
                   </div>
-                  <div style={{ overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
-                      <div
-                        title={recordName}
-                        style={{ fontWeight: '800', color: '#0f172a', fontSize: '13.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '170px' }}
-                      >
-                        {recordName}
-                      </div>
-                      {(record.isDuplicate || record.isCopy || String(record.id).includes('_copy_') || recordName.includes('(Copy')) && (
-                        <span style={{ fontSize: '9.5px', padding: '1px 6px', borderRadius: '4px', background: '#dbeafe', color: '#1d4ed8', fontWeight: '800', border: '1px solid #bfdbfe', textTransform: 'uppercase', letterSpacing: '0.3px', flexShrink: 0 }}>
-                          📋 COPY
-                        </span>
-                      )}
+                  <div style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div
+                      title={recordName}
+                      style={{ fontWeight: '700', color: '#0f172a', fontSize: '12.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '175px' }}
+                    >
+                      {recordName}
                     </div>
-                    <div style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: '700', color: isArchivedView ? '#b45309' : '#0d9488', marginTop: '1px' }}>
-                      ID: {displayId}
-                    </div>
+                    {(record.isDuplicate || record.isCopy || String(record.id).includes('_copy_') || recordName.includes('(Copy')) && (
+                      <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '4px', background: '#dbeafe', color: '#1d4ed8', fontWeight: '800', border: '1px solid #bfdbfe', textTransform: 'uppercase', letterSpacing: '0.2px', flexShrink: 0 }}>
+                        COPY
+                      </span>
+                    )}
                   </div>
                 </div>
               </td>
@@ -425,7 +443,7 @@ export default function ListEngine({
             const emailStr = getValString(record.email);
             const phoneStr = getValString(record.phone);
             return (
-              <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0', maxWidth: '240px' }}>
+              <td key={col.id} style={{ padding: '6px 12px', borderBottom: '1px solid #e2e8f0', maxWidth: '240px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11.5px', maxWidth: '220px', overflow: 'hidden' }}>
                   {emailStr && (
                     <div title={`Email: ${emailStr}`} style={{ color: '#0f172a', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📧 {emailStr}</div>
@@ -467,9 +485,9 @@ export default function ListEngine({
           if (col.id === 'resume' || col.fieldKey === 'resume') {
             const resumeStr = getValString(record.resume || record.attachment);
             return (
-              <td key={col.id} style={{ padding: '12px 18px', fontSize: '12px', borderBottom: '1px solid #e2e8f0' }}>
+              <td key={col.id} style={{ padding: '6px 12px', fontSize: '12px', borderBottom: '1px solid #e2e8f0' }}>
                 {resumeStr ? (
-                  <Badge variant="info" style={{ fontSize: '10.5px', padding: '3px 8px' }}>📄 {resumeStr}</Badge>
+                  <Badge variant="info" style={{ fontSize: '10.5px', padding: '2px 8px' }}>📄 {resumeStr}</Badge>
                 ) : (
                   <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '600' }}>—</span>
                 )}
@@ -482,61 +500,31 @@ export default function ListEngine({
             const rawTime = record.callTime || record.call_time || record._createdAt || record.created_at || record.createdAt || record.timestamp;
             const formatted = formatCallDateTime(rawTime);
             return (
-              <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <td key={col.id} style={{ padding: '6px 12px', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '1px 6px',
+                    borderRadius: '5px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    background: formatted.isToday ? 'rgba(13, 148, 136, 0.1)' : (formatted.isYesterday ? 'rgba(217, 119, 6, 0.1)' : '#f1f5f9'),
+                    color: formatted.isToday ? '#0d9488' : (formatted.isYesterday ? '#d97706' : '#334155'),
+                    border: `1px solid ${formatted.isToday ? 'rgba(13, 148, 136, 0.25)' : (formatted.isYesterday ? 'rgba(217, 119, 6, 0.25)' : '#e2e8f0')}`
+                  }}>
                     <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      padding: '2px 8px',
-                      borderRadius: '6px',
-                      fontSize: '11.5px',
-                      fontWeight: '700',
-                      letterSpacing: '0.2px',
-                      background: formatted.isToday ? 'rgba(13, 148, 136, 0.12)' : (formatted.isYesterday ? 'rgba(217, 119, 6, 0.12)' : '#f1f5f9'),
-                      color: formatted.isToday ? '#0d9488' : (formatted.isYesterday ? '#d97706' : '#334155'),
-                      border: `1px solid ${formatted.isToday ? 'rgba(13, 148, 136, 0.28)' : (formatted.isYesterday ? 'rgba(217, 119, 6, 0.28)' : '#e2e8f0')}`
-                    }}>
-                      <span style={{
-                        display: 'inline-block',
-                        width: '6px',
-                        height: '6px',
-                        borderRadius: '50%',
-                        background: formatted.isToday ? '#0d9488' : (formatted.isYesterday ? '#d97706' : '#64748b')
-                      }} />
-                      {formatted.dateStr}
-                    </span>
-                    {formatted.isToday && (
-                      <span style={{
-                        fontSize: '10px',
-                        fontWeight: '800',
-                        color: '#0d9488',
-                        background: 'rgba(13, 148, 136, 0.1)',
-                        padding: '1px 6px',
-                        borderRadius: '4px',
-                        border: '1px solid rgba(13, 148, 136, 0.2)'
-                      }}>
-                        Today
-                      </span>
-                    )}
-                    {formatted.isYesterday && (
-                      <span style={{
-                        fontSize: '10px',
-                        fontWeight: '800',
-                        color: '#d97706',
-                        background: 'rgba(217, 119, 6, 0.1)',
-                        padding: '1px 6px',
-                        borderRadius: '4px',
-                        border: '1px solid rgba(217, 119, 6, 0.2)'
-                      }}>
-                        Yesterday
-                      </span>
-                    )}
-                  </div>
-                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', paddingLeft: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span>🕒</span>
-                    <span>{formatted.timeStr}</span>
+                      display: 'inline-block',
+                      width: '5px',
+                      height: '5px',
+                      borderRadius: '50%',
+                      background: formatted.isToday ? '#0d9488' : (formatted.isYesterday ? '#d97706' : '#64748b')
+                    }} />
+                    {formatted.isToday ? 'Today' : (formatted.isYesterday ? 'Yesterday' : formatted.dateStr)}
+                  </span>
+                  <span style={{ fontSize: '10.5px', fontWeight: '600', color: '#64748b' }}>
+                    {formatted.timeStr}
                   </span>
                 </div>
               </td>
@@ -547,7 +535,7 @@ export default function ListEngine({
           if (col.id === 'createdAt' || col.fieldKey === 'createdAt' || col.id === 'appliedDate') {
             const dateVal = formatDate(record.createdAt || record.appliedDate);
             return (
-              <td key={col.id} style={{ padding: '12px 18px', fontSize: '11.5px', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
+              <td key={col.id} style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
                 📅 {dateVal}
               </td>
             );
@@ -566,7 +554,7 @@ export default function ListEngine({
             });
 
             return (
-              <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0' }} onClick={(e) => e.stopPropagation()}>
+              <td key={col.id} style={{ padding: '6px 12px', borderBottom: '1px solid #e2e8f0' }} onClick={(e) => e.stopPropagation()}>
                 {!isArchivedView && canManage && stagesList.length > 0 ? (
                   <select
                     value={recordStatus}
@@ -574,7 +562,7 @@ export default function ListEngine({
                       e.stopPropagation();
                       onMoveStage(record.id, e.target.value);
                     }}
-                    style={{ padding: '5px 10px', fontSize: '11.5px', fontWeight: '700', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer' }}
+                    style={{ padding: '3px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '5px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#0d9488', cursor: 'pointer', height: '26px' }}
                   >
                     {!hasMatchingOption && recordStatus ? (
                       <option value={recordStatus}>{recordStatus}</option>
@@ -590,7 +578,7 @@ export default function ListEngine({
                     })}
                   </select>
                 ) : (
-                  <Badge variant={normalizedBadgeVariant} style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '12px', fontWeight: '700' }}>
+                  <Badge variant={normalizedBadgeVariant} style={{ fontSize: '10.5px', padding: '2px 8px', borderRadius: '10px', fontWeight: '700' }}>
                     {isArchivedView ? 'ARCHIVED' : (recordStatus ? recordStatus.toUpperCase() : 'ACTIVE')}
                   </Badge>
                 )}
@@ -609,7 +597,7 @@ export default function ListEngine({
 
             if (hasValidRec) {
               return (
-                <td key={col.id} style={{ padding: '8px 14px', borderBottom: '1px solid #e2e8f0', minWidth: '220px' }}>
+                <td key={col.id} style={{ padding: '6px 12px', borderBottom: '1px solid #e2e8f0', minWidth: '220px' }}>
                   <SchemaFieldRenderer
                     field={fieldDef || { id: 'recording', key: 'recording', label: 'Audio Recording', type: 'audio' }}
                     value={recUrl}
@@ -624,10 +612,10 @@ export default function ListEngine({
 
             if (!isMissedCall && isRecentCall) {
               return (
-                <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#0d9488', background: 'rgba(13, 148, 136, 0.08)', border: '1px solid rgba(13, 148, 136, 0.25)', padding: '3px 10px', borderRadius: '12px', fontWeight: '700' }}>
-                    <span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#0d9488' }} />
-                    ⏳ Syncing Recording...
+                <td key={col.id} style={{ padding: '6px 12px', borderBottom: '1px solid #e2e8f0' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', color: '#0d9488', background: 'rgba(13, 148, 136, 0.08)', border: '1px solid rgba(13, 148, 136, 0.25)', padding: '2px 8px', borderRadius: '10px', fontWeight: '700' }}>
+                    <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#0d9488' }} />
+                    ⏳ Syncing...
                   </span>
                 </td>
               );
@@ -635,7 +623,7 @@ export default function ListEngine({
 
             if (isMissedCall) {
               return (
-                <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0' }}>
+                <td key={col.id} style={{ padding: '6px 12px', borderBottom: '1px solid #e2e8f0' }}>
                   <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', fontWeight: '600' }}>
                     No Recording (Missed)
                   </span>
@@ -644,7 +632,7 @@ export default function ListEngine({
             }
 
             return (
-              <td key={col.id} style={{ padding: '12px 18px', fontSize: '12px', color: '#94a3b8', borderBottom: '1px solid #e2e8f0' }}>
+              <td key={col.id} style={{ padding: '6px 12px', fontSize: '11.5px', color: '#94a3b8', borderBottom: '1px solid #e2e8f0' }}>
                 <span style={{ fontWeight: '600' }}>—</span>
               </td>
             );
@@ -657,16 +645,16 @@ export default function ListEngine({
             const isGhl = rawSource.toLowerCase().includes('gohighlevel') || Boolean(ghlId);
 
             return (
-              <td key={col.id} style={{ padding: '12px 18px', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+              <td key={col.id} style={{ padding: '6px 12px', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
                 {isGhl ? (
                   <span
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '6px',
-                      padding: '3px 10px',
-                      borderRadius: '12px',
-                      fontSize: '11px',
+                      gap: '5px',
+                      padding: '2px 8px',
+                      borderRadius: '10px',
+                      fontSize: '10.5px',
                       fontWeight: '700',
                       background: 'rgba(16, 185, 129, 0.12)',
                       color: '#059669',
@@ -685,19 +673,19 @@ export default function ListEngine({
                       }
                     }}
                   >
-                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                    <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981' }} />
                     GoHighLevel
-                    {ghlId && <span style={{ fontSize: '10px', opacity: 0.75, marginLeft: '2px' }} title="Click to copy GHL ID">📋</span>}
+                    {ghlId && <span style={{ fontSize: '9.5px', opacity: 0.75, marginLeft: '2px' }} title="Click to copy GHL ID">📋</span>}
                   </span>
                 ) : (
                   <span
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '5px',
-                      padding: '3px 10px',
-                      borderRadius: '12px',
-                      fontSize: '11px',
+                      gap: '4px',
+                      padding: '2px 8px',
+                      borderRadius: '10px',
+                      fontSize: '10.5px',
                       fontWeight: '700',
                       background: rawSource.toLowerCase().includes('whatsapp') ? 'rgba(37, 211, 102, 0.12)' : (rawSource.toLowerCase().includes('sim') ? 'rgba(13, 148, 136, 0.12)' : '#f1f5f9'),
                       color: rawSource.toLowerCase().includes('whatsapp') ? '#15803d' : (rawSource.toLowerCase().includes('sim') ? '#0d9488' : '#475569'),
@@ -721,7 +709,7 @@ export default function ListEngine({
             const isEmptyNote = !rawNotes || rawNotes === 'undefined' || rawNotes === 'null';
 
             return (
-              <td key={col.id} style={{ padding: '12px 18px', fontSize: '12px', color: '#334155', borderBottom: '1px solid #e2e8f0', maxWidth: '240px' }}>
+              <td key={col.id} style={{ padding: '6px 12px', fontSize: '11.5px', color: '#334155', borderBottom: '1px solid #e2e8f0', maxWidth: '240px' }}>
                 {isEmptyNote ? (
                   <span style={{ color: '#94a3b8', fontWeight: '600' }}>—</span>
                 ) : (
@@ -755,7 +743,7 @@ export default function ListEngine({
           const isEmpty = !cellValStr || cellValStr === 'undefined' || cellValStr === 'null';
 
           return (
-            <td key={col.id} style={{ padding: '12px 18px', fontSize: '12px', color: '#334155', borderBottom: '1px solid #e2e8f0' }}>
+            <td key={col.id} style={{ padding: '6px 12px', fontSize: '11.5px', color: '#334155', borderBottom: '1px solid #e2e8f0' }}>
               {isEmpty ? (
                 <span style={{ color: '#94a3b8', fontWeight: '600' }}>—</span>
               ) : (
@@ -773,7 +761,7 @@ export default function ListEngine({
         })}
 
         {isArchivedView && canManage && (
-          <td style={{ padding: '12px 18px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', width: '220px' }} onClick={(e) => e.stopPropagation()}>
+          <td style={{ padding: '6px 12px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', width: '220px' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
               <button
                 type="button"
@@ -784,7 +772,7 @@ export default function ListEngine({
                     handleRestoreBinItem(record._vaultRawItem || record);
                   }
                 }}
-                style={{ padding: '5px 10px', fontSize: '11px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#0d9488', color: '#ffffff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '700' }}
+                style={{ padding: '3px 8px', fontSize: '10.5px', borderRadius: '5px', border: '1px solid #cbd5e1', background: '#0d9488', color: '#ffffff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '700' }}
               >
                 <RotateCcw size={12} /> Restore
               </button>
@@ -799,7 +787,7 @@ export default function ListEngine({
                     }
                   }
                 }}
-                style={{ padding: '5px 10px', fontSize: '11px', borderRadius: '6px', border: '1px solid #fecdd3', background: '#fff1f2', color: '#e11d48', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '700' }}
+                style={{ padding: '3px 8px', fontSize: '10.5px', borderRadius: '5px', border: '1px solid #fecdd3', background: '#fff1f2', color: '#e11d48', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '700' }}
               >
                 <Trash2 size={12} /> Permanent Delete
               </button>
@@ -1244,13 +1232,35 @@ export default function ListEngine({
                 style={{ position: 'sticky', top: 0, zIndex: 20, background: '#f8fafc', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', cursor: 'ew-resize' }}
               >
                 <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-                  <th style={{ padding: '12px 18px', width: '40px', textAlign: 'center', background: '#f8fafc', position: 'sticky', top: 0, zIndex: 20 }}>
+                  <th style={{ padding: '8px 10px', width: '38px', minWidth: '38px', maxWidth: '38px', textAlign: 'center', background: '#f8fafc', position: 'sticky', top: 0, zIndex: 20 }}>
                     <input
                       type="checkbox"
                       checked={paginatedRecords.length > 0 && selectedIds.length === paginatedRecords.length}
                       onChange={handleSelectAll}
-                      style={{ accentColor: isArchivedView ? '#f59e0b' : '#0d9488', cursor: 'pointer', width: '16px', height: '16px' }}
+                      style={{ accentColor: isArchivedView ? '#f59e0b' : '#0d9488', cursor: 'pointer', width: '15px', height: '15px' }}
                     />
+                  </th>
+                  {/* DEDICATED COMPACT ID COLUMN HEADER */}
+                  <th
+                    style={{
+                      padding: '8px 12px',
+                      width: '95px',
+                      minWidth: '95px',
+                      maxWidth: '95px',
+                      textAlign: 'left',
+                      fontSize: '11px',
+                      fontWeight: '800',
+                      color: '#475569',
+                      textTransform: 'uppercase',
+                      background: '#f8fafc',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 20,
+                      userSelect: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    ID
                   </th>
                   {visibleCols.map((col) => {
                     const resolvedWidth = getColWidth(col);
@@ -1271,7 +1281,7 @@ export default function ListEngine({
                           }
                         }}
                         style={{
-                          padding: '12px 14px',
+                          padding: '8px 12px',
                           fontSize: '11px',
                           fontWeight: '800',
                           color: isSorted ? '#0d9488' : '#475569',
@@ -1313,7 +1323,7 @@ export default function ListEngine({
                     );
                   })}
                   {isArchivedView && canManage && (
-                    <th style={{ padding: '12px 18px', fontSize: '11px', fontWeight: '800', color: '#b45309', textTransform: 'uppercase', textAlign: 'right', width: '220px', background: '#fffbeb', position: 'sticky', top: 0, zIndex: 20 }}>
+                    <th style={{ padding: '8px 12px', fontSize: '11px', fontWeight: '800', color: '#b45309', textTransform: 'uppercase', textAlign: 'right', width: '220px', background: '#fffbeb', position: 'sticky', top: 0, zIndex: 20 }}>
                       Archived Actions
                     </th>
                   )}
@@ -1322,7 +1332,7 @@ export default function ListEngine({
               <tbody>
                 {paginatedRecords.filter(r => !!r).length === 0 ? (
                   <tr>
-                    <td colSpan={visibleCols.length + (isArchivedView && canManage ? 2 : 1)} style={{ padding: '32px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
+                    <td colSpan={visibleCols.length + 2 + (isArchivedView && canManage ? 1 : 0)} style={{ padding: '32px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
                       <EmptyState
                         icon="📦"
                         title={emptyTitle}
