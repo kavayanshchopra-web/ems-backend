@@ -35,7 +35,9 @@ import {
   FileText,
   ExternalLink,
   Mic,
-  Trash2
+  Trash2,
+  ArrowLeft,
+  ChevronLeft
 } from 'lucide-react';
 import { TimelineEngine } from '../../core/engines/TimelineEngine';
 import { normalizePhone10, formatPhoneDisplay, toE164Phone, isSamePhone } from '../../core/utils/phoneUtils';
@@ -448,6 +450,16 @@ export default function ConversationsPage({
   });
   const [crmNotes, setCrmNotes] = useState([]);
   const [activeTabFilter, setActiveTabFilter] = useState('all'); // 'all' | 'whatsapp' | 'calls' | 'notes'
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
+  const [mobileTab, setMobileTab] = useState('list'); // 'list' | 'chat' | 'details'
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(typeof window !== 'undefined' && window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [replyText, setReplyText] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -1750,138 +1762,167 @@ export default function ConversationsPage({
       {/* ========================================================================= */}
       {/* COLUMN 1: ACTIVE CONVERSATIONS ROSTER                                      */}
       {/* ========================================================================= */}
-      <div style={{
-        width: '320px',
-        borderRight: '1px solid #e2e8f0',
-        background: '#ffffff',
-        display: 'flex',
-        flexDirection: 'column',
-        flexShrink: 0
-      }}>
-        {/* Roster Header */}
-        <div style={{ padding: '16px', borderBottom: '1px solid #f1f5f9' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 2px 6px rgba(13, 148, 136, 0.3)'
-              }}>
-                <MessageSquare size={16} />
-              </div>
-              <div>
-                <h2 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>Conversations</h2>
-                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
-                  {conversationsList.length} Active Leads
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!window.confirm('⚠️ Kya aap saare CRM Contacts aur Messages reset karna chahte hain taaki WhatsApp fresh scan ho sake?')) return;
-                  try {
-                    const res = await fetch(`${API_URL}/contacts/clear-all`, {
-                      method: 'POST',
-                      headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
-                    });
-                    const data = await res.json();
-                    if (data && data.success) {
-                      setConversationsList([]);
-                      setActiveContact(null);
-                      setActiveMessages([]);
-                      messagesCacheRef.current.clear();
-                      try { localStorage.removeItem('omniflow_cached_contacts'); } catch(e) {}
-                      if (showToast) showToast('🧹 Saara CRM data reset ho gaya! Ab WhatsApp connect karein.', 'success');
-                    }
-                  } catch (e) {
-                    if (showToast) showToast('❌ Reset Error: ' + e.message, 'error');
-                  }
-                }}
-                style={{
-                  background: 'rgba(239, 68, 68, 0.08)',
-                  border: '1px solid rgba(239, 68, 68, 0.2)',
-                  color: '#dc2626',
-                  borderRadius: '6px',
-                  padding: '4px 8px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
+      {(!isMobile || mobileTab === 'list') && (
+        <div style={{
+          width: isMobile ? '100%' : '320px',
+          borderRight: isMobile ? 'none' : '1px solid #e2e8f0',
+          background: '#ffffff',
+          display: 'flex',
+          flexDirection: 'column',
+          flexShrink: 0,
+          height: '100%'
+        }}>
+          {/* Roster Header */}
+          <div style={{ padding: '16px', borderBottom: '1px solid #f1f5f9' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
+                  color: '#ffffff',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px'
-                }}
-                title="Clear all contacts and conversation history"
-              >
-                <Trash2 size={12} />
-                <span>Reset</span>
-              </button>
-            </div>
-          </div>
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 6px rgba(13, 148, 136, 0.3)'
+                }}>
+                  <MessageSquare size={16} />
+                </div>
+                <div>
+                  <h2 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>Conversations</h2>
+                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
+                    {conversationsList.length} Active Leads
+                  </div>
+                </div>
+              </div>
 
-          {/* Search Box */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            background: '#f1f5f9',
-            padding: '7px 12px',
-            borderRadius: '8px',
-            border: '1px solid #e2e8f0'
-          }}>
-            <Search size={14} style={{ color: '#94a3b8' }} />
-            <input
-              type="text"
-              placeholder="Search chats, names, phone..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                fontSize: '12px',
-                width: '100%',
-                color: '#0f172a'
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Conversations List */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          {filteredConversations.length === 0 ? (
-            <div style={{ padding: '30px 20px', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>
-              No conversations found
-            </div>
-          ) : (
-            filteredConversations.map((contact) => {
-              const isSelected = activeContact && activeContact.id === contact.id;
-              const hasUnread = contact.unreadCount > 0;
-
-              return (
-                <div
-                  key={contact.id}
-                  onClick={() => setActiveContact(contact)}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!window.confirm('⚠️ Kya aap saare CRM Contacts aur Messages reset karna chahte hain taaki WhatsApp fresh scan ho sake?')) return;
+                    try {
+                      const res = await fetch('/api/crm/conversations/reset-all', { credentials: 'include' });
+                      const d = await res.json();
+                      if (d.success) {
+                        alert('✅ ' + (d.message || 'Reset complete! Refreshing...'));
+                        window.location.reload();
+                      } else {
+                        alert('❌ Reset failed: ' + (d.error || 'Unknown error'));
+                      }
+                    } catch (err) {
+                      alert('❌ Reset failed: ' + err.message);
+                    }
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px',
-                    padding: '12px 16px',
-                    borderBottom: '1px solid #f8fafc',
-                    background: isSelected ? 'rgba(13, 148, 136, 0.08)' : '#ffffff',
-                    borderLeft: isSelected ? '3px solid #0d9488' : '3px solid transparent',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
+                    gap: '4px',
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    background: '#fff1f2',
+                    border: '1px solid #fecdd3',
+                    color: '#e11d48',
+                    fontSize: '10.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
                   }}
+                  title="Wipe duplicate CRM data and reload fresh contacts"
                 >
+                  <Trash2 size={11} />
+                  <span>Reset</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fetchConversations()}
+                  disabled={loadingConversations}
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '6px',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    color: '#64748b'
+                  }}
+                  title="Refresh Conversations"
+                >
+                  <RefreshCw size={13} className={loadingConversations ? 'animate-spin' : ''} style={{ animation: loadingConversations ? 'spin 1s linear infinite' : 'none' }} />
+                </button>
+              </div>
+            </div>
+
+            {/* Search Bar */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0'
+            }}>
+              <Search size={14} style={{ color: '#94a3b8' }} />
+              <input
+                type="text"
+                placeholder="Search chats, names, phone..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  outline: 'none',
+                  fontSize: '12px',
+                  width: '100%',
+                  color: '#0f172a'
+                }}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  style={{ border: 'none', background: 'transparent', color: '#94a3b8', cursor: 'pointer', fontSize: '11px' }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Conversations List */}
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {filteredConversations.length === 0 ? (
+              <div style={{ padding: '30px 20px', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>
+                No conversations found
+              </div>
+            ) : (
+              filteredConversations.map((contact) => {
+                const isSelected = activeContact && activeContact.id === contact.id;
+                const hasUnread = contact.unreadCount > 0;
+
+                return (
+                  <div
+                    key={contact.id}
+                    onClick={() => {
+                      setActiveContact(contact);
+                      if (isMobile) setMobileTab('chat');
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '12px 16px',
+                      borderBottom: '1px solid #f8fafc',
+                      background: isSelected ? 'rgba(13, 148, 136, 0.08)' : '#ffffff',
+                      borderLeft: isSelected ? '3px solid #0d9488' : '3px solid transparent',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
                   {/* Avatar */}
                   <div style={{
                     width: '38px',
@@ -1950,129 +1991,205 @@ export default function ConversationsPage({
           )}
         </div>
       </div>
+      )}
 
       {/* ========================================================================= */}
       {/* COLUMN 2: OMNI-TIMELINE CHAT STREAM & AUDIO CALL CARDS                    */}
       {/* ========================================================================= */}
-      <div style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        background: '#f8fafc',
-        overflow: 'hidden'
-      }}>
-        {activeContact ? (
-          <>
-            {/* Conversation Stream Header */}
-            <div style={{
-              padding: '12px 20px',
-              background: '#ffffff',
-              borderBottom: '1px solid #e2e8f0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '14px',
-                  fontWeight: '800'
-                }}>
-                  {(activeContact.name || activeContact.phone || 'Contact').charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
-                      {activeContact.name}
-                    </h3>
-                    <span style={{
-                      fontSize: '10.5px',
-                      fontFamily: 'monospace',
-                      padding: '1px 6px',
-                      borderRadius: '4px',
-                      background: 'rgba(13, 148, 136, 0.1)',
-                      color: '#0d9488',
-                      fontWeight: '700'
-                    }}>
-                      {activeContact.displayId}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600', marginTop: '2px' }}>
-                    📞 {activeContact.phone} {activeContact.email ? `• 📧 ${activeContact.email}` : ''}
-                  </div>
-                </div>
-              </div>
+      {(!isMobile || mobileTab === 'chat') && (
+        <div style={{
+          flex: isMobile ? 'none' : 1,
+          width: isMobile ? '100%' : 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          background: '#f8fafc',
+          overflow: 'hidden',
+          height: '100%'
+        }}>
+          {activeContact ? (
+            <>
+              {/* Conversation Stream Header */}
+              <div style={{
+                padding: isMobile ? '8px 12px' : '12px 20px',
+                background: '#ffffff',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                gap: '8px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '12px', minWidth: 0, flex: 1 }}>
+                  {/* Mobile Back to Roster Button */}
+                  {isMobile && (
+                    <button
+                      type="button"
+                      onClick={() => setMobileTab('list')}
+                      title="Back to Chats"
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        background: '#f1f5f9',
+                        border: '1px solid #cbd5e1',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#0f172a',
+                        cursor: 'pointer',
+                        flexShrink: 0
+                      }}
+                    >
+                      <ArrowLeft size={16} />
+                    </button>
+                  )}
 
-              {/* Action Buttons */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  type="button"
-                  onClick={handleSyncConversationToGhl}
-                  disabled={isSyncingGhl}
-                  title="Sync contact profile, messages, and calls to GoHighLevel"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    padding: '7px 12px',
-                    borderRadius: '8px',
+                  <div style={{
+                    width: isMobile ? '34px' : '40px',
+                    height: isMobile ? '34px' : '40px',
+                    borderRadius: '50%',
                     background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
-                    border: '1px solid #047857',
                     color: '#ffffff',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: isSyncingGhl ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 2px 4px rgba(13, 148, 136, 0.25)'
-                  }}
-                >
-                  <RefreshCw size={13} className={isSyncingGhl ? 'animate-spin' : ''} style={{ animation: isSyncingGhl ? 'spin 1s linear infinite' : 'none' }} />
-                  <span>{isSyncingGhl ? 'Syncing to GHL...' : 'Sync to HighLevel'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleTriggerCall}
-                  style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '5px',
-                    padding: '7px 12px',
-                    borderRadius: '8px',
-                    background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-                    border: '1px solid #047857',
-                    color: '#ffffff',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 4px rgba(5, 150, 105, 0.25)'
-                  }}
-                >
-                  <PhoneCall size={13} />
-                  <span>Call Contact</span>
-                </button>
-              </div>
-            </div>
+                    justifyContent: 'center',
+                    fontSize: isMobile ? '12px' : '14px',
+                    fontWeight: '800',
+                    flexShrink: 0
+                  }}>
+                    {(activeContact.name || activeContact.phone || 'Contact').charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                      <h3 style={{
+                        fontSize: isMobile ? '13px' : '15px',
+                        fontWeight: '800',
+                        color: '#0f172a',
+                        margin: 0,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}>
+                        {activeContact.name}
+                      </h3>
+                      <span style={{
+                        fontSize: '9.5px',
+                        fontFamily: 'monospace',
+                        padding: '1px 5px',
+                        borderRadius: '4px',
+                        background: 'rgba(13, 148, 136, 0.1)',
+                        color: '#0d9488',
+                        fontWeight: '700',
+                        flexShrink: 0
+                      }}>
+                        {activeContact.displayId}
+                      </span>
+                    </div>
+                    <div style={{
+                      fontSize: '11px',
+                      color: '#64748b',
+                      fontWeight: '600',
+                      marginTop: '1px',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      📞 {activeContact.phone}
+                    </div>
+                  </div>
+                </div>
 
-            {/* Timeline Filter Strip */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '6px 20px',
-              background: '#f1f5f9',
-              borderBottom: '1px solid #e2e8f0',
-              fontSize: '11px',
-              fontWeight: '700'
-            }}>
-              <div style={{ display: 'flex', gap: '6px' }}>
+                {/* Action Buttons */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                  {/* Mobile Lead Details Toggle Button */}
+                  {isMobile && (
+                    <button
+                      type="button"
+                      onClick={() => setMobileTab('details')}
+                      title="View Lead CRM Profile & Analytics"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '6px 10px',
+                        borderRadius: '8px',
+                        background: '#f1f5f9',
+                        border: '1px solid #cbd5e1',
+                        color: '#0f172a',
+                        fontSize: '11.5px',
+                        fontWeight: '700',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <User size={13} style={{ color: '#0d9488' }} />
+                      <span>Info</span>
+                    </button>
+                  )}
+
+                  {!isMobile && (
+                    <button
+                      type="button"
+                      onClick={handleSyncConversationToGhl}
+                      disabled={isSyncingGhl}
+                      title="Sync contact profile, messages, and calls to GoHighLevel"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        padding: '7px 12px',
+                        borderRadius: '8px',
+                        background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
+                        border: '1px solid #047857',
+                        color: '#ffffff',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: isSyncingGhl ? 'not-allowed' : 'pointer',
+                        boxShadow: '0 2px 4px rgba(13, 148, 136, 0.25)'
+                      }}
+                    >
+                      <RefreshCw size={13} className={isSyncingGhl ? 'animate-spin' : ''} style={{ animation: isSyncingGhl ? 'spin 1s linear infinite' : 'none' }} />
+                      <span>{isSyncingGhl ? 'Syncing to GHL...' : 'Sync to HighLevel'}</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleTriggerCall}
+                    title="Call Contact"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: isMobile ? '6px 10px' : '7px 12px',
+                      borderRadius: '8px',
+                      background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                      border: '1px solid #047857',
+                      color: '#ffffff',
+                      fontSize: isMobile ? '11.5px' : '12px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 4px rgba(5, 150, 105, 0.25)'
+                    }}
+                  >
+                    <PhoneCall size={13} />
+                    <span>{isMobile ? 'Call' : 'Call Contact'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Timeline Filter Strip */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: isMobile ? '6px 12px' : '6px 20px',
+                background: '#f1f5f9',
+                borderBottom: '1px solid #e2e8f0',
+                fontSize: '11px',
+                fontWeight: '700',
+                overflowX: 'auto'
+              }}>
+                <div style={{ display: 'flex', gap: '6px' }}>
                 {[
                   { key: 'all', label: `All Activity (${stats.totalEvents || 0})` },
                   { key: 'whatsapp', label: `💬 WhatsApp (${stats.totalMessages || 0})` },
@@ -2346,20 +2463,70 @@ export default function ConversationsPage({
           </div>
         )}
       </div>
+      )}
 
       {/* ========================================================================= */}
       {/* COLUMN 3: RIGHT LEAD PROFILE & CRM DRAWER                                  */}
       {/* ========================================================================= */}
-      {activeContact && (
+      {activeContact && (!isMobile || mobileTab === 'details') && (
         <div style={{
-          width: '280px',
-          borderLeft: '1px solid #e2e8f0',
+          width: isMobile ? '100%' : '280px',
+          borderLeft: isMobile ? 'none' : '1px solid #e2e8f0',
           background: '#ffffff',
           display: 'flex',
           flexDirection: 'column',
-          padding: '20px',
-          overflowY: 'auto'
+          padding: isMobile ? '16px' : '20px',
+          overflowY: 'auto',
+          height: '100%',
+          boxSizing: 'border-box'
         }}>
+          {/* Mobile Back to Chat Header */}
+          {isMobile && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <button
+                type="button"
+                onClick={() => setMobileTab('chat')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  background: '#f1f5f9',
+                  border: '1px solid #cbd5e1',
+                  color: '#0f172a',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                <ArrowLeft size={14} />
+                <span>Back to Chat</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleSyncConversationToGhl}
+                disabled={isSyncingGhl}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '6px 10px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
+                  border: '1px solid #047857',
+                  color: '#ffffff',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  cursor: isSyncingGhl ? 'not-allowed' : 'pointer'
+                }}
+              >
+                <RefreshCw size={11} className={isSyncingGhl ? 'animate-spin' : ''} />
+                <span>{isSyncingGhl ? 'Syncing...' : 'GHL Sync'}</span>
+              </button>
+            </div>
+          )}
+
           {/* Header */}
           <div style={{ textAlign: 'center', paddingBottom: '16px', borderBottom: '1px solid #f1f5f9' }}>
             <div style={{

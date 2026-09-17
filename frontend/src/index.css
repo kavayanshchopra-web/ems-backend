@@ -3456,6 +3456,66 @@ h1, h2, h3, h4, h5, h6 {
     min-width: 100% !important;
     max-width: 100% !important;
   }
+
+  /* ── Mobile Top Header Optimization (<=768px) ── */
+  .top-header {
+    padding: 6px 10px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    gap: 8px !important;
+  }
+
+  .menu-toggle-btn {
+    padding: 6px 10px !important;
+    margin-right: 4px !important;
+    gap: 0 !important;
+    min-width: 34px !important;
+    height: 34px !important;
+    justify-content: center !important;
+  }
+
+  .menu-toggle-text {
+    display: none !important;
+  }
+
+  .desktop-page-title {
+    margin-left: 0 !important;
+    margin-right: 4px !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+
+  .desktop-page-title span {
+    font-size: 13px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: block !important;
+    max-width: 140px !important;
+  }
+
+  .server-status-text {
+    display: none !important;
+  }
+
+  .header-actions-group {
+    gap: 6px !important;
+    margin-left: auto !important;
+    display: flex !important;
+    align-items: center !important;
+    flex-shrink: 0 !important;
+  }
+
+  .header-action-btn {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 8px !important;
+  }
+
+  .user-avatar-btn {
+    width: 32px !important;
+    height: 32px !important;
+  }
 }
 
 /* ── Default Desktop View Controls ── */

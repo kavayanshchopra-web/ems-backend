@@ -7320,6 +7320,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         <header className="top-header" style={{ background: 'var(--sidebar-bg, #064e43)', color: '#ffffff', borderBottom: '1px solid rgba(255, 255, 255, 0.12)', padding: isGhlEmbedded ? '4px 12px' : '8px 18px', height: isGhlEmbedded ? '42px' : '52px', minHeight: isGhlEmbedded ? '42px' : '52px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
           <button
             type="button"
+            className="menu-toggle-btn"
             onClick={() => {
               if (isGhlEmbedded) {
                 setGhlSidebarOpen(prev => !prev);
@@ -7347,7 +7348,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             }}
           >
             <Menu size={16} style={{ color: '#14d2cb' }} />
-            <span style={{ fontSize: '12px', color: '#ffffff', fontWeight: '800' }}>
+            <span className="menu-toggle-text" style={{ fontSize: '12px', color: '#ffffff', fontWeight: '800' }}>
               {(isGhlEmbedded ? ghlSidebarOpen : desktopSidebarOpen) ? 'Hide Menu' : 'Menu'}
             </span>
           </button>
