@@ -8044,6 +8044,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               callLogs={callLogs}
               setCallLogs={setCallLogs}
               employees={employees}
+              onOpenModuleConfig={handleOpenModuleConfig}
+              openModuleConfigModal={handleOpenModuleConfig}
             />
           </Suspense>
         )}

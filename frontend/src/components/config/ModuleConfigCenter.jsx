@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import SearchInput from '../ui/SearchInput';
@@ -22,6 +22,12 @@ export default function ModuleConfigCenter({
   const modules = moduleConfigService.getRegisteredModules();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedModuleId, setSelectedModuleId] = useState(preselectedModuleId || null);
+
+  useEffect(() => {
+    if (preselectedModuleId) {
+      setSelectedModuleId(preselectedModuleId);
+    }
+  }, [preselectedModuleId]);
 
   const categories = Array.from(new Set(modules.map(m => m.category)));
 

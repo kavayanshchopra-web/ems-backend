@@ -18,6 +18,8 @@ import { SearchEngine } from '../SearchEngine';
 import { FilterEngine } from '../FilterEngine';
 import { LabelEngine } from '../LabelEngine';
 import { PermissionEngine, getUserRole } from '../PermissionEngine';
+import ModuleConfigEditor from '../../../components/config/ModuleConfigEditor';
+import { moduleConfigService } from '../../../services/moduleConfigService';
 
 const getValString = (val, fallback = '') => {
   if (val === null || val === undefined) return fallback;
@@ -73,6 +75,7 @@ export default function LayoutEngine({
   const [showArchivedModal, setShowArchivedModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [recordToArchive, setRecordToArchive] = useState(null);
 
@@ -273,7 +276,12 @@ export default function LayoutEngine({
         archivedCount={archivedModuleItems.length}
         onOpenArchived={() => setViewMode(prev => prev === 'archived' ? (moduleConfig?.views?.defaultView || 'list') : 'archived')}
         onOpenAddModal={() => { setSelectedRecord(null); setShowAddModal(true); }}
-        onOpenConfigModal={() => onOpenModuleConfig && onOpenModuleConfig(moduleConfig.moduleId)}
+        onOpenConfigModal={() => {
+          setShowConfigModal(true);
+          if (typeof onOpenModuleConfig === 'function') {
+            onOpenModuleConfig(moduleConfig.moduleId || moduleConfig.id || 'telecalling');
+          }
+        }}
         onOpenPositionModal={onOpenPositionModal}
         onManageStages={onManageStages}
         onOpenExportModal={() => setShowExportModal(true)}
@@ -416,6 +424,71 @@ export default function LayoutEngine({
         moduleConfig={moduleConfig}
         showToast={showToast}
       />
+
+      {/* H. UNIVERSAL IN-PAGE MODULE CONFIGURATION MODAL */}
+      {showConfigModal && (
+        <div
+          className="layout-engine-config-modal-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+            boxSizing: 'border-box'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowConfigModal(false);
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '1240px',
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+              border: '1px solid #e2e8f0',
+              position: 'relative'
+            }}
+          >
+            <ModuleConfigEditor
+              companyId={effectiveUser?.companyId || effectiveUser?.tenantId || effectiveUser?.tenant_id || 'default_tenant'}
+              moduleDef={moduleConfigService.getModuleDefinition(moduleConfig.moduleId || moduleConfig.id || 'telecalling') || {
+                id: moduleConfig.moduleId || moduleConfig.id || 'telecalling',
+                label: LabelEngine.getTitle(moduleConfig) || 'Call Recordings Directory',
+                icon: moduleConfig.icon || '📞',
+                configurable: true,
+                capabilities: { forms: true, summary: true, searchFilters: true, listView: true, views: true }
+              }}
+              initialConfig={moduleConfigService.getModuleConfig(effectiveUser?.companyId || effectiveUser?.tenantId || effectiveUser?.tenant_id || 'default_tenant', moduleConfig.moduleId || moduleConfig.id || 'telecalling') || moduleConfig}
+              onSaveConfig={(newCfg) => {
+                const targetModId = moduleConfig.moduleId || moduleConfig.id || 'telecalling';
+                const compId = effectiveUser?.companyId || effectiveUser?.tenantId || effectiveUser?.tenant_id || 'default_tenant';
+                moduleConfigService.saveModuleConfig(compId, targetModId, newCfg);
+                showToast(`Saved configuration for ${LabelEngine.getTitle(moduleConfig) || targetModId}!`, 'success');
+                window.dispatchEvent(new CustomEvent('omnilflow_config_updated', { detail: { moduleId: targetModId } }));
+                setShowConfigModal(false);
+              }}
+              activePipelineStages={activePipelineStages}
+              systemDropdowns={systemDropdowns}
+              onClose={() => setShowConfigModal(false)}
+              showToast={showToast}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

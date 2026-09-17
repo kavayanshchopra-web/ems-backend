@@ -23,6 +23,7 @@ export default function TelecallingView({
   softDeleteRecord = () => {},
   showToast = () => {},
   onOpenModuleConfig = null,
+  openModuleConfigModal = null,
   onManageStages = () => {},
   onOpenPositionModal = () => {}
 }) {
@@ -786,7 +787,7 @@ export default function TelecallingView({
           handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
           softDeleteRecord={handleSoftDelete}
           showToast={showToast}
-          onOpenModuleConfig={onOpenModuleConfig}
+          onOpenModuleConfig={onOpenModuleConfig || openModuleConfigModal}
           onManageStages={onManageStages}
           onOpenPositionModal={onOpenPositionModal}
         />
