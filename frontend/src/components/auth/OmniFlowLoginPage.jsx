@@ -922,7 +922,7 @@ export default function OmniFlowLoginPage({
             overflow: hidden !important; /* Single front view, zero page scrolling */
             display: flex;
             flex-direction: column;
-            justify-content: flex-start;
+            justify-content: space-between;
             align-items: center;
             padding: 0;
             margin: 0;
@@ -930,10 +930,10 @@ export default function OmniFlowLoginPage({
           .omniflow-saas-container {
             height: 100vh;
             max-height: 100vh;
-            padding: 6px 12px 4px !important;
+            padding: clamp(10px, 1.8vh, 16px) 16px clamp(8px, 1.4vh, 14px) !important;
             display: flex;
             flex-direction: column;
-            justify-content: flex-start !important; /* Shift content upwards */
+            justify-content: space-between !important; /* Distribute top, center, bottom */
             align-items: center;
             width: 100%;
             box-sizing: border-box;
@@ -944,35 +944,35 @@ export default function OmniFlowLoginPage({
             justify-content: space-between;
             align-items: center;
             width: 100%;
-            max-width: 380px;
-            margin-bottom: 2px !important;
+            max-width: 390px;
+            margin-bottom: 0 !important;
             flex-shrink: 0;
           }
           .omniflow-brand {
-            gap: 6px;
+            gap: 8px;
           }
           .omniflow-brand-divider,
           .omniflow-tagline {
             display: none;
           }
           .omniflow-logo-clover {
-            width: 24px;
-            height: 24px;
+            width: 26px;
+            height: 26px;
           }
           .omniflow-name {
-            font-size: 15px;
+            font-size: 16px;
           }
           .omniflow-signup-top-prompt {
             display: flex !important;
             align-items: center;
-            gap: 4px;
+            gap: 5px;
           }
           .omniflow-signup-top-text {
             display: none;
           }
           .omniflow-signup-top-link {
-            padding: 2.5px 9px;
-            font-size: 11px;
+            padding: 3.5px 11px;
+            font-size: 11.5px;
             border-radius: 9999px;
             background: rgba(13, 180, 158, 0.12);
             border: 1px solid rgba(13, 180, 158, 0.35);
@@ -982,13 +982,13 @@ export default function OmniFlowLoginPage({
           .omniflow-main-content-row {
             display: flex !important;
             flex-direction: column !important;
-            justify-content: flex-start !important; /* Shift text & card up */
+            justify-content: center !important; /* Vertically centered between header & footer */
             align-items: center;
             width: 100%;
-            max-width: 380px;
-            margin: 0 !important;
-            gap: 2px !important;
-            flex: none !important; /* Prevent expanding down */
+            max-width: 390px;
+            margin: auto 0 !important;
+            gap: clamp(8px, 1.4vh, 14px) !important;
+            flex: 1 !important;
             min-height: 0;
           }
           .omniflow-hero-wrap {
@@ -1001,27 +1001,28 @@ export default function OmniFlowLoginPage({
             align-items: center;
             text-align: center;
             width: 100%;
-            margin-bottom: 2px !important;
+            margin-bottom: 0 !important;
             flex-shrink: 0;
           }
           .omniflow-pill-badge {
-            margin: 0 auto 2px !important;
-            padding: 2px 7px !important;
-            font-size: 9px !important;
+            margin: 0 auto clamp(3px, 0.7vh, 6px) !important;
+            padding: 3px 9px !important;
+            font-size: 9.5px !important;
+            letter-spacing: 0.6px;
           }
           .omniflow-headline-h1 {
-            font-size: clamp(15px, 4.2vw, 17.5px) !important;
-            line-height: 1.15;
-            letter-spacing: -0.3px;
+            font-size: clamp(17px, 2.5vh, 20px) !important;
+            line-height: 1.18;
+            letter-spacing: -0.4px;
             text-align: center;
-            margin: 0 auto 1px !important;
+            margin: 0 auto clamp(2px, 0.5vh, 5px) !important;
           }
           .omniflow-desc-p {
-            font-size: 9.5px !important;
-            line-height: 1.25;
+            font-size: clamp(10.5px, 1.4vh, 11.5px) !important;
+            line-height: 1.35;
             text-align: center;
-            margin: 0 auto 3px !important;
-            max-width: 275px;
+            margin: 0 auto !important;
+            max-width: 295px;
             color: #475569;
           }
           .omniflow-card-column {
@@ -1033,102 +1034,105 @@ export default function OmniFlowLoginPage({
             flex-shrink: 0;
           }
           .omniflow-card-aura-glow {
-            top: -6px;
-            left: -6px;
-            right: -6px;
-            bottom: -6px;
-            filter: blur(14px);
+            top: -8px;
+            left: -8px;
+            right: -8px;
+            bottom: -8px;
+            filter: blur(18px);
             opacity: 0.55;
           }
           .omniflow-white-card-body {
             width: 100%;
-            padding: 10px 14px 8px !important;
-            border-radius: 16px;
+            padding: clamp(14px, 2.2vh, 20px) 16px clamp(12px, 1.8vh, 16px) !important;
+            border-radius: 20px;
             box-shadow: 
-              0 10px 24px -6px rgba(6, 78, 67, 0.15),
+              0 14px 34px -8px rgba(6, 78, 67, 0.16),
               0 0 0 1px rgba(226, 232, 240, 0.9);
           }
           .omniflow-mobile-top-bar {
             display: none !important;
           }
           .omniflow-c-title {
-            font-size: 15px !important;
+            font-size: clamp(16.5px, 2.2vh, 19px) !important;
             font-weight: 800;
-            margin-bottom: 1px !important;
+            margin-bottom: 2px !important;
             text-align: left;
             letter-spacing: -0.3px;
           }
           .omniflow-c-subtitle {
-            font-size: 10px !important;
-            margin-bottom: 5px !important;
+            font-size: 11px !important;
+            margin-bottom: clamp(6px, 1vh, 10px) !important;
             color: #64748b;
             text-align: left;
           }
           .omniflow-form-flow {
-            gap: 4px !important;
+            gap: clamp(5px, 0.9vh, 8px) !important;
           }
           .omniflow-field-lbl {
-            font-size: 10px !important;
-            margin-bottom: 1px !important;
+            font-size: 11px !important;
+            font-weight: 600;
+            margin-bottom: 2px !important;
           }
           .omniflow-iconic-input {
             position: relative;
           }
           .omniflow-input-svg {
-            left: 8px;
-            width: 12px;
-            height: 12px;
+            left: 10px;
+            width: 13px;
+            height: 13px;
           }
           .omniflow-real-input {
-            padding: 5px 8px 5px 26px !important;
-            font-size: 11.5px !important;
-            min-height: 30px !important;
-            height: 30px !important;
-            border-radius: 6px;
+            padding: 6px 10px 6px 30px !important;
+            font-size: 12.5px !important;
+            min-height: clamp(34px, 4.4vh, 38px) !important;
+            height: clamp(34px, 4.4vh, 38px) !important;
+            border-radius: 8px;
           }
           .omniflow-eye-action {
-            right: 8px;
+            right: 10px;
           }
           .omniflow-eye-action svg {
-            width: 12px;
-            height: 12px;
+            width: 13px;
+            height: 13px;
           }
           .omniflow-forgot-action {
-            font-size: 10px !important;
+            font-size: 10.5px !important;
+            font-weight: 600;
           }
           .omniflow-check-wrap {
-            gap: 5px;
+            gap: 6px;
             margin-top: 1px !important;
           }
           .omniflow-check-box {
-            width: 12px;
-            height: 12px;
+            width: 13px;
+            height: 13px;
           }
           .omniflow-check-txt {
-            font-size: 10.5px !important;
+            font-size: 11px !important;
           }
           .omniflow-solid-teal-btn {
-            padding: 6px 12px !important;
-            font-size: 12.5px !important;
-            min-height: 32px !important;
-            height: 32px !important;
-            border-radius: 7px;
-            margin-top: 1px !important;
+            padding: 7px 14px !important;
+            font-size: 13.5px !important;
+            min-height: clamp(36px, 4.6vh, 40px) !important;
+            height: clamp(36px, 4.6vh, 40px) !important;
+            border-radius: 9px;
+            margin-top: 2px !important;
+            box-shadow: 0 4px 14px rgba(0, 90, 78, 0.28);
           }
           .omniflow-divider-row {
-            margin: 2px 0 !important;
-            font-size: 9px !important;
+            margin: clamp(3px, 0.7vh, 6px) 0 !important;
+            font-size: 10px !important;
           }
           .omniflow-google-auth-btn {
-            padding: 5px 12px !important;
-            font-size: 11px !important;
-            min-height: 30px !important;
-            height: 30px !important;
-            border-radius: 7px;
+            padding: 6px 12px !important;
+            font-size: 12px !important;
+            min-height: clamp(34px, 4.4vh, 38px) !important;
+            height: clamp(34px, 4.4vh, 38px) !important;
+            border-radius: 8px;
           }
           .omniflow-switch-link-footer {
-            margin-top: 3px !important;
-            font-size: 10px !important;
+            margin-top: clamp(4px, 0.8vh, 8px) !important;
+            font-size: 11px !important;
           }
           .omniflow-mobile-doodle-bottom {
             display: none !important;
@@ -1139,7 +1143,18 @@ export default function OmniFlowLoginPage({
             display: none !important;
           }
           .omniflow-bottom-bar {
-            display: none !important; /* Hide footer to keep content shifted up and clean */
+            display: flex !important;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            margin: 0 auto;
+            padding-top: 4px;
+            font-size: 10px;
+            color: #064e43;
+            opacity: 0.7;
+            font-weight: 600;
+            letter-spacing: 0.6px;
+            flex-shrink: 0;
           }
         }
       `}</style>
