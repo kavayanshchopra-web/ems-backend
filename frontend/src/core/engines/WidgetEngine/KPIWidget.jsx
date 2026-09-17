@@ -24,6 +24,7 @@ export default function KPIWidget({
       }}
     >
       <div
+        className="kpi-icon-box"
         style={{
           width: '36px',
           height: '36px',
@@ -32,18 +33,18 @@ export default function KPIWidget({
           color: widget.color || '#0d9488',
           display: 'flex',
           alignItems: 'center',
-          justify: 'center',
+          justifyContent: 'center',
           fontSize: '18px',
           flexShrink: 0
         }}
       >
         {widget.icon || '📊'}
       </div>
-      <div>
-        <div style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+      <div style={{ minWidth: 0, overflow: 'hidden' }}>
+        <div className="kpi-label" style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
           {widget.label}
         </div>
-        <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', lineHeight: 1.2 }}>
+        <div className="kpi-value" style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', lineHeight: 1.2 }}>
           {value}
         </div>
       </div>

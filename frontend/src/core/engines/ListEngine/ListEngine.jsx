@@ -646,79 +646,112 @@ export default function ListEngine({
           </div>
         </div>
 
-        {/* Middle: Phone & Quick Actions Bar */}
-        {phoneStr && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            background: '#f8fafc',
-            padding: '6px 10px',
-            borderRadius: '8px',
-            border: '1px solid #f1f5f9'
-          }}>
-            <span style={{ fontSize: '12px', fontWeight: '600', color: '#334155', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span>📞</span> {phoneStr}
-            </span>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button
-                type="button"
-                title="Quick Call Lead"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (window.openGlobalDialer) {
-                    window.openGlobalDialer(phoneStr, recordName, true);
-                  }
-                }}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  background: '#10b981',
-                  color: '#ffffff',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  boxShadow: '0 1px 3px rgba(16,185,129,0.3)'
-                }}
-              >
-                📞 Call
-              </button>
-              <a
-                href={`https://wa.me/${phoneStr.replace(/\D/g, '')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                title="Chat on WhatsApp"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '4px 8px',
-                  borderRadius: '6px',
-                  background: '#25D366',
-                  color: '#ffffff',
-                  textDecoration: 'none',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  boxShadow: '0 1px 3px rgba(37,211,102,0.3)'
-                }}
-              >
-                💬 WA
-              </a>
-            </div>
-          </div>
-        )}
+        {/* Middle: Phone & Quick Actions Bar OR Email & Source Display */}
+        {(() => {
+          const cleanPhoneDigits = (phoneStr || '').replace(/\D/g, '');
+          const hasValidPhone = cleanPhoneDigits.length >= 7;
+          const sourceStr = getValString(record.source || record.lead_source || record.leadSource);
 
-        {/* Email if present */}
-        {emailStr && !phoneStr && (
-          <div style={{ fontSize: '11.5px', color: '#475569', fontWeight: '600' }}>
-            📧 {emailStr}
-          </div>
-        )}
+          if (hasValidPhone) {
+            return (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: '#f8fafc',
+                padding: '6px 10px',
+                borderRadius: '8px',
+                border: '1px solid #f1f5f9'
+              }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#334155', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>📞</span> {phoneStr}
+                </span>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    type="button"
+                    title="Quick Call Lead"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.openGlobalDialer) {
+                        window.openGlobalDialer(phoneStr, recordName, true);
+                      }
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      background: '#10b981',
+                      color: '#ffffff',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      boxShadow: '0 1px 3px rgba(16,185,129,0.3)'
+                    }}
+                  >
+                    📞 Call
+                  </button>
+                  <a
+                    href={`https://wa.me/${cleanPhoneDigits}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    title="Chat on WhatsApp"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      background: '#25D366',
+                      color: '#ffffff',
+                      textDecoration: 'none',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      boxShadow: '0 1px 3px rgba(37,211,102,0.3)'
+                    }}
+                  >
+                    💬 WA
+                  </a>
+                </div>
+              </div>
+            );
+          }
+
+          // Fallback when no valid phone number: Show email and source badge cleanly without dead Call buttons
+          return (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '6px',
+              flexWrap: 'wrap',
+              background: '#f8fafc',
+              padding: '6px 10px',
+              borderRadius: '8px',
+              border: '1px solid #f1f5f9'
+            }}>
+              <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                {emailStr && emailStr !== '—' ? `📧 ${emailStr}` : <span style={{ color: '#94a3b8' }}>No phone number</span>}
+              </span>
+              {sourceStr && sourceStr !== '—' && (
+                <span style={{
+                  padding: '2px 8px',
+                  borderRadius: '6px',
+                  fontSize: '10.5px',
+                  fontWeight: '700',
+                  background: sourceStr.toLowerCase().includes('whatsapp') ? 'rgba(234,179,8,0.12)' : 'rgba(16,185,129,0.12)',
+                  color: sourceStr.toLowerCase().includes('whatsapp') ? '#b45309' : '#059669',
+                  border: sourceStr.toLowerCase().includes('whatsapp') ? '1px solid rgba(234,179,8,0.25)' : '1px solid rgba(16,185,129,0.25)'
+                }}>
+                  {sourceStr}
+                </span>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Audio Recording Player on Mobile */}
         {audioSrc && (
@@ -1025,7 +1058,64 @@ export default function ListEngine({
               />
             </div>
           ) : (
-            paginatedRecords.filter(r => !!r).map((record, idx) => renderMobileCard(record, idx))
+            <>
+              {paginatedRecords.filter(r => !!r).map((record, idx) => renderMobileCard(record, idx))}
+
+              {/* Mobile Bottom Pagination Controls */}
+              {safeRecords.length > pageSize && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 12px',
+                  background: '#ffffff',
+                  borderRadius: '10px',
+                  border: '1px solid #e2e8f0',
+                  marginTop: '6px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                }}>
+                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700' }}>
+                    Page {validCurrentPage} of {totalPages} <span style={{ fontWeight: '500', color: '#94a3b8' }}>({safeRecords.length})</span>
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <button
+                      type="button"
+                      disabled={validCurrentPage <= 1}
+                      onClick={() => onPageChange(validCurrentPage - 1)}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        border: '1px solid #cbd5e1',
+                        background: validCurrentPage <= 1 ? '#f8fafc' : '#ffffff',
+                        color: validCurrentPage <= 1 ? '#cbd5e1' : '#0d9488',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        cursor: validCurrentPage <= 1 ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      ← Prev
+                    </button>
+                    <button
+                      type="button"
+                      disabled={validCurrentPage >= totalPages}
+                      onClick={() => onPageChange(validCurrentPage + 1)}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        border: '1px solid #cbd5e1',
+                        background: validCurrentPage >= totalPages ? '#f8fafc' : '#ffffff',
+                        color: validCurrentPage >= totalPages ? '#cbd5e1' : '#0d9488',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        cursor: validCurrentPage >= totalPages ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

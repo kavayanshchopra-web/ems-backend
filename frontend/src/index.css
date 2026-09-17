@@ -3088,41 +3088,7 @@ h1, h2, h3, h4, h5, h6 {
     gap: 6px !important;
   }
 
-  .module-search-filter-strip {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    padding: 8px 10px !important;
-    gap: 8px !important;
-  }
 
-  .toolbar-search-input-group {
-    order: 1 !important;
-    width: 100% !important;
-    flex: none !important;
-  }
-
-  .toolbar-search-input-group > div {
-    width: 100% !important;
-  }
-
-  .toolbar-cols-page-group {
-    order: 2 !important;
-    width: auto !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 6px !important;
-  }
-
-  .toolbar-views-group {
-    order: 2 !important;
-    margin-left: auto !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: flex-end !important;
-  }
 
   .std-table {
     min-width: 680px !important;
@@ -3311,12 +3277,19 @@ h1, h2, h3, h4, h5, h6 {
     height: 0 !important;
   }
 
-  /* ── Universal Module Header & Toolbar Mobile Responsiveness ── */
+  /* ── Universal Module Header & Layout Shell Mobile Responsiveness ── */
+  .layout-engine-shell {
+    padding: 10px 8px !important;
+    gap: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
   .module-header-strip {
     padding: 8px 10px !important;
     gap: 8px !important;
     flex-direction: column !important;
     align-items: stretch !important;
+    border-radius: 10px !important;
   }
   .module-header-actions {
     margin-left: 0 !important;
@@ -3332,33 +3305,122 @@ h1, h2, h3, h4, h5, h6 {
     justify-content: center !important;
   }
 
-  /* ── Search & Filter Strip Mobile ── */
+  /* ── Search & Filter Strip Mobile (Row 1: Search Full Width, Row 2: Views Left + Cols/Pages Right) ── */
   .module-search-filter-strip {
-    flex-direction: column !important;
-    align-items: stretch !important;
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    grid-template-rows: auto auto !important;
     gap: 8px !important;
-    padding: 8px !important;
-  }
-  .toolbar-search-input-group {
+    padding: 8px 10px !important;
+    border-radius: 10px !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
     width: 100% !important;
-    flex: 1 1 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Row 1: Full-Width Search Bar */
+  .toolbar-search-input-group {
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
     justify-content: stretch !important;
   }
-  .toolbar-search-input-group > div {
+  .toolbar-search-input-group > div,
+  .toolbar-search-box-wrapper {
     width: 100% !important;
     max-width: 100% !important;
   }
   .toolbar-search-input-group input {
     width: 100% !important;
-    font-size: 12px !important;
+    height: 34px !important;
+    font-size: 12.5px !important;
+    border-radius: 7px !important;
   }
-  .toolbar-cols-page-group {
-    width: 100% !important;
-    justify-content: space-between !important;
-  }
+
+  /* Row 2: Left Side View Switcher (List / Kanban) */
   .toolbar-views-group {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    justify-self: start !important;
+    display: flex !important;
+    align-items: center !important;
+    width: auto !important;
+    margin: 0 !important;
+  }
+
+  /* Row 2: Right Side Cols Button & Compact Pagination */
+  .toolbar-cols-page-group {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+    justify-self: end !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    width: auto !important;
+    margin: 0 !important;
+  }
+  .compact-first-last-btn {
+    display: none !important;
+  }
+  .compact-per-page-select {
+    padding: 2px 4px !important;
+    font-size: 10.5px !important;
+    height: 26px !important;
+  }
+
+  /* ── Universal KPI Summary Strip Mobile (Clean 3-Card Grid Side-by-Side) ── */
+  .widget-engine-outer-wrapper {
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    padding-bottom: 0 !important;
     width: 100% !important;
-    justify-content: center !important;
+  }
+  .widget-engine-strip {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    gap: 6px !important;
+    box-sizing: border-box !important;
+  }
+  .widget-card-item {
+    min-width: 0 !important;
+    flex: none !important;
+    width: 100% !important;
+  }
+  .kpi-widget-card {
+    padding: 7px 4px !important;
+    gap: 4px !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
+  }
+  .kpi-widget-card .kpi-icon-box {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 14px !important;
+    border-radius: 6px !important;
+  }
+  .kpi-widget-card .kpi-label {
+    font-size: 8.5px !important;
+    font-weight: 800 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+    line-height: 1.1 !important;
+  }
+  .kpi-widget-card .kpi-value {
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    line-height: 1.2 !important;
   }
 
   /* ── Desktop Table vs Mobile Cards Switch ── */

@@ -45,6 +45,7 @@ export default function Pagination({
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', userSelect: 'none' }}>
         {/* PER PAGE SELECTOR WITHOUT TEXT LABEL (MICRO 28px HEIGHT) */}
         <select
+          className="compact-per-page-select"
           value={pageSize}
           onChange={(e) => {
             onPageSizeChange(Number(e.target.value));
@@ -74,6 +75,7 @@ export default function Pagination({
           {totalPages > 1 && (
             <button
               type="button"
+              className="compact-first-last-btn"
               title="First Page"
               disabled={currentPage <= 1}
               onClick={() => onPageChange(1)}
@@ -167,6 +169,7 @@ export default function Pagination({
           {totalPages > 1 && (
             <button
               type="button"
+              className="compact-first-last-btn"
               title="Last Page"
               disabled={currentPage >= totalPages}
               onClick={() => onPageChange(totalPages)}

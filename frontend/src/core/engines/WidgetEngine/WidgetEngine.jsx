@@ -44,7 +44,7 @@ export default function WidgetEngine({
         {enabledWidgets.map(widget => {
           const value = SummaryEngine.computeWidgetValue(widget, records, activePipelineStages);
           return (
-            <div key={widget.id} style={{ minWidth: '200px', flex: '1 0 200px' }}>
+            <div key={widget.id} className="widget-card-item" style={{ minWidth: '200px', flex: '1 0 200px' }}>
               <KPIWidget
                 widget={widget}
                 value={value}
