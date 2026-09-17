@@ -73,11 +73,13 @@ export default function OmniFlowLoginPage({
         .omniflow-saas-root {
           min-height: 100vh;
           width: 100%;
-          background: #f2faf7;
+          background-color: #f0fdf9;
           background-image: 
-            radial-gradient(900px circle at 85% 30%, rgba(45, 212, 191, 0.42) 0%, rgba(13, 180, 158, 0.22) 42%, transparent 75%),
+            radial-gradient(rgba(13, 180, 158, 0.16) 1.2px, transparent 1.2px),
+            radial-gradient(900px circle at 85% 25%, rgba(45, 212, 191, 0.45) 0%, rgba(13, 180, 158, 0.22) 42%, transparent 75%),
             radial-gradient(850px circle at 15% 75%, rgba(13, 180, 158, 0.38) 0%, rgba(20, 184, 166, 0.18) 45%, transparent 75%),
             radial-gradient(700px circle at 50% 12%, rgba(94, 234, 212, 0.32) 0%, transparent 65%);
+          background-size: 24px 24px, auto, auto, auto;
           font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           color: #0f172a;
           position: relative;
@@ -903,42 +905,83 @@ export default function OmniFlowLoginPage({
           }
         }
 
-        /* Mobile & Tablet Portrait Screens (<= 768px, e.g. 360x800 Galaxy A04e, iPhone) */
-        @media (max-width: 768px) {
+        /* Mobile & Tablet Portrait Screens (<= 900px, e.g. 360x800 Galaxy A04e, iPhone) */
+        @media (max-width: 900px) {
           .omniflow-saas-root {
             min-height: 100vh;
             overflow-x: hidden;
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            display: flex;
+            flex-direction: column;
             align-items: center;
           }
           .omniflow-saas-container {
-            padding: 16px 14px;
+            padding: 16px 14px 36px;
             min-height: 100vh;
-            justify-content: center;
+            justify-content: flex-start;
             align-items: center;
             display: flex;
             flex-direction: column;
+            width: 100%;
+            box-sizing: border-box;
           }
           .omniflow-header {
-            display: none !important;
+            display: flex !important;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 440px;
+            margin-bottom: 12px;
           }
-          /* Redundant desktop marketing hero is hidden on mobile so login card is front & center without scrolling */
-          .omniflow-hero-wrap {
-            display: none !important;
-          }
-          .omniflow-showcase-row,
-          .omniflow-feature-pills-row {
-            display: none !important;
+          .omniflow-brand-divider,
+          .omniflow-tagline {
+            display: none;
           }
           .omniflow-main-content-row {
-            margin: auto 0;
-            width: 100%;
-            max-width: 420px;
-            justify-content: center;
+            display: flex !important;
+            flex-direction: column !important;
             align-items: center;
-            flex: 0 1 auto;
+            width: 100%;
+            max-width: 440px;
+            margin: 0;
+            gap: 20px;
+          }
+          /* Using display: contents on mobile lets the hero intro, login card, feature pills, and showcase reorder cleanly */
+          .omniflow-hero-wrap {
+            display: contents !important;
+          }
+          .omniflow-hero-intro-box {
+            order: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            width: 100%;
+            margin-bottom: 2px;
+          }
+          .omniflow-pill-badge {
+            margin: 0 auto 8px;
+            padding: 5px 12px;
+            font-size: 11px;
+          }
+          .omniflow-headline-h1 {
+            font-size: 26px;
+            line-height: 1.18;
+            letter-spacing: -0.6px;
+            text-align: center;
+            margin: 0 auto 6px;
+          }
+          .omniflow-desc-p {
+            font-size: 13px;
+            line-height: 1.45;
+            text-align: center;
+            margin: 0 auto 10px;
+            max-width: 320px;
+            color: #475569;
           }
           .omniflow-card-column {
+            order: 2;
             width: 100%;
             max-width: 100%;
             justify-content: center;
@@ -948,27 +991,23 @@ export default function OmniFlowLoginPage({
             left: -10px;
             right: -10px;
             bottom: -10px;
-            filter: blur(20px);
-            opacity: 0.6;
+            filter: blur(22px);
+            opacity: 0.65;
           }
           .omniflow-white-card-body {
             width: 100%;
-            padding: 24px 20px 22px;
-            border-radius: 22px;
+            padding: 22px 18px 20px;
+            border-radius: 20px;
             box-shadow: 
-              0 14px 40px -10px rgba(6, 78, 67, 0.16),
+              0 14px 38px -10px rgba(6, 78, 67, 0.16),
               0 6px 18px -4px rgba(13, 180, 158, 0.10),
               0 0 0 1px rgba(226, 232, 240, 0.9);
           }
           .omniflow-mobile-top-bar {
-            display: flex !important;
-            justify-content: center;
-            align-items: center;
-            margin-bottom: 18px;
-            text-align: center;
+            display: none !important;
           }
           .omniflow-c-title {
-            font-size: 22px;
+            font-size: 21px;
             font-weight: 800;
             margin-bottom: 4px;
             text-align: left;
@@ -976,19 +1015,19 @@ export default function OmniFlowLoginPage({
           }
           .omniflow-c-subtitle {
             font-size: 13px;
-            margin-bottom: 16px;
+            margin-bottom: 14px;
             color: #64748b;
             text-align: left;
           }
           .omniflow-form-flow {
-            gap: 12px;
+            gap: 11px;
           }
           .omniflow-field-lbl {
             font-size: 12.5px;
             margin-bottom: 5px;
           }
           .omniflow-real-input {
-            padding: 11px 14px 11px 40px;
+            padding: 10px 14px 10px 40px;
             font-size: 14px;
             min-height: 44px;
             border-radius: 10px;
@@ -998,7 +1037,7 @@ export default function OmniFlowLoginPage({
             font-size: 15px;
             min-height: 46px;
             border-radius: 10px;
-            margin-top: 4px;
+            margin-top: 2px;
           }
           .omniflow-divider-row {
             margin: 8px 0;
@@ -1017,10 +1056,78 @@ export default function OmniFlowLoginPage({
           .omniflow-mobile-doodle-bottom {
             display: none !important;
           }
+          /* Feature Pills Row (Order 3) */
+          .omniflow-feature-pills-row {
+            order: 3;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 10px;
+            width: 100%;
+            max-width: 440px;
+          }
+          .omniflow-feature-pill-card {
+            padding: 11px 14px;
+            background: #ffffff;
+            border-radius: 14px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 14px -2px rgba(13, 180, 158, 0.10);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+          }
+          .omniflow-feature-title {
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #0f172a;
+          }
+          .omniflow-feature-desc {
+            font-size: 11.5px;
+            color: #64748b;
+          }
+          /* Showcase Preview Card & Doodle (Order 4) */
+          .omniflow-showcase-row {
+            order: 4;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 16px;
+            width: 100%;
+            max-width: 440px;
+          }
+          .omniflow-preview-card {
+            width: 100%;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px -5px rgba(6, 78, 67, 0.15);
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+          }
+          .omniflow-mini-sidebar {
+            padding: 8px 6px;
+            width: 80px;
+          }
+          .omniflow-mini-main {
+            padding: 10px 12px;
+          }
+          .omniflow-mini-metrics {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+          }
+          .omniflow-scale-doodle-column {
+            width: 100%;
+            align-items: center;
+          }
+          .omniflow-scale-card {
+            width: 100%;
+            box-sizing: border-box;
+          }
+          .omniflow-doodle-text-wrap {
+            margin: 10px auto;
+            text-align: center;
+            font-size: 27px;
+          }
           .omniflow-bottom-bar {
             justify-content: center;
             text-align: center;
-            margin-top: 14px;
+            margin-top: 16px;
             font-size: 11px;
             color: #94a3b8;
           }
@@ -1073,19 +1180,21 @@ export default function OmniFlowLoginPage({
         <main className="omniflow-main-content-row">
           {/* Left Column: Rich Showcase & Interactive UI Preview */}
           <div className="omniflow-hero-wrap">
-            <div className="omniflow-pill-badge">
-              <Sparkles size={13} color="#0db49e" /> {config.heroTagline || 'WELCOME TO OMNIFLOW'}
+            <div className="omniflow-hero-intro-box">
+              <div className="omniflow-pill-badge">
+                <Sparkles size={13} color="#0db49e" /> {config.heroTagline || 'WELCOME TO OMNIFLOW'}
+              </div>
+
+              <h1 className="omniflow-headline-h1">
+                Streamline Your<br />
+                Business, <span className="omniflow-teal-accent">Effortlessly.</span>
+              </h1>
+
+              <p className="omniflow-desc-p">
+                {config.heroDescription ||
+                  'An all-in-one platform to manage your team, automate processes and drive growth — beautifully simple.'}
+              </p>
             </div>
-
-            <h1 className="omniflow-headline-h1">
-              Streamline Your<br />
-              Business, <span className="omniflow-teal-accent">Effortlessly.</span>
-            </h1>
-
-            <p className="omniflow-desc-p">
-              {config.heroDescription ||
-                'An all-in-one platform to manage your team, automate processes and drive growth — beautifully simple.'}
-            </p>
 
             {/* Top 3 Features in Clean Row */}
             <div className="omniflow-feature-pills-row">
