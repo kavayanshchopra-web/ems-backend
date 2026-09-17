@@ -614,7 +614,7 @@ export default function App() {
     }
 
     return (
-      <div className="auth-page" style={{ width: '100vw', minHeight: '100vh', overflowX: 'hidden', overflowY: 'auto', position: 'relative' }}>
+      <div className="auth-page" style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
         {toast.visible && (
           <div style={{
             position: 'fixed',
