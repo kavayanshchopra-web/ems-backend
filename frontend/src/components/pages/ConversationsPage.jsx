@@ -464,6 +464,7 @@ export default function ConversationsPage({
   const [replyText, setReplyText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [loadingConversations, setLoadingConversations] = useState(false);
   const [newNoteText, setNewNoteText] = useState('');
 
   const messagesEndRef = useRef(null);
@@ -716,84 +717,78 @@ export default function ConversationsPage({
   }, [API_URL, token, companyId]);
 
   // 3. Load Contacts & Build Active Conversations Roster (Sandbox Supabase + REST Fallback with Model A Scoping)
-  useEffect(() => {
-    let isCancelled = false;
+  const fetchConversations = async () => {
+    setLoadingConversations(true);
+    try {
+      let rawList = [];
 
-    const loadContacts = async () => {
-      try {
-        let rawList = [];
-
-        // A. Direct Supabase Sandbox Fetch
-        if (isSandboxEnvironment()) {
-          const tenantNum = Number(companyId) || 1;
-          const sbContacts = await SupabaseSandboxService.fetchContacts(tenantNum);
-          if (Array.isArray(sbContacts) && sbContacts.length > 0) {
-            rawList = sbContacts;
-            TenantStorage.setItem('contacts', sbContacts, companyId);
-          }
+      // A. Direct Supabase Sandbox Fetch
+      if (isSandboxEnvironment()) {
+        const tenantNum = Number(companyId) || 1;
+        const sbContacts = await SupabaseSandboxService.fetchContacts(tenantNum);
+        if (Array.isArray(sbContacts) && sbContacts.length > 0) {
+          rawList = sbContacts;
+          TenantStorage.setItem('contacts', sbContacts, companyId);
         }
-
-        // B. REST API / SQLite Fallback if not sandbox or if sandbox returned empty
-        if (rawList.length === 0) {
-          try {
-            const res = await fetch(`${API_URL}/contacts`, {
-              headers: {
-                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-                'x-tenant-id': String(companyId)
-              }
-            });
-            if (res.ok) {
-              const data = await res.json();
-              rawList = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
-            }
-          } catch (apiErr) {
-            console.warn('[ConversationsPage] REST API contacts fetch notice:', apiErr);
-          }
-        }
-
-        // C. Fallback to parent propContacts or cached contacts
-        if (rawList.length === 0 && Array.isArray(propContacts) && propContacts.length > 0) {
-          rawList = propContacts;
-        }
-        if (rawList.length === 0) {
-          const cached = TenantStorage.getItem('contacts', companyId, []);
-          if (Array.isArray(cached) && cached.length > 0) rawList = cached;
-        }
-
-        if (isCancelled) return;
-
-        // D. Filter by Tenant and Model A Role-Based Scope
-        const scopedRaw = (rawList || []).filter(c => isContactVisibleToUser(c, allCallLogs));
-        const cleanRoster = formatContactRoster(scopedRaw);
-
-        if (cleanRoster.length > 0) {
-          setConversationsList(cleanRoster);
-          if (!activeContact) {
-            setActiveContact(cleanRoster[0]);
-          } else {
-            const stillExists = cleanRoster.find(c => c.id === activeContact.id || (c.normPhone10 && c.normPhone10 === activeContact.normPhone10));
-            setActiveContact(stillExists || cleanRoster[0]);
-          }
-        } else {
-          // If employee with no assigned leads / calls
-          if (!isOwnerOrAdmin) {
-            setConversationsList([]);
-            setActiveContact(null);
-          } else if (rawList.length === 0) {
-            setConversationsList([]);
-            setActiveContact(null);
-          }
-        }
-      } catch (err) {
-        console.warn('[ConversationsPage] Contacts load error:', err);
       }
-    };
 
-    loadContacts();
+      // B. REST API / SQLite Fallback if not sandbox or if sandbox returned empty
+      if (rawList.length === 0) {
+        try {
+          const res = await fetch(`${API_URL}/contacts`, {
+            headers: {
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+              'x-tenant-id': String(companyId)
+            }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            rawList = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
+          }
+        } catch (apiErr) {
+          console.warn('[ConversationsPage] REST API contacts fetch notice:', apiErr);
+        }
+      }
 
-    return () => {
-      isCancelled = true;
-    };
+      // C. Fallback to parent propContacts or cached contacts
+      if (rawList.length === 0 && Array.isArray(propContacts) && propContacts.length > 0) {
+        rawList = propContacts;
+      }
+      if (rawList.length === 0) {
+        const cached = TenantStorage.getItem('contacts', companyId, []);
+        if (Array.isArray(cached) && cached.length > 0) rawList = cached;
+      }
+
+      // D. Filter by Tenant and Model A Role-Based Scope
+      const scopedRaw = (rawList || []).filter(c => isContactVisibleToUser(c, allCallLogs));
+      const cleanRoster = formatContactRoster(scopedRaw);
+
+      if (cleanRoster.length > 0) {
+        setConversationsList(cleanRoster);
+        if (!activeContact) {
+          setActiveContact(cleanRoster[0]);
+        } else {
+          const stillExists = cleanRoster.find(c => c.id === activeContact.id || (c.normPhone10 && c.normPhone10 === activeContact.normPhone10));
+          setActiveContact(stillExists || cleanRoster[0]);
+        }
+      } else {
+        if (!isOwnerOrAdmin) {
+          setConversationsList([]);
+          setActiveContact(null);
+        } else if (rawList.length === 0) {
+          setConversationsList([]);
+          setActiveContact(null);
+        }
+      }
+    } catch (err) {
+      console.warn('[ConversationsPage] Contacts load error:', err);
+    } finally {
+      setLoadingConversations(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchConversations();
   }, [API_URL, token, companyId, userRole, userEmpId, userEmail, userName, allCallLogs]);
 
   // 4. Fetch WhatsApp Messages for Active Contact (with instant cache preview)
