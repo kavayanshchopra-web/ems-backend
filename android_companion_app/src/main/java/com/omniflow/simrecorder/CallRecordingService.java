@@ -405,22 +405,15 @@ public class CallRecordingService extends Service {
                 Log.d(TAG, "✅ In-App Recording STARTED (VOICE_COMMUNICATION AAC 24kbps)");
                 prefs.edit().remove("last_recording_error").apply();
             } catch (Exception e1) {
-                Log.w(TAG, "VOICE_COMMUNICATION failed, trying MIC: " + e1.getMessage());
-                mediaRecorder = new MediaRecorder();
-                mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-                mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-                mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-                mediaRecorder.setAudioSamplingRate(16000);
-                mediaRecorder.setAudioEncodingBitRate(24000);
-                mediaRecorder.setOutputFile(recordingFilePath);
-                mediaRecorder.prepare();
-                mediaRecorder.start();
-                Log.d(TAG, "✅ In-App Recording STARTED (MIC AAC 24kbps)");
-                prefs.edit().remove("last_recording_error").apply();
+                Log.w(TAG, "Native dialer recorder is already active on device: " + e1.getMessage());
+                // Release cleanly so Android OS does not show repeated conflict toasts
+                if (mediaRecorder != null) {
+                    try { mediaRecorder.release(); } catch (Exception ignored) {}
+                    mediaRecorder = null;
+                }
             }
         } catch (Exception e) {
-            Log.e(TAG, "❌ Failed to start in-app recording: " + e.getMessage());
-            prefs.edit().putString("last_recording_error", "Recorder init failed: " + e.getMessage()).apply();
+            Log.w(TAG, "Native call recording active. Fallback mic init skipped.");
         }
     }
 
@@ -471,11 +464,9 @@ public class CallRecordingService extends Service {
                 if (details.duration <= 0 && fallbackDuration > 0) {
                     details.duration = fallbackDuration;
                 }
-                if (details.duration > 0) {
-                    details.isMissedOrRejected = false;
-                    if ("MISSED".equalsIgnoreCase(details.callType)) {
-                        details.callType = (fallbackType != null && !fallbackType.equalsIgnoreCase("MISSED")) ? fallbackType : "INCOMING";
-                    }
+                details.isMissedOrRejected = false;
+                if ("MISSED".equalsIgnoreCase(details.callType)) {
+                    details.callType = (fallbackType != null && !fallbackType.equalsIgnoreCase("MISSED")) ? fallbackType : "INCOMING";
                 }
             }
 
@@ -991,10 +982,14 @@ public class CallRecordingService extends Service {
     }
 
     private CapturedAudioInfo resolveAudioFiles() {
-        return resolveAudioFiles(this.phoneNumber);
+        return resolveAudioFiles(this.phoneNumber, null);
     }
 
     private CapturedAudioInfo resolveAudioFiles(String phone) {
+        return resolveAudioFiles(phone, null);
+    }
+
+    private CapturedAudioInfo resolveAudioFiles(String phone, String custName) {
         CapturedAudioInfo info = new CapturedAudioInfo();
         SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
         info.modeNote = "🎙️ In-App Mic Recording (Fallback Mode)";
@@ -1002,8 +997,8 @@ public class CallRecordingService extends Service {
         String cleanPhone = (phone != null) ? phone.replaceAll("\\D", "") : "";
         String norm10 = (cleanPhone.length() >= 10) ? cleanPhone.substring(cleanPhone.length() - 10) : cleanPhone;
 
-        // Try up to 4 attempts with 700ms delays (up to ~2.8s) to allow Samsung native recorder to finish writing the file
-        for (int attempt = 0; attempt < 4; attempt++) {
+        // Try up to 5 attempts with 600ms delays (up to ~3.0s) to allow Samsung / Xiaomi / Vivo native recorder to finish writing the file
+        for (int attempt = 0; attempt < 5; attempt++) {
             // 1. Try finding call recording in User Selected SAF folder FIRST
             String folderUriStr = prefs.getString("selected_folder_uri", "");
             if (!folderUriStr.isEmpty()) {
@@ -1021,21 +1016,21 @@ public class CallRecordingService extends Service {
                 }
             }
 
-            // Trigger MediaScanner for known Samsung recording directories
+            // Trigger MediaScanner for known Samsung / Vivo / Xiaomi recording directories
             triggerMediaScannerForKnownFolders();
 
-            // 2. Try MediaStore (Direct Query for Samsung / Xiaomi Native Call Recordings)
+            // 2. Try MediaStore (Direct Query for Samsung / Xiaomi / Vivo Native Call Recordings)
             Uri mediaStoreUri = findLatestRecordingViaMediaStore(norm10);
             if (mediaStoreUri != null) {
                 info.safFileUri = mediaStoreUri;
                 info.isNative = true;
-                info.modeNote = "🎧 HD Both-Sides Recording (Samsung MediaStore)";
+                info.modeNote = "🎧 HD Both-Sides Recording (Native MediaStore)";
                 Log.d(TAG, "✅ Selected NATIVE Recording from MediaStore: " + mediaStoreUri.toString());
                 return info;
             }
 
-            // 3. Direct filesystem scan (Supported with All Files Access or scoped directory)
-            File nativeFile = findNativeCallRecordingFile(norm10);
+            // 3. Direct filesystem scan with Deep Recursive Search (Vivo / Xiaomi / Samsung / Oppo)
+            File nativeFile = findNativeCallRecordingFile(norm10, custName);
             if (nativeFile != null && nativeFile.exists() && nativeFile.length() > 2000) {
                 info.backupFileToUpload = nativeFile;
                 info.isNative = true;
@@ -1044,45 +1039,74 @@ public class CallRecordingService extends Service {
                 return info;
             }
 
-            // Pause briefly before retry if Samsung recorder is still writing file
-            if (attempt < 3) {
-                try { Thread.sleep(700); } catch (InterruptedException ignored) {}
+            // Pause briefly before retry if OEM recorder is still writing file to storage
+            if (attempt < 4) {
+                try { Thread.sleep(600); } catch (InterruptedException ignored) {}
             }
         }
 
         // In cellular calls, background apps are muted by Android OS. Never upload blank silence.
-        Log.w(TAG, "⚠️ No native Samsung call recording found. Skipping silent fallback upload.");
+        Log.w(TAG, "⚠️ No native call recording found on device. Skipping silent fallback upload.");
         info.backupFileToUpload = null;
         info.safFileUri = null;
         info.isNative = false;
         return info;
     }
 
-    private void triggerMediaScannerForKnownFolders() {
+    private void scanDirectoryRecursive(File dir, int depth, long windowStart, List<File> candidates) {
+        if (dir == null || !dir.exists() || !dir.isDirectory() || depth > 3) return;
         try {
-            String storageRoot = Environment.getExternalStorageDirectory().getAbsolutePath();
-            String[] dirs = {
-                storageRoot + "/Recordings/Call",
-                storageRoot + "/Recordings",
-                "/storage/emulated/0/Recordings/Call",
-                "/storage/emulated/0/Recordings",
-                "/storage/emulated/0/Voice Recorder"
-            };
-            List<String> toScan = new ArrayList<>();
-            for (String d : dirs) {
-                File dir = new File(d);
-                if (dir.exists() && dir.isDirectory()) {
-                    File[] files = dir.listFiles();
-                    if (files != null) {
-                        for (File f : files) {
-                            if (f.isFile() && f.length() > 2000) {
-                                toScan.add(f.getAbsolutePath());
-                            }
+            File[] files = dir.listFiles();
+            if (files == null) return;
+            for (File f : files) {
+                if (f.isDirectory()) {
+                    String dName = f.getName().toLowerCase();
+                    if (!dName.startsWith(".") && !dName.equals("android") && !dName.equals("obb")) {
+                        scanDirectoryRecursive(f, depth + 1, windowStart, candidates);
+                    }
+                } else if (f.isFile() && f.length() > 2000) {
+                    String name = f.getName().toLowerCase();
+                    if (name.endsWith(".m4a") || name.endsWith(".mp3") || name.endsWith(".amr") || name.endsWith(".3gp") || name.endsWith(".wav") || name.endsWith(".aac")) {
+                        long modTime = f.lastModified();
+                        if (modTime >= windowStart) {
+                            candidates.add(f);
                         }
                     }
                 }
             }
-            if (!toScan.isEmpty()) {
+        } catch (Exception ignored) {}
+    }
+
+    private void triggerMediaScannerForKnownFolders() {
+        try {
+            String storageRoot = Environment.getExternalStorageDirectory().getAbsolutePath();
+            String[] baseRoots = {
+                storageRoot + "/Record",
+                storageRoot + "/Recordings",
+                storageRoot + "/PhoneRecord",
+                storageRoot + "/CallRecordings",
+                storageRoot + "/MIUI/sound_recorder",
+                storageRoot + "/Sounds",
+                storageRoot + "/Voice Recorder",
+                "/storage/emulated/0/Record",
+                "/storage/emulated/0/Recordings",
+                "/storage/emulated/0/PhoneRecord",
+                "/storage/emulated/0/CallRecordings",
+                "/storage/emulated/0/vivoservice"
+            };
+            List<File> candidates = new ArrayList<>();
+            long window = System.currentTimeMillis() - 600000;
+            for (String r : baseRoots) {
+                File dir = new File(r);
+                if (dir.exists() && dir.isDirectory()) {
+                    scanDirectoryRecursive(dir, 0, window, candidates);
+                }
+            }
+            if (!candidates.isEmpty()) {
+                List<String> toScan = new ArrayList<>();
+                for (File f : candidates) {
+                    toScan.add(f.getAbsolutePath());
+                }
                 android.media.MediaScannerConnection.scanFile(this, toScan.toArray(new String[0]), null, null);
             }
         } catch (Exception ignored) {}
@@ -1096,16 +1120,17 @@ public class CallRecordingService extends Service {
                 MediaStore.Audio.Media.DISPLAY_NAME,
                 MediaStore.Audio.Media.DATE_ADDED,
                 MediaStore.Audio.Media.DATE_MODIFIED,
-                MediaStore.Audio.Media.SIZE
+                MediaStore.Audio.Media.SIZE,
+                MediaStore.Audio.Media.DATA
             };
 
-            String sortOrder = MediaStore.Audio.Media.DATE_MODIFIED + " DESC, " + MediaStore.Audio.Media._ID + " DESC LIMIT 50";
+            String sortOrder = MediaStore.Audio.Media.DATE_MODIFIED + " DESC, " + MediaStore.Audio.Media._ID + " DESC LIMIT 60";
 
             Cursor cursor = getContentResolver().query(audioUri, projection, null, null, sortOrder);
             if (cursor != null) {
                 Uri matchByPhone = null;
                 Uri matchByKeyword = null;
-                long windowStartSeconds = (callStartTime > 0 ? (callStartTime - 90000) : (System.currentTimeMillis() - 900000)) / 1000;
+                long windowStartSeconds = (callStartTime > 0 ? (callStartTime - 120000) : (System.currentTimeMillis() - 900000)) / 1000;
 
                 while (cursor.moveToNext()) {
                     long id = cursor.getLong(0);
@@ -1113,23 +1138,35 @@ public class CallRecordingService extends Service {
                     long dateAdded = cursor.getLong(2);
                     long dateModified = cursor.getLong(3);
                     long size = cursor.getLong(4);
+                    String dataPath = null;
+                    try {
+                        dataPath = cursor.getString(5);
+                    } catch (Exception ignored) {}
 
                     if (size > 2000) {
                         String lower = (name != null ? name.toLowerCase() : "");
-                        boolean isAudioExt = lower.endsWith(".m4a") || lower.endsWith(".mp3") || lower.endsWith(".amr") || lower.endsWith(".3gp") || lower.endsWith(".aac");
+                        String lowerPath = (dataPath != null ? dataPath.toLowerCase() : "");
+
+                        boolean isAudioExt = lower.endsWith(".m4a") || lower.endsWith(".mp3") || lower.endsWith(".amr") || lower.endsWith(".3gp") || lower.endsWith(".aac") || lower.endsWith(".wav");
                         if (!isAudioExt) continue;
 
                         long effectiveTime = Math.max(dateModified, dateAdded);
+                        if (effectiveTime > 100000000000L) {
+                            effectiveTime = effectiveTime / 1000L;
+                        }
                         boolean isRecent = (effectiveTime >= windowStartSeconds) || (effectiveTime > (System.currentTimeMillis() - 900000) / 1000);
 
                         if (isRecent) {
-                            if (norm10 != null && !norm10.isEmpty() && lower.contains(norm10)) {
+                            if (norm10 != null && !norm10.isEmpty() && (lower.contains(norm10) || lowerPath.contains(norm10))) {
                                 matchByPhone = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id);
                                 Log.d(TAG, "🎯 MediaStore Phone Exact Match: " + name + " -> " + matchByPhone);
                                 cursor.close();
                                 return matchByPhone;
                             }
-                            if (matchByKeyword == null && (lower.contains("call") || lower.contains("rec") || lower.contains("voice"))) {
+                            if (matchByKeyword == null && (
+                                lower.contains("call") || lower.contains("rec") || lower.contains("voice") || lower.contains("record") ||
+                                lowerPath.contains("call_rec") || lowerPath.contains("/record") || lowerPath.contains("/miui") || lowerPath.contains("recordings")
+                            )) {
                                 matchByKeyword = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id);
                             }
                         }
@@ -1137,7 +1174,7 @@ public class CallRecordingService extends Service {
                 }
                 cursor.close();
                 if (matchByKeyword != null) {
-                    Log.d(TAG, "🎯 MediaStore Keyword Match: " + matchByKeyword);
+                    Log.d(TAG, "🎯 MediaStore Keyword/Path Match: " + matchByKeyword);
                     return matchByKeyword;
                 }
             }
@@ -1147,61 +1184,104 @@ public class CallRecordingService extends Service {
         return null;
     }
 
-    private File findNativeCallRecordingFile(String norm10) {
+    private File findNativeCallRecordingFile(String norm10, String custName) {
         try {
-            long windowStart = (callStartTime > 0) ? (callStartTime - 90000) : (System.currentTimeMillis() - 900000);
+            long windowStart = (callStartTime > 0) ? (callStartTime - 120000) : (System.currentTimeMillis() - 900000);
 
             String storageRoot = Environment.getExternalStorageDirectory().getAbsolutePath();
-            String[] directoriesToSearch = {
-                storageRoot + "/Recordings/Call",
+            String[] baseRoots = {
+                // Vivo / iQOO (Funtouch OS / Origin OS)
+                storageRoot + "/Record",
                 storageRoot + "/Recordings",
+                storageRoot + "/PhoneRecord",
+                storageRoot + "/CallRecordings",
+                storageRoot + "/vivoservice",
+                "/storage/emulated/0/Record",
+                "/storage/emulated/0/Recordings",
+                "/storage/emulated/0/PhoneRecord",
+                "/storage/emulated/0/CallRecordings",
+                "/storage/emulated/0/vivoservice",
+
+                // Xiaomi / MIUI / HyperOS
+                storageRoot + "/MIUI/sound_recorder",
+                storageRoot + "/MIUI",
+                storageRoot + "/sound_recorder",
+                "/storage/emulated/0/MIUI/sound_recorder",
+                "/storage/emulated/0/MIUI",
+
+                // Samsung (OneUI)
+                storageRoot + "/Recordings/Call",
                 storageRoot + "/Voice Recorder",
-                storageRoot + "/Sounds/CallRecordings",
+                "/storage/emulated/0/Recordings/Call",
+
+                // Oppo / Realme / OnePlus
+                storageRoot + "/Recordings/CallRecordings",
+                storageRoot + "/Music/Recordings",
+                storageRoot + "/ColorOS",
+
+                // Generic
+                storageRoot + "/Sounds",
                 storageRoot + "/Call Recordings",
                 storageRoot + "/Call",
-                storageRoot + "/Record/Call",
-                storageRoot + "/Music/Recordings/Call",
-                storageRoot + "/Music/Recordings",
-                "/storage/emulated/0/Recordings/Call",
-                "/storage/emulated/0/Recordings",
-                "/storage/emulated/0/Voice Recorder",
-                "/storage/emulated/0/Sounds/CallRecordings",
-                "/storage/emulated/0/Call Recordings"
+                "/storage/emulated/0/Sounds"
             };
 
-            File keywordMatchFile = null;
-            long newestModTime = 0;
-
-            for (String dirPath : directoriesToSearch) {
-                File dir = new File(dirPath);
+            List<File> allCandidates = new ArrayList<>();
+            for (String rootPath : baseRoots) {
+                File dir = new File(rootPath);
                 if (dir.exists() && dir.isDirectory()) {
-                    File[] files = dir.listFiles();
-                    if (files != null) {
-                        for (File f : files) {
-                            if (f.isFile() && f.length() > 2000) {
-                                String name = f.getName().toLowerCase();
-                                if (name.endsWith(".m4a") || name.endsWith(".mp3") || name.endsWith(".amr") || name.endsWith(".3gp") || name.endsWith(".wav") || name.endsWith(".aac")) {
-                                    long modTime = f.lastModified();
-                                    if (modTime >= windowStart) {
-                                        if (norm10 != null && !norm10.isEmpty() && name.contains(norm10)) {
-                                            Log.d(TAG, "🎯 Direct Filesystem Phone Exact Match: " + f.getAbsolutePath());
-                                            return f;
-                                        }
-                                        if (modTime > newestModTime) {
-                                            newestModTime = modTime;
-                                            keywordMatchFile = f;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    scanDirectoryRecursive(dir, 0, windowStart, allCandidates);
                 }
             }
 
-            if (keywordMatchFile != null) {
-                Log.d(TAG, "🎯 Direct Filesystem Recency Match: " + keywordMatchFile.getAbsolutePath());
-                return keywordMatchFile;
+            String cleanCustName = (custName != null && !custName.equalsIgnoreCase("Customer") && !custName.equalsIgnoreCase("Lead")) 
+                ? custName.toLowerCase().replaceAll("[^a-z0-9]", " ").trim() 
+                : "";
+
+            File phoneMatchFile = null;
+            File nameMatchFile = null;
+            File newestFile = null;
+            long newestModTime = 0;
+
+            for (File f : allCandidates) {
+                String lowerName = f.getName().toLowerCase();
+                long modTime = f.lastModified();
+
+                // 1. Phone number match (handles 10-digit, prefix 0 or 91)
+                if (norm10 != null && !norm10.isEmpty() && lowerName.contains(norm10)) {
+                    phoneMatchFile = f;
+                    break;
+                }
+
+                // 2. Customer Name match (e.g. "Bro Sahil" -> checks "sahil")
+                if (!cleanCustName.isEmpty()) {
+                    String[] parts = cleanCustName.split("\\s+");
+                    for (String p : parts) {
+                        if (p.length() >= 3 && lowerName.contains(p)) {
+                            nameMatchFile = f;
+                            break;
+                        }
+                    }
+                }
+
+                // 3. Newest modified file in call window
+                if (modTime > newestModTime) {
+                    newestModTime = modTime;
+                    newestFile = f;
+                }
+            }
+
+            if (phoneMatchFile != null) {
+                Log.d(TAG, "🎯 Direct Filesystem Phone Exact Match: " + phoneMatchFile.getAbsolutePath());
+                return phoneMatchFile;
+            }
+            if (nameMatchFile != null) {
+                Log.d(TAG, "🎯 Direct Filesystem Customer Name Match: " + nameMatchFile.getAbsolutePath());
+                return nameMatchFile;
+            }
+            if (newestFile != null) {
+                Log.d(TAG, "🎯 Direct Filesystem Recency Match: " + newestFile.getAbsolutePath());
+                return newestFile;
             }
         } catch (Exception e) {
             Log.e(TAG, "Error scanning native recording directories: " + e.getMessage());
@@ -1945,7 +2025,7 @@ public class CallRecordingService extends Service {
             String activeCallType = (targetCallType != null && !targetCallType.trim().isEmpty()) ? targetCallType.trim() : callType;
 
             String audioBase64 = null;
-            CapturedAudioInfo currentAudio = (audioInfo != null) ? audioInfo : resolveAudioFiles(activePhone);
+            CapturedAudioInfo currentAudio = (audioInfo != null) ? audioInfo : resolveAudioFiles(activePhone, customerName);
             String modeNote = currentAudio != null ? currentAudio.modeNote : "SIM Call Recording";
             if (customNotes != null && !customNotes.isEmpty()) {
                 modeNote = customNotes + " (" + modeNote + ")";

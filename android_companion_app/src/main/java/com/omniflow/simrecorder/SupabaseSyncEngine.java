@@ -412,6 +412,12 @@ public class SupabaseSyncEngine {
                         updatePayload.put("recording_url", publicAudioUrl);
                     }
 
+                    String safeType = (callType != null && !callType.isEmpty() && !"MISSED".equalsIgnoreCase(callType)) ? callType.toUpperCase() : "INCOMING";
+                    if (dur > 0 || !publicAudioUrl.isEmpty()) {
+                        updatePayload.put("type", safeType);
+                        updatePayload.put("call_type", safeType);
+                    }
+
                     // Try PATCH by call_id
                     URL patchUrl = new URL(SUPABASE_REST_URL + "/call_logs?call_id=eq." + actualCallId + "&tenant_id=eq." + dynamicTenantId);
                     HttpURLConnection patchConn = (HttpURLConnection) patchUrl.openConnection();
@@ -443,37 +449,56 @@ public class SupabaseSyncEngine {
                     }
                     patchConn.disconnect();
 
-                    // If not found to PATCH by ID (e.g. ID discrepancy), try PATCH by customer_phone in recent logs!
+                    // If not found to PATCH by call_id (e.g. slight timestamp discrepancy), find ID of recent call for this phone and PATCH by ID!
                     if (!patched) {
                         try {
                             String encPhone = java.net.URLEncoder.encode(targetPhone, "UTF-8");
-                            URL ppUrl = new URL(SUPABASE_REST_URL + "/call_logs?customer_phone=eq." + encPhone + "&tenant_id=eq." + dynamicTenantId + "&order=created_at.desc&limit=1");
-                            HttpURLConnection ppConn = (HttpURLConnection) ppUrl.openConnection();
-                            ppConn.setRequestMethod("PATCH");
-                            ppConn.setRequestProperty("apikey", SUPABASE_KEY);
-                            ppConn.setRequestProperty("Authorization", "Bearer " + SUPABASE_KEY);
-                            ppConn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-                            ppConn.setRequestProperty("Prefer", "return=representation");
-                            ppConn.setDoOutput(true);
-                            ppConn.setConnectTimeout(8000);
-                            ppConn.setReadTimeout(8000);
-                            try (OutputStream os = ppConn.getOutputStream()) {
-                                os.write(patchBytes);
-                                os.flush();
-                            }
-                            if (ppConn.getResponseCode() == 200) {
-                                try (BufferedReader r = new BufferedReader(new InputStreamReader(ppConn.getInputStream()))) {
+                            URL getRecentUrl = new URL(SUPABASE_REST_URL + "/call_logs?customer_phone=eq." + encPhone + "&tenant_id=eq." + dynamicTenantId + "&order=id.desc&limit=1&select=id");
+                            HttpURLConnection getConn = (HttpURLConnection) getRecentUrl.openConnection();
+                            getConn.setRequestMethod("GET");
+                            getConn.setRequestProperty("apikey", SUPABASE_KEY);
+                            getConn.setRequestProperty("Authorization", "Bearer " + SUPABASE_KEY);
+                            getConn.setConnectTimeout(8000);
+                            getConn.setReadTimeout(8000);
+                            if (getConn.getResponseCode() == 200) {
+                                try (BufferedReader r = new BufferedReader(new InputStreamReader(getConn.getInputStream()))) {
                                     StringBuilder sb = new StringBuilder();
                                     String line;
                                     while ((line = r.readLine()) != null) sb.append(line);
                                     JSONArray arr = new JSONArray(sb.toString());
-                                    patched = (arr.length() > 0);
-                                    if (patched) {
-                                        Log.d(TAG, "✅ [Stage 2 SupabaseSync] Found and merged into existing recent call log by phone: " + targetPhone);
+                                    if (arr.length() > 0) {
+                                        long matchedDbId = arr.getJSONObject(0).optLong("id", -1);
+                                        if (matchedDbId > 0) {
+                                            URL patchByIdUrl = new URL(SUPABASE_REST_URL + "/call_logs?id=eq." + matchedDbId);
+                                            HttpURLConnection patchByIdConn = (HttpURLConnection) patchByIdUrl.openConnection();
+                                            patchByIdConn.setRequestMethod("PATCH");
+                                            patchByIdConn.setRequestProperty("apikey", SUPABASE_KEY);
+                                            patchByIdConn.setRequestProperty("Authorization", "Bearer " + SUPABASE_KEY);
+                                            patchByIdConn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                                            patchByIdConn.setRequestProperty("Prefer", "return=representation");
+                                            patchByIdConn.setDoOutput(true);
+                                            try (OutputStream os = patchByIdConn.getOutputStream()) {
+                                                os.write(patchBytes);
+                                                os.flush();
+                                            }
+                                            if (patchByIdConn.getResponseCode() == 200) {
+                                                try (BufferedReader r2 = new BufferedReader(new InputStreamReader(patchByIdConn.getInputStream()))) {
+                                                    StringBuilder sb2 = new StringBuilder();
+                                                    String line2;
+                                                    while ((line2 = r2.readLine()) != null) sb2.append(line2);
+                                                    JSONArray arr2 = new JSONArray(sb2.toString());
+                                                    patched = (arr2.length() > 0);
+                                                    if (patched) {
+                                                        Log.d(TAG, "✅ [Stage 2 SupabaseSync] Successfully merged into existing call log ID " + matchedDbId + " for phone: " + targetPhone);
+                                                    }
+                                                }
+                                            }
+                                            patchByIdConn.disconnect();
+                                        }
                                     }
                                 }
                             }
-                            ppConn.disconnect();
+                            getConn.disconnect();
                         } catch (Exception patchPhoneErr) {
                             Log.w(TAG, "Notice on phone PATCH merge: " + patchPhoneErr.getMessage());
                         }
@@ -493,7 +518,7 @@ public class SupabaseSyncEngine {
                         }
                         if (!dynamicAgentRole.isEmpty()) updatePayload.put("agent_role", dynamicAgentRole);
                         updatePayload.put("channel", (simSlot != null && !simSlot.isEmpty()) ? ("SIM (" + simSlot + ")") : "SIM");
-                        String safeType = (callType != null && !callType.isEmpty()) ? callType.toUpperCase() : "OUTGOING";
+                        safeType = (callType != null && !callType.isEmpty()) ? callType.toUpperCase() : "OUTGOING";
                         updatePayload.put("type", safeType);
                         updatePayload.put("call_type", safeType);
                         if (!updatePayload.has("recording_url")) updatePayload.put("recording_url", publicAudioUrl);

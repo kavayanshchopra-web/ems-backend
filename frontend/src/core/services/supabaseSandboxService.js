@@ -929,36 +929,45 @@ export const SupabaseSandboxService = {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      return (Array.isArray(data) ? data : []).map(log => ({
-        ...log,
-        id: log.id,
-        name: log.customer_name || log.customer_phone || log.phone || 'Customer',
-        customerName: log.customer_name || log.customer_phone || log.phone || 'Customer',
-        agentName: log.agent_name || log.staff_name || 'Telecaller Agent',
-        agent_name: log.agent_name || log.staff_name || 'Telecaller Agent',
-        agentId: log.agent_id || log.staff_id || '',
-        agent_id: log.agent_id || log.staff_id || '',
-        agentRole: log.agent_role || 'telecaller',
-        agent_role: log.agent_role || 'telecaller',
-        agentEmail: log.custom_fields?.agent_email || log.agent_email || '',
-        agent_email: log.custom_fields?.agent_email || log.agent_email || '',
-        phone: log.customer_phone || log.phone || '—',
-        channel: log.channel || 'SIM',
-        type: log.call_type || log.type || 'OUTGOING',
-        callType: log.call_type || log.type || 'OUTGOING',
-        duration: log.duration || (log.duration_seconds ? String(Math.floor(log.duration_seconds / 60)) + ':' + String(log.duration_seconds % 60).padStart(2, '0') : '00:00'),
-        durationSeconds: log.duration_seconds || 0,
-        recording: log.recording_url || '',
-        recordingUrl: log.recording_url || '',
-        status: log.disposition || log.status || 'Interested',
-        disposition: log.disposition || log.status || 'Interested',
-        notes: log.notes || '',
-        timestamp: log.timestamp || log.created_at,
-        _createdAt: new Date(log.created_at || log.timestamp).getTime(),
-        tenantId: log.tenant_id,
-        tenant_id: log.tenant_id,
-        custom_fields: log.custom_fields || {}
-      }));
+      return (Array.isArray(data) ? data : []).map(log => {
+        const hasRecording = !!(log.recording_url && String(log.recording_url).startsWith('http') && !log.recording_url.includes('soundhelix.com'));
+        const durSec = Number(log.duration_seconds || 0);
+        const rawType = log.call_type || log.type || 'OUTGOING';
+        const resolvedType = (hasRecording || durSec > 0) && String(rawType).toUpperCase() === 'MISSED' ? 'INCOMING' : rawType;
+        const rawDisp = log.disposition || log.status || 'Interested';
+        const resolvedDisp = (hasRecording || durSec > 0) && String(rawDisp).toUpperCase() === 'MISSED CALL' ? 'Interested' : rawDisp;
+
+        return {
+          ...log,
+          id: log.id,
+          name: log.customer_name || log.customer_phone || log.phone || 'Customer',
+          customerName: log.customer_name || log.customer_phone || log.phone || 'Customer',
+          agentName: log.agent_name || log.staff_name || 'Telecaller Agent',
+          agent_name: log.agent_name || log.staff_name || 'Telecaller Agent',
+          agentId: log.agent_id || log.staff_id || '',
+          agent_id: log.agent_id || log.staff_id || '',
+          agentRole: log.agent_role || 'telecaller',
+          agent_role: log.agent_role || 'telecaller',
+          agentEmail: log.custom_fields?.agent_email || log.agent_email || '',
+          agent_email: log.custom_fields?.agent_email || log.agent_email || '',
+          phone: log.customer_phone || log.phone || '—',
+          channel: log.channel || 'SIM',
+          type: resolvedType,
+          callType: resolvedType,
+          duration: log.duration && log.duration !== '00:00' ? log.duration : (durSec > 0 ? `${Math.floor(durSec / 60)}:${String(durSec % 60).padStart(2, '0')}` : (log.duration || '00:00')),
+          durationSeconds: durSec,
+          recording: log.recording_url || '',
+          recordingUrl: log.recording_url || '',
+          status: resolvedDisp,
+          disposition: resolvedDisp,
+          notes: log.notes || '',
+          timestamp: log.timestamp || log.created_at,
+          _createdAt: new Date(log.created_at || log.timestamp).getTime(),
+          tenantId: log.tenant_id,
+          tenant_id: log.tenant_id,
+          custom_fields: log.custom_fields || {}
+        };
+      });
     } catch (err) {
       console.error('[Supabase Sandbox] fetchCallLogs error:', err);
       return [];
@@ -972,36 +981,45 @@ export const SupabaseSandboxService = {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      return (Array.isArray(data) ? data : []).map(log => ({
-        ...log,
-        id: log.id,
-        name: log.customer_name || log.phone || 'Customer',
-        customerName: log.customer_name || log.phone || 'Customer',
-        agentName: log.agent_name || 'Telecaller Agent',
-        agent_name: log.agent_name || 'Telecaller Agent',
-        agentId: log.agent_id || '',
-        agent_id: log.agent_id || '',
-        agentRole: log.agent_role || 'telecaller',
-        agent_role: log.agent_role || 'telecaller',
-        agentEmail: log.custom_fields?.agent_email || log.agent_email || '',
-        agent_email: log.custom_fields?.agent_email || log.agent_email || '',
-        phone: log.phone || log.customer_phone || '—',
-        channel: log.channel || 'SIM',
-        type: log.call_type || log.type || 'OUTGOING',
-        callType: log.call_type || log.type || 'OUTGOING',
-        duration: log.duration || '00:30',
-        durationSeconds: log.duration_seconds || 30,
-        recording: log.recording_url || '',
-        recordingUrl: log.recording_url || '',
-        status: log.disposition || log.status || 'Interested',
-        disposition: log.disposition || log.status || 'Interested',
-        notes: log.notes || '',
-        timestamp: log.timestamp || log.created_at,
-        _createdAt: new Date(log.created_at || log.timestamp).getTime(),
-        tenantId: log.tenant_id,
-        tenant_id: log.tenant_id,
-        custom_fields: log.custom_fields || {}
-      }));
+      return (Array.isArray(data) ? data : []).map(log => {
+        const hasRecording = !!(log.recording_url && String(log.recording_url).startsWith('http') && !log.recording_url.includes('soundhelix.com'));
+        const durSec = Number(log.duration_seconds || (log.duration ? 30 : 0));
+        const rawType = log.call_type || log.type || 'OUTGOING';
+        const resolvedType = (hasRecording || durSec > 0) && String(rawType).toUpperCase() === 'MISSED' ? 'INCOMING' : rawType;
+        const rawDisp = log.disposition || log.status || 'Interested';
+        const resolvedDisp = (hasRecording || durSec > 0) && String(rawDisp).toUpperCase() === 'MISSED CALL' ? 'Interested' : rawDisp;
+
+        return {
+          ...log,
+          id: log.id,
+          name: log.customer_name || log.phone || 'Customer',
+          customerName: log.customer_name || log.phone || 'Customer',
+          agentName: log.agent_name || 'Telecaller Agent',
+          agent_name: log.agent_name || 'Telecaller Agent',
+          agentId: log.agent_id || '',
+          agent_id: log.agent_id || '',
+          agentRole: log.agent_role || 'telecaller',
+          agent_role: log.agent_role || 'telecaller',
+          agentEmail: log.custom_fields?.agent_email || log.agent_email || '',
+          agent_email: log.custom_fields?.agent_email || log.agent_email || '',
+          phone: log.phone || log.customer_phone || '—',
+          channel: log.channel || 'SIM',
+          type: resolvedType,
+          callType: resolvedType,
+          duration: log.duration && log.duration !== '00:00' ? log.duration : (durSec > 0 ? `${Math.floor(durSec / 60)}:${String(durSec % 60).padStart(2, '0')}` : '00:00'),
+          durationSeconds: durSec,
+          recording: log.recording_url || '',
+          recordingUrl: log.recording_url || '',
+          status: resolvedDisp,
+          disposition: resolvedDisp,
+          notes: log.notes || '',
+          timestamp: log.timestamp || log.created_at,
+          _createdAt: new Date(log.created_at || log.timestamp).getTime(),
+          tenantId: log.tenant_id,
+          tenant_id: log.tenant_id,
+          custom_fields: log.custom_fields || {}
+        };
+      });
     } catch (err) {
       console.error('[Supabase Sandbox] fetchAllCallLogs error:', err);
       return [];

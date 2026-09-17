@@ -393,9 +393,21 @@ export default function TelecallingView({
         const resolvedRec = (hasRecB ? (item.recordingUrl || item.recording || item.audioUrl) : (existing.recordingUrl || existing.recording || existing.audioUrl)) || '';
         const resolvedDisp = (dispB && !dispB.toLowerCase().includes('pending')) ? dispB : (dispA || 'Interested');
 
+        // Resolve call type: If either record has audio or non-zero duration, call was connected/answered!
+        const typeA = String(existing.type || existing.callType || '').toUpperCase();
+        const typeB = String(item.type || item.callType || '').toUpperCase();
+        let resolvedType = item.type || existing.type || 'INCOMING';
+        if (resolvedRec || Math.max(durA, durB) > 0) {
+          if (typeA && typeA !== 'MISSED') resolvedType = existing.type || existing.callType;
+          else if (typeB && typeB !== 'MISSED') resolvedType = item.type || item.callType;
+          else resolvedType = 'INCOMING';
+        }
+
         deduplicated[existingIdx] = {
           ...existing,
           ...item,
+          type: resolvedType,
+          callType: resolvedType,
           id: existing.id || item.id,
           recordingUrl: resolvedRec,
           recording: resolvedRec,
@@ -414,12 +426,25 @@ export default function TelecallingView({
     // Map chronologically so older calls keep lower sequence numbers and newest call gets highest sequential ID
     return deduplicated.map((log, seqIdx) => {
       const durSecs = Number(log.durationSeconds || log.duration || 0);
-      const isMissed = String(log.type || log.callType || '').toUpperCase() === 'MISSED' || 
-                       String(log.disposition || log.status || '').toUpperCase() === 'MISSED CALL';
+      let cleanRecording = log.recordingUrl || log.recording || log.audioUrl || '';
+      if (cleanRecording.includes('soundhelix.com') || cleanRecording.includes('[no audio]')) {
+        cleanRecording = '';
+      }
+
+      let isMissed = String(log.type || log.callType || '').toUpperCase() === 'MISSED' || 
+                     String(log.disposition || log.status || '').toUpperCase() === 'MISSED CALL';
+
+      // CRITICAL: If a valid voice recording exists, call was connected and cannot be MISSED!
+      if (cleanRecording && cleanRecording.startsWith('http')) {
+        isMissed = false;
+      } else if (isMissed || durSecs === 0) {
+        cleanRecording = '';
+      }
+
       let formattedDur = '0s';
       if (durSecs > 0) {
         formattedDur = durSecs >= 60 ? `${Math.floor(durSecs / 60)}m ${durSecs % 60}s` : `${durSecs}s`;
-      } else if (typeof log.duration === 'string' && log.duration && log.duration !== '00:30') {
+      } else if (typeof log.duration === 'string' && log.duration && log.duration !== '00:30' && log.duration !== '00:00') {
         formattedDur = log.duration;
       }
 
@@ -448,13 +473,8 @@ export default function TelecallingView({
       const rawChannel = log.channel || (activeProvider === 'voxbay' ? 'VOXBAY' : 'SIM');
       const channelDisplay = simSlotText && !rawChannel.includes('(') ? `${rawChannel} (${simSlotText})` : rawChannel;
 
-      // Filter out dummy soundhelix audio URLs and suppress audio player for missed calls
-      let cleanRecording = log.recordingUrl || log.recording || log.audioUrl || '';
-      if (isMissed || durSecs === 0 || cleanRecording.includes('soundhelix.com') || cleanRecording.includes('[no audio]')) {
-        cleanRecording = '';
-      }
-
       const persistentSeqId = `CALL-${String(seqIdx + 1).padStart(4, '0')}`;
+      const resolvedCallType = isMissed ? 'MISSED' : (log.type && log.type !== 'MISSED' ? log.type : (log.callType && log.callType !== 'MISSED' ? log.callType : 'INCOMING'));
 
       return {
         id: log.id || persistentSeqId,
@@ -473,7 +493,8 @@ export default function TelecallingView({
         phone: custPhone,
         channel: channelDisplay,
         simSlot: simSlotText,
-        type: isMissed ? 'MISSED' : (log.type || log.callType || 'OUTGOING'),
+        type: resolvedCallType,
+        callType: resolvedCallType,
         duration: formattedDur,
         recording: cleanRecording,
         recordingUrl: cleanRecording,
