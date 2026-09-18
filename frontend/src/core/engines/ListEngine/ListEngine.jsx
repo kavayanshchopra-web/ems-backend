@@ -294,11 +294,61 @@ export default function ListEngine({
   const startIdx = (validCurrentPage - 1) * pageSize;
   const paginatedRecords = safeRecords.slice(startIdx, startIdx + pageSize);
 
+  const employeesList = React.useMemo(() => {
+    const rawList = Array.isArray(systemDropdowns?.employees) ? systemDropdowns.employees : [];
+    const unique = new Map();
+    rawList.forEach(e => {
+      if (!e) return;
+      let name = '';
+      let id = e.id || '';
+      if (typeof e === 'string') {
+        name = e.trim();
+        id = name;
+      } else {
+        name = `${e.first_name || e.firstName || e.name || ''} ${e.last_name || e.lastName || ''}`.trim();
+        if (!name && e.email) name = e.email;
+      }
+      if (name && name.toLowerCase() !== 'undefined' && name.toLowerCase() !== 'null') {
+        if (!unique.has(name)) {
+          unique.set(name, { id: id || name, name, role: e.role || e.designation || '' });
+        }
+      }
+    });
+    return Array.from(unique.values());
+  }, [systemDropdowns?.employees]);
+
+  const handleAssignedToChange = (recId, newAssignedVal) => {
+    if (typeof setRecords === 'function') {
+      setRecords(prev => {
+        const list = Array.isArray(prev) ? prev : records;
+        return list.map(r => {
+          if (String(r.id) === String(recId) || String(r.displayId) === String(recId)) {
+            return {
+              ...r,
+              assignedTo: newAssignedVal,
+              assigned_to: newAssignedVal,
+              agentName: newAssignedVal,
+              updatedAt: new Date().toISOString()
+            };
+          }
+          return r;
+        });
+      });
+      if (typeof showToast === 'function') {
+        showToast(`Assigned lead to ${newAssignedVal || 'Unassigned'}`, 'success');
+      }
+    }
+  };
+
+  const isAllPaginatedSelected = paginatedRecords.length > 0 && paginatedRecords.every(r => (selectedIds || []).includes(r.id));
+
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedIds(paginatedRecords.filter(r => !!r && r.id !== undefined).map(r => r.id));
+      const pageIds = paginatedRecords.filter(r => !!r && r.id !== undefined).map(r => r.id);
+      setSelectedIds(Array.from(new Set([...(selectedIds || []), ...pageIds])));
     } else {
-      setSelectedIds([]);
+      const pageIdSet = new Set(paginatedRecords.map(r => r.id));
+      setSelectedIds((selectedIds || []).filter(id => !pageIdSet.has(id)));
     }
   };
 
@@ -725,6 +775,52 @@ export default function ListEngine({
                     }}
                   >
                     {rawNotes}
+                  </span>
+                )}
+              </td>
+            );
+          }
+
+          {/* ASSIGNED AGENT / STAFF COLUMN (COMPACT DROPDOWN FOR MANAGERS/OWNERS, CLEAN TEXT FOR STAFF, NO AVATAR BADGE) */}
+          if (col.id === 'assignedTo' || col.fieldKey === 'assignedTo' || col.id === 'agentName' || col.fieldKey === 'agentName') {
+            const assignedVal = getValString(record.assignedTo || record.assigned_to || record.agentName || record.agent || '').trim();
+            const hasMatchingOption = employeesList.some(e => e.name === assignedVal);
+
+            return (
+              <td key={col.id} style={{ padding: '6px 12px', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                {!isArchivedView && canManage && employeesList.length > 0 ? (
+                  <select
+                    value={assignedVal}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      handleAssignedToChange(record.id, e.target.value);
+                    }}
+                    style={{
+                      padding: '3px 8px',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      borderRadius: '5px',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      color: '#0f172a',
+                      cursor: 'pointer',
+                      height: '26px',
+                      maxWidth: '160px'
+                    }}
+                  >
+                    <option value="">Unassigned</option>
+                    {!hasMatchingOption && assignedVal ? (
+                      <option value={assignedVal}>{assignedVal}</option>
+                    ) : null}
+                    {employeesList.map(emp => (
+                      <option key={emp.id || emp.name} value={emp.name}>
+                        {emp.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span style={{ fontSize: '11.5px', color: assignedVal ? '#334155' : '#94a3b8', fontWeight: '600' }}>
+                    {assignedVal || '—'}
                   </span>
                 )}
               </td>
@@ -1235,7 +1331,7 @@ export default function ListEngine({
                   <th style={{ padding: '8px 10px', width: '38px', minWidth: '38px', maxWidth: '38px', textAlign: 'center', background: '#f8fafc', position: 'sticky', top: 0, zIndex: 20 }}>
                     <input
                       type="checkbox"
-                      checked={paginatedRecords.length > 0 && selectedIds.length === paginatedRecords.length}
+                      checked={Boolean(isAllPaginatedSelected)}
                       onChange={handleSelectAll}
                       style={{ accentColor: isArchivedView ? '#f59e0b' : '#0d9488', cursor: 'pointer', width: '15px', height: '15px' }}
                     />

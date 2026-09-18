@@ -46,18 +46,56 @@ export default function ContactsPage({
   const userEmpId = String(authUser?.employeeId || authUser?.id || '').toLowerCase().trim();
   const userEmail = String(authUser?.email || '').toLowerCase().trim();
   const userName = String(authUser?.name || authUser?.fullName || '').toLowerCase().trim();
-  const isOwnerOrAdmin = ['superadmin', 'super_admin', 'owner', 'admin', 'company_admin', 'manager'].includes(userRole);
+  const isSuperOrAdmin = ['superadmin', 'super_admin', 'owner', 'company_admin', 'admin'].includes(userRole);
+  const isManager = userRole === 'manager' || userRole.includes('manager');
+
+  const [companyEmployees, setCompanyEmployees] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadEmployees = async () => {
+      try {
+        const emps = await SupabaseSandboxService.fetchEmployees(numericCompanyId);
+        if (isMounted && Array.isArray(emps) && emps.length > 0) {
+          setCompanyEmployees(emps);
+        }
+      } catch (e) {
+        console.warn('[ContactsPage] Failed to fetch employees for dropdown:', e);
+      }
+    };
+    loadEmployees();
+    return () => { isMounted = false; };
+  }, [numericCompanyId]);
+
+  const enhancedSystemDropdowns = useMemo(() => {
+    return {
+      ...(systemDropdowns || {}),
+      employees: (companyEmployees && companyEmployees.length > 0)
+        ? companyEmployees
+        : (systemDropdowns?.employees || [])
+    };
+  }, [systemDropdowns, companyEmployees]);
 
   const isContactVisibleToUser = (r) => {
     if (!r) return false;
     const itemTenant = String(r.tenant_id ?? r.tenantId ?? '');
     if (itemTenant && itemTenant !== companyId) return false;
 
-    // Owners, Admins, Managers have full visibility of all company contacts
-    if (isOwnerOrAdmin) return true;
+    // Owners and SuperAdmins have full visibility of all company contacts
+    if (isSuperOrAdmin) return true;
 
-    // Employees strictly see assigned contacts only
     const assignedVal = String(r.assigned_to || r.assignedTo || r.employee || r.agent || '').toLowerCase().trim();
+
+    // Managers see leads assigned to them, or leads with their name/id, or unassigned/manager-defaulted leads
+    if (isManager) {
+      if (!assignedVal || assignedVal === 'unassigned' || assignedVal === 'manager' || assignedVal.includes('manager')) return true;
+      if (userEmpId && (assignedVal === userEmpId || assignedVal.includes(userEmpId))) return true;
+      if (userEmail && assignedVal === userEmail) return true;
+      if (userName && (assignedVal === userName || assignedVal.includes(userName) || userName.includes(assignedVal))) return true;
+      return false;
+    }
+
+    // Employees strictly see assigned contacts only (their name, email, or employee ID)
     if (assignedVal) {
       if (userEmpId && (assignedVal === userEmpId || assignedVal.includes(userEmpId))) return true;
       if (userEmail && assignedVal === userEmail) return true;
@@ -184,6 +222,15 @@ export default function ContactsPage({
         rawNotes = '';
       }
 
+      // Default assignment: Company Manager first
+      const managerEmp = (companyEmployees || []).find(e => {
+        const r = String(e.role || '').toLowerCase();
+        const d = String(e.designation || '').toLowerCase();
+        return r.includes('manager') || d.includes('manager');
+      }) || (companyEmployees?.[0]);
+
+      const defaultManagerName = managerEmp ? (managerEmp.name || `${managerEmp.first_name || ''} ${managerEmp.last_name || ''}`.trim()) : (authUser?.name || 'Manager');
+
       const cleanRec = {
         id: rawId || `CON-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         name: rawName,
@@ -192,7 +239,7 @@ export default function ContactsPage({
         tags: Array.isArray(d.tags) ? d.tags.join(', ') : (d.tags || d.labels ? (Array.isArray(d.labels) ? d.labels.join(', ') : String(d.labels)) : ''),
         status: d.status || d.stage || d.pipelineStage || 'New Leads',
         source: resolvedSource,
-        assignedTo: d.assignedTo || d.agentName || authUser?.name || 'Staff 1',
+        assignedTo: d.assignedTo || d.agentName || defaultManagerName,
         ghlContactId: extractedGhlId,
         notes: rawNotes,
         createdAt: d.createdAt || d._createdAt || d.lastMessageTime || new Date().toISOString(),
@@ -503,7 +550,7 @@ export default function ContactsPage({
         records={internalRecords}
         setRecords={handleUpdateRecords}
         authUser={authUser}
-        systemDropdowns={systemDropdowns}
+        systemDropdowns={enhancedSystemDropdowns}
         activePipelineStages={activePipelineStages}
         recycleBinItems={recycleBinItems}
         handleRestoreBinItem={handleRestoreBinItem}

@@ -94,6 +94,19 @@ export default function ActionEngine({
       }
     }
 
+    // Default assigned agent to Manager if empty
+    if (isCrmModule && !normalizedData.assignedTo) {
+      const emps = Array.isArray(systemDropdowns?.employees) ? systemDropdowns.employees : [];
+      const manager = emps.find(e => {
+        const r = String(e.role || '').toLowerCase();
+        const d = String(e.designation || '').toLowerCase();
+        return r.includes('manager') || d.includes('manager');
+      }) || emps[0];
+      if (manager) {
+        normalizedData.assignedTo = manager.name || `${manager.first_name || ''} ${manager.last_name || ''}`.trim();
+      }
+    }
+
     // DIRECT SUPABASE POSTGRESQL FOR SANDBOX ENVIRONMENT
     if (isSandboxEnvironment()) {
       const numericTenantId = Number(activeTenantId) || 1;

@@ -63,7 +63,7 @@ export const CONTACTS_MANIFEST = {
     { id: 'tags', label: 'Tags / Labels', type: 'text', systemField: true, required: false, searchable: true, filterable: true, sortable: false, showOnCreate: true, showOnEdit: true, showOnView: true, placeholder: 'e.g. High Value, Facebook Ad, New Lead' },
     { id: 'status', label: 'Lead Stage', type: 'dropdown', optionsSource: 'crm_stages', systemField: true, required: true, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true },
     { id: 'source', label: 'Lead Source', type: 'dropdown', options: ['GoHighLevel', 'WhatsApp Inbound', 'SIM Dialer', 'Manual Entry', 'Website'], systemField: true, required: false, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true },
-    { id: 'assignedTo', label: 'Assigned Agent', type: 'text', systemField: true, required: false, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, placeholder: 'e.g. Staff 1' },
+    { id: 'assignedTo', label: 'Assigned Agent', type: 'dropdown', optionsSource: 'employees', systemField: true, required: false, searchable: true, filterable: true, sortable: true, showOnCreate: true, showOnEdit: true, showOnView: true, placeholder: 'Select assigned agent' },
     { id: 'notes', label: 'Contact Notes', type: 'textarea', systemField: true, required: false, searchable: true, filterable: false, sortable: false, showOnCreate: true, showOnEdit: true, showOnView: true, placeholder: 'e.g. Client interested in CRM Enterprise plan' }
   ],
   

@@ -57,6 +57,13 @@ export default function BulkActionEngine({
     showToast(`Selected ${combined.length} visible ${entityNamePlural.toLowerCase()}`, 'info');
   };
 
+  // 1B. SELECT ALL (Across All Pages)
+  const handleSelectAllTotal = () => {
+    const allIds = (records || []).filter(r => !!r && r.id !== undefined).map(r => r.id);
+    setSelectedIds(allIds);
+    showToast(`Selected all ${allIds.length} ${entityNamePlural.toLowerCase()} across all pages`, 'success');
+  };
+
   // 2. DESELECT ALL
   const handleDeselectAll = () => {
     setSelectedIds([]);
@@ -247,7 +254,11 @@ export default function BulkActionEngine({
             }}
           >
             <CheckSquare size={13} />
-            <span>☑ {selectedCount} Selected</span>
+            <span>
+              {records && selectedCount === records.length
+                ? `☑ All ${selectedCount} Selected`
+                : `☑ ${selectedCount} Selected`}
+            </span>
           </div>
 
           {bulkConfig.selectAll && visibleRecords.length > selectedCount && (
@@ -257,6 +268,37 @@ export default function BulkActionEngine({
               style={{ border: 'none', background: 'transparent', color: '#94a3b8', fontSize: '11px', fontWeight: '700', cursor: 'pointer', textDecoration: 'underline' }}
             >
               Select All Visible ({visibleRecords.length})
+            </button>
+          )}
+
+          {bulkConfig.selectAll && records && records.length > selectedCount && (
+            <button
+              type="button"
+              onClick={handleSelectAllTotal}
+              style={{
+                border: '1px solid rgba(13, 148, 136, 0.4)',
+                background: 'rgba(13, 148, 136, 0.15)',
+                color: '#2dd4bf',
+                padding: '3px 9px',
+                borderRadius: '5px',
+                fontSize: '11px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(13, 148, 136, 0.3)';
+                e.currentTarget.style.borderColor = '#0d9488';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(13, 148, 136, 0.15)';
+                e.currentTarget.style.borderColor = 'rgba(13, 148, 136, 0.4)';
+              }}
+            >
+              <span>⚡ Select all {records.length} {entityNamePlural.toLowerCase()} across all pages</span>
             </button>
           )}
 
