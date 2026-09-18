@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Phone, Users, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw, Edit3, Settings, Play, Power, ExternalLink, Search, X, Save, Smartphone, Cloud, Info, FolderCheck, Folder, AlertTriangle, Check, Shield } from 'lucide-react';
+import { Phone, Users, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw, Edit3, Settings, Play, Power, ExternalLink, Search, X, Save, Smartphone, Cloud, Info, FolderCheck, Folder, AlertTriangle, Check, Shield, Mic, MicOff } from 'lucide-react';
 import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
 
 export default function SuperAdminTelephonyHub({ showToast }) {
@@ -592,7 +592,8 @@ export default function SuperAdminTelephonyHub({ showToast }) {
                 <th style={{ padding: '10px 14px' }}>Tenant / Company</th>
                 <th style={{ padding: '10px 14px' }}>Telecaller Agent</th>
                 <th style={{ padding: '10px 14px' }}>Hardware Model</th>
-                <th style={{ padding: '10px 14px' }}>Folder Selection Status</th>
+                <th style={{ padding: '10px 14px' }}>Folder Selection</th>
+                <th style={{ padding: '10px 14px' }}>Auto-Recording Status</th>
                 <th style={{ padding: '10px 14px' }}>Storage Permission</th>
                 <th style={{ padding: '10px 14px' }}>Last Telemetry Seen</th>
               </tr>
@@ -600,7 +601,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
             <tbody>
               {allDevices.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
+                  <td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
                     {loadingDevices ? 'Querying cross-tenant device telemetry...' : 'No telecalling companion devices active yet. Once agents open the mobile app and link folders, device telemetry will appear here in real time.'}
                   </td>
                 </tr>
@@ -650,7 +651,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
                                 <FolderCheck size={12} /> Folder Linked ✓
                               </span>
                               {device.folder_uri && (
-                                <span style={{ fontSize: '10px', color: '#059669', fontFamily: 'monospace', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={device.folder_uri}>
+                                <span style={{ fontSize: '10px', color: '#059669', fontFamily: 'monospace', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={device.folder_uri}>
                                   {device.folder_uri}
                                 </span>
                               )}
@@ -662,6 +663,35 @@ export default function SuperAdminTelephonyHub({ showToast }) {
                               </span>
                               <span style={{ fontSize: '10px', color: '#b45309' }}>
                                 Telecaller needs to tap "Link Folder" in mobile app
+                              </span>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* EXPLICIT CALL RECORDING ON / OFF STATUS */}
+                        <td style={{ padding: '10px 14px' }}>
+                          {device.compliance_status === 'RECORDING_OFF_WARNING' ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <span style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '4px', width: 'fit-content' }}>
+                                <MicOff size={12} /> 🔴 Recording OFF (In Phone)
+                              </span>
+                              <span style={{ fontSize: '10px', color: '#dc2626' }}>
+                                Turn ON "Auto record calls" in phone dialer settings
+                              </span>
+                            </div>
+                          ) : isLinked ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <span style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '4px', width: 'fit-content' }}>
+                                <Mic size={12} /> 🟢 Auto-Recording ON (Active)
+                              </span>
+                              <span style={{ fontSize: '10px', color: '#15803d' }}>
+                                HD Audio auto-capturing to CRM
+                              </span>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <span style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '4px', width: 'fit-content' }}>
+                                <MicOff size={12} /> ⚠️ Standby (Folder Missing)
                               </span>
                             </div>
                           )}
