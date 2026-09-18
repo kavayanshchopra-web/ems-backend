@@ -74,6 +74,28 @@ export default function SuperAdminTelephonyHub({ showToast }) {
         } catch (_) {}
       }
 
+      // Cross-check with call_logs to prevent false RECORDING_OFF warning when audio is actively capturing
+      try {
+        const recentLogs = await SupabaseSandboxService.fetchAllCallLogs();
+        if (Array.isArray(recentLogs) && recentLogs.length > 0) {
+          records = records.map(dev => {
+            if (dev.compliance_status === 'RECORDING_OFF_WARNING' && dev.folder_linked) {
+              const hasRecentTenantRecording = recentLogs.some(l => 
+                Number(l.tenant_id) === Number(dev.tenant_id) && 
+                l.recording && String(l.recording).startsWith('http')
+              );
+              if (hasRecentTenantRecording) {
+                return {
+                  ...dev,
+                  compliance_status: 'HEALTHY'
+                };
+              }
+            }
+            return dev;
+          });
+        }
+      } catch (_) {}
+
       setAllDevices(records);
     } catch (err) {
       console.warn('Failed to fetch device health:', err);

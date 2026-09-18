@@ -430,8 +430,8 @@ public class SupabaseSyncEngine {
                         updatePayload.put("channel", "SIM (" + simSlot + ")");
                     }
 
-                    // Try PATCH by call_id
-                    URL patchUrl = new URL(SUPABASE_REST_URL + "/call_logs?call_id=eq." + actualCallId + "&tenant_id=eq." + dynamicTenantId);
+                    // Try PATCH by call_id first
+                    URL patchUrl = new URL(SUPABASE_REST_URL + "/call_logs?call_id=eq." + java.net.URLEncoder.encode(actualCallId, "UTF-8") + "&tenant_id=eq." + dynamicTenantId);
                     HttpURLConnection patchConn = (HttpURLConnection) patchUrl.openConnection();
                     patchConn.setRequestMethod("PATCH");
                     patchConn.setRequestProperty("apikey", SUPABASE_KEY);
@@ -461,11 +461,11 @@ public class SupabaseSyncEngine {
                     }
                     patchConn.disconnect();
 
-                    // If not found to PATCH by call_id (e.g. slight timestamp discrepancy), find ID of recent call for this phone and PATCH by ID!
+                    // If not found to PATCH by call_id (e.g. timestamp discrepancy), find ID of recent call for this phone and PATCH by primary key ID!
                     if (!patched) {
                         try {
-                            String encPhone = java.net.URLEncoder.encode(targetPhone, "UTF-8");
-                            URL getRecentUrl = new URL(SUPABASE_REST_URL + "/call_logs?customer_phone=eq." + encPhone + "&tenant_id=eq." + dynamicTenantId + "&order=id.desc&limit=1&select=id");
+                            // Match by phone containing last 10 digits across all variations (+91, without +91, spaces)
+                            URL getRecentUrl = new URL(SUPABASE_REST_URL + "/call_logs?customer_phone=ilike.*" + norm10 + "*&tenant_id=eq." + dynamicTenantId + "&order=created_at.desc&limit=1&select=id");
                             HttpURLConnection getConn = (HttpURLConnection) getRecentUrl.openConnection();
                             getConn.setRequestMethod("GET");
                             getConn.setRequestProperty("apikey", SUPABASE_KEY);

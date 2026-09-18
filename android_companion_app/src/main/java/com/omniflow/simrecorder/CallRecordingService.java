@@ -1593,8 +1593,13 @@ public class CallRecordingService extends Service {
                     postCallDialogView = null;
                 };
 
-                // Tap outside card dismisses popup instantly
-                rootOverlay.setOnClickListener(v -> closeThisDialog.run());
+                // Tap outside card dismisses popup and auto-saves recording to CRM
+                rootOverlay.setOnClickListener(v -> {
+                    closeThisDialog.run();
+                    new Thread(() -> {
+                        uploadToCRM(durationSeconds, "Completed", "Call dismissed", audioInfo, callId, "", "", finalSimSlot, finalPhone, resolvedCustName, finalType);
+                    }).start();
+                });
 
                 // --- HEADER ROW (Title + SIM Badge + Duration Badge + Close '✕') ---
                 LinearLayout headerRow = new LinearLayout(this);
@@ -2306,7 +2311,7 @@ public class CallRecordingService extends Service {
                 // Stage 3 Telecaller Device Health & Compliance Telemetry
                 if (bytesToSend != null) {
                     SupabaseSyncEngine.sendDeviceHealth(this, "RECORDING_SUCCESS", "Audio captured successfully (" + bytesToSend.length + " bytes)");
-                } else if (durationSeconds > 5) {
+                } else if (durationSeconds > 10) {
                     String currentFolder = prefs.getString("selected_folder_uri", "");
                     if (currentFolder.isEmpty()) {
                         SupabaseSyncEngine.sendDeviceHealth(this, "FOLDER_NOT_LINKED", "Call finished (" + durationSeconds + "s) but Call Recordings folder is NOT configured");

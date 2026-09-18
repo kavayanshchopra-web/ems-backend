@@ -929,8 +929,37 @@ export const SupabaseSandboxService = {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      return (Array.isArray(data) ? data : []).map(log => {
-        const hasRecording = !!(log.recording_url && String(log.recording_url).startsWith('http') && !log.recording_url.includes('soundhelix.com'));
+      const rawLogs = Array.isArray(data) ? data : [];
+
+      // Check if any recent logs are missing recording_url
+      const logsNeedingAudio = rawLogs.filter(l => {
+        const hasRec = !!(l.recording_url && String(l.recording_url).startsWith('http') && !l.recording_url.includes('soundhelix.com'));
+        const dur = Number(l.duration_seconds || 0);
+        return !hasRec && dur > 0;
+      });
+
+      let storageFiles = [];
+      if (logsNeedingAudio.length > 0) {
+        try {
+          const sRes = await fetch(`${SUPABASE_STORAGE_URL}/object/list/${STORAGE_BUCKET}`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({
+              prefix: `tenants/${Number(tenantId)}/calls`,
+              limit: 100,
+              sortBy: { column: 'name', order: 'desc' }
+            })
+          });
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            if (Array.isArray(sData)) storageFiles = sData;
+          }
+        } catch (_) {}
+      }
+
+      return rawLogs.map(log => {
+        let recUrl = log.recording_url || '';
+        let hasRecording = !!(recUrl && String(recUrl).startsWith('http') && !recUrl.includes('soundhelix.com'));
         let durSec = Number(log.duration_seconds || 0);
         if (!durSec && typeof log.duration === 'string') {
           const parts = log.duration.split(':');
@@ -938,13 +967,42 @@ export const SupabaseSandboxService = {
             durSec = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
           }
         }
+
+        // Auto-heal recording from Supabase storage if file is uploaded but DB column was unlinked
+        if (!hasRecording && storageFiles.length > 0) {
+          const cleanP = String(log.customer_phone || log.phone || '').replace(/\D/g, '');
+          const norm10 = cleanP.length >= 10 ? cleanP.slice(-10) : cleanP;
+          if (norm10.length >= 7) {
+            const matchedFile = storageFiles.find(f => f.name && f.name.includes(norm10));
+            if (matchedFile) {
+              recUrl = `${SUPABASE_STORAGE_URL}/object/public/${STORAGE_BUCKET}/tenants/${Number(tenantId)}/calls/${matchedFile.name}`;
+              hasRecording = true;
+              log.recording_url = recUrl;
+              log.recording_status = 'COMPLIANT';
+
+              // Persist link to DB asynchronously so it's permanently linked
+              fetch(`${SUPABASE_URL}/call_logs?id=eq.${log.id}`, {
+                method: 'PATCH',
+                headers: getHeaders(),
+                body: JSON.stringify({
+                  recording_url: recUrl,
+                  recording_status: 'COMPLIANT',
+                  disposition: (String(log.disposition || '').toLowerCase() === 'pending' || !log.disposition) ? 'Interested' : log.disposition
+                })
+              }).catch(() => {});
+            }
+          }
+        }
+
         const rawType = log.call_type || log.type || 'OUTGOING';
         let resolvedType = rawType;
         if ((hasRecording || durSec > 0) && String(rawType).toUpperCase() === 'MISSED') {
           const text = (String(log.notes || '') + ' ' + String(log.call_id || '')).toUpperCase();
           resolvedType = (text.includes('INCOMING') || text.includes('INBOUND')) ? 'INCOMING' : 'OUTGOING';
         }
-        const rawDisp = log.disposition || log.status || 'Interested';
+        const rawDisp = (String(log.disposition || '').toLowerCase() === 'pending' && hasRecording) 
+          ? 'Interested' 
+          : (log.disposition || log.status || 'Interested');
         const resolvedDisp = (hasRecording || durSec > 0) && String(rawDisp).toUpperCase() === 'MISSED CALL' ? 'Interested' : rawDisp;
 
         return {
@@ -966,8 +1024,8 @@ export const SupabaseSandboxService = {
           callType: resolvedType,
           duration: log.duration && log.duration !== '00:00' ? log.duration : (durSec > 0 ? `${Math.floor(durSec / 60)}:${String(durSec % 60).padStart(2, '0')}` : (log.duration || '00:00')),
           durationSeconds: durSec,
-          recording: log.recording_url || '',
-          recordingUrl: log.recording_url || '',
+          recording: recUrl,
+          recordingUrl: recUrl,
           status: resolvedDisp,
           disposition: resolvedDisp,
           notes: log.notes || '',
@@ -992,8 +1050,40 @@ export const SupabaseSandboxService = {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      return (Array.isArray(data) ? data : []).map(log => {
-        const hasRecording = !!(log.recording_url && String(log.recording_url).startsWith('http') && !log.recording_url.includes('soundhelix.com'));
+      const rawLogs = Array.isArray(data) ? data : [];
+
+      // Check if any recent logs are missing recording_url
+      const logsNeedingAudio = rawLogs.filter(l => {
+        const hasRec = !!(l.recording_url && String(l.recording_url).startsWith('http') && !l.recording_url.includes('soundhelix.com'));
+        const dur = Number(l.duration_seconds || 0);
+        return !hasRec && dur > 0;
+      });
+
+      let storageFilesByTenant = {};
+      if (logsNeedingAudio.length > 0) {
+        const distinctTenants = [...new Set(logsNeedingAudio.map(l => l.tenant_id).filter(Boolean))];
+        await Promise.all(distinctTenants.map(async (tId) => {
+          try {
+            const sRes = await fetch(`${SUPABASE_STORAGE_URL}/object/list/${STORAGE_BUCKET}`, {
+              method: 'POST',
+              headers: getHeaders(),
+              body: JSON.stringify({
+                prefix: `tenants/${tId}/calls`,
+                limit: 100,
+                sortBy: { column: 'name', order: 'desc' }
+              })
+            });
+            if (sRes.ok) {
+              const sData = await sRes.json();
+              if (Array.isArray(sData)) storageFilesByTenant[tId] = sData;
+            }
+          } catch (_) {}
+        }));
+      }
+
+      return rawLogs.map(log => {
+        let recUrl = log.recording_url || '';
+        let hasRecording = !!(recUrl && String(recUrl).startsWith('http') && !recUrl.includes('soundhelix.com'));
         let durSec = Number(log.duration_seconds || 0);
         if (!durSec && typeof log.duration === 'string') {
           const parts = log.duration.split(':');
@@ -1001,13 +1091,42 @@ export const SupabaseSandboxService = {
             durSec = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
           }
         }
+
+        // Auto-heal recording from Supabase storage if file is uploaded but DB column was unlinked
+        const tFiles = storageFilesByTenant[log.tenant_id] || [];
+        if (!hasRecording && tFiles.length > 0) {
+          const cleanP = String(log.customer_phone || log.phone || '').replace(/\D/g, '');
+          const norm10 = cleanP.length >= 10 ? cleanP.slice(-10) : cleanP;
+          if (norm10.length >= 7) {
+            const matchedFile = tFiles.find(f => f.name && f.name.includes(norm10));
+            if (matchedFile) {
+              recUrl = `${SUPABASE_STORAGE_URL}/object/public/${STORAGE_BUCKET}/tenants/${log.tenant_id}/calls/${matchedFile.name}`;
+              hasRecording = true;
+              log.recording_url = recUrl;
+              log.recording_status = 'COMPLIANT';
+
+              fetch(`${SUPABASE_URL}/call_logs?id=eq.${log.id}`, {
+                method: 'PATCH',
+                headers: getHeaders(),
+                body: JSON.stringify({
+                  recording_url: recUrl,
+                  recording_status: 'COMPLIANT',
+                  disposition: (String(log.disposition || '').toLowerCase() === 'pending' || !log.disposition) ? 'Interested' : log.disposition
+                })
+              }).catch(() => {});
+            }
+          }
+        }
+
         const rawType = log.call_type || log.type || 'OUTGOING';
         let resolvedType = rawType;
         if ((hasRecording || durSec > 0) && String(rawType).toUpperCase() === 'MISSED') {
           const text = (String(log.notes || '') + ' ' + String(log.call_id || '')).toUpperCase();
           resolvedType = (text.includes('INCOMING') || text.includes('INBOUND')) ? 'INCOMING' : 'OUTGOING';
         }
-        const rawDisp = log.disposition || log.status || 'Interested';
+        const rawDisp = (String(log.disposition || '').toLowerCase() === 'pending' && hasRecording) 
+          ? 'Interested' 
+          : (log.disposition || log.status || 'Interested');
         const resolvedDisp = (hasRecording || durSec > 0) && String(rawDisp).toUpperCase() === 'MISSED CALL' ? 'Interested' : rawDisp;
 
         return {
@@ -1029,8 +1148,8 @@ export const SupabaseSandboxService = {
           callType: resolvedType,
           duration: log.duration && log.duration !== '00:00' ? log.duration : (durSec > 0 ? `${Math.floor(durSec / 60)}:${String(durSec % 60).padStart(2, '0')}` : '00:00'),
           durationSeconds: durSec,
-          recording: log.recording_url || '',
-          recordingUrl: log.recording_url || '',
+          recording: recUrl,
+          recordingUrl: recUrl,
           status: resolvedDisp,
           disposition: resolvedDisp,
           notes: log.notes || '',
