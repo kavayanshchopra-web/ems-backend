@@ -470,13 +470,43 @@ export default function ListEngine({
                   >
                     {(recordName[0] || 'R').toUpperCase()}
                   </div>
-                  <div style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                     <div
                       title={recordName}
                       style={{ fontWeight: '700', color: '#0f172a', fontSize: '12.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '175px' }}
                     >
                       {recordName}
                     </div>
+                    {/* Call Recording OFF Badge next to lead */}
+                    {Boolean(
+                      record.recording_status === 'RECORDING_OFF' ||
+                      record.recordingStatus === 'RECORDING_OFF' ||
+                      record.recording === 'RECORDING_OFF' ||
+                      record.recording_url === 'RECORDING_OFF' ||
+                      String(record.notes || '').toLowerCase().includes('recording was off') ||
+                      String(record.notes || '').toLowerCase().includes('recording may be off') ||
+                      String(record.notes || '').toLowerCase().includes('recording off')
+                    ) && (
+                      <span
+                        style={{
+                          fontSize: '9px',
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          background: '#fef2f2',
+                          color: '#dc2626',
+                          fontWeight: '800',
+                          border: '1px solid #fecaca',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          flexShrink: 0
+                        }}
+                        title="Telecaller phone Auto-Recording was OFF during this call"
+                      >
+                        <span style={{ display: 'inline-block', width: '4px', height: '4px', borderRadius: '50%', background: '#dc2626' }} />
+                        REC OFF
+                      </span>
+                    )}
                     {(record.isDuplicate || record.isCopy || String(record.id).includes('_copy_') || recordName.includes('(Copy')) && (
                       <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '4px', background: '#dbeafe', color: '#1d4ed8', fontWeight: '800', border: '1px solid #bfdbfe', textTransform: 'uppercase', letterSpacing: '0.2px', flexShrink: 0 }}>
                         COPY
@@ -638,12 +668,18 @@ export default function ListEngine({
 
           {/* AUDIO RECORDING COLUMN SPECIFIC OVERRIDE */}
           if (col.id === 'recording' || col.fieldKey === 'recording') {
-            const recUrl = getValString(record.recording || record.recordingUrl || record.audioUrl).trim();
+            const recUrl = getValString(record.recording || record.recordingUrl || record.audioUrl || record.recording_url).trim();
             const hasValidRec = recUrl && recUrl.startsWith('http') && !recUrl.includes('soundhelix.com');
             const isMissedCall = String(record.type || record.callType || '').toUpperCase() === 'MISSED' || 
                                  String(record.status || record.disposition || '').toUpperCase() === 'MISSED CALL';
             const callTime = Number(record._createdAt || (record.created_at ? new Date(record.created_at).getTime() : 0)) || 0;
             const isRecentCall = callTime > 0 && (Date.now() - callTime < 300000); // within last 5 minutes
+            const isRecordingOff = recUrl === 'RECORDING_OFF' || 
+                                   String(record.recording_status || record.recordingStatus || '').toUpperCase() === 'RECORDING_OFF' ||
+                                   String(record.notes || '').toLowerCase().includes('recording was off') ||
+                                   String(record.notes || '').toLowerCase().includes('recording may be off') ||
+                                   String(record.notes || '').toLowerCase().includes('recording is off') ||
+                                   String(record.notes || '').toLowerCase().includes('recording off');
 
             if (hasValidRec) {
               return (
@@ -660,7 +696,20 @@ export default function ListEngine({
               );
             }
 
-            if (!isMissedCall && isRecentCall) {
+            if (isRecordingOff) {
+              return (
+                <td key={col.id} style={{ padding: '6px 12px', borderBottom: '1px solid #e2e8f0' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', padding: '3px 8px', borderRadius: '6px', fontWeight: '800' }} title="Native call recording was OFF in telecaller phone dialer settings. No audio file was captured.">
+                    <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#dc2626' }} />
+                    ⚠️ Recording OFF (No Audio)
+                  </span>
+                </td>
+              );
+            }
+
+            const isPendingSync = !isMissedCall && isRecentCall && (String(record.disposition || '').toLowerCase() === 'pending' || !record.disposition);
+
+            if (isPendingSync) {
               return (
                 <td key={col.id} style={{ padding: '6px 12px', borderBottom: '1px solid #e2e8f0' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', color: '#0d9488', background: 'rgba(13, 148, 136, 0.08)', border: '1px solid rgba(13, 148, 136, 0.25)', padding: '2px 8px', borderRadius: '10px', fontWeight: '700' }}>
@@ -682,8 +731,10 @@ export default function ListEngine({
             }
 
             return (
-              <td key={col.id} style={{ padding: '6px 12px', fontSize: '11.5px', color: '#94a3b8', borderBottom: '1px solid #e2e8f0' }}>
-                <span style={{ fontWeight: '600' }}>—</span>
+              <td key={col.id} style={{ padding: '6px 12px', fontSize: '11.5px', borderBottom: '1px solid #e2e8f0' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10.5px', fontWeight: '700', color: '#dc2626', background: '#fef2f2', padding: '2px 6px', borderRadius: '4px', border: '1px solid #fecaca' }}>
+                  ⚠️ No Recording
+                </span>
               </td>
             );
           }
