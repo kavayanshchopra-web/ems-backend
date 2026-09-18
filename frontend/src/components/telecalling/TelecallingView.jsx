@@ -3,7 +3,21 @@ import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
 import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
 import VoxbayCloudDialerModal from './VoxbayCloudDialerModal';
-import { PhoneCall, Smartphone } from 'lucide-react';
+import { 
+  PhoneCall, 
+  Smartphone, 
+  ShieldAlert, 
+  ShieldCheck, 
+  CheckCircle2, 
+  AlertTriangle, 
+  ChevronDown, 
+  ChevronUp, 
+  RefreshCw, 
+  FolderCheck, 
+  FolderX, 
+  X,
+  Info
+} from 'lucide-react';
 import { db } from '../../firebase';
 import { collection, onSnapshot, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { GhlOAuthService } from '../../core/services/ghlOAuthService';
@@ -65,6 +79,74 @@ export default function TelecallingView({
   const [dispositionOverrides, setDispositionOverrides] = useState(() => {
     return TenantStorage.getItem('telecalling_dispositions', companyId, {});
   });
+
+  // Telecaller Companion Device Health & Folder Link Monitoring
+  const [deviceHealthList, setDeviceHealthList] = useState([]);
+  const [loadingDevices, setLoadingDevices] = useState(false);
+  const [showHealthPanel, setShowHealthPanel] = useState(false);
+
+  const fetchDeviceHealth = async () => {
+    setLoadingDevices(true);
+    try {
+      let records = [];
+      try {
+        const healthRecords = await SupabaseSandboxService.fetchUniversalRecords('telecalling_device_health', companyId);
+        if (Array.isArray(healthRecords) && healthRecords.length > 0) {
+          records = healthRecords;
+        }
+      } catch (e) {}
+
+      // Fallback/enrich from audit_logs with DEVICE_COMPLIANCE_ALERT
+      if (records.length === 0) {
+        try {
+          const auditRecords = await SupabaseSandboxService.fetchUniversalRecords('audit_logs', companyId);
+          if (Array.isArray(auditRecords)) {
+            const alerts = auditRecords.filter(a => a.action === 'DEVICE_COMPLIANCE_ALERT' || a.action?.includes('COMPLIANCE'));
+            records = alerts.map(a => {
+              const d = typeof a.details === 'object' ? a.details : {};
+              return {
+                id: a.id,
+                tenant_id: a.tenant_id,
+                agent_id: a.user_id,
+                agent_name: a.user_name || a.entity_id || 'Telecaller',
+                device_model: d.device_model || 'Android Phone',
+                folder_linked: d.folder_linked ?? false,
+                folder_uri: d.folder_uri || '',
+                compliance_status: d.compliance_status || 'FOLDER_NOT_LINKED',
+                last_seen: a.created_at,
+                details: d.notes || d.detail || ''
+              };
+            });
+          }
+        } catch (e) {}
+      }
+
+      // Deduplicate by agent_name or agent_id (taking newest)
+      const devMap = new Map();
+      records.forEach(r => {
+        const key = String(r.agent_id || r.agent_name || r.id).toLowerCase();
+        const existing = devMap.get(key);
+        if (!existing) {
+          devMap.set(key, r);
+        } else {
+          const tA = new Date(r.last_seen || r.updated_at || r.created_at || 0).getTime();
+          const tB = new Date(existing.last_seen || existing.updated_at || existing.created_at || 0).getTime();
+          if (tA > tB) devMap.set(key, r);
+        }
+      });
+      setDeviceHealthList(Array.from(devMap.values()));
+    } catch (err) {
+      console.warn('[Telecalling] Device health fetch notice:', err);
+    } finally {
+      setLoadingDevices(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDeviceHealth();
+    const interval = setInterval(fetchDeviceHealth, 30000);
+    return () => clearInterval(interval);
+  }, [companyId]);
 
   // Synchronize internal state whenever parent callLogs or companyId changes
   useEffect(() => {
@@ -795,34 +877,242 @@ export default function TelecallingView({
     };
   }, [config]);
 
+  const unlinkedCount = useMemo(() => {
+    return deviceHealthList.filter(d => !d.folder_linked || d.compliance_status === 'FOLDER_NOT_LINKED').length;
+  }, [deviceHealthList]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Telecaller Device Health & Call Recording Live Monitor Panel */}
+      {showHealthPanel && (isOwnerOrManager || isSuperAdmin) && (
+        <div style={{
+          background: '#ffffff',
+          borderBottom: '2px solid #e2e8f0',
+          padding: '16px 20px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+          zIndex: 10
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Smartphone size={18} color="#064e43" />
+              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+                Telecaller Companion App Health & Call Recording Status
+              </h3>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: '700',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                background: unlinkedCount > 0 ? '#fee2e2' : '#dcfce7',
+                color: unlinkedCount > 0 ? '#991b1b' : '#166534'
+              }}>
+                {unlinkedCount > 0 ? `⚠️ ${unlinkedCount} Require Setup` : `✅ All Ready (${deviceHealthList.length})`}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={fetchDeviceHealth}
+                disabled={loadingDevices}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  background: '#f1f5f9',
+                  border: '1px solid #cbd5e1',
+                  color: '#475569',
+                  fontSize: '11.5px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                <RefreshCw size={12} className={loadingDevices ? 'spin' : ''} />
+                <span>Refresh</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowHealthPanel(false)}
+                style={{
+                  padding: '5px',
+                  borderRadius: '6px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#94a3b8',
+                  cursor: 'pointer'
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+
+          {unlinkedCount > 0 && (
+            <div style={{
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              marginBottom: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}>
+              <AlertTriangle size={18} color="#dc2626" style={{ flexShrink: 0 }} />
+              <div style={{ fontSize: '12px', color: '#991b1b', lineHeight: 1.4 }}>
+                <strong>Attention:</strong> One or more telecallers have not selected their Call Recordings folder. Their calls will be logged, but voice audio recordings <strong>cannot</strong> sync to CRM until they open the OmniFlow app, tap the top <strong>"⚠️ Link Folder"</strong> badge, and select their recordings folder.
+              </div>
+            </div>
+          )}
+
+          {deviceHealthList.length === 0 ? (
+            <div style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: '12.5px', background: '#f8fafc', borderRadius: '8px' }}>
+              📱 No telecaller devices reporting yet. When employees log into the OmniFlow Android App, their real-time device health and recording status will appear here.
+            </div>
+          ) : (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+              gap: '12px',
+              maxHeight: '260px',
+              overflowY: 'auto'
+            }}>
+              {deviceHealthList.map(dev => {
+                const isLinked = dev.folder_linked;
+                const isWarn = dev.compliance_status === 'RECORDING_OFF_WARNING';
+                const modelStr = String(dev.device_model || 'Android Phone').toLowerCase();
+
+                let brandTip = '';
+                if (modelStr.includes('vivo') || modelStr.includes('iqoo')) {
+                  brandTip = '💡 Vivo tip: Enable "Alternate Phone and Contacts" in default apps settings for automatic recording.';
+                } else if (modelStr.includes('samsung')) {
+                  brandTip = '💡 Samsung tip: In Phone app > 3 dots > Settings > Record calls > Auto record calls = ON.';
+                } else if (modelStr.includes('xiaomi') || modelStr.includes('redmi')) {
+                  brandTip = '💡 Xiaomi tip: In Phone app > Settings > Call recording > Record calls automatically = ON.';
+                }
+
+                return (
+                  <div
+                    key={dev.id || dev.agent_id || dev.agent_name}
+                    style={{
+                      background: isLinked ? (isWarn ? '#fffbeb' : '#f8fafc') : '#fff5f5',
+                      border: `1px solid ${isLinked ? (isWarn ? '#fde68a' : '#e2e8f0') : '#fecaca'}`,
+                      borderRadius: '10px',
+                      padding: '12px 14px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <span style={{ fontWeight: '800', fontSize: '13px', color: '#0f172a' }}>
+                        {dev.agent_name || 'Telecaller'}
+                      </span>
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        background: isLinked ? (isWarn ? '#fef3c7' : '#dcfce7') : '#fee2e2',
+                        color: isLinked ? (isWarn ? '#92400e' : '#166534') : '#991b1b'
+                      }}>
+                        {!isLinked ? '🔴 Folder Unlinked' : (isWarn ? '⚠️ Recording Missing' : '🟢 Ready & Syncing')}
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '11.5px', color: '#475569', marginBottom: '4px' }}>
+                      📱 <strong>Device:</strong> {dev.device_model || 'Android'} {dev.os_version ? `(${dev.os_version})` : ''}
+                    </div>
+
+                    <div style={{ fontSize: '11.5px', color: '#475569', marginBottom: '6px' }}>
+                      📁 <strong>Folder:</strong> {isLinked ? (
+                        <span style={{ color: '#047857', wordBreak: 'break-all' }}>Linked ✓</span>
+                      ) : (
+                        <span style={{ color: '#dc2626', fontWeight: '700' }}>Not Configured</span>
+                      )}
+                    </div>
+
+                    {brandTip && (
+                      <div style={{ fontSize: '10.5px', color: '#6b7280', background: '#ffffff', padding: '5px 8px', borderRadius: '6px', border: '1px dashed #cbd5e1', marginBottom: '4px' }}>
+                        {brandTip}
+                      </div>
+                    )}
+
+                    <div style={{ fontSize: '10px', color: '#94a3b8', textAlign: 'right', marginTop: '4px' }}>
+                      Last reported: {dev.last_seen ? new Date(dev.last_seen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Main Standard LayoutEngine Table */}
       <div style={{ flex: 1 }}>
         <LayoutEngine
           customHeaderActions={
-            <button
-              type="button"
-              onClick={handleHeaderDialClick}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '7px',
-                padding: '7px 14px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
-                border: '1px solid #0d9488',
-                color: '#ffffff',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              {activeProvider === 'voxbay' ? <PhoneCall size={14} /> : <Smartphone size={14} />}
-              <span>{activeProvider === 'voxbay' ? 'Dial via Voxbay Cloud' : 'Call Lead (SIM Dialer)'}</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={handleHeaderDialClick}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+                  border: '1px solid #0d9488',
+                  color: '#ffffff',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {activeProvider === 'voxbay' ? <PhoneCall size={14} /> : <Smartphone size={14} />}
+                <span>{activeProvider === 'voxbay' ? 'Dial via Voxbay Cloud' : 'Call Lead (SIM Dialer)'}</span>
+              </button>
+
+              {(isOwnerOrManager || isSuperAdmin) && (
+                <button
+                  type="button"
+                  onClick={() => setShowHealthPanel(prev => !prev)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '7px 12px',
+                    borderRadius: '8px',
+                    background: unlinkedCount > 0 ? '#fef2f2' : (showHealthPanel ? '#ecfdf5' : '#f8fafc'),
+                    border: `1px solid ${unlinkedCount > 0 ? '#fca5a5' : (showHealthPanel ? '#10b981' : '#cbd5e1')}`,
+                    color: unlinkedCount > 0 ? '#991b1b' : (showHealthPanel ? '#065f46' : '#334155'),
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                    transition: 'all 0.2s ease'
+                  }}
+                  title="Telecaller App Health & Call Recording Status"
+                >
+                  {unlinkedCount > 0 ? (
+                    <>
+                      <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#dc2626' }} />
+                      <ShieldAlert size={14} color="#dc2626" />
+                      <span>{unlinkedCount} Device Action Required</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck size={14} color="#16a34a" />
+                      <span>{deviceHealthList.length > 0 ? `${deviceHealthList.length} Apps Connected` : 'App Health'}</span>
+                    </>
+                  )}
+                  {showHealthPanel ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                </button>
+              )}
+            </div>
           }
           moduleConfig={enhancedConfig}
           records={activeRecords}

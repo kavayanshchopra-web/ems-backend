@@ -1708,11 +1708,14 @@ export const SupabaseSandboxService = {
     'whatsapp_sessions': 'whatsapp_sessions',
     'channels': 'whatsapp_sessions',
     'scheduled_messages': 'scheduled_messages',
+    'telecalling_device_health': 'telecalling_device_health',
+    'device_health': 'telecalling_device_health',
     'tenant_settings': 'tenant_settings',
     'settings': 'tenant_settings'
   },
 
   TABLE_COLUMNS: {
+    telecalling_device_health: ['id', 'tenant_id', 'agent_id', 'agent_name', 'agent_email', 'device_model', 'os_version', 'folder_linked', 'folder_uri', 'storage_access', 'compliance_status', 'event_type', 'details', 'last_seen', 'created_at', 'updated_at'],
     recruitment_ats: ['id', 'tenant_id', 'candidate_name', 'name', 'email', 'phone', 'role', 'position', 'stage', 'status', 'experience', 'resume_url', 'rating', 'notes', 'custom_fields', 'created_at', 'updated_at'],
     asset_management: ['id', 'tenant_id', 'asset_name', 'name', 'asset_code', 'category', 'serial_number', 'assigned_to', 'employee_name', 'status', 'purchase_date', 'value', 'notes', 'custom_fields', 'created_at', 'updated_at'],
     verify_documents: ['id', 'tenant_id', 'employee_id', 'employee_name', 'name', 'doc_type', 'doc_number', 'file_url', 'status', 'verified_by', 'notes', 'custom_fields', 'created_at', 'updated_at'],

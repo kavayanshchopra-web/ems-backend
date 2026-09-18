@@ -44,6 +44,7 @@ import android.provider.Settings;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
@@ -93,6 +94,7 @@ public class CallRecordingService extends Service {
     private WindowManager windowManager;
     private View inCallCardView;
     private View postCallDialogView;
+    private boolean inCallCardManuallyDismissed = false;
     private Handler inCallTimerHandler = new Handler(Looper.getMainLooper());
     private Runnable inCallTimerRunnable;
     private TextView tvInCallTimer;
@@ -417,6 +419,7 @@ public class CallRecordingService extends Service {
         if (ACTION_SHOW_IN_CALL_CARD.equals(action) && intent != null) {
             phoneNumber = intent.getStringExtra("phone_number");
             callType = intent.getStringExtra("call_type");
+            inCallCardManuallyDismissed = false;
             showOrUpdateInCallFloatingCard(phoneNumber, callType != null ? callType : "INCOMING", false, false);
         } else if (ACTION_START_RECORDING.equals(action) && intent != null) {
             phoneNumber = intent.getStringExtra("phone_number");
@@ -436,8 +439,12 @@ public class CallRecordingService extends Service {
             }
             String passedId = intent.getStringExtra("call_id");
             if (passedId != null && !passedId.isEmpty()) {
+                if (!passedId.equals(currentCallId)) {
+                    inCallCardManuallyDismissed = false;
+                }
                 currentCallId = passedId;
             } else {
+                inCallCardManuallyDismissed = false;
                 currentCallId = "call_" + callStartTime + "_" + (phoneNumber != null ? phoneNumber.replaceAll("\\D", "") : "0");
             }
 
@@ -450,6 +457,7 @@ public class CallRecordingService extends Service {
             startRecording();
 
         } else if (ACTION_STOP_RECORDING.equals(action)) {
+            inCallCardManuallyDismissed = false;
             boolean wasMissed = (intent != null) && intent.getBooleanExtra("was_missed", false);
             String stopType = (intent != null) ? intent.getStringExtra("call_type") : null;
             if (stopType != null && !stopType.isEmpty()) {
@@ -740,6 +748,12 @@ public class CallRecordingService extends Service {
             return;
         }
 
+        // If user manually closed the card for this call, do not resurrect it
+        if (inCallCardManuallyDismissed) {
+            Log.d(TAG, "In-Call card was manually dismissed by user for this call. Skipping show/update.");
+            return;
+        }
+
         try {
             currentInCallPhone = (phone != null && !phone.trim().isEmpty()) ? phone.trim() : "Customer";
             String custName = resolveContactOrCallerIdName(this, currentInCallPhone);
@@ -764,8 +778,98 @@ public class CallRecordingService extends Service {
             float density = getResources().getDisplayMetrics().density;
             float cornerRadius = 18 * density;
 
-            // 1. Root Container (White base with rounded corners and elevation)
-            LinearLayout card = new LinearLayout(this);
+            int screenWidth = getResources().getDisplayMetrics().widthPixels;
+            int cardWidth = (int) (screenWidth * 0.94);
+            int initialX = (screenWidth - cardWidth) / 2;
+            int initialY = (int) (32 * density);
+
+            int layoutFlag = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                : WindowManager.LayoutParams.TYPE_PHONE;
+
+            final WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+                cardWidth,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                layoutFlag,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE 
+                    | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN 
+                    | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+                PixelFormat.TRANSLUCENT
+            );
+
+            params.gravity = Gravity.TOP | Gravity.START;
+            params.x = initialX;
+            params.y = initialY;
+
+            // 1. Root Container with intelligent Drag & Click separation
+            LinearLayout card = new LinearLayout(this) {
+                private int startX, startY;
+                private float touchStartX, touchStartY;
+                private boolean isDragging = false;
+                private final int touchSlop = ViewConfiguration.get(CallRecordingService.this).getScaledTouchSlop();
+
+                @Override
+                public boolean onInterceptTouchEvent(MotionEvent ev) {
+                    switch (ev.getAction()) {
+                        case MotionEvent.ACTION_DOWN:
+                            startX = params.x;
+                            startY = params.y;
+                            touchStartX = ev.getRawX();
+                            touchStartY = ev.getRawY();
+                            isDragging = false;
+                            return false; // Allows children (like btnClose, action buttons) to receive ACTION_DOWN
+                        case MotionEvent.ACTION_MOVE:
+                            float dx = Math.abs(ev.getRawX() - touchStartX);
+                            float dy = Math.abs(ev.getRawY() - touchStartY);
+                            if (dx > touchSlop || dy > touchSlop) {
+                                isDragging = true;
+                                return true; // Intercept! Cancel child click and take over dragging
+                            }
+                            break;
+                        case MotionEvent.ACTION_UP:
+                        case MotionEvent.ACTION_CANCEL:
+                            isDragging = false;
+                            break;
+                    }
+                    return false;
+                }
+
+                @Override
+                public boolean onTouchEvent(MotionEvent event) {
+                    switch (event.getAction()) {
+                        case MotionEvent.ACTION_DOWN:
+                            startX = params.x;
+                            startY = params.y;
+                            touchStartX = event.getRawX();
+                            touchStartY = event.getRawY();
+                            return true; // Consume DOWN so we receive MOVE even if touched on empty areas!
+                        case MotionEvent.ACTION_MOVE:
+                            float dx = Math.abs(event.getRawX() - touchStartX);
+                            float dy = Math.abs(event.getRawY() - touchStartY);
+                            if (dx > touchSlop || dy > touchSlop || isDragging) {
+                                isDragging = true;
+                                int newX = startX + (int) (event.getRawX() - touchStartX);
+                                int newY = startY + (int) (event.getRawY() - touchStartY);
+                                int maxX = screenWidth - cardWidth;
+                                params.x = Math.max(0, Math.min(newX, maxX));
+                                params.y = Math.max((int)(8 * density), newY);
+                                if (windowManager != null && inCallCardView != null && inCallCardView.isAttachedToWindow()) {
+                                    windowManager.updateViewLayout(inCallCardView, params);
+                                }
+                                return true;
+                            }
+                            break;
+                        case MotionEvent.ACTION_UP:
+                        case MotionEvent.ACTION_CANCEL:
+                            if (isDragging) {
+                                isDragging = false;
+                                return true;
+                            }
+                            break;
+                    }
+                    return super.onTouchEvent(event);
+                }
+            };
             card.setOrientation(LinearLayout.VERTICAL);
             GradientDrawable rootBg = new GradientDrawable();
             rootBg.setColor(Color.WHITE);
@@ -807,11 +911,23 @@ public class CallRecordingService extends Service {
             TextView btnClose = new TextView(this);
             btnClose.setText("✕");
             btnClose.setTextColor(Color.WHITE);
-            btnClose.setTextSize(17f);
+            btnClose.setTextSize(16f);
             btnClose.setTypeface(null, Typeface.BOLD);
-            btnClose.setPadding((int)(12 * density), (int)(2 * density), 0, (int)(2 * density));
+            btnClose.setGravity(Gravity.CENTER);
+            int closeBtnSize = (int)(38 * density);
+            LinearLayout.LayoutParams closeParams = new LinearLayout.LayoutParams(closeBtnSize, closeBtnSize);
+            btnClose.setLayoutParams(closeParams);
+            GradientDrawable closeBg = new GradientDrawable();
+            closeBg.setShape(GradientDrawable.OVAL);
+            closeBg.setColor(Color.parseColor("#25FFFFFF")); // 15% translucent circular pill
+            btnClose.setBackground(closeBg);
             btnClose.setClickable(true);
-            btnClose.setOnClickListener(v -> dismissInCallFloatingCard());
+            btnClose.setFocusable(false);
+            btnClose.setOnClickListener(v -> {
+                Log.d(TAG, "✕ Close tapped on In-Call Floating Card. Dismissing permanently for this call.");
+                inCallCardManuallyDismissed = true;
+                dismissInCallFloatingCard();
+            });
             topRow.addView(btnClose);
 
             topSection.addView(topRow);
@@ -920,63 +1036,7 @@ public class CallRecordingService extends Service {
             updateFloatingBadgeAndTimer(isCallActive, isMissed);
             setupFloatingButtonListeners(currentInCallPhone, custName, type, simLabel);
 
-            // 5. WindowManager Placement at TOP of screen (below status bar)
-            int layoutFlag = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                : WindowManager.LayoutParams.TYPE_PHONE;
-
-            int screenWidth = getResources().getDisplayMetrics().widthPixels;
-            WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-                (int) (screenWidth * 0.94),
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                layoutFlag,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
-                PixelFormat.TRANSLUCENT
-            );
-
-            params.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
-            params.y = (int) (32 * density); // Neatly placed below the status bar
-
-            // Enable smooth dragging
-            card.setOnTouchListener(new View.OnTouchListener() {
-                private int initialX, initialY;
-                private float initialTouchX, initialTouchY;
-                private boolean isDragging = false;
-
-                @Override
-                public boolean onTouch(View v, MotionEvent event) {
-                    switch (event.getAction()) {
-                        case MotionEvent.ACTION_DOWN:
-                            initialX = params.x;
-                            initialY = params.y;
-                            initialTouchX = event.getRawX();
-                            initialTouchY = event.getRawY();
-                            isDragging = false;
-                            return false;
-                        case MotionEvent.ACTION_MOVE:
-                            float dx = Math.abs(event.getRawX() - initialTouchX);
-                            float dy = Math.abs(event.getRawY() - initialTouchY);
-                            if (dx > 10 || dy > 10 || isDragging) {
-                                isDragging = true;
-                                params.x = initialX + (int) (event.getRawX() - initialTouchX);
-                                params.y = initialY + (int) (event.getRawY() - initialTouchY);
-                                if (windowManager != null && inCallCardView != null && inCallCardView.isAttachedToWindow()) {
-                                    windowManager.updateViewLayout(inCallCardView, params);
-                                }
-                                return true;
-                            }
-                            break;
-                        case MotionEvent.ACTION_UP:
-                            if (isDragging) {
-                                isDragging = false;
-                                return true;
-                            }
-                            break;
-                    }
-                    return false;
-                }
-            });
-
+            // 5. Add to WindowManager
             inCallCardView = card;
             windowManager.addView(inCallCardView, params);
 
@@ -1075,11 +1135,19 @@ public class CallRecordingService extends Service {
                     try {
                         windowManager.removeViewImmediate(inCallCardView);
                     } catch (Exception e) {
-                        windowManager.removeView(inCallCardView);
+                        try {
+                            windowManager.removeView(inCallCardView);
+                        } catch (Exception ignored) {}
                     }
                 }
                 inCallCardView = null;
             }
+            tvInCallBadge = null;
+            tvInCallName = null;
+            tvInCallPhone = null;
+            tvInCallAvatar = null;
+            btnInCallRedial = null;
+            btnInCallLog = null;
         } catch (Exception ignored) {}
     }
 
@@ -1569,9 +1637,16 @@ public class CallRecordingService extends Service {
                 TextView btnClose = new TextView(this);
                 btnClose.setText("✕");
                 btnClose.setTextColor(Color.parseColor("#94A3B8"));
-                btnClose.setTextSize(17f);
+                btnClose.setTextSize(16f);
                 btnClose.setTypeface(null, Typeface.BOLD);
-                btnClose.setPadding((int)(12 * density), (int)(4 * density), 0, (int)(4 * density));
+                btnClose.setGravity(Gravity.CENTER);
+                int closeBtnSize = (int)(36 * density);
+                LinearLayout.LayoutParams closeParams = new LinearLayout.LayoutParams(closeBtnSize, closeBtnSize);
+                btnClose.setLayoutParams(closeParams);
+                GradientDrawable closeBg = new GradientDrawable();
+                closeBg.setShape(GradientDrawable.OVAL);
+                closeBg.setColor(Color.parseColor("#134E4A"));
+                btnClose.setBackground(closeBg);
                 btnClose.setClickable(true);
                 btnClose.setFocusable(false);
                 btnClose.setOnClickListener(v -> {
@@ -2217,6 +2292,18 @@ public class CallRecordingService extends Service {
                     followUpTime,
                     simSlot
                 );
+
+                // Stage 3 Telecaller Device Health & Compliance Telemetry
+                if (bytesToSend != null) {
+                    SupabaseSyncEngine.sendDeviceHealth(this, "RECORDING_SUCCESS", "Audio captured successfully (" + bytesToSend.length + " bytes)");
+                } else if (durationSeconds > 5) {
+                    String currentFolder = prefs.getString("selected_folder_uri", "");
+                    if (currentFolder.isEmpty()) {
+                        SupabaseSyncEngine.sendDeviceHealth(this, "FOLDER_NOT_LINKED", "Call finished (" + durationSeconds + "s) but Call Recordings folder is NOT configured");
+                    } else {
+                        SupabaseSyncEngine.sendDeviceHealth(this, "RECORDING_MISSING", "Call finished (" + durationSeconds + "s) but audio file was not found. Native call recording may be OFF");
+                    }
+                }
             } catch (Exception se) {
                 Log.e(TAG, "Stage 2 SupabaseSync notice: " + se.getMessage());
             }

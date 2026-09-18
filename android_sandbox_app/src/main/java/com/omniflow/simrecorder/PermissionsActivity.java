@@ -35,13 +35,15 @@ public class PermissionsActivity extends AppCompatActivity {
     private static final int PERMISSION_REQ_CODE = 301;
     private static final int OVERLAY_REQ_CODE = 302;
     private static final int BATTERY_REQ_CODE = 303;
-    private static final int SAF_FOLDER_REQ_CODE = 304;
-    private static final int DIALER_REQ_CODE = 305;
+    private static final int STORAGE_ACCESS_REQ_CODE = 304;
+    private static final int SAF_FOLDER_REQ_CODE = 305;
+    private static final int DIALER_REQ_CODE = 306;
 
     private TextView tvPhoneStatus;
     private TextView tvNotifStatus;
     private TextView tvBatteryStatus;
     private TextView tvOverlayStatus;
+    private TextView tvStorageStatus;
     private TextView tvFolderStatus;
     private Button btnActionButton;
 
@@ -120,9 +122,78 @@ public class PermissionsActivity extends AppCompatActivity {
             "To show live caller widget and floating call timer during active calls.",
             tvOverlayStatus = new TextView(this), v -> requestOverlayPermission()));
 
-        bodyLayout.addView(createPermissionRow("📁", "Call Recordings Folder",
-            "To access native phone recordings for automatic HD audio upload to CRM.",
+        bodyLayout.addView(createPermissionRow("💾", "Storage Management Access",
+            "Required to scan and read native phone audio recordings across Android 11, 12, 13, 14+.",
+            tvStorageStatus = new TextView(this), v -> requestStorageAccessPermission()));
+
+        String brand = Build.MANUFACTURER != null ? Build.MANUFACTURER.toUpperCase() : "PHONE";
+        String brandHint = "Recordings > Call";
+        if (brand.contains("SAMSUNG")) brandHint = "Recordings > Call (or Call folder)";
+        else if (brand.contains("VIVO")) brandHint = "Recordings > Call (or Record > Phone)";
+        else if (brand.contains("XIAOMI") || brand.contains("REDMI") || brand.contains("POCO")) brandHint = "MIUI > sound_recorder > call_rec";
+        else if (brand.contains("OPPO") || brand.contains("ONEPLUS") || brand.contains("REALME")) brandHint = "Music > Record > Call (or Recordings > Call)";
+
+        bodyLayout.addView(createPermissionRow("📁", "Select Call Recordings Folder",
+            "Select your " + brand + " recordings folder (" + brandHint + ") so OmniFlow can fetch HD audio.",
             tvFolderStatus = new TextView(this), v -> requestFolderPermission()));
+
+        // Brand-Specific Helper Guide: Vivo Alternate Phone Call Recording
+        if (Build.MANUFACTURER != null && Build.MANUFACTURER.toLowerCase().contains("vivo")) {
+            LinearLayout vivoBanner = new LinearLayout(this);
+            vivoBanner.setOrientation(LinearLayout.VERTICAL);
+            vivoBanner.setPadding(30, 24, 30, 24);
+            GradientDrawable vivoBg = new GradientDrawable();
+            vivoBg.setColor(Color.parseColor("#EFF6FF")); // Light blue tint
+            vivoBg.setCornerRadius(18f);
+            vivoBg.setStroke(2, Color.parseColor("#BFDBFE"));
+            vivoBanner.setBackground(vivoBg);
+
+            LinearLayout.LayoutParams bannerParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            bannerParams.setMargins(0, 10, 0, 20);
+            vivoBanner.setLayoutParams(bannerParams);
+
+            TextView tvVivoTitle = new TextView(this);
+            tvVivoTitle.setText("💡 Vivo User Guide: Enable Auto Call Recording");
+            tvVivoTitle.setTextColor(Color.parseColor("#1E40AF"));
+            tvVivoTitle.setTextSize(13.5f);
+            tvVivoTitle.setTypeface(null, Typeface.BOLD);
+
+            TextView tvVivoDesc = new TextView(this);
+            tvVivoDesc.setText("To enable clean background call recording on Vivo:\n1. Go to Settings > Apps > 'Enable Alternate Phone and Contacts' > Turn ON.\n2. In Vivo Phone app > 3 dots > Call Settings > Record all calls automatically.\n3. Link the 'Recordings > Call' folder above.");
+            tvVivoDesc.setTextColor(Color.parseColor("#1E3A8A"));
+            tvVivoDesc.setTextSize(11f);
+            tvVivoDesc.setLineSpacing(0, 1.25f);
+            tvVivoDesc.setPadding(0, 6, 0, 12);
+
+            Button btnVivoSettings = new Button(this);
+            btnVivoSettings.setText("⚙️ Open Default Apps Settings");
+            btnVivoSettings.setTextSize(12f);
+            btnVivoSettings.setTextColor(Color.WHITE);
+            btnVivoSettings.setTypeface(null, Typeface.BOLD);
+            btnVivoSettings.setAllCaps(false);
+            GradientDrawable vb = new GradientDrawable();
+            vb.setColor(Color.parseColor("#2563EB"));
+            vb.setCornerRadius(16f);
+            btnVivoSettings.setBackground(vb);
+            btnVivoSettings.setPadding(20, 12, 20, 12);
+            btnVivoSettings.setOnClickListener(v -> {
+                try {
+                    Intent it = new Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS);
+                    startActivity(it);
+                } catch (Exception e) {
+                    try {
+                        Intent it = new Intent(Settings.ACTION_SETTINGS);
+                        startActivity(it);
+                    } catch (Exception ignored) {}
+                }
+            });
+
+            vivoBanner.addView(tvVivoTitle);
+            vivoBanner.addView(tvVivoDesc);
+            vivoBanner.addView(btnVivoSettings);
+            bodyLayout.addView(vivoBanner);
+        }
 
         scrollView.addView(bodyLayout);
 
@@ -241,11 +312,15 @@ public class PermissionsActivity extends AppCompatActivity {
         boolean overlayGranted = isOverlayPermissionGranted();
         setBadgedStatus(tvOverlayStatus, overlayGranted);
 
+        boolean storageGranted = isStorageAccessGranted();
+        setBadgedStatus(tvStorageStatus, storageGranted);
+
         boolean folderGranted = isFolderPermissionGranted();
         setBadgedStatus(tvFolderStatus, folderGranted);
 
         boolean allGranted = isAllPermissionsGranted();
         if (allGranted) {
+            btnActionButton.setEnabled(true);
             btnActionButton.setText("🚀 Launch OmniFlow Telecalling");
             GradientDrawable btnBg = new GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
@@ -254,13 +329,31 @@ public class PermissionsActivity extends AppCompatActivity {
             btnBg.setCornerRadius(24f);
             btnActionButton.setBackground(btnBg);
         } else {
-            btnActionButton.setText("Request Permissions");
+            btnActionButton.setEnabled(true);
+            btnActionButton.setText(getNextActionPrompt());
+            GradientDrawable btnBg = new GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{Color.parseColor("#0D9488"), Color.parseColor("#059669")}
+            );
+            btnBg.setCornerRadius(24f);
+            btnActionButton.setBackground(btnBg);
         }
+    }
+
+    private String getNextActionPrompt() {
+        if (!isPhonePermissionGranted()) return "1. Grant Phone Permissions";
+        if (!isNotificationPermissionGranted()) return "2. Grant Notification Permission";
+        if (!isBatteryOptimizationGranted()) return "3. Disable Battery Saver";
+        if (!isOverlayPermissionGranted()) return "4. Allow Display Overlay";
+        if (!isStorageAccessGranted()) return "5. Grant Storage Access";
+        if (!isFolderPermissionGranted()) return "6. 📁 Select Call Recording Folder";
+        return "Request Permissions";
     }
 
     private boolean isAllPermissionsGranted() {
         return isPhonePermissionGranted() && isNotificationPermissionGranted() && 
-               isBatteryOptimizationGranted() && isOverlayPermissionGranted() && isFolderPermissionGranted();
+               isBatteryOptimizationGranted() && isOverlayPermissionGranted() && 
+               isStorageAccessGranted() && isFolderPermissionGranted();
     }
 
     private boolean isDefaultDialerGranted() {
@@ -349,10 +442,14 @@ public class PermissionsActivity extends AppCompatActivity {
         return true;
     }
 
-    private boolean isFolderPermissionGranted() {
+    private boolean isStorageAccessGranted() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (android.os.Environment.isExternalStorageManager()) return true;
+            return android.os.Environment.isExternalStorageManager();
         }
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private boolean isFolderPermissionGranted() {
         SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
         String uriStr = prefs.getString("selected_folder_uri", "");
         return !uriStr.isEmpty();
@@ -367,6 +464,8 @@ public class PermissionsActivity extends AppCompatActivity {
             requestBatteryOptimizationPermission();
         } else if (!isOverlayPermissionGranted()) {
             requestOverlayPermission();
+        } else if (!isStorageAccessGranted()) {
+            requestStorageAccessPermission();
         } else if (!isFolderPermissionGranted()) {
             requestFolderPermission();
         } else {
@@ -378,6 +477,9 @@ public class PermissionsActivity extends AppCompatActivity {
         List<String> list = new ArrayList<>();
         list.add(Manifest.permission.CALL_PHONE);
         list.add(Manifest.permission.READ_PHONE_STATE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            list.add(Manifest.permission.READ_PHONE_NUMBERS);
+        }
         list.add(Manifest.permission.READ_CALL_LOG);
         list.add(Manifest.permission.READ_CONTACTS);
         list.add(Manifest.permission.RECORD_AUDIO);
@@ -416,40 +518,67 @@ public class PermissionsActivity extends AppCompatActivity {
         }
     }
 
-    private void requestFolderPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !android.os.Environment.isExternalStorageManager()) {
-            try {
-                Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-                intent.setData(Uri.parse("package:" + getPackageName()));
-                startActivityForResult(intent, SAF_FOLDER_REQ_CODE);
-                return;
-            } catch (Exception e) {
-                Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
-                startActivityForResult(intent, SAF_FOLDER_REQ_CODE);
-                return;
+    private void requestStorageAccessPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!android.os.Environment.isExternalStorageManager()) {
+                try {
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                    intent.setData(Uri.parse("package:" + getPackageName()));
+                    startActivityForResult(intent, STORAGE_ACCESS_REQ_CODE);
+                } catch (Exception e) {
+                    try {
+                        Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                        startActivityForResult(intent, STORAGE_ACCESS_REQ_CODE);
+                    } catch (Exception ignored) {}
+                }
+            } else {
+                Toast.makeText(this, "✓ All Files Storage Access is already granted!", Toast.LENGTH_SHORT).show();
             }
+        } else {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_REQ_CODE);
+        }
+    }
+
+    private void requestFolderPermission() {
+        if (!isStorageAccessGranted()) {
+            Toast.makeText(this, "Please allow Storage Management Access first, then select your recordings folder.", Toast.LENGTH_LONG).show();
+            requestStorageAccessPermission();
+            return;
         }
 
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION |
-                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION |
-                        Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-        startActivityForResult(intent, SAF_FOLDER_REQ_CODE);
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                            Intent.FLAG_GRANT_WRITE_URI_PERMISSION |
+                            Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+            startActivityForResult(intent, SAF_FOLDER_REQ_CODE);
+        } catch (Exception e) {
+            Toast.makeText(this, "Error opening folder selector: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == STORAGE_ACCESS_REQ_CODE) {
+            updateAllPermissionStatuses();
+            if (isStorageAccessGranted() && !isFolderPermissionGranted()) {
+                requestFolderPermission();
+            }
+            return;
+        }
         if (requestCode == SAF_FOLDER_REQ_CODE && resultCode == RESULT_OK && data != null) {
             Uri treeUri = data.getData();
             if (treeUri != null) {
-                getContentResolver().takePersistableUriPermission(treeUri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                try {
+                    getContentResolver().takePersistableUriPermission(treeUri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                } catch (Exception ignored) {}
                 getSharedPreferences("omniflow", MODE_PRIVATE)
                     .edit()
                     .putString("selected_folder_uri", treeUri.toString())
                     .apply();
-                Toast.makeText(this, "✓ Call Recordings Folder Linked!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "✓ Call Recordings Folder Linked Successfully!", Toast.LENGTH_SHORT).show();
             }
         }
         updateAllPermissionStatuses();

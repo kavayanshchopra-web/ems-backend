@@ -148,6 +148,7 @@ export default function SystemAuditLogsPage({
     if (act.includes('DELETE') || act.includes('ARCHIVE') || act.includes('PURGE')) return { bg: 'rgba(239, 68, 68, 0.12)', color: '#dc2626', border: 'rgba(239, 68, 68, 0.25)' };
     if (act.includes('CALL') || act.includes('VOXBAY')) return { bg: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', border: 'rgba(13, 148, 136, 0.25)' };
     if (act.includes('WA_') || act.includes('WHATSAPP')) return { bg: 'rgba(37, 211, 102, 0.15)', color: '#128c7e', border: 'rgba(37, 211, 102, 0.3)' };
+    if (act.includes('COMPLIANCE') || act.includes('DEVICE')) return { bg: 'rgba(239, 68, 68, 0.14)', color: '#dc2626', border: 'rgba(239, 68, 68, 0.3)' };
     if (act.includes('SECURITY') || act.includes('AUTH')) return { bg: 'rgba(139, 92, 246, 0.12)', color: '#7c3aed', border: 'rgba(139, 92, 246, 0.25)' };
     return { bg: 'rgba(100, 116, 139, 0.12)', color: '#475569', border: 'rgba(100, 116, 139, 0.25)' };
   };
@@ -314,6 +315,7 @@ export default function SystemAuditLogsPage({
             <option value="all">All Modules</option>
             <option value="crm_pipeline">CRM Pipeline & Deals</option>
             <option value="telecalling">Telecalling & Calls</option>
+            <option value="telecaller_device">📱 Telecaller Device Compliance</option>
             <option value="whatsapp">WhatsApp Web</option>
             <option value="employees">Employees & HR</option>
             <option value="tasks">Tasks & Projects</option>
@@ -344,6 +346,7 @@ export default function SystemAuditLogsPage({
             }}
           >
             <option value="all">All Action Types</option>
+            <option value="compliance">🚨 Device Compliance Alert</option>
             <option value="created">Record Created</option>
             <option value="updated">Record Updated</option>
             <option value="deleted">Record Deleted</option>

@@ -3,6 +3,10 @@ package com.omniflow.simrecorder;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
+import android.os.PowerManager;
+import android.provider.Settings;
 import android.util.Log;
 
 import org.json.JSONArray;
@@ -610,6 +614,131 @@ public class SupabaseSyncEngine {
 
             } catch (Exception e) {
                 Log.e(TAG, "❌ [Stage 2 SupabaseSync] General follow-up error: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    /**
+     * Stage 3: Real-Time Device Health & Compliance Telemetry
+     * Telemetry sent on app startup, folder selection, and after every completed call.
+     * Reports compliance status: HEALTHY, FOLDER_NOT_LINKED, or RECORDING_OFF_WARNING.
+     */
+    public static void sendDeviceHealth(Context context, String eventType, String detail) {
+        new Thread(() -> {
+            try {
+                if (context == null) return;
+                int dynamicTenantId = getTenantId(context);
+                if (dynamicTenantId <= 0) return;
+
+                android.content.SharedPreferences prefs = context.getSharedPreferences("omniflow", Context.MODE_PRIVATE);
+                String folderUri = prefs.getString("selected_folder_uri", "");
+                if (folderUri.isEmpty()) {
+                    android.content.SharedPreferences defaultPrefs = android.preference.PreferenceManager.getDefaultSharedPreferences(context);
+                    folderUri = defaultPrefs.getString("selected_folder_uri", "");
+                }
+
+                boolean folderLinked = !folderUri.isEmpty();
+                boolean storageAccess = true;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    storageAccess = Environment.isExternalStorageManager();
+                }
+
+                String complianceStatus = "HEALTHY";
+                if (!folderLinked) {
+                    complianceStatus = "FOLDER_NOT_LINKED";
+                } else if ("RECORDING_MISSING".equalsIgnoreCase(eventType)) {
+                    complianceStatus = "RECORDING_OFF_WARNING";
+                } else if ("PERMISSION_REVOKED".equalsIgnoreCase(eventType)) {
+                    complianceStatus = "PERMISSION_REVOKED";
+                }
+
+                String dynamicAgent = getAgentName(context, "Mobile Telecaller");
+                String dynamicAgentId = getAgentId(context);
+                String dynamicAgentEmail = getAgentEmail(context);
+                String deviceModel = Build.MANUFACTURER + " " + Build.MODEL;
+                String osVersion = "Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")";
+
+                // 1. Post to telecalling_device_health
+                try {
+                    JSONObject healthObj = new JSONObject();
+                    healthObj.put("tenant_id", dynamicTenantId);
+                    healthObj.put("agent_id", dynamicAgentId.isEmpty() ? "telecaller_" + dynamicTenantId : dynamicAgentId);
+                    healthObj.put("agent_name", dynamicAgent);
+                    healthObj.put("agent_email", dynamicAgentEmail);
+                    healthObj.put("device_model", deviceModel);
+                    healthObj.put("os_version", osVersion);
+                    healthObj.put("folder_linked", folderLinked);
+                    healthObj.put("folder_uri", folderUri);
+                    healthObj.put("storage_access", storageAccess);
+                    healthObj.put("compliance_status", complianceStatus);
+                    healthObj.put("event_type", eventType != null ? eventType : "HEALTH_CHECK");
+                    healthObj.put("details", detail != null ? detail : "");
+
+                    URL healthUrl = new URL(SUPABASE_REST_URL + "/telecalling_device_health");
+                    HttpURLConnection conn = (HttpURLConnection) healthUrl.openConnection();
+                    conn.setRequestMethod("POST");
+                    conn.setRequestProperty("apikey", SUPABASE_KEY);
+                    conn.setRequestProperty("Authorization", "Bearer " + SUPABASE_KEY);
+                    conn.setRequestProperty("Content-Type", "application/json");
+                    conn.setRequestProperty("Prefer", "resolution=merge-duplicates");
+                    conn.setDoOutput(true);
+                    conn.setConnectTimeout(8000);
+                    conn.setReadTimeout(8000);
+
+                    byte[] bytes = healthObj.toString().getBytes("utf-8");
+                    try (OutputStream os = conn.getOutputStream()) {
+                        os.write(bytes);
+                        os.flush();
+                    }
+                    int code = conn.getResponseCode();
+                    conn.disconnect();
+                    Log.d(TAG, "📡 [DeviceHealth] Status logged: " + complianceStatus + " (HTTP " + code + ")");
+                } catch (Exception e) {
+                    Log.w(TAG, "⚠️ [DeviceHealth] telecalling_device_health notice: " + e.getMessage());
+                }
+
+                // 2. Log to audit_logs (Universal CRM Auditing)
+                try {
+                    JSONObject auditObj = new JSONObject();
+                    auditObj.put("tenant_id", dynamicTenantId);
+                    auditObj.put("user_id", dynamicAgentId.isEmpty() ? "mobile_telecaller" : dynamicAgentId);
+                    auditObj.put("action", "DEVICE_COMPLIANCE_ALERT");
+                    auditObj.put("entity_type", "telecaller_device");
+                    auditObj.put("entity_id", dynamicAgent + " (" + Build.MODEL + ")");
+                    
+                    JSONObject detailsJson = new JSONObject();
+                    detailsJson.put("compliance_status", complianceStatus);
+                    detailsJson.put("event_type", eventType);
+                    detailsJson.put("device_model", deviceModel);
+                    detailsJson.put("folder_linked", folderLinked);
+                    detailsJson.put("folder_uri", folderUri);
+                    detailsJson.put("storage_access", storageAccess);
+                    detailsJson.put("notes", detail);
+                    auditObj.put("details", detailsJson);
+
+                    URL auditUrl = new URL(SUPABASE_REST_URL + "/audit_logs");
+                    HttpURLConnection aConn = (HttpURLConnection) auditUrl.openConnection();
+                    aConn.setRequestMethod("POST");
+                    aConn.setRequestProperty("apikey", SUPABASE_KEY);
+                    aConn.setRequestProperty("Authorization", "Bearer " + SUPABASE_KEY);
+                    aConn.setRequestProperty("Content-Type", "application/json");
+                    aConn.setDoOutput(true);
+                    aConn.setConnectTimeout(8000);
+                    aConn.setReadTimeout(8000);
+
+                    byte[] aBytes = auditObj.toString().getBytes("utf-8");
+                    try (OutputStream os = aConn.getOutputStream()) {
+                        os.write(aBytes);
+                        os.flush();
+                    }
+                    int aCode = aConn.getResponseCode();
+                    aConn.disconnect();
+                    Log.d(TAG, "🚨 [DeviceHealth] Audit alert posted to CRM! Code: " + aCode);
+                } catch (Exception aErr) {
+                    Log.w(TAG, "⚠️ [DeviceHealth] Audit log notice: " + aErr.getMessage());
+                }
+            } catch (Exception err) {
+                Log.e(TAG, "❌ [DeviceHealth] Error sending device health: " + err.getMessage());
             }
         }).start();
     }
