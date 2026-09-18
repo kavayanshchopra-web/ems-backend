@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Phone, Users, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw, Edit3, Settings, Play, Power, ExternalLink, Search, X, Save, Smartphone, Cloud, Info } from 'lucide-react';
+import { Phone, Users, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw, Edit3, Settings, Play, Power, ExternalLink, Search, X, Save, Smartphone, Cloud, Info, FolderCheck, Folder, AlertTriangle, Check, Shield } from 'lucide-react';
 import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
 
 export default function SuperAdminTelephonyHub({ showToast }) {
@@ -9,6 +9,11 @@ export default function SuperAdminTelephonyHub({ showToast }) {
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Multi-company telecalling device health & recording status
+  const [allDevices, setAllDevices] = useState([]);
+  const [loadingDevices, setLoadingDevices] = useState(false);
+  const [deviceFilter, setDeviceFilter] = useState('ALL'); // 'ALL' | 'LINKED' | 'ACTION_REQUIRED'
   
   // Global Active Telephony Mode: 'sim_runo' (Default/Active) vs 'voxbay' (Standby)
   const [globalTelephonyMode, setGlobalTelephonyMode] = useState(() => {
@@ -32,6 +37,51 @@ export default function SuperAdminTelephonyHub({ showToast }) {
     notes: ''
   });
 
+  const fetchAllDeviceHealth = async () => {
+    setLoadingDevices(true);
+    try {
+      let records = [];
+      try {
+        const healthRecords = await SupabaseSandboxService.fetchUniversalRecords('telecalling_device_health', 'all');
+        if (Array.isArray(healthRecords) && healthRecords.length > 0) {
+          records = healthRecords;
+        }
+      } catch (e) {}
+
+      // Fallback/enrich from audit_logs across all tenants
+      if (records.length === 0) {
+        try {
+          const auditRecords = await SupabaseSandboxService.fetchUniversalRecords('audit_logs', 'all');
+          if (Array.isArray(auditRecords)) {
+            const alerts = auditRecords.filter(a => a.action === 'DEVICE_COMPLIANCE_ALERT' || a.action?.includes('COMPLIANCE'));
+            records = alerts.map(a => {
+              const d = typeof a.details === 'object' ? a.details : {};
+              return {
+                id: a.id,
+                tenant_id: a.tenant_id,
+                agent_id: a.user_id,
+                agent_name: a.user_name || a.entity_id || 'Telecaller',
+                agent_email: a.user || '',
+                device_model: d.device_model || 'Android Phone',
+                folder_linked: d.folder_linked ?? false,
+                folder_uri: d.folder_uri || '',
+                storage_access: d.storage_access ?? true,
+                compliance_status: d.compliance_status || (d.folder_linked ? 'COMPLIANT' : 'FOLDER_NOT_LINKED'),
+                last_seen: a.created_at || a.time || new Date().toISOString()
+              };
+            });
+          }
+        } catch (_) {}
+      }
+
+      setAllDevices(records);
+    } catch (err) {
+      console.warn('Failed to fetch device health:', err);
+    } finally {
+      setLoadingDevices(false);
+    }
+  };
+
   const fetchTenants = async () => {
     setLoading(true);
     if (isSandboxEnvironment()) {
@@ -47,6 +97,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
             notes: 'PostgreSQL Supabase Managed'
           })));
           setLoading(false);
+          fetchAllDeviceHealth();
           return;
         }
       } catch (sbErr) {
@@ -63,6 +114,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
       if (showToast) showToast('Failed to fetch telephony tenants', 'error');
     } finally {
       setLoading(false);
+      fetchAllDeviceHealth();
     }
   };
 
@@ -327,6 +379,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
               <th style={{ padding: '12px 16px' }}>Active Calling Provider</th>
               <th style={{ padding: '12px 16px' }}>Leg 1 Agent Mobile</th>
               <th style={{ padding: '12px 16px' }}>Voxbay DID (Standby)</th>
+              <th style={{ padding: '12px 16px' }}>Recording Folder Status</th>
               <th style={{ padding: '12px 16px' }}>Status</th>
               <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
             </tr>
@@ -334,83 +387,308 @@ export default function SuperAdminTelephonyHub({ showToast }) {
           <tbody>
             {filteredTenants.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ padding: '32px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
+                <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
                   {loading ? 'Loading telephony tenant allocations...' : 'No tenant records found matching your search.'}
                 </td>
               </tr>
             ) : (
-              filteredTenants.map((item) => (
-                <tr key={item.tenant_id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.15s' }}>
-                  <td style={{ padding: '14px 16px' }}>
-                    <div style={{ fontWeight: '700', color: '#0f2b26', fontSize: '13px' }}>
-                      {item.company_name || `Company #${item.tenant_id}`}
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#64748b' }}>
-                      Tenant ID: #{item.tenant_id}
-                    </div>
-                  </td>
+              filteredTenants.map((item) => {
+                const tenantDevs = allDevices.filter(d => String(d.tenant_id) === String(item.tenant_id));
+                const linkedCount = tenantDevs.filter(d => d.folder_linked === true || d.folder_linked === 'true').length;
+                const missingCount = tenantDevs.filter(d => !d.folder_linked || d.folder_linked === 'false').length;
 
-                  <td style={{ padding: '14px 16px' }}>
-                    {globalTelephonyMode === 'sim_runo' ? (
-                      <span style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '4px 8px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                        <Smartphone size={12} /> SIM Card / Runo (Active)
-                      </span>
-                    ) : (
-                      <span style={{ background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '4px 8px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                        <Cloud size={12} /> Voxbay PBX (Active)
-                      </span>
-                    )}
-                  </td>
+                return (
+                  <tr key={item.tenant_id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.15s' }}>
+                    <td style={{ padding: '14px 16px' }}>
+                      <div style={{ fontWeight: '700', color: '#0f2b26', fontSize: '13px' }}>
+                        {item.company_name || `Company #${item.tenant_id}`}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>
+                        Tenant ID: #{item.tenant_id}
+                      </div>
+                    </td>
 
-                  <td style={{ padding: '14px 16px' }}>
-                    <div style={{ fontFamily: 'monospace', fontSize: '12.5px', color: '#334155', fontWeight: '600' }}>
-                      {item.default_agent_mobile || '6283513686'}
-                    </div>
-                  </td>
+                    <td style={{ padding: '14px 16px' }}>
+                      {globalTelephonyMode === 'sim_runo' ? (
+                        <span style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '4px 8px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                          <Smartphone size={12} /> SIM Card / Runo (Active)
+                        </span>
+                      ) : (
+                        <span style={{ background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '4px 8px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                          <Cloud size={12} /> Voxbay PBX (Active)
+                        </span>
+                      )}
+                    </td>
 
-                  <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontSize: '12.5px', color: '#64748b' }}>
-                    {item.voxbay_did || '918031496345'}
-                  </td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '12.5px', color: '#334155', fontWeight: '600' }}>
+                        {item.default_agent_mobile || '6283513686'}
+                      </div>
+                    </td>
 
-                  <td style={{ padding: '14px 16px' }}>
-                    {item.is_enabled === 1 ? (
-                      <span style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#059669', border: '1px solid rgba(16, 185, 129, 0.25)', padding: '3px 10px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                        <CheckCircle2 size={12} /> Active
-                      </span>
-                    ) : (
-                      <span style={{ background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0', padding: '3px 10px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '700' }}>
-                        Disabled
-                      </span>
-                    )}
-                  </td>
+                    <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontSize: '12.5px', color: '#64748b' }}>
+                      {item.voxbay_did || '918031496345'}
+                    </td>
 
-                  <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                    <button
-                      onClick={() => openConfigModal(item)}
-                      style={{
-                        background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)',
-                        border: 'none',
-                        color: '#ffffff',
-                        padding: '6px 14px',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)'
-                      }}
-                    >
-                      <Settings size={13} />
-                      <span>Configure</span>
-                    </button>
-                  </td>
-                </tr>
-              ))
+                    {/* RECORDING FOLDER STATUS PER COMPANY */}
+                    <td style={{ padding: '14px 16px' }}>
+                      {tenantDevs.length === 0 ? (
+                        <span style={{ fontSize: '11px', color: '#94a3b8', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <span>📵 No Device Registered</span>
+                        </span>
+                      ) : missingCount > 0 ? (
+                        <span style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <AlertTriangle size={12} /> ⚠️ Folder Missing ({missingCount}/{tenantDevs.length})
+                        </span>
+                      ) : (
+                        <span style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <FolderCheck size={12} /> ✅ Folder Linked ({linkedCount}/{tenantDevs.length})
+                        </span>
+                      )}
+                    </td>
+
+                    <td style={{ padding: '14px 16px' }}>
+                      {item.is_enabled === 1 ? (
+                        <span style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#059669', border: '1px solid rgba(16, 185, 129, 0.25)', padding: '3px 10px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <CheckCircle2 size={12} /> Active
+                        </span>
+                      ) : (
+                        <span style={{ background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0', padding: '3px 10px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '700' }}>
+                          Disabled
+                        </span>
+                      )}
+                    </td>
+
+                    <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                      <button
+                        onClick={() => openConfigModal(item)}
+                        style={{
+                          background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)',
+                          border: 'none',
+                          color: '#ffffff',
+                          padding: '6px 14px',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)'
+                        }}
+                      >
+                        <Settings size={13} />
+                        <span>Configure</span>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* MULTI-COMPANY CALL RECORDING & COMPANION APP COMPLIANCE MONITOR */}
+      <div style={{ background: '#ffffff', border: '1.5px solid #ccfbf1', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 8px rgba(13, 148, 136, 0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '16px', fontWeight: '800', color: '#0f2b26' }}>
+                📱 Multi-Company Telecaller Device Health & Call Recording Compliance
+              </span>
+              <span style={{ background: '#ccfbf1', color: '#0f766e', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '800' }}>
+                SUPER ADMIN LIVE MONITOR
+              </span>
+            </div>
+            <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>
+              Real-time audit across all client companies. Identifies which company telecallers have selected their recording folders and which ones have missing storage permissions.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', background: '#f1f5f9', padding: '3px', borderRadius: '8px', gap: '4px' }}>
+              <button
+                type="button"
+                onClick={() => setDeviceFilter('ALL')}
+                style={{
+                  border: 'none',
+                  background: deviceFilter === 'ALL' ? '#ffffff' : 'transparent',
+                  color: deviceFilter === 'ALL' ? '#0f2b26' : '#64748b',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  fontSize: '11.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: deviceFilter === 'ALL' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+                }}
+              >
+                All ({allDevices.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeviceFilter('LINKED')}
+                style={{
+                  border: 'none',
+                  background: deviceFilter === 'LINKED' ? '#ffffff' : 'transparent',
+                  color: deviceFilter === 'LINKED' ? '#059669' : '#64748b',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  fontSize: '11.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: deviceFilter === 'LINKED' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+                }}
+              >
+                ✅ Folder Linked ({allDevices.filter(d => d.folder_linked === true || d.folder_linked === 'true').length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeviceFilter('ACTION_REQUIRED')}
+                style={{
+                  border: 'none',
+                  background: deviceFilter === 'ACTION_REQUIRED' ? '#ffffff' : 'transparent',
+                  color: deviceFilter === 'ACTION_REQUIRED' ? '#d97706' : '#64748b',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  fontSize: '11.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: deviceFilter === 'ACTION_REQUIRED' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+                }}
+              >
+                ⚠️ Action Required ({allDevices.filter(d => !d.folder_linked || d.folder_linked === 'false').length})
+              </button>
+            </div>
+
+            <button
+              onClick={fetchAllDeviceHealth}
+              disabled={loadingDevices}
+              style={{
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                color: '#0d9488',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <RefreshCw size={12} className={loadingDevices ? 'spin' : ''} />
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        {/* DEVICE TABLE */}
+        <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontWeight: '700' }}>
+                <th style={{ padding: '10px 14px' }}>Tenant / Company</th>
+                <th style={{ padding: '10px 14px' }}>Telecaller Agent</th>
+                <th style={{ padding: '10px 14px' }}>Hardware Model</th>
+                <th style={{ padding: '10px 14px' }}>Folder Selection Status</th>
+                <th style={{ padding: '10px 14px' }}>Storage Permission</th>
+                <th style={{ padding: '10px 14px' }}>Last Telemetry Seen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allDevices.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
+                    {loadingDevices ? 'Querying cross-tenant device telemetry...' : 'No telecalling companion devices active yet. Once agents open the mobile app and link folders, device telemetry will appear here in real time.'}
+                  </td>
+                </tr>
+              ) : (
+                allDevices
+                  .filter(d => {
+                    if (deviceFilter === 'LINKED') return d.folder_linked === true || d.folder_linked === 'true';
+                    if (deviceFilter === 'ACTION_REQUIRED') return !d.folder_linked || d.folder_linked === 'false';
+                    return true;
+                  })
+                  .map((device, idx) => {
+                    const matchedTenant = tenants.find(t => String(t.tenant_id) === String(device.tenant_id));
+                    const isLinked = device.folder_linked === true || device.folder_linked === 'true';
+
+                    return (
+                      <tr key={device.id || idx} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#ffffff' : '#fafafa' }}>
+                        <td style={{ padding: '10px 14px' }}>
+                          <span style={{ fontWeight: '700', color: '#0f2b26' }}>
+                            {device.company_name || matchedTenant?.company_name || `Company #${device.tenant_id}`}
+                          </span>
+                          <div style={{ fontSize: '10.5px', color: '#64748b' }}>
+                            Tenant #{device.tenant_id}
+                          </div>
+                        </td>
+
+                        <td style={{ padding: '10px 14px' }}>
+                          <span style={{ fontWeight: '600', color: '#1e293b' }}>
+                            {device.agent_name || 'Telecaller'}
+                          </span>
+                          {device.agent_email && (
+                            <div style={{ fontSize: '10.5px', color: '#64748b' }}>
+                              {device.agent_email}
+                            </div>
+                          )}
+                        </td>
+
+                        <td style={{ padding: '10px 14px' }}>
+                          <span style={{ background: '#f1f5f9', color: '#334155', padding: '3px 8px', borderRadius: '4px', fontWeight: '700', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <Smartphone size={11} /> {device.device_model || 'Android Phone'}
+                          </span>
+                        </td>
+
+                        <td style={{ padding: '10px 14px' }}>
+                          {isLinked ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <span style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '4px', width: 'fit-content' }}>
+                                <FolderCheck size={12} /> Folder Linked ✓
+                              </span>
+                              {device.folder_uri && (
+                                <span style={{ fontSize: '10px', color: '#059669', fontFamily: 'monospace', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={device.folder_uri}>
+                                  {device.folder_uri}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <span style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '4px', width: 'fit-content' }}>
+                                <AlertTriangle size={12} /> Action Required (Folder Missing)
+                              </span>
+                              <span style={{ fontSize: '10px', color: '#b45309' }}>
+                                Telecaller needs to tap "Link Folder" in mobile app
+                              </span>
+                            </div>
+                          )}
+                        </td>
+
+                        <td style={{ padding: '10px 14px' }}>
+                          {device.storage_access ? (
+                            <span style={{ color: '#059669', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                              <ShieldCheck size={13} /> Granted
+                            </span>
+                          ) : (
+                            <span style={{ color: '#ef4444', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                              <AlertCircle size={13} /> Missing
+                            </span>
+                          )}
+                        </td>
+
+                        <td style={{ padding: '10px 14px', color: '#64748b', fontSize: '11px', fontFamily: 'monospace' }}>
+                          {device.last_seen ? new Date(device.last_seen).toLocaleString('en-IN') : 'Recently'}
+                        </td>
+                      </tr>
+                    );
+                  })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* CONFIGURE & ALLOCATE MODAL */}
