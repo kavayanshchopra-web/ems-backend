@@ -203,8 +203,24 @@ public class SupabaseSyncEngine {
                     callPayload.put("call_type", resolvedType);
                     callPayload.put("duration", durationFormatted);
                     callPayload.put("duration_seconds", dur);
-                    callPayload.put("disposition", "MISSED".equalsIgnoreCase(resolvedType) ? "Missed Call" : "Pending");
-                    callPayload.put("notes", "Call completed via " + (simSlot != null ? simSlot : "SIM 1") + " by " + resolvedAgent + " [Ref: " + actualCallId + "]");
+
+                    String defaultDisp = "Pending";
+                    if ("MISSED".equalsIgnoreCase(resolvedType)) {
+                        defaultDisp = "Missed Call";
+                    } else if (dur <= 0 && "OUTGOING".equalsIgnoreCase(resolvedType)) {
+                        defaultDisp = "Not Answered";
+                    }
+                    callPayload.put("disposition", defaultDisp);
+
+                    String defaultNotes = "Call completed via " + (simSlot != null ? simSlot : "SIM 1") + " by " + resolvedAgent + " [Ref: " + actualCallId + "]";
+                    if (dur <= 0) {
+                        if ("OUTGOING".equalsIgnoreCase(resolvedType)) {
+                            defaultNotes = "Outgoing call (Not Answered / Cut during ring) via " + (simSlot != null ? simSlot : "SIM 1") + " [Ref: " + actualCallId + "]";
+                        } else if ("MISSED".equalsIgnoreCase(resolvedType)) {
+                            defaultNotes = "Missed call via " + (simSlot != null ? simSlot : "SIM 1") + " [Ref: " + actualCallId + "]";
+                        }
+                    }
+                    callPayload.put("notes", defaultNotes);
                     callPayload.put("recording_url", "");
 
                     if (!dynamicAgentEmail.isEmpty()) {
@@ -353,15 +369,17 @@ public class SupabaseSyncEngine {
                 String dynamicAgentEmail = getAgentEmail(context);
                 String dynamicAgentRole = getAgentRole(context);
 
-                String resolvedDisp = (disposition != null && !disposition.trim().isEmpty()) ? disposition : "Completed";
                 long dur = Math.max(durationSeconds, 0);
                 String durationFormatted = String.format(Locale.getDefault(), "%02d:%02d", dur / 60, dur % 60);
+                String resolvedDisp = (disposition != null && !disposition.trim().isEmpty() && !disposition.equalsIgnoreCase("Pending") && !disposition.equalsIgnoreCase("Completed") && !disposition.equalsIgnoreCase("Interested"))
+                        ? disposition
+                        : (dur <= 0 ? ("OUTGOING".equalsIgnoreCase(callType) ? "Not Answered" : "Missed Call") : ((disposition != null && !disposition.isEmpty()) ? disposition : "Interested"));
 
                 Log.d(TAG, "🚀 [Stage 2 SupabaseSync] Follow-up sync for: " + targetPhone + ", Tenant: " + dynamicTenantId + ", Agent: " + resolvedAgent + ", Disp: " + resolvedDisp + ", AudioBytes: " + (audioBytes != null ? audioBytes.length : 0));
 
-                // 1. Upload Audio File to Supabase Storage if available
+                // 1. Upload Audio File to Supabase Storage ONLY if call duration > 0s (never for 0s / unanswered calls)
                 String publicAudioUrl = "";
-                if (audioBytes != null && audioBytes.length > 500) {
+                if (dur > 0 && audioBytes != null && audioBytes.length > 500) {
                     try {
                         String audioFileName = "call_" + System.currentTimeMillis() + "_" + norm10 + ".m4a";
                         String objectPath = "tenants/" + dynamicTenantId + "/calls/" + audioFileName;
@@ -411,13 +429,16 @@ public class SupabaseSyncEngine {
                     }
                     updatePayload.put("duration_seconds", dur);
                     updatePayload.put("duration", durationFormatted);
-                    if (!publicAudioUrl.isEmpty()) {
+                    if (dur > 0 && !publicAudioUrl.isEmpty()) {
                         updatePayload.put("recording_url", publicAudioUrl);
                         updatePayload.put("recording_status", "COMPLIANT");
                     } else if (dur > 5) {
                         updatePayload.put("recording_url", "RECORDING_OFF");
                         updatePayload.put("recording_status", "RECORDING_OFF");
                         fullNotes += " [⚠️ Audio Missing: Native Call Recording was OFF]";
+                    } else {
+                        updatePayload.put("recording_url", "");
+                        updatePayload.put("recording_status", "NO_RECORDING");
                     }
                     updatePayload.put("notes", fullNotes);
 

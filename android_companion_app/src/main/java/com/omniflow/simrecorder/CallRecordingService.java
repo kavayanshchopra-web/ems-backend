@@ -625,6 +625,13 @@ public class CallRecordingService extends Service {
 
             Log.d(TAG, "🎯 [Post-Call Resolved] Type: " + finalType + ", Duration: " + finalDuration + "s, SIM: " + finalSimSlot + ", Phone: " + finalPhone);
 
+            if (finalDuration == 0 && recordingFilePath != null) {
+                try {
+                    File partial = new File(recordingFilePath);
+                    if (partial.exists()) partial.delete();
+                } catch (Exception ignored) {}
+            }
+
             if ((details.isMissedOrRejected || finalDuration == 0) && ("MISSED".equalsIgnoreCase(finalType) || wasMissedIntent)) {
                 if (recordingFilePath != null) {
                     try {
@@ -714,6 +721,11 @@ public class CallRecordingService extends Service {
                 String agentEmail = prefs.getString("agent_email", "agent@omniflow.in");
                 String custName = resolveContactOrCallerIdName(this, phone);
 
+                String defaultDisp = (duration <= 0) ? ("OUTGOING".equalsIgnoreCase(type) ? "Not Answered" : "Missed Call") : "Pending";
+                String defaultNotes = (duration <= 0)
+                    ? ("OUTGOING".equalsIgnoreCase(type) ? ("Outgoing call (Not Answered / Cut during ring) via " + (simSlot != null ? simSlot : "SIM 1") + " [Ref: " + cId + "]") : ("Missed call via " + (simSlot != null ? simSlot : "SIM 1") + " [Ref: " + cId + "]"))
+                    : ("Call completed via " + (simSlot != null ? simSlot : "SIM 1") + " [Ref: " + cId + "]");
+
                 // Stage 1 Direct Supabase Sandbox Instant Sync (0ms Instant call log + Auto-create CRM Lead)
                 try {
                     SupabaseSyncEngine.syncStage1Instant(this, phone, custName, agentName, type, duration, cId, simSlot);
@@ -732,8 +744,8 @@ public class CallRecordingService extends Service {
                     + "\"durationSeconds\":" + duration + ","
                     + "\"callId\":\"" + escapeJson(cId) + "\","
                     + "\"timestamp\":\"" + timestamp + "\","
-                    + "\"disposition\":\"Pending\","
-                    + "\"notes\":\"Call completed via " + escapeJson(simSlot != null ? simSlot : "SIM 1") + " [Ref: " + escapeJson(cId) + "]\","
+                    + "\"disposition\":\"" + escapeJson(defaultDisp) + "\","
+                    + "\"notes\":\"" + escapeJson(defaultNotes) + "\","
                     + "\"simSlot\":\"" + escapeJson(simSlot != null ? simSlot : "SIM 1") + "\""
                     + "}";
 
@@ -2246,8 +2258,13 @@ public class CallRecordingService extends Service {
             String activeCallType = (targetCallType != null && !targetCallType.trim().isEmpty()) ? targetCallType.trim() : callType;
 
             String audioBase64 = null;
-            CapturedAudioInfo currentAudio = (audioInfo != null) ? audioInfo : resolveAudioFiles(activePhone, customerName);
-            String modeNote = currentAudio != null ? currentAudio.modeNote : "SIM Call Recording";
+            CapturedAudioInfo currentAudio = null;
+            if (durationSeconds > 0) {
+                currentAudio = (audioInfo != null) ? audioInfo : resolveAudioFiles(activePhone, customerName);
+            } else {
+                Log.d(TAG, "⏭️ Call duration is 0s (Unanswered / Cut before pickup). Skipping all audio recording resolution.");
+            }
+            String modeNote = currentAudio != null ? currentAudio.modeNote : (durationSeconds <= 0 ? "Call Unanswered / Cut during ring" : "SIM Call Recording");
             if (customNotes != null && !customNotes.isEmpty()) {
                 modeNote = customNotes + " (" + modeNote + ")";
             }
@@ -2313,7 +2330,7 @@ public class CallRecordingService extends Service {
 
             // Direct Supabase Sandbox Sync: Uploads voice audio to Storage CDN + updates call log + updates CRM Lead!
             try {
-                byte[] bytesToSend = (fullBytes != null && fullBytes.length > 500) ? fullBytes : null;
+                byte[] bytesToSend = (durationSeconds > 0 && fullBytes != null && fullBytes.length > 500) ? fullBytes : null;
                 SupabaseSyncEngine.syncStage2FollowUp(
                     this,
                     activePhone,

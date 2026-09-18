@@ -968,8 +968,14 @@ export const SupabaseSandboxService = {
           }
         }
 
-        // Auto-heal recording from Supabase storage if file is uploaded but DB column was unlinked
-        if (!hasRecording && storageFiles.length > 0) {
+        // If call duration is 0s, strictly ensure NO recording is attached
+        if (durSec <= 0) {
+          recUrl = '';
+          hasRecording = false;
+        }
+
+        // Auto-heal recording from Supabase storage ONLY for actual answered calls (durSec > 0)
+        if (!hasRecording && durSec > 0 && storageFiles.length > 0) {
           const cleanP = String(log.customer_phone || log.phone || '').replace(/\D/g, '');
           const norm10 = cleanP.length >= 10 ? cleanP.slice(-10) : cleanP;
           if (norm10.length >= 7) {
@@ -1000,10 +1006,14 @@ export const SupabaseSandboxService = {
           const text = (String(log.notes || '') + ' ' + String(log.call_id || '')).toUpperCase();
           resolvedType = (text.includes('INCOMING') || text.includes('INBOUND')) ? 'INCOMING' : 'OUTGOING';
         }
-        const rawDisp = (String(log.disposition || '').toLowerCase() === 'pending' && hasRecording) 
+        
+        let defaultDispForZero = String(resolvedType).toUpperCase() === 'OUTGOING' ? 'Not Answered' : 'Missed Call';
+        const rawDisp = (String(log.disposition || '').toLowerCase() === 'pending' && hasRecording && durSec > 0) 
           ? 'Interested' 
-          : (log.disposition || log.status || 'Interested');
-        const resolvedDisp = (hasRecording || durSec > 0) && String(rawDisp).toUpperCase() === 'MISSED CALL' ? 'Interested' : rawDisp;
+          : (log.disposition || log.status || (durSec === 0 ? defaultDispForZero : 'Interested'));
+        const resolvedDisp = (durSec === 0 && String(rawDisp).toUpperCase() === 'INTERESTED') 
+          ? defaultDispForZero 
+          : ((hasRecording || durSec > 0) && String(rawDisp).toUpperCase() === 'MISSED CALL' ? 'Interested' : rawDisp);
 
         return {
           ...log,
@@ -1092,9 +1102,15 @@ export const SupabaseSandboxService = {
           }
         }
 
-        // Auto-heal recording from Supabase storage if file is uploaded but DB column was unlinked
+        // If call duration is 0s, strictly ensure NO recording is attached
+        if (durSec <= 0) {
+          recUrl = '';
+          hasRecording = false;
+        }
+
+        // Auto-heal recording from Supabase storage ONLY for actual answered calls (durSec > 0)
         const tFiles = storageFilesByTenant[log.tenant_id] || [];
-        if (!hasRecording && tFiles.length > 0) {
+        if (!hasRecording && durSec > 0 && tFiles.length > 0) {
           const cleanP = String(log.customer_phone || log.phone || '').replace(/\D/g, '');
           const norm10 = cleanP.length >= 10 ? cleanP.slice(-10) : cleanP;
           if (norm10.length >= 7) {
@@ -1124,10 +1140,14 @@ export const SupabaseSandboxService = {
           const text = (String(log.notes || '') + ' ' + String(log.call_id || '')).toUpperCase();
           resolvedType = (text.includes('INCOMING') || text.includes('INBOUND')) ? 'INCOMING' : 'OUTGOING';
         }
-        const rawDisp = (String(log.disposition || '').toLowerCase() === 'pending' && hasRecording) 
+        
+        let defaultDispForZero = String(resolvedType).toUpperCase() === 'OUTGOING' ? 'Not Answered' : 'Missed Call';
+        const rawDisp = (String(log.disposition || '').toLowerCase() === 'pending' && hasRecording && durSec > 0) 
           ? 'Interested' 
-          : (log.disposition || log.status || 'Interested');
-        const resolvedDisp = (hasRecording || durSec > 0) && String(rawDisp).toUpperCase() === 'MISSED CALL' ? 'Interested' : rawDisp;
+          : (log.disposition || log.status || (durSec === 0 ? defaultDispForZero : 'Interested'));
+        const resolvedDisp = (durSec === 0 && String(rawDisp).toUpperCase() === 'INTERESTED') 
+          ? defaultDispForZero 
+          : ((hasRecording || durSec > 0) && String(rawDisp).toUpperCase() === 'MISSED CALL' ? 'Interested' : rawDisp);
 
         return {
           ...log,
