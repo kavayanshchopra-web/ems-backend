@@ -409,12 +409,17 @@ public class SupabaseSyncEngine {
                     if (simSlot != null && !simSlot.isEmpty() && !fullNotes.contains(simSlot)) {
                         fullNotes += " [" + simSlot + "]";
                     }
-                    updatePayload.put("notes", fullNotes);
                     updatePayload.put("duration_seconds", dur);
                     updatePayload.put("duration", durationFormatted);
                     if (!publicAudioUrl.isEmpty()) {
                         updatePayload.put("recording_url", publicAudioUrl);
+                        updatePayload.put("recording_status", "COMPLIANT");
+                    } else if (dur > 5) {
+                        updatePayload.put("recording_url", "RECORDING_OFF");
+                        updatePayload.put("recording_status", "RECORDING_OFF");
+                        fullNotes += " [⚠️ Audio Missing: Native Call Recording was OFF]";
                     }
+                    updatePayload.put("notes", fullNotes);
 
                     String safeType = (callType != null && !callType.isEmpty() && !"MISSED".equalsIgnoreCase(callType)) ? callType.toUpperCase() : "OUTGOING";
                     if (dur > 0 || !publicAudioUrl.isEmpty()) {

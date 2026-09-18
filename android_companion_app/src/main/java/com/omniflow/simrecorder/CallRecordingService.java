@@ -570,9 +570,19 @@ public class CallRecordingService extends Service {
         final String fallbackPhone = this.phoneNumber;
         final String fallbackType = wasMissedIntent ? "MISSED" : this.callType;
 
-        // Optimized 600ms delay: gives native phone dialer time to minimize and Android CallLog time to write duration
+        // Optimized 1600ms delay: gives Samsung & OEM dialers time to commit the actual talk duration to CallLog
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             ResolvedCallDetails details = resolveCallDetailsFromCallLog(fallbackPhone, fallbackType, fallbackDuration);
+            if (details.duration <= 0 && !wasMissedIntent) {
+                // Secondary retry after 700ms for heavy Android 14 OEM skins (One UI, ColorOS)
+                try {
+                    ResolvedCallDetails retryDetails = resolveCallDetailsFromCallLog(fallbackPhone, fallbackType, fallbackDuration);
+                    if (retryDetails != null && retryDetails.duration > 0) {
+                        details.duration = retryDetails.duration;
+                    }
+                } catch (Exception ignored) {}
+            }
+
             if (wasMissedIntent) {
                 details.callType = "MISSED";
                 details.isMissedOrRejected = true;
