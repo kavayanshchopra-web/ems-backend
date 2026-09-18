@@ -26,23 +26,62 @@ public class CallStateReceiver extends BroadcastReceiver {
             Bundle extras = intent.getExtras();
             if (extras == null) return "SIM 1";
 
+            // Helper to safely extract integer/string slot across all Android OEMs
+            String[] slotKeys = {
+                "simSlot", "sim_slot", "slot", "slot_id", "sim_id", "simId",
+                "phone_id", "phoneId", "phone", "com.android.phone.extra.slot",
+                "com.samsung.telephony.extra.SLOT_ID", "sim_index"
+            };
+
+            for (String key : slotKeys) {
+                if (extras.containsKey(key)) {
+                    Object val = extras.get(key);
+                    if (val != null) {
+                        String s = String.valueOf(val).trim().toLowerCase();
+                        if (s.equals("1") || s.equals("2") || s.contains("sim2") || s.contains("slot1") || s.contains("slot_1")) {
+                            return "SIM 2";
+                        }
+                        if (s.equals("0") || s.contains("sim1") || s.contains("slot0")) {
+                            return "SIM 1";
+                        }
+                    }
+                }
+            }
+
+            // Check Telecom PhoneAccountHandle in Intent Extras (Samsung & Modern Android 10-15)
+            if (extras.containsKey("android.telecom.extra.PHONE_ACCOUNT_HANDLE")) {
+                Object handleObj = extras.get("android.telecom.extra.PHONE_ACCOUNT_HANDLE");
+                if (handleObj instanceof android.telecom.PhoneAccountHandle) {
+                    android.telecom.PhoneAccountHandle handle = (android.telecom.PhoneAccountHandle) handleObj;
+                    if (handle.getId() != null) {
+                        String resolved = CallRecordingService.resolveSimSlot(context, handle.getId());
+                        if (resolved != null && !resolved.isEmpty()) {
+                            return resolved;
+                        }
+                    }
+                }
+            }
+
+            // Check subscription / sub_id
             int subId = -1;
-            int slotId = -1;
-
-            if (extras.containsKey("subscription")) subId = extras.getInt("subscription", -1);
-            else if (extras.containsKey("Subscription")) subId = extras.getInt("Subscription", -1);
-            else if (extras.containsKey("android.telephony.extra.SUBSCRIPTION_INDEX")) subId = extras.getInt("android.telephony.extra.SUBSCRIPTION_INDEX", -1);
-            else if (extras.containsKey("sub_id")) subId = extras.getInt("sub_id", -1);
-
-            if (extras.containsKey("simSlot")) slotId = extras.getInt("simSlot", -1);
-            else if (extras.containsKey("sim_slot")) slotId = extras.getInt("sim_slot", -1);
-            else if (extras.containsKey("slot")) slotId = extras.getInt("slot", -1);
-            else if (extras.containsKey("slot_id")) slotId = extras.getInt("slot_id", -1);
-            else if (extras.containsKey("com.android.phone.extra.slot")) slotId = extras.getInt("com.android.phone.extra.slot", -1);
-            else if (extras.containsKey("phone")) slotId = extras.getInt("phone", -1);
-
-            if (slotId == 1 || slotId == 2) return "SIM 2";
-            if (slotId == 0) return "SIM 1";
+            String[] subKeys = {
+                "subscription", "Subscription", "android.telephony.extra.SUBSCRIPTION_INDEX",
+                "sub_id", "subId", "com.samsung.telephony.extra.SUB_ID"
+            };
+            for (String key : subKeys) {
+                if (extras.containsKey(key)) {
+                    Object val = extras.get(key);
+                    if (val instanceof Number) {
+                        subId = ((Number) val).intValue();
+                        break;
+                    } else if (val instanceof String) {
+                        try {
+                            subId = Integer.parseInt(((String) val).trim());
+                            break;
+                        } catch (Exception ignored) {}
+                    }
+                }
+            }
 
             if (subId != -1 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
@@ -50,7 +89,8 @@ public class CallStateReceiver extends BroadcastReceiver {
                     if (sm != null) {
                         SubscriptionInfo info = sm.getActiveSubscriptionInfo(subId);
                         if (info != null) {
-                            return "SIM " + (info.getSimSlotIndex() + 1);
+                            int slot = info.getSimSlotIndex();
+                            return "SIM " + (slot + 1);
                         }
                     }
                 }

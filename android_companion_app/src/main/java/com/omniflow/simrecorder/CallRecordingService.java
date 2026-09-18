@@ -117,13 +117,18 @@ public class CallRecordingService extends Service {
         public long duration = 0;
         public String simSlot = "SIM 1";
         public boolean isMissedOrRejected = false;
+        public boolean foundInCallLog = false;
     }
 
     public static String resolveSimSlotFromCursor(Context context, Cursor cursor) {
         if (cursor == null) return "SIM 1";
 
-        // 1. Check Samsung / OEM specific columns
-        String[] possibleCols = {"sim_id", "simnum", "slot_id", "sim_slot", "sub_id", "subscription_id", "sim_index", "sim_code", "phone"};
+        // 1. Check Samsung / Vivo / Xiaomi / OEM specific columns
+        String[] possibleCols = {
+            "sim_id", "simId", "simnum", "slot_id", "slotId", "slot",
+            "phone_id", "phoneId", "sim_slot", "sub_id", "subscription_id",
+            "sim_index", "sim_code", "phone", "com.android.phone.extra.slot"
+        };
         for (String col : possibleCols) {
             int idx = cursor.getColumnIndex(col);
             if (idx != -1 && !cursor.isNull(idx)) {
@@ -133,8 +138,8 @@ public class CallRecordingService extends Service {
                         int intVal = -1;
                         try { intVal = Integer.parseInt(strVal.trim()); } catch (Exception ignored) {}
                         
-                        // sim_id / slot_id / sim_slot / sim_index is typically 0-indexed: 0 -> SIM 1, 1 -> SIM 2
-                        if (col.equals("sim_id") || col.equals("slot_id") || col.equals("sim_slot") || col.equals("sim_index")) {
+                        // sim_id / slot_id / phone_id / sim_slot is typically 0-indexed: 0 -> SIM 1, 1 -> SIM 2
+                        if (col.equals("sim_id") || col.equals("simId") || col.equals("slot_id") || col.equals("slotId") || col.equals("slot") || col.equals("phone_id") || col.equals("phoneId") || col.equals("sim_slot") || col.equals("sim_index")) {
                             if (intVal == 1 || intVal == 2) return "SIM 2";
                             if (intVal == 0) return "SIM 1";
                         }
@@ -310,9 +315,9 @@ public class CallRecordingService extends Service {
                             }
 
                             if (durIdx >= 0) {
-                                long d = cursor.getLong(durIdx);
-                                if (d > 0) details.duration = d;
+                                details.duration = cursor.getLong(durIdx);
                             }
+                            details.foundInCallLog = true;
 
                             // Direction Resolution: An OUTGOING call initiated by the user NEVER becomes INCOMING!
                             if ("OUTGOING".equalsIgnoreCase(fallbackType) || "OUTGOING".equalsIgnoreCase(this.callType)) {
@@ -345,11 +350,11 @@ public class CallRecordingService extends Service {
                             }
 
                             // SIM Slot Resolution
-                            if (!"SIM 2".equalsIgnoreCase(details.simSlot)) {
-                                String resolvedSlot = resolveSimSlotFromCursor(this, cursor);
-                                if ("SIM 2".equalsIgnoreCase(resolvedSlot)) {
-                                    details.simSlot = "SIM 2";
-                                }
+                            String resolvedSlot = resolveSimSlotFromCursor(this, cursor);
+                            if ("SIM 2".equalsIgnoreCase(resolvedSlot) || "SIM 2".equalsIgnoreCase(details.simSlot)) {
+                                details.simSlot = "SIM 2";
+                            } else if (resolvedSlot != null && !resolvedSlot.isEmpty()) {
+                                details.simSlot = resolvedSlot;
                             }
 
                             if (matchesPhone) break;
@@ -570,17 +575,24 @@ public class CallRecordingService extends Service {
         final String fallbackPhone = this.phoneNumber;
         final String fallbackType = wasMissedIntent ? "MISSED" : this.callType;
 
-        // Optimized 1600ms delay: gives Samsung & OEM dialers time to commit the actual talk duration to CallLog
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            ResolvedCallDetails details = resolveCallDetailsFromCallLog(fallbackPhone, fallbackType, fallbackDuration);
-            if (details.duration <= 0 && !wasMissedIntent) {
-                // Secondary retry after 700ms for heavy Android 14 OEM skins (One UI, ColorOS)
-                try {
-                    ResolvedCallDetails retryDetails = resolveCallDetailsFromCallLog(fallbackPhone, fallbackType, fallbackDuration);
-                    if (retryDetails != null && retryDetails.duration > 0) {
-                        details.duration = retryDetails.duration;
-                    }
-                } catch (Exception ignored) {}
+        // Universal Smart Poller: checks CallLog in fast incremental intervals
+        // As soon as the dialer commits the record (200ms on Pixel/OnePlus, ~1200ms on Samsung), it breaks immediately!
+        new Thread(() -> {
+            long[] intervals = { 250, 350, 450, 550, 700, 900 }; // Total window ~3.2s
+            ResolvedCallDetails details = null;
+
+            for (int i = 0; i < intervals.length; i++) {
+                try { Thread.sleep(intervals[i]); } catch (InterruptedException ignored) {}
+
+                details = resolveCallDetailsFromCallLog(fallbackPhone, fallbackType, fallbackDuration);
+                if (details != null && details.foundInCallLog) {
+                    Log.d(TAG, "⚡ [Smart Poller] Fresh CallLog row detected on attempt " + (i + 1) + "! Talk Time: " + details.duration + "s, SIM: " + details.simSlot);
+                    break;
+                }
+            }
+
+            if (details == null) {
+                details = resolveCallDetailsFromCallLog(fallbackPhone, fallbackType, fallbackDuration);
             }
 
             if (wasMissedIntent) {
@@ -588,7 +600,7 @@ public class CallRecordingService extends Service {
                 details.isMissedOrRejected = true;
                 details.duration = 0;
             } else {
-                if (details.duration <= 0 && fallbackDuration > 0) {
+                if (details.duration <= 0 && fallbackDuration > 0 && !details.foundInCallLog) {
                     details.duration = fallbackDuration;
                 }
                 details.isMissedOrRejected = false;
@@ -618,9 +630,11 @@ public class CallRecordingService extends Service {
 
             sendStage1InstantLog(finalPhone, finalDuration, finalType, finalCallId, finalSimSlot);
 
-            // Pop up instantly without blocking the Main Looper on heavy file scans!
-            showPostCallDispositionDialog(finalPhone, details.customerName, finalType, finalSimSlot, finalDuration, null, finalCallId);
-        }, 600);
+            final ResolvedCallDetails resolvedForDialog = details;
+            new Handler(Looper.getMainLooper()).post(() -> {
+                showPostCallDispositionDialog(finalPhone, resolvedForDialog.customerName, finalType, finalSimSlot, finalDuration, null, finalCallId);
+            });
+        }).start();
     }
 
     private void uploadMissedCallToCRM(String phone, String custName, String type, String simSlot, String cId) {
