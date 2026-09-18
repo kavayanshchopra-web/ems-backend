@@ -61,7 +61,8 @@ export const TELECALLING_MANIFEST = {
   defaultSummaryWidgets: [
     { id: 'total_calls', label: 'TOTAL CALLS', metricType: 'TOTAL', bg: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', icon: '📞', enabled: true, sortOrder: 1 },
     { id: 'interested_calls', label: 'INTERESTED LEADS', metricType: 'STAGE_COUNT', stageName: 'Interested', bg: 'rgba(5, 150, 105, 0.1)', color: '#059669', icon: '🎯', enabled: true, sortOrder: 2 },
-    { id: 'followup_calls', label: 'FOLLOW-UP QUEUED', metricType: 'STAGE_COUNT', stageName: 'Follow-up Required', bg: 'rgba(217, 119, 6, 0.1)', color: '#d97706', icon: '⏰', enabled: true, sortOrder: 3 }
+    { id: 'followup_calls', label: 'FOLLOW-UP QUEUED', metricType: 'STAGE_COUNT', stageName: 'Follow-up Required', bg: 'rgba(217, 119, 6, 0.1)', color: '#d97706', icon: '⏰', enabled: true, sortOrder: 3 },
+    { id: 'bypassed_calls', label: '🚨 BYPASSED (PERSONAL)', metricType: 'BYPASS_COUNT', bg: 'rgba(239, 68, 68, 0.12)', color: '#dc2626', icon: '🚨', enabled: true, sortOrder: 4 }
   ],
 
   defaultColumns: [

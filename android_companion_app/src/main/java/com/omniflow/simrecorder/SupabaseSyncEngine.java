@@ -2,6 +2,7 @@ package com.omniflow.simrecorder;
 
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -155,6 +156,20 @@ public class SupabaseSyncEngine {
             String callId,
             String simSlot
     ) {
+        syncStage1Instant(context, phone, customerName, agentName, callType, durationSeconds, callId, simSlot, false);
+    }
+
+    public static void syncStage1Instant(
+            Context context,
+            String phone,
+            String customerName,
+            String agentName,
+            String callType,
+            long durationSeconds,
+            String callId,
+            String simSlot,
+            boolean isBypassed
+    ) {
         new Thread(() -> {
             try {
                 if (phone == null || phone.trim().isEmpty()) return;
@@ -212,12 +227,19 @@ public class SupabaseSyncEngine {
                     }
                     callPayload.put("disposition", defaultDisp);
 
-                    String defaultNotes = "Call completed via " + (simSlot != null ? simSlot : "SIM 1") + " by " + resolvedAgent + " [Ref: " + actualCallId + "]";
+                    callPayload.put("is_bypassed", isBypassed);
+                    if (isBypassed) {
+                        callPayload.put("bypass_status", "ALERT_TRIGGERED");
+                    }
+
+                    String defaultNotes = isBypassed 
+                        ? ("🚨 BYPASS DETECTED: Agent called official CRM Lead via Personal SIM [" + (simSlot != null ? simSlot : "SIM 2") + "] by " + resolvedAgent + " [Ref: " + actualCallId + "]")
+                        : ("Call completed via " + (simSlot != null ? simSlot : "SIM 1") + " by " + resolvedAgent + " [Ref: " + actualCallId + "]");
                     if (dur <= 0) {
                         if ("OUTGOING".equalsIgnoreCase(resolvedType)) {
-                            defaultNotes = "Outgoing call (Not Answered / Cut during ring) via " + (simSlot != null ? simSlot : "SIM 1") + " [Ref: " + actualCallId + "]";
+                            defaultNotes = (isBypassed ? "🚨 BYPASS DETECTED: " : "") + "Outgoing call (Not Answered / Cut during ring) via " + (simSlot != null ? simSlot : "SIM 1") + " [Ref: " + actualCallId + "]";
                         } else if ("MISSED".equalsIgnoreCase(resolvedType)) {
-                            defaultNotes = "Missed call via " + (simSlot != null ? simSlot : "SIM 1") + " [Ref: " + actualCallId + "]";
+                            defaultNotes = (isBypassed ? "🚨 BYPASS DETECTED: " : "") + "Missed call via " + (simSlot != null ? simSlot : "SIM 1") + " [Ref: " + actualCallId + "]";
                         }
                     }
                     callPayload.put("notes", defaultNotes);
@@ -347,6 +369,25 @@ public class SupabaseSyncEngine {
             String followUpTime,
             String simSlot
     ) {
+        syncStage2FollowUp(context, phone, customerName, agentName, callType, durationSeconds, disposition, notes, audioBytes, callId, followUpDate, followUpTime, simSlot, false);
+    }
+
+    public static void syncStage2FollowUp(
+            Context context,
+            String phone,
+            String customerName,
+            String agentName,
+            String callType,
+            long durationSeconds,
+            String disposition,
+            String notes,
+            byte[] audioBytes,
+            String callId,
+            String followUpDate,
+            String followUpTime,
+            String simSlot,
+            boolean isBypassed
+    ) {
         new Thread(() -> {
             try {
                 if (phone == null || phone.trim().isEmpty()) return;
@@ -439,6 +480,13 @@ public class SupabaseSyncEngine {
                     } else {
                         updatePayload.put("recording_url", "");
                         updatePayload.put("recording_status", "NO_RECORDING");
+                    }
+                    if (isBypassed) {
+                        updatePayload.put("is_bypassed", true);
+                        updatePayload.put("bypass_status", "ALERT_TRIGGERED");
+                        fullNotes = "🚨 BYPASS DETECTED: Agent called official CRM Lead via Personal SIM [" + (simSlot != null ? simSlot : "SIM 2") + "] | " + fullNotes;
+                        // Trigger Instant WhatsApp Security Alert to Company Owner
+                        triggerBypassAlert(context, dynamicTenantId, resolvedAgent, resolvedCustName, targetPhone, simSlot, dur, publicAudioUrl);
                     }
                     updatePayload.put("notes", fullNotes);
 
@@ -776,6 +824,101 @@ public class SupabaseSyncEngine {
                 }
             } catch (Exception err) {
                 Log.e(TAG, "❌ [DeviceHealth] Error sending device health: " + err.getMessage());
+            }
+        }).start();
+    }
+
+    /**
+     * Checks if a phone number exists in the Company CRM contacts / leads table.
+     * Used for Personal SIM privacy shield: non-CRM personal calls are completely ignored,
+     * but calls to existing CRM leads trigger the Bypass Shield.
+     */
+    public static boolean checkIfCrmLead(Context context, String phone) {
+        if (phone == null || phone.trim().isEmpty()) return false;
+        String rawDigits = phone.replaceAll("\\D", "");
+        String norm10 = rawDigits.length() >= 10 ? rawDigits.substring(rawDigits.length() - 10) : rawDigits;
+        if (norm10.isEmpty() || norm10.length() < 7) return false;
+
+        int dynamicTenantId = getTenantId(context);
+        if (dynamicTenantId <= 0) return false;
+
+        try {
+            URL checkUrl = new URL(SUPABASE_REST_URL + "/contacts?tenant_id=eq." + dynamicTenantId + "&phone_normalized=eq." + norm10 + "&select=id");
+            HttpURLConnection checkConn = (HttpURLConnection) checkUrl.openConnection();
+            checkConn.setRequestMethod("GET");
+            checkConn.setRequestProperty("apikey", SUPABASE_KEY);
+            checkConn.setRequestProperty("Authorization", "Bearer " + SUPABASE_KEY);
+            checkConn.setConnectTimeout(4000);
+            checkConn.setReadTimeout(4000);
+
+            int checkCode = checkConn.getResponseCode();
+            boolean leadExists = false;
+            if (checkCode == 200) {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(checkConn.getInputStream()))) {
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) sb.append(line);
+                    JSONArray arr = new JSONArray(sb.toString());
+                    leadExists = (arr.length() > 0);
+                }
+            }
+            checkConn.disconnect();
+            Log.d(TAG, "🔍 [Bypass Shield Lead Check] Phone " + norm10 + " in Tenant " + dynamicTenantId + " => isCrmLead: " + leadExists);
+            return leadExists;
+        } catch (Exception e) {
+            Log.e(TAG, "❌ [checkIfCrmLead Error]: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Dispatches Instant Lead Bypass Security Alert to the Company Owner/Manager via Backend & WhatsApp.
+     */
+    public static void triggerBypassAlert(
+            Context context,
+            int tenantId,
+            String agentName,
+            String customerName,
+            String customerPhone,
+            String simSlot,
+            long duration,
+            String recordingUrl
+    ) {
+        new Thread(() -> {
+            try {
+                JSONObject payload = new JSONObject();
+                payload.put("tenantId", tenantId);
+                payload.put("agentName", agentName);
+                payload.put("customerName", customerName);
+                payload.put("customerPhone", customerPhone);
+                payload.put("simUsed", simSlot);
+                payload.put("duration", duration);
+                payload.put("recordingUrl", recordingUrl != null ? recordingUrl : "");
+                payload.put("timestamp", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date()));
+
+                SharedPreferences prefs = context.getSharedPreferences("omniflow", Context.MODE_PRIVATE);
+                String baseUrl = prefs.getString("dashboard_url", "https://app.employeemanagementsystems.com");
+                if (baseUrl.contains("?")) baseUrl = baseUrl.substring(0, baseUrl.indexOf("?"));
+                if (baseUrl.endsWith("/")) baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+
+                URL url = new URL(baseUrl + "/api/telephony/bypass-alert");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(8000);
+                conn.setReadTimeout(8000);
+
+                try (OutputStream os = conn.getOutputStream()) {
+                    os.write(payload.toString().getBytes("utf-8"));
+                    os.flush();
+                }
+
+                int code = conn.getResponseCode();
+                Log.d(TAG, "🚨 [Bypass Alert] Dispatched to Backend /api/telephony/bypass-alert: HTTP " + code);
+                conn.disconnect();
+            } catch (Exception e) {
+                Log.e(TAG, "❌ [triggerBypassAlert Error]: " + e.getMessage());
             }
         }).start();
     }

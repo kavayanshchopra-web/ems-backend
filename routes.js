@@ -3750,6 +3750,113 @@ export default function setupRoutes(io) {
     }
   });
 
+  // 4b. Lead Bypass Security Alert Dispatcher (Personal SIM Call to CRM Lead)
+  router.post(['/telephony/bypass-alert', '/api/telephony/bypass-alert'], async (req, res) => {
+    try {
+      const {
+        tenantId = 1,
+        agentName = 'Telecaller',
+        customerName = 'CRM Lead',
+        customerPhone = '',
+        simUsed = 'SIM 2 (Personal)',
+        duration = 0,
+        recordingUrl = '',
+        timestamp = new Date().toISOString()
+      } = req.body;
+
+      const activeTenantId = Number(req.user?.tenantId || req.user?.tenant_id || tenantId || 1);
+      console.warn(`🚨 [BYPASS SHIELD] Received bypass alert for Tenant ${activeTenantId}: Agent "${agentName}" contacted lead "${customerName}" (${customerPhone}) via ${simUsed} for ${duration}s`);
+
+      // 1. Find Company Owner / Admin WhatsApp recipient & Active Session
+      let ownerPhone = null;
+      let activeSessionId = null;
+
+      try {
+        const sessions = await getAllSessions();
+        const tenantSession = sessions.find(s => String(s.tenant_id || s.tenantId || 1) === String(activeTenantId) && s.status === 'connected') 
+                           || sessions.find(s => s.status === 'connected');
+        if (tenantSession) {
+          activeSessionId = tenantSession.id;
+        }
+
+        const db = getDb();
+        if (db) {
+          try {
+            const ownerRow = db.prepare(`
+              SELECT phone, email FROM users 
+              WHERE (tenant_id = ? OR tenant_id = 1) 
+                AND (role = 'owner' OR role = 'admin' OR role = 'manager') 
+                AND phone IS NOT NULL AND phone != '' 
+              ORDER BY id ASC LIMIT 1
+            `).get(activeTenantId);
+            if (ownerRow && ownerRow.phone) {
+              ownerPhone = ownerRow.phone.replace(/\\D/g, '');
+            }
+          } catch (qErr) {}
+        }
+      } catch (dbErr) {
+        console.warn('[Bypass Alert] User lookup notice:', dbErr.message);
+      }
+
+      // 2. Format Security Alert Message
+      const durSec = Number(duration || 0);
+      const formattedDur = durSec >= 60 ? `${Math.floor(durSec / 60)}m ${durSec % 60}s` : `${durSec}s`;
+      const timeStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+
+      const alertMessage = 
+`🚨 *OMNIFLOW SECURITY ALERT: LEAD BYPASS DETECTED*
+
+🏢 *Tenant ID:* ${activeTenantId}
+👤 *Telecaller:* ${agentName}
+📞 *Lead / Client:* ${customerName} (${customerPhone})
+📱 *Calling SIM:* *${simUsed}* ⚠️
+⏱️ *Talk Duration:* ${formattedDur}
+🕒 *Time:* ${timeStr}
+
+${recordingUrl && recordingUrl.startsWith('http') ? `🎧 *Audio Recording Evidence:*\n${recordingUrl}\n\n` : ''}⚠️ *Notice:* Telecaller contacted an official CRM lead using a Personal SIM instead of the official company SIM.`;
+
+      // 3. Dispatch via WhatsApp if active session & owner phone exist
+      let waDispatched = false;
+      if (activeSessionId && ownerPhone) {
+        try {
+          const jid = ownerPhone.includes('@') ? ownerPhone : `${ownerPhone}@s.whatsapp.net`;
+          await sendWhatsAppMessage(activeSessionId, jid, alertMessage);
+          waDispatched = true;
+          console.log(`✅ [Bypass Alert] Dispatched WhatsApp alert to Company Owner (${ownerPhone}) via session ${activeSessionId}`);
+        } catch (sendErr) {
+          console.error('[Bypass Alert] WhatsApp send error:', sendErr.message);
+        }
+      } else {
+        console.warn(`[Bypass Alert] Could not send WhatsApp: activeSessionId=${activeSessionId}, ownerPhone=${ownerPhone}`);
+      }
+
+      // 4. Broadcast live alert to Company Owner's CRM Dashboard via Socket.io
+      if (io) {
+        io.emit('telephony:security_alert', {
+          tenantId: activeTenantId,
+          type: 'LEAD_BYPASS_ATTEMPT',
+          agentName,
+          customerName,
+          customerPhone,
+          simUsed,
+          duration: durSec,
+          recordingUrl,
+          timestamp,
+          waDispatched
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        waDispatched,
+        message: 'Security bypass alert processed successfully.'
+      });
+    } catch (err) {
+      console.error('[Bypass Alert] Unexpected error:', err);
+      return res.status(500).json({ error: 'Failed to process security alert', details: err.message });
+    }
+  });
+
   router.get(['/telecalling/logs', '/calls/logs'], async (req, res) => {
     try {
       const tenantId = Number(req.user?.tenantId || req.user?.tenant_id || 1);

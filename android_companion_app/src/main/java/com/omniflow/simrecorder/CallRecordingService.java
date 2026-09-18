@@ -625,6 +625,46 @@ public class CallRecordingService extends Service {
 
             Log.d(TAG, "🎯 [Post-Call Resolved] Type: " + finalType + ", Duration: " + finalDuration + "s, SIM: " + finalSimSlot + ", Phone: " + finalPhone);
 
+            // -------------------------------------------------------------
+            // DUAL-SIM SMART PRIVACY & BYPASS SHIELD
+            // -------------------------------------------------------------
+            SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
+            String officialWorkSim = prefs.getString("official_work_sim", "BOTH");
+            boolean isPersonalSimCall = false;
+
+            if ("SIM 1".equalsIgnoreCase(officialWorkSim) && finalSimSlot.toUpperCase().contains("SIM 2")) {
+                isPersonalSimCall = true;
+            } else if ("SIM 2".equalsIgnoreCase(officialWorkSim) && finalSimSlot.toUpperCase().contains("SIM 1")) {
+                isPersonalSimCall = true;
+            }
+
+            String reportedSimSlot = finalSimSlot;
+            boolean isBypassedLead = false;
+
+            if (isPersonalSimCall) {
+                // Check if finalPhone is a registered Lead in Company CRM
+                boolean isLead = SupabaseSyncEngine.checkIfCrmLead(CallRecordingService.this, finalPhone);
+                if (!isLead) {
+                    // Non-lead personal call (Family/Friends/Personal) -> 100% Ignored!
+                    Log.d(TAG, "🔒 [Privacy Shield] Personal call on " + finalSimSlot + " to non-CRM number " + finalPhone + " -> discarded (100% private).");
+                    if (recordingFilePath != null) {
+                        try {
+                            File partial = new File(recordingFilePath);
+                            if (partial.exists()) partial.delete();
+                        } catch (Exception ignored) {}
+                    }
+                    return;
+                } else {
+                    // CRM Lead contacted via Personal SIM -> BYPASS DETECTED!
+                    isBypassedLead = true;
+                    reportedSimSlot = finalSimSlot + " (Personal Bypass)";
+                    Log.w(TAG, "🚨 [Bypass Shield] CRM Lead " + finalPhone + " was called via Personal SIM (" + finalSimSlot + ")!");
+                }
+            }
+
+            final String finalReportedSimSlot = reportedSimSlot;
+            final boolean finalIsBypassed = isBypassedLead;
+
             if (finalDuration == 0 && recordingFilePath != null) {
                 try {
                     File partial = new File(recordingFilePath);
@@ -639,15 +679,15 @@ public class CallRecordingService extends Service {
                         if (partial.exists()) partial.delete();
                     } catch (Exception ignored) {}
                 }
-                uploadMissedCallToCRM(finalPhone, details.customerName, finalType, finalSimSlot, finalCallId);
+                uploadMissedCallToCRM(finalPhone, details.customerName, finalType, finalReportedSimSlot, finalCallId);
                 return;
             }
 
-            sendStage1InstantLog(finalPhone, finalDuration, finalType, finalCallId, finalSimSlot);
+            sendStage1InstantLog(finalPhone, finalDuration, finalType, finalCallId, finalReportedSimSlot);
 
             final ResolvedCallDetails resolvedForDialog = details;
             new Handler(Looper.getMainLooper()).post(() -> {
-                showPostCallDispositionDialog(finalPhone, resolvedForDialog.customerName, finalType, finalSimSlot, finalDuration, null, finalCallId);
+                showPostCallDispositionDialog(finalPhone, resolvedForDialog.customerName, finalType, finalReportedSimSlot, finalDuration, null, finalCallId);
             });
         }).start();
     }
@@ -728,7 +768,8 @@ public class CallRecordingService extends Service {
 
                 // Stage 1 Direct Supabase Sandbox Instant Sync (0ms Instant call log + Auto-create CRM Lead)
                 try {
-                    SupabaseSyncEngine.syncStage1Instant(this, phone, custName, agentName, type, duration, cId, simSlot);
+                    boolean isBypassed = simSlot != null && simSlot.contains("Personal Bypass");
+                    SupabaseSyncEngine.syncStage1Instant(this, phone, custName, agentName, type, duration, cId, simSlot, isBypassed);
                 } catch (Exception se) {
                     Log.e(TAG, "Stage 1 SupabaseSync notice: " + se.getMessage());
                 }
@@ -2331,6 +2372,7 @@ public class CallRecordingService extends Service {
             // Direct Supabase Sandbox Sync: Uploads voice audio to Storage CDN + updates call log + updates CRM Lead!
             try {
                 byte[] bytesToSend = (durationSeconds > 0 && fullBytes != null && fullBytes.length > 500) ? fullBytes : null;
+                boolean isBypassed = simSlot != null && simSlot.contains("Personal Bypass");
                 SupabaseSyncEngine.syncStage2FollowUp(
                     this,
                     activePhone,
@@ -2344,7 +2386,8 @@ public class CallRecordingService extends Service {
                     callId,
                     followUpDate,
                     followUpTime,
-                    simSlot
+                    simSlot,
+                    isBypassed
                 );
 
                 // Stage 3 Telecaller Device Health & Compliance Telemetry

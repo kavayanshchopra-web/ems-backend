@@ -84,6 +84,7 @@ export default function TelecallingView({
   const [deviceHealthList, setDeviceHealthList] = useState([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [showHealthPanel, setShowHealthPanel] = useState(false);
+  const [bypassFilter, setBypassFilter] = useState('ALL'); // 'ALL' | 'OFFICIAL' | 'BYPASS'
 
   const fetchDeviceHealth = async () => {
     setLoadingDevices(true);
@@ -578,9 +579,16 @@ export default function TelecallingView({
         resolvedCustomerName = custPhone !== '—' ? custPhone : 'Customer';
       }
 
+      const isBypassed = log.is_bypassed === true || 
+                         log.isBypassed === true || 
+                         String(log.simSlot || log.sim_slot || '').includes('Personal Bypass') ||
+                         String(log.notes || '').includes('BYPASS DETECTED');
+
       const simSlotText = log.simSlot || log.sim_slot || '';
       const rawChannel = log.channel || (activeProvider === 'voxbay' ? 'VOXBAY' : 'SIM');
-      const channelDisplay = simSlotText && !rawChannel.includes('(') ? `${rawChannel} (${simSlotText})` : rawChannel;
+      const channelDisplay = isBypassed 
+        ? '🚨 SIM (Personal Bypass)' 
+        : (simSlotText && !rawChannel.includes('(') ? `${rawChannel} (${simSlotText})` : rawChannel);
 
       const persistentSeqId = `CALL-${String(seqIdx + 1).padStart(4, '0')}`;
       const resolvedCallType = isMissed ? 'MISSED' : (log.type && log.type !== 'MISSED' ? log.type : (log.callType && log.callType !== 'MISSED' ? log.callType : 'OUTGOING'));
@@ -599,6 +607,8 @@ export default function TelecallingView({
       return {
         id: log.id || persistentSeqId,
         displayId: persistentSeqId,
+        isBypassed,
+        is_bypassed: isBypassed,
         name: resolvedCustomerName,
         customerName: resolvedCustomerName,
         agentName: log.agent_name || log.agentName || authUser?.name || 'Mobile Agent',
@@ -870,9 +880,24 @@ export default function TelecallingView({
       });
     }
 
+    const widgets = [...(config.summaryWidgets || config.defaultSummaryWidgets || [])];
+    if (!widgets.some(w => w && w.id === 'bypassed_calls')) {
+      widgets.push({
+        id: 'bypassed_calls',
+        label: '🚨 BYPASSED (PERSONAL)',
+        metricType: 'BYPASS_COUNT',
+        bg: 'rgba(239, 68, 68, 0.12)',
+        color: '#dc2626',
+        icon: '🚨',
+        enabled: true,
+        sortOrder: 4
+      });
+    }
+
     return {
       ...config,
       fields,
+      summaryWidgets: widgets,
       columns: cols.map((c, i) => ({ ...c, sortOrder: c.sortOrder || (i + 1) })).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
     };
   }, [config]);
@@ -880,6 +905,20 @@ export default function TelecallingView({
   const unlinkedCount = useMemo(() => {
     return deviceHealthList.filter(d => !d.folder_linked || d.compliance_status === 'FOLDER_NOT_LINKED').length;
   }, [deviceHealthList]);
+
+  const bypassedCount = useMemo(() => {
+    return activeRecords.filter(r => r.isBypassed === true || String(r.channel || '').includes('Bypass')).length;
+  }, [activeRecords]);
+
+  const filteredActiveRecords = useMemo(() => {
+    if (bypassFilter === 'BYPASS') {
+      return activeRecords.filter(r => r.isBypassed === true || String(r.channel || '').includes('Bypass'));
+    }
+    if (bypassFilter === 'OFFICIAL') {
+      return activeRecords.filter(r => !r.isBypassed && !String(r.channel || '').includes('Bypass'));
+    }
+    return activeRecords;
+  }, [activeRecords, bypassFilter]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -1076,6 +1115,87 @@ export default function TelecallingView({
                 <span>{activeProvider === 'voxbay' ? 'Dial via Voxbay Cloud' : 'Call Lead (SIM Dialer)'}</span>
               </button>
 
+              {/* SIM Privacy & Bypass Filter Chips */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                background: '#f1f5f9',
+                padding: '3px',
+                borderRadius: '8px',
+                gap: '4px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => setBypassFilter('ALL')}
+                  style={{
+                    padding: '5px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: bypassFilter === 'ALL' ? '#ffffff' : 'transparent',
+                    fontWeight: bypassFilter === 'ALL' ? '700' : '500',
+                    color: bypassFilter === 'ALL' ? '#0f172a' : '#64748b',
+                    fontSize: '11.5px',
+                    cursor: 'pointer',
+                    boxShadow: bypassFilter === 'ALL' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  All ({activeRecords.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBypassFilter('OFFICIAL')}
+                  style={{
+                    padding: '5px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: bypassFilter === 'OFFICIAL' ? '#ffffff' : 'transparent',
+                    fontWeight: bypassFilter === 'OFFICIAL' ? '700' : '500',
+                    color: bypassFilter === 'OFFICIAL' ? '#047857' : '#64748b',
+                    fontSize: '11.5px',
+                    cursor: 'pointer',
+                    boxShadow: bypassFilter === 'OFFICIAL' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  Official SIM
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBypassFilter('BYPASS')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '5px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: bypassFilter === 'BYPASS' ? '#fee2e2' : 'transparent',
+                    fontWeight: bypassFilter === 'BYPASS' ? '800' : '600',
+                    color: bypassFilter === 'BYPASS' ? '#b91c1c' : (bypassedCount > 0 ? '#dc2626' : '#64748b'),
+                    fontSize: '11.5px',
+                    cursor: 'pointer',
+                    boxShadow: bypassFilter === 'BYPASS' ? '0 1px 3px rgba(220,38,38,0.2)' : 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>🚨 Bypassed</span>
+                  {bypassedCount > 0 && (
+                    <span style={{
+                      background: '#dc2626',
+                      color: '#ffffff',
+                      borderRadius: '10px',
+                      padding: '1px 6px',
+                      fontSize: '10px',
+                      fontWeight: '800'
+                    }}>
+                      {bypassedCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+
               {(isOwnerOrManager || isSuperAdmin) && (
                 <button
                   type="button"
@@ -1115,7 +1235,7 @@ export default function TelecallingView({
             </div>
           }
           moduleConfig={enhancedConfig}
-          records={activeRecords}
+          records={filteredActiveRecords}
           setRecords={handleUpdateRecords}
           authUser={authUser}
           systemDropdowns={systemDropdowns}

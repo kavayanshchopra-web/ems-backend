@@ -47,9 +47,13 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ProgressBar;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -2065,6 +2069,106 @@ public class MainActivity extends AppCompatActivity {
         btnParams.setMargins(0, (int)(16 * density), 0, (int)(14 * density));
         btnPick.setLayoutParams(btnParams);
         layout.addView(btnPick);
+
+        // -------------------------------------------------------------
+        // Official Work SIM Selection Card (Dual SIM Privacy & Bypass Shield)
+        // -------------------------------------------------------------
+        LinearLayout simCard = new LinearLayout(this);
+        simCard.setOrientation(LinearLayout.VERTICAL);
+        simCard.setPadding((int)(14 * density), (int)(12 * density), (int)(14 * density), (int)(12 * density));
+        GradientDrawable simBg = new GradientDrawable();
+        simBg.setCornerRadius(12 * density);
+        simBg.setColor(Color.parseColor("#F8FAFC"));
+        simBg.setStroke((int)(1 * density), Color.parseColor("#CBD5E1"));
+        simCard.setBackground(simBg);
+
+        TextView tvSimTitle = new TextView(this);
+        tvSimTitle.setText("📱 Official Work Calling SIM");
+        tvSimTitle.setTextSize(13.5f);
+        tvSimTitle.setTypeface(null, Typeface.BOLD);
+        tvSimTitle.setTextColor(Color.parseColor("#0F172A"));
+        simCard.addView(tvSimTitle);
+
+        TextView tvSimSub = new TextView(this);
+        tvSimSub.setText("Personal calls to non-leads are completely private (zero logs). Calls to official CRM leads will be recorded & audited.");
+        tvSimSub.setTextSize(11f);
+        tvSimSub.setTextColor(Color.parseColor("#64748B"));
+        tvSimSub.setPadding(0, (int)(3 * density), 0, (int)(10 * density));
+        simCard.addView(tvSimSub);
+
+        // Detect carrier names dynamically
+        String sim1Label = "SIM 1";
+        String sim2Label = "SIM 2";
+        try {
+            SubscriptionManager sm = (SubscriptionManager) getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+            if (sm != null && checkSelfPermission(android.Manifest.permission.READ_PHONE_STATE) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                List<SubscriptionInfo> subList = sm.getActiveSubscriptionInfoList();
+                if (subList != null) {
+                    for (SubscriptionInfo si : subList) {
+                        int slot = si.getSimSlotIndex();
+                        String carrier = si.getCarrierName() != null ? si.getCarrierName().toString().trim() : "";
+                        if (carrier.isEmpty() && si.getDisplayName() != null) {
+                            carrier = si.getDisplayName().toString().trim();
+                        }
+                        if (slot == 0) {
+                            sim1Label = "SIM 1" + (!carrier.isEmpty() ? " (" + carrier + ")" : "");
+                        } else if (slot == 1) {
+                            sim2Label = "SIM 2" + (!carrier.isEmpty() ? " (" + carrier + ")" : "");
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
+        String currentSimSetting = prefs.getString("official_work_sim", "BOTH");
+
+        RadioGroup rgSim = new RadioGroup(this);
+        rgSim.setOrientation(RadioGroup.VERTICAL);
+
+        RadioButton rbBoth = new RadioButton(this);
+        rbBoth.setText("Both SIMs (All Calls Official)");
+        rbBoth.setTextSize(12f);
+        rbBoth.setTextColor(Color.parseColor("#1E293B"));
+        rbBoth.setId(View.generateViewId());
+
+        RadioButton rbSim1 = new RadioButton(this);
+        rbSim1.setText(sim1Label + " - Official Work SIM");
+        rbSim1.setTextSize(12f);
+        rbSim1.setTextColor(Color.parseColor("#1E293B"));
+        rbSim1.setId(View.generateViewId());
+
+        RadioButton rbSim2 = new RadioButton(this);
+        rbSim2.setText(sim2Label + " - Official Work SIM");
+        rbSim2.setTextSize(12f);
+        rbSim2.setTextColor(Color.parseColor("#1E293B"));
+        rbSim2.setId(View.generateViewId());
+
+        rgSim.addView(rbBoth);
+        rgSim.addView(rbSim1);
+        rgSim.addView(rbSim2);
+
+        if ("SIM 1".equalsIgnoreCase(currentSimSetting)) {
+            rbSim1.setChecked(true);
+        } else if ("SIM 2".equalsIgnoreCase(currentSimSetting)) {
+            rbSim2.setChecked(true);
+        } else {
+            rbBoth.setChecked(true);
+        }
+
+        rgSim.setOnCheckedChangeListener((group, checkedId) -> {
+            String newSetting = "BOTH";
+            if (checkedId == rbSim1.getId()) newSetting = "SIM 1";
+            else if (checkedId == rbSim2.getId()) newSetting = "SIM 2";
+            prefs.edit().putString("official_work_sim", newSetting).apply();
+            Toast.makeText(MainActivity.this, "✅ Official Work SIM set to: " + newSetting, Toast.LENGTH_SHORT).show();
+        });
+
+        simCard.addView(rgSim);
+
+        LinearLayout.LayoutParams simCardParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        simCardParams.setMargins(0, 0, 0, (int)(14 * density));
+        simCard.setLayoutParams(simCardParams);
+        layout.addView(simCard);
 
         // Brand Setup Guide Card
         LinearLayout guideCard = new LinearLayout(this);

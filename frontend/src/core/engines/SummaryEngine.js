@@ -80,6 +80,17 @@ export class SummaryEngine {
       }).length;
     }
 
+    // 5. BYPASS COUNT (Personal SIM Calls to CRM Leads)
+    if (widget.metricType === 'BYPASS_COUNT') {
+      return safeRecords.filter(r => {
+        if (!r) return false;
+        return r.isBypassed === true || 
+               r.is_bypassed === true || 
+               String(r.channel || '').includes('Bypass') || 
+               String(r.notes || '').includes('BYPASS DETECTED');
+      }).length;
+    }
+
     return safeRecords.length;
   }
 }
