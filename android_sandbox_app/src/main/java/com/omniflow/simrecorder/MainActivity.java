@@ -1838,10 +1838,24 @@ public class MainActivity extends AppCompatActivity {
         long callStartTime = prefs.getLong("call_start_time", 0);
         long timeSinceCall = System.currentTimeMillis() - callStartTime;
 
-        // If a call was made or ended OUTSIDE OmniFlow (native phone dialer/incoming call),
-        // DO NOT hijack the screen — immediately send MainActivity to back!
-        if (!isCallInitiatedFromApp && (callInProgress || (callStartTime > 0 && timeSinceCall < 10000))) {
-            Log.d(TAG, "External phone call detected — moving task to back immediately");
+        // Verify with TelephonyManager if a phone call is REALLY active on hardware
+        boolean isHardwareCallActive = false;
+        try {
+            android.telephony.TelephonyManager tm = (android.telephony.TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+            if (tm != null) {
+                isHardwareCallActive = (tm.getCallState() != android.telephony.TelephonyManager.CALL_STATE_IDLE);
+            }
+        } catch (Exception ignored) {}
+
+        // If hardware is idle, cleanly clear stale callInProgress flag
+        if (!isHardwareCallActive && callInProgress) {
+            prefs.edit().putBoolean("call_in_progress", false).apply();
+            callInProgress = false;
+        }
+
+        // Only send to back if hardware phone call is genuinely active right now outside app
+        if (!isCallInitiatedFromApp && isHardwareCallActive && (callInProgress || (callStartTime > 0 && timeSinceCall < 10000))) {
+            Log.d(TAG, "External active phone call detected — moving task to back");
             moveTaskToBack(true);
             return;
         }
