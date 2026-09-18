@@ -360,6 +360,9 @@ public class MainActivity extends AppCompatActivity {
         // Check & request runtime permissions
         checkAndRequestPermissions();
 
+        // Check for In-App OTA Updates in background
+        AppUpdateEngine.checkForUpdate(this, false);
+
         // Check Overlay Permission
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(this)) {
             try {
@@ -2142,11 +2145,37 @@ public class MainActivity extends AppCompatActivity {
         guideCard.addView(btnOpenSettings);
 
         layout.addView(guideCard);
+
+        // App Version & In-App Update Check Button
+        TextView btnCheckUpdate = new TextView(this);
+        String verName = "1.0.0";
+        try { verName = getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (Exception ignored) {}
+        btnCheckUpdate.setText("🔄 Check for App Updates (Current v" + verName + ")");
+        btnCheckUpdate.setGravity(Gravity.CENTER);
+        btnCheckUpdate.setTextSize(12f);
+        btnCheckUpdate.setTypeface(null, Typeface.BOLD);
+        btnCheckUpdate.setTextColor(Color.parseColor("#064E43"));
+        btnCheckUpdate.setPadding((int)(10 * density), (int)(10 * density), (int)(10 * density), (int)(10 * density));
+        GradientDrawable btnUpBg = new GradientDrawable();
+        btnUpBg.setCornerRadius(8 * density);
+        btnUpBg.setColor(Color.parseColor("#F0FDFA"));
+        btnUpBg.setStroke((int)(1 * density), Color.parseColor("#99F6E4"));
+        btnCheckUpdate.setBackground(btnUpBg);
+        LinearLayout.LayoutParams btnUpParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        btnUpParams.setMargins(0, (int)(10 * density), 0, 0);
+        btnCheckUpdate.setLayoutParams(btnUpParams);
+        layout.addView(btnCheckUpdate);
+
         scroll.addView(layout);
         builder.setView(scroll);
 
         builder.setNegativeButton("Close", (d, w) -> d.dismiss());
         android.app.AlertDialog dialog = builder.create();
+
+        btnCheckUpdate.setOnClickListener(v -> {
+            dialog.dismiss();
+            AppUpdateEngine.checkForUpdate(MainActivity.this, true);
+        });
 
         btnPick.setOnClickListener(v -> {
             dialog.dismiss();
