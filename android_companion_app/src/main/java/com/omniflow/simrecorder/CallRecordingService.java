@@ -266,20 +266,16 @@ public class CallRecordingService extends Service {
         String cleanFallback = details.phoneNumber.replaceAll("\\D", "");
         String normFallback10 = cleanFallback.length() >= 7 ? cleanFallback.substring(cleanFallback.length() - Math.min(10, cleanFallback.length())) : cleanFallback;
 
-        // Strict date boundary: only consider rows written for THIS call (never borrow an old call from minutes ago!)
-        long minValidCallDate = (callStartTime > 0) ? (callStartTime - 10000) : (System.currentTimeMillis() - 45000);
-
         try {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) {
-                long recentWindow = minValidCallDate;
-                Uri callLogUri = CallLog.Calls.CONTENT_URI;
-                // Query with null projection so ALL OEM-specific columns (sim_id, sub_id, etc.) are returned!
+                // Query CallLog exactly like the companion app's Recents tab:
+                // No restrictive WHERE clause on DATE, so OEM-delayed/timestamp-offset rows are never excluded!
                 try (Cursor cursor = getContentResolver().query(
-                    callLogUri,
+                    CallLog.Calls.CONTENT_URI,
                     null,
-                    CallLog.Calls.DATE + " >= ?",
-                    new String[]{String.valueOf(recentWindow)},
-                    CallLog.Calls.DATE + " DESC LIMIT 10"
+                    null,
+                    null,
+                    CallLog.Calls.DATE + " DESC"
                 )) {
                     if (cursor != null) {
                         int numIdx = cursor.getColumnIndex(CallLog.Calls.NUMBER);
@@ -288,10 +284,14 @@ public class CallRecordingService extends Service {
                         int durIdx = cursor.getColumnIndex(CallLog.Calls.DURATION);
                         int dateIdx = cursor.getColumnIndex(CallLog.Calls.DATE);
 
-                        while (cursor.moveToNext()) {
+                        int count = 0;
+                        while (cursor.moveToNext() && count < 10) {
+                            count++;
                             long rowDate = (dateIdx >= 0) ? cursor.getLong(dateIdx) : 0;
-                            if (rowDate > 0 && rowDate < minValidCallDate) {
-                                // Old call row from before current call started. Skip!
+                            long ageMs = Math.abs(System.currentTimeMillis() - rowDate);
+
+                            // Only consider calls from the recent window (within last 4 minutes)
+                            if (rowDate > 0 && ageMs > 240000) {
                                 continue;
                             }
 
@@ -299,7 +299,8 @@ public class CallRecordingService extends Service {
                             String cleanNum = (num != null) ? num.replaceAll("\\D", "") : "";
                             boolean matchesPhone = normFallback10.isEmpty() || cleanNum.endsWith(normFallback10) || normFallback10.endsWith(cleanNum);
 
-                            if (!matchesPhone && cursor.getPosition() > 0) {
+                            // If phone didn't match and we're past the top row, continue searching
+                            if (!matchesPhone && count > 1) {
                                 continue;
                             }
 
@@ -313,35 +314,40 @@ public class CallRecordingService extends Service {
                                     details.customerName = name.trim();
                                 }
                             }
+                            if (TextUtils.isEmpty(details.customerName) && !TextUtils.isEmpty(details.phoneNumber)) {
+                                details.customerName = MainActivity.resolveContactName(this, details.phoneNumber);
+                            }
 
                             if (durIdx >= 0) {
                                 details.duration = cursor.getLong(durIdx);
                             }
-                            details.foundInCallLog = true;
 
-                            // Direction Resolution: An OUTGOING call initiated by the user NEVER becomes INCOMING!
-                            if ("OUTGOING".equalsIgnoreCase(fallbackType) || "OUTGOING".equalsIgnoreCase(this.callType)) {
-                                details.callType = "OUTGOING";
-                            } else if (typeIdx >= 0) {
+                            // Call Type: OUTGOING, INCOMING, MISSED, REJECTED (as requested by user)
+                            if (typeIdx >= 0) {
                                 int rawType = cursor.getInt(typeIdx);
                                 switch (rawType) {
                                     case CallLog.Calls.INCOMING_TYPE:
                                         details.callType = "INCOMING";
+                                        details.isMissedOrRejected = false;
                                         break;
                                     case CallLog.Calls.OUTGOING_TYPE:
                                         details.callType = "OUTGOING";
+                                        details.isMissedOrRejected = false;
                                         break;
                                     case CallLog.Calls.MISSED_TYPE:
                                         details.callType = "MISSED";
                                         details.isMissedOrRejected = true;
+                                        details.duration = 0;
                                         break;
                                     case 5: // REJECTED_TYPE
                                         details.callType = "REJECTED";
                                         details.isMissedOrRejected = true;
+                                        details.duration = 0;
                                         break;
                                     case 6: // BLOCKED_TYPE
                                         details.callType = "BLOCKED";
                                         details.isMissedOrRejected = true;
+                                        details.duration = 0;
                                         break;
                                     default:
                                         details.callType = (fallbackType != null ? fallbackType : "OUTGOING");
@@ -349,15 +355,15 @@ public class CallRecordingService extends Service {
                                 }
                             }
 
-                            // SIM Slot Resolution
+                            // SIM Slot Resolution directly from cursor
                             String resolvedSlot = resolveSimSlotFromCursor(this, cursor);
-                            if ("SIM 2".equalsIgnoreCase(resolvedSlot) || "SIM 2".equalsIgnoreCase(details.simSlot)) {
-                                details.simSlot = "SIM 2";
-                            } else if (resolvedSlot != null && !resolvedSlot.isEmpty()) {
+                            if (resolvedSlot != null && !resolvedSlot.isEmpty()) {
                                 details.simSlot = resolvedSlot;
                             }
 
-                            if (matchesPhone) break;
+                            details.foundInCallLog = true;
+                            Log.d(TAG, "🎯 [Recent Call Matched] Phone=" + details.phoneNumber + ", Name=" + details.customerName + ", Type=" + details.callType + ", Dur=" + details.duration + "s, SIM=" + details.simSlot);
+                            break;
                         }
                     }
                 }
@@ -370,29 +376,30 @@ public class CallRecordingService extends Service {
             details.phoneNumber = (fallbackPhone != null && !fallbackPhone.isEmpty()) ? fallbackPhone : "Customer";
         }
 
-        // Final safety locks:
-        if ("SIM 2".equalsIgnoreCase(currentSimSlot) || "SIM 2".equalsIgnoreCase(prefSim)) {
-            details.simSlot = "SIM 2";
-        }
-        if ("OUTGOING".equalsIgnoreCase(fallbackType) || "OUTGOING".equalsIgnoreCase(this.callType)) {
-            details.callType = "OUTGOING";
-        }
+        if (!details.foundInCallLog) {
+            // Only if call was not found in CallLog after polling:
+            if ("SIM 2".equalsIgnoreCase(currentSimSlot) || "SIM 2".equalsIgnoreCase(prefSim)) {
+                details.simSlot = "SIM 2";
+            }
+            if ("OUTGOING".equalsIgnoreCase(fallbackType) || "OUTGOING".equalsIgnoreCase(this.callType)) {
+                details.callType = "OUTGOING";
+            }
 
-        boolean wasAnsweredInPrefs = getSharedPreferences("omniflow", MODE_PRIVATE).getBoolean("call_answered", false);
-        if (details.duration <= 0) {
-            if (fallbackDur > 0) {
-                details.duration = fallbackDur;
-                details.isMissedOrRejected = false;
-                if ("MISSED".equalsIgnoreCase(details.callType)) {
+            boolean wasAnsweredInPrefs = getSharedPreferences("omniflow", MODE_PRIVATE).getBoolean("call_answered", false);
+            if (details.duration <= 0) {
+                if (fallbackDur > 0) {
+                    details.duration = fallbackDur;
+                    details.isMissedOrRejected = false;
+                    if ("MISSED".equalsIgnoreCase(details.callType)) {
+                        details.callType = (fallbackType != null && !fallbackType.equalsIgnoreCase("MISSED")) ? fallbackType : "OUTGOING";
+                    }
+                } else if (wasAnsweredInPrefs || (callStartTime > 0)) {
+                    details.isMissedOrRejected = false;
                     details.callType = (fallbackType != null && !fallbackType.equalsIgnoreCase("MISSED")) ? fallbackType : "OUTGOING";
+                } else if ("INCOMING".equalsIgnoreCase(details.callType)) {
+                    details.callType = "MISSED";
+                    details.isMissedOrRejected = true;
                 }
-            } else if (wasAnsweredInPrefs || (callStartTime > 0)) {
-                // Call was OFFHOOK / Answered! Do NOT falsely convert to MISSED!
-                details.isMissedOrRejected = false;
-                details.callType = (fallbackType != null && !fallbackType.equalsIgnoreCase("MISSED")) ? fallbackType : "OUTGOING";
-            } else if ("INCOMING".equalsIgnoreCase(details.callType)) {
-                details.callType = "MISSED";
-                details.isMissedOrRejected = true;
             }
         }
 
@@ -576,9 +583,9 @@ public class CallRecordingService extends Service {
         final String fallbackType = wasMissedIntent ? "MISSED" : this.callType;
 
         // Universal Smart Poller: checks CallLog in fast incremental intervals
-        // As soon as the dialer commits the record (200ms on Pixel/OnePlus, ~1200ms on Samsung), it breaks immediately!
+        // As soon as the dialer commits the record (200ms on Pixel/OnePlus, ~1000ms on Samsung), it breaks immediately!
         new Thread(() -> {
-            long[] intervals = { 250, 350, 450, 550, 700, 900 }; // Total window ~3.2s
+            long[] intervals = { 250, 350, 450, 550, 700, 900, 1000 }; // Incremental poll up to ~4.2s
             ResolvedCallDetails details = null;
 
             for (int i = 0; i < intervals.length; i++) {
@@ -586,7 +593,7 @@ public class CallRecordingService extends Service {
 
                 details = resolveCallDetailsFromCallLog(fallbackPhone, fallbackType, fallbackDuration);
                 if (details != null && details.foundInCallLog) {
-                    Log.d(TAG, "⚡ [Smart Poller] Fresh CallLog row detected on attempt " + (i + 1) + "! Talk Time: " + details.duration + "s, SIM: " + details.simSlot);
+                    Log.d(TAG, "⚡ [Smart Poller] Fresh CallLog row detected on attempt " + (i + 1) + "! Talk Time: " + details.duration + "s, SIM: " + details.simSlot + ", Type: " + details.callType);
                     break;
                 }
             }
@@ -603,21 +610,22 @@ public class CallRecordingService extends Service {
                 if (details.duration <= 0 && fallbackDuration > 0 && !details.foundInCallLog) {
                     details.duration = fallbackDuration;
                 }
-                details.isMissedOrRejected = false;
-                if ("MISSED".equalsIgnoreCase(details.callType)) {
-                    details.callType = (fallbackType != null && !fallbackType.equalsIgnoreCase("MISSED")) ? fallbackType : "OUTGOING";
+                if ("MISSED".equalsIgnoreCase(details.callType) || details.isMissedOrRejected) {
+                    details.isMissedOrRejected = true;
+                } else {
+                    details.isMissedOrRejected = false;
                 }
             }
 
-            final String finalPhone = details.phoneNumber;
-            final String finalType = ("OUTGOING".equalsIgnoreCase(fallbackType) || "OUTGOING".equalsIgnoreCase(this.callType)) ? "OUTGOING" : details.callType;
+            final String finalPhone = (details.phoneNumber != null && !details.phoneNumber.isEmpty()) ? details.phoneNumber : (fallbackPhone != null ? fallbackPhone : "Customer");
+            final String finalType = (details.callType != null && !details.callType.isEmpty()) ? details.callType : (fallbackType != null ? fallbackType : "OUTGOING");
             final long finalDuration = details.duration;
-            final String finalSimSlot = ("SIM 2".equalsIgnoreCase(currentSimSlot) || "SIM 2".equalsIgnoreCase(details.simSlot)) ? "SIM 2" : ((details.simSlot != null && !details.simSlot.isEmpty()) ? details.simSlot : "SIM 1");
+            final String finalSimSlot = (details.simSlot != null && !details.simSlot.isEmpty()) ? details.simSlot : ("SIM 2".equalsIgnoreCase(currentSimSlot) ? "SIM 2" : "SIM 1");
             final String finalCallId = (currentCallId != null && !currentCallId.isEmpty()) ? currentCallId : ("call_" + System.currentTimeMillis() + "_" + (finalPhone != null ? finalPhone.replaceAll("\\D", "") : "0"));
 
             Log.d(TAG, "🎯 [Post-Call Resolved] Type: " + finalType + ", Duration: " + finalDuration + "s, SIM: " + finalSimSlot + ", Phone: " + finalPhone);
 
-            if ((details.isMissedOrRejected || finalDuration == 0) && wasMissedIntent) {
+            if ((details.isMissedOrRejected || finalDuration == 0) && ("MISSED".equalsIgnoreCase(finalType) || wasMissedIntent)) {
                 if (recordingFilePath != null) {
                     try {
                         File partial = new File(recordingFilePath);
