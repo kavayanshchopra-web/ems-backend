@@ -1708,8 +1708,6 @@ export const SupabaseSandboxService = {
     'whatsapp_sessions': 'whatsapp_sessions',
     'channels': 'whatsapp_sessions',
     'scheduled_messages': 'scheduled_messages',
-    'telecalling_device_health': 'telecalling_device_health',
-    'device_health': 'telecalling_device_health',
     'tenant_settings': 'tenant_settings',
     'settings': 'tenant_settings'
   },
@@ -1924,6 +1922,7 @@ export const SupabaseSandboxService = {
       const data = await res.json();
       if (!Array.isArray(data)) return null;
       return data.map(r => ({
+        tenant_id: r.tenant_id,
         ...(r.custom_fields || {}),
         ...(r.data || {}),
         id: r.id,
