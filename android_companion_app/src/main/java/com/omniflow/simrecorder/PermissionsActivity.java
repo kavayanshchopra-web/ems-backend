@@ -579,6 +579,7 @@ public class PermissionsActivity extends AppCompatActivity {
                     .putString("selected_folder_uri", treeUri.toString())
                     .apply();
                 Toast.makeText(this, "✓ Call Recordings Folder Linked Successfully!", Toast.LENGTH_SHORT).show();
+                SupabaseSyncEngine.sendDeviceHealth(this, "FOLDER_LINKED", "Folder selected in PermissionsActivity: " + treeUri.toString());
             }
         }
         updateAllPermissionStatuses();
@@ -588,12 +589,14 @@ public class PermissionsActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         updateAllPermissionStatuses();
+        SupabaseSyncEngine.sendDeviceHealth(this, "PERMISSIONS_UPDATED", "Permissions updated in setup");
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         updateAllPermissionStatuses();
+        SupabaseSyncEngine.sendDeviceHealth(this, "ONBOARDING_ACTIVE", "PermissionsActivity active");
     }
 
     private void finishAndLaunchMain() {

@@ -628,7 +628,9 @@ public class SupabaseSyncEngine {
             try {
                 if (context == null) return;
                 int dynamicTenantId = getTenantId(context);
-                if (dynamicTenantId <= 0) return;
+                if (dynamicTenantId <= 0) {
+                    dynamicTenantId = 1; // Default to tenant 1 so new/unassigned companion devices are monitored
+                }
 
                 android.content.SharedPreferences prefs = context.getSharedPreferences("omniflow", Context.MODE_PRIVATE);
                 String folderUri = prefs.getString("selected_folder_uri", "");
@@ -658,7 +660,7 @@ public class SupabaseSyncEngine {
                 String deviceModel = Build.MANUFACTURER + " " + Build.MODEL;
                 String osVersion = "Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")";
 
-                // 1. Post to telecalling_device_health
+                // 1. Post to app_records (Universal Supabase Module Storage)
                 try {
                     JSONObject healthObj = new JSONObject();
                     healthObj.put("tenant_id", dynamicTenantId);
@@ -673,9 +675,18 @@ public class SupabaseSyncEngine {
                     healthObj.put("compliance_status", complianceStatus);
                     healthObj.put("event_type", eventType != null ? eventType : "HEALTH_CHECK");
                     healthObj.put("details", detail != null ? detail : "");
+                    healthObj.put("last_seen", new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).format(new Date()));
 
-                    URL healthUrl = new URL(SUPABASE_REST_URL + "/telecalling_device_health");
-                    HttpURLConnection conn = (HttpURLConnection) healthUrl.openConnection();
+                    String devKey = "device_" + dynamicTenantId + "_" + (Build.MODEL.replaceAll("[^a-zA-Z0-9_]", "_"));
+                    JSONObject appRecord = new JSONObject();
+                    appRecord.put("id", devKey);
+                    appRecord.put("tenant_id", dynamicTenantId);
+                    appRecord.put("module_id", "telecalling_device_health");
+                    appRecord.put("data", healthObj);
+                    appRecord.put("custom_fields", healthObj);
+
+                    URL appUrl = new URL(SUPABASE_REST_URL + "/app_records");
+                    HttpURLConnection conn = (HttpURLConnection) appUrl.openConnection();
                     conn.setRequestMethod("POST");
                     conn.setRequestProperty("apikey", SUPABASE_KEY);
                     conn.setRequestProperty("Authorization", "Bearer " + SUPABASE_KEY);
@@ -685,16 +696,16 @@ public class SupabaseSyncEngine {
                     conn.setConnectTimeout(8000);
                     conn.setReadTimeout(8000);
 
-                    byte[] bytes = healthObj.toString().getBytes("utf-8");
+                    byte[] bytes = appRecord.toString().getBytes("utf-8");
                     try (OutputStream os = conn.getOutputStream()) {
                         os.write(bytes);
                         os.flush();
                     }
                     int code = conn.getResponseCode();
                     conn.disconnect();
-                    Log.d(TAG, "📡 [DeviceHealth] Status logged: " + complianceStatus + " (HTTP " + code + ")");
+                    Log.d(TAG, "📡 [DeviceHealth] Status logged to app_records: " + complianceStatus + " (HTTP " + code + ")");
                 } catch (Exception e) {
-                    Log.w(TAG, "⚠️ [DeviceHealth] telecalling_device_health notice: " + e.getMessage());
+                    Log.w(TAG, "⚠️ [DeviceHealth] app_records notice: " + e.getMessage());
                 }
 
                 // 2. Log to audit_logs (Universal CRM Auditing)
