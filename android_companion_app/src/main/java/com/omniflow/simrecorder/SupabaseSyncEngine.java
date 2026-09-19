@@ -269,6 +269,14 @@ public class SupabaseSyncEngine {
                     }
 
                     int callRespCode = callConn.getResponseCode();
+                    if (callRespCode >= 400) {
+                        try (BufferedReader rErr = new BufferedReader(new InputStreamReader(callConn.getErrorStream()))) {
+                            StringBuilder sbErr = new StringBuilder();
+                            String lErr;
+                            while ((lErr = rErr.readLine()) != null) sbErr.append(lErr);
+                            Log.e(TAG, "❌ [Stage 1 SupabaseSync Error HTTP " + callRespCode + "]: " + sbErr.toString());
+                        } catch (Exception ignored) {}
+                    }
                     callConn.disconnect();
                     Log.d(TAG, "⚡ [Stage 1 SupabaseSync] Call Log Insert Response: " + callRespCode);
                 } catch (Exception callErr) {
@@ -534,7 +542,7 @@ public class SupabaseSyncEngine {
                     if (!patched) {
                         try {
                             // Match by phone containing last 10 digits across all variations (+91, without +91, spaces)
-                            URL getRecentUrl = new URL(SUPABASE_REST_URL + "/call_logs?customer_phone=ilike.*" + norm10 + "*&tenant_id=eq." + dynamicTenantId + "&order=created_at.desc&limit=1&select=id");
+                            URL getRecentUrl = new URL(SUPABASE_REST_URL + "/call_logs?customer_phone=ilike.*" + norm10 + "*&tenant_id=eq." + dynamicTenantId + "&order=created_at.desc&limit=1&select=id,created_at");
                             HttpURLConnection getConn = (HttpURLConnection) getRecentUrl.openConnection();
                             getConn.setRequestMethod("GET");
                             getConn.setRequestProperty("apikey", SUPABASE_KEY);
@@ -548,8 +556,24 @@ public class SupabaseSyncEngine {
                                     while ((line = r.readLine()) != null) sb.append(line);
                                     JSONArray arr = new JSONArray(sb.toString());
                                     if (arr.length() > 0) {
-                                        long matchedDbId = arr.getJSONObject(0).optLong("id", -1);
-                                        if (matchedDbId > 0) {
+                                        JSONObject recentObj = arr.getJSONObject(0);
+                                        long matchedDbId = recentObj.optLong("id", -1);
+                                        String createdAtStr = recentObj.optString("created_at", "");
+                                        boolean isRecentEnough = false;
+                                        try {
+                                            if (!createdAtStr.isEmpty()) {
+                                                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US);
+                                                Date logDate = sdf.parse(createdAtStr.substring(0, Math.min(19, createdAtStr.length())));
+                                                if (logDate != null) {
+                                                    long diffMs = Math.abs(System.currentTimeMillis() - logDate.getTime());
+                                                    isRecentEnough = (diffMs <= 30 * 60 * 1000); // Only match if within 30 minutes
+                                                }
+                                            }
+                                        } catch (Exception ignored) {
+                                            isRecentEnough = true;
+                                        }
+
+                                        if (matchedDbId > 0 && isRecentEnough) {
                                             URL patchByIdUrl = new URL(SUPABASE_REST_URL + "/call_logs?id=eq." + matchedDbId);
                                             HttpURLConnection patchByIdConn = (HttpURLConnection) patchByIdUrl.openConnection();
                                             patchByIdConn.setRequestMethod("PATCH");
@@ -626,6 +650,14 @@ public class SupabaseSyncEngine {
                             os.flush();
                         }
                         int insCode = insConn.getResponseCode();
+                        if (insCode >= 400) {
+                            try (BufferedReader rErr = new BufferedReader(new InputStreamReader(insConn.getErrorStream()))) {
+                                StringBuilder sbErr = new StringBuilder();
+                                String lErr;
+                                while ((lErr = rErr.readLine()) != null) sbErr.append(lErr);
+                                Log.e(TAG, "❌ [Stage 2 Insert Fallback Error HTTP " + insCode + "]: " + sbErr.toString());
+                            } catch (Exception ignored) {}
+                        }
                         insConn.disconnect();
                         Log.d(TAG, "✅ [Stage 2 SupabaseSync] Call Log Insert Fallback Response: " + insCode);
                     } else {
@@ -843,7 +875,7 @@ public class SupabaseSyncEngine {
         if (dynamicTenantId <= 0) return false;
 
         try {
-            URL checkUrl = new URL(SUPABASE_REST_URL + "/contacts?tenant_id=eq." + dynamicTenantId + "&phone_normalized=eq." + norm10 + "&select=id");
+            URL checkUrl = new URL(SUPABASE_REST_URL + "/contacts?tenant_id=eq." + dynamicTenantId + "&or=(phone_normalized.ilike.*" + norm10 + "*,phone.ilike.*" + norm10 + "*)&select=id");
             HttpURLConnection checkConn = (HttpURLConnection) checkUrl.openConnection();
             checkConn.setRequestMethod("GET");
             checkConn.setRequestProperty("apikey", SUPABASE_KEY);
