@@ -55,12 +55,12 @@ async function main() {
 
   // 2. Prepare and Upload version.json
   const versionInfo = {
-    versionCode: 4,
-    versionName: "1.0.4",
+    versionCode: 5,
+    versionName: "1.0.5",
     apkUrl: `${SUPABASE_BASE}/storage/v1/object/public/${BUCKET}/app/OmniFlow-Live-Companion.apk`,
-    changeLog: "Auto-Heal Call Engine, Bulletproof PostgREST Schema Sync, High-Reliability Audio Linking & Dual-SIM Bypass Shield.",
+    changeLog: "Zero-Touch Auto-Folder Discovery, Dynamic Phone Model Detection (Samsung/Vivo/OnePlus/Xiaomi), 1-Tap Brand Setup Guides, and Universal Call Sync.",
     minVersionCode: 1,
-    forceUpdate: false,
+    forceUpdate: true,
     updatedAt: new Date().toISOString()
   };
 
