@@ -1,5 +1,6 @@
 package com.omniflow.simrecorder;
 
+import java.io.File;
 import android.Manifest;
 import android.app.role.RoleManager;
 import android.content.ClipData;
@@ -1946,13 +1947,50 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private String detectDefaultCallRecordingsFolder() {
+        try {
+            String storageRoot = Environment.getExternalStorageDirectory().getAbsolutePath();
+            SharedPreferences prefs = getSharedPreferences("omniflow", Context.MODE_PRIVATE);
+            String autoLocked = prefs.getString("auto_discovered_folder_path", "");
+            if (!autoLocked.isEmpty() && new File(autoLocked).exists()) {
+                return autoLocked;
+            }
+
+            String[] candidatePaths = {
+                storageRoot + "/Recordings/Call",
+                storageRoot + "/Record/Call",
+                storageRoot + "/Record",
+                storageRoot + "/Recordings",
+                storageRoot + "/MIUI/sound_recorder/call_rec",
+                storageRoot + "/Recordings/CallRecordings",
+                storageRoot + "/CallRecordings",
+                storageRoot + "/Voice Recorder",
+                "/storage/emulated/0/Recordings/Call",
+                "/storage/emulated/0/Record/Call",
+                "/storage/emulated/0/Record",
+                "/storage/emulated/0/Recordings"
+            };
+
+            for (String path : candidatePaths) {
+                File f = new File(path);
+                if (f.exists() && f.isDirectory()) {
+                    return path;
+                }
+            }
+
+            String mfg = (Build.MANUFACTURER != null ? Build.MANUFACTURER.toLowerCase() : "");
+            if (mfg.contains("samsung")) return storageRoot + "/Recordings/Call";
+            if (mfg.contains("vivo") || mfg.contains("iqoo")) return storageRoot + "/Record";
+            if (mfg.contains("xiaomi") || mfg.contains("redmi") || mfg.contains("poco")) return storageRoot + "/MIUI/sound_recorder/call_rec";
+            if (mfg.contains("oppo") || mfg.contains("realme") || mfg.contains("oneplus")) return storageRoot + "/Recordings/CallRecordings";
+            return storageRoot + "/Recordings/Call";
+        } catch (Exception e) {
+            return "/storage/emulated/0/Recordings/Call";
+        }
+    }
+
     private void updateFolderHeaderBadge() {
         if (tvFolderBadge == null || btnFolderSettings == null) return;
-        SharedPreferences prefs = getSharedPreferences("omniflow", Context.MODE_PRIVATE);
-        String folderUri = prefs.getString("selected_folder_uri", "");
-        if (folderUri.isEmpty()) {
-            folderUri = android.preference.PreferenceManager.getDefaultSharedPreferences(this).getString("selected_folder_uri", "");
-        }
 
         boolean hasAllFilesAccess = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
                 ? Environment.isExternalStorageManager()
@@ -1962,12 +2000,7 @@ public class MainActivity extends AppCompatActivity {
         GradientDrawable badgeBg = new GradientDrawable();
         badgeBg.setCornerRadius(16 * density);
 
-        if (!folderUri.isEmpty()) {
-            tvFolderBadge.setText("📁 Folder Linked ✓");
-            tvFolderBadge.setTextColor(Color.parseColor("#A7F3D0")); // Emerald 200
-            badgeBg.setColor(Color.parseColor("#064E3B")); // Emerald 900
-            badgeBg.setStroke((int)(1 * density), Color.parseColor("#10B981"));
-        } else if (hasAllFilesAccess) {
+        if (hasAllFilesAccess) {
             tvFolderBadge.setText("⚡ Auto-Discovery Active");
             tvFolderBadge.setTextColor(Color.parseColor("#A7F3D0")); // Emerald 200
             badgeBg.setColor(Color.parseColor("#064E3B")); // Emerald 900
@@ -1989,7 +2022,7 @@ public class MainActivity extends AppCompatActivity {
                     | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
                     | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
             startActivityForResult(intent, SAF_SETTINGS_REQ_CODE);
-            Toast.makeText(this, "Select your device's Call Recordings folder and tap 'USE THIS FOLDER'", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Select custom recordings folder and tap 'USE THIS FOLDER'", Toast.LENGTH_LONG).show();
         } catch (Exception e) {
             Toast.makeText(this, "Cannot open folder picker: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
@@ -1998,14 +2031,11 @@ public class MainActivity extends AppCompatActivity {
     private void showRecordingSettingsDialog() {
         float density = getResources().getDisplayMetrics().density;
         SharedPreferences prefs = getSharedPreferences("omniflow", Context.MODE_PRIVATE);
-        String currentUri = prefs.getString("selected_folder_uri", "");
-        if (currentUri.isEmpty()) {
-            currentUri = android.preference.PreferenceManager.getDefaultSharedPreferences(this).getString("selected_folder_uri", "");
-        }
-        boolean isLinked = !currentUri.isEmpty();
         boolean hasAllFilesAccess = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
                 ? Environment.isExternalStorageManager()
                 : (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED);
+
+        String detectedFolder = detectDefaultCallRecordingsFolder();
 
         android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
 
@@ -2023,31 +2053,14 @@ public class MainActivity extends AppCompatActivity {
         tvTitle.setPadding(0, 0, 0, (int)(12 * density));
         layout.addView(tvTitle);
 
-        // Status Card
+        // Status Card: Zero-Touch Auto Discovery
         LinearLayout statusCard = new LinearLayout(this);
         statusCard.setOrientation(LinearLayout.VERTICAL);
         statusCard.setPadding((int)(14 * density), (int)(12 * density), (int)(14 * density), (int)(12 * density));
         GradientDrawable statusBg = new GradientDrawable();
         statusBg.setCornerRadius(12 * density);
 
-        if (isLinked) {
-            statusBg.setColor(Color.parseColor("#ECFDF5")); // Mint 50
-            statusBg.setStroke((int)(1 * density), Color.parseColor("#A7F3D0"));
-
-            TextView tvStatusHeader = new TextView(this);
-            tvStatusHeader.setText("✅ FOLDER CONNECTED & READY");
-            tvStatusHeader.setTextColor(Color.parseColor("#065F46"));
-            tvStatusHeader.setTypeface(null, Typeface.BOLD);
-            tvStatusHeader.setTextSize(13f);
-            statusCard.addView(tvStatusHeader);
-
-            TextView tvStatusDetail = new TextView(this);
-            tvStatusDetail.setText("Call recordings will auto-sync to CRM immediately after every call completes.");
-            tvStatusDetail.setTextColor(Color.parseColor("#047857"));
-            tvStatusDetail.setTextSize(11.5f);
-            tvStatusDetail.setPadding(0, (int)(4 * density), 0, 0);
-            statusCard.addView(tvStatusDetail);
-        } else if (hasAllFilesAccess) {
+        if (hasAllFilesAccess) {
             statusBg.setColor(Color.parseColor("#ECFDF5")); // Mint 50
             statusBg.setStroke((int)(1 * density), Color.parseColor("#A7F3D0"));
 
@@ -2058,10 +2071,18 @@ public class MainActivity extends AppCompatActivity {
             tvStatusHeader.setTextSize(13f);
             statusCard.addView(tvStatusHeader);
 
+            TextView tvPath = new TextView(this);
+            tvPath.setText("📂 Auto-Detected: " + detectedFolder + " (Ready ✓)");
+            tvPath.setTextColor(Color.parseColor("#0F766E"));
+            tvPath.setTypeface(null, Typeface.BOLD);
+            tvPath.setTextSize(11.5f);
+            tvPath.setPadding(0, (int)(4 * density), 0, 0);
+            statusCard.addView(tvPath);
+
             TextView tvStatusDetail = new TextView(this);
-            tvStatusDetail.setText("OmniFlow automatically scans your phone's native recording folders. Manual folder selection is not needed!");
+            tvStatusDetail.setText("OmniFlow automatically discovers and syncs recordings after every call. No manual folder selection needed!");
             tvStatusDetail.setTextColor(Color.parseColor("#047857"));
-            tvStatusDetail.setTextSize(11.5f);
+            tvStatusDetail.setTextSize(11f);
             tvStatusDetail.setPadding(0, (int)(4 * density), 0, 0);
             statusCard.addView(tvStatusDetail);
         } else {
@@ -2084,23 +2105,6 @@ public class MainActivity extends AppCompatActivity {
         }
         statusCard.setBackground(statusBg);
         layout.addView(statusCard);
-
-        // Button: Change/Select Folder
-        TextView btnPick = new TextView(this);
-        btnPick.setText(isLinked ? "📁 Change Call Recordings Folder" : "📁 Select Call Recordings Folder");
-        btnPick.setGravity(Gravity.CENTER);
-        btnPick.setTextSize(14f);
-        btnPick.setTypeface(null, Typeface.BOLD);
-        btnPick.setTextColor(Color.WHITE);
-        btnPick.setPadding((int)(16 * density), (int)(12 * density), (int)(16 * density), (int)(12 * density));
-        GradientDrawable pickBg = new GradientDrawable();
-        pickBg.setCornerRadius(10 * density);
-        pickBg.setColor(Color.parseColor("#064E43"));
-        btnPick.setBackground(pickBg);
-        LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        btnParams.setMargins(0, (int)(16 * density), 0, (int)(14 * density));
-        btnPick.setLayoutParams(btnParams);
-        layout.addView(btnPick);
 
         // -------------------------------------------------------------
         // Official Work SIM Selection Card (Dual SIM Privacy & Bypass Shield)
@@ -2395,20 +2399,29 @@ public class MainActivity extends AppCompatActivity {
         btnCheckUpdate.setLayoutParams(btnUpParams);
         layout.addView(btnCheckUpdate);
 
+        // Optional Custom Folder Selection (Advanced)
+        TextView tvCustomFolder = new TextView(this);
+        tvCustomFolder.setText("⚙️ Custom Folder (Advanced / SD Card)");
+        tvCustomFolder.setGravity(Gravity.CENTER);
+        tvCustomFolder.setTextSize(11f);
+        tvCustomFolder.setTextColor(Color.parseColor("#64748B"));
+        tvCustomFolder.setPadding((int)(8 * density), (int)(10 * density), (int)(8 * density), (int)(6 * density));
+        layout.addView(tvCustomFolder);
+
         scroll.addView(layout);
         builder.setView(scroll);
 
         builder.setNegativeButton("Close", (d, w) -> d.dismiss());
         android.app.AlertDialog dialog = builder.create();
 
+        tvCustomFolder.setOnClickListener(v -> {
+            dialog.dismiss();
+            requestFolderSelection();
+        });
+
         btnCheckUpdate.setOnClickListener(v -> {
             dialog.dismiss();
             AppUpdateEngine.checkForUpdate(MainActivity.this, true);
-        });
-
-        btnPick.setOnClickListener(v -> {
-            dialog.dismiss();
-            requestFolderSelection();
         });
 
         dialog.show();
