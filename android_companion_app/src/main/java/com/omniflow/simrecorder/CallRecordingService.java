@@ -1298,6 +1298,16 @@ public class CallRecordingService extends Service {
                 info.isNative = true;
                 info.modeNote = "🎧 HD Both-Sides Recording (Native Scanner Path)";
                 Log.d(TAG, "✅ Selected NATIVE Recording from path: " + nativeFile.getAbsolutePath() + " (" + nativeFile.length() + " bytes)");
+
+                // Auto-lock discovered parent directory for instant future queries
+                try {
+                    File parent = nativeFile.getParentFile();
+                    if (parent != null && parent.exists() && parent.isDirectory()) {
+                        prefs.edit().putString("auto_discovered_folder_path", parent.getAbsolutePath()).apply();
+                        Log.d(TAG, "🔒 Auto-locked discovered recording folder: " + parent.getAbsolutePath());
+                    }
+                } catch (Exception ignored) {}
+
                 return info;
             }
 
@@ -1451,35 +1461,45 @@ public class CallRecordingService extends Service {
             long windowStart = (callStartTime > 0) ? (callStartTime - 120000) : (System.currentTimeMillis() - 900000);
 
             String storageRoot = Environment.getExternalStorageDirectory().getAbsolutePath();
+            SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
+            String autoLocked = prefs.getString("auto_discovered_folder_path", "");
+
             String[] baseRoots = {
-                // Vivo / iQOO (Funtouch OS / Origin OS)
-                storageRoot + "/Record",
-                storageRoot + "/Recordings",
-                storageRoot + "/PhoneRecord",
-                storageRoot + "/CallRecordings",
-                storageRoot + "/vivoservice",
-                "/storage/emulated/0/Record",
-                "/storage/emulated/0/Recordings",
-                "/storage/emulated/0/PhoneRecord",
-                "/storage/emulated/0/CallRecordings",
-                "/storage/emulated/0/vivoservice",
+                // Priority 0: Previously auto-discovered & locked folder
+                autoLocked,
 
-                // Xiaomi / MIUI / HyperOS
-                storageRoot + "/MIUI/sound_recorder",
-                storageRoot + "/MIUI",
-                storageRoot + "/sound_recorder",
-                "/storage/emulated/0/MIUI/sound_recorder",
-                "/storage/emulated/0/MIUI",
-
-                // Samsung (OneUI)
+                // Samsung (One UI)
                 storageRoot + "/Recordings/Call",
                 storageRoot + "/Voice Recorder",
                 "/storage/emulated/0/Recordings/Call",
 
-                // Oppo / Realme / OnePlus
+                // Vivo / iQOO (Funtouch OS / Origin OS)
+                storageRoot + "/Record/Call",
+                storageRoot + "/Record",
+                storageRoot + "/Recordings",
+                storageRoot + "/PhoneRecord",
+                storageRoot + "/CallRecordings",
+                "/storage/emulated/0/Record/Call",
+                "/storage/emulated/0/Record",
+                "/storage/emulated/0/Recordings",
+
+                // Xiaomi / Redmi / POCO (MIUI / HyperOS)
+                storageRoot + "/MIUI/sound_recorder/call_rec",
+                storageRoot + "/Recordings/call_rec",
+                storageRoot + "/MIUI/sound_recorder",
+                storageRoot + "/MIUI",
+                "/storage/emulated/0/MIUI/sound_recorder/call_rec",
+                "/storage/emulated/0/Recordings/call_rec",
+
+                // Oppo / Realme / OnePlus (ColorOS / OxygenOS / Realme UI)
                 storageRoot + "/Recordings/CallRecordings",
                 storageRoot + "/Music/Recordings",
                 storageRoot + "/ColorOS",
+                storageRoot + "/Android/data/com.oneplus.communication.data/files/Record/PhoneRecord",
+
+                // Tecno / Infinix / itel (HiOS / XOS)
+                storageRoot + "/CallRecordings",
+                "/storage/emulated/0/CallRecordings",
 
                 // Generic
                 storageRoot + "/Sounds",

@@ -122,19 +122,13 @@ public class PermissionsActivity extends AppCompatActivity {
             "To show live caller widget and floating call timer during active calls.",
             tvOverlayStatus = new TextView(this), v -> requestOverlayPermission()));
 
-        bodyLayout.addView(createPermissionRow("💾", "Storage Management Access",
-            "Required to scan and read native phone audio recordings across Android 11, 12, 13, 14+.",
+        bodyLayout.addView(createPermissionRow("💾", "All Files Storage Access",
+            "Required so OmniFlow can auto-discover and read call recordings from your phone without manual folder picking.",
             tvStorageStatus = new TextView(this), v -> requestStorageAccessPermission()));
 
         String brand = Build.MANUFACTURER != null ? Build.MANUFACTURER.toUpperCase() : "PHONE";
-        String brandHint = "Recordings > Call";
-        if (brand.contains("SAMSUNG")) brandHint = "Recordings > Call (or Call folder)";
-        else if (brand.contains("VIVO")) brandHint = "Recordings > Call (or Record > Phone)";
-        else if (brand.contains("XIAOMI") || brand.contains("REDMI") || brand.contains("POCO")) brandHint = "MIUI > sound_recorder > call_rec";
-        else if (brand.contains("OPPO") || brand.contains("ONEPLUS") || brand.contains("REALME")) brandHint = "Music > Record > Call (or Recordings > Call)";
-
-        bodyLayout.addView(createPermissionRow("📁", "Select Call Recordings Folder",
-            "Select your " + brand + " recordings folder (" + brandHint + ") so OmniFlow can fetch HD audio.",
+        bodyLayout.addView(createPermissionRow("📁", "Audio Auto-Discovery",
+            "Automatic recording detection for " + brand + ". Manual folder picking is optional.",
             tvFolderStatus = new TextView(this), v -> requestFolderPermission()));
 
         // Brand-Specific Helper Guide: Vivo Alternate Phone Call Recording
@@ -450,6 +444,10 @@ public class PermissionsActivity extends AppCompatActivity {
     }
 
     private boolean isFolderPermissionGranted() {
+        // If All Files Access (MANAGE_EXTERNAL_STORAGE) is granted, auto-discovery is active! Zero manual folder picking needed.
+        if (isStorageAccessGranted()) {
+            return true;
+        }
         SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
         String uriStr = prefs.getString("selected_folder_uri", "");
         return !uriStr.isEmpty();

@@ -2,11 +2,14 @@ package com.omniflow.simrecorder;
 
 import android.Manifest;
 import android.app.role.RoleManager;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.os.Environment;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
@@ -1951,6 +1954,10 @@ public class MainActivity extends AppCompatActivity {
             folderUri = android.preference.PreferenceManager.getDefaultSharedPreferences(this).getString("selected_folder_uri", "");
         }
 
+        boolean hasAllFilesAccess = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+                ? Environment.isExternalStorageManager()
+                : (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED);
+
         float density = getResources().getDisplayMetrics().density;
         GradientDrawable badgeBg = new GradientDrawable();
         badgeBg.setCornerRadius(16 * density);
@@ -1960,8 +1967,13 @@ public class MainActivity extends AppCompatActivity {
             tvFolderBadge.setTextColor(Color.parseColor("#A7F3D0")); // Emerald 200
             badgeBg.setColor(Color.parseColor("#064E3B")); // Emerald 900
             badgeBg.setStroke((int)(1 * density), Color.parseColor("#10B981"));
+        } else if (hasAllFilesAccess) {
+            tvFolderBadge.setText("⚡ Auto-Discovery Active");
+            tvFolderBadge.setTextColor(Color.parseColor("#A7F3D0")); // Emerald 200
+            badgeBg.setColor(Color.parseColor("#064E3B")); // Emerald 900
+            badgeBg.setStroke((int)(1 * density), Color.parseColor("#10B981"));
         } else {
-            tvFolderBadge.setText("⚠️ Link Folder");
+            tvFolderBadge.setText("⚠️ Grant Storage");
             tvFolderBadge.setTextColor(Color.parseColor("#FEF08A")); // Yellow 200
             badgeBg.setColor(Color.parseColor("#78350F")); // Amber 900
             badgeBg.setStroke((int)(1 * density), Color.parseColor("#F59E0B"));
@@ -1991,6 +2003,9 @@ public class MainActivity extends AppCompatActivity {
             currentUri = android.preference.PreferenceManager.getDefaultSharedPreferences(this).getString("selected_folder_uri", "");
         }
         boolean isLinked = !currentUri.isEmpty();
+        boolean hasAllFilesAccess = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+                ? Environment.isExternalStorageManager()
+                : (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED);
 
         android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
 
@@ -2032,19 +2047,36 @@ public class MainActivity extends AppCompatActivity {
             tvStatusDetail.setTextSize(11.5f);
             tvStatusDetail.setPadding(0, (int)(4 * density), 0, 0);
             statusCard.addView(tvStatusDetail);
+        } else if (hasAllFilesAccess) {
+            statusBg.setColor(Color.parseColor("#ECFDF5")); // Mint 50
+            statusBg.setStroke((int)(1 * density), Color.parseColor("#A7F3D0"));
+
+            TextView tvStatusHeader = new TextView(this);
+            tvStatusHeader.setText("⚡ ZERO-TOUCH AUTO-DISCOVERY ACTIVE");
+            tvStatusHeader.setTextColor(Color.parseColor("#065F46"));
+            tvStatusHeader.setTypeface(null, Typeface.BOLD);
+            tvStatusHeader.setTextSize(13f);
+            statusCard.addView(tvStatusHeader);
+
+            TextView tvStatusDetail = new TextView(this);
+            tvStatusDetail.setText("OmniFlow automatically scans your phone's native recording folders. Manual folder selection is not needed!");
+            tvStatusDetail.setTextColor(Color.parseColor("#047857"));
+            tvStatusDetail.setTextSize(11.5f);
+            tvStatusDetail.setPadding(0, (int)(4 * density), 0, 0);
+            statusCard.addView(tvStatusDetail);
         } else {
             statusBg.setColor(Color.parseColor("#FEF2F2")); // Red 50
             statusBg.setStroke((int)(1 * density), Color.parseColor("#FECACA"));
 
             TextView tvStatusHeader = new TextView(this);
-            tvStatusHeader.setText("⚠️ CALL RECORDINGS FOLDER NOT LINKED");
+            tvStatusHeader.setText("⚠️ ALL FILES ACCESS REQUIRED");
             tvStatusHeader.setTextColor(Color.parseColor("#991B1B"));
             tvStatusHeader.setTypeface(null, Typeface.BOLD);
             tvStatusHeader.setTextSize(13f);
             statusCard.addView(tvStatusHeader);
 
             TextView tvStatusDetail = new TextView(this);
-            tvStatusDetail.setText("Calls are logged to CRM, but audio recordings CANNOT be uploaded until you link the recordings directory.");
+            tvStatusDetail.setText("Please grant storage permission so OmniFlow can auto-discover your phone's call recordings.");
             tvStatusDetail.setTextColor(Color.parseColor("#B91C1C"));
             tvStatusDetail.setTextSize(11.5f);
             tvStatusDetail.setPadding(0, (int)(4 * density), 0, 0);
@@ -2170,83 +2202,176 @@ public class MainActivity extends AppCompatActivity {
         simCard.setLayoutParams(simCardParams);
         layout.addView(simCard);
 
-        // Brand Setup Guide Card
+        // Intelligent Device Hardware & Brand Setup Guide Card
         LinearLayout guideCard = new LinearLayout(this);
         guideCard.setOrientation(LinearLayout.VERTICAL);
-        guideCard.setPadding((int)(14 * density), (int)(12 * density), (int)(14 * density), (int)(12 * density));
+        guideCard.setPadding((int)(14 * density), (int)(14 * density), (int)(14 * density), (int)(14 * density));
         GradientDrawable guideBg = new GradientDrawable();
-        guideBg.setCornerRadius(12 * density);
+        guideBg.setCornerRadius(14 * density);
         guideBg.setColor(Color.parseColor("#F8FAFC"));
-        guideBg.setStroke((int)(1 * density), Color.parseColor("#E2E8F0"));
+        guideBg.setStroke((int)(1.5f * density), Color.parseColor("#CBD5E1"));
         guideCard.setBackground(guideBg);
 
-        String mfg = Build.MANUFACTURER != null ? Build.MANUFACTURER.toLowerCase() : "";
-        TextView tvGuideTitle = new TextView(this);
-        tvGuideTitle.setTextSize(13f);
-        tvGuideTitle.setTypeface(null, Typeface.BOLD);
-        tvGuideTitle.setTextColor(Color.parseColor("#1E293B"));
+        String mfgRaw = Build.MANUFACTURER != null ? Build.MANUFACTURER : "Device";
+        String modelRaw = Build.MODEL != null ? Build.MODEL : "";
+        String androidVer = Build.VERSION.RELEASE != null ? Build.VERSION.RELEASE : "";
+        String mfg = mfgRaw.toLowerCase();
+
+        // Device Model Detection Header Chip
+        LinearLayout chipRow = new LinearLayout(this);
+        chipRow.setOrientation(LinearLayout.HORIZONTAL);
+        chipRow.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView tvDetectedChip = new TextView(this);
+        tvDetectedChip.setText("📱 YOUR PHONE: " + mfgRaw.toUpperCase() + " " + modelRaw + " (Android " + androidVer + ")");
+        tvDetectedChip.setTextSize(12f);
+        tvDetectedChip.setTypeface(null, Typeface.BOLD);
+        tvDetectedChip.setTextColor(Color.parseColor("#0F172A"));
+        chipRow.addView(tvDetectedChip);
+        guideCard.addView(chipRow);
 
         TextView tvGuideDesc = new TextView(this);
         tvGuideDesc.setTextSize(11.5f);
-        tvGuideDesc.setTextColor(Color.parseColor("#475569"));
-        tvGuideDesc.setPadding(0, (int)(4 * density), 0, (int)(8 * density));
+        tvGuideDesc.setTextColor(Color.parseColor("#334155"));
+        tvGuideDesc.setLineSpacing(0, 1.25f);
+        tvGuideDesc.setPadding(0, (int)(8 * density), 0, (int)(10 * density));
+
+        LinearLayout actionButtonsRow = new LinearLayout(this);
+        actionButtonsRow.setOrientation(LinearLayout.VERTICAL);
 
         if (mfg.contains("vivo") || mfg.contains("iqoo")) {
-            tvGuideTitle.setText("📱 Vivo / iQOO Native Recording Setup:");
-            tvGuideDesc.setText("1. Open Settings > Apps > Default Apps > Phone app.\n"
-                    + "2. Enable 'Alternate Phone and Contacts' (System default).\n"
-                    + "3. Open Vivo Phone App > Settings > Record settings > Set to 'Record all calls automatically'.\n"
-                    + "4. In folder picker, choose Internal Storage > Record.");
+            tvGuideDesc.setText("✨ Vivo / iQOO High-Definition Recording:\n"
+                    + "1. Dial *#*#5566888#*#* to enable Vivo's official dialer.\n"
+                    + "2. Open Vivo Phone App > Settings > Record settings > Select 'Record all calls automatically'.\n"
+                    + "⚡ Zero-Touch Auto Discovery is active. Recordings sync automatically!");
+
+            // Button 1: Copy Vivo Code
+            TextView btnCopyVivo = new TextView(this);
+            btnCopyVivo.setText("📋 Copy Vivo Enabler Code (*#*#5566888#*#*)");
+            btnCopyVivo.setGravity(Gravity.CENTER);
+            btnCopyVivo.setTextSize(12f);
+            btnCopyVivo.setTypeface(null, Typeface.BOLD);
+            btnCopyVivo.setTextColor(Color.WHITE);
+            btnCopyVivo.setPadding((int)(12 * density), (int)(8 * density), (int)(12 * density), (int)(8 * density));
+            GradientDrawable b1 = new GradientDrawable();
+            b1.setCornerRadius(8 * density);
+            b1.setColor(Color.parseColor("#2563EB"));
+            btnCopyVivo.setBackground(b1);
+            btnCopyVivo.setOnClickListener(v -> {
+                ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                if (cm != null) {
+                    cm.setPrimaryClip(ClipData.newPlainText("Vivo Code", "*#*#5566888#*#*"));
+                    Toast.makeText(MainActivity.this, "✅ Copied *#*#5566888#*#* to clipboard! Open dialer and paste.", Toast.LENGTH_LONG).show();
+                }
+            });
+            actionButtonsRow.addView(btnCopyVivo);
+
         } else if (mfg.contains("samsung")) {
-            tvGuideTitle.setText("📱 Samsung Galaxy Setup:");
-            tvGuideDesc.setText("1. Open Samsung Phone App.\n"
-                    + "2. Tap 3 dots (top right) > Settings > Record calls.\n"
-                    + "3. Turn ON 'Auto record calls'.\n"
-                    + "4. In folder picker, choose: Internal Storage > Recordings > Call.");
-        } else if (mfg.contains("xiaomi") || mfg.contains("redmi") || mfg.contains("poco")) {
-            tvGuideTitle.setText("📱 Xiaomi / Redmi / POCO Setup:");
-            tvGuideDesc.setText("1. Open Phone app > Settings > Call recording.\n"
-                    + "2. Turn ON 'Record calls automatically'.\n"
-                    + "3. In folder picker, choose: MIUI > sound_recorder > call_rec.");
+            tvGuideDesc.setText("✨ Samsung Galaxy Studio HD Recording:\n"
+                    + "1. Open Samsung Phone App > 3 dots (⋮) > Settings > Record calls.\n"
+                    + "2. Turn ON 'Auto record calls' > Choose 'All calls'.\n"
+                    + "⚡ Zero-Touch Auto Discovery is active. Recordings sync automatically!");
+
+            TextView btnOpenPhone = new TextView(this);
+            btnOpenPhone.setText("📞 Open Samsung Phone Dialer");
+            btnOpenPhone.setGravity(Gravity.CENTER);
+            btnOpenPhone.setTextSize(12f);
+            btnOpenPhone.setTypeface(null, Typeface.BOLD);
+            btnOpenPhone.setTextColor(Color.WHITE);
+            btnOpenPhone.setPadding((int)(12 * density), (int)(8 * density), (int)(12 * density), (int)(8 * density));
+            GradientDrawable bPhone = new GradientDrawable();
+            bPhone.setCornerRadius(8 * density);
+            bPhone.setColor(Color.parseColor("#059669"));
+            btnOpenPhone.setBackground(bPhone);
+            btnOpenPhone.setOnClickListener(v -> {
+                try {
+                    Intent it = new Intent(Intent.ACTION_DIAL);
+                    startActivity(it);
+                } catch (Exception ignored) {}
+            });
+            actionButtonsRow.addView(btnOpenPhone);
+
         } else if (mfg.contains("oppo") || mfg.contains("realme") || mfg.contains("oneplus")) {
-            tvGuideTitle.setText("📱 Oppo / Realme / OnePlus Setup:");
-            tvGuideDesc.setText("1. Open Phone app > 3 dots > Settings > Call recording.\n"
-                    + "2. Turn ON 'Record all calls'.\n"
-                    + "3. In folder picker, choose: Internal Storage > Record or Music > Recordings.");
+            tvGuideDesc.setText("✨ OnePlus / OPPO / Realme 100% HD Recording:\n"
+                    + "1. Install official 'ODialer by ColorOS' from Google Play Store.\n"
+                    + "2. Set ODialer as default phone app > Settings > Call recording > Record all calls.\n"
+                    + "⚡ Zero-Touch Auto Discovery is active. Recordings sync automatically!");
+
+            TextView btnInstallOdialer = new TextView(this);
+            btnInstallOdialer.setText("📥 Install Official ODialer from Play Store");
+            btnInstallOdialer.setGravity(Gravity.CENTER);
+            btnInstallOdialer.setTextSize(12f);
+            btnInstallOdialer.setTypeface(null, Typeface.BOLD);
+            btnInstallOdialer.setTextColor(Color.WHITE);
+            btnInstallOdialer.setPadding((int)(12 * density), (int)(8 * density), (int)(12 * density), (int)(8 * density));
+            GradientDrawable bOdialer = new GradientDrawable();
+            bOdialer.setCornerRadius(8 * density);
+            bOdialer.setColor(Color.parseColor("#EA580C"));
+            btnInstallOdialer.setBackground(bOdialer);
+            btnInstallOdialer.setOnClickListener(v -> {
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.oplus.dialer")));
+                } catch (Exception e) {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.oplus.dialer")));
+                    } catch (Exception ignored) {}
+                }
+            });
+            actionButtonsRow.addView(btnInstallOdialer);
+
+        } else if (mfg.contains("xiaomi") || mfg.contains("redmi") || mfg.contains("poco")) {
+            tvGuideDesc.setText("✨ Xiaomi / Redmi / POCO Recording:\n"
+                    + "1. Open Phone app > Settings (⚙️) > Call recording.\n"
+                    + "2. Turn ON 'Record calls automatically' (All numbers).\n"
+                    + "⚡ Zero-Touch Auto Discovery is active. Recordings sync automatically!");
+
+            TextView btnOpenPhone = new TextView(this);
+            btnOpenPhone.setText("📞 Open Phone App");
+            btnOpenPhone.setGravity(Gravity.CENTER);
+            btnOpenPhone.setTextSize(12f);
+            btnOpenPhone.setTypeface(null, Typeface.BOLD);
+            btnOpenPhone.setTextColor(Color.WHITE);
+            btnOpenPhone.setPadding((int)(12 * density), (int)(8 * density), (int)(12 * density), (int)(8 * density));
+            GradientDrawable bPhone = new GradientDrawable();
+            bPhone.setCornerRadius(8 * density);
+            bPhone.setColor(Color.parseColor("#059669"));
+            btnOpenPhone.setBackground(bPhone);
+            btnOpenPhone.setOnClickListener(v -> {
+                try {
+                    Intent it = new Intent(Intent.ACTION_DIAL);
+                    startActivity(it);
+                } catch (Exception ignored) {}
+            });
+            actionButtonsRow.addView(btnOpenPhone);
+
         } else {
-            tvGuideTitle.setText("📱 Auto Call Recording Setup:");
-            tvGuideDesc.setText("1. Open your default Phone app > Settings > Call Recording.\n"
-                    + "2. Enable 'Auto record calls'.\n"
-                    + "3. In folder picker, select the folder where your recordings are saved.");
+            tvGuideDesc.setText("✨ Auto Call Recording Setup:\n"
+                    + "1. Open your default Phone app > Settings > Call Recording.\n"
+                    + "2. Turn ON 'Auto record calls' for all calls.\n"
+                    + "⚡ Zero-Touch Auto Discovery is active. Recordings sync automatically!");
         }
 
-        guideCard.addView(tvGuideTitle);
         guideCard.addView(tvGuideDesc);
+        guideCard.addView(actionButtonsRow);
 
-        // 1-Click Button to open System Settings
-        TextView btnOpenSettings = new TextView(this);
-        btnOpenSettings.setText("⚙️ Open Phone / Default Apps Settings");
-        btnOpenSettings.setGravity(Gravity.CENTER);
-        btnOpenSettings.setTextSize(12f);
-        btnOpenSettings.setTypeface(null, Typeface.BOLD);
-        btnOpenSettings.setTextColor(Color.parseColor("#064E43"));
-        btnOpenSettings.setPadding((int)(10 * density), (int)(8 * density), (int)(10 * density), (int)(8 * density));
-        GradientDrawable btnSetBg = new GradientDrawable();
-        btnSetBg.setCornerRadius(8 * density);
-        btnSetBg.setColor(Color.parseColor("#CCFBF1"));
-        btnOpenSettings.setBackground(btnSetBg);
-        btnOpenSettings.setOnClickListener(v -> {
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS));
-                } else {
-                    startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS));
-                }
-            } catch (Exception e) {
-                try { startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS)); } catch (Exception ignored) {}
-            }
-        });
-        guideCard.addView(btnOpenSettings);
+        // Secondary Button: View Full Multi-Brand Guide
+        TextView btnAllGuides = new TextView(this);
+        btnAllGuides.setText("📚 View Setup Guides for All Phone Brands");
+        btnAllGuides.setGravity(Gravity.CENTER);
+        btnAllGuides.setTextSize(11.5f);
+        btnAllGuides.setTypeface(null, Typeface.BOLD);
+        btnAllGuides.setTextColor(Color.parseColor("#065F46"));
+        btnAllGuides.setPadding((int)(10 * density), (int)(8 * density), (int)(10 * density), (int)(8 * density));
+        GradientDrawable bgAll = new GradientDrawable();
+        bgAll.setCornerRadius(8 * density);
+        bgAll.setColor(Color.parseColor("#E6FFFA"));
+        bgAll.setStroke((int)(1 * density), Color.parseColor("#99F6E4"));
+        btnAllGuides.setBackground(bgAll);
+        LinearLayout.LayoutParams allParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        allParams.setMargins(0, (int)(8 * density), 0, 0);
+        btnAllGuides.setLayoutParams(allParams);
+        btnAllGuides.setOnClickListener(v -> showAllPhoneGuidesDialog());
+        guideCard.addView(btnAllGuides);
 
         layout.addView(guideCard);
 
@@ -2287,6 +2412,142 @@ public class MainActivity extends AppCompatActivity {
         });
 
         dialog.show();
+    }
+
+    private void showAllPhoneGuidesDialog() {
+        float density = getResources().getDisplayMetrics().density;
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
+
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding((int)(20 * density), (int)(16 * density), (int)(20 * density), (int)(16 * density));
+
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText("📚 All Phone Setup Guides");
+        tvTitle.setTextSize(18f);
+        tvTitle.setTypeface(null, Typeface.BOLD);
+        tvTitle.setTextColor(Color.parseColor("#0F172A"));
+        tvTitle.setPadding(0, 0, 0, (int)(12 * density));
+        layout.addView(tvTitle);
+
+        // 1. Samsung
+        layout.addView(createBrandGuideCard("📱 Samsung Galaxy (S, A, M, F Series)",
+                "1. Open Samsung Phone App.\n"
+                + "2. Tap 3 dots (⋮) > Settings > Record calls.\n"
+                + "3. Turn ON 'Auto record calls' > Select 'All calls'.\n"
+                + "⚡ Studio HD audio will automatically sync to CRM.",
+                "📞 Open Dialer", () -> {
+                    try { startActivity(new Intent(Intent.ACTION_DIAL)); } catch (Exception ignored) {}
+                }, density));
+
+        // 2. Vivo & iQOO
+        layout.addView(createBrandGuideCard("📱 Vivo & iQOO (V, Y, T, X Series)",
+                "If phone has Google dialer, restore Vivo's official dialer:\n"
+                + "1. Dial *#*#5566888#*#* on your keypad.\n"
+                + "2. Enable 'Alternate Phone and Contacts' > Set as default.\n"
+                + "3. Open Vivo Phone app > Settings > Record settings > 'Record all calls automatically'.",
+                "📋 Copy Vivo Code (*#*#5566888#*#*)", () -> {
+                    ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                    if (cm != null) {
+                        cm.setPrimaryClip(ClipData.newPlainText("Vivo Code", "*#*#5566888#*#*"));
+                        Toast.makeText(MainActivity.this, "✅ Copied *#*#5566888#*#*! Open dialer & paste.", Toast.LENGTH_SHORT).show();
+                    }
+                }, density));
+
+        // 3. OnePlus / Oppo / Realme
+        layout.addView(createBrandGuideCard("📱 OnePlus / OPPO / Realme",
+                "To get 100% silent HD recording without announcements:\n"
+                + "1. Install official 'ODialer by ColorOS' from Play Store.\n"
+                + "2. Set ODialer as default dialer.\n"
+                + "3. In ODialer > Settings > Call recording > Turn ON 'Record all calls'.",
+                "📥 Open ODialer on Play Store", () -> {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.oplus.dialer")));
+                    } catch (Exception e) {
+                        try {
+                            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.oplus.dialer")));
+                        } catch (Exception ignored) {}
+                    }
+                }, density));
+
+        // 4. Xiaomi / Redmi / POCO
+        layout.addView(createBrandGuideCard("📱 Xiaomi / Redmi / POCO (MIUI / HyperOS)",
+                "1. Open Phone app > Tap Settings (gear icon) > Call recording.\n"
+                + "2. Turn ON 'Record calls automatically'.\n"
+                + "3. Under Selected numbers, ensure 'All numbers' is selected.",
+                "📞 Open Dialer", () -> {
+                    try { startActivity(new Intent(Intent.ACTION_DIAL)); } catch (Exception ignored) {}
+                }, density));
+
+        // 5. Tecno / Infinix / itel
+        layout.addView(createBrandGuideCard("📱 Tecno / Infinix / itel (HiOS / XOS)",
+                "1. Open default Phone app.\n"
+                + "2. Tap Settings (⚙️) > Turn ON 'Auto call recording'.\n"
+                + "⚡ Recordings are automatically detected and synced.",
+                "📞 Open Dialer", () -> {
+                    try { startActivity(new Intent(Intent.ACTION_DIAL)); } catch (Exception ignored) {}
+                }, density));
+
+        // 6. Motorola & Google Pixel
+        layout.addView(createBrandGuideCard("📱 Motorola & Google Pixel",
+                "1. Open Phone by Google app > 3 dots > Settings > Call recording.\n"
+                + "2. Enable 'Numbers not in your contacts'.\n"
+                + "💡 Note: Commercial teams making high volume calls are recommended to use Samsung, Vivo or OnePlus.",
+                null, null, density));
+
+        scroll.addView(layout);
+        builder.setView(scroll);
+        builder.setPositiveButton("Done", (d, w) -> d.dismiss());
+        builder.show();
+    }
+
+    private LinearLayout createBrandGuideCard(String title, String desc, String btnText, Runnable btnAction, float density) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding((int)(12 * density), (int)(12 * density), (int)(12 * density), (int)(12 * density));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(10 * density);
+        bg.setColor(Color.parseColor("#F8FAFC"));
+        bg.setStroke((int)(1 * density), Color.parseColor("#E2E8F0"));
+        card.setBackground(bg);
+
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(0, 0, 0, (int)(12 * density));
+        card.setLayoutParams(lp);
+
+        TextView tvT = new TextView(this);
+        tvT.setText(title);
+        tvT.setTextSize(13f);
+        tvT.setTypeface(null, Typeface.BOLD);
+        tvT.setTextColor(Color.parseColor("#1E293B"));
+        card.addView(tvT);
+
+        TextView tvD = new TextView(this);
+        tvD.setText(desc);
+        tvD.setTextSize(11.5f);
+        tvD.setTextColor(Color.parseColor("#475569"));
+        tvD.setLineSpacing(0, 1.25f);
+        tvD.setPadding(0, (int)(4 * density), 0, (int)(8 * density));
+        card.addView(tvD);
+
+        if (btnText != null && btnAction != null) {
+            TextView btn = new TextView(this);
+            btn.setText(btnText);
+            btn.setGravity(Gravity.CENTER);
+            btn.setTextSize(11.5f);
+            btn.setTypeface(null, Typeface.BOLD);
+            btn.setTextColor(Color.WHITE);
+            btn.setPadding((int)(10 * density), (int)(6 * density), (int)(10 * density), (int)(6 * density));
+            GradientDrawable bgb = new GradientDrawable();
+            bgb.setCornerRadius(6 * density);
+            bgb.setColor(Color.parseColor("#065F46"));
+            btn.setBackground(bgb);
+            btn.setOnClickListener(v -> btnAction.run());
+            card.addView(btn);
+        }
+
+        return card;
     }
 
     @Override
