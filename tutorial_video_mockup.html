@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="tutorial_audio_data.js"></script>
   <style>
     :root {
       --yt-red: #FF0000;
@@ -1611,24 +1612,61 @@
     let activeVid = YOUTUBE_VIDEOS[activeVidKey];
 
     // ==========================================
-    // Female Voice Narration Engine (Proven & Verified)
+    // Triple-Redundant Studio Audio & Female Voice Engine
+    // 1. Studio Base64 WAV Audio (100% Reliable HTML5 Audio)
+    // 2. Direct File Audio (tutorial_audio/*.wav)
+    // 3. Web Speech API (Fallback)
     // ==========================================
     let isVoiceMuted = false;
     let spokenStepIndex = -1;
     let femaleVoice = null;
     let activeUtterance = null;
     let allAvailableVoices = [];
+    let currentActiveAudio = null;
+    let lastFxTime = 0;
+
+    // Web Audio Touch/Tap FX generator
+    function playAudioTone(type) {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!window.globalAudioCtx) window.globalAudioCtx = new AudioCtx();
+        if (window.globalAudioCtx.state === 'suspended') window.globalAudioCtx.resume();
+        const now = window.globalAudioCtx.currentTime;
+        const osc = window.globalAudioCtx.createOscillator();
+        const gain = window.globalAudioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(window.globalAudioCtx.destination);
+        if (type === 'tap') {
+          osc.frequency.setValueAtTime(520, now);
+          osc.frequency.exponentialRampToValueAtTime(180, now + 0.05);
+          gain.gain.setValueAtTime(0.2, now);
+          osc.start(now);
+          osc.stop(now + 0.06);
+        } else if (type === 'toggle') {
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.exponentialRampToValueAtTime(880, now + 0.08);
+          gain.gain.setValueAtTime(0.25, now);
+          osc.start(now);
+          osc.stop(now + 0.09);
+        } else if (type === 'success') {
+          osc.frequency.setValueAtTime(587.33, now);
+          osc.frequency.setValueAtTime(880, now + 0.1);
+          gain.gain.setValueAtTime(0.25, now);
+          osc.start(now);
+          osc.stop(now + 0.25);
+        }
+      } catch(e) {}
+    }
 
     function initVoices() {
       if (!('speechSynthesis' in window)) {
         const el = document.getElementById('ttsVoiceName');
-        if (el) el.textContent = 'Web Speech not supported in browser';
+        if (el) el.textContent = '👧 Studio HD Voice (Active)';
         return;
       }
       allAvailableVoices = window.speechSynthesis.getVoices();
       if (!allAvailableVoices || allAvailableVoices.length === 0) return;
 
-      // 1. Search for natural female voice (Indian, English, or US)
       femaleVoice = allAvailableVoices.find(v => 
         (v.lang.includes('hi') || v.lang.includes('en-IN')) && 
         (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('swara') || v.name.toLowerCase().includes('natural'))
@@ -1641,10 +1679,9 @@
 
       if (femaleVoice) {
         const el = document.getElementById('ttsVoiceName');
-        if (el) el.textContent = '👧 ' + femaleVoice.name + ' (' + femaleVoice.lang + ')';
+        if (el) el.textContent = '👧 Studio HD Voice (' + femaleVoice.name + ')';
       }
 
-      // Populate voice selector dropdown
       const dropdown = document.getElementById('voiceSelectDropdown');
       if (dropdown) {
         dropdown.innerHTML = '';
@@ -1669,7 +1706,7 @@
       if (allAvailableVoices[idx]) {
         femaleVoice = allAvailableVoices[idx];
         const el = document.getElementById('ttsVoiceName');
-        if (el) el.textContent = '👧 ' + femaleVoice.name + ' (' + femaleVoice.lang + ')';
+        if (el) el.textContent = '👧 Studio HD Voice (' + femaleVoice.name + ')';
         testFemaleVoice();
       }
     }
@@ -1679,52 +1716,79 @@
       if (spokenStepIndex === stepIndex) return;
       spokenStepIndex = stepIndex;
 
-      if ('speechSynthesis' in window) {
-        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-        window.speechSynthesis.cancel();
-
-        const langPref = document.getElementById('voiceLanguageSelect') ? document.getElementById('voiceLanguageSelect').value : 'en';
-        const stepObj = activeVid.steps[stepIndex];
-        
-        let textToSpeak = text;
-        if (langPref === 'hi' && femaleVoice && femaleVoice.lang.includes('hi')) {
-          textToSpeak = (stepObj && stepObj.voiceHi) ? stepObj.voiceHi : text;
-        } else {
-          textToSpeak = (stepObj && stepObj.voiceEn) ? stepObj.voiceEn : text;
-        }
-
-        const utterance = new SpeechSynthesisUtterance(textToSpeak);
-        activeUtterance = utterance; // Prevent Chrome GC bug
-        if (femaleVoice) utterance.voice = femaleVoice;
-        utterance.rate = 1.02;
-        utterance.pitch = 1.15; // Pleasant female tone
-
-        const eqEl = document.getElementById('voiceEq');
-        utterance.onstart = () => { if (eqEl) eqEl.classList.add('speaking'); };
-        utterance.onend = () => { if (eqEl) eqEl.classList.remove('speaking'); };
-        utterance.onerror = (e) => {
-          console.warn("TTS speak error:", e);
-          if (eqEl) eqEl.classList.remove('speaking');
-        };
-
-        window.speechSynthesis.speak(utterance);
-      }
+      // Calculate track key for Studio HD audio (v1_step1 ... v2_step4)
+      const trackKey = activeVidKey === 'vid1' ? ('v1_step' + (stepIndex + 1)) : ('v2_step' + (stepIndex + 1));
+      playStudioAudioTrack(trackKey, text, stepIndex);
     }
 
-    function testFemaleVoice() {
+    function playStudioAudioTrack(trackKey, fallbackText, stepIndex) {
+      if (isVoiceMuted) return;
+
+      // Stop previous audio
+      if (currentActiveAudio) {
+        try {
+          currentActiveAudio.pause();
+          currentActiveAudio.currentTime = 0;
+        } catch(e) {}
+      }
+
+      const eqEl = document.getElementById('voiceEq');
+
+      // 1. Primary: Studio High Definition Audio Track
+      let audioSrc = null;
+      if (typeof STUDIO_VOICE_TRACKS !== 'undefined' && STUDIO_VOICE_TRACKS[trackKey]) {
+        audioSrc = STUDIO_VOICE_TRACKS[trackKey];
+      } else {
+        audioSrc = 'tutorial_audio/' + trackKey + '.wav';
+      }
+
+      if (audioSrc) {
+        try {
+          const audio = new Audio(audioSrc);
+          audio.volume = 1.0;
+          currentActiveAudio = audio;
+
+          audio.onplay = () => { if (eqEl) eqEl.classList.add('speaking'); };
+          audio.onended = () => { if (eqEl) eqEl.classList.remove('speaking'); };
+          audio.onerror = (e) => {
+            console.warn("Studio Audio play error, falling back to TTS:", e);
+            if (eqEl) eqEl.classList.remove('speaking');
+            fallbackSpeechSynthesis(fallbackText, stepIndex);
+          };
+
+          const p = audio.play();
+          if (p !== undefined) {
+            p.catch(err => {
+              console.warn("Audio autoplay blocked by browser, falling back to TTS:", err);
+              fallbackSpeechSynthesis(fallbackText, stepIndex);
+            });
+          }
+          return;
+        } catch(err) {
+          console.warn("Audio element failed:", err);
+        }
+      }
+
+      // 2. Secondary: Fallback to SpeechSynthesis
+      fallbackSpeechSynthesis(fallbackText, stepIndex);
+    }
+
+    function fallbackSpeechSynthesis(text, stepIndex) {
       if (!('speechSynthesis' in window)) return;
       if (window.speechSynthesis.paused) window.speechSynthesis.resume();
       window.speechSynthesis.cancel();
 
       const langPref = document.getElementById('voiceLanguageSelect') ? document.getElementById('voiceLanguageSelect').value : 'en';
-      const currentStep = activeVid.steps[activeStepIndex] || activeVid.steps[0];
+      const stepObj = activeVid.steps[stepIndex];
       
-      let testText = currentStep.voiceEn;
+      let textToSpeak = text;
       if (langPref === 'hi' && femaleVoice && femaleVoice.lang.includes('hi')) {
-        testText = currentStep.voiceHi;
+        textToSpeak = (stepObj && stepObj.voiceHi) ? stepObj.voiceHi : text;
+      } else {
+        textToSpeak = (stepObj && stepObj.voiceEn) ? stepObj.voiceEn : text;
       }
 
-      const utterance = new SpeechSynthesisUtterance(testText);
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
       activeUtterance = utterance;
       if (femaleVoice) utterance.voice = femaleVoice;
       utterance.rate = 1.02;
@@ -1734,11 +1798,17 @@
       utterance.onstart = () => { if (eqEl) eqEl.classList.add('speaking'); };
       utterance.onend = () => { if (eqEl) eqEl.classList.remove('speaking'); };
       utterance.onerror = (e) => {
-        console.warn("TTS test error:", e);
+        console.warn("TTS speak error:", e);
         if (eqEl) eqEl.classList.remove('speaking');
       };
 
       window.speechSynthesis.speak(utterance);
+    }
+
+    function testFemaleVoice() {
+      const trackKey = activeVidKey === 'vid1' ? ('v1_step' + (activeStepIndex + 1)) : ('v2_step' + (activeStepIndex + 1));
+      const currentStep = activeVid.steps[activeStepIndex] || activeVid.steps[0];
+      playStudioAudioTrack(trackKey, currentStep.voiceEn, activeStepIndex);
     }
 
     function onLanguageChange() {
@@ -1753,16 +1823,18 @@
       if (isVoiceMuted) {
         btn.innerHTML = '🔇 Voice: OFF';
         btn.style.color = '#94A3B8';
+        if (currentActiveAudio) {
+          try { currentActiveAudio.pause(); } catch(e) {}
+        }
         if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-        const eq = document.getElementById('voiceEq');
-        if (eq) eq.classList.remove('speaking');
+        const eqEl = document.getElementById('voiceEq');
+        if (eqEl) eqEl.classList.remove('speaking');
       } else {
         btn.innerHTML = '🔊 Voice: ON';
         btn.style.color = '#FFFFFF';
         spokenStepIndex = -1;
         const currentStep = activeVid.steps[activeStepIndex] || activeVid.steps[0];
-        speakStep(currentLang === 'hi' ? currentStep.voiceHi : currentStep.voiceEn, activeStepIndex);
-      }
+        speakStep(currentStep.voiceEn, activeStepIndex);
     }
 
     // ==========================================
@@ -1992,6 +2064,7 @@
         }
         if (t >= 1200 && t < 1800) {
           cursor.classList.add('tap-down');
+          if (t - lastFxTime > 500) { playAudioTone('tap'); lastFxTime = t; }
         }
       } else if (t >= 2400 && t < 4800) {
         setActiveStepHighlight(1);
@@ -2013,6 +2086,7 @@
           cursor.classList.add('tap-down');
           dotsBtn.classList.add('active-tap');
           drop.classList.add('show');
+          if (t - lastFxTime > 500) { playAudioTone('tap'); lastFxTime = t; }
         }
         if (t >= 3600 && t < 4200) {
           cursor.classList.remove('tap-down');
@@ -2021,6 +2095,7 @@
         }
         if (t >= 4200 && t < 4800) {
           cursor.classList.add('tap-down');
+          if (t - lastFxTime > 500) { playAudioTone('tap'); lastFxTime = t; }
         }
       } else if (t >= 4800 && t < 7200) {
         setActiveStepHighlight(2);
@@ -2040,6 +2115,7 @@
         }
         if (t >= 5800 && t < 6600) {
           cursor.classList.add('tap-down');
+          if (t - lastFxTime > 500) { playAudioTone('tap'); lastFxTime = t; }
         }
       } else if (t >= 7200) {
         setActiveStepHighlight(3);
@@ -2059,6 +2135,11 @@
           cursor.classList.add('tap-down');
           chk.checked = true;
           toggleTxt.textContent = 'All calls';
+          if (t - lastFxTime > 500) {
+            playAudioTone('toggle');
+            setTimeout(() => playAudioTone('success'), 180);
+            lastFxTime = t;
+          }
         }
         if (t >= 8900) {
           cursor.style.transform = 'translate(-50%, -50%) scale(0)';
@@ -2096,6 +2177,7 @@
         }
         if (t >= 1200 && t < 1800) {
           cursor.classList.add('tap-down');
+          if (t - lastFxTime > 500) { playAudioTone('tap'); lastFxTime = t; }
         }
       } else if (t >= 2400 && t < 5000) {
         setActiveStepHighlight(1);
@@ -2115,6 +2197,7 @@
         }
         if (t >= 3400 && t < 4200) {
           cursor.classList.add('tap-down');
+          if (t - lastFxTime > 500) { playAudioTone('tap'); lastFxTime = t; }
         }
       } else if (t >= 5000 && t < 7800) {
         setActiveStepHighlight(2);
@@ -2133,6 +2216,7 @@
         }
         if (t >= 6200 && t < 7000) {
           cursor.classList.add('tap-down');
+          if (t - lastFxTime > 500) { playAudioTone('tap'); lastFxTime = t; }
         }
       } else if (t >= 7800) {
         setActiveStepHighlight(3);
@@ -2149,6 +2233,7 @@
         if (t >= 8600 && t < 9100) {
           cursor.classList.add('tap-down');
           useBtn.classList.add('pulsing');
+          if (t - lastFxTime > 500) { playAudioTone('tap'); lastFxTime = t; }
         }
         if (t >= 9100) {
           s3.className = 'phone-scene';
@@ -2164,6 +2249,11 @@
             cursor.classList.add('tap-down');
             popup.style.display = 'none';
             toast.classList.add('show');
+            if (t - lastFxTime > 500) {
+              playAudioTone('toggle');
+              setTimeout(() => playAudioTone('success'), 180);
+              lastFxTime = t;
+            }
           }
           if (t >= 10300) {
             cursor.style.transform = 'translate(-50%, -50%) scale(0)';
