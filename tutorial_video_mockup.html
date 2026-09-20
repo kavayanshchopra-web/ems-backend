@@ -3,34 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Samsung Galaxy — Call Recording & Folder Setup Guide | OmniFlow</title>
+  <title>OmniFlow Setup Series — Samsung Galaxy Auto Call Recording & Folder Setup (YouTube Edition)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-main: #061816;
-      --bg-surface: #0a2220;
-      --bg-card: rgba(13, 36, 33, 0.8);
-      --bg-card-hover: rgba(18, 48, 44, 0.9);
+      --yt-red: #FF0000;
+      --yt-dark: #0F0F0F;
+      --yt-surface: #1E1E1E;
+      --yt-border: rgba(255, 255, 255, 0.12);
       
-      --color-primary: #0D9488;
-      --color-primary-light: #14B8A6;
-      --color-mint: #2DD4BF;
-      --color-accent-blue: #2563EB;
-      --color-success: #10B981;
+      --brand-teal: #0D9488;
+      --brand-mint: #2DD4BF;
+      --brand-glow: rgba(45, 212, 191, 0.35);
       
-      --samsung-oneui-blue: #2F70F2;
+      --samsung-blue: #2563EB;
+      --samsung-oneui: #2F70F2;
       
-      --border-teal: rgba(45, 212, 191, 0.18);
-      --border-teal-glow: rgba(45, 212, 191, 0.35);
+      --text-white: #FFFFFF;
+      --text-gray: #AAAAAA;
+      --text-muted: #717171;
       
-      --text-main: #FFFFFF;
-      --text-sub: #94A3B8;
-      --text-muted: #64748B;
-      
-      --phone-w: 320px;
-      --phone-h: 650px;
+      --phone-w: 290px;
+      --phone-h: 580px;
     }
 
     * {
@@ -42,215 +38,230 @@
     }
 
     body {
-      background: radial-gradient(circle at 50% 0%, #0c2b28 0%, #061816 60%, #030d0c 100%);
-      color: var(--text-main);
+      background: #090D0D;
+      color: var(--text-white);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 18px 16px 40px;
-      overflow-x: hidden;
+      padding: 16px 12px 40px;
     }
 
-    /* Top Brand Navigation */
-    .brand-nav {
+    /* Top YouTube Header Bar */
+    .yt-top-header {
       width: 100%;
-      max-width: 1360px;
+      max-width: 1380px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px 22px;
-      background: rgba(10, 34, 32, 0.85);
-      border: 1px solid var(--border-teal);
-      border-radius: 16px;
-      backdrop-filter: blur(16px);
-      margin-bottom: 20px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      padding: 10px 20px;
+      background: rgba(18, 22, 22, 0.95);
+      border: 1px solid var(--yt-border);
+      border-radius: 14px;
+      margin-bottom: 16px;
+      backdrop-filter: blur(12px);
     }
-    .brand-badge {
+    .yt-logo-group {
       display: flex;
       align-items: center;
       gap: 12px;
     }
-    .brand-logo-sq {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, #0D9488, #14B8A6);
+    .yt-play-icon {
+      background: var(--yt-red);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 900;
+      padding: 4px 10px;
+      border-radius: 7px;
+      letter-spacing: -0.5px;
       display: flex;
       align-items: center;
-      justify-content: center;
-      font-size: 19px;
-      box-shadow: 0 4px 12px rgba(13, 148, 136, 0.35);
+      gap: 5px;
+      box-shadow: 0 0 14px rgba(255, 0, 0, 0.4);
     }
-    .brand-name {
-      font-size: 16px;
+    .yt-title-text {
+      font-size: 15px;
       font-weight: 800;
-      letter-spacing: -0.3px;
+      letter-spacing: -0.2px;
     }
-    .brand-name span {
-      color: var(--color-mint);
+    .yt-title-text span {
+      color: var(--brand-mint);
     }
-    .brand-tag {
+    .yt-sub-tag {
       font-size: 11px;
-      color: var(--text-sub);
+      color: var(--text-gray);
       font-weight: 500;
     }
 
-    /* Video Switcher Tabs (Exclusively for Samsung) */
-    .guide-tabs {
+    /* Video Switcher Tabs (Video 1 & Video 2) */
+    .video-switch-tabs {
       display: flex;
-      background: rgba(6, 24, 22, 0.9);
+      background: #141A1A;
       padding: 4px;
       border-radius: 12px;
-      border: 1px solid var(--border-teal);
+      border: 1px solid var(--yt-border);
       gap: 6px;
     }
-    .guide-tab-btn {
-      padding: 8px 18px;
+    .vid-tab-btn {
+      padding: 8px 16px;
       border-radius: 9px;
       border: none;
       background: transparent;
-      color: var(--text-sub);
-      font-size: 12.5px;
-      font-weight: 600;
+      color: var(--text-gray);
+      font-size: 12px;
+      font-weight: 700;
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 8px;
       transition: all 0.2s ease;
     }
-    .guide-tab-btn:hover {
-      color: #FFFFFF;
-      background: rgba(45, 212, 191, 0.08);
+    .vid-tab-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.06);
     }
-    .guide-tab-btn.active {
-      background: var(--color-primary);
-      color: #FFFFFF;
-      box-shadow: 0 2px 10px rgba(13, 148, 136, 0.4);
+    .vid-tab-btn.active {
+      background: var(--brand-teal);
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(13, 148, 136, 0.4);
     }
 
-    .pill-device-status {
+    /* Top Action Buttons */
+    .yt-top-actions {
       display: flex;
       align-items: center;
-      gap: 8px;
-      background: rgba(16, 185, 129, 0.12);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      padding: 6px 14px;
-      border-radius: 999px;
-      font-size: 11.5px;
-      font-weight: 700;
-      color: #34D399;
+      gap: 10px;
     }
-    .pulse-dot {
-      width: 7px;
-      height: 7px;
-      background: #34D399;
+    .export-rec-btn {
+      background: linear-gradient(135deg, #DC2626, #EF4444);
+      border: 1px solid #F87171;
+      color: #fff;
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 0 16px rgba(220, 38, 38, 0.4);
+      transition: all 0.2s ease;
+    }
+    .export-rec-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 22px rgba(220, 38, 38, 0.6);
+    }
+    .rec-pulse-dot {
+      width: 8px;
+      height: 8px;
+      background: #FFFFFF;
       border-radius: 50%;
-      box-shadow: 0 0 8px #34D399;
-      animation: livePulse 1.6s infinite ease-in-out;
+      animation: recPulse 1.2s infinite ease-in-out;
     }
-    @keyframes livePulse {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.4); opacity: 0.5; }
+    @keyframes recPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.4); }
     }
 
     /* ========================================================
-       3-COLUMN STUDIO LAYOUT
-       Left: Steps & Voice | Center: Phone Video | Right: Poster Photo
+       MAIN 16:9 YOUTUBE VIDEO CANVAS CONTAINER
        ======================================================== */
-    .studio-layout {
+    .yt-video-canvas-wrapper {
       width: 100%;
-      max-width: 1360px;
-      display: grid;
-      grid-template-columns: 370px var(--phone-w) 430px;
-      gap: 24px;
-      align-items: start;
-      justify-content: center;
+      max-width: 1380px;
+      background: radial-gradient(circle at 50% 0%, #0d2825 0%, #081615 60%, #030a09 100%);
+      border: 1.5px solid var(--brand-glow);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.8), 0 0 40px rgba(13, 148, 136, 0.15);
+      display: flex;
+      flex-direction: column;
     }
-    @media (max-width: 1200px) {
-      .studio-layout {
+
+    /* Video Title Overlay (Top of Video) */
+    .yt-video-top-bar {
+      padding: 14px 24px;
+      background: rgba(6, 20, 18, 0.85);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .yt-video-title-grp h1 {
+      font-size: 17px;
+      font-weight: 800;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .yt-video-title-grp p {
+      font-size: 11.5px;
+      color: var(--brand-mint);
+      margin-top: 3px;
+      font-weight: 500;
+    }
+    .yt-badge-tag {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(45, 212, 191, 0.15);
+      color: var(--brand-mint);
+      border: 1px solid var(--brand-mint);
+    }
+
+    /* 3-Column Split Inside Video Player: Left (Steps/Voice) | Center (Phone Screen) | Right (Graphic Poster) */
+    .yt-screen-stage {
+      display: grid;
+      grid-template-columns: 360px var(--phone-w) 430px;
+      gap: 24px;
+      padding: 20px 24px;
+      align-items: center;
+      justify-content: center;
+      min-height: 620px;
+    }
+    @media (max-width: 1240px) {
+      .yt-screen-stage {
         grid-template-columns: 1fr;
         justify-items: center;
       }
     }
 
-    /* ========================================================
-       LEFT COLUMN: Steps List + Girl Voiceover Narration
-       ======================================================== */
-    .steps-voice-panel {
-      background: var(--bg-card);
-      border: 1px solid var(--border-teal);
-      border-radius: 20px;
-      padding: 20px;
-      backdrop-filter: blur(14px);
-      box-shadow: 0 12px 32px rgba(0,0,0,0.45);
+    /* ==================== LEFT COLUMN: Steps + Voice ==================== */
+    .yt-left-box {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
+      width: 100%;
     }
-    .panel-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      padding-bottom: 12px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-    }
-    .panel-title-grp h2 {
-      font-size: 16px;
-      font-weight: 800;
-      color: #FFFFFF;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .panel-title-grp p {
-      font-size: 11.5px;
-      color: var(--text-sub);
-      margin-top: 3px;
-      line-height: 1.4;
-    }
-    .model-badge {
-      font-size: 10.5px;
-      font-weight: 700;
-      padding: 3px 8px;
-      border-radius: 6px;
-      background: rgba(45, 212, 191, 0.15);
-      color: var(--color-mint);
-      border: 1px solid rgba(45, 212, 191, 0.3);
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-    }
-
-    /* Steps List */
-    .step-list {
+    .yt-step-card-list {
       display: flex;
       flex-direction: column;
       gap: 10px;
     }
-    .step-item {
+    .yt-step-row {
       display: flex;
       gap: 12px;
       padding: 12px 14px;
-      border-radius: 14px;
-      background: rgba(8, 26, 24, 0.6);
-      border: 1.5px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      background: rgba(10, 32, 29, 0.7);
+      border: 1.5px solid rgba(255, 255, 255, 0.06);
       cursor: pointer;
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.25s ease;
       position: relative;
     }
-    .step-item:hover {
-      background: rgba(20, 184, 166, 0.1);
+    .yt-step-row:hover {
+      background: rgba(20, 184, 166, 0.12);
       border-color: rgba(45, 212, 191, 0.35);
-      transform: translateY(-1px);
     }
-    .step-item.active {
-      background: rgba(20, 184, 166, 0.18);
-      border-color: var(--color-mint);
+    .yt-step-row.active {
+      background: rgba(20, 184, 166, 0.22);
+      border-color: var(--brand-mint);
+      box-shadow: 0 4px 18px rgba(13, 148, 136, 0.3);
       transform: translateX(4px);
-      box-shadow: 0 4px 18px rgba(13, 148, 136, 0.25);
     }
-    .step-num-badge {
+    .yt-step-number {
       width: 28px;
       height: 28px;
       border-radius: 50%;
@@ -260,19 +271,18 @@
       justify-content: center;
       font-size: 12.5px;
       font-weight: 800;
-      color: var(--text-sub);
+      color: var(--text-gray);
       flex-shrink: 0;
-      transition: all 0.25s;
     }
-    .step-item.active .step-num-badge {
-      background: var(--color-mint);
-      color: #041B19;
-      box-shadow: 0 0 10px var(--color-mint);
+    .yt-step-row.active .yt-step-number {
+      background: var(--brand-mint);
+      color: #041816;
+      box-shadow: 0 0 10px var(--brand-mint);
     }
-    .step-content {
+    .yt-step-detail {
       flex: 1;
     }
-    .step-content h4 {
+    .yt-step-detail h4 {
       font-size: 13px;
       font-weight: 700;
       color: #FFFFFF;
@@ -280,208 +290,144 @@
       align-items: center;
       justify-content: space-between;
     }
-    .step-target-pill {
+    .yt-target-badge {
       font-size: 10px;
-      padding: 1px 7px;
+      padding: 2px 7px;
       border-radius: 4px;
       background: rgba(255, 255, 255, 0.08);
       color: #A7F3D0;
       font-family: 'JetBrains Mono', monospace;
-      font-weight: 600;
+      font-weight: 700;
     }
-    .step-content p {
+    .yt-step-detail p {
       font-size: 11.5px;
-      color: var(--text-sub);
+      color: var(--text-gray);
       margin-top: 3px;
       line-height: 1.4;
     }
-    .step-subtext-hi {
-      font-size: 10.5px;
+    .yt-step-detail .hi-desc {
+      font-size: 11px;
       color: #A7F3D0;
       margin-top: 2px;
       font-style: italic;
     }
 
-    /* Girl Voice Narration Card */
-    .girl-voice-card {
-      background: linear-gradient(135deg, rgba(13, 148, 136, 0.2), rgba(6, 24, 22, 0.8));
-      border: 1px solid var(--border-teal-glow);
-      border-radius: 14px;
-      padding: 14px;
+    /* Live Voice Subtitle Bar */
+    .yt-voice-subtitle-card {
+      background: rgba(4, 16, 14, 0.9);
+      border: 1px solid var(--brand-glow);
+      border-radius: 12px;
+      padding: 12px 14px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
     }
-    .narrator-header-row {
+    .yt-narrator-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    .narrator-identity {
+    .yt-narrator-id {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
-    .narrator-avatar {
-      width: 34px;
-      height: 34px;
+    .yt-narrator-avatar {
+      width: 26px;
+      height: 26px;
       border-radius: 50%;
       background: linear-gradient(135deg, #EC4899, #8B5CF6);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 16px;
-      box-shadow: 0 0 12px rgba(236, 72, 153, 0.4);
-    }
-    .narrator-meta h3 {
       font-size: 13px;
+    }
+    .yt-narrator-meta {
+      font-size: 11.5px;
       font-weight: 700;
-      color: #FFFFFF;
+      color: #fff;
     }
-    .narrator-meta p {
-      font-size: 10.5px;
-      color: #A7F3D0;
-    }
-
-    /* Audio Waveform Equalizer Animation */
-    .audio-eq-bars {
+    .yt-voice-eq {
       display: flex;
       align-items: flex-end;
       gap: 3px;
-      height: 16px;
+      height: 14px;
     }
     .eq-bar {
       width: 3px;
       background: #2DD4BF;
       border-radius: 2px;
-      height: 4px;
-      transition: height 0.15s ease;
+      height: 3px;
+      transition: height 0.15s;
     }
-    .speaking .eq-bar:nth-child(1) { animation: eqPulse 0.4s infinite alternate; }
-    .speaking .eq-bar:nth-child(2) { animation: eqPulse 0.6s infinite alternate 0.1s; }
-    .speaking .eq-bar:nth-child(3) { animation: eqPulse 0.5s infinite alternate 0.2s; }
-    .speaking .eq-bar:nth-child(4) { animation: eqPulse 0.7s infinite alternate 0.15s; }
-    .speaking .eq-bar:nth-child(5) { animation: eqPulse 0.4s infinite alternate 0.25s; }
-    @keyframes eqPulse {
-      0% { height: 3px; }
-      100% { height: 16px; }
+    .speaking .eq-bar:nth-child(1) { animation: eqP 0.4s infinite alternate; }
+    .speaking .eq-bar:nth-child(2) { animation: eqP 0.6s infinite alternate 0.1s; }
+    .speaking .eq-bar:nth-child(3) { animation: eqP 0.5s infinite alternate 0.2s; }
+    .speaking .eq-bar:nth-child(4) { animation: eqP 0.7s infinite alternate 0.15s; }
+    .speaking .eq-bar:nth-child(5) { animation: eqP 0.4s infinite alternate 0.25s; }
+    @keyframes eqP { 0% { height: 3px; } 100% { height: 14px; } }
+
+    .yt-speech-subtitles {
+      font-size: 12px;
+      line-height: 1.4;
+      color: #FFFFFF;
+      font-weight: 600;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 8px 10px;
+      border-radius: 8px;
+      border-left: 3px solid var(--brand-mint);
+    }
+    .yt-speech-subtitles-hi {
+      font-size: 11px;
+      color: #A7F3D0;
+      margin-top: 4px;
     }
 
-    /* Live Subtitles Box */
-    .live-transcript-box {
-      background: rgba(4, 18, 16, 0.85);
-      border: 1px solid rgba(45, 212, 191, 0.2);
-      border-radius: 12px;
-      padding: 12px;
+    /* ==================== CENTER COLUMN: Galaxy S24 Phone ==================== */
+    .yt-phone-wrap {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      align-items: center;
     }
-    .transcript-lang-tag {
+    .samsung-galaxy-body {
+      position: relative;
+      width: var(--phone-w);
+      height: var(--phone-h);
+      background: #000;
+      border-radius: 38px;
+      border: 7px solid #1E293B;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.9), 0 0 30px rgba(13, 148, 136, 0.25);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .punch-hole-camera {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 9px;
+      height: 9px;
+      background: #090E17;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 50%;
+      z-index: 120;
+    }
+    .phone-status-strip {
+      height: 30px;
+      padding: 6px 16px 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
       font-size: 10px;
       font-weight: 700;
-      color: var(--color-mint);
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-    }
-    .live-speech-text {
-      font-size: 13px;
-      line-height: 1.45;
-      color: #FFFFFF;
-      font-weight: 600;
-      min-height: 38px;
-    }
-    .live-speech-hi {
-      font-size: 11.5px;
-      color: #A7F3D0;
-      line-height: 1.4;
-      padding-top: 4px;
-      border-top: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    /* Voice Actions */
-    .voice-actions-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .voice-toggle-btn {
-      flex: 1;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      color: #FFFFFF;
-      padding: 7px 10px;
-      border-radius: 8px;
-      font-size: 11.5px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: all 0.2s;
-    }
-    .voice-toggle-btn:hover {
-      background: rgba(45, 212, 191, 0.15);
-      border-color: var(--color-mint);
-    }
-
-    /* ========================================================
-       CENTER COLUMN: Phone Video Viewport & Controls
-       ======================================================== */
-    .phone-column {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-    }
-    .phone-hardware-bezel {
-      position: relative;
-      width: var(--phone-w);
-      height: var(--phone-h);
-      background: #000000;
-      border-radius: 44px;
-      border: 8px solid #1E293B;
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(13, 148, 136, 0.2);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-    /* Front Punch Hole Camera */
-    .samsung-punch-camera {
-      position: absolute;
-      top: 12px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 10px;
-      height: 10px;
-      background: #0B101D;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 50%;
-      z-index: 120;
-    }
-    /* Phone Status Bar */
-    .phone-status-bar {
-      height: 34px;
-      padding: 8px 18px 0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 11px;
-      font-weight: 700;
       color: #0F172A;
       z-index: 100;
-      transition: color 0.3s;
     }
-    .phone-status-bar.dark-style {
+    .phone-status-strip.dark {
       color: #FFFFFF;
     }
-
-    /* Screen Viewport */
-    .phone-screen-viewport {
+    .phone-screen-area {
       flex: 1;
       background: #FFFFFF;
       position: relative;
@@ -490,29 +436,29 @@
       flex-direction: column;
     }
 
-    /* Animated Touch Cursor */
-    .touch-cursor {
+    /* Animated Finger Cursor */
+    .touch-indicator {
       position: absolute;
       width: 32px;
       height: 32px;
       border-radius: 50%;
-      background: radial-gradient(circle, rgba(13, 148, 136, 0.85) 0%, rgba(45, 212, 191, 0.3) 70%, transparent 100%);
+      background: radial-gradient(circle, rgba(13, 148, 136, 0.9) 0%, rgba(45, 212, 191, 0.35) 70%, transparent 100%);
       border: 2px solid #FFFFFF;
-      box-shadow: 0 0 16px rgba(45, 212, 191, 0.8);
+      box-shadow: 0 0 16px rgba(45, 212, 191, 0.85);
       pointer-events: none;
       z-index: 999;
       transform: translate(-50%, -50%) scale(0);
-      transition: top 0.45s cubic-bezier(0.2, 0.8, 0.2, 1),
-                  left 0.45s cubic-bezier(0.2, 0.8, 0.2, 1),
-                  transform 0.2s ease;
+      transition: top 0.42s cubic-bezier(0.2, 0.8, 0.2, 1),
+                  left 0.42s cubic-bezier(0.2, 0.8, 0.2, 1),
+                  transform 0.18s ease;
     }
-    .touch-cursor.tap-down {
-      transform: translate(-50%, -50%) scale(0.72) !important;
+    .touch-indicator.tap-down {
+      transform: translate(-50%, -50%) scale(0.7) !important;
       background: radial-gradient(circle, #0D9488 0%, #2DD4BF 80%, transparent 100%);
     }
 
-    /* Common Scenes Styles */
-    .screen-scene {
+    /* Phone Scenes */
+    .phone-scene {
       position: absolute;
       top: 0;
       left: 0;
@@ -521,745 +467,544 @@
       display: none;
       flex-direction: column;
       opacity: 0;
-      transition: opacity 0.3s ease, transform 0.3s ease;
+      transition: opacity 0.25s ease;
     }
-    .screen-scene.active {
+    .phone-scene.active {
       display: flex;
       opacity: 1;
     }
 
-    /* ---------------- Guide 1 Screens ---------------- */
-    .samsung-home-bg {
+    /* Guide 1 Screen Styles */
+    .samsung-home {
       background: linear-gradient(180deg, #1e3a8a 0%, #0f172a 60%, #030712 100%);
-      padding: 16px;
+      padding: 14px;
       justify-content: space-between;
     }
-    .home-clock-widget {
-      text-align: center;
-      margin-top: 36px;
-      color: #FFFFFF;
-    }
     .home-clock-time {
-      font-size: 52px;
+      font-size: 46px;
       font-weight: 300;
-      letter-spacing: -1px;
-    }
-    .home-clock-date {
-      font-size: 13px;
-      color: #94A3B8;
-      font-weight: 500;
+      color: #fff;
+      text-align: center;
+      margin-top: 24px;
     }
     .home-app-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 14px;
-      margin-bottom: 24px;
+      gap: 12px;
+      margin-bottom: 20px;
     }
-    .app-icon-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-    }
-    .app-icon-squircle {
-      width: 52px;
-      height: 52px;
-      border-radius: 14px;
+    .home-app-sq {
+      width: 48px;
+      height: 48px;
+      border-radius: 13px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
+      font-size: 22px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
-    .app-icon-squircle.target-dialer {
+    .home-app-sq.target {
       background: linear-gradient(135deg, #10B981, #059669);
       border: 2px solid #34D399;
     }
-    .app-icon-name {
-      font-size: 10.5px;
-      color: #FFFFFF;
-      font-weight: 500;
+    .home-app-name {
+      font-size: 10px;
+      color: #fff;
+      text-align: center;
+      margin-top: 4px;
     }
 
-    /* Samsung Phone Recents + 3 Dots */
-    .samsung-phone-header {
-      padding: 12px 18px;
+    /* Phone Dialer Recents */
+    .samsung-phone-top {
+      padding: 10px 16px;
       background: #FFFFFF;
       display: flex;
       justify-content: space-between;
       align-items: center;
       border-bottom: 1px solid #EEF2F6;
     }
-    .samsung-app-title {
-      font-size: 20px;
+    .samsung-phone-title {
+      font-size: 18px;
       font-weight: 800;
       color: #0F172A;
     }
-    .samsung-header-actions {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      font-size: 18px;
-      color: #475569;
-    }
-    .three-dots-btn {
-      width: 32px;
-      height: 32px;
+    .three-dots-tap-btn {
+      width: 30px;
+      height: 30px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
+      font-size: 17px;
       cursor: pointer;
-      transition: background 0.2s;
     }
-    .three-dots-btn.highlight-tap {
+    .three-dots-tap-btn.active-tap {
       background: #E2E8F0;
     }
 
-    /* Dropdown Menu */
-    .samsung-dropdown-menu {
+    .samsung-menu-dropdown {
       position: absolute;
-      top: 48px;
-      right: 16px;
-      width: 185px;
+      top: 42px;
+      right: 14px;
+      width: 170px;
       background: #FFFFFF;
-      border-radius: 16px;
-      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+      border-radius: 14px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
       border: 1px solid #E2E8F0;
       overflow: hidden;
       opacity: 0;
       transform: scale(0.92);
       transform-origin: top right;
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: all 0.2s;
       z-index: 150;
     }
-    .samsung-dropdown-menu.show-menu {
+    .samsung-menu-dropdown.show {
       opacity: 1;
       transform: scale(1);
     }
-    .samsung-menu-row {
-      padding: 11px 16px;
-      font-size: 13px;
+    .samsung-menu-item {
+      padding: 10px 14px;
+      font-size: 12.5px;
       color: #1E293B;
       font-weight: 500;
       border-bottom: 1px solid #F8FAFC;
     }
-    .samsung-menu-row.menu-settings-target {
+    .samsung-menu-item.target-settings {
       background: #F0FDFA;
       color: #0D9488;
-      font-weight: 700;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      font-weight: 800;
     }
 
-    .recents-call-list {
+    .samsung-recents-list {
       flex: 1;
       background: #F8FAFC;
-      padding: 8px 16px;
-      overflow-y: auto;
+      padding: 8px 14px;
     }
-    .recent-row {
+    .recents-row {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 9px 0;
+      padding: 8px 0;
       border-bottom: 1px solid #EEF2F6;
     }
-    .contact-avatar {
-      width: 36px;
-      height: 36px;
+    .recents-avatar {
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       background: #E2E8F0;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 13px;
-      font-weight: 700;
-      color: #475569;
-    }
-    .recent-info {
-      flex: 1;
-    }
-    .recent-name {
-      font-size: 13px;
-      font-weight: 700;
-      color: #1E293B;
-    }
-    .recent-sub {
-      font-size: 10.5px;
-      color: #64748B;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    .sim-tag {
-      font-size: 9px;
-      padding: 1px 5px;
-      border-radius: 4px;
-      font-weight: 700;
-      background: #E0F2FE;
-      color: #0369A1;
-    }
-    .recent-time {
-      font-size: 10.5px;
-      color: #94A3B8;
-    }
-
-    .samsung-bottom-tabs {
-      height: 48px;
-      background: #FFFFFF;
-      border-top: 1px solid #E2E8F0;
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
-    }
-    .dialer-tab {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 2px;
-      font-size: 10px;
-      font-weight: 600;
-      color: #94A3B8;
-    }
-    .dialer-tab.active-tab {
-      color: #0D9488;
-      font-weight: 700;
-    }
-
-    /* Call Settings & Record Calls */
-    .oneui-page-header {
-      padding: 14px 18px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: #FFFFFF;
-      border-bottom: 1px solid #F1F5F9;
-    }
-    .back-arrow-btn {
-      font-size: 17px;
-      font-weight: 800;
-      color: #1E293B;
-    }
-    .oneui-page-title {
-      font-size: 16px;
-      font-weight: 800;
-      color: #0F172A;
-    }
-    .oneui-settings-list {
-      flex: 1;
-      background: #F8FAFC;
-      padding: 10px 0;
-    }
-    .oneui-item-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 13px 18px;
-      background: #FFFFFF;
-      margin-bottom: 1px;
-      font-size: 13px;
-      color: #1E293B;
-      font-weight: 600;
-    }
-    .oneui-item-row.target-highlight {
-      background: #F0FDFA;
-      border-left: 4px solid #0D9488;
-    }
-    .item-subtext {
-      font-size: 11px;
-      color: #64748B;
-      margin-top: 2px;
-      font-weight: 400;
-    }
-
-    /* Switch */
-    .oneui-switch {
-      position: relative;
-      display: inline-block;
-      width: 44px;
-      height: 24px;
-    }
-    .oneui-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-    .oneui-slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #CBD5E1;
-      transition: .3s;
-      border-radius: 24px;
-    }
-    .oneui-slider:before {
-      position: absolute;
-      content: "";
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      transition: .3s;
-      border-radius: 50%;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-    input:checked + .oneui-slider {
-      background-color: var(--samsung-oneui-blue);
-    }
-    input:checked + .oneui-slider:before {
-      transform: translateX(20px);
-    }
-
-    /* ---------------- Guide 2 Screens (Companion App Folder Link) ---------------- */
-    .omniflow-app-home {
-      background: #061816;
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      color: #FFFFFF;
-    }
-    .app-top-bar {
-      padding: 12px 16px;
-      background: #0A2422;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--border-teal);
-    }
-    .app-logo-area {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      font-weight: 800;
-    }
-    .app-folder-badge-btn {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      padding: 4px 10px;
-      border-radius: 12px;
-      background: #064E3B;
-      border: 1px solid #10B981;
-      font-size: 10.5px;
-      color: #A7F3D0;
-      font-weight: 700;
-    }
-    .omniflow-home-body {
-      flex: 1;
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      background: #061816;
-    }
-    .agent-status-card {
-      background: #0A2422;
-      border: 1px solid var(--border-teal);
-      border-radius: 14px;
-      padding: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    /* Hub Modal */
-    .sync-hub-dialog {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(4px);
-      display: flex;
-      align-items: flex-end;
-      z-index: 120;
-    }
-    .sync-hub-sheet {
-      width: 100%;
-      background: #FFFFFF;
-      border-radius: 20px 20px 0 0;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      max-height: 85%;
-      box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
-    }
-    .sheet-handle {
-      width: 36px;
-      height: 4px;
-      background: #CBD5E1;
-      border-radius: 2px;
-      align-self: center;
-      margin-bottom: 4px;
-    }
-    .sheet-title {
-      font-size: 14px;
-      font-weight: 800;
-      color: #0F172A;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .auto-discovery-card {
-      background: #ECFDF5;
-      border: 1px solid #A7F3D0;
-      border-radius: 10px;
-      padding: 10px;
-      font-size: 11px;
-      color: #065F46;
-    }
-    .custom-folder-btn-target {
-      background: #F8FAFC;
-      border: 1.5px dashed #0D9488;
-      border-radius: 10px;
-      padding: 11px;
-      text-align: center;
       font-size: 12px;
       font-weight: 700;
-      color: #0D9488;
-      cursor: pointer;
-    }
-    .custom-folder-btn-target.target-tap {
-      background: #E6FFFA;
-      transform: scale(0.98);
     }
 
-    /* SAF File Picker */
-    .saf-picker-screen {
-      background: #FFFFFF;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-    }
-    .saf-header {
-      padding: 10px 14px;
-      background: #F8FAFC;
-      border-bottom: 1px solid #E2E8F0;
+    /* Settings Page */
+    .samsung-subpage-header {
+      padding: 12px 16px;
       display: flex;
       align-items: center;
       gap: 10px;
-      font-size: 13px;
-      font-weight: 700;
-      color: #1E293B;
-    }
-    .saf-breadcrumb {
-      font-size: 11px;
-      color: #64748B;
-      padding: 6px 14px;
       background: #FFFFFF;
-      border-bottom: 1px solid #EEF2F6;
-    }
-    .saf-folder-list {
-      flex: 1;
-      padding: 8px 14px;
-      overflow-y: auto;
-    }
-    .saf-folder-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 0;
       border-bottom: 1px solid #F1F5F9;
-      font-size: 13px;
+      font-size: 15px;
+      font-weight: 800;
+      color: #0F172A;
+    }
+    .samsung-settings-list {
+      flex: 1;
+      background: #F8FAFC;
+      padding: 8px 0;
+    }
+    .samsung-setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: #FFFFFF;
+      margin-bottom: 1px;
+      font-size: 12.5px;
       color: #1E293B;
       font-weight: 600;
     }
-    .saf-folder-item.target-folder {
+    .samsung-setting-row.highlighted {
+      background: #F0FDFA;
+      border-left: 4px solid #0D9488;
+    }
+    .samsung-switch-toggle {
+      position: relative;
+      display: inline-block;
+      width: 42px;
+      height: 22px;
+    }
+    .samsung-switch-toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #CBD5E1;
+      border-radius: 22px;
+      transition: .25s;
+    }
+    .toggle-track:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      border-radius: 50%;
+      transition: .25s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    input:checked + .toggle-track {
+      background-color: var(--samsung-oneui);
+    }
+    input:checked + .toggle-track:before {
+      transform: translateX(20px);
+    }
+
+    /* Guide 2 Screen Styles (Companion App & Folder SAF) */
+    .app-screen-home {
+      background: #061816;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      color: #fff;
+    }
+    .app-screen-nav {
+      padding: 10px 14px;
+      background: #0A2422;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--brand-glow);
+    }
+    .app-settings-badge-btn {
+      background: #064E3B;
+      border: 1px solid #10B981;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #A7F3D0;
+    }
+
+    /* Android Storage Picker (SAF) */
+    .saf-storage-screen {
+      background: #FFFFFF;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .saf-storage-header {
+      padding: 10px 14px;
+      background: #F8FAFC;
+      border-bottom: 1px solid #E2E8F0;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #1E293B;
+    }
+    .saf-folder-path-strip {
+      padding: 6px 14px;
+      background: #F1F5F9;
+      font-size: 10.5px;
+      font-weight: 600;
+      color: #475569;
+      border-bottom: 1px solid #E2E8F0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .saf-folder-items-list {
+      flex: 1;
+      padding: 6px 14px;
+      overflow-y: auto;
+    }
+    .saf-folder-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 0;
+      border-bottom: 1px solid #F1F5F9;
+      font-size: 12.5px;
+      color: #1E293B;
+      font-weight: 600;
+    }
+    .saf-folder-row.target-folder-active {
       background: #F0FDFA;
       padding-left: 8px;
       border-radius: 6px;
       color: #0D9488;
-      font-weight: 700;
+      font-weight: 800;
     }
-    .saf-bottom-bar {
-      padding: 12px 14px;
+    .saf-bottom-action-bar {
+      padding: 10px 14px;
       background: #F8FAFC;
       border-top: 1px solid #E2E8F0;
       display: flex;
       justify-content: flex-end;
     }
-    .saf-use-folder-btn {
+    .saf-confirm-button {
       background: #2563EB;
       color: #FFFFFF;
       border: none;
-      padding: 8px 18px;
+      padding: 8px 16px;
       border-radius: 8px;
-      font-size: 12px;
-      font-weight: 700;
+      font-size: 11.5px;
+      font-weight: 800;
       cursor: pointer;
-      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
     }
-    .saf-use-folder-btn.highlight-pulse {
+    .saf-confirm-button.pulsing {
       background: #1D4ED8;
       transform: scale(0.96);
     }
 
-    /* Popup */
-    .saf-confirm-popup {
+    /* Popup Confirmation Modal */
+    .saf-system-popup {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.6);
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.65);
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 16px;
       z-index: 200;
     }
-    .saf-confirm-box {
-      background: #FFFFFF;
-      border-radius: 16px;
-      padding: 18px;
+    .saf-popup-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 16px;
       width: 100%;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+      box-shadow: 0 16px 36px rgba(0,0,0,0.4);
     }
-    .saf-confirm-title {
-      font-size: 14px;
+    .saf-popup-title {
+      font-size: 13px;
       font-weight: 800;
       color: #0F172A;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
-    .saf-confirm-desc {
-      font-size: 11.5px;
+    .saf-popup-body {
+      font-size: 11px;
       color: #475569;
       line-height: 1.4;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
-    .saf-confirm-actions {
+    .saf-popup-btns {
       display: flex;
       justify-content: flex-end;
-      gap: 12px;
+      gap: 10px;
     }
     .saf-popup-btn {
-      padding: 6px 14px;
+      padding: 6px 12px;
       border-radius: 6px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       border: none;
       cursor: pointer;
     }
-    .saf-popup-btn.allow {
-      background: #0D9488;
-      color: #FFFFFF;
-    }
 
     /* Success Toast */
-    .success-toast-banner {
+    .live-success-toast {
       position: absolute;
-      bottom: 24px;
-      left: 14px;
-      right: 14px;
+      bottom: 20px;
+      left: 12px;
+      right: 12px;
       background: #064E3B;
       border: 1px solid #10B981;
-      border-radius: 12px;
-      padding: 10px 14px;
+      border-radius: 10px;
+      padding: 8px 12px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       color: #A7F3D0;
-      font-size: 11.5px;
+      font-size: 11px;
       font-weight: 700;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
       opacity: 0;
-      transform: translateY(20px);
-      transition: all 0.3s ease;
+      transform: translateY(16px);
+      transition: all 0.3s;
       z-index: 300;
     }
-    .success-toast-banner.show {
+    .live-success-toast.show {
       opacity: 1;
       transform: translateY(0);
     }
 
-    /* Media Controls below Phone */
-    .player-controls-card {
-      width: var(--phone-w);
-      background: var(--bg-card);
-      border: 1px solid var(--border-teal);
-      border-radius: 16px;
-      padding: 12px 14px;
-      backdrop-filter: blur(12px);
+    /* ==================== RIGHT COLUMN: Graphic Poster Photo ==================== */
+    .yt-right-box {
       display: flex;
       flex-direction: column;
       gap: 10px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      width: 100%;
     }
-    .scrubber-track-bar {
+    .yt-poster-card {
+      background: rgba(10, 32, 29, 0.7);
+      border: 1px solid var(--brand-glow);
+      border-radius: 14px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .yt-poster-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .yt-poster-header h3 {
+      font-size: 13.5px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .yt-poster-frame {
+      position: relative;
+      width: 100%;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(45, 212, 191, 0.25);
+      background: #020A09;
+      cursor: zoom-in;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+    .yt-poster-frame img {
+      width: 100%;
+      height: auto;
+      max-height: 480px;
+      object-fit: contain;
+      display: block;
+      transition: transform 0.25s ease;
+    }
+    .yt-poster-frame:hover img {
+      transform: scale(1.02);
+    }
+    .yt-zoom-pill {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      background: rgba(0,0,0,0.75);
+      border: 1px solid var(--brand-mint);
+      color: var(--brand-mint);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    /* ========================================================
+       YOUTUBE VIDEO PLAYER CONTROLS & CHAPTERS BAR (BOTTOM)
+       ======================================================== */
+    .yt-bottom-player-controls {
+      background: #0A1211;
+      border-top: 1px solid var(--yt-border);
+      padding: 12px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    /* YouTube Style Red Scrubber Bar with Chapter Segments */
+    .yt-timeline-scrubber {
       width: 100%;
       height: 6px;
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.16);
       border-radius: 999px;
       cursor: pointer;
       position: relative;
-      overflow: hidden;
     }
-    .scrubber-fill {
+    .yt-timeline-scrubber:hover {
+      height: 8px;
+    }
+    .yt-progress-fill {
       position: absolute;
       top: 0;
       left: 0;
       height: 100%;
       width: 0%;
-      background: linear-gradient(90deg, #0D9488, #2DD4BF);
+      background: var(--yt-red);
       border-radius: 999px;
       transition: width 0.05s linear;
     }
-    .player-buttons-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+    .yt-scrubber-handle {
+      position: absolute;
+      top: 50%;
+      right: -6px;
+      transform: translateY(-50%) scale(0);
+      width: 12px;
+      height: 12px;
+      background: var(--yt-red);
+      border-radius: 50%;
+      transition: transform 0.15s;
     }
-    .ctrl-btn {
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #FFFFFF;
-      padding: 6px 12px;
-      border-radius: 8px;
-      font-size: 11.5px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s;
-    }
-    .ctrl-btn:hover {
-      background: rgba(45, 212, 191, 0.15);
-      border-color: var(--color-mint);
-    }
-    .ctrl-btn.primary-play {
-      background: var(--color-primary);
-      border-color: var(--color-primary-light);
-      font-weight: 700;
-      padding: 6px 16px;
-    }
-    .time-readout {
-      font-size: 11px;
-      font-family: 'JetBrains Mono', monospace;
-      color: var(--text-sub);
+    .yt-timeline-scrubber:hover .yt-scrubber-handle {
+      transform: translateY(-50%) scale(1);
     }
 
-    /* ========================================================
-       RIGHT COLUMN: High-Resolution Visual Photo / Infographic Poster
-       ======================================================== */
-    .photo-poster-panel {
-      background: var(--bg-card);
-      border: 1px solid var(--border-teal);
-      border-radius: 20px;
-      padding: 18px;
-      backdrop-filter: blur(14px);
-      box-shadow: 0 12px 32px rgba(0,0,0,0.45);
+    /* YouTube Play / Pause / Chapters / Volume Controls */
+    .yt-controls-row {
       display: flex;
-      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .yt-controls-left {
+      display: flex;
+      align-items: center;
       gap: 12px;
     }
-    .poster-photo-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-bottom: 10px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-    }
-    .poster-photo-title h3 {
-      font-size: 15px;
-      font-weight: 800;
-      color: #FFFFFF;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .poster-photo-title p {
-      font-size: 11px;
-      color: var(--text-sub);
-      margin-top: 2px;
-    }
-    .poster-img-wrapper {
-      position: relative;
-      width: 100%;
-      border-radius: 14px;
-      overflow: hidden;
-      border: 1px solid rgba(45, 212, 191, 0.25);
-      background: #020C0B;
-      cursor: zoom-in;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-    }
-    .poster-img-wrapper img {
-      width: 100%;
-      height: auto;
-      max-height: 590px;
-      object-fit: contain;
-      display: block;
-      transition: transform 0.3s ease;
-    }
-    .poster-img-wrapper:hover img {
-      transform: scale(1.02);
-    }
-    .poster-zoom-hint {
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      background: rgba(0, 0, 0, 0.75);
-      border: 1px solid var(--border-teal);
-      color: var(--color-mint);
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-size: 10.5px;
-      font-weight: 600;
-      pointer-events: none;
-      backdrop-filter: blur(4px);
-    }
-    .poster-photo-actions {
-      display: flex;
-      gap: 8px;
-    }
-    .poster-action-btn {
-      flex: 1;
-      padding: 9px;
-      border-radius: 9px;
-      font-size: 11.5px;
-      font-weight: 700;
+    .yt-ctrl-btn {
+      background: transparent;
       border: none;
+      color: #FFFFFF;
+      font-size: 15px;
+      font-weight: 700;
       cursor: pointer;
       display: flex;
       align-items: center;
-      justify-content: center;
       gap: 6px;
+      padding: 6px 10px;
+      border-radius: 6px;
       transition: all 0.2s;
     }
-    .poster-action-btn.primary {
-      background: var(--color-primary);
+    .yt-ctrl-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    .yt-play-main-btn {
+      background: var(--brand-teal);
       color: #FFFFFF;
+      font-size: 13px;
+      font-weight: 800;
+      padding: 6px 14px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(13, 148, 136, 0.4);
     }
-    .poster-action-btn.secondary {
-      background: rgba(255, 255, 255, 0.06);
-      color: var(--text-sub);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .poster-action-btn:hover {
-      opacity: 0.92;
-      transform: translateY(-1px);
+    .yt-time-display {
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-gray);
+      margin-left: 6px;
     }
 
-    /* Lightbox Modal for Full Image Zoom */
-    .lightbox-modal {
+    .yt-controls-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .yt-chapter-pill {
+      font-size: 11.5px;
+      color: #A7F3D0;
+      background: rgba(13, 148, 136, 0.2);
+      border: 1px solid var(--brand-glow);
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+
+    /* Lightbox Modal */
+    .fullscreen-modal {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(0, 0, 0, 0.92);
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.94);
       backdrop-filter: blur(8px);
       display: none;
       align-items: center;
@@ -1268,24 +1013,22 @@
       padding: 24px;
       cursor: zoom-out;
     }
-    .lightbox-modal.open {
-      display: flex;
-    }
-    .lightbox-modal img {
+    .fullscreen-modal.open { display: flex; }
+    .fullscreen-modal img {
       max-width: 90vw;
       max-height: 90vh;
       object-fit: contain;
       border-radius: 12px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.9);
-      border: 1px solid var(--border-teal);
+      border: 1px solid var(--brand-mint);
     }
-    .lightbox-close-btn {
+    .close-modal-btn {
       position: absolute;
       top: 20px;
       right: 24px;
       background: rgba(255, 255, 255, 0.1);
       border: 1px solid rgba(255, 255, 255, 0.2);
-      color: #FFFFFF;
+      color: #fff;
       font-size: 20px;
       width: 40px;
       height: 40px;
@@ -1299,527 +1042,453 @@
 </head>
 <body>
 
-  <!-- Top Brand Navigation -->
-  <header class="brand-nav">
-    <div class="brand-badge">
-      <div class="brand-logo-sq">⚡</div>
+  <!-- Top YouTube Header Bar -->
+  <header class="yt-top-header">
+    <div class="yt-logo-group">
+      <div class="yt-play-icon">▶ YouTube</div>
       <div>
-        <div class="brand-name">OmniFlow <span>Samsung Studio</span></div>
-        <div class="brand-tag">Interactive Voice Video & Step-by-Step Graphic Guide</div>
+        <div class="yt-title-text">OmniFlow <span>Samsung Setup Series</span></div>
+        <div class="yt-sub-tag">Official HD Video Tutorial for Clients & YouTube Upload</div>
       </div>
     </div>
 
-    <!-- Switcher Tabs (Exclusively for Samsung Galaxy) -->
-    <div class="guide-tabs">
-      <button id="tabGuide1" class="guide-tab-btn active" onclick="switchGuide('guide1')">
-        <span>📞 Video 1: Samsung Auto Recording ON</span>
+    <!-- Video Switcher Tabs: Video 1 (Auto Recording) & Video 2 (Folder Selection) -->
+    <div class="video-switch-tabs">
+      <button id="tabVid1" class="vid-tab-btn active" onclick="switchVideoMode('vid1')">
+        <span>📞 Video 1: Auto Recording ON</span>
       </button>
-      <button id="tabGuide2" class="guide-tab-btn" onclick="switchGuide('guide2')">
-        <span>📁 Video 2: Samsung Folder Selection</span>
+      <button id="tabVid2" class="vid-tab-btn" onclick="switchVideoMode('vid2')">
+        <span>📁 Video 2: Folder Selection (SAF)</span>
       </button>
     </div>
 
-    <div class="pill-device-status">
-      <div class="pulse-dot"></div>
-      <span id="headerDeviceLabel">Samsung Galaxy One UI</span>
+    <!-- Top Actions (Record & Download Video) -->
+    <div class="yt-top-actions">
+      <button class="export-rec-btn" id="recordDownloadBtn" onclick="triggerVideoRecordingDownload()">
+        <span class="rec-pulse-dot"></span>
+        <span>🎥 Record & Download Video (.webm / .mp4)</span>
+      </button>
     </div>
   </header>
 
-  <!-- 3-Column Studio Grid: Left (Steps + Voice) | Center (Phone Video) | Right (Graphic Poster Photo) -->
-  <main class="studio-layout">
+  <!-- ========================================================
+       MAIN 16:9 YOUTUBE VIDEO CANVAS
+       ======================================================== -->
+  <main class="yt-video-canvas-wrapper" id="ytCaptureContainer">
 
-    <!-- ========================================================
-         LEFT COLUMN: Steps List + Girl Voiceover Narration
-         ======================================================== -->
-    <section class="steps-voice-panel">
-      <div class="panel-header">
-        <div class="panel-title-grp">
-          <h2 id="panelHeading">📋 Step-by-Step Instructions</h2>
-          <p id="panelSubheading">Samsung Phone dialer me automatic recording on karein</p>
+    <!-- Video Overlay Title Bar -->
+    <div class="yt-video-top-bar">
+      <div class="yt-video-title-grp">
+        <h1 id="ytMainTitle">How to Enable Auto Call Recording on Samsung Galaxy</h1>
+        <p id="ytMainSubtitle">OmniFlow Setup Series • Compatible with all Samsung One UI Devices</p>
+      </div>
+      <div class="yt-badge-tag" id="ytDeviceTag">Samsung Galaxy One UI</div>
+    </div>
+
+    <!-- 3-Column Video Stage: Left (Steps/Voice) | Center (Phone Video) | Right (Graphic Poster) -->
+    <div class="yt-screen-stage">
+
+      <!-- ==================== LEFT COLUMN: Steps + Voiceover ==================== -->
+      <div class="yt-left-box">
+        <div class="yt-step-card-list" id="ytStepsContainer">
+          <!-- Injected via JavaScript -->
         </div>
-        <span class="model-badge" id="panelBadge">Samsung One UI</span>
-      </div>
 
-      <!-- Dynamic Step List -->
-      <div class="step-list" id="stepListContainer">
-        <!-- Injected via JavaScript -->
-      </div>
-
-      <!-- Girl Voiceover Card -->
-      <div class="girl-voice-card">
-        <div class="narrator-header-row">
-          <div class="narrator-identity">
-            <div class="narrator-avatar">👧</div>
-            <div class="narrator-meta">
-              <h3>Girl's Voice Narration (Live)</h3>
-              <p id="voiceEngineStatus">Hindi / Indian Female Voice</p>
+        <!-- Girl Voice Narration & Live Subtitles -->
+        <div class="yt-voice-subtitle-card">
+          <div class="yt-narrator-row">
+            <div class="yt-narrator-id">
+              <div class="yt-narrator-avatar">👧</div>
+              <div class="yt-narrator-meta">
+                <div>Girl's Voice Narration</div>
+                <div style="font-size:10px; color:#A7F3D0;" id="ttsVoiceName">Hindi / Indian Accent</div>
+              </div>
+            </div>
+            <!-- Equalizer -->
+            <div class="yt-voice-eq" id="voiceEq">
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
             </div>
           </div>
-          <!-- Equalizer -->
-          <div class="audio-eq-bars" id="audioEq">
-            <div class="eq-bar"></div>
-            <div class="eq-bar"></div>
-            <div class="eq-bar"></div>
-            <div class="eq-bar"></div>
-            <div class="eq-bar"></div>
-          </div>
-        </div>
 
-        <!-- Voice Toggle Controls -->
-        <div class="voice-actions-row">
-          <button class="voice-toggle-btn" id="muteToggleBtn" onclick="toggleMuteVoice()">
-            🔊 Girl's Voice: ON
-          </button>
-          <button class="voice-toggle-btn" onclick="speakCurrentStepAgain()">
-            🗣️ Re-speak Step
-          </button>
-        </div>
-
-        <!-- Live Subtitles -->
-        <div class="live-transcript-box">
-          <div class="transcript-lang-tag">
-            <span>💬 Live Spoken Step</span>
-            <span id="transcriptStepTag">STEP 1 of 4</span>
-          </div>
-          <div class="live-speech-text" id="transcriptEn">
-            "Open your Phone app from the home screen."
-          </div>
-          <div class="live-speech-hi" id="transcriptHi">
-            "Phone app open karein dialer screen par jaane ke liye."
+          <!-- Speech Subtitles -->
+          <div class="yt-speech-subtitles">
+            <div id="subtitlesEn">"Step 1: Open your phone app from the home screen."</div>
+            <div class="yt-speech-subtitles-hi" id="subtitlesHi">"Step 1: Apne phone ki home screen par Phone app par tap karein."</div>
           </div>
         </div>
       </div>
-    </section>
 
-    <!-- ========================================================
-         CENTER COLUMN: Phone Video Viewport & Media Controls
-         ======================================================== -->
-    <div class="phone-column">
-      <div class="phone-hardware-bezel">
-        <!-- Punch hole camera -->
-        <div class="samsung-punch-camera"></div>
+      <!-- ==================== CENTER COLUMN: Galaxy S24 Phone ==================== -->
+      <div class="yt-phone-wrap">
+        <div class="samsung-galaxy-body">
+          <div class="punch-hole-camera"></div>
 
-        <!-- Phone Status Bar -->
-        <div class="phone-status-bar dark-style" id="phoneStatusBar">
-          <span id="phoneClock">6:45</span>
-          <div style="display:flex; gap:6px; align-items:center;">
-            <span>5G</span>
-            <span>📶</span>
-            <span>98%</span>
+          <!-- Phone Status Strip -->
+          <div class="phone-status-strip dark" id="phoneStatusStrip">
+            <span>6:45</span>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <span>5G</span>
+              <span>📶</span>
+              <span>98%</span>
+            </div>
           </div>
-        </div>
 
-        <!-- Inner Screen Viewport -->
-        <div class="phone-screen-viewport" id="phoneViewport">
-          <!-- Animated Touch Finger -->
-          <div class="touch-cursor" id="fingerTouch"></div>
+          <!-- Inner Screen Viewport -->
+          <div class="phone-screen-area" id="screenViewport">
+            <!-- Animated Touch Cursor -->
+            <div class="touch-indicator" id="touchCursor"></div>
 
-          <!-- ================= GUIDE 1 SCENES ================= -->
-          <!-- Scene 1: Samsung Home Screen -->
-          <div class="screen-scene active samsung-home-bg" id="g1Scene1">
-            <div class="home-clock-widget">
+            <!-- ================= VIDEO 1 SCENES ================= -->
+            <!-- V1 Scene 1: Samsung Home -->
+            <div class="phone-scene active samsung-home" id="v1Scene1">
               <div class="home-clock-time">06:45</div>
-              <div class="home-clock-date">Thursday, Sep 18 • 29°C</div>
-            </div>
-            <div class="home-app-grid">
-              <div class="app-icon-item" id="g1DialerAppIcon">
-                <div class="app-icon-squircle target-dialer">📞</div>
-                <div class="app-icon-name">Phone</div>
-              </div>
-              <div class="app-icon-item">
-                <div class="app-icon-squircle" style="background: linear-gradient(135deg, #3B82F6, #1D4ED8);">💬</div>
-                <div class="app-icon-name">Messages</div>
-              </div>
-              <div class="app-icon-item">
-                <div class="app-icon-squircle" style="background: linear-gradient(135deg, #F59E0B, #B45309);">⚡</div>
-                <div class="app-icon-name">OmniFlow</div>
-              </div>
-              <div class="app-icon-item">
-                <div class="app-icon-squircle" style="background: linear-gradient(135deg, #64748B, #334155);">⚙️</div>
-                <div class="app-icon-name">Settings</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Scene 2: Samsung Phone Recents + 3 Dots -->
-          <div class="screen-scene" id="g1Scene2">
-            <div class="samsung-phone-header">
-              <div class="samsung-app-title">Phone</div>
-              <div class="samsung-header-actions">
-                <span>🔍</span>
-                <div class="three-dots-btn" id="g1DotsBtn">⋮</div>
-              </div>
-            </div>
-
-            <!-- 3 Dots Dropdown Menu -->
-            <div class="samsung-dropdown-menu" id="g1DropdownMenu">
-              <div class="samsung-menu-row">Delete</div>
-              <div class="samsung-menu-row">Share</div>
-              <div class="samsung-menu-row">Hide blocked calls</div>
-              <div class="samsung-menu-row menu-settings-target" id="g1SettingsMenuRow">
-                <span>Settings</span>
-                <span style="font-size: 11px;">⚙️</span>
-              </div>
-            </div>
-
-            <!-- Recent Calls List -->
-            <div class="recents-call-list">
-              <div class="recent-row">
-                <div class="contact-avatar">H</div>
-                <div class="recent-info">
-                  <div class="recent-name">Harshiv 💕</div>
-                  <div class="recent-sub">
-                    <span class="sim-tag">SIM 2</span>
-                    <span>↗ Outgoing (10s)</span>
-                  </div>
+              <div class="home-app-grid">
+                <div class="home-app-item">
+                  <div class="home-app-sq target" id="v1DialerApp">📞</div>
+                  <div class="home-app-name">Phone</div>
                 </div>
-                <div class="recent-time">6:40 PM</div>
-              </div>
-              <div class="recent-row">
-                <div class="contact-avatar" style="background:#FEF3C7; color:#B45309;">A</div>
-                <div class="recent-info">
-                  <div class="recent-name">Aarav Sharma (Lead)</div>
-                  <div class="recent-sub">
-                    <span class="sim-tag">SIM 2</span>
-                    <span>↙ Incoming (45s)</span>
-                  </div>
+                <div class="home-app-item">
+                  <div class="home-app-sq" style="background:#2563EB;">💬</div>
+                  <div class="home-app-name">Messages</div>
                 </div>
-                <div class="recent-time">5:12 PM</div>
+                <div class="home-app-item">
+                  <div class="home-app-sq" style="background:#0D9488;">⚡</div>
+                  <div class="home-app-name">OmniFlow</div>
+                </div>
+                <div class="home-app-item">
+                  <div class="home-app-sq" style="background:#475569;">⚙️</div>
+                  <div class="home-app-name">Settings</div>
+                </div>
               </div>
             </div>
 
-            <div class="samsung-bottom-tabs">
-              <div class="dialer-tab"><span>⌨️</span><span>Keypad</span></div>
-              <div class="dialer-tab active-tab"><span>🕒</span><span>Recents</span></div>
-              <div class="dialer-tab"><span>👥</span><span>Contacts</span></div>
-            </div>
-          </div>
+            <!-- V1 Scene 2: Phone Recents & 3 Dots Menu -->
+            <div class="phone-scene" id="v1Scene2">
+              <div class="samsung-phone-top">
+                <div class="samsung-phone-title">Phone</div>
+                <div style="display:flex; gap:14px; align-items:center;">
+                  <span>🔍</span>
+                  <div class="three-dots-tap-btn" id="v1DotsBtn">⋮</div>
+                </div>
+              </div>
 
-          <!-- Scene 3: Samsung Call Settings List -->
-          <div class="screen-scene" id="g1Scene3">
-            <div class="oneui-page-header">
-              <span class="back-arrow-btn">←</span>
-              <span class="oneui-page-title">Call settings</span>
+              <!-- Dropdown Menu -->
+              <div class="samsung-menu-dropdown" id="v1Dropdown">
+                <div class="samsung-menu-item">Delete</div>
+                <div class="samsung-menu-item">Share</div>
+                <div class="samsung-menu-item target-settings" id="v1SettingsTarget">
+                  <span>Settings</span>
+                  <span>⚙️</span>
+                </div>
+              </div>
+
+              <div class="samsung-recents-list">
+                <div class="recents-row">
+                  <div class="recents-avatar">H</div>
+                  <div style="flex:1;">
+                    <div style="font-size:12.5px; font-weight:700; color:#1E293B;">Harshiv 💕</div>
+                    <div style="font-size:10px; color:#64748B;">SIM 2 • ↗ Outgoing (10s)</div>
+                  </div>
+                  <div style="font-size:10px; color:#94A3B8;">6:40 PM</div>
+                </div>
+              </div>
             </div>
-            <div class="oneui-settings-list">
-              <div class="oneui-item-row">
-                <div>
+
+            <!-- V1 Scene 3: Call Settings List -->
+            <div class="phone-scene" id="v1Scene3">
+              <div class="samsung-subpage-header">
+                <span>←</span>
+                <span>Call settings</span>
+              </div>
+              <div class="samsung-settings-list">
+                <div class="samsung-setting-row">
                   <div>Block numbers</div>
-                  <div class="item-subtext">Block spam and unidentified callers</div>
+                  <span>›</span>
                 </div>
-                <span>›</span>
-              </div>
-              <div class="oneui-item-row">
-                <div>
-                  <div>Caller ID and spam protection</div>
-                  <div class="item-subtext">Identify caller numbers</div>
-                </div>
-                <span>›</span>
-              </div>
-              <div class="oneui-item-row target-highlight" id="g1RecordCallsRow">
-                <div>
-                  <div style="color:#0D9488; font-weight:800;">Record calls</div>
-                  <div class="item-subtext">Auto record and view recordings</div>
-                </div>
-                <span style="color:#0D9488; font-weight:800;">›</span>
-              </div>
-              <div class="oneui-item-row">
-                <div>
-                  <div>Call background</div>
-                  <div class="item-subtext">Change calling visual wallpaper</div>
-                </div>
-                <span>›</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Scene 4: Record Calls Screen (Auto Record Toggle) -->
-          <div class="screen-scene" id="g1Scene4">
-            <div class="oneui-page-header">
-              <span class="back-arrow-btn">←</span>
-              <span class="oneui-page-title">Record calls</span>
-            </div>
-            <div class="oneui-settings-list">
-              <div class="oneui-item-row">
-                <div>Show notification after recording</div>
-                <label class="oneui-switch">
-                  <input type="checkbox" checked>
-                  <span class="oneui-slider"></span>
-                </label>
-              </div>
-              <div class="oneui-item-row target-highlight" id="g1AutoRecordToggleRow" style="padding: 16px 18px;">
-                <div>
-                  <div style="font-weight: 800; font-size: 14px; color: #0F172A;">Auto record calls</div>
-                  <div class="item-subtext" id="g1ToggleSubtext">Off</div>
-                </div>
-                <label class="oneui-switch">
-                  <input type="checkbox" id="g1AutoRecordCheckbox">
-                  <span class="oneui-slider"></span>
-                </label>
-              </div>
-              <div class="oneui-item-row" style="background:#F8FAFC;">
-                <div style="color:#64748B;">Recorded calls (Saved in /Recordings/Call)</div>
-                <span>›</span>
-              </div>
-            </div>
-
-            <div class="success-toast-banner" id="g1SuccessToast">
-              <span style="font-size: 16px;">✅</span>
-              <div>
-                <div>Auto Call Recording Activated!</div>
-                <div style="font-size: 10px; font-weight: 400; opacity: 0.9;">Samsung will now save both sides of all calls.</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- ================= GUIDE 2 SCENES ================= -->
-          <!-- Scene G2-1: Companion App Dashboard -->
-          <div class="screen-scene" id="g2Scene1">
-            <div class="omniflow-app-home">
-              <div class="app-top-bar">
-                <div class="app-logo-area">
-                  <span style="color:#2DD4BF;">⚡</span>
-                  <span>OmniFlow Companion</span>
-                </div>
-                <div class="app-folder-badge-btn" id="g2FolderBadge">
-                  <span>⚙️ Settings</span>
-                </div>
-              </div>
-              <div class="omniflow-home-body">
-                <div class="agent-status-card">
+                <div class="samsung-setting-row highlighted" id="v1RecordCallsTarget">
                   <div>
-                    <div style="font-size:12px; font-weight:700; color:#FFFFFF;">Agent: Harshiv Lead Desk</div>
-                    <div style="font-size:10.5px; color:#94A3B8;">Live Companion Service Active</div>
+                    <div style="color:#0D9488; font-weight:800;">Record calls</div>
+                    <div style="font-size:10px; color:#64748B;">Auto record and view audio</div>
                   </div>
-                  <span style="font-size:11px; color:#34D399; font-weight:700;">● ONLINE</span>
+                  <span style="color:#0D9488; font-weight:800;">›</span>
                 </div>
-                <div style="background:#0A2422; border-radius:12px; border:1px solid var(--border-teal); padding:12px; font-size:11px; color:#A7F3D0;">
-                  ⚡ Tap Settings to configure your Samsung call recordings folder.
+                <div class="samsung-setting-row">
+                  <div>Call background</div>
+                  <span>›</span>
                 </div>
               </div>
             </div>
+
+            <!-- V1 Scene 4: Record Calls Screen (Toggle ON) -->
+            <div class="phone-scene" id="v1Scene4">
+              <div class="samsung-subpage-header">
+                <span>←</span>
+                <span>Record calls</span>
+              </div>
+              <div class="samsung-settings-list">
+                <div class="samsung-setting-row">
+                  <div>Show notification after call</div>
+                  <label class="samsung-switch-toggle">
+                    <input type="checkbox" checked>
+                    <span class="toggle-track"></span>
+                  </label>
+                </div>
+                <div class="samsung-setting-row highlighted" style="padding:16px;">
+                  <div>
+                    <div style="font-size:13px; font-weight:800; color:#0F172A;">Auto record calls</div>
+                    <div style="font-size:10px; color:#64748B;" id="v1ToggleStatus">Off</div>
+                  </div>
+                  <label class="samsung-switch-toggle" id="v1ToggleWrap">
+                    <input type="checkbox" id="v1AutoRecordCheckbox">
+                    <span class="toggle-track"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="live-success-toast" id="v1Toast">
+                <span>✅</span>
+                <div>
+                  <div>Auto Call Recording Activated!</div>
+                  <div style="font-size:9.5px; font-weight:400;">Samsung will now record all calls automatically.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ================= VIDEO 2 SCENES (FOLDER SELECTION) ================= -->
+            <!-- V2 Scene 1: OmniFlow App Dashboard -->
+            <div class="phone-scene" id="v2Scene1">
+              <div class="app-screen-home">
+                <div class="app-screen-nav">
+                  <div style="font-weight:800; font-size:13px;">⚡ OmniFlow Companion</div>
+                  <div class="app-settings-badge-btn" id="v2SettingsBtn">⚙️ Settings</div>
+                </div>
+                <div style="padding:14px; display:flex; flex-direction:column; gap:10px;">
+                  <div style="background:#0A2422; border:1px solid var(--brand-glow); border-radius:12px; padding:12px;">
+                    <div style="font-size:12px; font-weight:700;">Live Companion Active</div>
+                    <div style="font-size:10px; color:#A7F3D0; margin-top:2px;">Tap Settings to select your Call Recordings folder.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- V2 Scene 2: Sync Hub Modal (Custom Folder) -->
+            <div class="phone-scene" id="v2Scene2">
+              <div class="app-screen-home" style="filter: brightness(0.6);">
+                <div class="app-screen-nav"><div style="font-weight:800;">⚡ OmniFlow</div></div>
+              </div>
+              <div style="position:absolute; bottom:0; left:0; width:100%; background:#fff; border-radius:18px 18px 0 0; padding:16px; box-shadow:0 -10px 30px rgba(0,0,0,0.5);">
+                <div style="font-size:13px; font-weight:800; color:#0F172A; margin-bottom:12px;">🎙️ Call Recording Sync Hub</div>
+                <div id="v2CustomFolderTarget" style="background:#F8FAFC; border:1.5px dashed #0D9488; border-radius:10px; padding:12px; text-align:center; font-size:12px; font-weight:800; color:#0D9488; cursor:pointer;">
+                  ⚙️ Custom Folder (Select Storage Folder)
+                </div>
+              </div>
+            </div>
+
+            <!-- V2 Scene 3: Storage Folder Navigation (Internal Storage > Recordings > Call) -->
+            <div class="phone-scene" id="v2Scene3">
+              <div class="saf-storage-screen">
+                <div class="saf-storage-header">
+                  <span>📁 Open from Internal Storage</span>
+                </div>
+                <div class="saf-folder-path-strip">
+                  <span>Internal Storage</span> <span>›</span> <span>Recordings</span> <span>›</span> <span style="font-weight:800; color:#0D9488;">Call</span>
+                </div>
+                <div class="saf-folder-items-list">
+                  <div class="saf-folder-row">
+                    <span>📁</span> <span>Alarms</span>
+                  </div>
+                  <div class="saf-folder-row target-folder-active" id="v2TargetCallFolder">
+                    <span>📂</span> <span>Call (Samsung Call Recordings)</span>
+                  </div>
+                  <div class="saf-folder-row">
+                    <span>📁</span> <span>Notifications</span>
+                  </div>
+                </div>
+                <div class="saf-bottom-action-bar">
+                  <button class="saf-confirm-button" id="v2UseFolderBtn">USE THIS FOLDER</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- V2 Scene 4: System Confirmation Popup & Success -->
+            <div class="phone-scene" id="v2Scene4">
+              <div class="saf-storage-screen" style="filter: brightness(0.6);">
+                <div class="saf-storage-header"><span>📁 Open from</span></div>
+              </div>
+              <div class="saf-system-popup" id="v2ConfirmPopup">
+                <div class="saf-popup-card">
+                  <div class="saf-popup-title">Allow OmniFlow to access files in Call?</div>
+                  <div class="saf-popup-body">This will let OmniFlow read recorded audio files from this folder and upload them to your CRM.</div>
+                  <div class="saf-popup-btns">
+                    <button class="saf-popup-btn" style="background:#F1F5F9; color:#475569;">CANCEL</button>
+                    <button class="saf-popup-btn" style="background:#0D9488; color:#fff;" id="v2AllowBtn">ALLOW</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="live-success-toast" id="v2Toast">
+                <span>✅</span>
+                <div>
+                  <div>Recordings Folder Linked!</div>
+                  <div style="font-size:9.5px; font-weight:400;">Samsung /Recordings/Call folder linked successfully.</div>
+                </div>
+              </div>
+            </div>
+
+          </div> <!-- /phone-screen-area -->
+        </div> <!-- /samsung-galaxy-body -->
+      </div> <!-- /yt-phone-wrap -->
+
+      <!-- ==================== RIGHT COLUMN: Graphic Poster ==================== -->
+      <div class="yt-right-box">
+        <div class="yt-poster-card">
+          <div class="yt-poster-header">
+            <h3 id="ytPosterHeading">🖼️ Highlighted Graphic Poster</h3>
+            <span style="font-size:10px; color:#A7F3D0; font-weight:700;">Full HD Infographic</span>
           </div>
 
-          <!-- Scene G2-2: Companion App Settings / Sync Hub Modal -->
-          <div class="screen-scene" id="g2Scene2">
-            <div class="omniflow-app-home" style="filter: brightness(0.6);">
-              <div class="app-top-bar">
-                <div class="app-logo-area"><span>⚡</span><span>OmniFlow</span></div>
-              </div>
-            </div>
-            <div class="sync-hub-dialog">
-              <div class="sync-hub-sheet">
-                <div class="sheet-handle"></div>
-                <div class="sheet-title">
-                  <span>🎙️ Call Recording & Sync Hub</span>
-                </div>
-                <div class="auto-discovery-card">
-                  <div style="font-weight:800;">⚡ SAMSUNG AUTO-DISCOVERY</div>
-                  <div style="font-size:10px; margin-top:2px;">Target: /Recordings/Call</div>
-                </div>
-                <div class="custom-folder-btn-target" id="g2CustomFolderTarget">
-                  ⚙️ Custom Folder (Advanced / Select Folder)
-                </div>
-              </div>
-            </div>
+          <div class="yt-poster-frame" onclick="openFullscreenPoster()">
+            <img id="ytPosterImg" src="Samsung_Call_Recording_Guide.jpg" alt="Samsung Guide Poster">
+            <div class="yt-zoom-pill">🔍 Click to Zoom</div>
           </div>
 
-          <!-- Scene G2-3: Android Storage File Picker (SAF) -->
-          <div class="screen-scene" id="g2Scene3">
-            <div class="saf-picker-screen">
-              <div class="saf-header">
-                <span>📁</span>
-                <span>Open from Internal Storage</span>
-              </div>
-              <div class="saf-breadcrumb">Internal Storage › Recordings</div>
-              <div class="saf-folder-list">
-                <div class="saf-folder-item">
-                  <span>📁</span>
-                  <span>Alarms</span>
-                </div>
-                <div class="saf-folder-item target-folder" id="g2TargetFolderRow">
-                  <span>📂</span>
-                  <span>Call (Samsung Call Recordings)</span>
-                </div>
-                <div class="saf-folder-item">
-                  <span>📁</span>
-                  <span>Music</span>
-                </div>
-              </div>
-              <div class="saf-bottom-bar">
-                <button class="saf-use-folder-btn" id="g2UseFolderBtn">USE THIS FOLDER</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Scene G2-4: SAF System Confirmation Dialog & Success Toast -->
-          <div class="screen-scene" id="g2Scene4">
-            <div class="saf-picker-screen" style="filter: brightness(0.6);">
-              <div class="saf-header"><span>📁</span><span>Open from</span></div>
-            </div>
-            <!-- System Confirmation Popup -->
-            <div class="saf-confirm-popup" id="g2ConfirmPopup">
-              <div class="saf-confirm-box">
-                <div class="saf-confirm-title">Allow OmniFlow to access files in Call?</div>
-                <div class="saf-confirm-desc">This will let OmniFlow Companion app read call recording audio files from this folder and upload them to your CRM.</div>
-                <div class="saf-confirm-actions">
-                  <button class="saf-popup-btn" style="background:#F1F5F9; color:#475569;">CANCEL</button>
-                  <button class="saf-popup-btn allow" id="g2AllowPopupBtn">ALLOW</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="success-toast-banner" id="g2SuccessToast">
-              <span style="font-size: 16px;">✅</span>
-              <div>
-                <div>Call Recordings Folder Linked!</div>
-                <div style="font-size: 10px; font-weight: 400; opacity: 0.9;">Samsung /Recordings/Call folder linked successfully.</div>
-              </div>
-            </div>
-          </div>
-
-        </div> <!-- /phone-screen-viewport -->
-      </div> <!-- /phone-hardware-bezel -->
-
-      <!-- Media Controls directly under phone -->
-      <div class="player-controls-card">
-        <div class="scrubber-track-bar" id="scrubberTrack" onclick="handleScrub(event)">
-          <div class="scrubber-fill" id="trackFill"></div>
-        </div>
-        <div class="player-buttons-row">
-          <div style="display:flex; gap:6px; align-items:center;">
-            <button class="ctrl-btn primary-play" id="playToggleBtn" onclick="togglePlayState()">
-              ⏸ Pause Demo
+          <div style="display:flex; gap:8px; margin-top:4px;">
+            <button onclick="downloadActivePoster()" style="flex:1; padding:8px; border-radius:8px; background:var(--brand-teal); color:#fff; font-size:11.5px; font-weight:700; border:none; cursor:pointer;">
+              📥 Download Poster (JPG)
             </button>
-            <button class="ctrl-btn" onclick="handleReplay()">
-              🔄 Replay
+            <button onclick="openFullscreenPoster()" style="padding:8px 12px; border-radius:8px; background:rgba(255,255,255,0.08); color:var(--text-gray); font-size:11.5px; font-weight:700; border:1px solid rgba(255,255,255,0.1); cursor:pointer;">
+              🔍 Zoom
             </button>
-          </div>
-          <div class="time-readout">
-            <span id="currTimeLbl">0:00</span> / <span id="totalTimeLbl">0:10</span>
           </div>
         </div>
       </div>
-    </div> <!-- /phone-column -->
+
+    </div> <!-- /yt-screen-stage -->
 
     <!-- ========================================================
-         RIGHT COLUMN: Step-by-Step Visual Graphic Poster Photo
+         YOUTUBE CONTROLS BAR (BOTTOM)
          ======================================================== -->
-    <section class="photo-poster-panel">
-      <div class="poster-photo-header">
-        <div class="poster-photo-title">
-          <h3 id="posterPhotoHeading">🖼️ Samsung Step-by-Step Graphic Poster</h3>
-          <p id="posterPhotoSub">Highlighted visual walkthrough with arrows & circles</p>
+    <div class="yt-bottom-player-controls">
+      <!-- YouTube Scrubber Bar -->
+      <div class="yt-timeline-scrubber" id="ytScrubberTrack" onclick="handleYtScrub(event)">
+        <div class="yt-progress-fill" id="ytProgressFill">
+          <div class="yt-scrubber-handle"></div>
         </div>
       </div>
 
-      <!-- Poster Image Display with Click to Zoom -->
-      <div class="poster-img-wrapper" onclick="openLightbox()">
-        <img id="graphicPosterImg" src="Samsung_Call_Recording_Guide.jpg" alt="Samsung Setup Guide Poster">
-        <div class="poster-zoom-hint">🔍 Click to Zoom / Full View</div>
-      </div>
+      <!-- Controls Row -->
+      <div class="yt-controls-row">
+        <div class="yt-controls-left">
+          <button class="yt-ctrl-btn yt-play-main-btn" id="ytPlayBtn" onclick="togglePlayPause()">
+            ⏸ Pause
+          </button>
+          <button class="yt-ctrl-btn" onclick="restartVideo()">
+            🔄 Replay
+          </button>
+          <button class="yt-ctrl-btn" id="ytVoiceToggleBtn" onclick="toggleVoiceMute()">
+            🔊 Voice: ON
+          </button>
+          <div class="yt-time-display">
+            <span id="ytCurrentTime">0:00</span> / <span id="ytTotalDuration">0:10</span>
+          </div>
+        </div>
 
-      <!-- Actions -->
-      <div class="poster-photo-actions">
-        <button class="poster-action-btn primary" onclick="downloadActivePoster()">
-          📥 Download Graphic Poster (JPG)
-        </button>
-        <button class="poster-action-btn secondary" onclick="openLightbox()">
-          🔍 Fullscreen View
-        </button>
+        <div class="yt-controls-right">
+          <div class="yt-chapter-pill" id="ytActiveChapter">Chapter: Step 1</div>
+          <div style="font-size:11.5px; color:var(--text-gray); font-weight:600;">
+            1080p Full HD
+          </div>
+        </div>
       </div>
-    </section>
+    </div> <!-- /yt-bottom-player-controls -->
 
   </main>
 
-  <!-- Fullscreen Lightbox Zoom Modal -->
-  <div class="lightbox-modal" id="lightboxModal" onclick="closeLightbox()">
-    <div class="lightbox-close-btn">&times;</div>
-    <img id="lightboxImg" src="Samsung_Call_Recording_Guide.jpg" alt="Full View">
+  <!-- Fullscreen Modal -->
+  <div class="fullscreen-modal" id="fullscreenModal" onclick="closeFullscreenPoster()">
+    <div class="close-modal-btn">&times;</div>
+    <img id="fullscreenImg" src="Samsung_Call_Recording_Guide.jpg" alt="Poster Full">
   </div>
 
   <!-- ========================================================
-       JAVASCRIPT: Dual Samsung Guides & Girl Voiceover Engine
+       JAVASCRIPT: Dual Video Engine & Video Recording Downloader
        ======================================================== -->
   <script>
-    // Configuration for the 2 Samsung Guides
-    const SAMSUNG_GUIDES = {
-      guide1: {
-        id: 'guide1',
-        title: 'Samsung Native Auto Call Recording',
-        heading: '📋 Samsung Auto Recording Steps',
-        subheading: 'Samsung Phone dialer me automatic recording on karein',
-        badge: 'Samsung One UI',
-        deviceLabel: 'Samsung Galaxy One UI 6.x',
+    const YOUTUBE_VIDEOS = {
+      vid1: {
+        id: 'vid1',
+        title: 'How to Enable Auto Call Recording on Samsung Galaxy',
+        subtitle: 'OmniFlow Setup Series • Compatible with all Samsung One UI Devices',
+        deviceTag: 'Samsung Galaxy One UI 6.x',
         posterImg: 'Samsung_Call_Recording_Guide.jpg',
         posterHeading: '🖼️ Samsung Auto Recording Poster',
-        posterSub: '3-Dots, Settings & Toggle Switch highlighted',
         totalMs: 10000,
         steps: [
           {
             num: 1,
             title: 'Open Samsung Phone App',
             target: 'Phone Dialer',
-            desc: 'Tap the green Phone icon on your Samsung home screen.',
+            desc: 'Tap the green Phone app icon on your Samsung home screen.',
             descHi: 'Home screen par green Phone dialer icon par tap karein.',
             timeStart: 0,
-            timeEnd: 2200,
+            timeEnd: 2400,
             voiceEn: 'Step 1: Open your phone app from the home screen.',
             voiceHi: 'Step 1: Apne phone ki home screen par Phone app par tap karein.'
           },
           {
             num: 2,
-            title: 'Tap 3 Dots & Select Settings',
+            title: 'Tap 3 Dots & Open Settings',
             target: '3 Dots (⋮) > Settings',
-            desc: 'Tap the three dots menu at the top right, then tap Settings.',
-            descHi: 'Top-right me 3 dots menu par tap karein aur Settings select karein.',
-            timeStart: 2200,
-            timeEnd: 4600,
+            desc: 'Tap the 3 dots menu at top right, then tap Settings.',
+            descHi: 'Top-right me 3 dots menu par tap karein aur Settings choose karein.',
+            timeStart: 2400,
+            timeEnd: 4800,
             voiceEn: 'Step 2: Tap the three dots menu at the top right and select Settings.',
-            voiceHi: 'Step 2: Upar right side me 3 dots par tap karein aur Settings par click karein.'
+            voiceHi: 'Step 2: Upar 3 dots par tap karein aur Settings par click karein.'
           },
           {
             num: 3,
             title: 'Tap "Record Calls"',
             target: 'Call Settings > Record calls',
-            desc: 'In the Call Settings list, find and tap on Record Calls.',
-            descHi: 'Call Settings ke andar "Record calls" par tap karein.',
-            timeStart: 4600,
-            timeEnd: 7000,
+            desc: 'In the Call Settings menu, select Record Calls.',
+            descHi: 'Call Settings list me se Record Calls option par tap karein.',
+            timeStart: 4800,
+            timeEnd: 7200,
             voiceEn: 'Step 3: Inside Call Settings, tap on Record Calls.',
-            voiceHi: 'Step 3: Call settings list me se Record Calls option par tap karein.'
+            voiceHi: 'Step 3: Call settings me Record Calls par tap karein.'
           },
           {
             num: 4,
-            title: 'Turn ON "Auto Record Calls"',
-            target: 'Toggle Switch: ON',
-            desc: 'Switch ON "Auto record calls" to record both incoming & outgoing calls.',
-            descHi: '"Auto record calls" ka toggle button ON karein. Recording folder /Recordings/Call me save hogi.',
-            timeStart: 7000,
+            title: 'Switch ON "Auto Record Calls"',
+            target: 'Toggle: All Calls',
+            desc: 'Turn on the toggle for Auto record calls. All incoming & outgoing calls will now record.',
+            descHi: 'Auto record calls ko ON karein. Ab saari calls HD audio me record hongi!',
+            timeStart: 7200,
             timeEnd: 10000,
             voiceEn: 'Step 4: Turn on Auto Record Calls. All calls will now record in high definition and auto sync to OmniFlow CRM!',
-            voiceHi: 'Step 4: Auto record calls ko on karein. Ab dono taraf ki audio HD me record hoke CRM me sync ho jayegi!'
+            voiceHi: 'Step 4: Auto record calls toggle ON karein. Saari calls record hoke CRM me upload hongi!'
           }
         ]
       },
-      guide2: {
-        id: 'guide2',
-        title: 'Samsung Folder Selection (Companion App)',
-        heading: '📁 Samsung Folder Selection Steps',
-        subheading: 'OmniFlow app me Samsung recordings folder link karein',
-        badge: 'Samsung SAF Link',
-        deviceLabel: 'Samsung Galaxy /Recordings/Call',
+      vid2: {
+        id: 'vid2',
+        title: 'How to Link Samsung Call Recordings Folder in OmniFlow',
+        subtitle: 'Step-by-Step Storage Access Framework (SAF) Folder Setup',
+        deviceTag: 'Samsung Galaxy /Recordings/Call',
         posterImg: 'Samsung_Folder_Selection_Guide.jpg',
         posterHeading: '🖼️ Samsung Folder Selection Poster',
-        posterSub: 'Settings, /Recordings/Call & USE THIS FOLDER highlighted',
         totalMs: 11000,
         steps: [
           {
             num: 1,
             title: 'Open OmniFlow App Settings',
             target: 'Top Bar > ⚙️ Settings',
-            desc: 'In OmniFlow Companion App, tap the Settings button at top right.',
-            descHi: 'OmniFlow Companion app open karke upar right me Settings par tap karein.',
+            desc: 'In OmniFlow Companion App, tap Settings at top right.',
+            descHi: 'OmniFlow Companion app me upar Settings button par tap karein.',
             timeStart: 0,
             timeEnd: 2400,
             voiceEn: 'Step 1: In the OmniFlow Companion app, tap the Settings button at the top.',
@@ -1829,29 +1498,29 @@
             num: 2,
             title: 'Tap "Custom Folder (Advanced)"',
             target: 'Sync Hub > Custom Folder',
-            desc: 'Inside the Call Recording Sync Hub, tap on Custom Folder.',
-            descHi: 'Sync Hub dialog me niche "Custom Folder" option par click karein.',
+            desc: 'Inside Call Recording Hub, tap Custom Folder to open storage.',
+            descHi: 'Call Recording Hub me Custom Folder par click karein.',
             timeStart: 2400,
             timeEnd: 5000,
             voiceEn: 'Step 2: Inside Call Recording Hub, tap on Custom Folder to open the storage picker.',
-            voiceHi: 'Step 2: Call Recording Hub me Custom Folder par tap karke storage picker open karein.'
+            voiceHi: 'Step 2: Call Recording Hub me Custom Folder par tap karein.'
           },
           {
             num: 3,
-            title: 'Select "Recordings > Call" Folder',
+            title: 'Navigate to /Recordings/Call',
             target: 'Internal Storage > Call',
-            desc: 'Navigate to Internal Storage > Recordings and select the "Call" folder.',
-            descHi: 'Phone storage me "Recordings" folder ke andar "Call" folder select karein.',
+            desc: 'Browse Internal Storage, open "Recordings" folder, and choose "Call" folder.',
+            descHi: 'Internal storage me jakar Recordings folder ke andar Call folder select karein.',
             timeStart: 5000,
             timeEnd: 7800,
-            voiceEn: 'Step 3: Browse your storage, go to Recordings folder, and select the Call folder.',
-            voiceHi: 'Step 3: Internal storage me jaakar Recordings folder ke andar Call folder ko choose karein.'
+            voiceEn: 'Step 3: Browse your internal storage, open Recordings, and select the Call folder.',
+            voiceHi: 'Step 3: Internal storage me jakar Recordings folder ke andar Call folder select karein.'
           },
           {
             num: 4,
             title: 'Tap "USE THIS FOLDER" & Allow',
             target: 'USE THIS FOLDER > ALLOW',
-            desc: 'Tap the blue "USE THIS FOLDER" button at bottom and grant permission.',
+            desc: 'Tap the blue button "USE THIS FOLDER" at the bottom, then tap Allow.',
             descHi: 'Niche blue button "USE THIS FOLDER" par tap karein aur Allow permission grant karein.',
             timeStart: 7800,
             timeEnd: 11000,
@@ -1862,528 +1531,559 @@
       }
     };
 
-    let currentGuideKey = 'guide1';
-    let currentGuide = SAMSUNG_GUIDES[currentGuideKey];
+    let activeVidKey = 'vid1';
+    let activeVid = YOUTUBE_VIDEOS[activeVidKey];
 
     // ==========================================
-    // Girl Voice Narration Engine (TTS)
+    // Girl Voice Narration Engine
     // ==========================================
-    let voiceMuted = false;
-    let currentSpokenStep = -1;
-    let girlVoiceObj = null;
+    let isVoiceMuted = false;
+    let spokenStepIndex = -1;
+    let femaleVoice = null;
 
-    function initVoices() {
+    function initTtsVoices() {
       if (!('speechSynthesis' in window)) return;
       const voices = window.speechSynthesis.getVoices();
       if (!voices || voices.length === 0) return;
 
-      // Select natural Indian English or Hindi female voice
-      girlVoiceObj = voices.find(v => 
+      femaleVoice = voices.find(v => 
         (v.lang.includes('hi') || v.lang.includes('en-IN')) && 
         (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('swara') || v.name.toLowerCase().includes('natural') || v.name.toLowerCase().includes('aarti'))
       ) || voices.find(v => 
         v.name.toLowerCase().includes('female') || 
         v.name.toLowerCase().includes('samantha') || 
-        v.name.toLowerCase().includes('zira') ||
-        v.name.toLowerCase().includes('victoria')
+        v.name.toLowerCase().includes('zira')
       ) || voices.find(v => v.lang.includes('en-IN') || v.lang.includes('hi')) || voices[0];
 
-      if (girlVoiceObj) {
-        document.getElementById('voiceEngineStatus').textContent = girlVoiceObj.name + ' (' + girlVoiceObj.lang + ')';
+      if (femaleVoice) {
+        document.getElementById('ttsVoiceName').textContent = femaleVoice.name + ' (' + femaleVoice.lang + ')';
       }
     }
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.onvoiceschanged = initVoices;
-      initVoices();
+      window.speechSynthesis.onvoiceschanged = initTtsVoices;
+      initTtsVoices();
     }
 
-    function speakGirlVoice(text, stepIndex) {
-      if (voiceMuted) return;
-      if (currentSpokenStep === stepIndex) return;
-      currentSpokenStep = stepIndex;
+    function speakStep(text, stepIdx) {
+      if (isVoiceMuted) return;
+      if (spokenStepIndex === stepIdx) return;
+      spokenStepIndex = stepIdx;
 
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        if (girlVoiceObj) utterance.voice = girlVoiceObj;
-        utterance.rate = 1.0;
-        utterance.pitch = 1.2; // Natural girl pitch
+        const utt = new SpeechSynthesisUtterance(text);
+        if (femaleVoice) utt.voice = femaleVoice;
+        utt.rate = 1.0;
+        utt.pitch = 1.25;
 
-        const eqEl = document.getElementById('audioEq');
-        utterance.onstart = () => eqEl.classList.add('speaking');
-        utterance.onend = () => eqEl.classList.remove('speaking');
-        utterance.onerror = () => eqEl.classList.remove('speaking');
+        const eq = document.getElementById('voiceEq');
+        utt.onstart = () => eq.classList.add('speaking');
+        utt.onend = () => eq.classList.remove('speaking');
+        utt.onerror = () => eq.classList.remove('speaking');
 
-        window.speechSynthesis.speak(utterance);
+        window.speechSynthesis.speak(utt);
       }
     }
 
-    function toggleMuteVoice() {
-      voiceMuted = !voiceMuted;
-      const btn = document.getElementById('muteToggleBtn');
-      if (voiceMuted) {
-        btn.innerHTML = '🔇 Girl\'s Voice: OFF';
+    function toggleVoiceMute() {
+      isVoiceMuted = !isVoiceMuted;
+      const btn = document.getElementById('ytVoiceToggleBtn');
+      if (isVoiceMuted) {
+        btn.innerHTML = '🔇 Voice: OFF';
         btn.style.color = '#94A3B8';
         if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-        document.getElementById('audioEq').classList.remove('speaking');
+        document.getElementById('voiceEq').classList.remove('speaking');
       } else {
-        btn.innerHTML = '🔊 Girl\'s Voice: ON';
+        btn.innerHTML = '🔊 Voice: ON';
         btn.style.color = '#FFFFFF';
-        currentSpokenStep = -1;
-        speakCurrentStepAgain();
+        spokenStepIndex = -1;
+        const currentStep = activeVid.steps[activeStepIndex] || activeVid.steps[0];
+        speakStep(currentStep.voiceEn, activeStepIndex);
       }
     }
 
-    function speakCurrentStepAgain() {
-      const stepObj = currentGuide.steps[activeStepIdx] || currentGuide.steps[0];
-      currentSpokenStep = -1;
-      speakGirlVoice(stepObj.voiceEn, activeStepIdx);
-    }
-
     // ==========================================
-    // Left Column Steps List Renderer
+    // UI Layout & Steps Rendering
     // ==========================================
-    let activeStepIdx = 0;
+    let activeStepIndex = 0;
 
-    function renderPosterSteps() {
-      const container = document.getElementById('stepListContainer');
-      container.innerHTML = '';
+    function renderStepsUI() {
+      const listContainer = document.getElementById('ytStepsContainer');
+      listContainer.innerHTML = '';
 
-      currentGuide.steps.forEach((step, idx) => {
-        const item = document.createElement('div');
-        item.className = 'step-item' + (idx === 0 ? ' active' : '');
-        item.id = 'stepCard_' + idx;
-        item.onclick = () => jumpToStep(idx);
+      activeVid.steps.forEach((step, idx) => {
+        const row = document.createElement('div');
+        row.className = 'yt-step-row' + (idx === 0 ? ' active' : '');
+        row.id = 'ytStepRow_' + idx;
+        row.onclick = () => jumpToSpecificStep(idx);
 
-        item.innerHTML = `
-          <div class="step-num-badge">${step.num}</div>
-          <div class="step-content">
+        row.innerHTML = `
+          <div class="yt-step-number">${step.num}</div>
+          <div class="yt-step-detail">
             <h4>
               <span>${step.title}</span>
-              <span class="step-target-pill">${step.target}</span>
+              <span class="yt-target-badge">${step.target}</span>
             </h4>
             <p>${step.desc}</p>
-            <div class="step-subtext-hi">› ${step.descHi}</div>
+            <div class="hi-desc">› ${step.descHi}</div>
           </div>
         `;
-        container.appendChild(item);
+        listContainer.appendChild(row);
       });
 
-      document.getElementById('panelHeading').textContent = currentGuide.heading;
-      document.getElementById('panelSubheading').textContent = currentGuide.subheading;
-      document.getElementById('panelBadge').textContent = currentGuide.badge;
-      document.getElementById('headerDeviceLabel').textContent = currentGuide.deviceLabel;
-      document.getElementById('totalTimeLbl').textContent = formatSeconds(currentGuide.totalMs);
-
-      // Update Right Graphic Poster Image & Headings
-      document.getElementById('graphicPosterImg').src = currentGuide.posterImg;
-      document.getElementById('lightboxImg').src = currentGuide.posterImg;
-      document.getElementById('posterPhotoHeading').textContent = currentGuide.posterHeading;
-      document.getElementById('posterPhotoSub').textContent = currentGuide.posterSub;
+      document.getElementById('ytMainTitle').textContent = activeVid.title;
+      document.getElementById('ytMainSubtitle').textContent = activeVid.subtitle;
+      document.getElementById('ytDeviceTag').textContent = activeVid.deviceTag;
+      document.getElementById('ytPosterImg').src = activeVid.posterImg;
+      document.getElementById('fullscreenImg').src = activeVid.posterImg;
+      document.getElementById('ytPosterHeading').textContent = activeVid.posterHeading;
+      document.getElementById('ytTotalDuration').textContent = formatMs(activeVid.totalMs);
     }
 
-    function highlightStepCard(stepIdx) {
-      activeStepIdx = stepIdx;
-      currentGuide.steps.forEach((_, idx) => {
-        const el = document.getElementById('stepCard_' + idx);
+    function setActiveStepHighlight(idx) {
+      activeStepIndex = idx;
+      activeVid.steps.forEach((_, i) => {
+        const el = document.getElementById('ytStepRow_' + i);
         if (el) {
-          if (idx === stepIdx) el.classList.add('active');
+          if (i === idx) el.classList.add('active');
           else el.classList.remove('active');
         }
       });
 
-      // Update Subtitles
-      const stepData = currentGuide.steps[stepIdx];
-      if (stepData) {
-        document.getElementById('transcriptStepTag').textContent = `STEP ${stepData.num} OF ${currentGuide.steps.length}`;
-        document.getElementById('transcriptEn').textContent = `"${stepData.voiceEn}"`;
-        document.getElementById('transcriptHi').textContent = `"${stepData.voiceHi}"`;
+      const step = activeVid.steps[idx];
+      if (step) {
+        document.getElementById('subtitlesEn').textContent = `"${step.voiceEn}"`;
+        document.getElementById('subtitlesHi').textContent = `"${step.voiceHi}"`;
+        document.getElementById('ytActiveChapter').textContent = `Chapter: Step ${step.num} - ${step.title}`;
       }
     }
 
-    function formatSeconds(ms) {
+    function formatMs(ms) {
       const s = Math.floor(ms / 1000);
       return '0:' + (s < 10 ? '0' + s : s);
     }
 
     // ==========================================
-    // Animation Timeline Engine
+    // Animation Timeline Loop
     // ==========================================
-    let animClock = 0;
-    let isRunning = false;
-    let frameReq = null;
-    let lastFxTime = 0;
+    let playhead = 0;
+    let isPlaying = false;
+    let reqId = null;
 
-    const finger = document.getElementById('fingerTouch');
-    const trackFill = document.getElementById('trackFill');
-    const currTimeLbl = document.getElementById('currTimeLbl');
-    const playToggleBtn = document.getElementById('playToggleBtn');
-    const phoneStatusBar = document.getElementById('phoneStatusBar');
+    const cursor = document.getElementById('touchCursor');
+    const progressBar = document.getElementById('ytProgressFill');
+    const currTimeText = document.getElementById('ytCurrentTime');
+    const playBtn = document.getElementById('ytPlayBtn');
 
-    function switchGuide(guideKey) {
-      if (currentGuideKey === guideKey) return;
-      pauseTimeline();
+    function switchVideoMode(modeKey) {
+      if (activeVidKey === modeKey) return;
+      pauseVideo();
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
 
-      currentGuideKey = guideKey;
-      currentGuide = SAMSUNG_GUIDES[guideKey];
+      activeVidKey = modeKey;
+      activeVid = YOUTUBE_VIDEOS[modeKey];
 
-      // Update Top Tabs
-      document.getElementById('tabGuide1').className = 'guide-tab-btn' + (guideKey === 'guide1' ? ' active' : '');
-      document.getElementById('tabGuide2').className = 'guide-tab-btn' + (guideKey === 'guide2' ? ' active' : '');
+      document.getElementById('tabVid1').className = 'vid-tab-btn' + (modeKey === 'vid1' ? ' active' : '');
+      document.getElementById('tabVid2').className = 'vid-tab-btn' + (modeKey === 'vid2' ? ' active' : '');
 
-      renderPosterSteps();
-      resetAllScenes();
-      startTimeline();
+      renderStepsUI();
+      resetScenes();
+      startVideo();
     }
 
-    function resetAllScenes() {
-      animClock = 0;
-      currentSpokenStep = -1;
-      finger.style.transform = 'translate(-50%, -50%) scale(0)';
-      trackFill.style.width = '0%';
-      currTimeLbl.textContent = '0:00';
+    function resetScenes() {
+      playhead = 0;
+      spokenStepIndex = -1;
+      cursor.style.transform = 'translate(-50%, -50%) scale(0)';
+      progressBar.style.width = '0%';
+      currTimeText.textContent = '0:00';
 
-      ['g1Scene1', 'g1Scene2', 'g1Scene3', 'g1Scene4', 'g2Scene1', 'g2Scene2', 'g2Scene3', 'g2Scene4'].forEach(id => {
+      ['v1Scene1', 'v1Scene2', 'v1Scene3', 'v1Scene4', 'v2Scene1', 'v2Scene2', 'v2Scene3', 'v2Scene4'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.remove('active');
       });
 
-      // Guide 1 elements reset
-      document.getElementById('g1DotsBtn').classList.remove('highlight-tap');
-      document.getElementById('g1DropdownMenu').classList.remove('show-menu');
-      document.getElementById('g1AutoRecordCheckbox').checked = false;
-      document.getElementById('g1ToggleSubtext').textContent = 'Off';
-      document.getElementById('g1SuccessToast').classList.remove('show');
+      document.getElementById('v1DotsBtn').classList.remove('active-tap');
+      document.getElementById('v1Dropdown').classList.remove('show');
+      document.getElementById('v1AutoRecordCheckbox').checked = false;
+      document.getElementById('v1ToggleStatus').textContent = 'Off';
+      document.getElementById('v1Toast').classList.remove('show');
 
-      // Guide 2 elements reset
-      document.getElementById('g2CustomFolderTarget').classList.remove('target-tap');
-      document.getElementById('g2UseFolderBtn').classList.remove('highlight-pulse');
-      document.getElementById('g2ConfirmPopup').style.display = 'flex';
-      document.getElementById('g2SuccessToast').classList.remove('show');
+      document.getElementById('v2UseFolderBtn').classList.remove('pulsing');
+      document.getElementById('v2ConfirmPopup').style.display = 'flex';
+      document.getElementById('v2Toast').classList.remove('show');
 
-      if (currentGuideKey === 'guide1') {
-        document.getElementById('g1Scene1').classList.add('active');
-        phoneStatusBar.className = 'phone-status-bar dark-style';
+      if (activeVidKey === 'vid1') {
+        document.getElementById('v1Scene1').classList.add('active');
+        document.getElementById('phoneStatusStrip').className = 'phone-status-strip dark';
       } else {
-        document.getElementById('g2Scene1').classList.add('active');
-        phoneStatusBar.className = 'phone-status-bar dark-style';
+        document.getElementById('v2Scene1').classList.add('active');
+        document.getElementById('phoneStatusStrip').className = 'phone-status-strip dark';
       }
 
-      highlightStepCard(0);
+      setActiveStepHighlight(0);
     }
 
-    function togglePlayState() {
-      if (isRunning) pauseTimeline();
-      else startTimeline();
+    function togglePlayPause() {
+      if (isPlaying) pauseVideo();
+      else startVideo();
     }
 
-    function startTimeline() {
-      if (animClock >= currentGuide.totalMs) resetAllScenes();
-      isRunning = true;
-      playToggleBtn.innerHTML = '⏸ Pause Demo';
-      const startRef = performance.now() - animClock;
+    function startVideo() {
+      if (playhead >= activeVid.totalMs) resetScenes();
+      isPlaying = true;
+      playBtn.innerHTML = '⏸ Pause';
+      const startTimestamp = performance.now() - playhead;
 
-      function loop(now) {
-        if (!isRunning) return;
-        animClock = now - startRef;
+      function frameLoop(now) {
+        if (!isPlaying) return;
+        playhead = now - startTimestamp;
 
-        if (animClock >= currentGuide.totalMs) {
-          animClock = currentGuide.totalMs;
-          renderCurrentTimeline(currentGuide.totalMs);
-          pauseTimeline();
+        if (playhead >= activeVid.totalMs) {
+          playhead = activeVid.totalMs;
+          renderFrame(activeVid.totalMs);
+          pauseVideo();
           return;
         }
 
-        renderCurrentTimeline(animClock);
-        frameReq = requestAnimationFrame(loop);
+        renderFrame(playhead);
+        reqId = requestAnimationFrame(frameLoop);
       }
-      frameReq = requestAnimationFrame(loop);
+      reqId = requestAnimationFrame(frameLoop);
     }
 
-    function pauseTimeline() {
-      isRunning = false;
-      playToggleBtn.innerHTML = '▶ Play Demo Video';
-      cancelAnimationFrame(frameReq);
-      document.getElementById('audioEq').classList.remove('speaking');
+    function pauseVideo() {
+      isPlaying = false;
+      playBtn.innerHTML = '▶ Play';
+      cancelAnimationFrame(reqId);
+      document.getElementById('voiceEq').classList.remove('speaking');
     }
 
-    function handleReplay() {
-      pauseTimeline();
-      resetAllScenes();
-      startTimeline();
+    function restartVideo() {
+      pauseVideo();
+      resetScenes();
+      startVideo();
     }
 
-    function handleScrub(e) {
+    function handleYtScrub(e) {
       const rect = e.currentTarget.getBoundingClientRect();
       const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      animClock = pct * currentGuide.totalMs;
-      renderCurrentTimeline(animClock);
-      if (!isRunning) startTimeline();
+      playhead = pct * activeVid.totalMs;
+      renderFrame(playhead);
+      if (!isPlaying) startVideo();
     }
 
-    function jumpToStep(stepIdx) {
-      const step = currentGuide.steps[stepIdx];
+    function jumpToSpecificStep(idx) {
+      const step = activeVid.steps[idx];
       if (step) {
-        animClock = step.timeStart;
-        renderCurrentTimeline(animClock);
-        if (!isRunning) startTimeline();
+        playhead = step.timeStart;
+        renderFrame(playhead);
+        if (!isPlaying) startVideo();
       }
     }
 
-    function renderCurrentTimeline(t) {
-      const pct = (t / currentGuide.totalMs) * 100;
-      trackFill.style.width = pct + '%';
+    function renderFrame(t) {
+      const pct = (t / activeVid.totalMs) * 100;
+      progressBar.style.width = pct + '%';
       const s = Math.floor(t / 1000);
-      currTimeLbl.textContent = '0:' + (s < 10 ? '0' + s : s);
+      currTimeText.textContent = '0:' + (s < 10 ? '0' + s : s);
 
-      if (currentGuideKey === 'guide1') {
-        renderGuide1Frame(t);
+      if (activeVidKey === 'vid1') {
+        renderVid1(t);
       } else {
-        renderGuide2Frame(t);
+        renderVid2(t);
       }
     }
 
-    // Guide 1 Animation
-    function renderGuide1Frame(t) {
-      const s1 = document.getElementById('g1Scene1');
-      const s2 = document.getElementById('g1Scene2');
-      const s3 = document.getElementById('g1Scene3');
-      const s4 = document.getElementById('g1Scene4');
-      const dotsBtn = document.getElementById('g1DotsBtn');
-      const dropdown = document.getElementById('g1DropdownMenu');
-      const checkbox = document.getElementById('g1AutoRecordCheckbox');
-      const toggleSub = document.getElementById('g1ToggleSubtext');
-      const toast = document.getElementById('g1SuccessToast');
+    // Video 1 Animation Frames
+    function renderVid1(t) {
+      const s1 = document.getElementById('v1Scene1');
+      const s2 = document.getElementById('v1Scene2');
+      const s3 = document.getElementById('v1Scene3');
+      const s4 = document.getElementById('v1Scene4');
+      const dotsBtn = document.getElementById('v1DotsBtn');
+      const drop = document.getElementById('v1Dropdown');
+      const chk = document.getElementById('v1AutoRecordCheckbox');
+      const toggleTxt = document.getElementById('v1ToggleStatus');
+      const toast = document.getElementById('v1Toast');
+      const strip = document.getElementById('phoneStatusStrip');
 
-      if (t < 2200) {
-        highlightStepCard(0);
-        speakGirlVoice(currentGuide.steps[0].voiceEn, 0);
+      if (t < 2400) {
+        setActiveStepHighlight(0);
+        speakStep(activeVid.steps[0].voiceEn, 0);
 
-        s1.className = 'screen-scene active samsung-home-bg';
-        s2.className = 'screen-scene';
-        s3.className = 'screen-scene';
-        s4.className = 'screen-scene';
-        phoneStatusBar.className = 'phone-status-bar dark-style';
+        s1.className = 'phone-scene active samsung-home';
+        s2.className = 'phone-scene';
+        s3.className = 'phone-scene';
+        s4.className = 'phone-scene';
+        strip.className = 'phone-status-strip dark';
 
         if (t >= 300 && t < 1200) {
-          finger.style.left = '48px';
-          finger.style.top = '575px';
-          finger.style.transform = 'translate(-50%, -50%) scale(1)';
+          cursor.style.left = '42px';
+          cursor.style.top = '515px';
+          cursor.style.transform = 'translate(-50%, -50%) scale(1)';
         }
         if (t >= 1200 && t < 1800) {
-          finger.classList.add('tap-down');
+          cursor.classList.add('tap-down');
         }
-      } else if (t >= 2200 && t < 4600) {
-        highlightStepCard(1);
-        speakGirlVoice(currentGuide.steps[1].voiceEn, 1);
+      } else if (t >= 2400 && t < 4800) {
+        setActiveStepHighlight(1);
+        speakStep(activeVid.steps[1].voiceEn, 1);
 
-        s1.className = 'screen-scene';
-        s2.className = 'screen-scene active';
-        s3.className = 'screen-scene';
-        s4.className = 'screen-scene';
-        phoneStatusBar.className = 'phone-status-bar';
+        s1.className = 'phone-scene';
+        s2.className = 'phone-scene active';
+        s3.className = 'phone-scene';
+        s4.className = 'phone-scene';
+        strip.className = 'phone-status-strip';
+        cursor.classList.remove('tap-down');
 
-        finger.classList.remove('tap-down');
-
-        if (t >= 2300 && t < 3000) {
-          finger.style.left = '295px';
-          finger.style.top = '54px';
-          finger.style.transform = 'translate(-50%, -50%) scale(1)';
+        if (t >= 2500 && t < 3200) {
+          cursor.style.left = '265px';
+          cursor.style.top = '48px';
+          cursor.style.transform = 'translate(-50%, -50%) scale(1)';
         }
-        if (t >= 3000 && t < 3400) {
-          finger.classList.add('tap-down');
-          dotsBtn.classList.add('highlight-tap');
-          dropdown.classList.add('show-menu');
+        if (t >= 3200 && t < 3600) {
+          cursor.classList.add('tap-down');
+          dotsBtn.classList.add('active-tap');
+          drop.classList.add('show');
         }
-        if (t >= 3400 && t < 4000) {
-          finger.classList.remove('tap-down');
-          finger.style.left = '220px';
-          finger.style.top = '218px';
+        if (t >= 3600 && t < 4200) {
+          cursor.classList.remove('tap-down');
+          cursor.style.left = '200px';
+          cursor.style.top = '170px';
         }
-        if (t >= 4000 && t < 4600) {
-          finger.classList.add('tap-down');
+        if (t >= 4200 && t < 4800) {
+          cursor.classList.add('tap-down');
         }
-      } else if (t >= 4600 && t < 7000) {
-        highlightStepCard(2);
-        speakGirlVoice(currentGuide.steps[2].voiceEn, 2);
+      } else if (t >= 4800 && t < 7200) {
+        setActiveStepHighlight(2);
+        speakStep(activeVid.steps[2].voiceEn, 2);
 
-        dropdown.classList.remove('show-menu');
-        s2.className = 'screen-scene';
-        s3.className = 'screen-scene active';
-        s4.className = 'screen-scene';
-        phoneStatusBar.className = 'phone-status-bar';
+        drop.classList.remove('show');
+        s2.className = 'phone-scene';
+        s3.className = 'phone-scene active';
+        s4.className = 'phone-scene';
+        strip.className = 'phone-status-strip';
+        cursor.classList.remove('tap-down');
 
-        finger.classList.remove('tap-down');
-
-        if (t >= 4800 && t < 5600) {
-          finger.style.left = '160px';
-          finger.style.top = '175px';
-          finger.style.transform = 'translate(-50%, -50%) scale(1)';
+        if (t >= 5000 && t < 5800) {
+          cursor.style.left = '145px';
+          cursor.style.top = '145px';
+          cursor.style.transform = 'translate(-50%, -50%) scale(1)';
         }
-        if (t >= 5600 && t < 6400) {
-          finger.classList.add('tap-down');
+        if (t >= 5800 && t < 6600) {
+          cursor.classList.add('tap-down');
         }
-      } else if (t >= 7000) {
-        highlightStepCard(3);
-        speakGirlVoice(currentGuide.steps[3].voiceEn, 3);
+      } else if (t >= 7200) {
+        setActiveStepHighlight(3);
+        speakStep(activeVid.steps[3].voiceEn, 3);
 
-        s3.className = 'screen-scene';
-        s4.className = 'screen-scene active';
-        phoneStatusBar.className = 'phone-status-bar';
+        s3.className = 'phone-scene';
+        s4.className = 'phone-scene active';
+        strip.className = 'phone-status-strip';
+        cursor.classList.remove('tap-down');
 
-        finger.classList.remove('tap-down');
-
-        if (t >= 7200 && t < 7900) {
-          finger.style.left = '275px';
-          finger.style.top = '108px';
-          finger.style.transform = 'translate(-50%, -50%) scale(1)';
+        if (t >= 7400 && t < 8100) {
+          cursor.style.left = '248px';
+          cursor.style.top = '98px';
+          cursor.style.transform = 'translate(-50%, -50%) scale(1)';
         }
-        if (t >= 7900 && t < 8500) {
-          finger.classList.add('tap-down');
-          checkbox.checked = true;
-          toggleSub.textContent = 'All calls';
+        if (t >= 8100 && t < 8700) {
+          cursor.classList.add('tap-down');
+          chk.checked = true;
+          toggleTxt.textContent = 'All calls';
         }
-        if (t >= 8700) {
-          finger.style.transform = 'translate(-50%, -50%) scale(0)';
+        if (t >= 8900) {
+          cursor.style.transform = 'translate(-50%, -50%) scale(0)';
           toast.classList.add('show');
         }
       }
     }
 
-    // Guide 2 Animation (Folder Link)
-    function renderGuide2Frame(t) {
-      const s1 = document.getElementById('g2Scene1');
-      const s2 = document.getElementById('g2Scene2');
-      const s3 = document.getElementById('g2Scene3');
-      const s4 = document.getElementById('g2Scene4');
-      const customFolderBtn = document.getElementById('g2CustomFolderTarget');
-      const useFolderBtn = document.getElementById('g2UseFolderBtn');
-      const confirmPopup = document.getElementById('g2ConfirmPopup');
-      const toast = document.getElementById('g2SuccessToast');
+    // Video 2 Animation Frames (Step-by-step folder SAF)
+    function renderVid2(t) {
+      const s1 = document.getElementById('v2Scene1');
+      const s2 = document.getElementById('v2Scene2');
+      const s3 = document.getElementById('v2Scene3');
+      const s4 = document.getElementById('v2Scene4');
+      const customBtn = document.getElementById('v2CustomFolderTarget');
+      const useBtn = document.getElementById('v2UseFolderBtn');
+      const popup = document.getElementById('v2ConfirmPopup');
+      const toast = document.getElementById('v2Toast');
+      const strip = document.getElementById('phoneStatusStrip');
 
       if (t < 2400) {
-        highlightStepCard(0);
-        speakGirlVoice(currentGuide.steps[0].voiceEn, 0);
+        setActiveStepHighlight(0);
+        speakStep(activeVid.steps[0].voiceEn, 0);
 
-        s1.className = 'screen-scene active';
-        s2.className = 'screen-scene';
-        s3.className = 'screen-scene';
-        s4.className = 'screen-scene';
-        phoneStatusBar.className = 'phone-status-bar dark-style';
+        s1.className = 'phone-scene active';
+        s2.className = 'phone-scene';
+        s3.className = 'phone-scene';
+        s4.className = 'phone-scene';
+        strip.className = 'phone-status-strip dark';
 
-        if (t >= 300 && t < 1300) {
-          finger.style.left = '268px';
-          finger.style.top = '48px';
-          finger.style.transform = 'translate(-50%, -50%) scale(1)';
+        if (t >= 300 && t < 1200) {
+          cursor.style.left = '240px';
+          cursor.style.top = '44px';
+          cursor.style.transform = 'translate(-50%, -50%) scale(1)';
         }
-        if (t >= 1300 && t < 2000) {
-          finger.classList.add('tap-down');
+        if (t >= 1200 && t < 1800) {
+          cursor.classList.add('tap-down');
         }
       } else if (t >= 2400 && t < 5000) {
-        highlightStepCard(1);
-        speakGirlVoice(currentGuide.steps[1].voiceEn, 1);
+        setActiveStepHighlight(1);
+        speakStep(activeVid.steps[1].voiceEn, 1);
 
-        s1.className = 'screen-scene';
-        s2.className = 'screen-scene active';
-        s3.className = 'screen-scene';
-        s4.className = 'screen-scene';
-        phoneStatusBar.className = 'phone-status-bar dark-style';
-
-        finger.classList.remove('tap-down');
+        s1.className = 'phone-scene';
+        s2.className = 'phone-scene active';
+        s3.className = 'phone-scene';
+        s4.className = 'phone-scene';
+        strip.className = 'phone-status-strip dark';
+        cursor.classList.remove('tap-down');
 
         if (t >= 2600 && t < 3400) {
-          finger.style.left = '160px';
-          finger.style.top = '585px';
-          finger.style.transform = 'translate(-50%, -50%) scale(1)';
+          cursor.style.left = '145px';
+          cursor.style.top = '520px';
+          cursor.style.transform = 'translate(-50%, -50%) scale(1)';
         }
         if (t >= 3400 && t < 4200) {
-          finger.classList.add('tap-down');
-          customFolderBtn.classList.add('target-tap');
+          cursor.classList.add('tap-down');
         }
       } else if (t >= 5000 && t < 7800) {
-        highlightStepCard(2);
-        speakGirlVoice(currentGuide.steps[2].voiceEn, 2);
+        setActiveStepHighlight(2);
+        speakStep(activeVid.steps[2].voiceEn, 2);
 
-        customFolderBtn.classList.remove('target-tap');
-        s2.className = 'screen-scene';
-        s3.className = 'screen-scene active';
-        s4.className = 'screen-scene';
-        phoneStatusBar.className = 'phone-status-bar';
-
-        finger.classList.remove('tap-down');
+        s2.className = 'phone-scene';
+        s3.className = 'phone-scene active';
+        s4.className = 'phone-scene';
+        strip.className = 'phone-status-strip';
+        cursor.classList.remove('tap-down');
 
         if (t >= 5200 && t < 6200) {
-          finger.style.left = '145px';
-          finger.style.top = '178px';
-          finger.style.transform = 'translate(-50%, -50%) scale(1)';
+          cursor.style.left = '130px';
+          cursor.style.top = '150px';
+          cursor.style.transform = 'translate(-50%, -50%) scale(1)';
         }
         if (t >= 6200 && t < 7000) {
-          finger.classList.add('tap-down');
+          cursor.classList.add('tap-down');
         }
       } else if (t >= 7800) {
-        highlightStepCard(3);
-        speakGirlVoice(currentGuide.steps[3].voiceEn, 3);
+        setActiveStepHighlight(3);
+        speakStep(activeVid.steps[3].voiceEn, 3);
+        cursor.classList.remove('tap-down');
 
-        finger.classList.remove('tap-down');
-
-        if (t >= 7800 && t < 8700) {
-          s3.className = 'screen-scene active';
-          s4.className = 'screen-scene';
-          finger.style.left = '245px';
-          finger.style.top = '625px';
-          finger.style.transform = 'translate(-50%, -50%) scale(1)';
+        if (t >= 7800 && t < 8600) {
+          s3.className = 'phone-scene active';
+          s4.className = 'phone-scene';
+          cursor.style.left = '218px';
+          cursor.style.top = '555px';
+          cursor.style.transform = 'translate(-50%, -50%) scale(1)';
         }
-        if (t >= 8700 && t < 9200) {
-          finger.classList.add('tap-down');
-          useFolderBtn.classList.add('highlight-pulse');
+        if (t >= 8600 && t < 9100) {
+          cursor.classList.add('tap-down');
+          useBtn.classList.add('pulsing');
         }
-        if (t >= 9200) {
-          s3.className = 'screen-scene';
-          s4.className = 'screen-scene active';
-          useFolderBtn.classList.remove('highlight-pulse');
+        if (t >= 9100) {
+          s3.className = 'phone-scene';
+          s4.className = 'phone-scene active';
+          useBtn.classList.remove('pulsing');
 
-          if (t >= 9400 && t < 9900) {
-            finger.classList.remove('tap-down');
-            finger.style.left = '242px';
-            finger.style.top = '375px';
+          if (t >= 9300 && t < 9800) {
+            cursor.classList.remove('tap-down');
+            cursor.style.left = '215px';
+            cursor.style.top = '335px';
           }
-          if (t >= 9900 && t < 10400) {
-            finger.classList.add('tap-down');
-            confirmPopup.style.display = 'none';
+          if (t >= 9800 && t < 10300) {
+            cursor.classList.add('tap-down');
+            popup.style.display = 'none';
             toast.classList.add('show');
           }
-          if (t >= 10400) {
-            finger.style.transform = 'translate(-50%, -50%) scale(0)';
+          if (t >= 10300) {
+            cursor.style.transform = 'translate(-50%, -50%) scale(0)';
           }
         }
       }
     }
 
     // ==========================================
-    // Lightbox Zoom Functions
+    // Screen Capture & Direct Video Downloader
     // ==========================================
-    function openLightbox() {
-      const modal = document.getElementById('lightboxModal');
-      document.getElementById('lightboxImg').src = currentGuide.posterImg;
-      modal.classList.add('open');
-    }
-    function closeLightbox() {
-      document.getElementById('lightboxModal').classList.remove('open');
+    async function triggerVideoRecordingDownload() {
+      try {
+        pauseVideo();
+        resetScenes();
+
+        // Check if getDisplayMedia is supported
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+          alert("Your browser doesn't support direct screen recording. Please use Windows Game Bar (Win + G) or OBS to record.");
+          return;
+        }
+
+        alert("Instructions:\n1. Choose 'This Tab' in the popup to record the 1080p video.\n2. The video will automatically start from 0:00 and record with the girl's voiceover.\n3. When finished, the video file (.webm/.mp4) will automatically download to your computer!");
+
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            displaySurface: "browser",
+            frameRate: 30
+          },
+          audio: true
+        });
+
+        const recordedChunks = [];
+        const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) recordedChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(recordedChunks, { type: 'video/webm' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${activeVidKey === 'vid1' ? 'Samsung_Auto_Record_YouTube' : 'Samsung_Folder_Link_YouTube'}.webm`;
+          a.click();
+          URL.revokeObjectURL(url);
+          stream.getTracks().forEach(track => track.stop());
+          alert("✅ Video successfully recorded and downloaded! You can now upload it directly to YouTube.");
+        };
+
+        mediaRecorder.start();
+        startVideo();
+
+        // Automatically stop recording after the video finishes
+        setTimeout(() => {
+          if (mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+          }
+        }, activeVid.totalMs + 1000);
+
+      } catch (err) {
+        console.warn("Screen record cancelled or error:", err);
+      }
     }
 
+    // ==========================================
+    // Poster Lightbox & Download
+    // ==========================================
+    function openFullscreenPoster() {
+      document.getElementById('fullscreenModal').classList.add('open');
+    }
+    function closeFullscreenPoster() {
+      document.getElementById('fullscreenModal').classList.remove('open');
+    }
     function downloadActivePoster() {
       const a = document.createElement('a');
-      a.href = currentGuide.posterImg;
-      a.download = currentGuide.posterImg;
+      a.href = activeVid.posterImg;
+      a.download = activeVid.posterImg;
       a.click();
     }
 
-    // Launch
+    // Initialize on page load
     window.addEventListener('DOMContentLoaded', () => {
-      renderPosterSteps();
-      resetAllScenes();
-      setTimeout(startTimeline, 600);
+      renderStepsUI();
+      resetScenes();
+      setTimeout(startVideo, 600);
     });
   </script>
 </body>
