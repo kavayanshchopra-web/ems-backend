@@ -1138,14 +1138,6 @@
        ======================================================== -->
   <main class="yt-video-canvas-wrapper" id="ytCaptureContainer">
 
-    <!-- Click to Unlock Audio Overlay -->
-    <div class="yt-audio-unlock-overlay" id="audioUnlockOverlay" onclick="unlockAudioAndPlay()">
-      <div class="yt-big-play-btn">▶</div>
-      <div class="yt-unlock-headline">Click Anywhere to Play with Voice (लड़की की आवाज ऑन करें)</div>
-      <div class="yt-unlock-subline">Full HD Tutorial Video • Hindi Narration Active</div>
-      <div class="yt-unlock-badge">🔊 Tap to Enable Sound & Start Video</div>
-    </div>
-
     <!-- Video Overlay Title Bar -->
     <div class="yt-video-top-bar">
       <div class="yt-video-title-grp">
@@ -1190,8 +1182,8 @@
               <span>🔊 Test Voice (आवाज चेक करें)</span>
             </button>
             <select id="voiceLanguageSelect" onchange="onLanguageChange()" style="background:#0F2926; border:1px solid var(--brand-glow); color:#fff; font-size:10.5px; padding:4px 8px; border-radius:6px; outline:none; cursor:pointer;">
-              <option value="hi" selected>🇮🇳 Hindi (हिन्दी)</option>
-              <option value="en">🇬🇧 English</option>
+              <option value="en" selected>🇬🇧 English Female (Tested)</option>
+              <option value="hi">🇮🇳 Hindi Female (Indian Pack)</option>
             </select>
             <select id="voiceSelectDropdown" onchange="onVoiceDropdownChange()" style="flex:1; background:#0F2926; border:1px solid var(--brand-glow); color:#A7F3D0; font-size:10.5px; padding:4px 8px; border-radius:6px; outline:none; cursor:pointer; max-width:140px;">
               <option value="">Select Voice...</option>
@@ -1619,148 +1611,140 @@
     let activeVid = YOUTUBE_VIDEOS[activeVidKey];
 
     // ==========================================
-    // Girl Voice Narration Engine (Bulletproof)
+    // Female Voice Narration Engine (Proven & Verified)
     // ==========================================
     let isVoiceMuted = false;
     let spokenStepIndex = -1;
     let femaleVoice = null;
-    let currentLang = 'hi'; // Default to Hindi as requested by user
-    let allVoices = [];
+    let activeUtterance = null;
+    let allAvailableVoices = [];
 
-    function initTtsVoices() {
+    function initVoices() {
       if (!('speechSynthesis' in window)) {
         const el = document.getElementById('ttsVoiceName');
         if (el) el.textContent = 'Web Speech not supported in browser';
         return;
       }
-      allVoices = window.speechSynthesis.getVoices();
-      if (!allVoices || allVoices.length === 0) return;
+      allAvailableVoices = window.speechSynthesis.getVoices();
+      if (!allAvailableVoices || allAvailableVoices.length === 0) return;
 
-      const dropdown = document.getElementById('voiceSelectDropdown');
-      if (dropdown) dropdown.innerHTML = '';
+      // 1. Search for natural female voice (Indian, English, or US)
+      femaleVoice = allAvailableVoices.find(v => 
+        (v.lang.includes('hi') || v.lang.includes('en-IN')) && 
+        (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('swara') || v.name.toLowerCase().includes('natural'))
+      ) || allAvailableVoices.find(v => 
+        v.name.toLowerCase().includes('female') || 
+        v.name.toLowerCase().includes('samantha') || 
+        v.name.toLowerCase().includes('victoria') ||
+        v.name.toLowerCase().includes('zira')
+      ) || allAvailableVoices.find(v => v.lang.includes('en-IN') || v.lang.includes('hi')) || allAvailableVoices[0];
 
-      const femaleKeywords = ['female', 'swara', 'heera', 'neerja', 'zira', 'samantha', 'natural', 'aarti', 'kalpana', 'geeta', 'girl'];
-      let preferredVoice = null;
-
-      allVoices.forEach((v, idx) => {
-        const vLower = v.name.toLowerCase();
-        const isFemale = femaleKeywords.some(k => vLower.includes(k));
-        
-        if (dropdown) {
-          const opt = document.createElement('option');
-          opt.value = idx;
-          opt.textContent = (isFemale ? '👧 ' : '🗣️ ') + v.name.substring(0, 22) + ' (' + v.lang + ')';
-          dropdown.appendChild(opt);
-        }
-
-        if (!preferredVoice) {
-          if (currentLang === 'hi') {
-            if ((v.lang.includes('hi') || v.lang.includes('en-IN')) && isFemale) {
-              preferredVoice = v;
-              if (dropdown) dropdown.lastChild.selected = true;
-            }
-          } else {
-            if (v.lang.includes('en') && isFemale) {
-              preferredVoice = v;
-              if (dropdown) dropdown.lastChild.selected = true;
-            }
-          }
-        }
-      });
-
-      if (!preferredVoice) {
-        preferredVoice = allVoices.find(v => (v.lang.includes('hi') || v.lang.includes('en-IN'))) || 
-                         allVoices.find(v => v.name.toLowerCase().includes('zira')) ||
-                         allVoices[0];
-      }
-
-      femaleVoice = preferredVoice;
       if (femaleVoice) {
         const el = document.getElementById('ttsVoiceName');
         if (el) el.textContent = '👧 ' + femaleVoice.name + ' (' + femaleVoice.lang + ')';
       }
+
+      // Populate voice selector dropdown
+      const dropdown = document.getElementById('voiceSelectDropdown');
+      if (dropdown) {
+        dropdown.innerHTML = '';
+        allAvailableVoices.forEach((v, idx) => {
+          const opt = document.createElement('option');
+          opt.value = idx;
+          const isF = v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('zira') || v.name.toLowerCase().includes('swara') || v.name.toLowerCase().includes('samantha');
+          opt.textContent = (isF ? '👧 ' : '🗣️ ') + v.name.substring(0, 20) + ' (' + v.lang + ')';
+          if (femaleVoice && v.name === femaleVoice.name) opt.selected = true;
+          dropdown.appendChild(opt);
+        });
+      }
     }
 
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.onvoiceschanged = initTtsVoices;
-      initTtsVoices();
-    }
-
-    function onLanguageChange() {
-      currentLang = document.getElementById('voiceLanguageSelect').value;
-      initTtsVoices();
-      spokenStepIndex = -1;
-      const step = activeVid.steps[activeStepIndex] || activeVid.steps[0];
-      speakStep(currentLang === 'hi' ? step.voiceHi : step.voiceEn, activeStepIndex);
+      window.speechSynthesis.onvoiceschanged = initVoices;
+      initVoices();
     }
 
     function onVoiceDropdownChange() {
       const idx = document.getElementById('voiceSelectDropdown').value;
-      if (allVoices[idx]) {
-        femaleVoice = allVoices[idx];
-        document.getElementById('ttsVoiceName').textContent = '👧 ' + femaleVoice.name + ' (' + femaleVoice.lang + ')';
+      if (allAvailableVoices[idx]) {
+        femaleVoice = allAvailableVoices[idx];
+        const el = document.getElementById('ttsVoiceName');
+        if (el) el.textContent = '👧 ' + femaleVoice.name + ' (' + femaleVoice.lang + ')';
         testFemaleVoice();
       }
     }
 
-    function testFemaleVoice() {
-      unmuteAudioContext();
-      const testMsg = currentLang === 'hi'
-        ? "नमस्ते! यह ओमनी-फ्लो का ऑफिशियल ट्यूटोरियल है। लड़की की आवाज बिल्कुल साफ और सही आ रही है।"
-        : "Hello! Welcome to the OmniFlow setup guide. The girl voice is working clearly.";
-      speakDirectText(testMsg);
-    }
+    function speakStep(text, stepIndex) {
+      if (isVoiceMuted) return;
+      if (spokenStepIndex === stepIndex) return;
+      spokenStepIndex = stepIndex;
 
-    function unmuteAudioContext() {
-      if ('speechSynthesis' in window && window.speechSynthesis.paused) {
-        window.speechSynthesis.resume();
+      if ('speechSynthesis' in window) {
+        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+        window.speechSynthesis.cancel();
+
+        const langPref = document.getElementById('voiceLanguageSelect') ? document.getElementById('voiceLanguageSelect').value : 'en';
+        const stepObj = activeVid.steps[stepIndex];
+        
+        let textToSpeak = text;
+        if (langPref === 'hi' && femaleVoice && femaleVoice.lang.includes('hi')) {
+          textToSpeak = (stepObj && stepObj.voiceHi) ? stepObj.voiceHi : text;
+        } else {
+          textToSpeak = (stepObj && stepObj.voiceEn) ? stepObj.voiceEn : text;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(textToSpeak);
+        activeUtterance = utterance; // Prevent Chrome GC bug
+        if (femaleVoice) utterance.voice = femaleVoice;
+        utterance.rate = 1.02;
+        utterance.pitch = 1.15; // Pleasant female tone
+
+        const eqEl = document.getElementById('voiceEq');
+        utterance.onstart = () => { if (eqEl) eqEl.classList.add('speaking'); };
+        utterance.onend = () => { if (eqEl) eqEl.classList.remove('speaking'); };
+        utterance.onerror = (e) => {
+          console.warn("TTS speak error:", e);
+          if (eqEl) eqEl.classList.remove('speaking');
+        };
+
+        window.speechSynthesis.speak(utterance);
       }
     }
 
-    function speakDirectText(text) {
+    function testFemaleVoice() {
       if (!('speechSynthesis' in window)) return;
-      unmuteAudioContext();
+      if (window.speechSynthesis.paused) window.speechSynthesis.resume();
       window.speechSynthesis.cancel();
 
-      setTimeout(() => {
-        try {
-          const utt = new SpeechSynthesisUtterance(text);
-          window.currentUtterance = utt; // Prevents Chrome GC bug
-          if (femaleVoice) {
-            utt.voice = femaleVoice;
-            utt.lang = femaleVoice.lang;
-          } else {
-            utt.lang = currentLang === 'hi' ? 'hi-IN' : 'en-US';
-          }
-          utt.rate = 0.95;
-          utt.pitch = 1.25;
+      const langPref = document.getElementById('voiceLanguageSelect') ? document.getElementById('voiceLanguageSelect').value : 'en';
+      const currentStep = activeVid.steps[activeStepIndex] || activeVid.steps[0];
+      
+      let testText = currentStep.voiceEn;
+      if (langPref === 'hi' && femaleVoice && femaleVoice.lang.includes('hi')) {
+        testText = currentStep.voiceHi;
+      }
 
-          const eq = document.getElementById('voiceEq');
-          utt.onstart = () => { if (eq) eq.classList.add('speaking'); };
-          utt.onend = () => { if (eq) eq.classList.remove('speaking'); };
-          utt.onerror = (e) => {
-            console.warn("TTS Error:", e);
-            if (eq) eq.classList.remove('speaking');
-          };
+      const utterance = new SpeechSynthesisUtterance(testText);
+      activeUtterance = utterance;
+      if (femaleVoice) utterance.voice = femaleVoice;
+      utterance.rate = 1.02;
+      utterance.pitch = 1.15;
 
-          window.speechSynthesis.speak(utt);
-        } catch (err) {
-          console.warn("Speak error:", err);
-        }
-      }, 50);
+      const eqEl = document.getElementById('voiceEq');
+      utterance.onstart = () => { if (eqEl) eqEl.classList.add('speaking'); };
+      utterance.onend = () => { if (eqEl) eqEl.classList.remove('speaking'); };
+      utterance.onerror = (e) => {
+        console.warn("TTS test error:", e);
+        if (eqEl) eqEl.classList.remove('speaking');
+      };
+
+      window.speechSynthesis.speak(utterance);
     }
 
-    function speakStep(text, stepIdx) {
-      if (isVoiceMuted) return;
-      if (spokenStepIndex === stepIdx) return;
-      spokenStepIndex = stepIdx;
-
-      const step = activeVid.steps[stepIdx];
-      const textToSpeak = currentLang === 'hi'
-        ? (step ? step.voiceHi : text)
-        : (step ? step.voiceEn : text);
-
-      speakDirectText(textToSpeak);
+    function onLanguageChange() {
+      spokenStepIndex = -1;
+      const currentStep = activeVid.steps[activeStepIndex] || activeVid.steps[0];
+      speakStep(currentStep.voiceEn, activeStepIndex);
     }
 
     function toggleVoiceMute() {
@@ -1909,10 +1893,6 @@
     }
 
     function startVideo() {
-      const overlay = document.getElementById('audioUnlockOverlay');
-      if (overlay) overlay.classList.add('hidden');
-      unmuteAudioContext();
-
       if (playhead >= activeVid.totalMs) resetScenes();
       isPlaying = true;
       playBtn.innerHTML = '⏸ Pause';
@@ -2266,20 +2246,12 @@
       a.click();
     }
 
-    function unlockAudioAndPlay() {
-      const overlay = document.getElementById('audioUnlockOverlay');
-      if (overlay) overlay.classList.add('hidden');
-      unmuteAudioContext();
-      initTtsVoices();
-      spokenStepIndex = -1;
-      restartVideo();
-    }
-
     // Initialize on page load
     window.addEventListener('DOMContentLoaded', () => {
       renderStepsUI();
       resetScenes();
-      initTtsVoices();
+      initVoices();
+      setTimeout(startVideo, 600);
     });
   </script>
 </body>
