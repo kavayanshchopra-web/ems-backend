@@ -994,6 +994,7 @@ public class SupabaseSyncEngine {
                 item.put("norm10", norm10);
                 item.put("agentName", agentName != null ? agentName : "Mobile Telecaller");
                 item.put("agentId", agentId != null ? agentId : "");
+                item.put("agentEmail", getAgentEmail(context));
                 item.put("filePath", audioFile.getAbsolutePath());
                 item.put("timestamp", System.currentTimeMillis());
 
@@ -1008,7 +1009,7 @@ public class SupabaseSyncEngine {
 
     /**
      * Auto-retry engine: Flushes all pending buffered recordings as soon as internet connection is restored.
-     * Strictly respects stamped tenantId and agentId so zero cross-contamination occurs.
+     * Strictly respects stamped tenantId and agentId so zero cross-contamination occurs between different users.
      */
     public static void triggerOfflineRetry(Context context) {
         if (context == null) return;
@@ -1018,7 +1019,16 @@ public class SupabaseSyncEngine {
                 java.util.Map<String, ?> allEntries = qPrefs.getAll();
                 if (allEntries == null || allEntries.isEmpty()) return;
 
-                Log.d(TAG, "🔄 [Offline Queue] Attempting to flush " + allEntries.size() + " pending recording(s)...");
+                String currentAgentId = getAgentId(context);
+                String currentAgentEmail = getAgentEmail(context);
+
+                // If no active user is logged in, preserve recordings safely in local phone storage
+                if (currentAgentId.isEmpty() && currentAgentEmail.isEmpty()) {
+                    Log.d(TAG, "⏸️ [Offline Queue] No user currently logged in. Preserving all recordings safely in local phone storage.");
+                    return;
+                }
+
+                Log.d(TAG, "🔄 [Offline Queue] Attempting to flush " + allEntries.size() + " pending recording(s) for user: " + currentAgentId + "/" + currentAgentEmail);
 
                 for (java.util.Map.Entry<String, ?> entry : allEntries.entrySet()) {
                     String callId = entry.getKey();
@@ -1029,7 +1039,20 @@ public class SupabaseSyncEngine {
                     int stampedTenant = item.optInt("tenantId", 0);
                     String norm10 = item.optString("norm10", "");
                     String filePath = item.optString("filePath", "");
+                    String stampedAgentId = item.optString("agentId", "");
+                    String stampedAgentEmail = item.optString("agentEmail", "");
+
                     if (stampedTenant <= 0 || filePath.isEmpty()) continue;
+
+                    // STRICT USER ISOLATION: Only flush if currently logged-in user matches the stamped owner!
+                    // If a DIFFERENT user is logged in, do NOT upload. Keep it safe in phone storage.
+                    boolean isSameUser = (!stampedAgentId.isEmpty() && stampedAgentId.equals(currentAgentId)) ||
+                                         (!stampedAgentEmail.isEmpty() && stampedAgentEmail.equalsIgnoreCase(currentAgentEmail));
+
+                    if (!isSameUser) {
+                        Log.d(TAG, "🔒 [Offline Queue Isolation] Call " + callId + " belongs to (" + stampedAgentId + "/" + stampedAgentEmail + "). Current active user is (" + currentAgentId + "). Kept isolated on device.");
+                        continue;
+                    }
 
                     File localFile = new File(filePath);
                     if (!localFile.exists() || localFile.length() < 100) {

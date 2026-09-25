@@ -55,10 +55,10 @@ async function main() {
 
   // 2. Prepare and Upload version.json
   const versionInfo = {
-    versionCode: 7,
-    versionName: "1.0.7",
+    versionCode: 8,
+    versionName: "1.0.8",
     apkUrl: `${SUPABASE_BASE}/storage/v1/object/public/${BUCKET}/app/OmniFlow-Live-Companion.apk`,
-    changeLog: "Permanent session persistence, 1 Phone + 1 Laptop dual-device policy, instant takeover alert popup, auto-flush offline call queue on logout, 24/7 background call recording resilience, and zero cross-contamination protection.",
+    changeLog: "OmniFlow Teal Theme UI, Strict User Identity Isolation on Offline Queue (0% leak between users), and Manual Logout Policy.",
     minVersionCode: 1,
     forceUpdate: true,
     updatedAt: new Date().toISOString()

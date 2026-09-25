@@ -4482,19 +4482,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             deviceName: res.device_name || (res.device_type === 'mobile' ? 'Mobile Phone' : 'Desktop Browser'),
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           });
-
-          // Disarm local storage
-          try {
-            const bridge = window.AndroidApp || window.OmniFlowNative;
-            if (bridge && typeof bridge.clearUserProfile === 'function') {
-              bridge.clearUserProfile();
-            }
-          } catch (e) {}
-
-          localStorage.removeItem('omnilflow_token');
-          localStorage.removeItem('token');
-          localStorage.removeItem('omnilflow_user');
-          localStorage.removeItem('omnilflow_active_session_token');
         }
       } catch (err) {
         // Silently ignore network blips
@@ -9127,13 +9114,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           padding: '20px'
         }}>
           <div style={{
-            background: '#0F172A',
-            border: '1px solid rgba(59, 130, 246, 0.3)',
+            background: '#0B131E',
+            border: '1px solid rgba(13, 148, 136, 0.4)',
             borderRadius: '20px',
             maxWidth: '460px',
             width: '100%',
             padding: '28px',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
+            boxShadow: '0 25px 50px -12px rgba(6, 78, 67, 0.45)',
             textAlign: 'center',
             color: '#F8FAFC',
             fontFamily: 'var(--font-body)'
@@ -9142,13 +9129,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               width: '64px',
               height: '64px',
               borderRadius: '50%',
-              background: 'rgba(59, 130, 246, 0.15)',
-              border: '2px solid rgba(59, 130, 246, 0.4)',
+              background: 'rgba(13, 148, 136, 0.15)',
+              border: '2px solid rgba(13, 148, 136, 0.4)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               margin: '0 auto 18px',
-              color: '#60A5FA'
+              color: '#2DD4BF'
             }}>
               {deviceTakeoverModal.deviceType === 'mobile' ? (
                 <Smartphone size={32} />
@@ -9172,13 +9159,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               color: '#94A3B8',
               margin: '0 0 20px 0'
             }}>
-              Your account is now active on another <strong style={{ color: '#60A5FA' }}>{deviceTakeoverModal.deviceType === 'mobile' ? 'Mobile Phone' : 'Computer'}</strong>.
+              Your account is now active on another <strong style={{ color: '#2DD4BF' }}>{deviceTakeoverModal.deviceType === 'mobile' ? 'Mobile Phone' : 'Computer'}</strong>.
               <br /><br />
               Under our Enterprise Dual-Device Policy, you can have <strong>1 Mobile Phone and 1 Computer</strong> session active at the same time. To continue using OmniFlow on this device, simply sign in again.
             </p>
 
             <div style={{
-              background: '#1E293B',
+              background: 'rgba(6, 78, 67, 0.4)',
+              border: '1px solid rgba(13, 148, 136, 0.3)',
               borderRadius: '10px',
               padding: '12px 16px',
               fontSize: '12px',
@@ -9189,7 +9177,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               justifyContent: 'space-between'
             }}>
               <span>Active Device:</span>
-              <strong style={{ color: '#38BDF8' }}>{deviceTakeoverModal.deviceName || (deviceTakeoverModal.deviceType === 'mobile' ? 'Mobile Phone' : 'Computer')}</strong>
+              <strong style={{ color: '#5EEAD4' }}>{deviceTakeoverModal.deviceName || (deviceTakeoverModal.deviceType === 'mobile' ? 'Mobile Phone' : 'Computer')}</strong>
             </div>
 
             <button
@@ -9200,14 +9188,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               style={{
                 width: '100%',
                 padding: '12px 20px',
-                background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
+                background: 'linear-gradient(135deg, #0D9488, #064E43)',
                 color: '#FFFFFF',
                 border: 'none',
                 borderRadius: '12px',
                 fontWeight: '600',
                 fontSize: '14px',
                 cursor: 'pointer',
-                boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)',
+                boxShadow: '0 4px 14px rgba(13, 148, 136, 0.45)',
                 transition: 'all 0.2s ease'
               }}
             >
