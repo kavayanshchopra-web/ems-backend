@@ -55,10 +55,10 @@ async function main() {
 
   // 2. Prepare and Upload version.json
   const versionInfo = {
-    versionCode: 5,
-    versionName: "1.0.5",
+    versionCode: 7,
+    versionName: "1.0.7",
     apkUrl: `${SUPABASE_BASE}/storage/v1/object/public/${BUCKET}/app/OmniFlow-Live-Companion.apk`,
-    changeLog: "Zero-Touch Auto-Folder Discovery, Dynamic Phone Model Detection (Samsung/Vivo/OnePlus/Xiaomi), 1-Tap Brand Setup Guides, and Universal Call Sync.",
+    changeLog: "Permanent session persistence, 1 Phone + 1 Laptop dual-device policy, instant takeover alert popup, auto-flush offline call queue on logout, 24/7 background call recording resilience, and zero cross-contamination protection.",
     minVersionCode: 1,
     forceUpdate: true,
     updatedAt: new Date().toISOString()

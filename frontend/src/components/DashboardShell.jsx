@@ -792,6 +792,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   }, [isAndroidApp]);
 
+  // Pillar 2: Dual-Device Concurrency Takeover Alert State
+  const [deviceTakeoverModal, setDeviceTakeoverModal] = useState(null);
+
   // Two-Way Web -> Native Android Auth Bridge (Syncs logged-in user profile & tenant to Native Dialer)
   useEffect(() => {
     const user = effectiveAuthUser || authUser;
@@ -4368,53 +4371,155 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         setShowGlobalSearchModal(prev => !prev);
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    // 3. User Idle Session Expiry (30 Mins)
-    let idleTimer;
-    const resetIdleTimer = () => {
-      clearTimeout(idleTimer);
-      // Setup warning popup after 30 minutes (1800000ms)
-      idleTimer = setTimeout(() => {
-        if (authUser) {
-          setShowSessionWarning(true);
-          setSessionTimeLeft(60);
-        }
-      }, 1800000);
-    };
-    // Listen to user activity events
-    window.addEventListener('mousemove', resetIdleTimer);
-    window.addEventListener('keydown', resetIdleTimer);
-    window.addEventListener('click', resetIdleTimer);
-    window.addEventListener('scroll', resetIdleTimer);
-    // Initialize timer
-    resetIdleTimer();
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('mousemove', resetIdleTimer);
-      window.removeEventListener('keydown', resetIdleTimer);
-      window.removeEventListener('click', resetIdleTimer);
-      window.removeEventListener('scroll', resetIdleTimer);
-      clearTimeout(idleTimer);
     };
   }, [authUser]);
-  // Session Warning countdown timer
+
+  // Session Warning countdown timer (Disabled: Permanent login enabled per Enterprise Master Plan)
   useEffect(() => {
-    let countdown;
-    if (showSessionWarning && sessionTimeLeft > 0) {
-      countdown = setInterval(() => {
-        setSessionTimeLeft(prev => prev - 1);
-      }, 1000);
-    } else if (showSessionWarning && sessionTimeLeft === 0) {
-      // Session expired -> Logout user
-      setAuthUser(null);
-      localStorage.removeItem('omnilflow_user');
-      setShowSessionWarning(false);
-      showToast('?? Session expired due to inactivity. Please login again.', 'error');
+    // Permanent session: No auto-logout on idle. User stays logged in indefinitely unless manual logout clicked.
+  }, []);
+
+  // Silent Background Token Refresh Engine (Sliding-window renewal every 24 hours)
+  useEffect(() => {
+    if (!authUser) return;
+    const triggerSilentRefresh = async () => {
+      try {
+        const currentToken = localStorage.getItem('omnilflow_token') || localStorage.getItem('token');
+        if (!currentToken) return;
+        const res = await fetch(`${API_URL}/auth/refresh-token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentToken}`
+          },
+          body: JSON.stringify({ token: currentToken })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.token) {
+            localStorage.setItem('omnilflow_token', data.token);
+            localStorage.setItem('token', data.token);
+            console.log('⚡ [OmniFlow Guard] Auth token silently auto-renewed (Sliding 365d session active).');
+          }
+        }
+      } catch (err) {
+        // Silently ignore network hiccup, session remains valid
+      }
+    };
+
+    // Run once on mount (delayed 10s to not block initial page boot), then every 24 hours
+    const initialTimer = setTimeout(triggerSilentRefresh, 10000);
+    const refreshInterval = setInterval(triggerSilentRefresh, 24 * 60 * 60 * 1000);
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(refreshInterval);
+    };
+  }, [authUser?.id, authUser?.email]);
+
+  // 📱💻 PILLAR 2: Dual-Device Concurrency Watcher (1 Phone + 1 Laptop Rule)
+  useEffect(() => {
+    if (!authUser) return;
+
+    const currentTenantId = authUser.tenantId || authUser.companyId || authUser.tenant_id || 1;
+    const currentUserId = authUser.id || authUser.employeeId || authUser.email;
+    if (!currentUserId) return;
+
+    const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isNarrowScreen = typeof window !== 'undefined' && window.innerWidth <= 768;
+    const detectedDeviceType = (isAndroidApp || isMobileUA || isNarrowScreen) ? 'mobile' : 'desktop';
+
+    let deviceId = localStorage.getItem('omnilflow_device_id');
+    if (!deviceId) {
+      deviceId = 'dev_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
+      localStorage.setItem('omnilflow_device_id', deviceId);
     }
-    return () => clearInterval(countdown);
-  }, [showSessionWarning, sessionTimeLeft]);
+
+    let sessionToken = localStorage.getItem('omnilflow_active_session_token');
+    if (!sessionToken) {
+      sessionToken = 'sess_' + Math.random().toString(36).substring(2, 12) + '_' + Date.now();
+      localStorage.setItem('omnilflow_active_session_token', sessionToken);
+      localStorage.setItem('omnilflow_device_type', detectedDeviceType);
+
+      const devName = detectedDeviceType === 'mobile'
+        ? (isAndroidApp ? 'OmniFlow Android Companion' : 'Mobile Phone Browser')
+        : 'Desktop Laptop / PC';
+
+      SupabaseSandboxService.registerDeviceSession(
+        currentTenantId,
+        currentUserId,
+        detectedDeviceType,
+        sessionToken,
+        deviceId,
+        devName
+      ).catch(() => {});
+    }
+
+    let isDisarmed = false;
+
+    const verifyActiveSession = async () => {
+      if (isDisarmed) return;
+      try {
+        const curToken = localStorage.getItem('omnilflow_active_session_token') || sessionToken;
+        if (!curToken) return;
+
+        const res = await SupabaseSandboxService.checkDeviceSession(
+          currentTenantId,
+          currentUserId,
+          detectedDeviceType,
+          curToken
+        );
+
+        if (res && res.valid === false && res.reason === 'TAKEN_OVER') {
+          isDisarmed = true;
+          console.warn('⚠️ [OmniFlow Dual-Device Guard] Session taken over by another ' + res.device_type + '!');
+
+          setDeviceTakeoverModal({
+            deviceType: res.device_type || detectedDeviceType,
+            deviceName: res.device_name || (res.device_type === 'mobile' ? 'Mobile Phone' : 'Desktop Browser'),
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          });
+
+          // Disarm local storage
+          try {
+            const bridge = window.AndroidApp || window.OmniFlowNative;
+            if (bridge && typeof bridge.clearUserProfile === 'function') {
+              bridge.clearUserProfile();
+            }
+          } catch (e) {}
+
+          localStorage.removeItem('omnilflow_token');
+          localStorage.removeItem('token');
+          localStorage.removeItem('omnilflow_user');
+          localStorage.removeItem('omnilflow_active_session_token');
+        }
+      } catch (err) {
+        // Silently ignore network blips
+      }
+    };
+
+    // Heartbeat every 8 seconds for responsive takeover detection
+    const heartbeatInterval = setInterval(verifyActiveSession, 8000);
+
+    // Immediate check on tab focus or screen unlock
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        verifyActiveSession();
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
+
+    return () => {
+      clearInterval(heartbeatInterval);
+      window.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
+    };
+  }, [authUser?.id, authUser?.email, isAndroidApp]);
+
   // Employee Directory actions
   const isDummyRecord = (r) => {
     if (!r) return false;
@@ -6227,13 +6332,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const fetchChatbotRules = async () => {
     try {
       const res = await fetch(`${API_URL}/chatbot`);
-      if (res.status === 401) {
-        localStorage.removeItem('omnilflow_token');
-        localStorage.removeItem('omnilflow_user');
-        setAuthUser(null);
+      if (res.status === 401 || !res.ok) {
+        console.warn('[OmniFlow] Chatbot rules unavailable or unauthorized, skipping.');
         return;
       }
-      if (!res.ok) return;
       const data = await res.json();
       if (Array.isArray(data)) {
         setChatbotRules(data);
@@ -9006,6 +9108,114 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             setInputModal={setInputModal}
           />
         </Suspense>
+      )}
+
+      {/* 📱💻 PILLAR 2: DUAL-DEVICE TAKEOVER POPUP MODAL */}
+      {deviceTakeoverModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(2, 6, 23, 0.88)',
+          backdropFilter: 'blur(10px)',
+          zIndex: 999999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#0F172A',
+            border: '1px solid #DC2626',
+            borderRadius: '20px',
+            maxWidth: '460px',
+            width: '100%',
+            padding: '28px',
+            boxShadow: '0 25px 50px -12px rgba(220, 38, 38, 0.35)',
+            textAlign: 'center',
+            color: '#F8FAFC',
+            fontFamily: 'var(--font-body)'
+          }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              background: 'rgba(220, 38, 38, 0.15)',
+              border: '2px solid rgba(220, 38, 38, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 18px',
+              color: '#EF4444'
+            }}>
+              {deviceTakeoverModal.deviceType === 'mobile' ? (
+                <Smartphone size={32} />
+              ) : (
+                <Laptop size={32} />
+              )}
+            </div>
+
+            <h3 style={{
+              fontSize: '20px',
+              fontWeight: '700',
+              color: '#FFFFFF',
+              margin: '0 0 10px 0'
+            }}>
+              Session Logged Out
+            </h3>
+
+            <p style={{
+              fontSize: '14px',
+              lineHeight: '1.6',
+              color: '#94A3B8',
+              margin: '0 0 20px 0'
+            }}>
+              Aapka account dusre <strong style={{ color: '#F87171' }}>{deviceTakeoverModal.deviceType === 'mobile' ? 'Mobile Phone' : 'Laptop / PC'}</strong> par login ho chuka hai.
+              <br /><br />
+              Enterprise Security Policy ke mutabiq ek samay par <strong>1 Phone + 1 Laptop</strong> hi active reh sakte hain. Kyunki naye phone/laptop ne login kiya, is device ka session disconnect kar diya gaya hai.
+            </p>
+
+            <div style={{
+              background: '#1E293B',
+              borderRadius: '10px',
+              padding: '12px 16px',
+              fontSize: '12px',
+              color: '#CBD5E1',
+              marginBottom: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <span>New Active Device:</span>
+              <strong style={{ color: '#38BDF8' }}>{deviceTakeoverModal.deviceName}</strong>
+            </div>
+
+            <button
+              onClick={() => {
+                setDeviceTakeoverModal(null);
+                setAuthUser(null);
+                window.location.reload();
+              }}
+              style={{
+                width: '100%',
+                padding: '12px 20px',
+                background: 'linear-gradient(135deg, #EF4444, #B91C1C)',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '12px',
+                fontWeight: '600',
+                fontSize: '14px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Re-login On This Device
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

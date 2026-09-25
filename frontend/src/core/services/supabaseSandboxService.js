@@ -228,6 +228,19 @@ export const SupabaseSandboxService = {
         }
       }
 
+      // Pillar 5.3: Remote Employee Deactivation Kill-Switch
+      if (rawStatus === 'inactive' || rawStatus === 'deactivated' || rawStatus === 'terminated') {
+        try {
+          await fetch(`${SUPABASE_URL}/user_active_device_sessions?tenant_id=eq.${tenantId}&user_id=eq.${id}`, {
+            method: 'DELETE',
+            headers: getHeaders()
+          });
+          console.log(`🔒 [Kill-Switch] Revoked active device sessions for inactive employee #${id}`);
+        } catch (revErr) {
+          console.warn('[Supabase Sandbox] Revoke session notice:', revErr);
+        }
+      }
+
       return {
         ...row,
         id: row.id,
@@ -808,6 +821,56 @@ export const SupabaseSandboxService = {
     } catch (err) {
       console.error('[Supabase Sandbox] Direct PostgreSQL Auth Error:', err);
       return { success: false, error: err.message || 'Login failed' };
+    }
+  },
+
+  /**
+   * Pillar 2: Dual-Device Session Tracker (1 Phone + 1 Laptop)
+   */
+  async registerDeviceSession(tenantId, userId, deviceType, sessionToken, deviceId, deviceName) {
+    try {
+      const cleanTenant = Number(tenantId) || 1;
+      const res = await fetch(`${SUPABASE_URL}/rpc/upsert_device_session`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          p_tenant_id: cleanTenant,
+          p_user_id: String(userId),
+          p_device_type: deviceType,
+          p_session_token: sessionToken,
+          p_device_id: deviceId,
+          p_device_name: deviceName || (deviceType === 'mobile' ? 'Mobile Phone' : 'Desktop Browser')
+        })
+      });
+      if (!res.ok) {
+        return { success: false };
+      }
+      return await res.json();
+    } catch (err) {
+      console.warn('[Supabase Sandbox] registerDeviceSession error:', err);
+      return { success: false, error: err.message };
+    }
+  },
+
+  async checkDeviceSession(tenantId, userId, deviceType, sessionToken) {
+    try {
+      const cleanTenant = Number(tenantId) || 1;
+      const res = await fetch(`${SUPABASE_URL}/rpc/check_device_session`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          p_tenant_id: cleanTenant,
+          p_user_id: String(userId),
+          p_device_type: deviceType,
+          p_session_token: sessionToken
+        })
+      });
+      if (!res.ok) {
+        return { valid: true, reason: 'NETWORK_BYPASS' }; // Never block user on network blip
+      }
+      return await res.json();
+    } catch (err) {
+      return { valid: true, reason: 'NETWORK_BYPASS' };
     }
   },
 
@@ -2338,7 +2401,164 @@ export const SupabaseSandboxService = {
       console.error('[Supabase Sandbox] deleteGhlIntegration error:', err);
       return false;
     }
+  },
+
+  // 17. TELEPHONY WALLET & SETTINGS (PLIVO WEBRTC INTEGRATION)
+  async fetchTelephonyWallet(tenantId = 1) {
+    try {
+      const cleanTenant = Number(tenantId || 1);
+      const res = await fetch(`${SUPABASE_URL}/telephony_wallets?tenant_id=eq.${cleanTenant}`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data[0];
+      }
+      return {
+        tenant_id: cleanTenant,
+        balance: 1000.00,
+        currency: 'INR',
+        auto_recharge_enabled: false,
+        status: 'ACTIVE'
+      };
+    } catch (err) {
+      console.error('[Supabase Sandbox] fetchTelephonyWallet error:', err);
+      return {
+        tenant_id: Number(tenantId || 1),
+        balance: 1000.00,
+        currency: 'INR',
+        auto_recharge_enabled: false,
+        status: 'ACTIVE'
+      };
+    }
+  },
+
+  async fetchTelephonySettings(tenantId = 1) {
+    try {
+      const cleanTenant = Number(tenantId || 1);
+      const res = await fetch(`${SUPABASE_URL}/telephony_settings?tenant_id=eq.${cleanTenant}`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data[0];
+      }
+      return {
+        tenant_id: cleanTenant,
+        provider: 'plivo',
+        caller_id: '918031496345',
+        calling_mode: 'browser_webrtc',
+        rate_per_minute: 0.75
+      };
+    } catch (err) {
+      console.error('[Supabase Sandbox] fetchTelephonySettings error:', err);
+      return null;
+    }
+  },
+
+  async fetchTelephonyTransactions(tenantId = 1) {
+    try {
+      const cleanTenant = Number(tenantId || 1);
+      const res = await fetch(`${SUPABASE_URL}/telephony_wallet_transactions?tenant_id=eq.${cleanTenant}&order=created_at.desc&limit=50`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error('[Supabase Sandbox] fetchTelephonyTransactions error:', err);
+      return [];
+    }
+  },
+
+  async fetchAgentPresence(tenantId = 1) {
+    try {
+      const cleanTenant = Number(tenantId || 1);
+      const res = await fetch(`${SUPABASE_URL}/agent_telephony_presence?tenant_id=eq.${cleanTenant}&order=is_online.desc,last_seen.desc`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error('[Supabase Sandbox] fetchAgentPresence error:', err);
+      return [];
+    }
+  },
+
+  async updateAgentPresence(tenantId = 1, agentId, updates = {}) {
+    try {
+      const cleanTenant = Number(tenantId || 1);
+      const res = await fetch(`${SUPABASE_URL}/agent_telephony_presence?tenant_id=eq.${cleanTenant}&agent_id=eq.${agentId}`, {
+        method: 'PATCH',
+        headers: { ...getHeaders(), 'Prefer': 'return=representation' },
+        body: JSON.stringify({ ...updates, last_seen: new Date().toISOString() })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return Array.isArray(data) ? data[0] : data;
+    } catch (err) {
+      console.error('[Supabase Sandbox] updateAgentPresence error:', err);
+      return null;
+    }
+  },
+
+  async updateInboundSettings(tenantId = 1, updates = {}) {
+    try {
+      const cleanTenant = Number(tenantId || 1);
+      const res = await fetch(`${SUPABASE_URL}/telephony_settings?tenant_id=eq.${cleanTenant}`, {
+        method: 'PATCH',
+        headers: { ...getHeaders(), 'Prefer': 'return=representation' },
+        body: JSON.stringify({ ...updates, updated_at: new Date().toISOString() })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return Array.isArray(data) ? data[0] : data;
+    } catch (err) {
+      console.error('[Supabase Sandbox] updateInboundSettings error:', err);
+      return null;
+    }
+  },
+
+  async fetchTelephonyReportSummary(tenantId = 1, period = 'this_month') {
+    try {
+      const res = await fetch(`/api/telephony/reports/summary?tenantId=${Number(tenantId || 1)}&period=${period}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return data.summary || null;
+    } catch (err) {
+      console.warn('[Supabase Sandbox] fetchTelephonyReportSummary note:', err.message);
+      return null;
+    }
+  },
+
+  async fetchTelephonyAgentReport(tenantId = 1, period = 'this_month') {
+    try {
+      const res = await fetch(`/api/telephony/reports/agents?tenantId=${Number(tenantId || 1)}&period=${period}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return Array.isArray(data.agents) ? data.agents : [];
+    } catch (err) {
+      console.warn('[Supabase Sandbox] fetchTelephonyAgentReport note:', err.message);
+      return [];
+    }
+  },
+
+  async fetchSuperAdminTelephonyReport(period = 'this_month') {
+    try {
+      const res = await fetch(`/api/superadmin/telephony/reports?period=${period}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return data || null;
+    } catch (err) {
+      console.warn('[Supabase Sandbox] fetchSuperAdminTelephonyReport note:', err.message);
+      return null;
+    }
   }
 };
 
 export default SupabaseSandboxService;
+
+

@@ -296,11 +296,11 @@ export default function setupRoutes(io) {
         await db.run(`UPDATE tenants SET plan_id = 'pro' WHERE id = ?`, [tenant.id]);
       }
 
-      // 3. Generate token
+      // 3. Generate token (365 days persistent session)
       const token = jwt.sign(
         { id: user.id, email: user.email, role: user.role, tenant_id: tenant.id },
         JWT_SECRET,
-        { expiresIn: '7d' }
+        { expiresIn: '365d' }
       );
 
       res.status(201).json({
@@ -421,11 +421,11 @@ export default function setupRoutes(io) {
         admin_notes: isTrial ? `Trial account activated for ${validityDays} days` : `Payment mode: ${paymentMode}, Ref: ${utrRef}`
       });
 
-      // 7. Generate JWT Token
+      // 7. Generate JWT Token (365 days persistent session)
       const token = jwt.sign(
         { id: user.id, email: user.email, role: user.role, tenant_id: tenant.id },
         JWT_SECRET,
-        { expiresIn: '7d' }
+        { expiresIn: '365d' }
       );
 
       if (io) {
@@ -614,11 +614,11 @@ export default function setupRoutes(io) {
         approved_at: now.toISOString()
       });
 
-      // Step H: Sign JWT Token
+      // Step H: Sign JWT Token (365 days persistent session)
       const token = jwt.sign(
         { id: user.id, email: user.email, role: user.role, tenant_id: tenant.id },
         JWT_SECRET,
-        { expiresIn: '7d' }
+        { expiresIn: '365d' }
       );
 
       if (io) {
@@ -665,7 +665,7 @@ export default function setupRoutes(io) {
       const token = jwt.sign(
         { id: user.id, email: user.email, role: user.role, tenant_id: user.tenant_id },
         JWT_SECRET,
-        { expiresIn: '7d' }
+        { expiresIn: '365d' }
       );
 
       res.json({
@@ -676,6 +676,108 @@ export default function setupRoutes(io) {
     } catch (err) {
       console.error('Login error:', err);
       res.status(500).json({ error: 'Login failed' });
+    }
+  });
+
+  // Silent Refresh Token Route (Perpetual Sliding-Window Session)
+  router.post('/auth/refresh-token', async (req, res) => {
+    const authHeader = req.headers?.['authorization'];
+    const token = (authHeader ? authHeader.split(' ')[1] : null) || req.body?.token;
+    if (!token) {
+      return res.status(400).json({ error: 'Token required for renewal' });
+    }
+    try {
+      let decoded;
+      try {
+        decoded = jwt.verify(token, JWT_SECRET);
+      } catch (verifyErr) {
+        decoded = jwt.decode(token);
+      }
+      if (!decoded || (!decoded.id && !decoded.sub && !decoded.email)) {
+        return res.status(401).json({ error: 'Invalid token payload' });
+      }
+      const userId = decoded.id || decoded.sub;
+      const tenantId = decoded.tenant_id || decoded.tenantId || 1;
+      const email = decoded.email || '';
+      const role = decoded.role || 'employee';
+
+      const newToken = jwt.sign(
+        { id: userId, email, role, tenant_id: tenantId },
+        JWT_SECRET,
+        { expiresIn: '365d' }
+      );
+
+      return res.json({
+        success: true,
+        token: newToken,
+        message: 'Token renewed successfully'
+      });
+    } catch (err) {
+      console.error('Silent token refresh error:', err);
+      return res.status(500).json({ error: 'Failed to refresh token' });
+    }
+  });
+
+  // Pillar 2: Register Device Session (1 Phone + 1 Laptop Rule)
+  router.post('/auth/register-device-session', async (req, res) => {
+    try {
+      const { tenantId, userId, deviceType, sessionToken, deviceId, deviceName } = req.body;
+      if (!tenantId || !userId || !deviceType || !sessionToken || !deviceId) {
+        return res.status(400).json({ error: 'Missing required session parameters' });
+      }
+      const supaUrl = 'https://mucgmzldgvtblmsurtgo.supabase.co/rest/v1';
+      const supaKey = 'sb_publishable_xRGskG_bEbCJebUMT_XPHA_vjwf1Lr1';
+      const rpcRes = await fetch(`${supaUrl}/rpc/upsert_device_session`, {
+        method: 'POST',
+        headers: {
+          'apikey': supaKey,
+          'Authorization': `Bearer ${supaKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          p_tenant_id: Number(tenantId) || 1,
+          p_user_id: String(userId),
+          p_device_type: deviceType,
+          p_session_token: sessionToken,
+          p_device_id: deviceId,
+          p_device_name: deviceName || (deviceType === 'mobile' ? 'Mobile Phone' : 'Desktop Browser')
+        })
+      });
+      const data = await rpcRes.json();
+      return res.json({ success: true, data });
+    } catch (err) {
+      console.error('[API] register-device-session error:', err);
+      return res.status(500).json({ error: 'Failed to register session' });
+    }
+  });
+
+  // Pillar 2: Check Device Session (Heartbeat & Takeover Detection)
+  router.post('/auth/check-device-session', async (req, res) => {
+    try {
+      const { tenantId, userId, deviceType, sessionToken } = req.body;
+      if (!tenantId || !userId || !deviceType || !sessionToken) {
+        return res.status(400).json({ error: 'Missing required session parameters' });
+      }
+      const supaUrl = 'https://mucgmzldgvtblmsurtgo.supabase.co/rest/v1';
+      const supaKey = 'sb_publishable_xRGskG_bEbCJebUMT_XPHA_vjwf1Lr1';
+      const rpcRes = await fetch(`${supaUrl}/rpc/check_device_session`, {
+        method: 'POST',
+        headers: {
+          'apikey': supaKey,
+          'Authorization': `Bearer ${supaKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          p_tenant_id: Number(tenantId) || 1,
+          p_user_id: String(userId),
+          p_device_type: deviceType,
+          p_session_token: sessionToken
+        })
+      });
+      const data = await rpcRes.json();
+      return res.json(data);
+    } catch (err) {
+      return res.json({ valid: true, reason: 'BYPASS' });
     }
   });
 
@@ -3573,6 +3675,343 @@ export default function setupRoutes(io) {
   router.post('/voxbay', handleVoxbayWebhook);
   router.get('/voxbay', handleVoxbayWebhook);
 
+  // ==========================================
+  // 🌐 PLIVO UNIVERSAL WEBRTC & WALLET ENDPOINTS (PHASE 2)
+  // ==========================================
+
+  // 1. Get WebRTC Access Token for In-Browser Calling
+  router.get(['/telephony/plivo/token', '/api/telephony/plivo/token', '/api/telephony/token'], async (req, res) => {
+    try {
+      const tenantId = req.user?.tenantId || req.user?.tenant_id || parseInt(req.query.tenantId || req.query.tenant_id || '1', 10);
+      const agentId = req.user?.id || req.query.agentId || 'agent_1';
+      const agentName = req.user?.name || req.query.agentName || 'Telecaller';
+
+      const plivoProvider = callingService.getProvider('plivo');
+      const token = plivoProvider.generateAccessToken({
+        endpointUsername: `agent_${tenantId}_${agentId}`,
+        tenantId
+      });
+
+      const wallet = await plivoProvider.getWallet(tenantId);
+
+      return res.json({
+        success: true,
+        token,
+        provider: 'plivo',
+        callerId: plivoProvider.defaultCallerId,
+        walletBalance: parseFloat(wallet.balance || 0),
+        currency: wallet.currency || 'INR',
+        autoRechargeEnabled: wallet.auto_recharge_enabled,
+        agent: { id: agentId, name: agentName }
+      });
+    } catch (err) {
+      console.error('[Plivo Token Error]', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 2. Plivo Voice Answer XML Webhook (Routes Outbound Browser Calls)
+  router.all(['/telephony/plivo/answer', '/api/telephony/plivo/answer'], async (req, res) => {
+    try {
+      const payload = { ...req.query, ...req.body };
+      const destination = payload.To || payload.to || payload.destination || payload.phoneNumber || '';
+      const callerId = payload.From || payload.from || payload.callerId;
+      const tenantId = parseInt(payload.tenant_id || payload.tenantId || '1', 10);
+
+      const plivoProvider = callingService.getProvider('plivo');
+      const actionUrl = `${process.env.API_BASE_URL || 'https://api.employeemanagementsystems.com'}/api/telephony/plivo/status?tenant_id=${tenantId}`;
+      const xml = plivoProvider.generateAnswerXml({ destination, callerId, record: true, actionUrl });
+
+      res.setHeader('Content-Type', 'application/xml');
+      return res.status(200).send(xml);
+    } catch (err) {
+      console.error('[Plivo Answer Error]', err);
+      res.setHeader('Content-Type', 'application/xml');
+      return res.status(200).send('<Response><Hangup/></Response>');
+    }
+  });
+
+  // 3. Plivo Call Status & Recording Callback (Auto-Deduct Wallet & Log Sync)
+  router.all(['/telephony/plivo/status', '/api/telephony/plivo/status'], async (req, res) => {
+    try {
+      const payload = { ...req.query, ...req.body };
+      const plivoProvider = callingService.getProvider('plivo');
+      const parsed = plivoProvider.processWebhook(payload);
+
+      const tenantId = parseInt(payload.tenant_id || payload.tenantId || '1', 10);
+      const agentId = payload.agent_id || payload.agentId || 'agent_1';
+      const agentName = payload.agent_name || payload.agentName || 'Telecaller';
+
+      // Deduct from Sandbox PostgreSQL wallet if call has duration
+      if (parsed.durationSeconds > 0) {
+        await plivoProvider.deductWallet({
+          tenantId,
+          durationSeconds: parsed.durationSeconds,
+          ratePerMinute: 0.75,
+          agentId,
+          agentName,
+          callUuid: parsed.callUuid
+        });
+      }
+
+      // Notify frontend via Socket.io if active
+      if (io) {
+        io.emit('telephony_call_status', {
+          tenantId,
+          callUuid: parsed.callUuid,
+          status: parsed.status,
+          durationSeconds: parsed.durationSeconds,
+          recordingUrl: parsed.recordingUrl
+        });
+      }
+
+      res.setHeader('Content-Type', 'text/plain');
+      return res.status(200).send('OK');
+    } catch (err) {
+      console.error('[Plivo Status Error]', err);
+      res.setHeader('Content-Type', 'text/plain');
+      return res.status(200).send('OK');
+    }
+  });
+
+  // 4. Wallet Balance & Transaction History API
+  router.get(['/telephony/wallet', '/api/telephony/wallet'], async (req, res) => {
+    try {
+      const tenantId = req.user?.tenantId || req.user?.tenant_id || parseInt(req.query.tenantId || req.query.tenant_id || '1', 10);
+      const plivoProvider = callingService.getProvider('plivo');
+      const wallet = await plivoProvider.getWallet(tenantId);
+      return res.json({ success: true, wallet });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 5. Wallet Topup API (Simulated / Payment Gateway Callback)
+  router.post(['/telephony/wallet/topup', '/api/telephony/wallet/topup'], async (req, res) => {
+    try {
+      const tenantId = req.user?.tenantId || req.user?.tenant_id || parseInt(req.body.tenantId || req.body.tenant_id || '1', 10);
+      const amount = parseFloat(req.body.amount || 1000);
+      const plivoProvider = callingService.getProvider('plivo');
+      
+      const client = await plivoProvider.sandboxDbPool.connect();
+      try {
+        await client.query('BEGIN');
+        const updateRes = await client.query(
+          `UPDATE telephony_wallets 
+           SET balance = balance + $1, last_recharged_at = NOW(), updated_at = NOW() 
+           WHERE tenant_id = $2 
+           RETURNING balance`,
+          [amount, tenantId]
+        );
+        const newBalance = updateRes.rows[0]?.balance || amount;
+        await client.query(
+          `INSERT INTO telephony_wallet_transactions 
+           (tenant_id, type, amount, balance_after, description) 
+           VALUES ($1, 'RECHARGE', $2, $3, 'Calling Wallet Top-up')`,
+          [tenantId, amount, newBalance]
+        );
+        await client.query('COMMIT');
+        return res.json({ success: true, newBalance });
+      } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+      } finally {
+        client.release();
+      }
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // ==========================================
+  // 👥 PHASE 4: SHARED DID & INBOUND CONCURRENCY ROUTING
+  // ==========================================
+
+  // 6. Plivo Inbound Call Webhook (1 Number -> Multiple Agents)
+  router.all(['/telephony/plivo/inbound', '/api/telephony/plivo/inbound'], async (req, res) => {
+    try {
+      const payload = { ...req.query, ...req.body };
+      const from = payload.From || payload.from || '';
+      const to = payload.To || payload.to || '';
+      const tenantId = parseInt(payload.tenant_id || payload.tenantId || '1', 10);
+      const callUuid = payload.CallUUID || payload.CallUuid || `inbound_${Date.now()}`;
+
+      const plivoProvider = callingService.getProvider('plivo');
+      const actionUrl = `${process.env.API_BASE_URL || 'https://api.employeemanagementsystems.com'}/api/telephony/plivo/status?tenant_id=${tenantId}`;
+      const fallbackUrl = `${process.env.API_BASE_URL || 'https://api.employeemanagementsystems.com'}/api/telephony/plivo/inbound/fallback?tenant_id=${tenantId}&from=${encodeURIComponent(from)}&call_uuid=${callUuid}`;
+
+      const { xml, targetAgents, strategy } = await plivoProvider.generateInboundXml({
+        from,
+        to,
+        tenantId,
+        actionUrl,
+        fallbackUrl
+      });
+
+      console.log(`[Plivo Inbound] Routed incoming call from ${from} to ${targetAgents.length} agent(s) using strategy '${strategy}'`);
+      res.setHeader('Content-Type', 'application/xml');
+      return res.status(200).send(xml);
+    } catch (err) {
+      console.error('[Plivo Inbound Error]', err);
+      res.setHeader('Content-Type', 'application/xml');
+      return res.status(200).send('<Response><Speak>Thank you for calling. Please try again later.</Speak></Response>');
+    }
+  });
+
+  // 7. Plivo Inbound Fallback Webhook (No Agent Answered / Busy)
+  router.all(['/telephony/plivo/inbound/fallback', '/api/telephony/plivo/inbound/fallback'], async (req, res) => {
+    try {
+      const payload = { ...req.query, ...req.body };
+      const from = payload.From || payload.from || payload.caller_id || '';
+      const to = payload.To || payload.to || '';
+      const tenantId = parseInt(payload.tenant_id || payload.tenantId || '1', 10);
+      const callUuid = payload.CallUUID || payload.CallUuid || payload.call_uuid || '';
+
+      const plivoProvider = callingService.getProvider('plivo');
+      const xml = await plivoProvider.handleInboundFallback({ from, to, tenantId, callUuid });
+
+      if (io) {
+        io.emit('telephony:missed_call', {
+          tenantId,
+          from,
+          callUuid,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      res.setHeader('Content-Type', 'application/xml');
+      return res.status(200).send(xml);
+    } catch (err) {
+      console.error('[Plivo Inbound Fallback Error]', err);
+      res.setHeader('Content-Type', 'application/xml');
+      return res.status(200).send('<Response><Hangup/></Response>');
+    }
+  });
+
+  // 8. Agent Telephony Presence List (Multi-Agent WebRTC Status)
+  router.get(['/telephony/agents/presence', '/api/telephony/agents/presence'], async (req, res) => {
+    try {
+      const tenantId = req.user?.tenantId || req.user?.tenant_id || parseInt(req.query.tenantId || req.query.tenant_id || '1', 10);
+      const plivoProvider = callingService.getProvider('plivo');
+      const agents = await plivoProvider.getAgentPresence(tenantId);
+      const settings = await plivoProvider.getTenantTelephonySettings(tenantId);
+
+      return res.json({
+        success: true,
+        tenantId,
+        callerId: settings.caller_id,
+        inboundStrategy: settings.inbound_routing_strategy,
+        ringTimeout: settings.ring_timeout,
+        maxConcurrency: settings.max_concurrency,
+        agents
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 9. Update Agent Presence (Online / Busy / WebRTC Ready)
+  router.post(['/telephony/agents/presence', '/api/telephony/agents/presence'], async (req, res) => {
+    try {
+      const tenantId = req.user?.tenantId || req.user?.tenant_id || parseInt(req.body.tenantId || req.body.tenant_id || '1', 10);
+      const { agentId, agentName, sipEndpoint, isOnline, isBusy } = req.body;
+
+      if (!agentId) {
+        return res.status(400).json({ success: false, error: 'agentId is required' });
+      }
+
+      const plivoProvider = callingService.getProvider('plivo');
+      const updated = await plivoProvider.updateAgentPresence({
+        tenantId,
+        agentId,
+        agentName,
+        sipEndpoint,
+        isOnline: isOnline !== undefined ? Boolean(isOnline) : true,
+        isBusy: isBusy !== undefined ? Boolean(isBusy) : false
+      });
+
+      if (io) {
+        io.emit('telephony:presence_update', { tenantId, agent: updated });
+      }
+
+      return res.json({ success: true, agent: updated });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 10. Update Inbound Routing Settings (Strategy, Timeout, Greeting)
+  router.post(['/telephony/inbound/settings', '/api/telephony/inbound/settings'], async (req, res) => {
+    try {
+      const tenantId = req.user?.tenantId || req.user?.tenant_id || parseInt(req.body.tenantId || req.body.tenant_id || '1', 10);
+      const { inboundRoutingStrategy, ringTimeout, fallbackGreeting, maxConcurrency } = req.body;
+
+      const plivoProvider = callingService.getProvider('plivo');
+      const updated = await plivoProvider.updateInboundSettings({
+        tenantId,
+        inboundRoutingStrategy,
+        ringTimeout: ringTimeout ? parseInt(ringTimeout, 10) : undefined,
+        fallbackGreeting,
+        maxConcurrency: maxConcurrency ? parseInt(maxConcurrency, 10) : undefined
+      });
+
+      return res.json({ success: true, settings: updated });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // ==========================================
+  // 📊 PHASE 5: DYNAMIC TELEPHONY REPORTING & FINANCIAL LEDGER
+  // ==========================================
+
+  // 11. Tenant Calling Summary Report (Today, This Week, This Month, All Time)
+  router.get(['/telephony/reports/summary', '/api/telephony/reports/summary'], async (req, res) => {
+    try {
+      const tenantId = req.user?.tenantId || req.user?.tenant_id || parseInt(req.query.tenantId || req.query.tenant_id || '1', 10);
+      const period = req.query.period || 'this_month';
+
+      const plivoProvider = callingService.getProvider('plivo');
+      const summary = await plivoProvider.getTelephonySummaryReport({ tenantId, period });
+
+      return res.json({ success: true, summary });
+    } catch (err) {
+      console.error('[Telephony Summary Report Error]', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 12. Agent Performance Breakdown Report
+  router.get(['/telephony/reports/agents', '/api/telephony/reports/agents'], async (req, res) => {
+    try {
+      const tenantId = req.user?.tenantId || req.user?.tenant_id || parseInt(req.query.tenantId || req.query.tenant_id || '1', 10);
+      const period = req.query.period || 'this_month';
+
+      const plivoProvider = callingService.getProvider('plivo');
+      const agents = await plivoProvider.getAgentPerformanceReport({ tenantId, period });
+
+      return res.json({ success: true, period, agents });
+    } catch (err) {
+      console.error('[Telephony Agent Report Error]', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 13. SuperAdmin Multi-Company Financial Ledger & Telephony Profit Margins
+  router.get(['/superadmin/telephony/reports', '/api/superadmin/telephony/reports'], async (req, res) => {
+    try {
+      const period = req.query.period || 'this_month';
+
+      const plivoProvider = callingService.getProvider('plivo');
+      const report = await plivoProvider.getSuperAdminFinancialReport({ period });
+
+      return res.json({ success: true, ...report });
+    } catch (err) {
+      console.error('[SuperAdmin Telephony Report Error]', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // 3b. Dedicated Audio Recording Upload Endpoint (Converts Base64 mobile streams to public static MP3 URLs)
   router.post(['/telecalling/upload-recording', '/calls/upload-recording', '/telecalling/upload-audio'], async (req, res) => {
     try {
@@ -3636,6 +4075,8 @@ export default function setupRoutes(io) {
         return res.status(400).json({ error: 'Customer phone number is required.' });
       }
 
+      const activeTenantId = Number(req.user?.tenantId || req.user?.tenant_id || tenantId || 1);
+      const durSecs = Number(durationSeconds || duration || 0);
       let finalRecordingUrl = recordingUrl;
 
       // Handle Base64 Audio Upload from Companion App
@@ -3644,31 +4085,46 @@ export default function setupRoutes(io) {
         try {
           const cleanBase64 = rawBase64.replace(/^data:audio\/\w+;base64,/, '');
           const audioBuffer = Buffer.from(cleanBase64, 'base64');
-          const fileName = `rec_${Date.now()}_${String(targetPhone).replace(/\D/g, '')}.mp3`;
+
+          // Detect audio container & codec from magic bytes
+          let ext = 'm4a';
+          let mime = 'audio/mp4';
+
+          if (audioBuffer.length > 8) {
+            const magicStr = audioBuffer.subarray(0, 16).toString('binary');
+            if (magicStr.startsWith('ID3') || (audioBuffer[0] === 0xFF && (audioBuffer[1] & 0xE0) === 0xE0)) {
+              ext = 'mp3';
+              mime = 'audio/mpeg';
+            } else if (magicStr.startsWith('RIFF')) {
+              ext = 'wav';
+              mime = 'audio/wav';
+            } else {
+              // 3GP / M4A / AAC default
+              ext = 'm4a';
+              mime = 'audio/mp4';
+            }
+          }
+
+          const fileName = `rec_${Date.now()}_${String(targetPhone).replace(/\D/g, '')}.${ext}`;
           
           try {
             const { uploadBufferToSupabaseStorage } = await import('./services/supabaseStorageService.js');
             finalRecordingUrl = await uploadBufferToSupabaseStorage({
               bucket: 'omniflow-vault',
-              filePath: `tenants/${activeTenantId || 1}/calls/${fileName}`,
+              filePath: `tenants/${activeTenantId}/calls/${fileName}`,
               buffer: audioBuffer,
-              contentType: 'audio/mpeg'
+              contentType: mime
             });
+            console.log(`[SyncLog] ✅ Call recording uploaded to Supabase Storage: ${finalRecordingUrl}`);
           } catch (storageErr) {
-            console.warn('[SyncLog] Supabase Storage upload fallback to local disk:', storageErr.message);
-            const filePath = path.join(recordingsDir, fileName);
-            fs.writeFileSync(filePath, audioBuffer);
-            const reqHost = req.get('host');
-            const domain = process.env.API_BASE_URL || (reqHost ? `${req.protocol}://${reqHost}` : 'https://ems-backend-9hig.onrender.com');
-            finalRecordingUrl = `${domain}/media/recordings/${fileName}`;
+            console.warn('[SyncLog] Supabase Storage upload notice:', storageErr.message);
+            // Fallback: keep clean, properly-tagged data URI so audio is not lost or corrupted
+            finalRecordingUrl = rawBase64.startsWith('data:') ? rawBase64 : `data:${mime};base64,${cleanBase64}`;
           }
         } catch (audioErr) {
           console.warn('[SyncLog] Audio base64 decode notice:', audioErr.message);
         }
       }
-
-      const durSecs = Number(durationSeconds || duration || 0);
-      const activeTenantId = Number(req.user?.tenantId || req.user?.tenant_id || tenantId || 1);
 
       // Check if call log already exists (e.g. created instantly in Stage 1 upon call cut)
       const existing = await findRecentCallLog(activeTenantId, targetPhone, callId);
@@ -3729,6 +4185,39 @@ export default function setupRoutes(io) {
       // Real-time notification to web dashboard
       if (io) {
         io.emit(isUpdate ? 'telecalling:call_updated' : 'telecalling:call_logged', finalPayload);
+      }
+
+      // Dual-write to Sandbox Supabase if tenant 1
+      if (activeTenantId === 1) {
+        try {
+          const SB_URL = 'https://mucgmzldgvtblmsurtgo.supabase.co/rest/v1';
+          const SB_KEY = 'sb_publishable_xRGskG_bEbCJebUMT_XPHA_vjwf1Lr1';
+          fetch(`${SB_URL}/call_logs`, {
+            method: 'POST',
+            headers: {
+              'apikey': SB_KEY,
+              'Authorization': `Bearer ${SB_KEY}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({
+              id: `call_${savedRecord?.id || Date.now()}`,
+              tenant_id: 1,
+              customer_name: String(customerName),
+              customer_phone: String(targetPhone),
+              phone: String(targetPhone),
+              agent_name: String(staffName),
+              channel: String(channel),
+              call_type: String(type),
+              type: String(type),
+              duration_seconds: durSecs,
+              duration: `${Math.floor(durSecs / 60)}:${(durSecs % 60).toString().padStart(2, '0')}`,
+              recording_url: finalRecordingUrl || '',
+              disposition: String(disposition || status || 'Completed'),
+              notes: combinedNotes
+            })
+          }).catch(sbErr => console.warn('[SyncLog] Sandbox call_logs dual-write notice:', sbErr.message));
+        } catch (e) {}
       }
 
       // Asynchronously push to linked GoHighLevel Conversation

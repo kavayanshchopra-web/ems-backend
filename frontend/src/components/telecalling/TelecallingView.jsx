@@ -16,7 +16,12 @@ import {
   FolderCheck, 
   FolderX, 
   X,
-  Info
+  Info,
+  BarChart2,
+  Users,
+  Calendar,
+  Clock,
+  DollarSign
 } from 'lucide-react';
 import { db } from '../../firebase';
 import { collection, onSnapshot, getDocs, doc, deleteDoc } from 'firebase/firestore';
@@ -79,6 +84,29 @@ export default function TelecallingView({
   const [dispositionOverrides, setDispositionOverrides] = useState(() => {
     return TenantStorage.getItem('telecalling_dispositions', companyId, {});
   });
+
+  // Phase 5: Dynamic Telephony Reporting & Agent Analytics State
+  const [reportingPeriod, setReportingPeriod] = useState('this_month');
+  const [summaryReport, setSummaryReport] = useState(null);
+  const [agentReport, setAgentReport] = useState([]);
+  const [showAgentReportModal, setShowAgentReportModal] = useState(false);
+  const [loadingReporting, setLoadingReporting] = useState(false);
+
+  const fetchReporting = async (period = reportingPeriod) => {
+    setLoadingReporting(true);
+    try {
+      const [sumData, agData] = await Promise.all([
+        SupabaseSandboxService.fetchTelephonyReportSummary(companyId, period),
+        SupabaseSandboxService.fetchTelephonyAgentReport(companyId, period)
+      ]);
+      if (sumData) setSummaryReport(sumData);
+      if (Array.isArray(agData)) setAgentReport(agData);
+    } catch (e) {
+      console.warn('fetchReporting note:', e.message);
+    } finally {
+      setLoadingReporting(false);
+    }
+  };
 
   // Telecaller Companion Device Health & Folder Link Monitoring
   const [deviceHealthList, setDeviceHealthList] = useState([]);
@@ -145,7 +173,11 @@ export default function TelecallingView({
 
   useEffect(() => {
     fetchDeviceHealth();
-    const interval = setInterval(fetchDeviceHealth, 30000);
+    fetchReporting();
+    const interval = setInterval(() => {
+      fetchDeviceHealth();
+      fetchReporting();
+    }, 30000);
     return () => clearInterval(interval);
   }, [companyId]);
 
@@ -922,6 +954,111 @@ export default function TelecallingView({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* 📊 PHASE 5: DYNAMIC TELEPHONY PERFORMANCE & PULSE LEDGER BAR */}
+      <div style={{
+        background: 'linear-gradient(135deg, #064e3b 0%, #0f766e 100%)',
+        padding: '10px 18px',
+        color: '#ffffff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '12px',
+        borderBottom: '1px solid rgba(255,255,255,0.15)',
+        boxShadow: '0 2px 8px rgba(6,78,59,0.15)'
+      }}>
+        {/* LEFT: Period Filter */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '800', color: '#a7f3d0' }}>
+            <BarChart2 size={16} />
+            <span>Telephony Pulse</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(0,0,0,0.2)', padding: '3px', borderRadius: '8px' }}>
+            {[
+              { id: 'today', label: 'Today' },
+              { id: 'this_week', label: 'This Week' },
+              { id: 'this_month', label: 'This Month' }
+            ].map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => {
+                  setReportingPeriod(p.id);
+                  fetchReporting(p.id);
+                }}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: reportingPeriod === p.id ? 'rgba(255,255,255,0.25)' : 'transparent',
+                  color: reportingPeriod === p.id ? '#ffffff' : '#d1fae5',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s'
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* RIGHT: LIVE METRICS PILLS */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+            <span style={{ color: '#a7f3d0', fontSize: '11px' }}>Total Calls:</span>
+            <strong style={{ color: '#ffffff', background: 'rgba(255,255,255,0.15)', padding: '2px 8px', borderRadius: '6px' }}>
+              {summaryReport?.totalCalls || 0}
+            </strong>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+            <span style={{ color: '#a7f3d0', fontSize: '11px' }}>Connected:</span>
+            <strong style={{ color: '#34d399', background: 'rgba(255,255,255,0.15)', padding: '2px 8px', borderRadius: '6px' }}>
+              {summaryReport?.connectedRate || 0}% ({summaryReport?.connectedCalls || 0})
+            </strong>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+            <span style={{ color: '#a7f3d0', fontSize: '11px' }}>Billed Talk Time:</span>
+            <strong style={{ color: '#ffffff', background: 'rgba(255,255,255,0.15)', padding: '2px 8px', borderRadius: '6px' }}>
+              {summaryReport?.totalMinutes || 0} mins
+            </strong>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+            <span style={{ color: '#a7f3d0', fontSize: '11px' }}>Wallet Spend:</span>
+            <strong style={{ color: '#fef08a', background: 'rgba(0,0,0,0.25)', padding: '2px 8px', borderRadius: '6px' }}>
+              ₹{parseFloat(summaryReport?.totalBilledAmount || 0).toFixed(2)}
+            </strong>
+          </div>
+
+          {/* AGENT BREAKDOWN MODAL BUTTON */}
+          <button
+            type="button"
+            onClick={() => setShowAgentReportModal(true)}
+            style={{
+              background: 'rgba(255,255,255,0.2)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: '8px',
+              padding: '4px 12px',
+              color: '#ffffff',
+              fontSize: '11px',
+              fontWeight: '800',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              transition: 'all 0.15s'
+            }}
+          >
+            <Users size={13} />
+            <span>Agent Breakdown ({agentReport.length})</span>
+          </button>
+        </div>
+      </div>
       {/* Telecaller Device Health & Call Recording Live Monitor Panel */}
       {showHealthPanel && (isOwnerOrManager || isSuperAdmin) && (
         <div style={{
@@ -1260,6 +1397,140 @@ export default function TelecallingView({
           showToast={showToast}
           authUser={authUser}
         />
+      )}
+
+      {/* 👥 AGENT PERFORMANCE BREAKDOWN MODAL */}
+      {showAgentReportModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '16px',
+            width: '780px',
+            maxWidth: '95vw',
+            maxHeight: '85vh',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 25px 50px rgba(0,0,0,0.25)'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              background: 'linear-gradient(135deg, #064e3b 0%, #0f766e 100%)',
+              padding: '16px 20px',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Users size={20} color="#a7f3d0" />
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800' }}>
+                    Agent Calling Performance Breakdown ({reportingPeriod === 'today' ? 'Today' : reportingPeriod === 'this_week' ? 'This Week' : 'This Month'})
+                  </h3>
+                  <div style={{ fontSize: '11px', color: '#a7f3d0', marginTop: '2px' }}>
+                    Agent talk time minutes, connected rate, average call duration (ACD) & retail spend
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAgentReportModal(false)}
+                style={{ background: 'transparent', border: 'none', color: '#ffffff', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Content Table */}
+            <div style={{ padding: '16px', overflowY: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase' }}>
+                    <th style={{ padding: '10px 14px' }}>Agent Name</th>
+                    <th style={{ padding: '10px 14px' }}>Total Calls</th>
+                    <th style={{ padding: '10px 14px' }}>Connected</th>
+                    <th style={{ padding: '10px 14px' }}>Connect Rate</th>
+                    <th style={{ padding: '10px 14px' }}>Billed Minutes</th>
+                    <th style={{ padding: '10px 14px' }}>Avg Call Time (ACD)</th>
+                    <th style={{ padding: '10px 14px' }}>Wallet Spend</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {agentReport.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
+                        No agent activity logged for this period.
+                      </td>
+                    </tr>
+                  ) : (
+                    agentReport.map((a) => (
+                      <tr key={a.agentId} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '10px 14px', fontWeight: '700', color: '#0f2b26' }}>
+                          {a.agentName}
+                        </td>
+                        <td style={{ padding: '10px 14px', fontWeight: '600', color: '#334155' }}>
+                          {a.totalCalls}
+                        </td>
+                        <td style={{ padding: '10px 14px', color: '#16a34a', fontWeight: '700' }}>
+                          {a.connectedCalls}
+                        </td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <span style={{ background: '#f0fdf4', color: '#166534', padding: '2px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
+                            {a.connectedRate}%
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 14px', fontWeight: '700', color: '#0f172a' }}>
+                          {a.totalMinutes} mins
+                        </td>
+                        <td style={{ padding: '10px 14px', color: '#64748b' }}>
+                          {a.avgDurationSeconds}s
+                        </td>
+                        <td style={{ padding: '10px 14px', fontWeight: '800', color: '#0f2b26' }}>
+                          ₹{a.totalBilledAmount.toFixed(2)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ padding: '12px 16px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setShowAgentReportModal(false)}
+                style={{
+                  background: '#064e3b',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '7px 16px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                Close Breakdown
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

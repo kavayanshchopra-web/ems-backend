@@ -107,8 +107,8 @@ export default function App() {
           return null;
         }
 
-        // Generic embedded fallback only when no specific locationId is available
-        const savedIframeUser = sessionStorage.getItem('omnilflow_iframe_user');
+        // Generic embedded fallback only when no specific locationId is available (persists across tab reloads)
+        const savedIframeUser = localStorage.getItem('omnilflow_iframe_user') || sessionStorage.getItem('omnilflow_iframe_user') || localStorage.getItem('omnilflow_user');
         if (savedIframeUser) {
           try {
             const user = JSON.parse(savedIframeUser);
@@ -303,6 +303,41 @@ export default function App() {
         if (gCtx.isEmbedded) {
           sessionStorage.setItem('omnilflow_iframe_user', JSON.stringify(userData));
           sessionStorage.setItem('omnilflow_iframe_token', token);
+          localStorage.setItem('omnilflow_iframe_user', JSON.stringify(userData));
+          localStorage.setItem('omnilflow_iframe_token', token);
+        }
+
+        // Pillar 2: Dual-Device Session Registration (1 Phone + 1 Laptop Rule)
+        try {
+          const isAndroidApp = !!(window.AndroidApp || window.OmniFlowNative || window.location.search.includes('app=android'));
+          const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+          const isNarrowScreen = window.innerWidth <= 768;
+          const detectedDeviceType = (isAndroidApp || isMobileUA || isNarrowScreen) ? 'mobile' : 'desktop';
+
+          let currentDeviceId = localStorage.getItem('omnilflow_device_id');
+          if (!currentDeviceId) {
+            currentDeviceId = 'dev_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
+            localStorage.setItem('omnilflow_device_id', currentDeviceId);
+          }
+
+          const currentSessionToken = 'sess_' + Math.random().toString(36).substring(2, 12) + '_' + Date.now();
+          localStorage.setItem('omnilflow_active_session_token', currentSessionToken);
+          localStorage.setItem('omnilflow_device_type', detectedDeviceType);
+
+          const devName = detectedDeviceType === 'mobile' 
+            ? (isAndroidApp ? 'OmniFlow Android App' : 'Mobile Phone') 
+            : 'Desktop Laptop / PC';
+
+          await SupabaseSandboxService.registerDeviceSession(
+            userData.tenantId,
+            userData.id,
+            detectedDeviceType,
+            currentSessionToken,
+            currentDeviceId,
+            devName
+          );
+        } catch (devErr) {
+          console.warn('[Pillar 2] Device session registration notice:', devErr);
         }
 
         try {
@@ -384,6 +419,8 @@ export default function App() {
       if (ghlCtx.isEmbedded) {
         sessionStorage.setItem('omnilflow_iframe_user', JSON.stringify(appUser));
         sessionStorage.setItem('omnilflow_iframe_token', token);
+        localStorage.setItem('omnilflow_iframe_user', JSON.stringify(appUser));
+        localStorage.setItem('omnilflow_iframe_token', token);
       }
       setAuthUser(appUser);
       if (typeof window !== 'undefined') window.__omniflow_tenant = String(uniqueTenantId);
@@ -530,6 +567,8 @@ export default function App() {
         if (ghlCtx.isEmbedded) {
           sessionStorage.setItem('omnilflow_iframe_user', JSON.stringify(userData));
           sessionStorage.setItem('omnilflow_iframe_token', userToken);
+          localStorage.setItem('omnilflow_iframe_user', JSON.stringify(userData));
+          localStorage.setItem('omnilflow_iframe_token', userToken);
         }
 
         if (ghlCtx.locationId) {
@@ -602,6 +641,8 @@ export default function App() {
             if (gCtx.isEmbedded) {
               sessionStorage.setItem('omnilflow_iframe_user', JSON.stringify(u));
               if (authData.token) sessionStorage.setItem('omnilflow_iframe_token', authData.token);
+              localStorage.setItem('omnilflow_iframe_user', JSON.stringify(u));
+              if (authData.token) localStorage.setItem('omnilflow_iframe_token', authData.token);
             }
             if (gCtx.locationId) {
               localStorage.setItem(`omnilflow_user_ghl_${gCtx.locationId}`, JSON.stringify(u));

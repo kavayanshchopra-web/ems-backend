@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Phone, Users, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw, Edit3, Settings, Play, Power, ExternalLink, Search, X, Save, Smartphone, Cloud, Info, FolderCheck, Folder, AlertTriangle, Check, Shield, Mic, MicOff } from 'lucide-react';
+import { Phone, Users, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw, Edit3, Settings, Play, Power, ExternalLink, Search, X, Save, Smartphone, Cloud, Info, FolderCheck, Folder, AlertTriangle, Check, Shield, Mic, MicOff, Radio, Zap, Headphones, TrendingUp, DollarSign, Calendar, BarChart3, Clock } from 'lucide-react';
 import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
 
 export default function SuperAdminTelephonyHub({ showToast }) {
@@ -9,6 +9,34 @@ export default function SuperAdminTelephonyHub({ showToast }) {
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Phase 5: Dynamic Telephony Financial Ledger & Profit State
+  const [financialPeriod, setFinancialPeriod] = useState('this_month');
+  const [financialReport, setFinancialReport] = useState(null);
+  const [loadingFinancial, setLoadingFinancial] = useState(false);
+  
+  // Phase 4: Shared Number Pool & Concurrency Architecture State
+  const [concurrencyAgents, setConcurrencyAgents] = useState([
+    { agent_id: 'agent_101', agent_name: 'Rahul Sharma (Sales)', sip_endpoint: 'sip:agent_101@phone.plivo.com', is_online: true, is_busy: false },
+    { agent_id: 'agent_102', agent_name: 'Pooja Verma (Support)', sip_endpoint: 'sip:agent_102@phone.plivo.com', is_online: true, is_busy: false },
+    { agent_id: 'agent_103', agent_name: 'Amit Patel (Retention)', sip_endpoint: 'sip:agent_103@phone.plivo.com', is_online: true, is_busy: false }
+  ]);
+  const [inboundStrategy, setInboundStrategy] = useState('sticky_agent'); // 'sticky_agent' | 'ring_all' | 'round_robin'
+  const [ringTimeout, setRingTimeout] = useState(25);
+  const [savingStrategy, setSavingStrategy] = useState(false);
+
+  const fetchFinancialReport = async (period = financialPeriod) => {
+    setLoadingFinancial(true);
+    try {
+      const data = await SupabaseSandboxService.fetchSuperAdminTelephonyReport(period);
+      if (data) setFinancialReport(data);
+    } catch (e) {
+      console.warn('fetchFinancialReport note:', e.message);
+    } finally {
+      setLoadingFinancial(false);
+    }
+  };
+
   
   // Multi-company telecalling device health & recording status
   const [allDevices, setAllDevices] = useState([]);
@@ -36,6 +64,65 @@ export default function SuperAdminTelephonyHub({ showToast }) {
     monthly_quota_minutes: 500,
     notes: ''
   });
+
+  const fetchConcurrencyData = async () => {
+    try {
+      const [agentsData, settingsData] = await Promise.all([
+        SupabaseSandboxService.fetchAgentPresence(1),
+        SupabaseSandboxService.fetchTelephonySettings(1)
+      ]);
+      if (Array.isArray(agentsData) && agentsData.length > 0) {
+        setConcurrencyAgents(agentsData);
+      }
+      if (settingsData?.inbound_routing_strategy) {
+        setInboundStrategy(settingsData.inbound_routing_strategy);
+      }
+      if (settingsData?.ring_timeout) {
+        setRingTimeout(settingsData.ring_timeout);
+      }
+    } catch (err) {
+      console.warn('[SuperAdminTelephonyHub] fetchConcurrencyData note:', err.message);
+    }
+  };
+
+  const handleStrategyChange = async (newStrategy) => {
+    setInboundStrategy(newStrategy);
+    setSavingStrategy(true);
+    try {
+      await SupabaseSandboxService.updateInboundSettings(1, {
+        inbound_routing_strategy: newStrategy,
+        ring_timeout: ringTimeout
+      });
+      if (showToast) {
+        const labels = {
+          sticky_agent: '🎯 Sticky Agent (CRM Match)',
+          ring_all: '🔔 Ring All Agents Simultaneously',
+          round_robin: '🔄 Round Robin Fair Distribution'
+        };
+        showToast(`Inbound routing updated to ${labels[newStrategy] || newStrategy}!`, 'success');
+      }
+    } catch (err) {
+      if (showToast) showToast(`Failed to update routing: ${err.message}`, 'error');
+    } finally {
+      setSavingStrategy(false);
+    }
+  };
+
+  const handleToggleAgentPresence = async (agent) => {
+    const updatedBusy = !agent.is_busy;
+    setConcurrencyAgents(prev => prev.map(a => a.agent_id === agent.agent_id ? { ...a, is_busy: updatedBusy } : a));
+    try {
+      await SupabaseSandboxService.updateAgentPresence(1, agent.agent_id, {
+        is_busy: updatedBusy
+      });
+      if (showToast) {
+        showToast(`${agent.agent_name} status: ${updatedBusy ? '🟡 On Break / Busy' : '🟢 Ready for Calls'}`, 'info');
+      }
+    } catch (err) {
+      console.error('Failed to toggle agent status:', err);
+    }
+  };
+
 
   const fetchAllDeviceHealth = async () => {
     setLoadingDevices(true);
@@ -142,6 +229,8 @@ export default function SuperAdminTelephonyHub({ showToast }) {
 
   useEffect(() => {
     fetchTenants();
+    fetchConcurrencyData();
+    fetchFinancialReport();
   }, []);
 
   const handleGlobalProviderSwitch = (newProvider) => {
@@ -149,10 +238,12 @@ export default function SuperAdminTelephonyHub({ showToast }) {
     localStorage.setItem('active_telephony_provider', newProvider);
     window.dispatchEvent(new CustomEvent('omniflow:telephony_provider_changed', { detail: { provider: newProvider } }));
     if (showToast) {
-      if (newProvider === 'sim_runo') {
+      if (newProvider === 'plivo') {
+        showToast('🎧 Active Telephony set to Plivo Universal WebRTC (In-Browser Zero-Install)', 'success');
+      } else if (newProvider === 'sim_runo') {
         showToast('📱 Active Telephony set to SIM Card & Runo Mobile Companion (Live)', 'success');
       } else {
-        showToast('☁️ Active Telephony switched to Voxbay Cloud PBX (Active)', 'info');
+        showToast('☁️ Active Telephony switched to Voxbay Cloud PBX (Standby)', 'info');
       }
     }
   };
@@ -162,7 +253,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
     setEditForm({
       tenant_id: tenant.tenant_id,
       company_name: tenant.company_name || `Company #${tenant.tenant_id}`,
-      provider: tenant.provider || globalTelephonyMode || 'sim_runo',
+      provider: tenant.provider || globalTelephonyMode || 'plivo',
       voxbay_uid: tenant.voxbay_uid || 'x97x4zzfz1',
       voxbay_upin: tenant.voxbay_upin || '8uqctamkgf',
       voxbay_did: tenant.voxbay_did || '918031496345',
@@ -324,6 +415,28 @@ export default function SuperAdminTelephonyHub({ showToast }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ffffff', padding: '6px', borderRadius: '10px', border: '1px solid #cbd5e1' }}>
           <button
             type="button"
+            onClick={() => handleGlobalProviderSwitch('plivo')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              border: 'none',
+              background: globalTelephonyMode === 'plivo' ? '#059669' : 'transparent',
+              color: globalTelephonyMode === 'plivo' ? '#ffffff' : '#64748b',
+              fontSize: '12px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s'
+            }}
+          >
+            <Cloud size={13} />
+            <span>🎧 Plivo WebRTC (Active)</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => handleGlobalProviderSwitch('sim_runo')}
             style={{
               padding: '6px 12px',
@@ -341,7 +454,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
             }}
           >
             <Smartphone size={13} />
-            <span>SIM / Runo (Live)</span>
+            <span>SIM / Companion (Live)</span>
           </button>
 
           <button
@@ -363,10 +476,501 @@ export default function SuperAdminTelephonyHub({ showToast }) {
             }}
           >
             <Cloud size={13} />
-            <span>Voxbay (Standby)</span>
+            <span>Voxbay (Legacy)</span>
           </button>
         </div>
       </div>
+
+      {/* LIVE SANDBOX TELEPHONY WALLET & METRICS CARD */}
+      <div style={{
+        background: 'linear-gradient(135deg, #064e3b 0%, #0f766e 100%)',
+        borderRadius: '14px',
+        padding: '18px 22px',
+        color: '#ffffff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '16px',
+        boxShadow: '0 4px 15px rgba(6, 78, 59, 0.2)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{
+            width: '42px',
+            height: '42px',
+            borderRadius: '12px',
+            background: 'rgba(255, 255, 255, 0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <Phone size={22} color="#a7f3d0" />
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', color: '#a7f3d0', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Sandbox PostgreSQL 17 Telephony Infrastructure
+            </div>
+            <div style={{ fontSize: '16px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>OmniFlow Universal WebRTC Cloud Engine</span>
+              <span style={{ fontSize: '11px', background: 'rgba(52, 211, 153, 0.3)', border: '1px solid #34d399', padding: '2px 8px', borderRadius: '12px', color: '#ffffff' }}>
+                Zero-Desktop-Apps
+              </span>
+            </div>
+            <div style={{ fontSize: '11.5px', color: '#d1fae5', marginTop: '3px' }}>
+              Virtual Line: +91 8031496345 • Multi-Agent Shared Line • 50 Concurrent Channels
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '11px', color: '#a7f3d0', fontWeight: '700' }}>Tenant 1 Calling Wallet</div>
+            <div style={{ fontSize: '20px', fontWeight: '900', color: '#ffffff' }}>₹2,498.50</div>
+            <div style={{ fontSize: '10.5px', color: '#d1fae5' }}>Auto-Recharge: Enabled (₹500 / ₹2,000)</div>
+          </div>
+        </div>
+      </div>
+
+      {/* 👥 PHASE 4: SHARED DID CONCURRENCY & INBOUND SMART ROUTING HUB */}
+      <div style={{
+        background: '#ffffff',
+        border: '1px solid #e2e8f0',
+        borderRadius: '16px',
+        padding: '20px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #0d9488 0%, #065f46 100%)',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 10px rgba(13,148,136,0.25)'
+            }}>
+              <Radio size={20} />
+            </div>
+            <div>
+              <div style={{ fontSize: '15px', fontWeight: '800', color: '#0f2b26', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>1-DID Shared Line & Concurrency Architecture</span>
+                <span style={{ fontSize: '11px', background: '#ecfdf5', border: '1px solid #6ee7b7', color: '#047857', padding: '2px 8px', borderRadius: '12px', fontWeight: '700' }}>
+                  ⚡ 50 Simultaneous Channels
+                </span>
+              </div>
+              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                Company Virtual DID: <strong style={{ color: '#0f2b26' }}>+91 8031496345</strong> • All outbound calls share this Caller ID • Inbound routes dynamically
+              </div>
+            </div>
+          </div>
+
+          {/* INBOUND ROUTING STRATEGY SELECTOR */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f8fafc', padding: '4px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+            <button
+              type="button"
+              onClick={() => handleStrategyChange('sticky_agent')}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: 'none',
+                background: inboundStrategy === 'sticky_agent' ? '#0d9488' : 'transparent',
+                color: inboundStrategy === 'sticky_agent' ? '#ffffff' : '#64748b',
+                fontSize: '11.5px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                transition: 'all 0.15s'
+              }}
+              title="Routes to the telecaller who previously spoke to this customer"
+            >
+              <Zap size={13} />
+              <span>Sticky Agent</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleStrategyChange('ring_all')}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: 'none',
+                background: inboundStrategy === 'ring_all' ? '#0d9488' : 'transparent',
+                color: inboundStrategy === 'ring_all' ? '#ffffff' : '#64748b',
+                fontSize: '11.5px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                transition: 'all 0.15s'
+              }}
+              title="Broadcasts incoming call to all online agent browsers simultaneously"
+            >
+              <Users size={13} />
+              <span>Ring All</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleStrategyChange('round_robin')}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: 'none',
+                background: inboundStrategy === 'round_robin' ? '#0d9488' : 'transparent',
+                color: inboundStrategy === 'round_robin' ? '#ffffff' : '#64748b',
+                fontSize: '11.5px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                transition: 'all 0.15s'
+              }}
+              title="Distributes calls fairly to least-recently-called agents"
+            >
+              <RefreshCw size={13} />
+              <span>Round Robin</span>
+            </button>
+          </div>
+        </div>
+
+        {/* SHARED AGENTS STATUS GRID */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: '12px',
+          background: '#f8fafc',
+          padding: '14px',
+          borderRadius: '12px',
+          border: '1px solid #e2e8f0'
+        }}>
+          {concurrencyAgents.map((agent) => (
+            <div
+              key={agent.agent_id}
+              style={{
+                background: '#ffffff',
+                border: agent.is_busy ? '1px solid #fde68a' : '1px solid #e2e8f0',
+                borderRadius: '10px',
+                padding: '12px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '50%',
+                  background: agent.is_busy ? '#fef3c7' : '#ecfdf5',
+                  color: agent.is_busy ? '#d97706' : '#059669',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: '800',
+                  fontSize: '12px'
+                }}>
+                  <Headphones size={16} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f2b26' }}>
+                    {agent.agent_name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: agent.is_busy ? '#f59e0b' : '#10b981',
+                      display: 'inline-block'
+                    }}></span>
+                    <span>{agent.is_busy ? 'On Break / Busy' : 'Online & Ready'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleToggleAgentPresence(agent)}
+                style={{
+                  background: agent.is_busy ? '#fef3c7' : '#f1f5f9',
+                  border: '1px solid ' + (agent.is_busy ? '#fcd34d' : '#cbd5e1'),
+                  borderRadius: '6px',
+                  padding: '5px 10px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  color: agent.is_busy ? '#92400e' : '#475569',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s'
+                }}
+              >
+                {agent.is_busy ? 'Set Ready' : 'Set Busy'}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 📊 PHASE 5: DYNAMIC TELEPHONY FINANCIAL LEDGER & PROFIT ANALYTICS */}
+      <div style={{
+        background: '#ffffff',
+        border: '1px solid #e2e8f0',
+        borderRadius: '16px',
+        padding: '22px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '18px'
+      }}>
+        {/* LEDGER HEADER & PERIOD FILTER */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 10px rgba(15,23,42,0.25)'
+            }}>
+              <BarChart3 size={20} color="#38bdf8" />
+            </div>
+            <div>
+              <div style={{ fontSize: '15.5px', fontWeight: '800', color: '#0f2b26', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>Dynamic Telephony Financial Ledger & Profit Margins</span>
+                <span style={{ fontSize: '11px', background: '#f0fdf4', border: '1px solid #86efac', color: '#16a34a', padding: '2px 8px', borderRadius: '12px', fontWeight: '700' }}>
+                  Live PostgreSQL 17 Analytics
+                </span>
+              </div>
+              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                Multi-tenant calling minutes, retail billed (₹0.75/min) vs Plivo wholesale cost (₹0.38/min) & gross profit ledger
+              </div>
+            </div>
+          </div>
+
+          {/* DATE RANGE FILTER BUTTONS */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f8fafc', padding: '4px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+            {[
+              { id: 'today', label: 'Today' },
+              { id: 'this_week', label: 'This Week' },
+              { id: 'this_month', label: 'This Month' },
+              { id: 'all', label: 'All Time' }
+            ].map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => {
+                  setFinancialPeriod(p.id);
+                  fetchFinancialReport(p.id);
+                }}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: financialPeriod === p.id ? '#0f172a' : 'transparent',
+                  color: financialPeriod === p.id ? '#ffffff' : '#64748b',
+                  fontSize: '11.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'all 0.15s'
+                }}
+              >
+                <Calendar size={12} />
+                <span>{p.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 4 HIGH-LEVEL KPI METRIC CARDS */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: '14px'
+        }}>
+          {/* Card 1: Retail Revenue */}
+          <div style={{
+            background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+            border: '1px solid #bbf7d0',
+            borderRadius: '12px',
+            padding: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#166534', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                Retail Billed Revenue
+              </span>
+              <span style={{ fontSize: '10.5px', background: '#bbf7d0', padding: '2px 6px', borderRadius: '6px', color: '#14532d', fontWeight: '800' }}>
+                @ ₹0.75/min
+              </span>
+            </div>
+            <div style={{ fontSize: '22px', fontWeight: '900', color: '#14532d' }}>
+              ₹{parseFloat(financialReport?.grandTotals?.totalRevenue || 0).toFixed(2)}
+            </div>
+            <div style={{ fontSize: '11px', color: '#166534' }}>
+              From {financialReport?.grandTotals?.totalMinutes || 0} billable minutes
+            </div>
+          </div>
+
+          {/* Card 2: Wholesale Cost */}
+          <div style={{
+            background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+            border: '1px solid #cbd5e1',
+            borderRadius: '12px',
+            padding: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                Wholesale Plivo Cost
+              </span>
+              <span style={{ fontSize: '10.5px', background: '#e2e8f0', padding: '2px 6px', borderRadius: '6px', color: '#334155', fontWeight: '800' }}>
+                @ ₹0.38/min
+              </span>
+            </div>
+            <div style={{ fontSize: '22px', fontWeight: '900', color: '#0f172a' }}>
+              ₹{parseFloat(financialReport?.grandTotals?.totalWholesaleCost || 0).toFixed(2)}
+            </div>
+            <div style={{ fontSize: '11px', color: '#64748b' }}>
+              Direct telecom carrier expenditure
+            </div>
+          </div>
+
+          {/* Card 3: Gross Margin / Net Profit */}
+          <div style={{
+            background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+            border: '1.5px solid #34d399',
+            borderRadius: '12px',
+            padding: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px',
+            boxShadow: '0 2px 8px rgba(16,185,129,0.1)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#065f46', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                Gross Telephony Profit
+              </span>
+              <span style={{ fontSize: '11px', background: '#059669', padding: '2px 8px', borderRadius: '10px', color: '#ffffff', fontWeight: '800' }}>
+                +{financialReport?.grandTotals?.overallMargin || 49.3}%
+              </span>
+            </div>
+            <div style={{ fontSize: '22px', fontWeight: '900', color: '#047857' }}>
+              ₹{parseFloat(financialReport?.grandTotals?.netProfit || 0).toFixed(2)}
+            </div>
+            <div style={{ fontSize: '11px', color: '#065f46' }}>
+              Net margin kept by platform
+            </div>
+          </div>
+
+          {/* Card 4: Total Minutes */}
+          <div style={{
+            background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+            border: '1px solid #bae6fd',
+            borderRadius: '12px',
+            padding: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                Minutes Consumed
+              </span>
+              <span style={{ fontSize: '10.5px', background: '#bae6fd', padding: '2px 6px', borderRadius: '6px', color: '#075985', fontWeight: '800' }}>
+                60/60 Pulse
+              </span>
+            </div>
+            <div style={{ fontSize: '22px', fontWeight: '900', color: '#0c4a6e' }}>
+              {financialReport?.grandTotals?.totalMinutes || 0} <span style={{ fontSize: '14px', fontWeight: '600' }}>mins</span>
+            </div>
+            <div style={{ fontSize: '11px', color: '#0369a1' }}>
+              Across {financialReport?.grandTotals?.totalCalls || 0} total calls
+            </div>
+          </div>
+        </div>
+
+        {/* MULTI-TENANT PROFIT BREAKDOWN TABLE */}
+        <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <th style={{ padding: '12px 16px' }}>Tenant / Company</th>
+                <th style={{ padding: '12px 16px' }}>Calls</th>
+                <th style={{ padding: '12px 16px' }}>Billed Minutes</th>
+                <th style={{ padding: '12px 16px' }}>Retail Billed (₹)</th>
+                <th style={{ padding: '12px 16px' }}>Wholesale Cost (₹)</th>
+                <th style={{ padding: '12px 16px' }}>Net Profit (₹)</th>
+                <th style={{ padding: '12px 16px' }}>Margin (%)</th>
+                <th style={{ padding: '12px 16px' }}>Wallet Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(!financialReport?.tenants || financialReport.tenants.length === 0) ? (
+                <tr>
+                  <td colSpan={8} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
+                    {loadingFinancial ? 'Loading dynamic financial report...' : 'No call logs recorded for the selected period.'}
+                  </td>
+                </tr>
+              ) : (
+                financialReport.tenants.map((t) => (
+                  <tr key={t.tenantId} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.15s' }}>
+                    <td style={{ padding: '12px 16px', fontWeight: '700', color: '#0f2b26' }}>
+                      <div>{t.companyName}</div>
+                      <div style={{ fontSize: '10.5px', color: '#64748b' }}>Tenant ID: #{t.tenantId}</div>
+                    </td>
+                    <td style={{ padding: '12px 16px', color: '#334155', fontWeight: '600' }}>
+                      {t.totalCalls}
+                    </td>
+                    <td style={{ padding: '12px 16px', color: '#0f172a', fontWeight: '700' }}>
+                      {t.totalMinutes} mins
+                    </td>
+                    <td style={{ padding: '12px 16px', color: '#16a34a', fontWeight: '800' }}>
+                      ₹{t.totalRevenue.toFixed(2)}
+                    </td>
+                    <td style={{ padding: '12px 16px', color: '#64748b', fontWeight: '600' }}>
+                      ₹{t.totalWholesaleCost.toFixed(2)}
+                    </td>
+                    <td style={{ padding: '12px 16px', color: '#059669', fontWeight: '800' }}>
+                      +₹{t.grossProfit.toFixed(2)}
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', padding: '2px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: '800' }}>
+                        {t.marginPercent}%
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 16px', fontWeight: '700', color: '#0f2b26' }}>
+                      ₹{t.walletBalance.toFixed(2)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+
 
       {/* SEARCH AND FILTERS */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>

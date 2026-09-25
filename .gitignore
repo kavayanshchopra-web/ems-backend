@@ -14,3 +14,5 @@ flutter_sim_app/*.zip
 *.zip
 *.apk
 temp_scratcher/
+dist_electron/
+temp_installer_build/

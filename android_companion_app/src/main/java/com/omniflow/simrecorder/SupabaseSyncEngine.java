@@ -177,6 +177,9 @@ public class SupabaseSyncEngine {
                 String rawDigits = phone.replaceAll("\\D", "");
                 String norm10 = rawDigits.length() >= 10 ? rawDigits.substring(rawDigits.length() - 10) : rawDigits;
                 if (norm10.isEmpty()) return;
+
+                // Auto-flush any pending offline calls buffered from previous network drops
+                triggerOfflineRetry(context);
                 String targetPhone = phone.startsWith("+") ? phone : ("+91" + norm10);
                 String resolvedCustName = (customerName != null && !customerName.trim().isEmpty() && !customerName.equalsIgnoreCase("null") && !customerName.replaceAll("\\D", "").equals(rawDigits))
                         ? customerName.trim()
@@ -481,6 +484,12 @@ public class SupabaseSyncEngine {
                     if (dur > 0 && !publicAudioUrl.isEmpty()) {
                         updatePayload.put("recording_url", publicAudioUrl);
                         updatePayload.put("recording_status", "COMPLIANT");
+                    } else if (dur > 0 && audioBytes != null && audioBytes.length > 500) {
+                        // Audio captured locally on phone, but CDN network upload failed or timed out temporarily
+                        updatePayload.put("recording_url", "PENDING_SYNC");
+                        updatePayload.put("recording_status", "PENDING_SYNC");
+                        fullNotes += " [⏳ Audio Pending: Queued for automatic upload]";
+                        enqueueOfflineUpload(context, actualCallId, dynamicTenantId, norm10, audioBytes, resolvedAgent, dynamicAgentId);
                     } else if (dur > 5) {
                         updatePayload.put("recording_url", "RECORDING_OFF");
                         updatePayload.put("recording_status", "RECORDING_OFF");
@@ -951,6 +960,146 @@ public class SupabaseSyncEngine {
                 conn.disconnect();
             } catch (Exception e) {
                 Log.e(TAG, "❌ [triggerBypassAlert Error]: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    /**
+     * Offline Queue Engine: Safely buffers audio files locally when network upload fails.
+     * Prevents loss of call recordings in elevators, basements, or spotty connectivity.
+     */
+    public static void enqueueOfflineUpload(
+            Context context,
+            String callId,
+            int tenantId,
+            String norm10,
+            byte[] audioBytes,
+            String agentName,
+            String agentId
+    ) {
+        if (context == null || audioBytes == null || audioBytes.length == 0 || callId == null) return;
+        new Thread(() -> {
+            try {
+                File dir = new File(context.getFilesDir(), "pending_calls");
+                if (!dir.exists()) dir.mkdirs();
+                File audioFile = new File(dir, callId + ".m4a");
+                try (java.io.FileOutputStream fos = new java.io.FileOutputStream(audioFile)) {
+                    fos.write(audioBytes);
+                    fos.flush();
+                }
+
+                JSONObject item = new JSONObject();
+                item.put("callId", callId);
+                item.put("tenantId", tenantId);
+                item.put("norm10", norm10);
+                item.put("agentName", agentName != null ? agentName : "Mobile Telecaller");
+                item.put("agentId", agentId != null ? agentId : "");
+                item.put("filePath", audioFile.getAbsolutePath());
+                item.put("timestamp", System.currentTimeMillis());
+
+                SharedPreferences qPrefs = context.getSharedPreferences("omniflow_offline_queue", Context.MODE_PRIVATE);
+                qPrefs.edit().putString(callId, item.toString()).apply();
+                Log.d(TAG, "📦 [Offline Queue] Call audio buffered locally for retry: " + callId + " (" + audioBytes.length + " bytes)");
+            } catch (Exception e) {
+                Log.e(TAG, "❌ [enqueueOfflineUpload Error]: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    /**
+     * Auto-retry engine: Flushes all pending buffered recordings as soon as internet connection is restored.
+     * Strictly respects stamped tenantId and agentId so zero cross-contamination occurs.
+     */
+    public static void triggerOfflineRetry(Context context) {
+        if (context == null) return;
+        new Thread(() -> {
+            try {
+                SharedPreferences qPrefs = context.getSharedPreferences("omniflow_offline_queue", Context.MODE_PRIVATE);
+                java.util.Map<String, ?> allEntries = qPrefs.getAll();
+                if (allEntries == null || allEntries.isEmpty()) return;
+
+                Log.d(TAG, "🔄 [Offline Queue] Attempting to flush " + allEntries.size() + " pending recording(s)...");
+
+                for (java.util.Map.Entry<String, ?> entry : allEntries.entrySet()) {
+                    String callId = entry.getKey();
+                    String rawJson = (String) entry.getValue();
+                    if (rawJson == null || rawJson.isEmpty()) continue;
+
+                    JSONObject item = new JSONObject(rawJson);
+                    int stampedTenant = item.optInt("tenantId", 0);
+                    String norm10 = item.optString("norm10", "");
+                    String filePath = item.optString("filePath", "");
+                    if (stampedTenant <= 0 || filePath.isEmpty()) continue;
+
+                    File localFile = new File(filePath);
+                    if (!localFile.exists() || localFile.length() < 100) {
+                        qPrefs.edit().remove(callId).apply();
+                        continue;
+                    }
+
+                    byte[] fileBytes = new byte[(int) localFile.length()];
+                    try (FileInputStream fis = new FileInputStream(localFile)) {
+                        int read = fis.read(fileBytes);
+                        if (read <= 0) continue;
+                    }
+
+                    String audioFileName = "call_" + System.currentTimeMillis() + "_" + norm10 + ".m4a";
+                    String objectPath = "tenants/" + stampedTenant + "/calls/" + audioFileName;
+                    String uploadUrlStr = SUPABASE_STORAGE_URL + "/object/" + STORAGE_BUCKET + "/" + objectPath;
+
+                    URL uploadUrl = new URL(uploadUrlStr);
+                    HttpURLConnection conn = (HttpURLConnection) uploadUrl.openConnection();
+                    conn.setRequestMethod("POST");
+                    conn.setRequestProperty("apikey", SUPABASE_KEY);
+                    conn.setRequestProperty("Authorization", "Bearer " + SUPABASE_KEY);
+                    conn.setRequestProperty("Content-Type", "audio/mp4");
+                    conn.setRequestProperty("x-upsert", "true");
+                    conn.setDoOutput(true);
+                    conn.setConnectTimeout(25000);
+                    conn.setReadTimeout(30000);
+
+                    try (OutputStream os = conn.getOutputStream()) {
+                        os.write(fileBytes);
+                        os.flush();
+                    }
+
+                    int code = conn.getResponseCode();
+                    conn.disconnect();
+
+                    if (code == 200 || code == 201) {
+                        String publicAudioUrl = SUPABASE_STORAGE_URL + "/object/public/" + STORAGE_BUCKET + "/" + objectPath;
+                        Log.d(TAG, "🎯 [Offline Queue Retry] Audio uploaded successfully for " + callId + " -> CDN: " + publicAudioUrl);
+
+                        // Update call_logs in Supabase to COMPLIANT
+                        try {
+                            URL patchUrl = new URL(SUPABASE_REST_URL + "/call_logs?call_id=eq." + callId);
+                            HttpURLConnection patchConn = (HttpURLConnection) patchUrl.openConnection();
+                            patchConn.setRequestMethod("PATCH");
+                            patchConn.setRequestProperty("apikey", SUPABASE_KEY);
+                            patchConn.setRequestProperty("Authorization", "Bearer " + SUPABASE_KEY);
+                            patchConn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                            patchConn.setDoOutput(true);
+
+                            JSONObject patchObj = new JSONObject();
+                            patchObj.put("recording_url", publicAudioUrl);
+                            patchObj.put("recording_status", "COMPLIANT");
+                            try (OutputStream os2 = patchConn.getOutputStream()) {
+                                os2.write(patchObj.toString().getBytes("utf-8"));
+                                os2.flush();
+                            }
+                            patchConn.getResponseCode();
+                            patchConn.disconnect();
+                        } catch (Exception patchErr) {}
+
+                        // Clean up local buffered file
+                        try { localFile.delete(); } catch (Exception ignored) {}
+                        qPrefs.edit().remove(callId).apply();
+                    } else {
+                        Log.w(TAG, "⚠️ [Offline Queue Retry] Failed for " + callId + ": HTTP " + code);
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "❌ [triggerOfflineRetry Error]: " + e.getMessage());
             }
         }).start();
     }

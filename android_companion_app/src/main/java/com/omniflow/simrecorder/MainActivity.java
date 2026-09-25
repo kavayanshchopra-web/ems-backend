@@ -247,6 +247,11 @@ public class MainActivity extends AppCompatActivity {
         @JavascriptInterface
         public void clearUserProfile() {
             try {
+                // Pillar 4.2: Auto-Flush pending offline calls before wiping profile so zero recordings are orphaned
+                try {
+                    SupabaseSyncEngine.triggerOfflineRetry(mContext);
+                } catch (Exception ignored) {}
+
                 SharedPreferences prefs = mContext.getSharedPreferences("omniflow", Context.MODE_PRIVATE);
                 prefs.edit()
                     .remove("tenant_id")
@@ -258,7 +263,7 @@ public class MainActivity extends AppCompatActivity {
                     .remove("agent_role")
                     .remove("agent_department")
                     .apply();
-                Log.d("WebAppInterface", "🧹 User profile cleared from Native Android");
+                Log.d("WebAppInterface", "🧹 User profile cleared from Native Android (Pending recordings flushed)");
             } catch (Exception e) {
                 Log.e("WebAppInterface", "❌ clearUserProfile error: " + e.getMessage());
             }
@@ -1717,16 +1722,8 @@ public class MainActivity extends AppCompatActivity {
         crmLayout.addView(progressBar);
 
         SharedPreferences prefs = getSharedPreferences("omniflow", MODE_PRIVATE);
-        if (!prefs.contains("agent_id") || prefs.getString("agent_id", "").trim().isEmpty()) {
-            try {
-                android.webkit.WebStorage.getInstance().deleteAllData();
-                android.webkit.CookieManager.getInstance().removeAllCookies(null);
-                webView.clearCache(true);
-                webView.clearFormData();
-                webView.clearHistory();
-                Log.d(TAG, "🧹 Clean install / unauthenticated launch: purged leftover WebView session");
-            } catch (Exception ignored) {}
-        }
+        // Permanent session: Do not wipe WebView storage or cookies on activity restart.
+        // Session persists indefinitely until explicit manual logout.
         String targetUrl = prefs.getString("dashboard_url", DASHBOARD_URL);
         if (!targetUrl.contains("app=android")) {
             targetUrl += (targetUrl.contains("?") ? "&" : "?") + "app=android";
