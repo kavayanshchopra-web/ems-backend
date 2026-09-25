@@ -9128,12 +9128,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         }}>
           <div style={{
             background: '#0F172A',
-            border: '1px solid #DC2626',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
             borderRadius: '20px',
             maxWidth: '460px',
             width: '100%',
             padding: '28px',
-            boxShadow: '0 25px 50px -12px rgba(220, 38, 38, 0.35)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
             textAlign: 'center',
             color: '#F8FAFC',
             fontFamily: 'var(--font-body)'
@@ -9142,13 +9142,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               width: '64px',
               height: '64px',
               borderRadius: '50%',
-              background: 'rgba(220, 38, 38, 0.15)',
-              border: '2px solid rgba(220, 38, 38, 0.4)',
+              background: 'rgba(59, 130, 246, 0.15)',
+              border: '2px solid rgba(59, 130, 246, 0.4)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               margin: '0 auto 18px',
-              color: '#EF4444'
+              color: '#60A5FA'
             }}>
               {deviceTakeoverModal.deviceType === 'mobile' ? (
                 <Smartphone size={32} />
@@ -9163,7 +9163,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               color: '#FFFFFF',
               margin: '0 0 10px 0'
             }}>
-              Session Logged Out
+              Session Disconnected
             </h3>
 
             <p style={{
@@ -9172,9 +9172,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               color: '#94A3B8',
               margin: '0 0 20px 0'
             }}>
-              Aapka account dusre <strong style={{ color: '#F87171' }}>{deviceTakeoverModal.deviceType === 'mobile' ? 'Mobile Phone' : 'Laptop / PC'}</strong> par login ho chuka hai.
+              Your account is now active on another <strong style={{ color: '#60A5FA' }}>{deviceTakeoverModal.deviceType === 'mobile' ? 'Mobile Phone' : 'Computer'}</strong>.
               <br /><br />
-              Enterprise Security Policy ke mutabiq ek samay par <strong>1 Phone + 1 Laptop</strong> hi active reh sakte hain. Kyunki naye phone/laptop ne login kiya, is device ka session disconnect kar diya gaya hai.
+              Under our Enterprise Dual-Device Policy, you can have <strong>1 Mobile Phone and 1 Computer</strong> session active at the same time. To continue using OmniFlow on this device, simply sign in again.
             </p>
 
             <div style={{
@@ -9188,31 +9188,30 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               alignItems: 'center',
               justifyContent: 'space-between'
             }}>
-              <span>New Active Device:</span>
-              <strong style={{ color: '#38BDF8' }}>{deviceTakeoverModal.deviceName}</strong>
+              <span>Active Device:</span>
+              <strong style={{ color: '#38BDF8' }}>{deviceTakeoverModal.deviceName || (deviceTakeoverModal.deviceType === 'mobile' ? 'Mobile Phone' : 'Computer')}</strong>
             </div>
 
             <button
               onClick={() => {
                 setDeviceTakeoverModal(null);
-                setAuthUser(null);
-                window.location.reload();
+                handleLogout();
               }}
               style={{
                 width: '100%',
                 padding: '12px 20px',
-                background: 'linear-gradient(135deg, #EF4444, #B91C1C)',
+                background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
                 color: '#FFFFFF',
                 border: 'none',
                 borderRadius: '12px',
                 fontWeight: '600',
                 fontSize: '14px',
                 cursor: 'pointer',
-                boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)',
+                boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)',
                 transition: 'all 0.2s ease'
               }}
             >
-              Re-login On This Device
+              Sign In On This Device
             </button>
           </div>
         </div>

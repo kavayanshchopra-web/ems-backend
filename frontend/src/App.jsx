@@ -356,7 +356,10 @@ export default function App() {
 
         setAuthUser(userData);
         setActiveTab('contacts');
-        showToast('⚡ Signed in successfully via PostgreSQL!', 'success');
+        const loginToastMsg = (detectedDeviceType === 'mobile')
+          ? '⚡ Mobile session active (Previous mobile session disconnected)'
+          : '⚡ Signed in successfully!';
+        showToast(loginToastMsg, 'success');
         setAuthLoading(false);
         return;
       } else {
