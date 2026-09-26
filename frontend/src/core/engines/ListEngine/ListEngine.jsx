@@ -945,6 +945,31 @@ export default function ListEngine({
     );
   };
 
+  // Deterministic Vibrant Avatar Palette (Individual colors per contact)
+  const AVATAR_PALETTES = [
+    { bg: '#eff6ff', text: '#1d4ed8' }, // Blue
+    { bg: '#fdf4ff', text: '#a21caf' }, // Fuchsia
+    { bg: '#f0fdf4', text: '#15803d' }, // Emerald
+    { bg: '#fff7ed', text: '#c2410c' }, // Orange
+    { bg: '#f5f3ff', text: '#6d28d9' }, // Violet
+    { bg: '#ecfeff', text: '#0e7490' }, // Cyan
+    { bg: '#fff1f2', text: '#be123c' }, // Rose
+    { bg: '#fefce8', text: '#a16207' }, // Amber
+    { bg: '#f0fdfa', text: '#0f766e' }, // Teal
+    { bg: '#eef2ff', text: '#4338ca' }  // Indigo
+  ];
+
+  const getAvatarTheme = (seedStr) => {
+    let hash = 0;
+    const str = String(seedStr || 'contact');
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i);
+      hash |= 0;
+    }
+    const idx = Math.abs(hash) % AVATAR_PALETTES.length;
+    return AVATAR_PALETTES[idx];
+  };
+
   const renderMobileCard = (record, idx) => {
     if (!record) return null;
 
@@ -1016,76 +1041,61 @@ export default function ListEngine({
     let statusTheme = {
       label: 'New',
       tabBg: '#10b981',
-      tabText: '#ffffff',
-      avatarBg: '#dcfce7',
-      avatarText: '#15803d'
+      tabText: '#ffffff'
     };
 
     if (isArchivedView || record.is_archived) {
       statusTheme = {
         label: 'Archived',
         tabBg: '#94a3b8',
-        tabText: '#ffffff',
-        avatarBg: '#f1f5f9',
-        avatarText: '#475569'
+        tabText: '#ffffff'
       };
     } else if (rawStatus.includes('pending') || (!hasValidPhone && !emailStr)) {
       statusTheme = {
         label: 'Pending',
         tabBg: '#f59e0b',
-        tabText: '#0f172a',
-        avatarBg: '#ffedd5',
-        avatarText: '#c2410c'
+        tabText: '#0f172a'
       };
     } else if (rawStatus.includes('dnd') || rawStatus.includes('lost') || rawStatus.includes('reject')) {
       statusTheme = {
         label: rawStatus.includes('dnd') ? 'DND' : 'Lost',
         tabBg: '#ef4444',
-        tabText: '#ffffff',
-        avatarBg: '#fee2e2',
-        avatarText: '#b91c1c'
+        tabText: '#ffffff'
       };
     } else if (rawStatus.includes('follow')) {
       statusTheme = {
         label: 'Followup',
         tabBg: '#3b82f6',
-        tabText: '#ffffff',
-        avatarBg: '#dbeafe',
-        avatarText: '#1d4ed8'
+        tabText: '#ffffff'
       };
     } else if (rawStatus.includes('contact')) {
       statusTheme = {
         label: 'Contacted',
         tabBg: '#0d9488',
-        tabText: '#ffffff',
-        avatarBg: '#ccfbf1',
-        avatarText: '#0f766e'
+        tabText: '#ffffff'
       };
     } else if (rawStatus.includes('won') || rawStatus.includes('convert')) {
       statusTheme = {
         label: 'Won',
         tabBg: '#10b981',
-        tabText: '#ffffff',
-        avatarBg: '#dcfce7',
-        avatarText: '#15803d'
+        tabText: '#ffffff'
       };
     } else if (rawStatus.includes('new') || rawStatus.includes('lead')) {
       statusTheme = {
         label: 'New',
         tabBg: '#10b981',
-        tabText: '#ffffff',
-        avatarBg: '#dcfce7',
-        avatarText: '#15803d'
+        tabText: '#ffffff'
       };
     } else if (recordStatus) {
       statusTheme = {
         label: recordStatus.length > 8 ? recordStatus.slice(0, 8) : recordStatus,
         tabBg: '#0d9488',
-        tabText: '#ffffff',
-        avatarBg: '#ccfbf1',
-        avatarText: '#0f766e'
+        tabText: '#ffffff'
       };
     }
+
+    // Deterministic colorful avatar per contact
+    const avatarTheme = getAvatarTheme(record.id || recordName || idx);
 
     return (
       <div
@@ -1096,27 +1106,27 @@ export default function ListEngine({
           position: 'relative',
           background: '#ffffff',
           border: '1px solid #e2e8f0',
-          borderRadius: '24px',
-          boxShadow: '0 1px 4px rgba(0, 0, 0, 0.04)',
+          borderRadius: '14px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
           display: 'flex',
           alignItems: 'center',
           padding: '0 10px 0 0',
           gap: '10px',
           cursor: 'pointer',
           overflow: 'hidden',
-          minHeight: '72px',
+          minHeight: '68px',
           width: '100%',
           boxSizing: 'border-box',
           transition: 'all 0.15s ease'
         }}
       >
-        {/* 1. Left Curved Status Tab (Compact 22px with vertical text) */}
+        {/* 1. Left Curved Status Tab (Slim 20px with vertical text) */}
         <div
           style={{
-            width: '22px',
+            width: '20px',
             alignSelf: 'stretch',
             background: statusTheme.tabBg,
-            borderRadius: '24px 0 0 24px',
+            borderRadius: '14px 0 0 14px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -1127,7 +1137,7 @@ export default function ListEngine({
             style={{
               writingMode: 'vertical-rl',
               transform: 'rotate(180deg)',
-              fontSize: '9.5px',
+              fontSize: '9px',
               fontWeight: '800',
               letterSpacing: '0.4px',
               color: statusTheme.tabText,
@@ -1138,14 +1148,15 @@ export default function ListEngine({
           </span>
         </div>
 
-        {/* 2. Soft Tint Circular Avatar with 2-Letter Initials */}
+        {/* 2. Soft Tint Deterministic Multi-Color Circular Avatar with Initials */}
         <div
           style={{
             width: '40px',
             height: '40px',
             borderRadius: '50%',
-            background: statusTheme.avatarBg,
-            color: statusTheme.avatarText,
+            background: avatarTheme.bg,
+            color: avatarTheme.text,
+            border: `1.5px solid ${avatarTheme.text}22`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -1158,7 +1169,7 @@ export default function ListEngine({
           {initials}
         </div>
 
-        {/* 3. Center Info (Full Name on Line 1, Full Phone on Line 2, Compact Source on Line 3) */}
+        {/* 3. Center Info (Full Name on Line 1, Full Phone strictly on Line 2, Compact Source on Line 3) */}
         <div
           style={{
             flex: 1,
@@ -1167,22 +1178,22 @@ export default function ListEngine({
             flexDirection: 'column',
             justifyContent: 'center',
             gap: '2px',
-            padding: '5px 0'
+            padding: '6px 0'
           }}
         >
-          {/* Line 1: Full Contact Name (No CON-0001 id, 100% space for name) */}
+          {/* Line 1: Full Contact Name (100% room for name) */}
           <div style={{ minWidth: 0, width: '100%' }}>
             <span
               style={{
                 fontWeight: '800',
-                fontSize: '15px',
+                fontSize: '14.5px',
                 color: '#0f172a',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 display: 'block',
                 width: '100%',
-                lineHeight: 1.2
+                lineHeight: 1.25
               }}
               title={recordName}
             >
@@ -1190,18 +1201,18 @@ export default function ListEngine({
             </span>
           </div>
 
-          {/* Line 2: Full Formatted Phone Number */}
+          {/* Line 2: Full Formatted Phone Number (Strictly empty/— if missing, NEVER fallback to email or other data) */}
           <div
             style={{
               fontSize: '13px',
               fontWeight: '700',
-              color: '#1e293b',
+              color: hasValidPhone ? '#1e293b' : '#94a3b8',
               letterSpacing: '0.2px',
               whiteSpace: 'nowrap',
               lineHeight: 1.2
             }}
           >
-            {hasValidPhone ? phoneStr : (emailStr && emailStr !== '—' ? emailStr : 'No phone number')}
+            {hasValidPhone && phoneStr && phoneStr !== '—' ? phoneStr : '—'}
           </div>
 
           {/* Line 3: Compact Source Badge + Agent */}
@@ -1214,7 +1225,7 @@ export default function ListEngine({
                 fontSize: '10px',
                 fontWeight: '600',
                 padding: '1px 6px',
-                borderRadius: '8px',
+                borderRadius: '6px',
                 background: '#f1f5f9',
                 color: '#334155',
                 whiteSpace: 'nowrap',
@@ -1242,7 +1253,7 @@ export default function ListEngine({
           </div>
         </div>
 
-        {/* 4. Right Action Buttons: Smaller Circular Buttons (32px) */}
+        {/* 4. Right Action Buttons: Crisp 32px Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
           {hasValidPhone ? (
             <>
@@ -1278,7 +1289,7 @@ export default function ListEngine({
                 </svg>
               </button>
 
-              {/* Circular WhatsApp Button */}
+              {/* Circular WhatsApp Button with clean handset cutout */}
               <a
                 href={`https://wa.me/${cleanPhoneDigits}`}
                 target="_blank"
@@ -1299,8 +1310,13 @@ export default function ListEngine({
                   padding: 0
                 }}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="#ffffff">
-                  <path d="M17.472 14.382c-.301-.15-1.78-.879-2.056-.98-.276-.1-.477-.15-.678.15-.2.301-.778.98-.954 1.18-.176.2-.351.226-.653.075-.301-.15-1.272-.469-2.424-1.496-.896-.799-1.501-1.786-1.677-2.087-.176-.301-.019-.464.132-.614.136-.135.301-.351.452-.527.15-.176.2-.301.301-.502.101-.2.05-.376-.025-.526-.075-.15-.678-1.633-.929-2.235-.244-.587-.493-.507-.678-.517-.176-.01-.376-.01-.577-.01-.2 0-.527.075-.803.376-.276.301-1.054 1.03-1.054 2.512 0 1.482 1.079 2.912 1.23 3.113.15.2 2.124 3.243 5.145 4.549.719.31 1.28.496 1.718.635.722.23 1.378.197 1.898.12.579-.087 1.78-.728 2.031-1.431.251-.703.251-1.305.176-1.431-.075-.126-.276-.201-.577-.351zM12.04 2C6.516 2 2.023 6.492 2.023 12.015c0 1.954.56 3.782 1.53 5.334L2 22l4.802-1.512c1.493.89 3.226 1.385 5.238 1.385 5.524 0 10.017-4.492 10.017-10.015C22.057 6.492 17.564 2 12.04 2z"/>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                  <path
+                    fill="#ffffff"
+                    fillRule="evenodd"
+                    clipRule="evenodd"
+                    d="M12.04 2C6.516 2 2.023 6.492 2.023 12.015c0 1.954.56 3.782 1.53 5.334L2 22l4.802-1.512c1.493.89 3.226 1.385 5.238 1.385 5.524 0 10.017-4.492 10.017-10.015C22.057 6.492 17.564 2 12.04 2zm5.432 12.382c-.301.15-1.78-.879-2.056.98-.276.1-.477.15-.678-.15-.2-.301-.778-.98-.954-1.18-.176-.2-.351-.226-.653-.075-.301.15-1.272.469-2.424 1.496-.896.799-1.501 1.786-1.677 2.087-.176.301-.019.464.132.614.136.135.301.351.452.527.15.176.2.301.301.502.101.2.05.376-.025.526-.075.15-.678 1.633-.929 2.235-.244.587-.493.507-.678.517-.176.01-.376.01-.577.01-.2 0-.527.075-.803.376-.276.301-1.054 1.03-1.054 2.512 0 1.482 1.079 2.912 1.23 3.113.15.2 2.124 3.243 5.145 4.549.719.31 1.28.496 1.718.635.722.23 1.378.197 1.898.12.579-.087 1.78-.728 2.031-1.431.251-.703.251-1.305.176-1.431-.075-.126-.276-.201-.577-.351z"
+                  />
                 </svg>
               </a>
             </>
@@ -1384,7 +1400,7 @@ export default function ListEngine({
         onOpenExportModal={onOpenExportModal}
       />
 
-      <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div className="list-content-card" style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
 
         {/* TABLE HEADER STRIP (CLEAN ENTERPRISE NOISE-FREE HEADER) */}
         {isArchivedView && (
