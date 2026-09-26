@@ -27,7 +27,7 @@ import CompanyRegistrationWizard from './components/CompanyRegistrationWizard';
 import PaymentGateScreen from './components/PaymentGateScreen';
 import OmniFlowLoginPage from './components/auth/OmniFlowLoginPage';
 import SubscriptionEngine from './core/engines/SubscriptionEngine';
-import { isSandboxEnvironment, SupabaseSandboxService } from './core/services/supabaseSandboxService';
+import { isSandboxEnvironment, SupabaseSandboxService, detectDeviceType } from './core/services/supabaseSandboxService';
 
 const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 const LIVE_BACKEND = 'https://api.employeemanagementsystems.com';
@@ -310,9 +310,7 @@ export default function App() {
         // Pillar 2: Dual-Device Session Registration (1 Phone + 1 Laptop Rule)
         try {
           const isAndroidApp = !!(window.AndroidApp || window.OmniFlowNative || window.location.search.includes('app=android'));
-          const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-          const isNarrowScreen = window.innerWidth <= 768;
-          const detectedDeviceType = (isAndroidApp || isMobileUA || isNarrowScreen) ? 'mobile' : 'desktop';
+          const detectedDeviceType = detectDeviceType();
 
           let currentDeviceId = localStorage.getItem('omnilflow_device_id');
           if (!currentDeviceId) {

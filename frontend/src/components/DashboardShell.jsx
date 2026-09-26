@@ -75,7 +75,7 @@ import MediaStorageEngine from '../core/engines/MediaStorageEngine';
 import LayoutEngine from '../core/engines/LayoutEngine/LayoutEngine';
 import GhlSyncBridge from '../core/services/ghlSyncBridge';
 import { useModuleRegistry } from '../core/registry/useModuleRegistry';
-import { isSandboxEnvironment, SupabaseSandboxService } from '../core/services/supabaseSandboxService';
+import { isSandboxEnvironment, SupabaseSandboxService, detectDeviceType } from '../core/services/supabaseSandboxService';
 import { PermissionEngine, STANDARD_ACTIONS, ACCESS_SCOPES, DEFAULT_ROLES } from '../core/engines/PermissionEngine/permissionEngine';
 import TrashVaultEngine from '../core/engines/TrashVaultEngine';
 import ShiftEngine from '../core/engines/ShiftEngine';
@@ -4428,9 +4428,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     const currentUserId = authUser.id || authUser.employeeId || authUser.email;
     if (!currentUserId) return;
 
-    const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const isNarrowScreen = typeof window !== 'undefined' && window.innerWidth <= 768;
-    const detectedDeviceType = (isAndroidApp || isMobileUA || isNarrowScreen) ? 'mobile' : 'desktop';
+    const detectedDeviceType = detectDeviceType();
 
     let deviceId = localStorage.getItem('omnilflow_device_id');
     if (!deviceId) {
@@ -4439,7 +4437,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
 
     let sessionToken = localStorage.getItem('omnilflow_active_session_token');
-    if (!sessionToken) {
+    const storedDeviceType = localStorage.getItem('omnilflow_device_type');
+
+    if (!sessionToken || storedDeviceType !== detectedDeviceType) {
       sessionToken = 'sess_' + Math.random().toString(36).substring(2, 12) + '_' + Date.now();
       localStorage.setItem('omnilflow_active_session_token', sessionToken);
       localStorage.setItem('omnilflow_device_type', detectedDeviceType);

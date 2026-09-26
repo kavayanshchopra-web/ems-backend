@@ -37,6 +37,46 @@ export const isSandboxEnvironment = () => {
   return true;
 };
 
+/**
+ * Accurately detects whether the client is physically a mobile phone/tablet or a desktop/laptop PC.
+ * Resilient against DevTools phone emulation (e.g. Galaxy A04e, responsive width) so testing
+ * responsive views on a laptop never kicks out the real phone session.
+ */
+export const detectDeviceType = () => {
+  if (typeof window === 'undefined') return 'desktop';
+
+  // 1. Dedicated Android Native App / Companion WebView
+  const isAndroidApp = !!(window.AndroidApp || window.OmniFlowNative || window.location.search.includes('app=android'));
+  if (isAndroidApp) return 'mobile';
+
+  // 2. Check Host Operating System (Laptop / Desktop PC)
+  // Even if Chrome DevTools emulates a phone (e.g. Galaxy A04e) or window width is narrow,
+  // the underlying host OS platform remains Windows/Mac/Linux PC, so it stays 'desktop'.
+  const platform = String(navigator.platform || '');
+  const uaDataPlatform = String(navigator.userAgentData?.platform || '');
+  const rawUA = String(navigator.userAgent || '');
+
+  const isDesktopOS = 
+    /Win|Mac|Linux x86_64/i.test(platform) ||
+    ['Windows', 'macOS'].includes(uaDataPlatform) ||
+    /Windows NT|Macintosh|X11; Linux x86_64/i.test(rawUA);
+
+  // If running on a desktop or laptop, always treat as 'desktop'
+  if (isDesktopOS) {
+    return 'desktop';
+  }
+
+  // 3. Genuine Mobile Phone / Tablet check
+  const isMobileUA = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(rawUA);
+  const isTouchDevice = (navigator.maxTouchPoints || 0) > 0;
+
+  if (isMobileUA || isTouchDevice) {
+    return 'mobile';
+  }
+
+  return 'desktop';
+};
+
 export const SupabaseSandboxService = {
   // 1. EMPLOYEES
   async fetchEmployees(tenantId = 1) {
