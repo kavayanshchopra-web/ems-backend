@@ -3492,35 +3492,39 @@ h1, h2, h3, h4, h5, h6 {
     white-space: nowrap !important;
   }
 
-  /* ── Universal KPI Summary Strip Mobile (Clean 2x2 for 4 cards, 3-col for 3 cards) ── */
+  /* ── Universal KPI Summary Strip Mobile (Single-Line Horizontal Swipeable) ── */
   .widget-engine-outer-wrapper {
-    overflow-x: visible !important;
-    overflow-y: visible !important;
-    padding-bottom: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 4px !important;
     width: 100% !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+  .widget-engine-outer-wrapper::-webkit-scrollbar {
+    display: none !important;
   }
   .widget-engine-strip {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
-    width: 100% !important;
-    min-width: 0 !important;
-    gap: 6px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    width: max-content !important;
+    min-width: 100% !important;
+    gap: 8px !important;
     box-sizing: border-box !important;
-  }
-  .widget-engine-strip[data-widget-count="3"] {
-    grid-template-columns: repeat(3, 1fr) !important;
-  }
-  .widget-engine-strip[data-widget-count="4"] {
-    grid-template-columns: repeat(2, 1fr) !important;
+    padding: 2px 2px !important;
   }
   .widget-card-item {
-    min-width: 0 !important;
-    flex: none !important;
-    width: 100% !important;
+    min-width: 135px !important;
+    width: 135px !important;
+    max-width: 145px !important;
+    flex: 0 0 135px !important;
+    flex-shrink: 0 !important;
   }
   .kpi-widget-card {
-    padding: 7px 4px !important;
-    gap: 4px !important;
+    padding: 8px 10px !important;
+    gap: 5px !important;
     flex-direction: column !important;
     align-items: center !important;
     text-align: center !important;
