@@ -82,9 +82,6 @@ export default function LayoutToolbar({
       <div
         className="module-header-strip"
         style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 50,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
