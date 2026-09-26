@@ -74,7 +74,7 @@ export default function LayoutToolbar({
   }
   if (availableViews.length === 0) availableViews = ['list'];
 
-  const isFilterActive = FilterEngine.isFilterActive(filterValues) || Boolean(searchQuery.trim());
+  const isFilterActive = FilterEngine.isFilterActive(filterValues) || Boolean(searchQuery && typeof searchQuery === 'string' && searchQuery.trim());
 
   return (
     <div className="layout-toolbar-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>

@@ -16,13 +16,13 @@ export default function SearchInput({
   ...props
 }) {
   return (
-    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width, ...style }}>
+    <div className="search-input-primitive" style={{ position: 'relative', display: 'flex', alignItems: 'center', width, ...style }}>
       <Search
-        size={15}
-        color="#94a3b8"
+        size={16}
+        color="#64748b"
         style={{
           position: 'absolute',
-          left: '11px',
+          left: '12px',
           pointerEvents: 'none',
           zIndex: 2,
           flexShrink: 0
@@ -36,14 +36,14 @@ export default function SearchInput({
         disabled={disabled}
         style={{
           width: '100%',
-          height: '36px',
-          paddingLeft: '34px',
-          paddingRight: rightElement ? (value ? '60px' : '36px') : (value ? '28px' : '12px'),
-          fontSize: '12.5px',
+          height: '38px',
+          paddingLeft: '38px',
+          paddingRight: rightElement ? (value ? '64px' : '40px') : (value ? '32px' : '12px'),
+          fontSize: '13px',
           fontFamily: 'Inter, system-ui, sans-serif',
           color: '#0f172a',
-          background: '#ffffff',
-          border: '1px solid #cbd5e1',
+          background: '#f8fafc',
+          border: '1px solid #e2e8f0',
           borderRadius: '8px',
           outline: 'none',
           boxSizing: 'border-box',
@@ -57,7 +57,7 @@ export default function SearchInput({
           onClick={onClear}
           style={{
             position: 'absolute',
-            right: rightElement ? '38px' : '10px',
+            right: rightElement ? '40px' : '10px',
             background: 'none',
             border: 'none',
             color: '#94a3b8',
