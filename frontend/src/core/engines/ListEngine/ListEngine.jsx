@@ -465,6 +465,8 @@ export default function ListEngine({
   // Follow-up Queue Ticker & Focus State
   const tickerRef = useRef(null);
   const [isTickerPaused, setIsTickerPaused] = useState(false);
+  const [isAutoGliding, setIsAutoGliding] = useState(true);
+  const [isTouching, setIsTouching] = useState(false);
   const [focusFollowupsOnly, setFocusFollowupsOnly] = useState(false);
 
   // Compute pending & overdue follow-ups
@@ -2747,6 +2749,39 @@ export default function ListEngine({
         .col-resizer-handle:active {
           background: #0d9488 !important;
         }
+        @keyframes crmGlowBorder {
+          0% {
+            border-color: rgba(245, 158, 11, 0.5);
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.25), inset 0 0 15px rgba(245, 158, 11, 0.05);
+          }
+          50% {
+            border-color: rgba(239, 68, 68, 0.85);
+            box-shadow: 0 0 25px rgba(239, 68, 68, 0.5), inset 0 0 20px rgba(239, 68, 68, 0.08);
+          }
+          100% {
+            border-color: rgba(245, 158, 11, 0.5);
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.25), inset 0 0 15px rgba(245, 158, 11, 0.05);
+          }
+        }
+        @keyframes crmBeaconPulse {
+          0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+          70% { transform: scale(1.15); box-shadow: 0 0 0 7px rgba(239, 68, 68, 0); }
+          100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        @keyframes crmMarqueeScroll {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .crm-ticker-track:hover {
+          animation-play-state: paused !important;
+        }
+        .crm-ticker-card {
+          transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+        }
+        .crm-ticker-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+        }
       `}</style>
 
       {/* UNIVERSAL BULK ACTION ENGINE */}
@@ -2768,103 +2803,132 @@ export default function ListEngine({
       <div className="list-content-card" style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
 
         {/* CRM SALES DEALS: TOP FOLLOW-UP ACTION QUEUE & SCROLLING TICKER */}
+        {/* CRM SALES DEALS: TOP FOLLOW-UP ACTION QUEUE & GLOWING RADAR COCKPIT */}
         {isCrmModule && (
           <div
             style={{
-              padding: '10px 14px',
+              padding: '12px 14px',
               background: dueFollowupDeals.length > 0 
-                ? 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 40%, #ffffff 100%)' 
+                ? 'radial-gradient(ellipse at top left, #1e1b4b 0%, #0f172a 60%, #020617 100%)' 
                 : '#ffffff',
-              borderBottom: '1px solid #e2e8f0',
+              borderRadius: '16px',
+              border: dueFollowupDeals.length > 0 ? '2px solid rgba(245, 158, 11, 0.7)' : '1px solid #e2e8f0',
+              animation: dueFollowupDeals.length > 0 ? 'crmGlowBorder 3.5s infinite ease-in-out' : 'none',
+              boxShadow: dueFollowupDeals.length > 0 
+                ? '0 8px 32px -4px rgba(0, 0, 0, 0.5), 0 0 20px rgba(245, 158, 11, 0.3)' 
+                : '0 1px 3px rgba(0, 0, 0, 0.04)',
+              margin: '4px 0 10px 0',
               display: 'flex',
               flexDirection: 'column',
-              gap: '8px',
+              gap: '10px',
               width: '100%',
-              boxSizing: 'border-box'
+              boxSizing: 'border-box',
+              position: 'relative',
+              overflow: 'hidden'
             }}
           >
-            {/* Ticker Header Bar */}
+            {/* Radar Header Bar */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '22px',
-                    height: '22px',
-                    borderRadius: '50%',
-                    background: dueFollowupDeals.length > 0 ? '#ef4444' : '#10b981',
-                    color: '#ffffff',
-                    fontSize: '11px',
-                    fontWeight: '800',
-                    boxShadow: dueFollowupDeals.length > 0 ? '0 1px 4px rgba(239, 68, 68, 0.4)' : 'none'
-                  }}
-                >
-                  {dueFollowupDeals.length > 0 ? dueFollowupDeals.length : '✓'}
-                </span>
-                <span style={{ fontSize: '13px', fontWeight: '800', color: dueFollowupDeals.length > 0 ? '#92400e' : '#1e293b' }}>
-                  {dueFollowupDeals.length > 0
-                    ? `Today's Action & Follow-up Queue (${dueFollowupDeals.length} Due)`
-                    : 'All Caught Up — No Follow-ups Pending for Today'}
-                </span>
-                {dueFollowupDeals.some(d => d.isOverdue) && (
+                {dueFollowupDeals.length > 0 ? (
                   <span
                     style={{
-                      fontSize: '10px',
-                      fontWeight: '800',
-                      color: '#dc2626',
-                      background: '#fee2e2',
-                      border: '1px solid #fecaca',
-                      padding: '2px 6px',
-                      borderRadius: '4px'
+                      width: '10px',
+                      height: '10px',
+                      borderRadius: '50%',
+                      background: '#ef4444',
+                      display: 'inline-block',
+                      animation: 'crmBeaconPulse 1.8s infinite',
+                      flexShrink: 0
+                    }}
+                  />
+                ) : (
+                  <span style={{ fontSize: '13px' }}>✅</span>
+                )}
+
+                <span style={{ fontSize: '13px', fontWeight: '900', color: dueFollowupDeals.length > 0 ? '#f8fafc' : '#1e293b', letterSpacing: '0.3px' }}>
+                  {dueFollowupDeals.length > 0 ? "🔥 LIVE ACTION RADAR" : "All Caught Up — No Follow-ups Due"}
+                </span>
+
+                {dueFollowupDeals.length > 0 && (
+                  <span
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.25)',
+                      color: '#fca5a5',
+                      border: '1px solid rgba(239, 68, 68, 0.45)',
+                      padding: '2px 8px',
+                      borderRadius: '20px',
+                      fontSize: '11px',
+                      fontWeight: '800'
                     }}
                   >
-                    🚨 Overdue Alert
+                    {dueFollowupDeals.length} Action Needed
                   </span>
                 )}
               </div>
 
-              {/* Controls Right: Focus Mode Filter & Carousel Navigation */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {dueFollowupDeals.length > 0 && (
+              {/* Controls Right: Auto-Glide Switch + Focus Button + Navigation */}
+              {dueFollowupDeals.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {/* Auto-Glide Toggle */}
                   <button
                     type="button"
-                    onClick={() => setFocusFollowupsOnly(prev => !prev)}
+                    onClick={() => setIsAutoGliding(prev => !prev)}
+                    title={isAutoGliding ? "Click to Pause Continuous Glide" : "Click to Resume Continuous Glide"}
                     style={{
-                      fontSize: '11px',
+                      fontSize: '10.5px',
                       fontWeight: '800',
-                      padding: '4px 9px',
-                      borderRadius: '6px',
-                      border: '1px solid #f59e0b',
-                      background: focusFollowupsOnly ? '#d97706' : '#ffffff',
-                      color: focusFollowupsOnly ? '#ffffff' : '#b45309',
+                      padding: '3px 8px',
+                      borderRadius: '20px',
+                      border: isAutoGliding ? '1px solid rgba(16, 185, 129, 0.6)' : '1px solid rgba(245, 158, 11, 0.6)',
+                      background: isAutoGliding ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.15)',
+                      color: isAutoGliding ? '#34d399' : '#fbbf24',
                       cursor: 'pointer',
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '4px',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    {focusFollowupsOnly ? '✕ Show All Deals' : '🔥 Focus Today Only'}
+                    <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: isAutoGliding ? '#10b981' : '#f59e0b', display: 'inline-block' }} />
+                    {isAutoGliding ? '⚡ Glide: ON' : '⏸️ Glide: OFF'}
                   </button>
-                )}
 
-                {dueFollowupDeals.length > 1 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  {/* Focus Today Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setFocusFollowupsOnly(prev => !prev)}
+                    style={{
+                      fontSize: '10.5px',
+                      fontWeight: '800',
+                      padding: '3px 8px',
+                      borderRadius: '20px',
+                      border: '1px solid #f59e0b',
+                      background: focusFollowupsOnly ? '#d97706' : 'rgba(255, 255, 255, 0.1)',
+                      color: focusFollowupsOnly ? '#ffffff' : '#fde68a',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px'
+                    }}
+                  >
+                    {focusFollowupsOnly ? '✕ All' : '🎯 Focus'}
+                  </button>
+
+                  {/* Nav Arrows */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                     <button
                       type="button"
                       onClick={() => scrollTicker('left')}
-                      title="Previous Follow-up"
+                      title="Scroll Left"
                       style={{
-                        width: '24px',
-                        height: '24px',
+                        width: '22px',
+                        height: '22px',
                         borderRadius: '50%',
-                        border: '1px solid #cbd5e1',
-                        background: '#ffffff',
-                        color: '#475569',
-                        fontSize: '14px',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        background: 'rgba(255, 255, 255, 0.08)',
+                        color: '#f8fafc',
+                        fontSize: '13px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -2877,15 +2941,15 @@ export default function ListEngine({
                     <button
                       type="button"
                       onClick={() => scrollTicker('right')}
-                      title="Next Follow-up"
+                      title="Scroll Right"
                       style={{
-                        width: '24px',
-                        height: '24px',
+                        width: '22px',
+                        height: '22px',
                         borderRadius: '50%',
-                        border: '1px solid #cbd5e1',
-                        background: '#ffffff',
-                        color: '#475569',
-                        fontSize: '14px',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        background: 'rgba(255, 255, 255, 0.08)',
+                        color: '#f8fafc',
+                        fontSize: '13px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -2896,270 +2960,295 @@ export default function ListEngine({
                       ›
                     </button>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
-            {/* Scrollable Carousel Cards Strip */}
+            {/* Glowing Cards Track (Smooth Infinite Glide with Pause on Hover/Touch) */}
             {dueFollowupDeals.length > 0 ? (
               <div
                 ref={tickerRef}
                 onMouseEnter={() => setIsTickerPaused(true)}
                 onMouseLeave={() => setIsTickerPaused(false)}
-                onTouchStart={() => setIsTickerPaused(true)}
-                onTouchEnd={() => setIsTickerPaused(false)}
+                onTouchStart={() => setIsTouching(true)}
+                onTouchEnd={() => setIsTouching(false)}
                 style={{
                   display: 'flex',
-                  gap: '10px',
-                  overflowX: 'auto',
+                  gap: '12px',
+                  overflowX: isAutoGliding ? 'hidden' : 'auto',
                   padding: '4px 2px 8px 2px',
                   scrollbarWidth: 'none',
                   msOverflowStyle: 'none',
-                  scrollSnapType: 'x mandatory'
+                  WebkitOverflowScrolling: 'touch',
+                  scrollSnapType: isAutoGliding ? 'none' : 'x mandatory'
                 }}
               >
-                {dueFollowupDeals.map((item, qIdx) => {
-                  return (
-                    <div
-                      key={item.record.id || qIdx}
-                      onClick={() => onViewRecord(item.record)}
-                      style={{
-                        minWidth: '255px',
-                        maxWidth: '265px',
-                        flexShrink: 0,
-                        background: '#ffffff',
-                        border: `1.5px solid ${item.isOverdue ? '#fca5a5' : '#fde68a'}`,
-                        borderLeft: `4px solid ${item.isOverdue ? '#dc2626' : '#d97706'}`,
-                        borderRadius: '10px',
-                        padding: '9px 11px',
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '6px',
-                        scrollSnapAlign: 'start',
-                        boxSizing: 'border-box',
-                        transition: 'transform 0.15s ease'
-                      }}
-                    >
-                      {/* Top Line: Status Badge + Deal Amount */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                        <span
-                          style={{
-                            fontSize: '10px',
-                            fontWeight: '800',
-                            color: item.isOverdue ? '#dc2626' : '#b45309',
-                            background: item.isOverdue ? '#fee2e2' : '#fef3c7',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            whiteSpace: 'nowrap'
-                          }}
-                        >
-                          {item.isOverdue ? `⚠️ Overdue (${item.dt.timeStr})` : `⏰ Today ${item.dt.timeStr}`}
-                        </span>
-
-                        {item.amtStr ? (
-                          <span style={{ fontSize: '10.5px', fontWeight: '800', color: '#059669', whiteSpace: 'nowrap' }}>
-                            💰 {item.amtStr}
-                          </span>
-                        ) : null}
-                      </div>
-
-                      {/* Middle Line: Lead Title + Phone/Contact */}
-                      <div>
-                        <div
-                          style={{
-                            fontSize: '13px',
-                            fontWeight: '800',
-                            color: '#0f172a',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}
-                          title={item.cleanTitle}
-                        >
-                          {item.cleanTitle}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: '11px',
-                            color: '#64748b',
-                            fontWeight: '600',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            marginTop: '2px'
-                          }}
-                        >
-                          {item.contactPerson && item.contactPerson !== item.cleanTitle ? `${item.contactPerson} • ` : ''}
-                          {item.hasPhone ? item.phoneStr : (item.emailStr ? item.emailStr : '— No Phone')}
-                        </div>
-                      </div>
-
-                      {/* Bottom Line: Instant 1-Tap Action Buttons */}
+                <div
+                  className="crm-ticker-track"
+                  style={{
+                    display: 'flex',
+                    gap: '12px',
+                    width: 'max-content',
+                    animation: isAutoGliding 
+                      ? `crmMarqueeScroll ${Math.max(16, dueFollowupDeals.length * 8)}s linear infinite` 
+                      : 'none',
+                    animationPlayState: (isTickerPaused || isTouching) ? 'paused' : 'running'
+                  }}
+                >
+                  {/* Render Follow-up Queue Cards (Repeated for continuous seamless loop) */}
+                  {(isAutoGliding 
+                    ? [...dueFollowupDeals, ...dueFollowupDeals, ...(dueFollowupDeals.length <= 2 ? [...dueFollowupDeals, ...dueFollowupDeals] : [])] 
+                    : dueFollowupDeals
+                  ).map((item, qIdx) => {
+                    return (
                       <div
+                        key={`${item.record.id || 'deal'}_${qIdx}`}
+                        className="crm-ticker-card"
+                        onClick={() => onViewRecord(item.record)}
                         style={{
+                          minWidth: '265px',
+                          maxWidth: '275px',
+                          flexShrink: 0,
+                          background: 'linear-gradient(145deg, #172033 0%, #0f172a 100%)',
+                          border: item.isOverdue ? '1.5px solid rgba(239, 68, 68, 0.5)' : '1.5px solid rgba(245, 158, 11, 0.45)',
+                          borderLeft: item.isOverdue ? '4px solid #ef4444' : '4px solid #f59e0b',
+                          borderRadius: '12px',
+                          padding: '10px 12px',
+                          boxShadow: item.isOverdue 
+                            ? '0 4px 15px rgba(239, 68, 68, 0.2)' 
+                            : '0 4px 15px rgba(245, 158, 11, 0.2)',
+                          cursor: 'pointer',
                           display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: '6px',
-                          paddingTop: '5px',
-                          borderTop: '1px dashed #f1f5f9'
+                          flexDirection: 'column',
+                          gap: '7px',
+                          scrollSnapAlign: 'start',
+                          boxSizing: 'border-box'
                         }}
-                        onClick={(e) => e.stopPropagation()}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          {/* Call Button */}
-                          {item.hasPhone ? (
+                        {/* Top Line: Status Badge + Deal Value */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                          <span
+                            style={{
+                              fontSize: '10.5px',
+                              fontWeight: '800',
+                              color: item.isOverdue ? '#fca5a5' : '#fde68a',
+                              background: item.isOverdue ? 'rgba(239, 68, 68, 0.25)' : 'rgba(245, 158, 11, 0.22)',
+                              border: item.isOverdue ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(245, 158, 11, 0.35)',
+                              padding: '2px 7px',
+                              borderRadius: '4px',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            {item.isOverdue ? `🚨 Overdue • ${item.dt.timeStr}` : `⏰ Today • ${item.dt.timeStr}`}
+                          </span>
+
+                          {item.amtStr ? (
+                            <span style={{ fontSize: '11px', fontWeight: '800', color: '#34d399', whiteSpace: 'nowrap' }}>
+                              💰 {item.amtStr}
+                            </span>
+                          ) : null}
+                        </div>
+
+                        {/* Middle Line: Lead Title + Phone/Contact */}
+                        <div>
+                          <div
+                            style={{
+                              fontSize: '13.5px',
+                              fontWeight: '800',
+                              color: '#ffffff',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}
+                            title={item.cleanTitle}
+                          >
+                            {item.cleanTitle}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '11.5px',
+                              color: '#94a3b8',
+                              fontWeight: '600',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              marginTop: '2px'
+                            }}
+                          >
+                            {item.contactPerson && item.contactPerson !== item.cleanTitle ? `${item.contactPerson} • ` : ''}
+                            {item.hasPhone ? item.phoneStr : (item.emailStr ? item.emailStr : '— No Phone')}
+                          </div>
+                        </div>
+
+                        {/* Bottom Line: Instant 1-Tap Action Buttons */}
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '6px',
+                            paddingTop: '6px',
+                            borderTop: '1px dashed rgba(255, 255, 255, 0.12)'
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {/* Call Button */}
+                            {item.hasPhone ? (
+                              <button
+                                type="button"
+                                title={`Call ${item.cleanTitle}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (window.openGlobalDialer) {
+                                    window.openGlobalDialer(item.phoneStr, item.cleanTitle, true);
+                                  } else {
+                                    window.location.href = `tel:${item.cleanPhoneDigits}`;
+                                  }
+                                }}
+                                style={{
+                                  width: '28px',
+                                  height: '28px',
+                                  borderRadius: '6px',
+                                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                  border: 'none',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                  padding: 0,
+                                  boxShadow: '0 2px 6px rgba(16, 185, 129, 0.4)'
+                                }}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                                </svg>
+                              </button>
+                            ) : (
+                              <div
+                                style={{
+                                  width: '28px',
+                                  height: '28px',
+                                  borderRadius: '6px',
+                                  background: 'rgba(255, 255, 255, 0.06)',
+                                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  opacity: 0.4
+                                }}
+                                title="No phone"
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                                </svg>
+                              </div>
+                            )}
+
+                            {/* WhatsApp Button */}
+                            {item.hasPhone ? (
+                              <a
+                                href={`https://wa.me/${item.cleanPhoneDigits}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                title={`WhatsApp ${item.cleanTitle}`}
+                                style={{
+                                  width: '28px',
+                                  height: '28px',
+                                  borderRadius: '6px',
+                                  background: '#25D366',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  textDecoration: 'none',
+                                  padding: 0,
+                                  boxShadow: '0 2px 6px rgba(37, 211, 102, 0.4)'
+                                }}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="#ffffff">
+                                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+                                </svg>
+                              </a>
+                            ) : (
+                              <div
+                                style={{
+                                  width: '28px',
+                                  height: '28px',
+                                  borderRadius: '6px',
+                                  background: 'rgba(255, 255, 255, 0.06)',
+                                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  opacity: 0.4
+                                }}
+                                title="No WhatsApp phone"
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="#94a3b8">
+                                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            {/* Done / Clear Button */}
                             <button
                               type="button"
-                              title={`Call ${item.cleanTitle}`}
+                              title="Mark Follow-up Complete"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (window.openGlobalDialer) {
-                                  window.openGlobalDialer(item.phoneStr, item.cleanTitle, true);
-                                } else {
-                                  window.location.href = `tel:${item.cleanPhoneDigits}`;
-                                }
+                                handleClearFollowup(item.record);
                               }}
                               style={{
-                                width: '26px',
-                                height: '26px',
+                                fontSize: '10px',
+                                fontWeight: '800',
+                                padding: '3px 8px',
                                 borderRadius: '5px',
-                                background: '#10b981',
-                                border: 'none',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
+                                border: '1px solid rgba(16, 185, 129, 0.45)',
+                                background: 'rgba(16, 185, 129, 0.2)',
+                                color: '#34d399',
                                 cursor: 'pointer',
-                                padding: 0
+                                transition: 'all 0.15s ease'
                               }}
                             >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-                              </svg>
+                              ✓ Done
                             </button>
-                          ) : (
-                            <div
-                              style={{
-                                width: '26px',
-                                height: '26px',
-                                borderRadius: '5px',
-                                background: '#f1f5f9',
-                                border: '1px solid #e2e8f0',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                opacity: 0.5
-                              }}
-                              title="No phone"
-                            >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-                              </svg>
-                            </div>
-                          )}
 
-                          {/* WhatsApp Button */}
-                          {item.hasPhone ? (
-                            <a
-                              href={`https://wa.me/${item.cleanPhoneDigits}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              title={`WhatsApp ${item.cleanTitle}`}
+                            {/* +1 Day Snooze */}
+                            <button
+                              type="button"
+                              title="Snooze to Tomorrow 11 AM"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleQuickFollowup(item.record, 'tomorrow_morning');
+                              }}
                               style={{
-                                width: '26px',
-                                height: '26px',
+                                fontSize: '10px',
+                                fontWeight: '800',
+                                padding: '3px 8px',
                                 borderRadius: '5px',
-                                background: '#25D366',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                textDecoration: 'none',
-                                padding: 0
+                                border: '1px solid rgba(245, 158, 11, 0.45)',
+                                background: 'rgba(245, 158, 11, 0.2)',
+                                color: '#fbbf24',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
                               }}
                             >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="#ffffff">
-                                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
-                              </svg>
-                            </a>
-                          ) : (
-                            <div
-                              style={{
-                                width: '26px',
-                                height: '26px',
-                                borderRadius: '5px',
-                                background: '#f1f5f9',
-                                border: '1px solid #e2e8f0',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                opacity: 0.5
-                              }}
-                              title="No WhatsApp phone"
-                            >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="#94a3b8">
-                                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
-                              </svg>
-                            </div>
-                          )}
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          {/* Done / Clear Button */}
-                          <button
-                            type="button"
-                            title="Mark Follow-up Complete"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleClearFollowup(item.record);
-                            }}
-                            style={{
-                              fontSize: '9.5px',
-                              fontWeight: '800',
-                              padding: '3px 7px',
-                              borderRadius: '4px',
-                              border: '1px solid #bbf7d0',
-                              background: '#f0fdf4',
-                              color: '#15803d',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            ✓ Done
-                          </button>
-
-                          {/* +1 Day Snooze */}
-                          <button
-                            type="button"
-                            title="Snooze to Tomorrow 11 AM"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleQuickFollowup(item.record, 'tomorrow_morning');
-                            }}
-                            style={{
-                              fontSize: '9.5px',
-                              fontWeight: '800',
-                              padding: '3px 7px',
-                              borderRadius: '4px',
-                              border: '1px solid #fde68a',
-                              background: '#fffbeb',
-                              color: '#b45309',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            +1d
-                          </button>
+                              +1d
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 0' }}>
-                <span style={{ fontSize: '11px', color: '#64748b' }}>
-                  Tap <strong>+ Set</strong> on any deal card below to schedule a call reminder.
+                <span style={{ fontSize: '11.5px', color: '#64748b' }}>
+                  Tap <strong>+ Set</strong> on any deal card below to schedule a follow-up reminder.
                 </span>
               </div>
             )}
