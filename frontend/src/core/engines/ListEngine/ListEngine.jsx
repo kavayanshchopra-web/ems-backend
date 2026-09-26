@@ -7,6 +7,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Eye, Edit2, Archive, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Trash2, Columns, Play, Pause } from 'lucide-react';
 import SchemaFieldRenderer from '../FieldEngine/SchemaFieldRenderer';
 import { LabelEngine } from '../LabelEngine';
+import FirebaseCloudEngine from '../FirebaseCloudEngine';
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import EmptyState from '../../../components/ui/EmptyState';
@@ -156,6 +157,8 @@ export default function ListEngine({
   onResetFilters = () => {},
   systemDropdowns = null,
   activePipelineStages = [],
+  authUser = null,
+  activeCurrency = 'INR',
   onOpenExportModal = () => {},
   hiddenColIds: propHiddenColIds = [],
   setHiddenColIds: propSetHiddenColIds = null,
@@ -260,6 +263,87 @@ export default function ListEngine({
       }
     };
   }, []);
+
+  // CRM Sales Deals Follow-up Scheduler State
+  const [activeFollowupRecordId, setActiveFollowupRecordId] = useState(null);
+  const [customFollowupDate, setCustomFollowupDate] = useState('');
+
+  const handleQuickFollowup = async (record, preset) => {
+    const now = new Date();
+    let targetDate = new Date();
+    let note = 'Scheduled Follow-up';
+
+    if (preset === 'today_evening') {
+      targetDate.setHours(17, 0, 0, 0);
+      if (targetDate.getTime() <= now.getTime()) {
+        targetDate.setTime(now.getTime() + (2 * 60 * 60 * 1000));
+      }
+      note = 'Call / Follow-up';
+    } else if (preset === 'tomorrow_morning') {
+      targetDate.setDate(targetDate.getDate() + 1);
+      targetDate.setHours(11, 0, 0, 0);
+      note = 'Morning Follow-up Call';
+    } else if (preset === 'in_3_days') {
+      targetDate.setDate(targetDate.getDate() + 3);
+      targetDate.setHours(11, 0, 0, 0);
+      note = 'Pipeline Follow-up';
+    }
+
+    const iso = targetDate.toISOString();
+    await handleSaveFollowup(record, iso, note);
+  };
+
+  const handleSaveFollowup = async (record, dateIso, note = '') => {
+    const updatedRecord = {
+      ...record,
+      follow_up_date: dateIso,
+      followup_date: dateIso,
+      follow_up_note: note || record.follow_up_note || 'Sales Follow-up',
+      updatedAt: new Date().toISOString()
+    };
+
+    if (typeof setRecords === 'function') {
+      setRecords(prev => Array.isArray(prev) ? prev.map(r => r.id === record.id ? updatedRecord : r) : prev);
+    }
+
+    setActiveFollowupRecordId(null);
+    setCustomFollowupDate('');
+
+    try {
+      const colName = moduleConfig.collection || moduleConfig.moduleId || moduleConfig.id || 'crm_deals';
+      const compId = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 'org_default';
+      await FirebaseCloudEngine.saveRecord(colName, updatedRecord, compId);
+      if (showToast) showToast('⏰ Follow-up scheduled successfully!', 'success');
+    } catch (err) {
+      console.warn('Follow-up save error:', err);
+    }
+  };
+
+  const handleClearFollowup = async (record) => {
+    const updatedRecord = {
+      ...record,
+      follow_up_date: null,
+      followup_date: null,
+      follow_up_note: null,
+      updatedAt: new Date().toISOString()
+    };
+
+    if (typeof setRecords === 'function') {
+      setRecords(prev => Array.isArray(prev) ? prev.map(r => r.id === record.id ? updatedRecord : r) : prev);
+    }
+
+    setActiveFollowupRecordId(null);
+    setCustomFollowupDate('');
+
+    try {
+      const colName = moduleConfig.collection || moduleConfig.moduleId || moduleConfig.id || 'crm_deals';
+      const compId = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 'org_default';
+      await FirebaseCloudEngine.saveRecord(colName, updatedRecord, compId);
+      if (showToast) showToast('✅ Follow-up marked complete!', 'success');
+    } catch (err) {
+      console.warn('Follow-up clear error:', err);
+    }
+  };
 
   const emptyStateTextObj = propEmptyText || LabelEngine.getEmptyStateText(moduleConfig, isFilterActive, searchQuery) || {};
   const emptyTitle = emptyStateTextObj.title || 'No records found';
@@ -1628,6 +1712,594 @@ export default function ListEngine({
               >
                 ⬇️
               </a>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // CRM SALES DEALS SPECIFIC MOBILE CARD VIEW
+    const isCrmDeal = !isTelephony && (
+      moduleConfig?.moduleId === 'crm_deals' || 
+      moduleConfig?.id === 'crm_deals' || 
+      moduleConfig?.name === 'CRM Sales Deals' || 
+      moduleConfig?.key === 'crm_deals' || 
+      Boolean(record.deal_stage || record.deal_value !== undefined || record.amount !== undefined || record.pipeline_stage === 'lead' || record.pipeline_stage === 'proposal' || record.pipeline_stage === 'negotiation' || record.pipeline_stage === 'won' || record.pipeline_stage === 'lost')
+    );
+
+    if (isCrmDeal) {
+      // Clean deal title & separate contact person
+      let cleanDealTitle = (record.title || record.name || recordName || 'Sales Deal').trim();
+      cleanDealTitle = cleanDealTitle.replace(/\s*-\s*(HighLevel\s*Lead|Deal)$/i, '').trim() || cleanDealTitle;
+
+      const contactPerson = getValString(record.customer_name || record.contact || record.contact_name || record.contactName || '').trim();
+
+      // Deal Value & Currency
+      const rawAmount = record.amount !== undefined && record.amount !== null ? record.amount : (record.deal_value !== undefined ? record.deal_value : (record.value || record.price || 0));
+      const numAmount = Number(rawAmount) || 0;
+      const currencySymbol = activeCurrency === 'USD' ? '$' : (activeCurrency === 'EUR' ? '€' : '₹');
+      const amountDisplay = numAmount > 0 ? `${currencySymbol}${numAmount.toLocaleString('en-IN')}` : null;
+
+      // Pipeline Stages & Current Stage
+      const defaultCrmStages = [
+        { id: 'lead', name: 'Lead Qualified', color: '#0d9488', emoji: '🎯' },
+        { id: 'proposal', name: 'Proposal Sent', color: '#2563eb', emoji: '📄' },
+        { id: 'negotiation', name: 'In Negotiation', color: '#d97706', emoji: '🤝' },
+        { id: 'won', name: 'Closed Won', color: '#059669', emoji: '🎉' },
+        { id: 'lost', name: 'Closed Lost', color: '#ef4444', emoji: '❌' }
+      ];
+      const stagesList = (activePipelineStages && activePipelineStages.length > 0) 
+        ? activePipelineStages 
+        : (moduleConfig?.defaultStages || defaultCrmStages);
+
+      const currentStageKey = record.status || record.deal_stage || record.pipeline_stage || record.stage || 'lead';
+      const currentStageObj = stagesList.find(s => {
+        const sName = typeof s === 'string' ? s : (s.name || s.label || s.id || s.key);
+        return String(sName).toLowerCase() === String(currentStageKey).toLowerCase() || 
+               String(s.id || '').toLowerCase() === String(currentStageKey).toLowerCase() ||
+               String(s.key || '').toLowerCase() === String(currentStageKey).toLowerCase();
+      });
+      const stageLabel = currentStageObj ? (typeof currentStageObj === 'string' ? currentStageObj : (currentStageObj.name || currentStageObj.label || currentStageKey)) : currentStageKey;
+      const stageColor = currentStageObj?.color || '#0d9488';
+
+      // Follow-up status calculation
+      const rawFollowup = record.follow_up_date || record.followup_date || record.followUpDate || record.next_action_date || record.followup;
+      let followupInfo = null;
+
+      if (rawFollowup) {
+        const fDate = new Date(rawFollowup);
+        if (!isNaN(fDate.getTime())) {
+          const now = Date.now();
+          const isOverdue = fDate.getTime() < (now - 15 * 60 * 1000);
+          const dt = formatCallDateTime(fDate);
+          const timeDisplay = dt.isToday ? `Today, ${dt.timeStr}` : (dt.isYesterday ? `Yest, ${dt.timeStr}` : `${dt.dateStr}, ${dt.timeStr}`);
+          const noteText = record.follow_up_note || '';
+
+          followupInfo = {
+            isOverdue,
+            timeDisplay,
+            noteText,
+            text: isOverdue ? `⚠️ Overdue: ${timeDisplay}` : `⏰ Follow-up: ${timeDisplay}`,
+            bg: isOverdue ? '#fef2f2' : (dt.isToday ? '#fffbeb' : '#eff6ff'),
+            color: isOverdue ? '#dc2626' : (dt.isToday ? '#b45309' : '#1d4ed8'),
+            border: isOverdue ? '#fecaca' : (dt.isToday ? '#fde68a' : '#bfdbfe')
+          };
+        }
+      }
+
+      // Deal Age
+      const createdAtTime = Number(record._createdAt || (record.createdAt ? new Date(record.createdAt).getTime() : Date.now()));
+      const daysOld = Math.max(0, Math.floor((Date.now() - createdAtTime) / (24 * 60 * 60 * 1000)));
+
+      return (
+        <div
+          key={record.id || idx}
+          className="mobile-record-card"
+          onClick={() => onViewRecord(record)}
+          style={{
+            position: 'relative',
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderLeft: `5px solid ${avatarTheme.text}`,
+            borderRadius: '14px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '11px 12px',
+            gap: '8px',
+            cursor: 'pointer',
+            overflow: 'hidden',
+            width: '100%',
+            boxSizing: 'border-box',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          {/* Top Row: Avatar + Title & Subtitle + Deal Amount Badge */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', width: '100%' }}>
+            {/* Circular Initials Avatar */}
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '50%',
+                background: avatarTheme.bg,
+                color: avatarTheme.text,
+                border: `1.5px solid ${avatarTheme.text}28`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: '800',
+                fontSize: '14px',
+                flexShrink: 0,
+                userSelect: 'none',
+                marginTop: '1px'
+              }}
+            >
+              {initials}
+            </div>
+
+            {/* Center Info */}
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+              {/* Row 1: Deal Title + Deal Amount Badge */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', width: '100%' }}>
+                <span
+                  style={{
+                    fontWeight: '800',
+                    fontSize: '14.5px',
+                    color: '#0f172a',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    lineHeight: 1.25,
+                    maxWidth: '65%'
+                  }}
+                  title={cleanDealTitle}
+                >
+                  {cleanDealTitle}
+                </span>
+
+                {/* Deal Amount Badge */}
+                {amountDisplay ? (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      fontSize: '11.5px',
+                      fontWeight: '800',
+                      color: '#059669',
+                      background: '#ecfdf5',
+                      border: '1px solid #a7f3d0',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                  >
+                    💰 {amountDisplay}
+                  </span>
+                ) : (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (typeof onEditRecord === 'function') onEditRecord(record);
+                    }}
+                    title="Click to set Deal Value"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '2px',
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      color: '#64748b',
+                      background: '#f8fafc',
+                      border: '1px dashed #cbd5e1',
+                      padding: '2px 6px',
+                      borderRadius: '5px',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ➕ ₹ Deal
+                  </span>
+                )}
+              </div>
+
+              {/* Row 2: Contact Person + Phone / Email */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                <span
+                  style={{
+                    fontSize: '12.5px',
+                    fontWeight: '700',
+                    color: hasValidPhone ? '#1e293b' : (emailStr ? '#2563eb' : '#94a3b8'),
+                    letterSpacing: '0.2px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    lineHeight: 1.2
+                  }}
+                >
+                  {contactPerson && contactPerson !== cleanDealTitle ? `${contactPerson} • ` : ''}
+                  {hasValidPhone ? phoneStr : (emailStr ? `✉️ ${emailStr}` : '— No Phone')}
+                </span>
+
+                {/* Days in pipeline / Age */}
+                <span
+                  style={{
+                    fontSize: '9.5px',
+                    fontWeight: '600',
+                    color: '#64748b',
+                    background: '#f1f5f9',
+                    padding: '1px 5px',
+                    borderRadius: '4px',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
+                  }}
+                >
+                  ⏳ {daysOld === 0 ? 'Today' : `${daysOld}d`}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: Pipeline Stage Selector + Source + Agent + Quick Action Buttons */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '6px',
+              paddingTop: '6px',
+              borderTop: '1px dashed #f1f5f9',
+              width: '100%',
+              boxSizing: 'border-box'
+            }}
+          >
+            {/* Stage Selector Dropdown */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flex: 1, minWidth: 0, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+              <select
+                value={currentStageKey}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  if (typeof onMoveStage === 'function') {
+                    onMoveStage(record.id, e.target.value);
+                  }
+                }}
+                style={{
+                  padding: '2.5px 6px',
+                  borderRadius: '6px',
+                  border: `1px solid ${stageColor}40`,
+                  background: `${stageColor}12`,
+                  color: stageColor,
+                  fontSize: '10.5px',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  outline: 'none',
+                  maxWidth: '135px'
+                }}
+              >
+                {stagesList.map(s => {
+                  const sVal = typeof s === 'string' ? s : (s.name || s.id || s);
+                  const sLabel = typeof s === 'string' ? s : `${s.emoji || ''} ${s.name || s.label || s.id}`.trim();
+                  return (
+                    <option key={s.id || sVal} value={sVal} style={{ background: '#ffffff', color: '#1e293b' }}>
+                      {sLabel}
+                    </option>
+                  );
+                })}
+              </select>
+
+              {/* Source Badge */}
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  fontSize: '9.5px',
+                  fontWeight: '600',
+                  padding: '2px 5px',
+                  borderRadius: '5px',
+                  background: sourceBadge.bg,
+                  color: sourceBadge.text,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0
+                }}
+              >
+                {sourceBadge.icon} {sourceBadge.label}
+              </span>
+
+              {/* Agent */}
+              {agentName && agentName !== '—' && (
+                <span
+                  style={{
+                    fontSize: '9.5px',
+                    color: '#64748b',
+                    fontWeight: '600',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    flexShrink: 1
+                  }}
+                  title={`Owner: ${agentName}`}
+                >
+                  👤 {agentName.split(/\s+/)[0]}
+                </span>
+              )}
+            </div>
+
+            {/* Quick Call & WhatsApp Action Buttons */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
+              {/* Call Button */}
+              {hasValidPhone ? (
+                <button
+                  type="button"
+                  title={`Call ${cleanDealTitle} (${phoneStr})`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (window.openGlobalDialer) {
+                      window.openGlobalDialer(phoneStr, cleanDealTitle, true);
+                    } else {
+                      window.location.href = `tel:${cleanPhoneDigits}`;
+                    }
+                  }}
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '6px',
+                    background: '#10b981',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 3px rgba(16, 185, 129, 0.25)',
+                    padding: 0,
+                    flexShrink: 0
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                  </svg>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  title="No phone number available"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (typeof showToast === 'function') showToast('No phone number for this deal', 'warning');
+                  }}
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '6px',
+                    background: '#f1f5f9',
+                    border: '1px solid #e2e8f0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'not-allowed',
+                    opacity: 0.6,
+                    padding: 0,
+                    flexShrink: 0
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                  </svg>
+                </button>
+              )}
+
+              {/* WhatsApp Button */}
+              {hasValidPhone ? (
+                <a
+                  href={`https://wa.me/${cleanPhoneDigits}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  title={`Chat on WhatsApp with ${cleanDealTitle}`}
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '6px',
+                    background: '#25D366',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    textDecoration: 'none',
+                    boxShadow: '0 1px 3px rgba(37, 211, 102, 0.25)',
+                    padding: 0,
+                    flexShrink: 0
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="#ffffff">
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+                  </svg>
+                </a>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Row 3: Follow-up Status Strip & Toggle Button */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '6px',
+              padding: '5px 8px',
+              borderRadius: '7px',
+              background: followupInfo ? followupInfo.bg : '#f8fafc',
+              border: `1px solid ${followupInfo ? followupInfo.border : '#e2e8f0'}`,
+              width: '100%',
+              boxSizing: 'border-box'
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveFollowupRecordId(prev => prev === record.id ? null : record.id);
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0, overflow: 'hidden' }}>
+              <span style={{ fontSize: '10.5px', fontWeight: '800', color: followupInfo ? followupInfo.color : '#64748b', whiteSpace: 'nowrap' }}>
+                {followupInfo ? followupInfo.text : '⏰ No Follow-up Scheduled'}
+              </span>
+              {followupInfo?.subtext && (
+                <span style={{ fontSize: '10px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {followupInfo.subtext}
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              style={{
+                fontSize: '9.5px',
+                fontWeight: '800',
+                padding: '2px 7px',
+                borderRadius: '4px',
+                border: 'none',
+                background: followupInfo ? (followupInfo.isOverdue ? '#dc2626' : '#d97706') : '#3b82f6',
+                color: '#ffffff',
+                cursor: 'pointer',
+                flexShrink: 0
+              }}
+            >
+              {activeFollowupRecordId === record.id ? 'Close ✕' : (followupInfo ? 'Change' : '+ Set')}
+            </button>
+          </div>
+
+          {/* Quick Follow-up Scheduler Popover (Opens when tapped) */}
+          {activeFollowupRecordId === record.id && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                padding: '8px 10px',
+                background: 'linear-gradient(135deg, #fefce8 0%, #fffbeb 100%)',
+                borderRadius: '8px',
+                border: '1px solid #fde68a',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                width: '100%',
+                boxSizing: 'border-box'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '11px', fontWeight: '800', color: '#92400e' }}>
+                  ⏰ Quick Schedule Follow-up
+                </span>
+                <span style={{ fontSize: '9.5px', color: '#b45309' }}>Presets:</span>
+              </div>
+
+              {/* Presets */}
+              <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => handleQuickFollowup(record, 'today_evening')}
+                  style={{
+                    padding: '3px 8px',
+                    borderRadius: '5px',
+                    border: '1px solid #f59e0b',
+                    background: '#ffffff',
+                    color: '#b45309',
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Today 5 PM
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickFollowup(record, 'tomorrow_morning')}
+                  style={{
+                    padding: '3px 8px',
+                    borderRadius: '5px',
+                    border: '1px solid #f59e0b',
+                    background: '#ffffff',
+                    color: '#b45309',
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Tomorrow 11 AM
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickFollowup(record, 'in_3_days')}
+                  style={{
+                    padding: '3px 8px',
+                    borderRadius: '5px',
+                    border: '1px solid #f59e0b',
+                    background: '#ffffff',
+                    color: '#b45309',
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  In 3 Days
+                </button>
+              </div>
+
+              {/* Custom Date/Time input */}
+              <div style={{ display: 'flex', gap: '5px', alignItems: 'center', marginTop: '2px' }}>
+                <input
+                  type="datetime-local"
+                  value={customFollowupDate}
+                  onChange={(e) => setCustomFollowupDate(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '3px 6px',
+                    fontSize: '10.5px',
+                    borderRadius: '5px',
+                    border: '1px solid #cbd5e1',
+                    background: '#ffffff',
+                    color: '#1e293b'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (customFollowupDate) {
+                      handleSaveFollowup(record, new Date(customFollowupDate).toISOString(), 'Scheduled Follow-up');
+                    }
+                  }}
+                  style={{
+                    padding: '3px 8px',
+                    borderRadius: '5px',
+                    background: '#d97706',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontSize: '10.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Set
+                </button>
+                {followupInfo && (
+                  <button
+                    type="button"
+                    onClick={() => handleClearFollowup(record)}
+                    title="Mark Done / Clear"
+                    style={{
+                      padding: '3px 6px',
+                      borderRadius: '5px',
+                      background: '#fef2f2',
+                      color: '#dc2626',
+                      border: '1px solid #fecaca',
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>

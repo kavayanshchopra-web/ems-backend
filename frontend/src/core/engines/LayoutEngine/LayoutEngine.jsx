@@ -327,6 +327,7 @@ export default function LayoutEngine({
         setRecords={setRecords}
         moduleConfig={{ ...moduleConfig, activeCurrency }}
         activeCurrency={activeCurrency}
+        authUser={authUser}
         viewMode={viewMode}
         onOpenChatWithLead={onOpenChatWithLead}
         totalCount={activeModuleRecords.length}

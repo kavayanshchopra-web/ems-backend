@@ -40,6 +40,8 @@ export default function ViewEngine({
   records = [],
   setRecords = () => {},
   moduleConfig = {},
+  authUser = null,
+  activeCurrency = 'INR',
   viewMode = 'list',
   totalCount = 0,
   isFilterActive = false,
@@ -473,6 +475,8 @@ export default function ViewEngine({
       onResetFilters={onResetFilters}
       systemDropdowns={systemDropdowns}
       activePipelineStages={activePipelineStages}
+      authUser={authUser}
+      activeCurrency={activeCurrency}
       onOpenExportModal={onOpenExportModal}
       hiddenColIds={hiddenColIds}
       setHiddenColIds={setHiddenColIds}
