@@ -947,12 +947,25 @@ export default function ListEngine({
 
   const renderMobileCard = (record, idx) => {
     if (!record) return null;
-    const isSelected = (selectedIds || []).includes(record.id);
+
     let recordName = getValString(
-      record.name || record.fullName || record.employeeName || record.candidateName || record.customerName || record.title,
+      record.name ||
+      record.fullName ||
+      record.contactName ||
+      record.contact_name ||
+      record.customName ||
+      record.custom_name ||
+      record.displayName ||
+      record.employeeName ||
+      record.candidateName ||
+      record.customerName ||
+      (record.firstName ? `${record.firstName} ${record.lastName || ''}`.trim() : '') ||
+      (record.first_name ? `${record.first_name} ${record.last_name || ''}`.trim() : '') ||
+      record.title,
       ''
     );
-    if (!recordName || recordName === 'Employee Directory' || recordName === 'Candidate' || recordName === 'Customer') {
+
+    if (!recordName || recordName === 'Employee Directory' || recordName === 'Candidate' || recordName === 'Customer' || recordName === 'Record') {
       if (record.email) {
         const parts = getValString(record.email).split('@');
         if (parts[0]) {
@@ -963,57 +976,83 @@ export default function ListEngine({
       }
     }
     if (!recordName) {
-      recordName = LabelEngine.getEntityName(moduleConfig) || 'Record';
+      recordName = LabelEngine.getEntityName(moduleConfig) || 'Contact';
     }
 
-    const recordStatus = getValString(record.status || record.stage || record.pipeline_stage || record.disposition);
     const displayId = record.displayId || record.tag || formatCandidateId(record.id, idx, moduleConfig);
-    const avatarGradient = getAvatarGradient(recordName, isArchivedView);
-    const phoneStr = getValString(record.phone || record.phoneNumber || record.customerPhone);
-    const emailStr = getValString(record.email);
-    const durationStr = getValString(record.duration);
-    const callTypeStr = getValString(record.type || record.callType || record.direction);
-    const audioSrc = record.recording || record.recordingUrl || record.audio || record.audioUrl;
-    const createdAtVal = record._createdAt || record.createdAt || record.timestamp;
-    const dateFormatted = createdAtVal ? formatDate(createdAtVal) : '';
-    const agentName = getValString(record.agentName || record.assignedTo || record.owner || record.agent);
-    const notesStr = getValString(record.notes || record.note || record.description);
-
-    const isIncoming = callTypeStr.toUpperCase().includes('INCOMING');
-    const isOutgoing = callTypeStr.toUpperCase().includes('OUTGOING');
-    const isMissed = callTypeStr.toUpperCase().includes('MISSED') || callTypeStr.toUpperCase().includes('REJECTED');
-
-    // Resolve phone & contact badges
+    const phoneStr = getValString(record.phone || record.phoneNumber || record.customerPhone || record.phone_normalized);
     const cleanPhoneDigits = (phoneStr || '').replace(/\D/g, '');
     const hasValidPhone = cleanPhoneDigits.length >= 7;
-    const sourceStr = getValString(record.source || record.lead_source || record.leadSource);
+    const emailStr = getValString(record.email || record.customerEmail);
+    const sourceStr = getValString(record.source || record.lead_source || record.leadSource || (record.custom_fields?.source));
+    const agentName = getValString(record.assignedTo || record.assigned_to || record.agentName || record.owner || record.agent);
+    const recordStatus = getValString(record.status || record.stage || record.pipeline_stage || record.disposition);
 
-    // Dynamic accent color based on status / phone validity
-    let statusThemeColor = '#10b981'; // Active Green
-    let statusLabel = recordStatus || 'Active';
-
-    if (isArchivedView || record.is_archived) {
-      statusThemeColor = '#94a3b8';
-      statusLabel = 'Archived';
-    } else if (recordStatus && recordStatus.toLowerCase().includes('dnd')) {
-      statusThemeColor = '#ef4444';
-      statusLabel = 'DND';
-    } else if (!hasValidPhone && !emailStr) {
-      statusThemeColor = '#f59e0b';
-      statusLabel = recordStatus || 'Pending';
-    } else if (recordStatus) {
-      const lower = recordStatus.toLowerCase();
-      if (lower.includes('lost') || lower.includes('drop') || lower.includes('inactive')) {
-        statusThemeColor = '#64748b';
-      } else if (lower.includes('won') || lower.includes('converted') || lower.includes('success')) {
-        statusThemeColor = '#10b981';
-      } else if (lower.includes('hot') || lower.includes('urgent')) {
-        statusThemeColor = '#f43f5e';
-      } else if (lower.includes('warm') || lower.includes('follow')) {
-        statusThemeColor = '#3b82f6';
-      } else {
-        statusThemeColor = '#0d9488';
+    // Two-letter initials helper for the avatar (matches Image 2 "HC")
+    const getInitials = (name) => {
+      if (!name) return 'C';
+      const clean = name.replace(/^[^a-zA-Z0-9]+/, '').trim();
+      const parts = clean.split(/\s+/).filter(Boolean);
+      if (parts.length >= 2 && parts[0] && parts[1]) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
       }
+      if (clean.length >= 2) {
+        return clean.slice(0, 2).toUpperCase();
+      }
+      return (clean[0] || 'C').toUpperCase();
+    };
+    const initials = getInitials(recordName);
+
+    // Status Theme & Colors matching Image 2
+    let statusTheme = {
+      label: 'Active',
+      tabBg: '#10b981',
+      tabText: '#ffffff',
+      avatarBg: '#dcfce7',
+      avatarText: '#15803d'
+    };
+
+    const rawStatus = (recordStatus || '').toLowerCase();
+    if (isArchivedView || record.is_archived) {
+      statusTheme = {
+        label: 'Archived',
+        tabBg: '#94a3b8',
+        tabText: '#ffffff',
+        avatarBg: '#f1f5f9',
+        avatarText: '#475569'
+      };
+    } else if (rawStatus.includes('pending') || (!hasValidPhone && !emailStr)) {
+      statusTheme = {
+        label: recordStatus || 'Pending',
+        tabBg: '#f59e0b',
+        tabText: '#0f172a',
+        avatarBg: '#ffedd5',
+        avatarText: '#c2410c'
+      };
+    } else if (rawStatus.includes('dnd') || rawStatus.includes('lost') || rawStatus.includes('reject')) {
+      statusTheme = {
+        label: recordStatus || 'DND',
+        tabBg: '#ef4444',
+        tabText: '#ffffff',
+        avatarBg: '#fee2e2',
+        avatarText: '#b91c1c'
+      };
+    } else if (rawStatus.includes('new') || rawStatus.includes('lead')) {
+      statusTheme = {
+        label: recordStatus || 'New',
+        tabBg: '#10b981',
+        tabText: '#ffffff',
+        avatarBg: '#dcfce7',
+        avatarText: '#15803d'
+      };
+    } else if (recordStatus) {
+      statusTheme = {
+        label: recordStatus,
+        tabBg: '#0d9488',
+        tabText: '#ffffff',
+        avatarBg: '#ccfbf1',
+        avatarText: '#0f766e'
+      };
     }
 
     return (
@@ -1023,84 +1062,94 @@ export default function ListEngine({
         onClick={() => onViewRecord(record)}
         style={{
           position: 'relative',
-          background: isSelected ? '#f0fdf4' : '#ffffff',
-          border: isSelected ? '1.5px solid #0d9488' : '1px solid #e2e8f0',
-          borderRadius: '16px',
-          padding: '10px 12px 10px 14px',
-          boxShadow: '0 2px 6px -1px rgba(15,23,42,0.06), 0 1px 3px rgba(15,23,42,0.04)',
+          background: '#ffffff',
+          border: '1.5px solid #e2e8f0',
+          borderRadius: '34px',
+          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.04)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '10px',
+          padding: '0 14px 0 0',
+          gap: '12px',
           cursor: 'pointer',
           overflow: 'hidden',
-          transition: 'all 0.15s ease',
-          minHeight: '68px'
+          minHeight: '80px',
+          width: '100%',
+          boxSizing: 'border-box',
+          transition: 'all 0.15s ease'
         }}
       >
-        {/* Left Curved Accent Status Indicator Bar */}
+        {/* 1. Left Curved Status Tab (Vertical text like Image 2) */}
         <div
           style={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: '4.5px',
-            background: statusThemeColor,
-            borderRadius: '4px 0 0 4px'
+            width: '28px',
+            alignSelf: 'stretch',
+            background: statusTheme.tabBg,
+            borderRadius: '32px 0 0 32px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
           }}
-        />
-
-        {/* Left Group: Selection Checkbox + Initials Avatar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '9px', flexShrink: 0 }}>
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => {
-              e.stopPropagation();
-              handleSelectRow(record.id);
-            }}
+        >
+          <span
             style={{
-              accentColor: isArchivedView ? '#f59e0b' : '#0d9488',
-              width: '16px',
-              height: '16px',
-              cursor: 'pointer'
-            }}
-          />
-          <div
-            style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '50%',
-              background: avatarGradient,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ffffff',
+              writingMode: 'vertical-rl',
+              transform: 'rotate(180deg)',
+              fontSize: '11px',
               fontWeight: '800',
-              fontSize: '14px',
-              boxShadow: '0 2px 5px rgba(0,0,0,0.08)',
-              flexShrink: 0
+              letterSpacing: '0.4px',
+              color: statusTheme.tabText,
+              userSelect: 'none',
+              textTransform: 'capitalize'
             }}
           >
-            {(recordName[0] || 'C').toUpperCase()}
-          </div>
+            {statusTheme.label}
+          </span>
         </div>
 
-        {/* Center Group: Contact Details (Name + ID + Status / Phone + Source + Agent) */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' }}>
-          {/* Row 1: Name + ID tag + Status pill */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+        {/* 2. Soft Tint Circular Avatar with 2-Letter Initials */}
+        <div
+          style={{
+            width: '46px',
+            height: '46px',
+            borderRadius: '50%',
+            background: statusTheme.avatarBg,
+            color: statusTheme.avatarText,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: '800',
+            fontSize: '16px',
+            flexShrink: 0,
+            userSelect: 'none'
+          }}
+        >
+          {initials}
+        </div>
+
+        {/* 3. Center Info (3 Distinct Lines matching Image 2) */}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            gap: '2px',
+            padding: '6px 0'
+          }}
+        >
+          {/* Line 1: Name + ID Tag */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
             <span
               style={{
-                fontWeight: '700',
-                fontSize: '13.5px',
+                fontWeight: '800',
+                fontSize: '15px',
                 color: '#0f172a',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                maxWidth: '140px'
+                maxWidth: '170px'
               }}
               title={recordName}
             >
@@ -1108,96 +1157,78 @@ export default function ListEngine({
             </span>
             <span
               style={{
-                fontSize: '10px',
-                fontWeight: '700',
-                padding: '1px 5px',
-                borderRadius: '4px',
-                background: '#f1f5f9',
-                color: isArchivedView ? '#b45309' : '#475569',
+                fontSize: '11px',
+                fontWeight: '600',
+                padding: '1px 8px',
+                borderRadius: '12px',
+                background: '#e2e8f0',
+                color: '#334155',
                 fontFamily: 'monospace',
                 flexShrink: 0
               }}
             >
               {displayId}
             </span>
-            {statusLabel && (
-              <span
-                style={{
-                  fontSize: '9.5px',
-                  fontWeight: '700',
-                  padding: '1px 6px',
-                  borderRadius: '10px',
-                  background: `${statusThemeColor}18`,
-                  color: statusThemeColor,
-                  border: `1px solid ${statusThemeColor}30`,
-                  flexShrink: 0,
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                {statusLabel}
-              </span>
-            )}
           </div>
 
-          {/* Row 2: Phone number / Email + Source badge + Agent */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flexWrap: 'nowrap', overflow: 'hidden' }}>
+          {/* Line 2: Formatted Phone Number */}
+          <div
+            style={{
+              fontSize: '13.5px',
+              fontWeight: '700',
+              color: '#1e293b',
+              letterSpacing: '0.2px',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}
+          >
+            {hasValidPhone ? phoneStr : (emailStr && emailStr !== '—' ? emailStr : 'No phone number')}
+          </div>
+
+          {/* Line 3: Source Badge + Agent */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '1px', flexWrap: 'nowrap', overflow: 'hidden' }}>
             <span
               style={{
-                fontSize: '11.5px',
-                fontWeight: '600',
-                color: '#334155',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '3px',
+                gap: '4px',
+                fontSize: '11px',
+                fontWeight: '600',
+                padding: '1px 8px',
+                borderRadius: '12px',
+                background: '#e2e8f0',
+                color: '#1e293b',
+                whiteSpace: 'nowrap',
                 flexShrink: 0
               }}
             >
-              {hasValidPhone ? phoneStr : (emailStr && emailStr !== '—' ? emailStr : 'No phone')}
+              💬 {sourceStr && sourceStr !== '—' ? sourceStr : 'WhatsApp'}
             </span>
 
-            {sourceStr && sourceStr !== '—' && (
+            {agentName && agentName !== '—' ? (
               <span
                 style={{
-                  fontSize: '9.5px',
-                  fontWeight: '600',
-                  padding: '1px 6px',
-                  borderRadius: '10px',
-                  background: sourceStr.toLowerCase().includes('whatsapp') ? 'rgba(37,211,102,0.12)' : '#f1f5f9',
-                  color: sourceStr.toLowerCase().includes('whatsapp') ? '#059669' : '#475569',
-                  border: sourceStr.toLowerCase().includes('whatsapp') ? '1px solid rgba(37,211,102,0.25)' : '1px solid #e2e8f0',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0
-                }}
-              >
-                {sourceStr.toLowerCase().includes('whatsapp') ? '💬 ' : ''}{sourceStr}
-              </span>
-            )}
-
-            {agentName && agentName !== '—' && (
-              <span
-                style={{
-                  fontSize: '10px',
-                  color: '#64748b',
+                  fontSize: '12px',
+                  color: '#334155',
+                  fontWeight: '500',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   flexShrink: 1
                 }}
-                title={`Assigned: ${agentName}`}
               >
-                👤 {agentName}
+                Agent: {agentName}
               </span>
-            )}
+            ) : null}
           </div>
         </div>
 
-        {/* Right Group: One-Tap Quick Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+        {/* 4. Right Action Buttons: Circular Green Buttons matching Image 2 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
           {hasValidPhone ? (
             <>
+              {/* Circular Call Button */}
               <button
                 type="button"
                 title={`Call ${recordName}`}
@@ -1210,23 +1241,26 @@ export default function ListEngine({
                   }
                 }}
                 style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '6px 9px',
-                  borderRadius: '8px',
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '50%',
                   background: '#10b981',
-                  color: '#ffffff',
                   border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   cursor: 'pointer',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  boxShadow: '0 1px 3px rgba(16,185,129,0.3)',
-                  transition: 'transform 0.1s ease'
+                  boxShadow: '0 2px 6px rgba(16, 185, 129, 0.35)',
+                  transition: 'transform 0.1s ease',
+                  padding: 0
                 }}
               >
-                📞 Call
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                </svg>
               </button>
+
+              {/* Circular WhatsApp Button */}
               <a
                 href={`https://wa.me/${cleanPhoneDigits}`}
                 target="_blank"
@@ -1234,21 +1268,22 @@ export default function ListEngine({
                 onClick={(e) => e.stopPropagation()}
                 title="Chat on WhatsApp"
                 style={{
-                  display: 'inline-flex',
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '50%',
+                  background: '#25D366',
+                  display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                  background: '#25D366',
-                  color: '#ffffff',
                   textDecoration: 'none',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  boxShadow: '0 1px 3px rgba(37,211,102,0.3)',
-                  transition: 'transform 0.1s ease'
+                  boxShadow: '0 2px 6px rgba(37, 211, 102, 0.35)',
+                  transition: 'transform 0.1s ease',
+                  padding: 0
                 }}
               >
-                💬 WA
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#ffffff">
+                  <path d="M17.472 14.382c-.301-.15-1.78-.879-2.056-.98-.276-.1-.477-.15-.678.15-.2.301-.778.98-.954 1.18-.176.2-.351.226-.653.075-.301-.15-1.272-.469-2.424-1.496-.896-.799-1.501-1.786-1.677-2.087-.176-.301-.019-.464.132-.614.136-.135.301-.351.452-.527.15-.176.2-.301.301-.502.101-.2.05-.376-.025-.526-.075-.15-.678-1.633-.929-2.235-.244-.587-.493-.507-.678-.517-.176-.01-.376-.01-.577-.01-.2 0-.527.075-.803.376-.276.301-1.054 1.03-1.054 2.512 0 1.482 1.079 2.912 1.23 3.113.15.2 2.124 3.243 5.145 4.549.719.31 1.28.496 1.718.635.722.23 1.378.197 1.898.12.579-.087 1.78-.728 2.031-1.431.251-.703.251-1.305.176-1.431-.075-.126-.276-.201-.577-.351zM12.04 2C6.516 2 2.023 6.492 2.023 12.015c0 1.954.56 3.782 1.53 5.334L2 22l4.802-1.512c1.493.89 3.226 1.385 5.238 1.385 5.524 0 10.017-4.492 10.017-10.015C22.057 6.492 17.564 2 12.04 2z"/>
+                </svg>
               </a>
             </>
           ) : (
@@ -1259,10 +1294,8 @@ export default function ListEngine({
                 onViewRecord(record);
               }}
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                padding: '6px 10px',
-                borderRadius: '8px',
+                padding: '6px 12px',
+                borderRadius: '16px',
                 border: '1px solid #cbd5e1',
                 background: '#f8fafc',
                 color: '#0d9488',
