@@ -33,6 +33,7 @@ export default function WidgetEngine({
     >
       <div
         className="widget-engine-strip"
+        data-widget-count={enabledWidgets.length}
         style={{
           display: 'flex',
           gap: '12px',

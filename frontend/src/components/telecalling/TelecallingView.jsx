@@ -91,6 +91,7 @@ export default function TelecallingView({
   const [agentReport, setAgentReport] = useState([]);
   const [showAgentReportModal, setShowAgentReportModal] = useState(false);
   const [loadingReporting, setLoadingReporting] = useState(false);
+  const [isPulseExpanded, setIsPulseExpanded] = useState(false);
 
   const fetchReporting = async (period = reportingPeriod) => {
     setLoadingReporting(true);
@@ -955,30 +956,39 @@ export default function TelecallingView({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* 📊 PHASE 5: DYNAMIC TELEPHONY PERFORMANCE & PULSE LEDGER BAR */}
-      <div style={{
-        background: 'linear-gradient(135deg, #064e3b 0%, #0f766e 100%)',
-        padding: '10px 18px',
-        color: '#ffffff',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '12px',
-        borderBottom: '1px solid rgba(255,255,255,0.15)',
-        boxShadow: '0 2px 8px rgba(6,78,59,0.15)'
-      }}>
+      <div
+        className="telephony-pulse-banner"
+        style={{
+          background: 'linear-gradient(135deg, #064e3b 0%, #0f766e 100%)',
+          padding: '10px 18px',
+          color: '#ffffff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          borderBottom: '1px solid rgba(255,255,255,0.15)',
+          boxShadow: '0 2px 8px rgba(6,78,59,0.15)'
+        }}
+      >
         {/* LEFT: Period Filter */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div className="telephony-pulse-header-row" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '800', color: '#a7f3d0' }}>
             <BarChart2 size={16} />
             <span>Telephony Pulse</span>
           </div>
 
+          {/* Quick collapsed stats visible on mobile */}
+          <div className="telephony-pulse-mobile-collapsed-summary">
+            <span style={{ fontSize: '11px', color: '#d1fae5' }}>Calls: <strong>{summaryReport?.totalCalls || 0}</strong></span>
+            <span style={{ fontSize: '11px', color: '#6ee7b7' }}>• {summaryReport?.connectedRate || 0}%</span>
+          </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(0,0,0,0.2)', padding: '3px', borderRadius: '8px' }}>
             {[
               { id: 'today', label: 'Today' },
-              { id: 'this_week', label: 'This Week' },
-              { id: 'this_month', label: 'This Month' }
+              { id: 'this_week', label: 'Week' },
+              { id: 'this_month', label: 'Month' }
             ].map((p) => (
               <button
                 key={p.id}
@@ -1003,10 +1013,20 @@ export default function TelecallingView({
               </button>
             ))}
           </div>
+
+          {/* Mobile Collapse Toggle Button */}
+          <button
+            type="button"
+            className="telephony-pulse-toggle-btn"
+            onClick={() => setIsPulseExpanded(prev => !prev)}
+            title={isPulseExpanded ? "Hide detailed stats" : "Show detailed stats"}
+          >
+            <ChevronDown size={14} style={{ transform: isPulseExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+          </button>
         </div>
 
         {/* RIGHT: LIVE METRICS PILLS */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <div className={`telephony-pulse-metrics-body ${isPulseExpanded ? 'is-expanded' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
             <span style={{ color: '#a7f3d0', fontSize: '11px' }}>Total Calls:</span>
             <strong style={{ color: '#ffffff', background: 'rgba(255,255,255,0.15)', padding: '2px 8px', borderRadius: '6px' }}>
@@ -1228,9 +1248,10 @@ export default function TelecallingView({
       <div style={{ flex: 1 }}>
         <LayoutEngine
           customHeaderActions={
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="telecalling-custom-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
                 type="button"
+                className="telecalling-dial-lead-btn"
                 onClick={handleHeaderDialClick}
                 style={{
                   display: 'flex',
@@ -1245,7 +1266,8 @@ export default function TelecallingView({
                   fontWeight: '700',
                   cursor: 'pointer',
                   boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap'
                 }}
               >
                 {activeProvider === 'voxbay' ? <PhoneCall size={14} /> : <Smartphone size={14} />}
@@ -1253,15 +1275,18 @@ export default function TelecallingView({
               </button>
 
               {/* SIM Privacy & Bypass Filter Chips */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                background: '#f1f5f9',
-                padding: '3px',
-                borderRadius: '8px',
-                gap: '4px',
-                border: '1px solid #e2e8f0'
-              }}>
+              <div
+                className="telecalling-filter-chips"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  background: '#f1f5f9',
+                  padding: '3px',
+                  borderRadius: '8px',
+                  gap: '4px',
+                  border: '1px solid #e2e8f0'
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => setBypassFilter('ALL')}
@@ -1275,7 +1300,8 @@ export default function TelecallingView({
                     fontSize: '11.5px',
                     cursor: 'pointer',
                     boxShadow: bypassFilter === 'ALL' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                    transition: 'all 0.15s ease'
+                    transition: 'all 0.15s ease',
+                    whiteSpace: 'nowrap'
                   }}
                 >
                   All ({activeRecords.length})
@@ -1293,7 +1319,8 @@ export default function TelecallingView({
                     fontSize: '11.5px',
                     cursor: 'pointer',
                     boxShadow: bypassFilter === 'OFFICIAL' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                    transition: 'all 0.15s ease'
+                    transition: 'all 0.15s ease',
+                    whiteSpace: 'nowrap'
                   }}
                 >
                   Official SIM
@@ -1314,7 +1341,8 @@ export default function TelecallingView({
                     fontSize: '11.5px',
                     cursor: 'pointer',
                     boxShadow: bypassFilter === 'BYPASS' ? '0 1px 3px rgba(220,38,38,0.2)' : 'none',
-                    transition: 'all 0.15s ease'
+                    transition: 'all 0.15s ease',
+                    whiteSpace: 'nowrap'
                   }}
                 >
                   <span>🚨 Bypassed</span>
@@ -1331,44 +1359,44 @@ export default function TelecallingView({
                     </span>
                   )}
                 </button>
-              </div>
 
-              {(isOwnerOrManager || isSuperAdmin) && (
-                <button
-                  type="button"
-                  onClick={() => setShowHealthPanel(prev => !prev)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '7px 12px',
-                    borderRadius: '8px',
-                    background: unlinkedCount > 0 ? '#fef2f2' : (showHealthPanel ? '#ecfdf5' : '#f8fafc'),
-                    border: `1px solid ${unlinkedCount > 0 ? '#fca5a5' : (showHealthPanel ? '#10b981' : '#cbd5e1')}`,
-                    color: unlinkedCount > 0 ? '#991b1b' : (showHealthPanel ? '#065f46' : '#334155'),
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                    transition: 'all 0.2s ease'
-                  }}
-                  title="Telecaller App Health & Call Recording Status"
-                >
-                  {unlinkedCount > 0 ? (
-                    <>
-                      <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#dc2626' }} />
-                      <ShieldAlert size={14} color="#dc2626" />
-                      <span>{unlinkedCount} Device Action Required</span>
-                    </>
-                  ) : (
-                    <>
-                      <ShieldCheck size={14} color="#16a34a" />
-                      <span>{deviceHealthList.length > 0 ? `${deviceHealthList.length} Apps Connected` : 'App Health'}</span>
-                    </>
-                  )}
-                  {showHealthPanel ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                </button>
-              )}
+                {(isOwnerOrManager || isSuperAdmin) && (
+                  <button
+                    type="button"
+                    className="telecalling-health-btn"
+                    onClick={() => setShowHealthPanel(prev => !prev)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '5px 10px',
+                      borderRadius: '6px',
+                      background: unlinkedCount > 0 ? '#fef2f2' : (showHealthPanel ? '#ecfdf5' : 'transparent'),
+                      border: unlinkedCount > 0 ? '1px solid #fca5a5' : 'none',
+                      color: unlinkedCount > 0 ? '#991b1b' : (showHealthPanel ? '#065f46' : '#334155'),
+                      fontSize: '11.5px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                    title="Telecaller App Health & Call Recording Status"
+                  >
+                    {unlinkedCount > 0 ? (
+                      <>
+                        <span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#dc2626' }} />
+                        <ShieldAlert size={13} color="#dc2626" />
+                        <span>{unlinkedCount} Alert</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck size={13} color="#16a34a" />
+                        <span>{deviceHealthList.length > 0 ? `${deviceHealthList.length} Connected` : 'Health'}</span>
+                      </>
+                    )}
+                    {showHealthPanel ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  </button>
+                )}
+              </div>
             </div>
           }
           moduleConfig={enhancedConfig}
