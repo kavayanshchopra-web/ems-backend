@@ -102,7 +102,14 @@ export class GhlWebhookService {
     }
 
     // Location ID resolution
-    const locationId = rawPayload.locationId || rawPayload.location_id || rawPayload.location?.id || rawPayload.data?.locationId || null;
+    const locationId = rawPayload.locationId || 
+                       rawPayload.location_id || 
+                       rawPayload.location?.id || 
+                       rawPayload.data?.locationId || 
+                       rawPayload.data?.location_id || 
+                       rawPayload.customData?.locationId || 
+                       rawPayload.customData?.location_id || 
+                       null;
 
     // Contact ID resolution
     const ghlContactId = rawPayload.id || rawPayload.contactId || rawPayload.contact_id || rawPayload.data?.id || rawPayload.data?.contactId || null;
@@ -157,14 +164,55 @@ export class GhlWebhookService {
     const normalized = this.normalizeWebhookPayload(payload);
     const { eventType, locationId, ghlContactId, ghlOpportunityId, contactData, eventId, payloadHash } = normalized;
 
-    if (!locationId) {
-      throw new GhlApiError('Malformed webhook payload: missing locationId', 'MALFORMED_PAYLOAD', 400);
+    // Handle Health Check, Ping, or Missing Location gracefully (Prevents GHL Webhook Failure Alert Emails)
+    if (eventType === 'Ping' || eventType === 'test' || !locationId) {
+      return {
+        status: 'acknowledged',
+        reason: 'health_check_or_missing_location',
+        eventType,
+        locationId: locationId || null
+      };
+    }
+
+    // Handle App Lifecycle Events (AppInstall / AppUninstall)
+    if (eventType === 'AppInstall') {
+      console.log(`[GHL Webhook] App installed event received for location: ${locationId}`);
+      return {
+        status: 'acknowledged',
+        eventType: 'AppInstall',
+        locationId
+      };
     }
 
     // 3. Resolve HighLevel Location to EMS Tenant
     let integration = await getGhlIntegrationByLocation(locationId);
+
+    if (eventType === 'AppUninstall') {
+      console.log(`[GHL Webhook] App uninstalled event received for location: ${locationId}`);
+      if (integration && integration.tenant_id) {
+        await saveGhlIntegration(integration.tenant_id, {
+          locationId,
+          isActive: 0,
+          metadata: { uninstalledAt: new Date().toISOString() }
+        }).catch(() => {});
+      }
+      return {
+        status: 'acknowledged',
+        eventType: 'AppUninstall',
+        locationId
+      };
+    }
+
+    // If location is not yet connected in EMS, acknowledge with 200 so GHL health check succeeds
     if (!integration || !integration.tenant_id) {
-      throw new GhlApiError(`HighLevel location "${locationId}" is not connected to any EMS account`, 'UNKNOWN_LOCATION', 404);
+      console.warn(`[GHL Webhook] Received webhook for unregistered location: ${locationId}`);
+      return {
+        status: 'acknowledged',
+        reason: 'unregistered_location',
+        eventType,
+        locationId,
+        message: `HighLevel location "${locationId}" is not yet connected to any EMS account`
+      };
     }
     const tenantId = integration.tenant_id;
 

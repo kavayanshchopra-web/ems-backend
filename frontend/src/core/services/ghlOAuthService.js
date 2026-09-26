@@ -16,7 +16,7 @@ export class GhlOAuthService {
     if (!clientId) return '#';
     const cleanScopes = scopes.length > 0 
       ? scopes.join(' ') 
-      : 'contacts.readonly contacts.write conversations.readonly conversations.write locations.readonly workflows.readonly';
+      : 'contacts.readonly contacts.write conversations.readonly conversations.write conversations/message.readonly conversations/message.write locations.readonly workflows.readonly';
     
     const cleanRedirect = redirectUri || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1/integrations/oauth/callback` : '');
     
@@ -80,6 +80,27 @@ export class GhlOAuthService {
     } catch (err) {
       console.error('[GhlOAuthService] Token Exchange Error:', err);
       throw err;
+    }
+  }
+
+  /**
+   * Refreshes access token for a location via backend server proxy
+   */
+  static async refreshLocationTokenViaBackend(locationId, tenantId = null) {
+    try {
+      const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      const customGateway = typeof window !== 'undefined' ? localStorage.getItem('omniflow_custom_gateway') : null;
+      const apiBase = customGateway || (isDev ? 'http://localhost:5000/api' : 'https://api.employeemanagementsystems.com/api');
+
+      const res = await fetch(`${apiBase}/v1/integrations/ghl/oauth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locationId, tenantId })
+      });
+      return await res.json();
+    } catch (e) {
+      console.warn('[GhlOAuthService backend refresh notice]:', e.message);
+      return null;
     }
   }
 

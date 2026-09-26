@@ -48,7 +48,7 @@ export class GhlAuthService {
     } else if (process.env.GHL_SCOPES) {
       cleanScopes = process.env.GHL_SCOPES.replace(/,/g, ' ').trim();
     } else {
-      cleanScopes = 'contacts.readonly contacts.write';
+      cleanScopes = 'contacts.readonly contacts.write conversations.readonly conversations.write conversations/message.readonly conversations/message.write locations.readonly';
     }
 
     const cleanRedirect = (redirectUri || process.env.GHL_REDIRECT_URI || 'https://api.employeemanagementsystems.com/api/v1/integrations/marketplace/oauth/callback').trim();
