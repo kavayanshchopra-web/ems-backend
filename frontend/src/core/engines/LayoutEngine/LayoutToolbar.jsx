@@ -77,7 +77,7 @@ export default function LayoutToolbar({
   const isFilterActive = FilterEngine.isFilterActive(filterValues) || Boolean(searchQuery.trim());
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+    <div className="layout-toolbar-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
       {/* 1. TOP HEADER & MAIN ACTION STRIP */}
       <div
         className="module-header-strip"

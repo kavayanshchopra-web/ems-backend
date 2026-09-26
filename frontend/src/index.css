@@ -3279,17 +3279,23 @@ h1, h2, h3, h4, h5, h6 {
 
   /* ── Universal Module Header & Layout Shell Mobile Responsiveness ── */
   .layout-engine-shell {
-    padding: 10px 8px !important;
-    gap: 10px !important;
+    padding: 6px 4px !important;
+    gap: 8px !important;
     width: 100% !important;
     box-sizing: border-box !important;
   }
+  .layout-toolbar-wrapper {
+    gap: 6px !important;
+  }
   .module-header-strip {
-    padding: 8px 10px !important;
-    gap: 8px !important;
+    padding: 6px 10px !important;
+    gap: 6px !important;
     flex-direction: column !important;
     align-items: stretch !important;
     border-radius: 10px !important;
+  }
+  .module-subtitle {
+    display: none !important;
   }
   .module-header-actions {
     margin-left: 0 !important;
@@ -3303,6 +3309,9 @@ h1, h2, h3, h4, h5, h6 {
   }
   .module-header-actions button {
     justify-content: center !important;
+    padding: 6px 10px !important;
+    height: 34px !important;
+    font-size: 11.5px !important;
   }
 
   /* ── Search & Filter Strip Mobile (Row 1: Search Full Width, Row 2: Views Left + Cols/Pages Right) ── */

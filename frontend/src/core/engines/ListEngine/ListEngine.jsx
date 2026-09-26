@@ -1018,10 +1018,14 @@ export default function ListEngine({
     const agentName = getValString(record.assignedTo || record.assigned_to || record.agentName || record.owner || record.agent);
     const recordStatus = getValString(record.status || record.stage || record.pipeline_stage || record.disposition);
 
-    // Two-letter clean initials (Letters only, avoids punctuation like "(")
+    // Two-letter clean initials (Avoids all-LE duplicate issue for auto-generated leads)
     const getInitials = (name) => {
       if (!name) return 'C';
-      const clean = name.replace(/[^a-zA-Z\s]/g, ' ').trim();
+      const clean = name.replace(/[^a-zA-Z0-9\s]/g, ' ').trim();
+      const numMatch = clean.match(/^(?:lead|contact)\s*(\d+)/i);
+      if (numMatch && numMatch[1]) {
+        return numMatch[1].slice(-2) || 'C';
+      }
       const parts = clean.split(/\s+/).filter(Boolean);
       if (parts.length >= 2 && parts[0] && parts[1]) {
         return (parts[0][0] + parts[1][0]).toUpperCase();
@@ -1036,65 +1040,29 @@ export default function ListEngine({
     };
     const initials = getInitials(recordName);
 
-    // Status Theme & Short Punchy Labels
-    const rawStatus = (recordStatus || '').toLowerCase();
-    let statusTheme = {
-      label: 'New',
-      tabBg: '#10b981',
-      tabText: '#ffffff'
+    // Source Badge with Accurate Contextual Icons & Colors
+    const getSourceBadge = (rawSource) => {
+      const s = (rawSource || '').toLowerCase().trim();
+      if (s.includes('sim') || s.includes('call') || s.includes('telephony') || s.includes('voxbay')) {
+        return { icon: '📞', label: 'SIM Call', bg: '#f1f5f9', text: '#334155' };
+      }
+      if (s.includes('whatsapp')) {
+        return { icon: '💬', label: 'WhatsApp', bg: '#ecfdf5', text: '#065f46' };
+      }
+      if (s.includes('ghl') || s.includes('highlevel')) {
+        return { icon: '⚡', label: 'GoHighLevel', bg: '#eff6ff', text: '#1e40af' };
+      }
+      if (s.includes('web') || s.includes('form') || s.includes('site')) {
+        return { icon: '🌐', label: 'Web Form', bg: '#f8fafc', text: '#475569' };
+      }
+      if (rawSource && rawSource !== '—') {
+        return { icon: '🏷️', label: rawSource, bg: '#f1f5f9', text: '#334155' };
+      }
+      return { icon: '📞', label: 'Direct', bg: '#f1f5f9', text: '#475569' };
     };
+    const sourceBadge = getSourceBadge(sourceStr);
 
-    if (isArchivedView || record.is_archived) {
-      statusTheme = {
-        label: 'Archived',
-        tabBg: '#94a3b8',
-        tabText: '#ffffff'
-      };
-    } else if (rawStatus.includes('pending') || (!hasValidPhone && !emailStr)) {
-      statusTheme = {
-        label: 'Pending',
-        tabBg: '#f59e0b',
-        tabText: '#0f172a'
-      };
-    } else if (rawStatus.includes('dnd') || rawStatus.includes('lost') || rawStatus.includes('reject')) {
-      statusTheme = {
-        label: rawStatus.includes('dnd') ? 'DND' : 'Lost',
-        tabBg: '#ef4444',
-        tabText: '#ffffff'
-      };
-    } else if (rawStatus.includes('follow')) {
-      statusTheme = {
-        label: 'Followup',
-        tabBg: '#3b82f6',
-        tabText: '#ffffff'
-      };
-    } else if (rawStatus.includes('contact')) {
-      statusTheme = {
-        label: 'Contacted',
-        tabBg: '#0d9488',
-        tabText: '#ffffff'
-      };
-    } else if (rawStatus.includes('won') || rawStatus.includes('convert')) {
-      statusTheme = {
-        label: 'Won',
-        tabBg: '#10b981',
-        tabText: '#ffffff'
-      };
-    } else if (rawStatus.includes('new') || rawStatus.includes('lead')) {
-      statusTheme = {
-        label: 'New',
-        tabBg: '#10b981',
-        tabText: '#ffffff'
-      };
-    } else if (recordStatus) {
-      statusTheme = {
-        label: recordStatus.length > 8 ? recordStatus.slice(0, 8) : recordStatus,
-        tabBg: '#0d9488',
-        tabText: '#ffffff'
-      };
-    }
-
-    // Deterministic colorful avatar per contact
+    // Deterministic colorful palette per contact
     const avatarTheme = getAvatarTheme(record.id || recordName || idx);
 
     return (
@@ -1106,57 +1074,30 @@ export default function ListEngine({
           position: 'relative',
           background: '#ffffff',
           border: '1px solid #e2e8f0',
+          borderLeft: `5px solid ${avatarTheme.text}`,
           borderRadius: '14px',
           boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
           display: 'flex',
           alignItems: 'center',
-          padding: '0 10px 0 0',
-          gap: '10px',
+          padding: '10px 12px 10px 14px',
+          gap: '12px',
           cursor: 'pointer',
           overflow: 'hidden',
-          minHeight: '68px',
+          minHeight: '74px',
           width: '100%',
           boxSizing: 'border-box',
           transition: 'all 0.15s ease'
         }}
       >
-        {/* 1. Left Curved Status Tab (Slim 20px with vertical text) */}
+        {/* 1. Soft Tint Deterministic Multi-Color Circular Avatar with Initials */}
         <div
           style={{
-            width: '20px',
-            alignSelf: 'stretch',
-            background: statusTheme.tabBg,
-            borderRadius: '14px 0 0 14px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}
-        >
-          <span
-            style={{
-              writingMode: 'vertical-rl',
-              transform: 'rotate(180deg)',
-              fontSize: '9px',
-              fontWeight: '800',
-              letterSpacing: '0.4px',
-              color: statusTheme.tabText,
-              userSelect: 'none'
-            }}
-          >
-            {statusTheme.label}
-          </span>
-        </div>
-
-        {/* 2. Soft Tint Deterministic Multi-Color Circular Avatar with Initials */}
-        <div
-          style={{
-            width: '40px',
-            height: '40px',
+            width: '42px',
+            height: '42px',
             borderRadius: '50%',
             background: avatarTheme.bg,
             color: avatarTheme.text,
-            border: `1.5px solid ${avatarTheme.text}22`,
+            border: `1.5px solid ${avatarTheme.text}28`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -1169,7 +1110,7 @@ export default function ListEngine({
           {initials}
         </div>
 
-        {/* 3. Center Info (Full Name on Line 1, Full Phone strictly on Line 2, Compact Source on Line 3) */}
+        {/* 2. Expanded Center Info (More width & breathing space) */}
         <div
           style={{
             flex: 1,
@@ -1177,16 +1118,15 @@ export default function ListEngine({
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
-            gap: '2px',
-            padding: '6px 0'
+            gap: '3px'
           }}
         >
-          {/* Line 1: Full Contact Name (100% room for name) */}
+          {/* Line 1: Full Contact Name */}
           <div style={{ minWidth: 0, width: '100%' }}>
             <span
               style={{
                 fontWeight: '800',
-                fontSize: '14.5px',
+                fontSize: '15px',
                 color: '#0f172a',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
@@ -1215,24 +1155,24 @@ export default function ListEngine({
             {hasValidPhone && phoneStr && phoneStr !== '—' ? phoneStr : '—'}
           </div>
 
-          {/* Line 3: Compact Source Badge + Agent */}
+          {/* Line 3: Compact Source Badge (Accurate Icon & Soft Color) + Agent */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '1px', flexWrap: 'nowrap', overflow: 'hidden' }}>
             <span
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '3px',
-                fontSize: '10px',
+                gap: '3.5px',
+                fontSize: '10.5px',
                 fontWeight: '600',
-                padding: '1px 6px',
+                padding: '2px 7px',
                 borderRadius: '6px',
-                background: '#f1f5f9',
-                color: '#334155',
+                background: sourceBadge.bg,
+                color: sourceBadge.text,
                 whiteSpace: 'nowrap',
                 flexShrink: 0
               }}
             >
-              💬 {sourceStr ? (sourceStr.toLowerCase().includes('whatsapp') ? 'WhatsApp' : sourceStr) : 'WhatsApp'}
+              {sourceBadge.icon} {sourceBadge.label}
             </span>
 
             {agentName && agentName !== '—' ? (
@@ -1253,7 +1193,7 @@ export default function ListEngine({
           </div>
         </div>
 
-        {/* 4. Right Action Buttons: Crisp 32px Buttons */}
+        {/* 3. Right Action Buttons: Crisp 34px Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
           {hasValidPhone ? (
             <>
@@ -1270,8 +1210,8 @@ export default function ListEngine({
                   }
                 }}
                 style={{
-                  width: '32px',
-                  height: '32px',
+                  width: '34px',
+                  height: '34px',
                   borderRadius: '50%',
                   background: '#10b981',
                   border: 'none',
@@ -1279,17 +1219,17 @@ export default function ListEngine({
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
-                  boxShadow: '0 2px 5px rgba(16, 185, 129, 0.3)',
+                  boxShadow: '0 2px 6px rgba(16, 185, 129, 0.35)',
                   transition: 'transform 0.1s ease',
                   padding: 0
                 }}
               >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
                 </svg>
               </button>
 
-              {/* Circular WhatsApp Button with clean handset cutout */}
+              {/* Official WhatsApp Button (Recognized Crisp SVG) */}
               <a
                 href={`https://wa.me/${cleanPhoneDigits}`}
                 target="_blank"
@@ -1297,26 +1237,21 @@ export default function ListEngine({
                 onClick={(e) => e.stopPropagation()}
                 title="Chat on WhatsApp"
                 style={{
-                  width: '32px',
-                  height: '32px',
+                  width: '34px',
+                  height: '34px',
                   borderRadius: '50%',
                   background: '#25D366',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   textDecoration: 'none',
-                  boxShadow: '0 2px 5px rgba(37, 211, 102, 0.3)',
+                  boxShadow: '0 2px 6px rgba(37, 211, 102, 0.35)',
                   transition: 'transform 0.1s ease',
                   padding: 0
                 }}
               >
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-                  <path
-                    fill="#ffffff"
-                    fillRule="evenodd"
-                    clipRule="evenodd"
-                    d="M12.04 2C6.516 2 2.023 6.492 2.023 12.015c0 1.954.56 3.782 1.53 5.334L2 22l4.802-1.512c1.493.89 3.226 1.385 5.238 1.385 5.524 0 10.017-4.492 10.017-10.015C22.057 6.492 17.564 2 12.04 2zm5.432 12.382c-.301.15-1.78-.879-2.056.98-.276.1-.477.15-.678-.15-.2-.301-.778-.98-.954-1.18-.176-.2-.351-.226-.653-.075-.301.15-1.272.469-2.424 1.496-.896.799-1.501 1.786-1.677 2.087-.176.301-.019.464.132.614.136.135.301.351.452.527.15.176.2.301.301.502.101.2.05.376-.025.526-.075.15-.678 1.633-.929 2.235-.244.587-.493.507-.678.517-.176.01-.376.01-.577.01-.2 0-.527.075-.803.376-.276.301-1.054 1.03-1.054 2.512 0 1.482 1.079 2.912 1.23 3.113.15.2 2.124 3.243 5.145 4.549.719.31 1.28.496 1.718.635.722.23 1.378.197 1.898.12.579-.087 1.78-.728 2.031-1.431.251-.703.251-1.305.176-1.431-.075-.126-.276-.201-.577-.351z"
-                  />
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="#ffffff">
+                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
                 </svg>
               </a>
             </>
@@ -1328,8 +1263,8 @@ export default function ListEngine({
                 onViewRecord(record);
               }}
               style={{
-                padding: '5px 10px',
-                borderRadius: '12px',
+                padding: '6px 12px',
+                borderRadius: '8px',
                 border: '1px solid #cbd5e1',
                 background: '#f8fafc',
                 color: '#0d9488',
