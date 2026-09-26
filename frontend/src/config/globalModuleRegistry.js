@@ -78,7 +78,9 @@ export const GLOBAL_MODULE_REGISTRY = {
   },
   telecalling: {
     id: 'telecalling',
-    label: 'Call Recordings Directory',
+    label: 'Phone System',
+    title: 'Phone System',
+    name: 'Phone System',
     category: 'Sales & Marketing',
     description: 'Manage GSM mobile SIM call recordings, VoIP calls, lead dispositions, and telecaller logs',
     icon: '📞',

@@ -929,6 +929,12 @@ export default function TelecallingView({
 
     return {
       ...config,
+      moduleId: 'telecalling',
+      name: 'Phone System',
+      moduleTitle: 'Phone System',
+      label: 'Phone System',
+      title: 'Phone System',
+      searchPlaceholder: 'Search calls, telecallers, leads...',
       fields,
       summaryWidgets: widgets,
       columns: cols.map((c, i) => ({ ...c, sortOrder: c.sortOrder || (i + 1) })).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))

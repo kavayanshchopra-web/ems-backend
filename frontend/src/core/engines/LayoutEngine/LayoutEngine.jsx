@@ -476,7 +476,7 @@ export default function LayoutEngine({
               companyId={effectiveUser?.companyId || effectiveUser?.tenantId || effectiveUser?.tenant_id || 'default_tenant'}
               moduleDef={moduleConfigService.getModuleDefinition(moduleConfig.moduleId || moduleConfig.id || 'telecalling') || {
                 id: moduleConfig.moduleId || moduleConfig.id || 'telecalling',
-                label: LabelEngine.getTitle(moduleConfig) || 'Call Recordings Directory',
+                label: LabelEngine.getTitle(moduleConfig) || 'Phone System',
                 icon: moduleConfig.icon || '📞',
                 configurable: true,
                 capabilities: { forms: true, summary: true, searchFilters: true, listView: true, views: true }

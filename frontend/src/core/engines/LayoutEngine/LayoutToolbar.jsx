@@ -112,8 +112,8 @@ export default function LayoutToolbar({
             {moduleConfig.icon || '🧑‍💼'}
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h1 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#0f172a' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap' }}>
+              <h1 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#0f172a', whiteSpace: 'nowrap' }}>
                 {LabelEngine.getModuleTitle(moduleConfig)}
               </h1>
               <span style={{
@@ -123,7 +123,12 @@ export default function LayoutToolbar({
                 border: '1px solid rgba(13, 148, 136, 0.3)',
                 color: '#0d9488',
                 fontSize: '11px',
-                fontWeight: '800'
+                fontWeight: '800',
+                whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+                flexShrink: 0,
+                lineHeight: 1.3
               }}>
                 {totalCount} Total
               </span>

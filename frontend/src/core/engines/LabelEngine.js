@@ -87,7 +87,9 @@ export class LabelEngine {
    */
   static getModuleTitle(moduleConfig) {
     if (!moduleConfig) return 'Module Roster';
-    return moduleConfig.moduleTitle || moduleConfig.name || 'EMS Roster';
+    if (moduleConfig.moduleId === 'telecalling' || moduleConfig.id === 'telecalling') return 'Phone System';
+    if (moduleConfig.name === 'Call Recordings Directory') return 'Phone System';
+    return moduleConfig.moduleTitle || moduleConfig.name || moduleConfig.label || 'EMS Roster';
   }
 
   /**
