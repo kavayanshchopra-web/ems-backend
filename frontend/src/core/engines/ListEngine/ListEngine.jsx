@@ -948,7 +948,7 @@ export default function ListEngine({
   const renderMobileCard = (record, idx) => {
     if (!record) return null;
 
-    let recordName = getValString(
+    let rawName = getValString(
       record.name ||
       record.fullName ||
       record.contactName ||
@@ -963,7 +963,13 @@ export default function ListEngine({
       (record.first_name ? `${record.first_name} ${record.last_name || ''}`.trim() : '') ||
       record.title,
       ''
-    );
+    ).trim();
+
+    // Clean up generic auto-generated names like "Lead (+91 84277...)" or "Contact (+91...)"
+    let recordName = rawName;
+    if (/^(lead|contact)\s*[\(\[]/i.test(recordName)) {
+      recordName = recordName.replace(/[\(\)\[\]]/g, '').trim();
+    }
 
     if (!recordName || recordName === 'Employee Directory' || recordName === 'Candidate' || recordName === 'Customer' || recordName === 'Record') {
       if (record.email) {
@@ -979,7 +985,6 @@ export default function ListEngine({
       recordName = LabelEngine.getEntityName(moduleConfig) || 'Contact';
     }
 
-    const displayId = record.displayId || record.tag || formatCandidateId(record.id, idx, moduleConfig);
     const phoneStr = getValString(record.phone || record.phoneNumber || record.customerPhone || record.phone_normalized);
     const cleanPhoneDigits = (phoneStr || '').replace(/\D/g, '');
     const hasValidPhone = cleanPhoneDigits.length >= 7;
@@ -988,31 +993,34 @@ export default function ListEngine({
     const agentName = getValString(record.assignedTo || record.assigned_to || record.agentName || record.owner || record.agent);
     const recordStatus = getValString(record.status || record.stage || record.pipeline_stage || record.disposition);
 
-    // Two-letter initials helper for the avatar (matches Image 2 "HC")
+    // Two-letter clean initials (Letters only, avoids punctuation like "(")
     const getInitials = (name) => {
       if (!name) return 'C';
-      const clean = name.replace(/^[^a-zA-Z0-9]+/, '').trim();
+      const clean = name.replace(/[^a-zA-Z\s]/g, ' ').trim();
       const parts = clean.split(/\s+/).filter(Boolean);
       if (parts.length >= 2 && parts[0] && parts[1]) {
         return (parts[0][0] + parts[1][0]).toUpperCase();
       }
-      if (clean.length >= 2) {
-        return clean.slice(0, 2).toUpperCase();
+      if (parts.length === 1 && parts[0].length >= 2) {
+        return parts[0].slice(0, 2).toUpperCase();
       }
-      return (clean[0] || 'C').toUpperCase();
+      if (parts.length === 1 && parts[0].length === 1) {
+        return parts[0].toUpperCase();
+      }
+      return 'C';
     };
     const initials = getInitials(recordName);
 
-    // Status Theme & Colors matching Image 2
+    // Status Theme & Short Punchy Labels
+    const rawStatus = (recordStatus || '').toLowerCase();
     let statusTheme = {
-      label: 'Active',
+      label: 'New',
       tabBg: '#10b981',
       tabText: '#ffffff',
       avatarBg: '#dcfce7',
       avatarText: '#15803d'
     };
 
-    const rawStatus = (recordStatus || '').toLowerCase();
     if (isArchivedView || record.is_archived) {
       statusTheme = {
         label: 'Archived',
@@ -1023,7 +1031,7 @@ export default function ListEngine({
       };
     } else if (rawStatus.includes('pending') || (!hasValidPhone && !emailStr)) {
       statusTheme = {
-        label: recordStatus || 'Pending',
+        label: 'Pending',
         tabBg: '#f59e0b',
         tabText: '#0f172a',
         avatarBg: '#ffedd5',
@@ -1031,15 +1039,39 @@ export default function ListEngine({
       };
     } else if (rawStatus.includes('dnd') || rawStatus.includes('lost') || rawStatus.includes('reject')) {
       statusTheme = {
-        label: recordStatus || 'DND',
+        label: rawStatus.includes('dnd') ? 'DND' : 'Lost',
         tabBg: '#ef4444',
         tabText: '#ffffff',
         avatarBg: '#fee2e2',
         avatarText: '#b91c1c'
       };
+    } else if (rawStatus.includes('follow')) {
+      statusTheme = {
+        label: 'Followup',
+        tabBg: '#3b82f6',
+        tabText: '#ffffff',
+        avatarBg: '#dbeafe',
+        avatarText: '#1d4ed8'
+      };
+    } else if (rawStatus.includes('contact')) {
+      statusTheme = {
+        label: 'Contacted',
+        tabBg: '#0d9488',
+        tabText: '#ffffff',
+        avatarBg: '#ccfbf1',
+        avatarText: '#0f766e'
+      };
+    } else if (rawStatus.includes('won') || rawStatus.includes('convert')) {
+      statusTheme = {
+        label: 'Won',
+        tabBg: '#10b981',
+        tabText: '#ffffff',
+        avatarBg: '#dcfce7',
+        avatarText: '#15803d'
+      };
     } else if (rawStatus.includes('new') || rawStatus.includes('lead')) {
       statusTheme = {
-        label: recordStatus || 'New',
+        label: 'New',
         tabBg: '#10b981',
         tabText: '#ffffff',
         avatarBg: '#dcfce7',
@@ -1047,7 +1079,7 @@ export default function ListEngine({
       };
     } else if (recordStatus) {
       statusTheme = {
-        label: recordStatus,
+        label: recordStatus.length > 8 ? recordStatus.slice(0, 8) : recordStatus,
         tabBg: '#0d9488',
         tabText: '#ffffff',
         avatarBg: '#ccfbf1',
@@ -1063,28 +1095,28 @@ export default function ListEngine({
         style={{
           position: 'relative',
           background: '#ffffff',
-          border: '1.5px solid #e2e8f0',
-          borderRadius: '34px',
-          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.04)',
+          border: '1px solid #e2e8f0',
+          borderRadius: '24px',
+          boxShadow: '0 1px 4px rgba(0, 0, 0, 0.04)',
           display: 'flex',
           alignItems: 'center',
-          padding: '0 14px 0 0',
-          gap: '12px',
+          padding: '0 10px 0 0',
+          gap: '10px',
           cursor: 'pointer',
           overflow: 'hidden',
-          minHeight: '80px',
+          minHeight: '72px',
           width: '100%',
           boxSizing: 'border-box',
           transition: 'all 0.15s ease'
         }}
       >
-        {/* 1. Left Curved Status Tab (Vertical text like Image 2) */}
+        {/* 1. Left Curved Status Tab (Compact 22px with vertical text) */}
         <div
           style={{
-            width: '28px',
+            width: '22px',
             alignSelf: 'stretch',
             background: statusTheme.tabBg,
-            borderRadius: '32px 0 0 32px',
+            borderRadius: '24px 0 0 24px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -1095,12 +1127,11 @@ export default function ListEngine({
             style={{
               writingMode: 'vertical-rl',
               transform: 'rotate(180deg)',
-              fontSize: '11px',
+              fontSize: '9.5px',
               fontWeight: '800',
               letterSpacing: '0.4px',
               color: statusTheme.tabText,
-              userSelect: 'none',
-              textTransform: 'capitalize'
+              userSelect: 'none'
             }}
           >
             {statusTheme.label}
@@ -1110,8 +1141,8 @@ export default function ListEngine({
         {/* 2. Soft Tint Circular Avatar with 2-Letter Initials */}
         <div
           style={{
-            width: '46px',
-            height: '46px',
+            width: '40px',
+            height: '40px',
             borderRadius: '50%',
             background: statusTheme.avatarBg,
             color: statusTheme.avatarText,
@@ -1119,7 +1150,7 @@ export default function ListEngine({
             alignItems: 'center',
             justifyContent: 'center',
             fontWeight: '800',
-            fontSize: '16px',
+            fontSize: '14px',
             flexShrink: 0,
             userSelect: 'none'
           }}
@@ -1127,7 +1158,7 @@ export default function ListEngine({
           {initials}
         </div>
 
-        {/* 3. Center Info (3 Distinct Lines matching Image 2) */}
+        {/* 3. Center Info (Full Name on Line 1, Full Phone on Line 2, Compact Source on Line 3) */}
         <div
           style={{
             flex: 1,
@@ -1136,11 +1167,11 @@ export default function ListEngine({
             flexDirection: 'column',
             justifyContent: 'center',
             gap: '2px',
-            padding: '6px 0'
+            padding: '5px 0'
           }}
         >
-          {/* Line 1: Name + ID Tag */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+          {/* Line 1: Full Contact Name (No CON-0001 id, 100% space for name) */}
+          <div style={{ minWidth: 0, width: '100%' }}>
             <span
               style={{
                 fontWeight: '800',
@@ -1149,68 +1180,55 @@ export default function ListEngine({
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                maxWidth: '170px'
+                display: 'block',
+                width: '100%',
+                lineHeight: 1.2
               }}
               title={recordName}
             >
               {recordName}
             </span>
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: '600',
-                padding: '1px 8px',
-                borderRadius: '12px',
-                background: '#e2e8f0',
-                color: '#334155',
-                fontFamily: 'monospace',
-                flexShrink: 0
-              }}
-            >
-              {displayId}
-            </span>
           </div>
 
-          {/* Line 2: Formatted Phone Number */}
+          {/* Line 2: Full Formatted Phone Number */}
           <div
             style={{
-              fontSize: '13.5px',
+              fontSize: '13px',
               fontWeight: '700',
               color: '#1e293b',
               letterSpacing: '0.2px',
               whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis'
+              lineHeight: 1.2
             }}
           >
             {hasValidPhone ? phoneStr : (emailStr && emailStr !== '—' ? emailStr : 'No phone number')}
           </div>
 
-          {/* Line 3: Source Badge + Agent */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '1px', flexWrap: 'nowrap', overflow: 'hidden' }}>
+          {/* Line 3: Compact Source Badge + Agent */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '1px', flexWrap: 'nowrap', overflow: 'hidden' }}>
             <span
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '4px',
-                fontSize: '11px',
+                gap: '3px',
+                fontSize: '10px',
                 fontWeight: '600',
-                padding: '1px 8px',
-                borderRadius: '12px',
-                background: '#e2e8f0',
-                color: '#1e293b',
+                padding: '1px 6px',
+                borderRadius: '8px',
+                background: '#f1f5f9',
+                color: '#334155',
                 whiteSpace: 'nowrap',
                 flexShrink: 0
               }}
             >
-              💬 {sourceStr && sourceStr !== '—' ? sourceStr : 'WhatsApp'}
+              💬 {sourceStr ? (sourceStr.toLowerCase().includes('whatsapp') ? 'WhatsApp' : sourceStr) : 'WhatsApp'}
             </span>
 
             {agentName && agentName !== '—' ? (
               <span
                 style={{
-                  fontSize: '12px',
-                  color: '#334155',
+                  fontSize: '11px',
+                  color: '#64748b',
                   fontWeight: '500',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
@@ -1224,8 +1242,8 @@ export default function ListEngine({
           </div>
         </div>
 
-        {/* 4. Right Action Buttons: Circular Green Buttons matching Image 2 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+        {/* 4. Right Action Buttons: Smaller Circular Buttons (32px) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
           {hasValidPhone ? (
             <>
               {/* Circular Call Button */}
@@ -1241,8 +1259,8 @@ export default function ListEngine({
                   }
                 }}
                 style={{
-                  width: '38px',
-                  height: '38px',
+                  width: '32px',
+                  height: '32px',
                   borderRadius: '50%',
                   background: '#10b981',
                   border: 'none',
@@ -1250,12 +1268,12 @@ export default function ListEngine({
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
-                  boxShadow: '0 2px 6px rgba(16, 185, 129, 0.35)',
+                  boxShadow: '0 2px 5px rgba(16, 185, 129, 0.3)',
                   transition: 'transform 0.1s ease',
                   padding: 0
                 }}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
                 </svg>
               </button>
@@ -1268,20 +1286,20 @@ export default function ListEngine({
                 onClick={(e) => e.stopPropagation()}
                 title="Chat on WhatsApp"
                 style={{
-                  width: '38px',
-                  height: '38px',
+                  width: '32px',
+                  height: '32px',
                   borderRadius: '50%',
                   background: '#25D366',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   textDecoration: 'none',
-                  boxShadow: '0 2px 6px rgba(37, 211, 102, 0.35)',
+                  boxShadow: '0 2px 5px rgba(37, 211, 102, 0.3)',
                   transition: 'transform 0.1s ease',
                   padding: 0
                 }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="#ffffff">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="#ffffff">
                   <path d="M17.472 14.382c-.301-.15-1.78-.879-2.056-.98-.276-.1-.477-.15-.678.15-.2.301-.778.98-.954 1.18-.176.2-.351.226-.653.075-.301-.15-1.272-.469-2.424-1.496-.896-.799-1.501-1.786-1.677-2.087-.176-.301-.019-.464.132-.614.136-.135.301-.351.452-.527.15-.176.2-.301.301-.502.101-.2.05-.376-.025-.526-.075-.15-.678-1.633-.929-2.235-.244-.587-.493-.507-.678-.517-.176-.01-.376-.01-.577-.01-.2 0-.527.075-.803.376-.276.301-1.054 1.03-1.054 2.512 0 1.482 1.079 2.912 1.23 3.113.15.2 2.124 3.243 5.145 4.549.719.31 1.28.496 1.718.635.722.23 1.378.197 1.898.12.579-.087 1.78-.728 2.031-1.431.251-.703.251-1.305.176-1.431-.075-.126-.276-.201-.577-.351zM12.04 2C6.516 2 2.023 6.492 2.023 12.015c0 1.954.56 3.782 1.53 5.334L2 22l4.802-1.512c1.493.89 3.226 1.385 5.238 1.385 5.524 0 10.017-4.492 10.017-10.015C22.057 6.492 17.564 2 12.04 2z"/>
                 </svg>
               </a>
@@ -1294,8 +1312,8 @@ export default function ListEngine({
                 onViewRecord(record);
               }}
               style={{
-                padding: '6px 12px',
-                borderRadius: '16px',
+                padding: '5px 10px',
+                borderRadius: '12px',
                 border: '1px solid #cbd5e1',
                 background: '#f8fafc',
                 color: '#0d9488',

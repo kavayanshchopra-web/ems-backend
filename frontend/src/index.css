@@ -3430,11 +3430,11 @@ h1, h2, h3, h4, h5, h6 {
   .mobile-cards-view {
     display: flex !important;
     flex-direction: column !important;
-    gap: 10px !important;
-    padding: 10px 8px !important;
-    background: #f8fafc !important;
-    max-height: calc(100vh - 160px) !important;
-    overflow-y: auto !important;
+    gap: 8px !important;
+    padding: 4px 0 !important;
+    background: transparent !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   /* ── Kanban Stage Tabs Mobile ── */
