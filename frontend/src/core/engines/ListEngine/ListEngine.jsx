@@ -983,261 +983,275 @@ export default function ListEngine({
     const isOutgoing = callTypeStr.toUpperCase().includes('OUTGOING');
     const isMissed = callTypeStr.toUpperCase().includes('MISSED') || callTypeStr.toUpperCase().includes('REJECTED');
 
+    // Resolve phone & contact badges
+    const cleanPhoneDigits = (phoneStr || '').replace(/\D/g, '');
+    const hasValidPhone = cleanPhoneDigits.length >= 7;
+    const sourceStr = getValString(record.source || record.lead_source || record.leadSource);
+
+    // Dynamic accent color based on status / phone validity
+    let statusThemeColor = '#10b981'; // Active Green
+    let statusLabel = recordStatus || 'Active';
+
+    if (isArchivedView || record.is_archived) {
+      statusThemeColor = '#94a3b8';
+      statusLabel = 'Archived';
+    } else if (recordStatus && recordStatus.toLowerCase().includes('dnd')) {
+      statusThemeColor = '#ef4444';
+      statusLabel = 'DND';
+    } else if (!hasValidPhone && !emailStr) {
+      statusThemeColor = '#f59e0b';
+      statusLabel = recordStatus || 'Pending';
+    } else if (recordStatus) {
+      const lower = recordStatus.toLowerCase();
+      if (lower.includes('lost') || lower.includes('drop') || lower.includes('inactive')) {
+        statusThemeColor = '#64748b';
+      } else if (lower.includes('won') || lower.includes('converted') || lower.includes('success')) {
+        statusThemeColor = '#10b981';
+      } else if (lower.includes('hot') || lower.includes('urgent')) {
+        statusThemeColor = '#f43f5e';
+      } else if (lower.includes('warm') || lower.includes('follow')) {
+        statusThemeColor = '#3b82f6';
+      } else {
+        statusThemeColor = '#0d9488';
+      }
+    }
+
     return (
       <div
         key={record.id || idx}
         className="mobile-record-card"
         onClick={() => onViewRecord(record)}
         style={{
+          position: 'relative',
           background: isSelected ? '#f0fdf4' : '#ffffff',
           border: isSelected ? '1.5px solid #0d9488' : '1px solid #e2e8f0',
-          borderRadius: '12px',
-          padding: '12px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          borderRadius: '16px',
+          padding: '10px 12px 10px 14px',
+          boxShadow: '0 2px 6px -1px rgba(15,23,42,0.06), 0 1px 3px rgba(15,23,42,0.04)',
           display: 'flex',
-          flexDirection: 'column',
-          gap: '9px',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '10px',
           cursor: 'pointer',
-          transition: 'all 0.15s ease'
+          overflow: 'hidden',
+          transition: 'all 0.15s ease',
+          minHeight: '68px'
         }}
       >
-        {/* Top Header: Checkbox + Avatar + Title + Status / Call Type */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
-            <input
-              type="checkbox"
-              checked={isSelected}
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => {
-                e.stopPropagation();
-                handleSelectRow(record.id);
-              }}
-              style={{ accentColor: isArchivedView ? '#f59e0b' : '#0d9488', width: '16px', height: '16px', flexShrink: 0, cursor: 'pointer' }}
-            />
-            <div
+        {/* Left Curved Accent Status Indicator Bar */}
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: '4.5px',
+            background: statusThemeColor,
+            borderRadius: '4px 0 0 4px'
+          }}
+        />
+
+        {/* Left Group: Selection Checkbox + Initials Avatar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '9px', flexShrink: 0 }}>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              e.stopPropagation();
+              handleSelectRow(record.id);
+            }}
+            style={{
+              accentColor: isArchivedView ? '#f59e0b' : '#0d9488',
+              width: '16px',
+              height: '16px',
+              cursor: 'pointer'
+            }}
+          />
+          <div
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '50%',
+              background: avatarGradient,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+              fontWeight: '800',
+              fontSize: '14px',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.08)',
+              flexShrink: 0
+            }}
+          >
+            {(recordName[0] || 'C').toUpperCase()}
+          </div>
+        </div>
+
+        {/* Center Group: Contact Details (Name + ID + Status / Phone + Source + Agent) */}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+          {/* Row 1: Name + ID tag + Status pill */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+            <span
               style={{
-                width: '34px',
-                height: '34px',
-                borderRadius: '50%',
-                background: avatarGradient,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#ffffff',
-                fontWeight: '800',
-                fontSize: '13px',
+                fontWeight: '700',
+                fontSize: '13.5px',
+                color: '#0f172a',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                maxWidth: '140px'
+              }}
+              title={recordName}
+            >
+              {recordName}
+            </span>
+            <span
+              style={{
+                fontSize: '10px',
+                fontWeight: '700',
+                padding: '1px 5px',
+                borderRadius: '4px',
+                background: '#f1f5f9',
+                color: isArchivedView ? '#b45309' : '#475569',
+                fontFamily: 'monospace',
                 flexShrink: 0
               }}
             >
-              {(recordName[0] || 'C').toUpperCase()}
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: '700', fontSize: '13.5px', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {recordName}
-              </div>
-              <div style={{ fontSize: '10.5px', color: isArchivedView ? '#b45309' : '#0d9488', fontFamily: 'monospace', fontWeight: '700' }}>
-                ID: {displayId}
-              </div>
-            </div>
+              {displayId}
+            </span>
+            {statusLabel && (
+              <span
+                style={{
+                  fontSize: '9.5px',
+                  fontWeight: '700',
+                  padding: '1px 6px',
+                  borderRadius: '10px',
+                  background: `${statusThemeColor}18`,
+                  color: statusThemeColor,
+                  border: `1px solid ${statusThemeColor}30`,
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {statusLabel}
+              </span>
+            )}
           </div>
 
-          {/* Status & Call Direction Badges */}
-          <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px' }}>
-            {callTypeStr ? (
-              <span style={{
-                padding: '2px 7px',
-                borderRadius: '6px',
-                fontSize: '10px',
-                fontWeight: '700',
-                textTransform: 'uppercase',
-                background: isIncoming ? 'rgba(16,185,129,0.12)' : (isOutgoing ? 'rgba(59,130,246,0.12)' : 'rgba(239,68,68,0.12)'),
-                color: isIncoming ? '#059669' : (isOutgoing ? '#2563eb' : '#dc2626')
-              }}>
-                {isIncoming ? '↙ In' : (isOutgoing ? '↗ Out' : '✕ Missed')} {durationStr && `• ${durationStr}`}
+          {/* Row 2: Phone number / Email + Source badge + Agent */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flexWrap: 'nowrap', overflow: 'hidden' }}>
+            <span
+              style={{
+                fontSize: '11.5px',
+                fontWeight: '600',
+                color: '#334155',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+                flexShrink: 0
+              }}
+            >
+              {hasValidPhone ? phoneStr : (emailStr && emailStr !== '—' ? emailStr : 'No phone')}
+            </span>
+
+            {sourceStr && sourceStr !== '—' && (
+              <span
+                style={{
+                  fontSize: '9.5px',
+                  fontWeight: '600',
+                  padding: '1px 6px',
+                  borderRadius: '10px',
+                  background: sourceStr.toLowerCase().includes('whatsapp') ? 'rgba(37,211,102,0.12)' : '#f1f5f9',
+                  color: sourceStr.toLowerCase().includes('whatsapp') ? '#059669' : '#475569',
+                  border: sourceStr.toLowerCase().includes('whatsapp') ? '1px solid rgba(37,211,102,0.25)' : '1px solid #e2e8f0',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0
+                }}
+              >
+                {sourceStr.toLowerCase().includes('whatsapp') ? '💬 ' : ''}{sourceStr}
               </span>
-            ) : null}
-            {recordStatus && (
-              <span style={{
-                padding: '2px 7px',
-                borderRadius: '6px',
-                fontSize: '10.5px',
-                fontWeight: '700',
-                background: 'rgba(13,148,136,0.1)',
-                color: '#0d9488',
-                border: '1px solid rgba(13,148,136,0.2)'
-              }}>
-                {recordStatus}
+            )}
+
+            {agentName && agentName !== '—' && (
+              <span
+                style={{
+                  fontSize: '10px',
+                  color: '#64748b',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  flexShrink: 1
+                }}
+                title={`Assigned: ${agentName}`}
+              >
+                👤 {agentName}
               </span>
             )}
           </div>
         </div>
 
-        {/* Middle: Phone & Quick Actions Bar OR Email & Source Display */}
-        {(() => {
-          const cleanPhoneDigits = (phoneStr || '').replace(/\D/g, '');
-          const hasValidPhone = cleanPhoneDigits.length >= 7;
-          const sourceStr = getValString(record.source || record.lead_source || record.leadSource);
-
-          if (hasValidPhone) {
-            return (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                background: '#f8fafc',
-                padding: '6px 10px',
-                borderRadius: '8px',
-                border: '1px solid #f1f5f9'
-              }}>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: '#334155', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span>📞</span> {phoneStr}
-                </span>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <button
-                    type="button"
-                    title="Quick Call Lead"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (window.openGlobalDialer) {
-                        window.openGlobalDialer(phoneStr, recordName, true);
-                      }
-                    }}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      background: '#10b981',
-                      color: '#ffffff',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      boxShadow: '0 1px 3px rgba(16,185,129,0.3)'
-                    }}
-                  >
-                    📞 Call
-                  </button>
-                  <a
-                    href={`https://wa.me/${cleanPhoneDigits}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    title="Chat on WhatsApp"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      background: '#25D366',
-                      color: '#ffffff',
-                      textDecoration: 'none',
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      boxShadow: '0 1px 3px rgba(37,211,102,0.3)'
-                    }}
-                  >
-                    💬 WA
-                  </a>
-                </div>
-              </div>
-            );
-          }
-
-          // Fallback when no valid phone number: Show email and source badge cleanly without dead Call buttons
-          return (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '6px',
-              flexWrap: 'wrap',
-              background: '#f8fafc',
-              padding: '6px 10px',
-              borderRadius: '8px',
-              border: '1px solid #f1f5f9'
-            }}>
-              <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                {emailStr && emailStr !== '—' ? `📧 ${emailStr}` : <span style={{ color: '#94a3b8' }}>No phone number</span>}
-              </span>
-              {sourceStr && sourceStr !== '—' && (
-                <span style={{
-                  padding: '2px 8px',
-                  borderRadius: '6px',
-                  fontSize: '10.5px',
+        {/* Right Group: One-Tap Quick Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+          {hasValidPhone ? (
+            <>
+              <button
+                type="button"
+                title={`Call ${recordName}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.openGlobalDialer) {
+                    window.openGlobalDialer(phoneStr, recordName, true);
+                  } else {
+                    window.location.href = `tel:${cleanPhoneDigits}`;
+                  }
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '6px 9px',
+                  borderRadius: '8px',
+                  background: '#10b981',
+                  color: '#ffffff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '11px',
                   fontWeight: '700',
-                  background: sourceStr.toLowerCase().includes('whatsapp') ? 'rgba(234,179,8,0.12)' : 'rgba(16,185,129,0.12)',
-                  color: sourceStr.toLowerCase().includes('whatsapp') ? '#b45309' : '#059669',
-                  border: sourceStr.toLowerCase().includes('whatsapp') ? '1px solid rgba(234,179,8,0.25)' : '1px solid rgba(16,185,129,0.25)'
-                }}>
-                  {sourceStr}
-                </span>
-              )}
-            </div>
-          );
-        })()}
-
-        {/* Audio Recording Player on Mobile */}
-        {audioSrc && (
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: 'rgba(13,148,136,0.06)',
-              border: '1px solid rgba(13,148,136,0.2)',
-              borderRadius: '8px',
-              padding: '6px 8px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}
-          >
-            <span style={{ fontSize: '11px', fontWeight: '700', color: '#0d9488', flexShrink: 0 }}>
-              🎙️ Audio
-            </span>
-            <audio
-              controls
-              preload="none"
-              src={audioSrc}
-              style={{ height: '30px', flex: 1, minWidth: 0 }}
-            />
-            <a
-              href={audioSrc}
-              download="call_recording.mp4"
-              title="Download Audio"
-              style={{
-                padding: '4px 7px',
-                borderRadius: '5px',
-                background: '#0d9488',
-                color: '#ffffff',
-                fontSize: '10px',
-                textDecoration: 'none',
-                fontWeight: '700',
-                flexShrink: 0
-              }}
-            >
-              ⬇️
-            </a>
-          </div>
-        )}
-
-        {/* Bottom Footer: Agent / Notes + Date + Action Buttons */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          fontSize: '10.5px',
-          color: '#64748b',
-          borderTop: '1px dashed #e2e8f0',
-          paddingTop: '6px',
-          gap: '8px'
-        }}>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>
-            {agentName ? `👤 ${agentName}` : (notesStr ? `📝 ${notesStr}` : (dateFormatted || ''))}
-          </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-            {dateFormatted && !agentName && !notesStr ? null : <span>{dateFormatted}</span>}
+                  boxShadow: '0 1px 3px rgba(16,185,129,0.3)',
+                  transition: 'transform 0.1s ease'
+                }}
+              >
+                📞 Call
+              </button>
+              <a
+                href={`https://wa.me/${cleanPhoneDigits}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                title="Chat on WhatsApp"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '6px 8px',
+                  borderRadius: '8px',
+                  background: '#25D366',
+                  color: '#ffffff',
+                  textDecoration: 'none',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  boxShadow: '0 1px 3px rgba(37,211,102,0.3)',
+                  transition: 'transform 0.1s ease'
+                }}
+              >
+                💬 WA
+              </a>
+            </>
+          ) : (
             <button
               type="button"
               onClick={(e) => {
@@ -1245,46 +1259,21 @@ export default function ListEngine({
                 onViewRecord(record);
               }}
               style={{
-                padding: '2px 6px',
-                borderRadius: '4px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '6px 10px',
+                borderRadius: '8px',
                 border: '1px solid #cbd5e1',
-                background: '#ffffff',
+                background: '#f8fafc',
                 color: '#0d9488',
-                fontSize: '10.5px',
+                fontSize: '11px',
                 fontWeight: '700',
                 cursor: 'pointer'
               }}
             >
               View
             </button>
-            {canManage && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (isArchivedView) {
-                    if (window.confirm(`Permanently delete "${recordName}"?`)) {
-                      if (typeof softDeleteRecord === 'function') softDeleteRecord(record.recycleBinId || record.id);
-                    }
-                  } else {
-                    if (typeof softDeleteRecord === 'function') softDeleteRecord(record);
-                  }
-                }}
-                style={{
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  border: '1px solid #fecdd3',
-                  background: '#fff1f2',
-                  color: '#dc2626',
-                  fontSize: '10.5px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
-              >
-                {isArchivedView ? 'Delete' : 'Archive'}
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </div>
     );
