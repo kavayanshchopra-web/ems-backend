@@ -3059,6 +3059,16 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Compact Pagination Elements (Default / Desktop) */
+.compact-mobile-page-indicator {
+  display: none !important;
+}
+.compact-page-number-buttons {
+  display: flex !important;
+  align-items: center;
+  gap: 3px;
+}
+
 /* ==========================================================================
    UNIVERSAL MOBILE RESPONSIVE ENGINE RULES (<= 768px & <= 480px)
    ========================================================================== */
@@ -3318,10 +3328,11 @@ h1, h2, h3, h4, h5, h6 {
   /* ── Search & Filter Strip Mobile (Explicit Grid Areas: Row 1 Search, Row 2 Views & Cols) ── */
   .module-search-filter-strip {
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-columns: auto 1fr !important;
     grid-template-areas:
       "search search"
       "views cols" !important;
+    align-items: center !important;
     gap: 8px !important;
     padding: 8px 10px !important;
     border-radius: 12px !important;
@@ -3394,7 +3405,7 @@ h1, h2, h3, h4, h5, h6 {
     justify-self: end !important;
     display: flex !important;
     align-items: center !important;
-    gap: 3px !important;
+    gap: 4px !important;
     width: auto !important;
     margin: 0 !important;
     flex-shrink: 0 !important;
@@ -3404,11 +3415,30 @@ h1, h2, h3, h4, h5, h6 {
     font-size: 10.5px !important;
     padding: 2px 6px !important;
   }
+  .toolbar-cols-page-group .compact-pagination-wrapper button {
+    width: 24px !important;
+    height: 24px !important;
+    padding: 0 !important;
+    min-width: 24px !important;
+  }
   .compact-first-last-btn {
     display: none !important;
   }
   .compact-per-page-select {
     display: none !important; /* Hide 25 dropdown on mobile to save 45px and prevent overflow */
+  }
+  .compact-page-number-buttons {
+    display: none !important;
+  }
+  .compact-mobile-page-indicator {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: #334155 !important;
+    padding: 0 4px !important;
+    white-space: nowrap !important;
   }
 
   /* ── Universal KPI Summary Strip Mobile (Clean 3-Card Grid Side-by-Side) ── */

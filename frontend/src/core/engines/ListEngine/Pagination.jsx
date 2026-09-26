@@ -119,30 +119,47 @@ export default function Pagination({
             <ChevronLeft size={12} />
           </button>
 
-          {pages.map(num => (
-            <button
-              key={num}
-              type="button"
-              onClick={() => onPageChange(num)}
-              style={{
-                minWidth: '26px',
-                height: '26px',
-                padding: '0 4px',
-                borderRadius: '6px',
-                border: num === currentPage ? '1px solid #0d9488' : '1px solid #cbd5e1',
-                background: num === currentPage ? '#0d9488' : '#ffffff',
-                color: num === currentPage ? '#ffffff' : '#334155',
-                fontSize: '11px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              {num}
-            </button>
-          ))}
+          {/* Mobile Page Text Indicator: 1 / 6 */}
+          <span
+            className="compact-mobile-page-indicator"
+            style={{
+              fontSize: '11px',
+              fontWeight: '700',
+              color: '#334155',
+              padding: '0 4px',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {currentPage}/{totalPages}
+          </span>
+
+          {/* Desktop Numbered Page Buttons (Hidden on Mobile) */}
+          <div className="compact-page-number-buttons" style={{ alignItems: 'center', gap: '3px' }}>
+            {pages.map(num => (
+              <button
+                key={num}
+                type="button"
+                onClick={() => onPageChange(num)}
+                style={{
+                  minWidth: '26px',
+                  height: '26px',
+                  padding: '0 4px',
+                  borderRadius: '6px',
+                  border: num === currentPage ? '1px solid #0d9488' : '1px solid #cbd5e1',
+                  background: num === currentPage ? '#0d9488' : '#ffffff',
+                  color: num === currentPage ? '#ffffff' : '#334155',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                {num}
+              </button>
+            ))}
+          </div>
 
           <button
             type="button"
