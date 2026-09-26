@@ -408,7 +408,7 @@ function installFetchInterceptor() {
       });
       if (!response.ok && !isAuthRoute) {
         if (response.status === 401 || response.status === 403 || response.status === 400 || response.status === 500 || response.status === 502 || response.status === 503) {
-          console.warn(`[OmniFlow Guard] API ${targetUrl} returned ${response.status}. Serving safe fallback response.`);
+          console.debug(`[OmniFlow Guard] API ${targetUrl} returned ${response.status}. Serving safe fallback response.`);
           const fallbackData = getSafeFallbackData(targetUrl, options.method);
           return new Response(JSON.stringify(fallbackData), {
             status: 200,
@@ -418,7 +418,7 @@ function installFetchInterceptor() {
       }
       return response;
     } catch (netErr) {
-      console.warn(`[OmniFlow Guard] Network error fetching ${targetUrl}. Serving safe fallback:`, netErr.message);
+      console.debug(`[OmniFlow Guard] Network error fetching ${targetUrl}. Serving safe fallback:`, netErr.message);
       const fallbackData = getSafeFallbackData(targetUrl, options.method);
       return new Response(JSON.stringify(fallbackData), {
         status: 200,

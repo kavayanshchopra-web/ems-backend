@@ -85,9 +85,8 @@ export const UniversalAudioPlayer = ({ src }) => {
         controls
         crossOrigin="anonymous"
         src={blobUrl || src}
-        preload="metadata"
+        preload="none"
         onError={(e) => {
-          console.warn('[AudioPlayer] Audio playback notice, retrying with direct source:', e);
           if (blobUrl && audioRef.current && audioRef.current.src !== src) {
             audioRef.current.src = src;
           }
