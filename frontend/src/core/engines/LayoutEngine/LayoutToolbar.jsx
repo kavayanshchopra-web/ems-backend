@@ -415,9 +415,9 @@ export default function LayoutToolbar({
                   title="Open Filters"
                   onClick={() => setShowFilterPopover(prev => !prev)}
                   style={{
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '5px',
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '6px',
                     background: isFilterActive ? '#065f46' : '#0d9488',
                     border: 'none',
                     color: '#ffffff',
@@ -429,7 +429,7 @@ export default function LayoutToolbar({
                     transition: 'all 0.15s ease'
                   }}
                 >
-                  <ChevronDown size={13} />
+                  <Filter size={13} />
                 </button>
               }
             />
