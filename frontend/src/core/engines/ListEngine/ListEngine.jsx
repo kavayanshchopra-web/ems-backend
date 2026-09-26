@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Eye, Edit2, Archive, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Trash2, Columns } from 'lucide-react';
+import { Eye, Edit2, Archive, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Trash2, Columns, Play, Pause } from 'lucide-react';
 import SchemaFieldRenderer from '../FieldEngine/SchemaFieldRenderer';
 import { LabelEngine } from '../LabelEngine';
 import Button from '../../../components/ui/Button';
@@ -38,6 +38,13 @@ const formatDate = (isoStr) => {
   } catch (e) {
     return '01 Aug 2026';
   }
+};
+
+const formatSecondsToTimer = (sec) => {
+  if (!sec || isNaN(sec) || sec <= 0) return '00:00';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 };
 
 export const formatCallDateTime = (val) => {
@@ -178,6 +185,81 @@ export default function ListEngine({
   const setPageSize = propOnPageSizeChange || setLocalPageSize;
   const hiddenColIds = propSetHiddenColIds ? propHiddenColIds : localHiddenColIds;
   const setHiddenColIds = propSetHiddenColIds || setLocalHiddenColIds;
+
+  // Mobile Audio Recording Player State
+  const [playingRecordId, setPlayingRecordId] = useState(null);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [audioProgress, setAudioProgress] = useState({ current: 0, total: 0 });
+  const globalAudioRef = useRef(null);
+
+  const toggleAudioPlayback = (record, recUrl) => {
+    if (!recUrl) return;
+
+    if (!globalAudioRef.current) {
+      globalAudioRef.current = new Audio();
+      globalAudioRef.current.crossOrigin = 'anonymous';
+
+      globalAudioRef.current.ontimeupdate = () => {
+        if (globalAudioRef.current) {
+          setAudioProgress({
+            current: globalAudioRef.current.currentTime || 0,
+            total: globalAudioRef.current.duration || 0
+          });
+        }
+      };
+
+      globalAudioRef.current.onended = () => {
+        setIsPlayingAudio(false);
+        setPlayingRecordId(null);
+        setAudioProgress({ current: 0, total: 0 });
+      };
+
+      globalAudioRef.current.onerror = (e) => {
+        console.warn('[ListEngine AudioPlayer] Audio stream error:', e);
+        setIsPlayingAudio(false);
+        if (showToast) showToast('Could not stream recording directly', 'warning');
+      };
+    }
+
+    const audio = globalAudioRef.current;
+    if (playingRecordId === record.id && isPlayingAudio) {
+      audio.pause();
+      setIsPlayingAudio(false);
+    } else if (playingRecordId === record.id && !isPlayingAudio) {
+      audio.play().then(() => setIsPlayingAudio(true)).catch(err => {
+        console.warn('Audio play error:', err);
+        setIsPlayingAudio(false);
+      });
+    } else {
+      audio.src = recUrl;
+      audio.currentTime = 0;
+      setPlayingRecordId(record.id);
+      audio.play().then(() => setIsPlayingAudio(true)).catch(err => {
+        console.warn('Audio play error:', err);
+        setIsPlayingAudio(false);
+      });
+    }
+  };
+
+  const handleAudioSeek = (e) => {
+    e.stopPropagation();
+    const val = Number(e.target.value);
+    if (globalAudioRef.current && !isNaN(val)) {
+      globalAudioRef.current.currentTime = val;
+      setAudioProgress(prev => ({ ...prev, current: val }));
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (globalAudioRef.current) {
+        try {
+          globalAudioRef.current.pause();
+          globalAudioRef.current.src = '';
+        } catch (e) {}
+      }
+    };
+  }, []);
 
   const emptyStateTextObj = propEmptyText || LabelEngine.getEmptyStateText(moduleConfig, isFilterActive, searchQuery) || {};
   const emptyTitle = emptyStateTextObj.title || 'No records found';
@@ -1082,6 +1164,477 @@ export default function ListEngine({
     // Deterministic colorful palette per contact
     const avatarTheme = getAvatarTheme(record.id || recordName || idx);
 
+    const isTelephony = 
+      moduleConfig?.id === 'telecalling' || 
+      moduleConfig?.module_id === 'telecalling' || 
+      moduleConfig?.name === 'Phone System' || 
+      moduleConfig?.name === 'Call Recordings Directory' || 
+      Boolean(record.callType || record.type === 'OUTGOING' || record.type === 'INCOMING' || record.type === 'MISSED' || record.recordingUrl || record.recording || (record.duration && record.duration !== '—'));
+
+    // TELEPHONY / PHONE SYSTEM RICH CARD VIEW
+    if (isTelephony) {
+      const recUrl = getValString(record.recording || record.recordingUrl || record.audioUrl || record.recording_url).trim();
+      const hasValidRec = Boolean(recUrl && recUrl.startsWith('http') && !recUrl.includes('soundhelix.com') && !recUrl.includes('[no audio]'));
+      const rawCallType = String(record.type || record.callType || 'OUTGOING').toUpperCase();
+      const isMissedCall = rawCallType === 'MISSED' || recordStatus.toUpperCase().includes('MISSED');
+      const isRecordingOff = recUrl === 'RECORDING_OFF' || 
+                             String(record.recording_status || record.recordingStatus || '').toUpperCase() === 'RECORDING_OFF' || 
+                             String(record.notes || '').toLowerCase().includes('recording was off') || 
+                             String(record.notes || '').toLowerCase().includes('recording off');
+
+      let durationStr = '';
+      if (record.duration && typeof record.duration === 'string' && record.duration !== '00:00' && record.duration !== '0s' && record.duration !== '—') {
+        durationStr = record.duration;
+      } else if (typeof record.duration === 'number' && record.duration > 0) {
+        durationStr = formatSecondsToTimer(record.duration);
+      } else if (isMissedCall) {
+        durationStr = '0s (Missed)';
+      }
+
+      const rawCallTime = record.callTime || record.call_time || record.createdAt || record.created_at || record.timestamp || record._createdAt;
+      const dt = formatCallDateTime(rawCallTime);
+      const callTimeFormatted = dt.isToday ? dt.timeStr : (dt.isYesterday ? `Yest, ${dt.timeStr}` : dt.dayLabel);
+
+      let callDirectionStyle = { icon: '📤', label: 'Out', color: '#0d9488', bg: '#f0fdf4' };
+      if (rawCallType === 'INCOMING') {
+        callDirectionStyle = { icon: '📥', label: 'In', color: '#0284c7', bg: '#f0f9ff' };
+      } else if (isMissedCall) {
+        callDirectionStyle = { icon: '📵', label: 'Missed', color: '#dc2626', bg: '#fef2f2' };
+      }
+
+      const getDispositionStyle = (disp) => {
+        const s = String(disp || '').toLowerCase();
+        if (s.includes('bypass')) {
+          return { icon: '🚨', bg: '#fff1f2', color: '#e11d48', border: '#fecdd3' };
+        }
+        if (s.includes('interest') || s.includes('connect') || s.includes('won') || s.includes('converted')) {
+          return { icon: '🎯', bg: '#ecfdf5', color: '#059669', border: '#a7f3d0' };
+        }
+        if (s.includes('follow') || s.includes('queue') || s.includes('callback')) {
+          return { icon: '⏰', bg: '#fffbeb', color: '#d97706', border: '#fde68a' };
+        }
+        if (s.includes('missed') || s.includes('reject') || s.includes('junk') || s.includes('lost') || s.includes('wrong')) {
+          return { icon: '❌', bg: '#fef2f2', color: '#dc2626', border: '#fecaca' };
+        }
+        return { icon: '🏷️', bg: '#f8fafc', color: '#475569', border: '#e2e8f0' };
+      };
+      const dispStyle = getDispositionStyle(recordStatus);
+      const simSlotText = record.simSlot || record.sim_slot || '';
+
+      return (
+        <div
+          key={record.id || idx}
+          className="mobile-record-card"
+          onClick={() => onViewRecord(record)}
+          style={{
+            position: 'relative',
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderLeft: `5px solid ${avatarTheme.text}`,
+            borderRadius: '14px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '11px 12px',
+            gap: '8px',
+            cursor: 'pointer',
+            overflow: 'hidden',
+            width: '100%',
+            boxSizing: 'border-box',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          {/* Top Row: Avatar + Contact Name & Time + Call Direction */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', width: '100%' }}>
+            {/* Soft Tint Circular Avatar with Initials */}
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '50%',
+                background: avatarTheme.bg,
+                color: avatarTheme.text,
+                border: `1.5px solid ${avatarTheme.text}28`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: '800',
+                fontSize: '14px',
+                flexShrink: 0,
+                userSelect: 'none',
+                marginTop: '1px'
+              }}
+            >
+              {initials}
+            </div>
+
+            {/* Center Info */}
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '3px'
+              }}
+            >
+              {/* Row 1: Contact Name + Call Direction Badge */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', width: '100%' }}>
+                <span
+                  style={{
+                    fontWeight: '800',
+                    fontSize: '14.5px',
+                    color: '#0f172a',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    lineHeight: 1.25,
+                    maxWidth: '65%'
+                  }}
+                  title={recordName}
+                >
+                  {recordName}
+                </span>
+
+                {/* Call Direction & Time badge */}
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    fontSize: '9.5px',
+                    fontWeight: '700',
+                    color: callDirectionStyle.color,
+                    background: callDirectionStyle.bg,
+                    padding: '2px 6px',
+                    borderRadius: '6px',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
+                  }}
+                >
+                  {callDirectionStyle.icon} {callDirectionStyle.label} • {callTimeFormatted}
+                </span>
+              </div>
+
+              {/* Row 2: Phone number + Call Duration */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                <span
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    color: hasValidPhone ? '#1e293b' : '#94a3b8',
+                    letterSpacing: '0.2px',
+                    whiteSpace: 'nowrap',
+                    lineHeight: 1.2
+                  }}
+                >
+                  {hasValidPhone && phoneStr && phoneStr !== '—' ? phoneStr : '—'}
+                </span>
+
+                {durationStr && (
+                  <span
+                    style={{
+                      fontSize: '10.5px',
+                      fontWeight: '700',
+                      color: '#475569',
+                      background: '#f1f5f9',
+                      padding: '1px 6px',
+                      borderRadius: '5px',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                  >
+                    ⏱️ {durationStr}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Section: Badges Strip + Action Buttons */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px',
+              paddingTop: '6px',
+              borderTop: '1px dashed #f1f5f9',
+              width: '100%',
+              boxSizing: 'border-box'
+            }}
+          >
+            {/* Badges Left */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap', flex: 1, minWidth: 0, overflow: 'hidden' }}>
+              {/* Disposition Badge */}
+              {recordStatus && recordStatus !== '—' && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    fontSize: '9.5px',
+                    fontWeight: '700',
+                    padding: '2px 6px',
+                    borderRadius: '5px',
+                    background: dispStyle.bg,
+                    color: dispStyle.color,
+                    border: `1px solid ${dispStyle.border}`,
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
+                  }}
+                >
+                  {dispStyle.icon} {recordStatus}
+                </span>
+              )}
+
+              {/* SIM Slot Badge */}
+              {simSlotText && (
+                <span
+                  style={{
+                    fontSize: '9.5px',
+                    fontWeight: '600',
+                    padding: '2px 5px',
+                    borderRadius: '5px',
+                    background: '#f8fafc',
+                    color: '#64748b',
+                    border: '1px solid #e2e8f0',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
+                  }}
+                >
+                  📱 {simSlotText}
+                </span>
+              )}
+
+              {/* Agent Name */}
+              {agentName && agentName !== '—' && (
+                <span
+                  style={{
+                    fontSize: '10px',
+                    color: '#64748b',
+                    fontWeight: '600',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    flexShrink: 1
+                  }}
+                  title={`Agent: ${agentName}`}
+                >
+                  👤 {agentName.split(/\s+/)[0]}
+                </span>
+              )}
+            </div>
+
+            {/* Action Buttons Right: Play Recording + Quick Call + WhatsApp */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+              {/* Play Recording Button */}
+              {hasValidRec ? (
+                <button
+                  type="button"
+                  title={playingRecordId === record.id && isPlayingAudio ? "Pause Recording" : "Play Call Recording"}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleAudioPlayback(record, recUrl);
+                  }}
+                  style={{
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '7px',
+                    background: playingRecordId === record.id && isPlayingAudio
+                      ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+                      : 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    boxShadow: playingRecordId === record.id && isPlayingAudio
+                      ? '0 1px 4px rgba(220, 38, 38, 0.4)'
+                      : '0 1px 4px rgba(109, 40, 217, 0.35)',
+                    color: '#ffffff',
+                    padding: 0,
+                    flexShrink: 0,
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {playingRecordId === record.id && isPlayingAudio ? (
+                    <Pause size={14} fill="#ffffff" />
+                  ) : (
+                    <Play size={14} fill="#ffffff" style={{ marginLeft: '1px' }} />
+                  )}
+                </button>
+              ) : (
+                <span
+                  title={isRecordingOff ? "Call recording was OFF in settings" : (isMissedCall ? "Missed Call - No Audio" : "No Audio Recording")}
+                  style={{
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '7px',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '12px',
+                    color: '#94a3b8',
+                    cursor: 'not-allowed',
+                    opacity: 0.7,
+                    flexShrink: 0
+                  }}
+                >
+                  {isRecordingOff ? '⚠️' : '🔇'}
+                </span>
+              )}
+
+              {/* Quick Call Button */}
+              {hasValidPhone ? (
+                <button
+                  type="button"
+                  title={`Call ${recordName} (${phoneStr})`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (window.openGlobalDialer) {
+                      window.openGlobalDialer(phoneStr, recordName, true);
+                    } else {
+                      window.location.href = `tel:${cleanPhoneDigits}`;
+                    }
+                  }}
+                  style={{
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '7px',
+                    background: '#10b981',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 3px rgba(16, 185, 129, 0.25)',
+                    padding: 0,
+                    flexShrink: 0
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                  </svg>
+                </button>
+              ) : null}
+
+              {/* WhatsApp Button */}
+              {hasValidPhone ? (
+                <a
+                  href={`https://wa.me/${cleanPhoneDigits}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  title={`Chat on WhatsApp with ${recordName}`}
+                  style={{
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '7px',
+                    background: '#25D366',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    textDecoration: 'none',
+                    boxShadow: '0 1px 3px rgba(37, 211, 102, 0.25)',
+                    padding: 0,
+                    flexShrink: 0
+                  }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="#ffffff">
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+                  </svg>
+                </a>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Inline Audio Player Bar (Expanded when recording is actively playing) */}
+          {playingRecordId === record.id && hasValidRec && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                padding: '6px 10px',
+                background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
+                borderRadius: '8px',
+                border: '1px solid #ddd6fe',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                width: '100%',
+                boxSizing: 'border-box'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => toggleAudioPlayback(record, recUrl)}
+                style={{
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  background: '#7c3aed',
+                  color: '#ffffff',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  flexShrink: 0
+                }}
+              >
+                {isPlayingAudio ? <Pause size={11} fill="#ffffff" /> : <Play size={11} fill="#ffffff" />}
+              </button>
+
+              <input
+                type="range"
+                min="0"
+                max={audioProgress.total || 100}
+                step="0.5"
+                value={audioProgress.current || 0}
+                onChange={handleAudioSeek}
+                style={{
+                  flex: 1,
+                  accentColor: '#7c3aed',
+                  cursor: 'pointer',
+                  height: '4px'
+                }}
+              />
+
+              <span style={{ fontSize: '10px', fontWeight: '700', color: '#6d28d9', whiteSpace: 'nowrap' }}>
+                {formatSecondsToTimer(audioProgress.current)} / {formatSecondsToTimer(audioProgress.total) || durationStr || '00:00'}
+              </span>
+
+              <a
+                href={recUrl}
+                download="call_recording.mp4"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Download recording"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '3px 6px',
+                  borderRadius: '4px',
+                  background: '#7c3aed',
+                  color: '#ffffff',
+                  fontSize: '10px',
+                  fontWeight: '700',
+                  textDecoration: 'none',
+                  flexShrink: 0
+                }}
+              >
+                ⬇️
+              </a>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // STANDARD CRM ENTITY CARD (LEADS, CONTACTS, INVOICES, ETC.)
     return (
       <div
         key={record.id || idx}
