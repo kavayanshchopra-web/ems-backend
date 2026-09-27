@@ -53,6 +53,7 @@ export default function LayoutToolbar({
   currentPage = 1,
   pageSize = 25,
   customHeaderActions = null,
+  customHeaderLeft = null,
   onPageChange = () => {},
   onPageSizeChange = () => {}
 }) {
@@ -94,8 +95,10 @@ export default function LayoutToolbar({
           boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
         }}
       >
-        {/* Left Header Segment left blank as requested */}
-        <div style={{ display: 'flex', alignItems: 'center' }} />
+        {/* Left Header Segment (Segmented Tabs / View Switches) */}
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+          {customHeaderLeft}
+        </div>
 
         {/* Header Action Controls */}
         <div className="module-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginLeft: 'auto' }}>

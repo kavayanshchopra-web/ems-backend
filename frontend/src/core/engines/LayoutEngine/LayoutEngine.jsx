@@ -51,7 +51,8 @@ export default function LayoutEngine({
   onManageStages = () => {},
   onOpenPositionModal = () => {},
   onOpenChatWithLead = null,
-  customHeaderActions = null
+  customHeaderActions = null,
+  customHeaderLeft = null
 }) {
   // View Mode state
   const availableViews = moduleConfig.views?.availableViews || ['kanban', 'list'];
@@ -300,6 +301,7 @@ export default function LayoutEngine({
         onPageChange={setCurrentPage}
         onPageSizeChange={setPageSize}
         customHeaderActions={customHeaderActions}
+        customHeaderLeft={customHeaderLeft}
       />
 
       {/* B. KPI SUMMARY STRIP WIDGETS */}

@@ -473,10 +473,81 @@ export default function ContactsPage({
     }
   };
 
+  // Active Tab & Segment state
+  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'leads' | 'customers' | 'segments'
+  const [selectedSegment, setSelectedSegment] = useState('all');
+
+  // Classification helpers for Leads vs Customers
+  const isCustomerRecord = (r) => {
+    if (!r) return false;
+    const stage = String(r.status || r.stage || '').toLowerCase().trim();
+    const tags = String(r.tags || '').toLowerCase();
+    return /won|customer|paid|client|converted/i.test(stage) || /customer|client|paid/i.test(tags);
+  };
+
+  const isLeadRecord = (r) => {
+    if (!r) return false;
+    const stage = String(r.status || r.stage || '').toLowerCase().trim();
+    const tags = String(r.tags || '').toLowerCase();
+    const isCust = /won|customer|paid|client|converted/i.test(stage) || /customer|client|paid/i.test(tags);
+    const isLost = /lost|junk|spam|dead|dropped/i.test(stage);
+    return !isCust && !isLost;
+  };
+
+  // Dynamic segments derived from sources
+  const segmentOptions = useMemo(() => {
+    const counts = {};
+    (internalRecords || []).forEach(r => {
+      const src = r.source || 'Manual Entry';
+      counts[src] = (counts[src] || 0) + 1;
+    });
+    return Object.entries(counts).map(([name, count]) => ({ id: name, label: name, count }));
+  }, [internalRecords]);
+
+  // Tab counts
+  const tabCounts = useMemo(() => {
+    const all = (internalRecords || []).length;
+    const leads = (internalRecords || []).filter(isLeadRecord).length;
+    const customers = (internalRecords || []).filter(isCustomerRecord).length;
+    const segments = segmentOptions.length;
+    return { all, leads, customers, segments };
+  }, [internalRecords, segmentOptions]);
+
+  // Filtered records based on active tab
+  const displayedRecords = useMemo(() => {
+    if (activeTab === 'leads') {
+      return (internalRecords || []).filter(isLeadRecord);
+    }
+    if (activeTab === 'customers') {
+      return (internalRecords || []).filter(isCustomerRecord);
+    }
+    if (activeTab === 'segments') {
+      if (!selectedSegment || selectedSegment === 'all') {
+        return internalRecords || [];
+      }
+      return (internalRecords || []).filter(r => (r.source || 'Manual Entry') === selectedSegment);
+    }
+    return internalRecords || [];
+  }, [internalRecords, activeTab, selectedSegment]);
+
   // Update Records callback from LayoutEngine
   const handleUpdateRecords = (newRecords) => {
-    setInternalRecords(newRecords);
-    if (typeof setPropContacts === 'function') setPropContacts(newRecords);
+    if (activeTab === 'all' && (!selectedSegment || selectedSegment === 'all')) {
+      setInternalRecords(newRecords);
+      if (typeof setPropContacts === 'function') setPropContacts(newRecords);
+    } else {
+      setInternalRecords(prev => {
+        const updateMap = new Map((newRecords || []).map(r => [r.id, r]));
+        const merged = prev.map(rec => updateMap.has(rec.id) ? updateMap.get(rec.id) : rec);
+        (newRecords || []).forEach(r => {
+          if (r && r.id && !prev.some(p => p.id === r.id)) {
+            merged.unshift(r);
+          }
+        });
+        if (typeof setPropContacts === 'function') setPropContacts(merged);
+        return merged;
+      });
+    }
 
     if (Array.isArray(newRecords)) {
       const safeTenant = Number(companyId) || 1;
@@ -542,12 +613,199 @@ export default function ContactsPage({
     entityNamePlural: 'Contacts'
   }), [config]);
 
+  // Clean pill-styled Segmented Navigation Tabs without icons
+  const headerTabs = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          background: '#f1f5f9',
+          padding: '3px',
+          borderRadius: '9px',
+          border: '1px solid #e2e8f0',
+          gap: '3px'
+        }}
+      >
+        {/* 1. All Contacts */}
+        <button
+          type="button"
+          onClick={() => { setActiveTab('all'); setSelectedSegment('all'); }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '5px 12px',
+            borderRadius: '7px',
+            border: 'none',
+            background: activeTab === 'all' ? '#0d9488' : 'transparent',
+            color: activeTab === 'all' ? '#ffffff' : '#475569',
+            fontSize: '12px',
+            fontWeight: activeTab === 'all' ? '700' : '500',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            boxShadow: activeTab === 'all' ? '0 1px 3px rgba(13, 148, 136, 0.3)' : 'none'
+          }}
+        >
+          <span>All Contacts</span>
+          <span
+            style={{
+              padding: '1px 6px',
+              borderRadius: '10px',
+              fontSize: '11px',
+              fontWeight: '700',
+              background: activeTab === 'all' ? 'rgba(255, 255, 255, 0.22)' : '#e2e8f0',
+              color: activeTab === 'all' ? '#ffffff' : '#64748b'
+            }}
+          >
+            {tabCounts.all}
+          </span>
+        </button>
+
+        {/* 2. Leads */}
+        <button
+          type="button"
+          onClick={() => { setActiveTab('leads'); setSelectedSegment('all'); }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '5px 12px',
+            borderRadius: '7px',
+            border: 'none',
+            background: activeTab === 'leads' ? '#0d9488' : 'transparent',
+            color: activeTab === 'leads' ? '#ffffff' : '#475569',
+            fontSize: '12px',
+            fontWeight: activeTab === 'leads' ? '700' : '500',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            boxShadow: activeTab === 'leads' ? '0 1px 3px rgba(13, 148, 136, 0.3)' : 'none'
+          }}
+        >
+          <span>Leads</span>
+          <span
+            style={{
+              padding: '1px 6px',
+              borderRadius: '10px',
+              fontSize: '11px',
+              fontWeight: '700',
+              background: activeTab === 'leads' ? 'rgba(255, 255, 255, 0.22)' : '#e2e8f0',
+              color: activeTab === 'leads' ? '#ffffff' : '#64748b'
+            }}
+          >
+            {tabCounts.leads}
+          </span>
+        </button>
+
+        {/* 3. Customers */}
+        <button
+          type="button"
+          onClick={() => { setActiveTab('customers'); setSelectedSegment('all'); }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '5px 12px',
+            borderRadius: '7px',
+            border: 'none',
+            background: activeTab === 'customers' ? '#0d9488' : 'transparent',
+            color: activeTab === 'customers' ? '#ffffff' : '#475569',
+            fontSize: '12px',
+            fontWeight: activeTab === 'customers' ? '700' : '500',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            boxShadow: activeTab === 'customers' ? '0 1px 3px rgba(13, 148, 136, 0.3)' : 'none'
+          }}
+        >
+          <span>Customers</span>
+          <span
+            style={{
+              padding: '1px 6px',
+              borderRadius: '10px',
+              fontSize: '11px',
+              fontWeight: '700',
+              background: activeTab === 'customers' ? 'rgba(255, 255, 255, 0.22)' : '#e2e8f0',
+              color: activeTab === 'customers' ? '#ffffff' : '#64748b'
+            }}
+          >
+            {tabCounts.customers}
+          </span>
+        </button>
+
+        {/* 4. Lists / Segments */}
+        <button
+          type="button"
+          onClick={() => setActiveTab('segments')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '5px 12px',
+            borderRadius: '7px',
+            border: 'none',
+            background: activeTab === 'segments' ? '#0d9488' : 'transparent',
+            color: activeTab === 'segments' ? '#ffffff' : '#475569',
+            fontSize: '12px',
+            fontWeight: activeTab === 'segments' ? '700' : '500',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            boxShadow: activeTab === 'segments' ? '0 1px 3px rgba(13, 148, 136, 0.3)' : 'none'
+          }}
+        >
+          <span>Lists / Segments</span>
+          <span
+            style={{
+              padding: '1px 6px',
+              borderRadius: '10px',
+              fontSize: '11px',
+              fontWeight: '700',
+              background: activeTab === 'segments' ? 'rgba(255, 255, 255, 0.22)' : '#e2e8f0',
+              color: activeTab === 'segments' ? '#ffffff' : '#64748b'
+            }}
+          >
+            {tabCounts.segments}
+          </span>
+        </button>
+      </div>
+
+      {/* When Lists/Segments is selected, show Segment selector dropdown */}
+      {activeTab === 'segments' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <select
+            value={selectedSegment}
+            onChange={(e) => setSelectedSegment(e.target.value)}
+            style={{
+              padding: '5px 10px',
+              borderRadius: '7px',
+              border: '1px solid #cbd5e1',
+              background: '#ffffff',
+              fontSize: '12px',
+              fontWeight: '600',
+              color: '#1e293b',
+              cursor: 'pointer',
+              outline: 'none',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+            }}
+          >
+            <option value="all">All Sources ({tabCounts.all})</option>
+            {segmentOptions.map(seg => (
+              <option key={seg.id} value={seg.id}>
+                {seg.label} ({seg.count})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <LayoutEngine
         customHeaderActions={<></>}
+        customHeaderLeft={headerTabs}
         moduleConfig={contactModuleConfig}
-        records={internalRecords}
+        records={displayedRecords}
         setRecords={handleUpdateRecords}
         authUser={authUser}
         systemDropdowns={enhancedSystemDropdowns}
