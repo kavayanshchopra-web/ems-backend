@@ -67,6 +67,7 @@ const CustomInputModal = lazy(() => import('./modals/CustomInputModal'));
 const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage'));
 const LiveWhatsAppWebPage = lazy(() => import('./pages/LiveWhatsAppWebPage'));
 const FeedbackPage = lazy(() => import('./pages/FeedbackPage'));
+const SandboxAutomationHub = lazy(() => import('./pages/SandboxAutomationHub'));
 import ModuleGateScreen from './ModuleGateScreen';
 import MobileAppLauncher from './mobile/MobileAppLauncher';
 import StorageUpgradeModal from './storage/StorageUpgradeModal';
@@ -167,7 +168,8 @@ import {
   Menu,
   Share2,
   MessageSquareHeart,
-  ArrowLeft
+  ArrowLeft,
+  Zap
 } from 'lucide-react';
 // Dynamic Registry - Auto-Extensible Module Config for RBAC
 export const DYNAMIC_MODULE_REGISTRY = [
@@ -583,6 +585,77 @@ function AccordionCategory({ id, label, icon, isExpanded, onToggle, children }) 
     >
       {children}
     </AccordionCategoryItem>
+  );
+}
+
+function SidebarMainNavItem({ id, label, icon: IconComponent, isActive, onClick, lockBadge, badge }) {
+  const defaultColors = {
+    contacts: { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' },
+    conversations: { color: '#10b981', bg: 'rgba(16, 185, 129, 0.22)' },
+    telecalling: { color: '#06b6d4', bg: 'rgba(6, 182, 212, 0.18)' },
+    kanban: { color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.18)' },
+    wa_live_web: { color: '#22c55e', bg: 'rgba(34, 197, 94, 0.18)' },
+    automations_sandbox: { color: '#a855f7', bg: 'rgba(168, 85, 247, 0.18)' }
+  };
+  const theme = defaultColors[id] || { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '4px' }}>
+      <div
+        onClick={onClick}
+        className={`category-header-row ${isActive ? 'active' : ''}`}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '6px 10px',
+          cursor: 'pointer',
+          fontSize: '11.5px',
+          fontWeight: '700',
+          color: isActive ? '#ffffff' : 'rgba(255, 255, 255, 0.65)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+          userSelect: 'none',
+          transition: 'all 0.2s ease',
+          borderRadius: '10px',
+          margin: '2px 4px',
+          background: isActive ? '#0d9488' : 'transparent',
+          boxShadow: isActive ? '0 4px 12px rgba(13, 148, 136, 0.35)' : 'none'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+          {IconComponent && (
+            <span
+              className="category-icon"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minWidth: '36px',
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: isActive ? 'rgba(255, 255, 255, 0.2)' : theme.bg,
+                color: isActive ? '#ffffff' : theme.color,
+                border: `1px solid ${isActive ? '#ffffff' : 'rgba(255,255,255,0.08)'}`,
+                boxShadow: isActive ? '0 0 10px rgba(255,255,255,0.2)' : 'none'
+              }}
+            >
+              <IconComponent size={18} />
+            </span>
+          )}
+          <span className="category-label-text" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {label}
+          </span>
+        </div>
+        {(lockBadge || badge) && (
+          <span className="category-chevron" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            {lockBadge}
+            {badge}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 const ALL_WORLD_CURRENCIES = [
@@ -7090,6 +7163,79 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               )}
             </AccordionCategory>
           )}
+
+          {/* MAIN HEADINGS: CRM & COMMUNICATIONS SUITE (Directly Below Dashboards) */}
+          {canNav('contacts') && (
+            <SidebarMainNavItem
+              id="contacts"
+              label={t('contacts') || "CONTACTS"}
+              icon={Users}
+              isActive={activeTab === 'contacts'}
+              onClick={() => setActiveTab('contacts')}
+              lockBadge={renderLockBadge('contacts')}
+            />
+          )}
+          {canNav('conversations') && (
+            <SidebarMainNavItem
+              id="conversations"
+              label={t('conversations') || "CONVERSATIONS"}
+              icon={MessageSquare}
+              isActive={activeTab === 'conversations'}
+              onClick={() => setActiveTab('conversations')}
+              lockBadge={renderLockBadge('conversations')}
+            />
+          )}
+          {canNav('telecalling') && (
+            <SidebarMainNavItem
+              id="telecalling"
+              label={t('phoneSystem') || "PHONE SYSTEM"}
+              icon={PhoneCall}
+              isActive={activeTab === 'telecalling'}
+              onClick={() => setActiveTab('telecalling')}
+              lockBadge={renderLockBadge('telecalling')}
+            />
+          )}
+          {canNav('kanban') && (
+            <SidebarMainNavItem
+              id="kanban"
+              label="CRM"
+              icon={Layers}
+              isActive={activeTab === 'kanban'}
+              onClick={() => setActiveTab('kanban')}
+              lockBadge={renderLockBadge('kanban')}
+            />
+          )}
+          {canNav('wa_live_web') && (
+            <SidebarMainNavItem
+              id="wa_live_web"
+              label="WHATSAPP"
+              icon={Smartphone}
+              isActive={activeTab === 'wa_live_web'}
+              onClick={() => setActiveTab('wa_live_web')}
+              lockBadge={renderLockBadge('wa_live_web')}
+            />
+          )}
+          <SidebarMainNavItem
+            id="automations_sandbox"
+            label="AUTOMATIONS"
+            icon={Zap}
+            isActive={activeTab === 'automations_sandbox'}
+            onClick={() => setActiveTab('automations_sandbox')}
+            badge={(
+              <span style={{
+                fontSize: '9px',
+                fontWeight: '800',
+                padding: '1px 5px',
+                borderRadius: '4px',
+                background: 'linear-gradient(135deg, #8b5cf6, #ec4899)',
+                color: '#fff',
+                letterSpacing: '0.4px'
+              }}>
+                SANDBOX
+              </span>
+            )}
+          />
+
           {/* CATEGORY: HR MANAGEMENT */}
           {(canNav('employees') || canNav('recruitment_ats') || canNav('asset_management') || canNav('verify_documents') || canNav('offboarding')) && (
             <AccordionCategory id="hr_management" label={t('hrCat') || "HR MANAGEMENT"} icon={Users} isExpanded={!!expandedCategories.hr_management} onToggle={toggleCategory}>
@@ -7166,52 +7312,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   <CreditCard size={15} />
                   <span style={{ fontSize: '13px' }}>{t('expensesClaim')}</span>
                   {renderLockBadge('expenses')}
-                </div>
-              )}
-            </AccordionCategory>
-          )}
-          {/* CATEGORY: CRM & SALES */}
-            {(canNav('contacts') || canNav('conversations') || canNav('wa_live_web') || canNav('kanban') || canNav('telecalling')) && (
-              <AccordionCategory id="crm_sales" label={t('crmCat') || "CRM & SALES"} icon={MessageSquare} isExpanded={!!expandedCategories.crm_sales} onToggle={toggleCategory}>
-              {canNav('contacts') && (
-                <div className={`nav-item ${activeTab === 'contacts' ? 'active' : ''}`} onClick={() => setActiveTab('contacts')}>
-                  <Users size={15} />
-                  <span style={{ fontSize: "13px" }}>
-                    Contacts
-                  </span>
-                  {renderLockBadge('contacts')}
-                </div>
-              )}
-              {canNav('conversations') && (
-                <div className={`nav-item ${activeTab === 'conversations' ? 'active' : ''}`} onClick={() => setActiveTab('conversations')}>
-                  <MessageSquare size={15} />
-                  <span style={{ fontSize: "13px" }}>
-                    Conversations
-                  </span>
-                  {renderLockBadge('conversations')}
-                </div>
-              )}
-              {canNav('wa_live_web') && (
-                <div className={`nav-item ${activeTab === 'wa_live_web' ? 'active' : ''}`} onClick={() => setActiveTab('wa_live_web')}>
-                  <MessageSquare size={15} />
-                  <span style={{ fontSize: "13px" }}>
-                    WhatsApp
-                  </span>
-                  {renderLockBadge('wa_live_web')}
-                </div>
-              )}
-              {canNav('kanban') && (
-                <div className={`nav-item ${activeTab === 'kanban' ? 'active' : ''}`} onClick={() => setActiveTab('kanban')}>
-                  <Layers size={15} />
-                  <span style={{ fontSize: '13px' }}>CRM</span>
-                  {renderLockBadge('kanban')}
-                </div>
-              )}
-              {canNav('telecalling') && (
-                <div className={`nav-item ${activeTab === 'telecalling' ? 'active' : ''}`} onClick={() => setActiveTab('telecalling')}>
-                  <PhoneCall size={15} />
-                  <span style={{ fontSize: '13px' }}>Phone System</span>
-                  {renderLockBadge('telecalling')}
                 </div>
               )}
             </AccordionCategory>
@@ -8204,6 +8304,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               openModuleConfigModal={handleOpenModuleConfig}
               onManageStages={() => setSelectedDropdownCategory('crm_stages')}
               onOpenChatWithLead={handleOpenChatWithLead}
+            />
+          </Suspense>
+        )}
+        {/* Sandbox WhatsApp Automation & Flow Builder Hub */}
+        {activeTab === 'automations_sandbox' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#8b5cf6', fontWeight: 'bold' }}>Loading Smart Automations Hub (Sandbox)...</div>}>
+            <SandboxAutomationHub
+              authUser={effectiveAuthUser || authUser}
+              companyId={effectiveAuthUser?.companyId || authUser?.companyId || 'org_default'}
+              apiBase={typeof window !== 'undefined' && window.location.port === '5173' ? 'http://localhost:5000/api' : '/api'}
             />
           </Suspense>
         )}
