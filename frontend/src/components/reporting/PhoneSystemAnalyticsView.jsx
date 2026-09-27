@@ -1,14 +1,16 @@
 /**
  * PHONE SYSTEM ANALYTICS & CALL INTELLIGENCE
  * 100% Theme-Aligned with Dark Emerald (#04241d / #06352b) and Teal (#0d9488)
+ * 
  * Features:
- * - 5 Separated Clickable Category Cards (All Calls, Inbound, Outbound Connected, Missed, Not Connected)
- * - Dynamic filtering: Clicking any card updates Heatmap, Dispositions, & shows instant lightweight Call Details
- * - Clean formatted timestamps (e.g. Today, 12:25 PM) - No raw ISO strings
- * - Heavy audio waveform table removed for lightning-fast performance
+ * - 5 Separated Clickable Category Cards (Total Calls, Inbound, Outbound Connected, Missed, Not Connected)
+ * - Click to Open Pop-up Modal: Displays full call logs for that category without bloating the main page
+ * - Heavy bottom table removed completely for lightning-fast dashboard performance
+ * - Dynamic Heatmap & Disposition Analytics
+ * - Clean formatted human-readable timestamps (e.g. Today, 12:25 PM)
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   PhoneCall,
   PhoneIncoming,
@@ -16,18 +18,12 @@ import {
   PhoneMissed,
   PhoneOff,
   Activity,
-  Clock,
-  TrendingUp,
-  Calendar,
   Download,
   Search,
   Filter,
   Users,
-  ChevronDown,
-  ChevronUp,
   X,
-  CheckCircle2,
-  AlertCircle
+  ExternalLink
 } from 'lucide-react';
 
 const DAYS_OF_WEEK = [
@@ -79,7 +75,6 @@ const parseDurationSeconds = (dur) => {
   if (typeof dur === 'number') return dur;
   const str = String(dur).trim().toLowerCase();
   
-  // Format MM:SS or HH:MM:SS
   if (str.includes(':')) {
     const parts = str.split(':').map(p => parseInt(p, 10) || 0);
     if (parts.length === 2) return parts[0] * 60 + parts[1];
@@ -152,9 +147,25 @@ export default function PhoneSystemAnalyticsView({
   const [selectedPeriod, setSelectedPeriod] = useState('this_week'); // 'today' | 'this_week' | 'this_month' | 'all'
   const [selectedAgent, setSelectedAgent] = useState('ALL');
   
-  // Interactive Clickable Category Card Filter: 'ALL' | 'INCOMING' | 'OUTGOING' | 'MISSED' | 'NOT_CONNECTED'
+  // Dashboard Category Filter (updates Heatmap & Dispositions)
   const [selectedCategory, setSelectedCategory] = useState('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
+
+  // Pop-up Modal State: null | 'ALL' | 'INCOMING' | 'OUTGOING' | 'MISSED' | 'NOT_CONNECTED'
+  const [activeModalCategory, setActiveModalCategory] = useState(null);
+  const [modalSearchQuery, setModalSearchQuery] = useState('');
+
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setActiveModalCategory(null);
+      }
+    };
+    if (activeModalCategory) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeModalCategory]);
 
   // 1. Time- & Agent-Filtered Logs
   const baseFilteredLogs = useMemo(() => {
@@ -228,13 +239,13 @@ export default function PhoneSystemAnalyticsView({
     };
   }, [baseFilteredLogs]);
 
-  // 3. Category-Filtered Logs (for Heatmap, Dispositions, & Details table)
+  // 3. Category-Filtered Logs (for Heatmap & Dispositions on main dashboard)
   const categoryFilteredLogs = useMemo(() => {
     if (selectedCategory === 'ALL') return baseFilteredLogs;
     return baseFilteredLogs.filter(c => getCallCategory(c) === selectedCategory);
   }, [baseFilteredLogs, selectedCategory]);
 
-  // 4. Hourly Peak Heatmap Calculation (reflects selectedCategory dynamically)
+  // 4. Hourly Peak Heatmap Calculation
   const heatmapData = useMemo(() => {
     const matrix = {};
     DAYS_OF_WEEK.forEach(d => {
@@ -271,7 +282,7 @@ export default function PhoneSystemAnalyticsView({
     return { matrix, maxVal, hasRealData };
   }, [categoryFilteredLogs]);
 
-  // 5. Call Disposition Breakdown (reflects selectedCategory dynamically)
+  // 5. Call Disposition Breakdown
   const dispositionBreakdown = useMemo(() => {
     const counts = {
       'Interested': 0,
@@ -308,36 +319,43 @@ export default function PhoneSystemAnalyticsView({
     });
   }, [categoryFilteredLogs]);
 
-  // 6. Fast & Lightweight Call Details List
-  const displayedCalls = useMemo(() => {
-    let list = [...categoryFilteredLogs];
+  // 6. Modal Specific Calls (Filtered by active category & modal search)
+  const modalCategoryCalls = useMemo(() => {
+    if (!activeModalCategory) return [];
+    if (activeModalCategory === 'ALL') return baseFilteredLogs;
+    return baseFilteredLogs.filter(c => getCallCategory(c) === activeModalCategory);
+  }, [baseFilteredLogs, activeModalCategory]);
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+  const modalFilteredCalls = useMemo(() => {
+    let list = [...modalCategoryCalls];
+    if (modalSearchQuery.trim()) {
+      const q = modalSearchQuery.toLowerCase();
       list = list.filter(c => {
         const name = String(c.name || c.customer_name || c.caller_name || '').toLowerCase();
         const phone = String(c.phone || c.caller_number || '').toLowerCase();
         const agent = String(c.agent_name || c.agentName || '').toLowerCase();
-        return name.includes(q) || phone.includes(q) || agent.includes(q);
+        const disp = String(c.status || c.disposition || '').toLowerCase();
+        return name.includes(q) || phone.includes(q) || agent.includes(q) || disp.includes(q);
       });
     }
 
-    // Sort by recent
     list.sort((a, b) => {
       const da = new Date(a.call_time || a.callTime || a.created_at || a.timestamp || 0);
       const db = new Date(b.call_time || b.callTime || b.created_at || b.timestamp || 0);
       return db - da;
     });
 
-    return list.slice(0, 50);
-  }, [categoryFilteredLogs, searchQuery]);
+    return list;
+  }, [modalCategoryCalls, modalSearchQuery]);
 
-  // Handle Card Click
+  // Card Click Handler -> Opens Pop-up Modal & Syncs Category
   const handleCardClick = (catKey) => {
-    setSelectedCategory(prev => (prev === catKey ? 'ALL' : catKey));
+    setSelectedCategory(catKey);
+    setActiveModalCategory(catKey);
+    setModalSearchQuery('');
   };
 
-  // Export CSV Handler
+  // Export CSV Handler for Main Dashboard
   const handleExportCSV = () => {
     const headers = ['Customer Name', 'Phone', 'Telecaller', 'Category', 'Direction', 'Duration', 'Disposition', 'Call Time'];
     const rows = categoryFilteredLogs.map(c => [
@@ -360,6 +378,79 @@ export default function PhoneSystemAnalyticsView({
     link.click();
     document.body.removeChild(link);
   };
+
+  // Export CSV Handler inside Modal
+  const handleExportModalCSV = () => {
+    if (!activeModalCategory) return;
+    const headers = ['Customer Name', 'Phone', 'Telecaller', 'Category', 'Direction', 'Duration', 'Disposition', 'Call Time'];
+    const rows = modalFilteredCalls.map(c => [
+      `"${c.name || c.customer_name || 'Customer'}"`,
+      `"${c.phone || c.caller_number || ''}"`,
+      `"${c.agent_name || c.agentName || 'Agent'}"`,
+      `"${getCallCategory(c)}"`,
+      `"${c.call_type || c.type || 'OUTGOING'}"`,
+      `"${c.duration || '0s'}"`,
+      `"${c.status || c.disposition || 'Interested'}"`,
+      `"${formatDateTime(c.call_time || c.callTime || c.timestamp)}"`
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `calls_${activeModalCategory.toLowerCase()}_${selectedPeriod}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Modal Meta Information
+  const getModalMeta = (cat) => {
+    switch (cat) {
+      case 'INCOMING':
+        return {
+          title: 'Inbound / Incoming Calls',
+          icon: <PhoneIncoming size={18} color="#10b981" />,
+          badgeColor: '#34d399',
+          badgeBg: 'rgba(16, 185, 129, 0.15)',
+          desc: 'All answered customer phone calls received'
+        };
+      case 'OUTGOING':
+        return {
+          title: 'Outbound Connected Calls',
+          icon: <PhoneOutgoing size={18} color="#60a5fa" />,
+          badgeColor: '#60a5fa',
+          badgeBg: 'rgba(59, 130, 246, 0.15)',
+          desc: 'Outbound calls successfully answered with duration > 0'
+        };
+      case 'MISSED':
+        return {
+          title: 'Missed Calls',
+          icon: <PhoneMissed size={18} color="#fbbf24" />,
+          badgeColor: '#fbbf24',
+          badgeBg: 'rgba(245, 158, 11, 0.15)',
+          desc: 'Inbound customer calls missed by agents'
+        };
+      case 'NOT_CONNECTED':
+        return {
+          title: 'Not Connected / Unanswered Dials',
+          icon: <PhoneOff size={18} color="#f87171" />,
+          badgeColor: '#f87171',
+          badgeBg: 'rgba(239, 68, 68, 0.15)',
+          desc: 'Outgoing dials where customer did not answer, rejected, or line busy'
+        };
+      default:
+        return {
+          title: 'All Call Records',
+          icon: <PhoneCall size={18} color="#2dd4bf" />,
+          badgeColor: '#2dd4bf',
+          badgeBg: 'rgba(45, 212, 191, 0.15)',
+          desc: 'Complete log of all inbound and outbound telephone calls'
+        };
+    }
+  };
+
+  const currentModalMeta = getModalMeta(activeModalCategory);
 
   return (
     <div style={{
@@ -423,7 +514,7 @@ export default function PhoneSystemAnalyticsView({
               </span>
             </h1>
             <p style={{ margin: '3px 0 0 0', fontSize: '12.5px', color: '#94a3b8' }}>
-              Click any card below to filter call details, hourly peak heatmap, and disposition breakdown.
+              Click any card below to open the complete call log pop-up for that category.
             </p>
           </div>
         </div>
@@ -448,28 +539,28 @@ export default function PhoneSystemAnalyticsView({
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: '#99f6e4',
-                  fontSize: '12px',
-                  fontWeight: '700',
+                  color: '#e2e8f0',
+                  fontSize: '12.5px',
+                  fontWeight: '600',
                   outline: 'none',
                   cursor: 'pointer'
                 }}
               >
-                <option value="ALL" style={{ background: '#06352b', color: '#fff' }}>All Telecallers</option>
+                <option value="ALL" style={{ background: '#06352b', color: '#ffffff' }}>All Telecallers</option>
                 {employees.map(emp => (
-                  <option key={emp.id} value={emp.name} style={{ background: '#06352b', color: '#fff' }}>
-                    {emp.name}
+                  <option key={emp.id || emp.email} value={emp.name || emp.full_name || emp.email} style={{ background: '#06352b', color: '#ffffff' }}>
+                    {emp.name || emp.full_name || emp.email}
                   </option>
                 ))}
               </select>
             </div>
           )}
 
-          {/* Period Selector Pills */}
+          {/* Period Selector Tabs */}
           <div style={{
             display: 'flex',
             background: '#06352b',
-            borderRadius: '10px',
+            borderRadius: '9px',
             padding: '3px',
             border: '1px solid rgba(20, 184, 166, 0.25)'
           }}>
@@ -478,44 +569,46 @@ export default function PhoneSystemAnalyticsView({
               { id: 'this_week', label: 'This Week' },
               { id: 'this_month', label: 'This Month' },
               { id: 'all', label: 'All Time' }
-            ].map(p => (
-              <button
-                key={p.id}
-                onClick={() => setSelectedPeriod(p.id)}
-                style={{
-                  border: 'none',
-                  background: selectedPeriod === p.id ? 'linear-gradient(135deg, #0d9488, #0f766e)' : 'transparent',
-                  color: selectedPeriod === p.id ? '#ffffff' : '#99f6e4',
-                  fontWeight: selectedPeriod === p.id ? '700' : '500',
-                  fontSize: '12px',
-                  padding: '6px 12px',
-                  borderRadius: '7px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  boxShadow: selectedPeriod === p.id ? '0 2px 6px rgba(13, 148, 136, 0.4)' : 'none'
-                }}
-              >
-                {p.label}
-              </button>
-            ))}
+            ].map(tab => {
+              const active = selectedPeriod === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setSelectedPeriod(tab.id)}
+                  style={{
+                    background: active ? '#0d9488' : 'transparent',
+                    color: active ? '#ffffff' : '#94a3b8',
+                    border: 'none',
+                    padding: '6px 12px',
+                    borderRadius: '7px',
+                    fontSize: '12px',
+                    fontWeight: active ? '700' : '500',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
 
-          {/* Export Action */}
+          {/* Export CSV Button */}
           <button
             onClick={handleExportCSV}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              background: '#064e3b',
-              color: '#a7f3d0',
-              border: '1px solid #0d9488',
+              background: '#06352b',
+              color: '#2dd4bf',
+              border: '1px solid rgba(20, 184, 166, 0.3)',
               borderRadius: '9px',
-              padding: '7px 14px',
-              fontSize: '12px',
+              padding: '7px 13px',
+              fontSize: '12.5px',
               fontWeight: '700',
               cursor: 'pointer',
-              transition: 'all 0.2s ease'
+              transition: 'all 0.15s ease'
             }}
           >
             <Download size={14} />
@@ -536,13 +629,23 @@ export default function PhoneSystemAnalyticsView({
         {/* CARD 1: ALL CALLS */}
         <div
           onClick={() => handleCardClick('ALL')}
+          title="Click to open pop-up modal with all call records"
           style={{
             ...kpiCardTheme,
             cursor: 'pointer',
             border: selectedCategory === 'ALL' ? '2px solid #2dd4bf' : '1px solid rgba(20, 184, 166, 0.25)',
-            boxShadow: selectedCategory === 'ALL' ? '0 0 14px rgba(45, 212, 191, 0.4)' : 'none',
+            boxShadow: selectedCategory === 'ALL' ? '0 0 16px rgba(45, 212, 191, 0.4)' : 'none',
             background: selectedCategory === 'ALL' ? 'linear-gradient(145deg, #074338, #052e26)' : '#06352b',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s ease',
+            position: 'relative'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.borderColor = '#2dd4bf';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'none';
+            if (selectedCategory !== 'ALL') e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.25)';
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -553,25 +656,37 @@ export default function PhoneSystemAnalyticsView({
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '6px' }}>
             <span style={kpiValueTheme}>{categoryStats.total}</span>
-            {selectedCategory === 'ALL' && (
-              <span style={{ fontSize: '10px', color: '#2dd4bf', fontWeight: '800' }}>● SELECTED</span>
-            )}
+            <span style={{ fontSize: '10px', color: '#2dd4bf', fontWeight: '800' }}>● ALL</span>
           </div>
           <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
             Connect Rate: <strong style={{ color: '#34d399' }}>{categoryStats.connectRate}%</strong>
+          </div>
+          <div style={cardFooterPrompt}>
+            <span>View All Logs</span>
+            <ExternalLink size={12} color="#2dd4bf" />
           </div>
         </div>
 
         {/* CARD 2: INBOUND / INCOMING CALLS */}
         <div
           onClick={() => handleCardClick('INCOMING')}
+          title="Click to open pop-up modal with inbound calls"
           style={{
             ...kpiCardTheme,
             cursor: 'pointer',
             border: selectedCategory === 'INCOMING' ? '2px solid #10b981' : '1px solid rgba(20, 184, 166, 0.25)',
-            boxShadow: selectedCategory === 'INCOMING' ? '0 0 14px rgba(16, 185, 129, 0.4)' : 'none',
+            boxShadow: selectedCategory === 'INCOMING' ? '0 0 16px rgba(16, 185, 129, 0.4)' : 'none',
             background: selectedCategory === 'INCOMING' ? 'linear-gradient(145deg, #064e3b, #043528)' : '#06352b',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s ease',
+            position: 'relative'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.borderColor = '#10b981';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'none';
+            if (selectedCategory !== 'INCOMING') e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.25)';
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -582,25 +697,37 @@ export default function PhoneSystemAnalyticsView({
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '6px' }}>
             <span style={{ ...kpiValueTheme, color: '#34d399' }}>{categoryStats.incoming}</span>
-            {selectedCategory === 'INCOMING' && (
-              <span style={{ fontSize: '10px', color: '#34d399', fontWeight: '800' }}>● FILTERED</span>
-            )}
+            <span style={{ fontSize: '10px', color: '#34d399', fontWeight: '800' }}>● INBOUND</span>
           </div>
           <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
             {categoryStats.total > 0 ? Math.round((categoryStats.incoming / categoryStats.total) * 100) : 0}% of all volume
+          </div>
+          <div style={cardFooterPrompt}>
+            <span>View Inbound Logs</span>
+            <ExternalLink size={12} color="#34d399" />
           </div>
         </div>
 
         {/* CARD 3: OUTBOUND CONNECTED CALLS */}
         <div
           onClick={() => handleCardClick('OUTGOING')}
+          title="Click to open pop-up modal with outbound connected calls"
           style={{
             ...kpiCardTheme,
             cursor: 'pointer',
             border: selectedCategory === 'OUTGOING' ? '2px solid #3b82f6' : '1px solid rgba(20, 184, 166, 0.25)',
-            boxShadow: selectedCategory === 'OUTGOING' ? '0 0 14px rgba(59, 130, 246, 0.4)' : 'none',
+            boxShadow: selectedCategory === 'OUTGOING' ? '0 0 16px rgba(59, 130, 246, 0.4)' : 'none',
             background: selectedCategory === 'OUTGOING' ? 'linear-gradient(145deg, #1e3a5f, #0a2540)' : '#06352b',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s ease',
+            position: 'relative'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.borderColor = '#3b82f6';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'none';
+            if (selectedCategory !== 'OUTGOING') e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.25)';
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -611,25 +738,37 @@ export default function PhoneSystemAnalyticsView({
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '6px' }}>
             <span style={{ ...kpiValueTheme, color: '#60a5fa' }}>{categoryStats.outgoing}</span>
-            {selectedCategory === 'OUTGOING' && (
-              <span style={{ fontSize: '10px', color: '#60a5fa', fontWeight: '800' }}>● FILTERED</span>
-            )}
+            <span style={{ fontSize: '10px', color: '#60a5fa', fontWeight: '800' }}>● CONNECTED</span>
           </div>
           <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
-            Connected conversations (duration &gt; 0)
+            Duration &gt; 0 conversations
+          </div>
+          <div style={cardFooterPrompt}>
+            <span>View Connected Logs</span>
+            <ExternalLink size={12} color="#60a5fa" />
           </div>
         </div>
 
         {/* CARD 4: MISSED CALLS */}
         <div
           onClick={() => handleCardClick('MISSED')}
+          title="Click to open pop-up modal with missed calls"
           style={{
             ...kpiCardTheme,
             cursor: 'pointer',
             border: selectedCategory === 'MISSED' ? '2px solid #f59e0b' : '1px solid rgba(20, 184, 166, 0.25)',
-            boxShadow: selectedCategory === 'MISSED' ? '0 0 14px rgba(245, 158, 11, 0.4)' : 'none',
+            boxShadow: selectedCategory === 'MISSED' ? '0 0 16px rgba(245, 158, 11, 0.4)' : 'none',
             background: selectedCategory === 'MISSED' ? 'linear-gradient(145deg, #452b07, #2c1a02)' : '#06352b',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s ease',
+            position: 'relative'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.borderColor = '#f59e0b';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'none';
+            if (selectedCategory !== 'MISSED') e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.25)';
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -640,25 +779,37 @@ export default function PhoneSystemAnalyticsView({
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '6px' }}>
             <span style={{ ...kpiValueTheme, color: '#fbbf24' }}>{categoryStats.missed}</span>
-            {selectedCategory === 'MISSED' && (
-              <span style={{ fontSize: '10px', color: '#fbbf24', fontWeight: '800' }}>● FILTERED</span>
-            )}
+            <span style={{ fontSize: '10px', color: '#fbbf24', fontWeight: '800' }}>● MISSED</span>
           </div>
           <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
             Unanswered incoming customer calls
+          </div>
+          <div style={cardFooterPrompt}>
+            <span>View Missed Logs</span>
+            <ExternalLink size={12} color="#fbbf24" />
           </div>
         </div>
 
         {/* CARD 5: OUTBOUND NOT CONNECTED / UNANSWERED */}
         <div
           onClick={() => handleCardClick('NOT_CONNECTED')}
+          title="Click to open pop-up modal with unanswered / busy dials"
           style={{
             ...kpiCardTheme,
             cursor: 'pointer',
             border: selectedCategory === 'NOT_CONNECTED' ? '2px solid #ef4444' : '1px solid rgba(20, 184, 166, 0.25)',
-            boxShadow: selectedCategory === 'NOT_CONNECTED' ? '0 0 14px rgba(239, 68, 68, 0.4)' : 'none',
+            boxShadow: selectedCategory === 'NOT_CONNECTED' ? '0 0 16px rgba(239, 68, 68, 0.4)' : 'none',
             background: selectedCategory === 'NOT_CONNECTED' ? 'linear-gradient(145deg, #4c1d1d, #2b0c0c)' : '#06352b',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s ease',
+            position: 'relative'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.borderColor = '#ef4444';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'none';
+            if (selectedCategory !== 'NOT_CONNECTED') e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.25)';
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -669,17 +820,19 @@ export default function PhoneSystemAnalyticsView({
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '6px' }}>
             <span style={{ ...kpiValueTheme, color: '#f87171' }}>{categoryStats.notConnected}</span>
-            {selectedCategory === 'NOT_CONNECTED' && (
-              <span style={{ fontSize: '10px', color: '#f87171', fontWeight: '800' }}>● FILTERED</span>
-            )}
+            <span style={{ fontSize: '10px', color: '#f87171', fontWeight: '800' }}>● UNANSWERED</span>
           </div>
           <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
             Outgoing dials not answered / busy
           </div>
+          <div style={cardFooterPrompt}>
+            <span>View Unanswered Logs</span>
+            <ExternalLink size={12} color="#f87171" />
+          </div>
         </div>
       </div>
 
-      {/* Active Category Indicator Banner */}
+      {/* Active Category Filter Status Banner */}
       {selectedCategory !== 'ALL' && (
         <div style={{
           background: 'rgba(13, 148, 136, 0.15)',
@@ -695,24 +848,41 @@ export default function PhoneSystemAnalyticsView({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Filter size={15} color="#2dd4bf" />
             <span>
-              Filtering analytics for: <strong style={{ color: '#2dd4bf', textTransform: 'uppercase' }}>{selectedCategory.replace('_', ' ')} CALLS</strong> ({categoryFilteredLogs.length} matching)
+              Analytics currently focused on: <strong style={{ color: '#2dd4bf', textTransform: 'uppercase' }}>{selectedCategory.replace('_', ' ')} CALLS</strong> ({categoryFilteredLogs.length} records)
             </span>
           </div>
-          <button
-            onClick={() => setSelectedCategory('ALL')}
-            style={{
-              background: '#0d9488',
-              border: 'none',
-              color: '#ffffff',
-              padding: '4px 10px',
-              borderRadius: '6px',
-              fontSize: '11px',
-              fontWeight: '700',
-              cursor: 'pointer'
-            }}
-          >
-            Show All Calls ✕
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              onClick={() => handleCardClick(selectedCategory)}
+              style={{
+                background: 'rgba(45, 212, 191, 0.2)',
+                border: '1px solid rgba(45, 212, 191, 0.4)',
+                color: '#2dd4bf',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontSize: '11px',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
+            >
+              Open Pop-up Logs ↗
+            </button>
+            <button
+              onClick={() => setSelectedCategory('ALL')}
+              style={{
+                background: '#0d9488',
+                border: 'none',
+                color: '#ffffff',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontSize: '11px',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
+            >
+              Reset to All Calls ✕
+            </button>
+          </div>
         </div>
       )}
 
@@ -723,14 +893,14 @@ export default function PhoneSystemAnalyticsView({
         display: 'grid',
         gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)',
         gap: '20px',
-        marginBottom: '24px'
+        marginBottom: '20px'
       }}>
         {/* LEFT: HOURLY CALL PEAK HEATMAP */}
         <div style={sectionCardTheme}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
             <div>
               <h2 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.2px' }}>
-                Hourly Call Peak Heatmap {selectedCategory !== 'ALL' ? `(${selectedCategory})` : ''}
+                Hourly Call Peak Heatmap {selectedCategory !== 'ALL' ? `(${selectedCategory.replace('_', ' ')})` : ''}
               </h2>
               <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
                 Call activity density across days & hours
@@ -789,7 +959,7 @@ export default function PhoneSystemAnalyticsView({
                           key={h.hour}
                           title={`${d.label} at ${h.label}: ${count} calls`}
                           style={{
-                            height: '30px',
+                            height: '32px',
                             borderRadius: '5px',
                             background: cellBg,
                             color: textColor,
@@ -814,10 +984,10 @@ export default function PhoneSystemAnalyticsView({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
             <div>
               <h2 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.2px' }}>
-                Call Disposition Breakdown {selectedCategory !== 'ALL' ? `(${selectedCategory})` : ''}
+                Call Disposition Breakdown {selectedCategory !== 'ALL' ? `(${selectedCategory.replace('_', ' ')})` : ''}
               </h2>
               <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
-                Outcome distribution for filtered calls
+                Outcome distribution across calls
               </p>
             </div>
             <span style={{ fontSize: '11px', color: '#2dd4bf', fontWeight: '700', background: 'rgba(45, 212, 191, 0.12)', padding: '3px 8px', borderRadius: '6px' }}>
@@ -861,172 +1031,325 @@ export default function PhoneSystemAnalyticsView({
       </div>
 
       {/* ========================================================= */}
-      {/* 4. LIGHTWEIGHT CALL DETAILS LIST (CLEAN, NO AUDIO BLOAT)  */}
+      {/* 4. POP-UP MODAL: DETAILED CALL LOGS FOR CLICKED CATEGORY  */}
       {/* ========================================================= */}
-      <div style={sectionCardTheme}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          marginBottom: '16px'
-        }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '15.5px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.2px' }}>
-              {selectedCategory === 'ALL'
-                ? 'All Call Logs'
-                : selectedCategory === 'INCOMING'
-                ? '📥 Inbound / Incoming Call Details'
-                : selectedCategory === 'OUTGOING'
-                ? '📤 Outbound Connected Call Details'
-                : selectedCategory === 'MISSED'
-                ? '📵 Missed Call Details'
-                : '⏳ Not Connected / Unanswered Call Details'}
-            </h2>
-            <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
-              Showing {displayedCalls.length} records matching current view & filters
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {/* Search Input */}
+      {activeModalCategory && (
+        <div
+          onClick={() => setActiveModalCategory(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            background: 'rgba(2, 20, 16, 0.82)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#06352b',
+              border: '1px solid rgba(45, 212, 191, 0.35)',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '1020px',
+              maxHeight: '88vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 30px rgba(13, 148, 136, 0.25)',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Modal Header */}
             <div style={{
+              padding: '16px 22px',
+              background: '#074135',
+              borderBottom: '1px solid rgba(20, 184, 166, 0.25)',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              background: '#042720',
-              border: '1px solid rgba(20, 184, 166, 0.3)',
-              borderRadius: '8px',
-              padding: '6px 12px',
-              width: '240px'
+              justifyContent: 'space-between',
+              gap: '16px',
+              flexWrap: 'wrap'
             }}>
-              <Search size={14} color="#2dd4bf" />
-              <input
-                type="text"
-                placeholder="Search name, phone, telecaller..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  padding: '8px',
+                  borderRadius: '10px',
+                  background: currentModalMeta.badgeBg,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: `1px solid ${currentModalMeta.badgeColor}44`
+                }}>
+                  {currentModalMeta.icon}
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h2 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.3px' }}>
+                      {currentModalMeta.title}
+                    </h2>
+                    <span style={{
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontSize: '11px',
+                      fontWeight: '800',
+                      background: currentModalMeta.badgeBg,
+                      color: currentModalMeta.badgeColor,
+                      border: `1px solid ${currentModalMeta.badgeColor}55`
+                    }}>
+                      {modalCategoryCalls.length} Calls
+                    </span>
+                  </div>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
+                    {currentModalMeta.desc}
+                  </p>
+                </div>
+              </div>
+
+              {/* Right: Search Box + Export + Close button */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: '#042720',
+                  border: '1px solid rgba(20, 184, 166, 0.3)',
+                  borderRadius: '8px',
+                  padding: '6px 12px',
+                  width: '240px'
+                }}>
+                  <Search size={14} color="#2dd4bf" />
+                  <input
+                    type="text"
+                    placeholder="Search name, phone, telecaller..."
+                    value={modalSearchQuery}
+                    onChange={(e) => setModalSearchQuery(e.target.value)}
+                    autoFocus
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      outline: 'none',
+                      color: '#ffffff',
+                      fontSize: '12px',
+                      width: '100%'
+                    }}
+                  />
+                  {modalSearchQuery && (
+                    <button
+                      onClick={() => setModalSearchQuery('')}
+                      style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 0 }}
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  onClick={handleExportModalCSV}
+                  title="Export this list to CSV"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'rgba(20, 184, 166, 0.15)',
+                    border: '1px solid rgba(45, 212, 191, 0.4)',
+                    color: '#2dd4bf',
+                    padding: '7px 12px',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <Download size={14} />
+                  <span>Export</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveModalCategory(null)}
+                  title="Close (Esc)"
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#cbd5e1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                    e.currentTarget.style.color = '#ef4444';
+                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                    e.currentTarget.style.color = '#cbd5e1';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body / Scrollable Table */}
+            <div style={{
+              overflowY: 'auto',
+              flex: 1,
+              padding: '0'
+            }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                  <tr style={{ background: '#0a3d33', color: '#99f6e4', fontWeight: '700', borderBottom: '1px solid rgba(20, 184, 166, 0.2)' }}>
+                    <th style={{ padding: '10px 16px' }}>Customer / Lead</th>
+                    <th style={{ padding: '10px 14px' }}>Telecaller Agent</th>
+                    <th style={{ padding: '10px 12px' }}>Call Category</th>
+                    <th style={{ padding: '10px 12px' }}>Duration</th>
+                    <th style={{ padding: '10px 12px' }}>Disposition</th>
+                    <th style={{ padding: '10px 16px' }}>Date & Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {modalFilteredCalls.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ padding: '40px 20px', textAlign: 'center', color: '#94a3b8' }}>
+                        <div style={{ fontSize: '14px', fontWeight: '600', color: '#cbd5e1' }}>
+                          No call records found
+                        </div>
+                        <div style={{ fontSize: '12px', marginTop: '4px', color: '#64748b' }}>
+                          {modalSearchQuery ? 'Try adjusting your search keyword' : 'No calls logged in this period for this category.'}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    modalFilteredCalls.map((log) => {
+                      const cat = getCallCategory(log);
+                      const isIncoming = cat === 'INCOMING';
+                      const isOutgoing = cat === 'OUTGOING';
+                      const isMissed = cat === 'MISSED';
+
+                      const badgeBg = isIncoming ? 'rgba(16, 185, 129, 0.15)' : (isOutgoing ? 'rgba(59, 130, 246, 0.15)' : (isMissed ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)'));
+                      const badgeColor = isIncoming ? '#34d399' : (isOutgoing ? '#60a5fa' : (isMissed ? '#fbbf24' : '#f87171'));
+                      const badgeLabel = isIncoming ? 'INCOMING' : (isOutgoing ? 'OUTGOING' : (isMissed ? 'MISSED' : 'NOT ANSWERED'));
+
+                      const dispName = log.status || log.disposition || (isMissed ? 'Missed Call' : 'Not Answered');
+                      const dispColor = dispName.toLowerCase().includes('interest') ? '#34d399' : (dispName.toLowerCase().includes('demo') ? '#60a5fa' : (dispName.toLowerCase().includes('miss') ? '#fbbf24' : '#f87171'));
+
+                      return (
+                        <tr
+                          key={log.id || `${log.phone}_${log.call_time}_${Math.random()}`}
+                          style={{
+                            borderBottom: '1px solid rgba(20, 184, 166, 0.08)',
+                            transition: 'background 0.15s ease'
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          {/* Customer */}
+                          <td style={{ padding: '11px 16px' }}>
+                            <div style={{ fontWeight: '700', color: '#ffffff' }}>
+                              {log.name || log.customer_name || log.caller_name || 'Customer'}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                              {log.phone || log.caller_number || ''}
+                            </div>
+                          </td>
+
+                          {/* Telecaller */}
+                          <td style={{ padding: '11px 14px', color: '#cbd5e1' }}>
+                            {log.agent_name || log.agentName || 'Telecaller'}
+                          </td>
+
+                          {/* Call Category Badge */}
+                          <td style={{ padding: '11px 12px' }}>
+                            <span style={{
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              background: badgeBg,
+                              color: badgeColor,
+                              border: `1px solid ${badgeColor}44`
+                            }}>
+                              {badgeLabel}
+                            </span>
+                          </td>
+
+                          {/* Duration */}
+                          <td style={{ padding: '11px 12px', fontWeight: '700', color: parseDurationSeconds(log.duration || log.duration_seconds) > 0 ? '#2dd4bf' : '#64748b' }}>
+                            {log.duration || '00:00'}
+                          </td>
+
+                          {/* Disposition */}
+                          <td style={{ padding: '11px 12px' }}>
+                            <span style={{
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              background: `${dispColor}18`,
+                              color: dispColor,
+                              border: `1px solid ${dispColor}33`
+                            }}>
+                              {dispName}
+                            </span>
+                          </td>
+
+                          {/* Formatted Date & Time */}
+                          <td style={{ padding: '11px 16px', fontSize: '12px', color: '#cbd5e1' }}>
+                            {formatDateTime(log.call_time || log.callTime || log.created_at || log.timestamp)}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: '12px 22px',
+              background: '#042720',
+              borderTop: '1px solid rgba(20, 184, 166, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: '12px',
+              color: '#94a3b8'
+            }}>
+              <div>
+                Showing <strong style={{ color: '#2dd4bf' }}>{modalFilteredCalls.length}</strong> of{' '}
+                <strong style={{ color: '#ffffff' }}>{modalCategoryCalls.length}</strong> {currentModalMeta.title}
+              </div>
+              <button
+                onClick={() => setActiveModalCategory(null)}
                 style={{
-                  background: 'transparent',
-                  border: 'none',
-                  outline: 'none',
+                  padding: '6px 16px',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
                   color: '#ffffff',
+                  borderRadius: '7px',
                   fontSize: '12px',
-                  width: '100%'
+                  fontWeight: '600',
+                  cursor: 'pointer'
                 }}
-              />
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
-
-        {/* Lightweight Table */}
-        <div style={{ overflowX: 'auto', borderRadius: '10px', border: '1px solid rgba(20, 184, 166, 0.15)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
-            <thead>
-              <tr style={{ background: '#0a3d33', color: '#99f6e4', fontWeight: '700', borderBottom: '1px solid rgba(20, 184, 166, 0.2)' }}>
-                <th style={{ padding: '10px 14px' }}>Customer / Lead</th>
-                <th style={{ padding: '10px 14px' }}>Telecaller Agent</th>
-                <th style={{ padding: '10px 12px' }}>Call Category</th>
-                <th style={{ padding: '10px 12px' }}>Duration</th>
-                <th style={{ padding: '10px 12px' }}>Disposition</th>
-                <th style={{ padding: '10px 14px' }}>Date & Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayedCalls.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
-                    No call records found for this category in the selected period.
-                  </td>
-                </tr>
-              ) : (
-                displayedCalls.map((log) => {
-                  const cat = getCallCategory(log);
-                  const isIncoming = cat === 'INCOMING';
-                  const isOutgoing = cat === 'OUTGOING';
-                  const isMissed = cat === 'MISSED';
-                  const isNotConnected = cat === 'NOT_CONNECTED';
-
-                  const badgeBg = isIncoming ? 'rgba(16, 185, 129, 0.15)' : (isOutgoing ? 'rgba(59, 130, 246, 0.15)' : (isMissed ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)'));
-                  const badgeColor = isIncoming ? '#34d399' : (isOutgoing ? '#60a5fa' : (isMissed ? '#fbbf24' : '#f87171'));
-                  const badgeLabel = isIncoming ? 'INCOMING' : (isOutgoing ? 'OUTGOING' : (isMissed ? 'MISSED' : 'NOT ANSWERED'));
-
-                  const dispName = log.status || log.disposition || (isMissed ? 'Missed Call' : 'Not Answered');
-                  const dispColor = dispName.toLowerCase().includes('interest') ? '#34d399' : (dispName.toLowerCase().includes('demo') ? '#60a5fa' : (dispName.toLowerCase().includes('miss') ? '#fbbf24' : '#f87171'));
-
-                  return (
-                    <tr
-                      key={log.id || `${log.phone}_${log.call_time}`}
-                      style={{
-                        borderBottom: '1px solid rgba(20, 184, 166, 0.08)',
-                        transition: 'background 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                    >
-                      {/* Customer */}
-                      <td style={{ padding: '11px 14px' }}>
-                        <div style={{ fontWeight: '700', color: '#ffffff' }}>
-                          {log.name || log.customer_name || log.caller_name || 'Customer'}
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                          {log.phone || log.caller_number || ''}
-                        </div>
-                      </td>
-
-                      {/* Telecaller */}
-                      <td style={{ padding: '11px 14px', color: '#cbd5e1' }}>
-                        {log.agent_name || log.agentName || 'Telecaller'}
-                      </td>
-
-                      {/* Call Category Badge */}
-                      <td style={{ padding: '11px 12px' }}>
-                        <span style={{
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          background: badgeBg,
-                          color: badgeColor,
-                          border: `1px solid ${badgeColor}44`
-                        }}>
-                          {badgeLabel}
-                        </span>
-                      </td>
-
-                      {/* Duration */}
-                      <td style={{ padding: '11px 12px', fontWeight: '700', color: parseDurationSeconds(log.duration || log.duration_seconds) > 0 ? '#2dd4bf' : '#64748b' }}>
-                        {log.duration || '00:00'}
-                      </td>
-
-                      {/* Disposition */}
-                      <td style={{ padding: '11px 12px' }}>
-                        <span style={{
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          background: `${dispColor}18`,
-                          color: dispColor,
-                          border: `1px solid ${dispColor}33`
-                        }}>
-                          {dispName}
-                        </span>
-                      </td>
-
-                      {/* Formatted Date & Time */}
-                      <td style={{ padding: '11px 14px', fontSize: '12px', color: '#cbd5e1' }}>
-                        {formatDateTime(log.call_time || log.callTime || log.created_at || log.timestamp)}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -1056,6 +1379,18 @@ const kpiValueTheme = {
   fontWeight: '800',
   color: '#ffffff',
   letterSpacing: '-0.5px'
+};
+
+const cardFooterPrompt = {
+  marginTop: '10px',
+  paddingTop: '8px',
+  borderTop: '1px solid rgba(20, 184, 166, 0.15)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  fontSize: '11px',
+  color: '#2dd4bf',
+  fontWeight: '700'
 };
 
 const sectionCardTheme = {
