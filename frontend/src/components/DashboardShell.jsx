@@ -883,6 +883,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     hr_management: false,
     payroll_finance: false,
     crm_sales: true,
+    reporting: true,
     operations: false,
     my_portal: false,
     saas_portal: false,
@@ -897,6 +898,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         hr_management: false,
         payroll_finance: false,
         crm_sales: false,
+        reporting: false,
         operations: false,
         my_portal: false,
         saas_portal: false,
@@ -6977,6 +6979,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     const currentTenantId = authUser?.tenantId || authUser?.companyId || 'default_tenant';
     const activeTenant = FirebaseCloudEngine.getTenantId(currentTenantId);
 
+    if (modId.startsWith('reports')) return true;
+
     // 1. Check SuperAdmin Feature Provisioning (Global & Company-Specific)
     if (!FeatureProvisioningEngine.isModuleEnabledForTenant(modId, activeTenant, authUser)) {
       return false;
@@ -7210,13 +7214,32 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   {renderLockBadge('telecalling')}
                 </div>
               )}
-              {canNav('reports') && (
-                <div className={`nav-item ${activeTab === 'reports' ? 'active' : ''}`} onClick={() => setActiveTab('reports')}>
-                  <BarChart2 size={15} />
-                  <span style={{ fontSize: '13px' }}>Reports & Analytics</span>
-                  {renderLockBadge('reports')}
-                </div>
-              )}
+            </AccordionCategory>
+          )}
+
+          {/* CATEGORY: REPORTING & ANALYTICS (DEDICATED SEPARATE SIDEBAR HEADER) */}
+          {(canNav('reports_telephony') || canNav('reports_crm') || canNav('reports_cross') || canNav('reports_builder') || canNav('reports')) && (
+            <AccordionCategory id="reporting" label="REPORTS & ANALYTICS" icon={BarChart2} isExpanded={!!expandedCategories.reporting} onToggle={toggleCategory}>
+              <div className={`nav-item ${activeTab === 'reports_telephony' || activeTab === 'reports' ? 'active' : ''}`} onClick={() => setActiveTab('reports_telephony')}>
+                <PhoneCall size={15} />
+                <span style={{ fontSize: '13px' }}>Phone System Reports</span>
+                {renderLockBadge('reports_telephony')}
+              </div>
+              <div className={`nav-item ${activeTab === 'reports_crm' ? 'active' : ''}`} onClick={() => setActiveTab('reports_crm')}>
+                <Layers size={15} />
+                <span style={{ fontSize: '13px' }}>CRM Sales Reports</span>
+                {renderLockBadge('reports_crm')}
+              </div>
+              <div className={`nav-item ${activeTab === 'reports_cross' ? 'active' : ''}`} onClick={() => setActiveTab('reports_cross')}>
+                <Share2 size={15} />
+                <span style={{ fontSize: '13px' }}>Cross-Analytics Reports</span>
+                {renderLockBadge('reports_cross')}
+              </div>
+              <div className={`nav-item ${activeTab === 'reports_builder' ? 'active' : ''}`} onClick={() => setActiveTab('reports_builder')}>
+                <Sliders size={15} />
+                <span style={{ fontSize: '13px' }}>Custom Report Builder</span>
+                {renderLockBadge('reports_builder')}
+              </div>
             </AccordionCategory>
           )}
           {/* CATEGORY: OPERATIONS */}
@@ -7478,7 +7501,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           {/* Desktop Page Title (Aligned equal from left with content cards) */}
           <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '0px', marginRight: '20px', flexShrink: 0 }}>
             <span style={{ fontSize: '14px', fontWeight: '800', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                 {activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab === 'reports' ? 'REPORTS & ANALYTICS' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' ')))))}
+                 {activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab.startsWith('reports') ? 'REPORTS & ANALYTICS' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' ')))))}
             </span>
           </div>
 
@@ -8147,10 +8170,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-        {/* Dynamic Reporting & Intelligence Hub */}
-        {activeTab === 'reports' && (
+        {/* Dynamic Reporting & Intelligence Hub (Multi-Page Supported) */}
+        {(activeTab === 'reports' || activeTab.startsWith('reports_')) && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Reporting Hub...</div>}>
             <DynamicReportingHub
+              activeTab={activeTab}
               authUser={effectiveAuthUser || authUser}
               callLogs={callLogs}
               contacts={contacts}
