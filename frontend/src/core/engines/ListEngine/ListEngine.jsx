@@ -2798,6 +2798,9 @@ export default function ListEngine({
         canManage={canManage}
         isArchivedView={isArchivedView}
         onOpenExportModal={onOpenExportModal}
+        systemDropdowns={systemDropdowns}
+        activePipelineStages={activePipelineStages}
+        authUser={authUser}
       />
 
       <div className="list-content-card" style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
