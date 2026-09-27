@@ -660,7 +660,7 @@ export default function DynamicReportingHub({
   }, [activeModule]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#04241d', overflowY: 'auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f8fafc', overflowY: 'auto' }}>
       {/* 📞 DIRECT DEDICATED PHONE SYSTEM ANALYTICS */}
       {activeModule === 'telephony' ? (
         <PhoneSystemAnalyticsView

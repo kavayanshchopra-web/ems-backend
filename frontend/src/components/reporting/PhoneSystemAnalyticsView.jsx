@@ -1,10 +1,11 @@
 /**
  * PHONE SYSTEM ANALYTICS & CALL INTELLIGENCE
- * 100% Theme-Aligned with Dark Emerald (#04241d / #06352b) and Teal (#0d9488)
+ * Clean Modern Light SaaS Theme (#ffffff / #f8fafc) with Left Color Shade Accents
+ * Matching CRM Card Design System
  * 
  * Features:
- * 1. 5 Separated Clickable Category Cards (Total, Inbound, Outbound Connected, Missed, Not Connected)
- * 2. Telephony Health & Duration KPIs (Total Talk-Time, Avg Duration, Missed Call SLA Recovery, Positive Outcome %)
+ * 1. 5 Separated Clickable Category Cards with Left Color Accents (Total, Inbound, Outbound Connected, Missed, Not Connected)
+ * 2. Telephony Health & Duration KPIs (Total Talk-Time, Avg Duration, Missed Call Recovery SLA, Positive Outcome %)
  * 3. Two-Column Intelligence (Hourly Call Peak Heatmap & Call Disposition Breakdown)
  * 4. Daily Calling Volume Trend Graph (Monday to Sunday Inbound vs Outbound vs Missed)
  * 5. Telecaller Performance Leaderboard (Rankings, Total Calls, Talk-Time, Connect %, Interested Leads)
@@ -60,12 +61,12 @@ const HOURS = [
 ];
 
 const DISPOSITION_CONFIG = [
-  { name: 'Interested', color: '#10b981', bg: 'rgba(16, 185, 129, 0.15)', icon: '🎯' },
-  { name: 'Demo Scheduled', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)', icon: '📅' },
-  { name: 'Follow-up', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)', icon: '⏰', alias: 'Follow-up Required' },
-  { name: 'Deal Closed', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.15)', icon: '🏆' },
-  { name: 'Not Interested', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)', icon: '❌' },
-  { name: 'Missed / No Answer', color: '#64748b', bg: 'rgba(100, 116, 139, 0.15)', icon: '📵', alias: 'Missed Call' }
+  { name: 'Interested', color: '#10b981', bg: '#ecfdf5', border: '#a7f3d0', icon: '🎯' },
+  { name: 'Demo Scheduled', color: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe', icon: '📅' },
+  { name: 'Follow-up', color: '#f59e0b', bg: '#fffbeb', border: '#fde68a', icon: '⏰', alias: 'Follow-up Required' },
+  { name: 'Deal Closed', color: '#8b5cf6', bg: '#f5f3ff', border: '#ddd6fe', icon: '🏆' },
+  { name: 'Not Interested', color: '#ef4444', bg: '#fef2f2', border: '#fecaca', icon: '❌' },
+  { name: 'Missed / No Answer', color: '#64748b', bg: '#f8fafc', border: '#e2e8f0', icon: '📵', alias: 'Missed Call' }
 ];
 
 // Helper to format seconds into "Xh Ym Zs" or "Xm Ys" or "Xs"
@@ -583,14 +584,14 @@ export default function PhoneSystemAnalyticsView({
 
   // Modal Meta Information
   const getModalMeta = (cat) => {
-    if (!cat) return { title: 'Call Records', icon: <PhoneCall size={18} color="#2dd4bf" />, badgeColor: '#2dd4bf', badgeBg: 'rgba(45, 212, 191, 0.15)', desc: 'Call records' };
+    if (!cat) return { title: 'Call Records', icon: <PhoneCall size={18} color="#0d9488" />, badgeColor: '#0d9488', badgeBg: '#f0fdf4', desc: 'Call records' };
 
     if (cat === 'PENDING_MISSED') {
       return {
         title: 'Pending Missed Calls (Awaiting Callback)',
-        icon: <PhoneMissed size={18} color="#ef4444" />,
-        badgeColor: '#f87171',
-        badgeBg: 'rgba(239, 68, 68, 0.15)',
+        icon: <PhoneMissed size={18} color="#dc2626" />,
+        badgeColor: '#dc2626',
+        badgeBg: '#fef2f2',
         desc: 'Inbound calls that were missed and have not yet received a return call'
       };
     }
@@ -599,9 +600,9 @@ export default function PhoneSystemAnalyticsView({
       const agName = cat.replace('AGENT:', '');
       return {
         title: `${agName} - Call Activity Logs`,
-        icon: <Users size={18} color="#2dd4bf" />,
-        badgeColor: '#2dd4bf',
-        badgeBg: 'rgba(45, 212, 191, 0.15)',
+        icon: <Users size={18} color="#0d9488" />,
+        badgeColor: '#0d9488',
+        badgeBg: '#f0fdf4',
         desc: `All telephony calls handled by ${agName}`
       };
     }
@@ -610,41 +611,41 @@ export default function PhoneSystemAnalyticsView({
       case 'INCOMING':
         return {
           title: 'Inbound / Incoming Calls',
-          icon: <PhoneIncoming size={18} color="#10b981" />,
-          badgeColor: '#34d399',
-          badgeBg: 'rgba(16, 185, 129, 0.15)',
+          icon: <PhoneIncoming size={18} color="#059669" />,
+          badgeColor: '#059669',
+          badgeBg: '#ecfdf5',
           desc: 'All answered customer phone calls received'
         };
       case 'OUTGOING':
         return {
           title: 'Outbound Connected Calls',
-          icon: <PhoneOutgoing size={18} color="#60a5fa" />,
-          badgeColor: '#60a5fa',
-          badgeBg: 'rgba(59, 130, 246, 0.15)',
+          icon: <PhoneOutgoing size={18} color="#2563eb" />,
+          badgeColor: '#2563eb',
+          badgeBg: '#eff6ff',
           desc: 'Outbound calls successfully answered with duration > 0'
         };
       case 'MISSED':
         return {
           title: 'Missed Calls',
-          icon: <PhoneMissed size={18} color="#fbbf24" />,
-          badgeColor: '#fbbf24',
-          badgeBg: 'rgba(245, 158, 11, 0.15)',
+          icon: <PhoneMissed size={18} color="#d97706" />,
+          badgeColor: '#d97706',
+          badgeBg: '#fffbeb',
           desc: 'Inbound customer calls missed by agents'
         };
       case 'NOT_CONNECTED':
         return {
           title: 'Not Connected / Unanswered Dials',
-          icon: <PhoneOff size={18} color="#f87171" />,
-          badgeColor: '#f87171',
-          badgeBg: 'rgba(239, 68, 68, 0.15)',
+          icon: <PhoneOff size={18} color="#dc2626" />,
+          badgeColor: '#dc2626',
+          badgeBg: '#fef2f2',
           desc: 'Outgoing dials where customer did not answer, rejected, or line busy'
         };
       default:
         return {
           title: 'All Call Records',
-          icon: <PhoneCall size={18} color="#2dd4bf" />,
-          badgeColor: '#2dd4bf',
-          badgeBg: 'rgba(45, 212, 191, 0.15)',
+          icon: <PhoneCall size={18} color="#0d9488" />,
+          badgeColor: '#0d9488',
+          badgeBg: '#f0fdf4',
           desc: 'Complete log of all inbound and outbound telephone calls'
         };
     }
@@ -654,15 +655,15 @@ export default function PhoneSystemAnalyticsView({
 
   return (
     <div style={{
-      background: '#04241d',
+      background: '#f8fafc',
       minHeight: '100%',
-      padding: '24px 28px',
-      color: '#f8fafc',
+      padding: '20px 24px',
+      color: '#0f172a',
       fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
       boxSizing: 'border-box'
     }}>
       {/* ========================================================= */}
-      {/* 1. SLIM & CLEAN CONTROL TOOLBAR (No redundant heavy header) */}
+      {/* 1. SLIM & CLEAN CONTROL TOOLBAR                           */}
       {/* ========================================================= */}
       <div style={{
         display: 'flex',
@@ -672,7 +673,7 @@ export default function PhoneSystemAnalyticsView({
         gap: '12px',
         marginBottom: '16px',
         paddingBottom: '12px',
-        borderBottom: '1px solid rgba(20, 184, 166, 0.15)'
+        borderBottom: '1px solid #e2e8f0'
       }}>
         {/* Left: Clean status pill and live indicator */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -680,18 +681,18 @@ export default function PhoneSystemAnalyticsView({
             fontSize: '11px',
             fontWeight: '700',
             padding: '3px 8px',
-            borderRadius: '8px',
-            background: 'rgba(16, 185, 129, 0.15)',
-            color: '#34d399',
-            border: '1px solid rgba(52, 211, 153, 0.25)',
+            borderRadius: '6px',
+            background: '#ecfdf5',
+            color: '#059669',
+            border: '1px solid #a7f3d0',
             display: 'inline-flex',
             alignItems: 'center',
             gap: '5px'
           }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34d399', boxShadow: '0 0 6px #34d399' }} />
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
             LIVE TELEPHONY
           </span>
-          <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+          <span style={{ fontSize: '12.5px', color: '#64748b', fontWeight: '500' }}>
             ({categoryStats.total} total calls recorded)
           </span>
         </div>
@@ -704,28 +705,29 @@ export default function PhoneSystemAnalyticsView({
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              background: '#06352b',
+              background: '#ffffff',
               borderRadius: '8px',
               padding: '4px 10px',
-              border: '1px solid rgba(20, 184, 166, 0.25)'
+              border: '1px solid #cbd5e1',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
             }}>
-              <Users size={13} color="#2dd4bf" />
+              <Users size={13} color="#0d9488" />
               <select
                 value={selectedAgent}
                 onChange={(e) => setSelectedAgent(e.target.value)}
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: '#e2e8f0',
+                  color: '#0f172a',
                   fontSize: '12px',
                   fontWeight: '600',
                   outline: 'none',
                   cursor: 'pointer'
                 }}
               >
-                <option value="ALL" style={{ background: '#06352b', color: '#ffffff' }}>All Telecallers</option>
+                <option value="ALL">All Telecallers</option>
                 {employees.map(emp => (
-                  <option key={emp.id || emp.email} value={emp.name || emp.full_name || emp.email} style={{ background: '#06352b', color: '#ffffff' }}>
+                  <option key={emp.id || emp.email} value={emp.name || emp.full_name || emp.email}>
                     {emp.name || emp.full_name || emp.email}
                   </option>
                 ))}
@@ -736,10 +738,11 @@ export default function PhoneSystemAnalyticsView({
           {/* Period Selector Tabs */}
           <div style={{
             display: 'flex',
-            background: '#06352b',
+            background: '#ffffff',
             borderRadius: '8px',
             padding: '2px',
-            border: '1px solid rgba(20, 184, 166, 0.25)'
+            border: '1px solid #cbd5e1',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
           }}>
             {[
               { id: 'today', label: 'Today' },
@@ -754,7 +757,7 @@ export default function PhoneSystemAnalyticsView({
                   onClick={() => setSelectedPeriod(tab.id)}
                   style={{
                     background: active ? '#0d9488' : 'transparent',
-                    color: active ? '#ffffff' : '#94a3b8',
+                    color: active ? '#ffffff' : '#64748b',
                     border: 'none',
                     padding: '5px 11px',
                     borderRadius: '6px',
@@ -777,14 +780,15 @@ export default function PhoneSystemAnalyticsView({
               display: 'flex',
               alignItems: 'center',
               gap: '5px',
-              background: '#06352b',
-              color: '#2dd4bf',
-              border: '1px solid rgba(20, 184, 166, 0.3)',
+              background: '#ffffff',
+              color: '#0d9488',
+              border: '1px solid #cbd5e1',
               borderRadius: '8px',
-              padding: '5px 11px',
+              padding: '5px 12px',
               fontSize: '12px',
               fontWeight: '700',
               cursor: 'pointer',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
               transition: 'all 0.15s ease'
             }}
           >
@@ -795,7 +799,7 @@ export default function PhoneSystemAnalyticsView({
       </div>
 
       {/* ========================================================= */}
-      {/* 2. FIVE SEPARATED, CLICKABLE CATEGORY CARDS               */}
+      {/* 2. FIVE SEPARATED CLICKABLE CARDS (WITH LEFT ACCENTS)     */}
       {/* ========================================================= */}
       <div style={{
         display: 'grid',
@@ -808,38 +812,36 @@ export default function PhoneSystemAnalyticsView({
           onClick={() => handleCardClick('ALL')}
           title="Click to open pop-up modal with all call records"
           style={{
-            ...kpiCardTheme,
-            cursor: 'pointer',
-            border: selectedCategory === 'ALL' ? '2px solid #2dd4bf' : '1px solid rgba(20, 184, 166, 0.25)',
-            boxShadow: selectedCategory === 'ALL' ? '0 0 16px rgba(45, 212, 191, 0.4)' : 'none',
-            background: selectedCategory === 'ALL' ? 'linear-gradient(145deg, #074338, #052e26)' : '#06352b',
-            transition: 'all 0.2s ease'
+            ...kpiCardWhiteTheme,
+            borderLeft: '4px solid #0d9488',
+            borderColor: selectedCategory === 'ALL' ? '#0d9488' : '#e2e8f0',
+            boxShadow: selectedCategory === 'ALL' ? '0 4px 12px rgba(13, 148, 136, 0.18)' : '0 1px 3px rgba(0,0,0,0.05)'
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.borderColor = '#2dd4bf';
+            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.08)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = 'none';
-            if (selectedCategory !== 'ALL') e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.25)';
+            e.currentTarget.style.boxShadow = selectedCategory === 'ALL' ? '0 4px 12px rgba(13, 148, 136, 0.18)' : '0 1px 3px rgba(0,0,0,0.05)';
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={kpiTitleTheme}>Total Calls</span>
-            <div style={{ background: 'rgba(20, 184, 166, 0.2)', padding: '5px 7px', borderRadius: '8px' }}>
-              <PhoneCall size={14} color="#2dd4bf" />
+            <span style={kpiTitleWhiteTheme}>Total Calls</span>
+            <div style={{ background: '#f0fdf4', padding: '5px 7px', borderRadius: '7px', border: '1px solid #bbf7d0' }}>
+              <PhoneCall size={14} color="#0d9488" />
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '6px' }}>
-            <span style={kpiValueTheme}>{categoryStats.total}</span>
-            <span style={{ fontSize: '10px', color: '#2dd4bf', fontWeight: '800' }}>● ALL</span>
+            <span style={kpiValueWhiteTheme}>{categoryStats.total}</span>
+            <span style={{ fontSize: '10px', color: '#0d9488', fontWeight: '800' }}>● ALL</span>
           </div>
-          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
-            Connect Rate: <strong style={{ color: '#34d399' }}>{categoryStats.connectRate}%</strong>
+          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+            Connect Rate: <strong style={{ color: '#059669' }}>{categoryStats.connectRate}%</strong>
           </div>
-          <div style={cardFooterPrompt}>
+          <div style={cardFooterWhitePrompt}>
             <span>View All Logs</span>
-            <ExternalLink size={12} color="#2dd4bf" />
+            <ExternalLink size={12} color="#0d9488" />
           </div>
         </div>
 
@@ -848,38 +850,36 @@ export default function PhoneSystemAnalyticsView({
           onClick={() => handleCardClick('INCOMING')}
           title="Click to open pop-up modal with inbound calls"
           style={{
-            ...kpiCardTheme,
-            cursor: 'pointer',
-            border: selectedCategory === 'INCOMING' ? '2px solid #10b981' : '1px solid rgba(20, 184, 166, 0.25)',
-            boxShadow: selectedCategory === 'INCOMING' ? '0 0 16px rgba(16, 185, 129, 0.4)' : 'none',
-            background: selectedCategory === 'INCOMING' ? 'linear-gradient(145deg, #064e3b, #043528)' : '#06352b',
-            transition: 'all 0.2s ease'
+            ...kpiCardWhiteTheme,
+            borderLeft: '4px solid #10b981',
+            borderColor: selectedCategory === 'INCOMING' ? '#10b981' : '#e2e8f0',
+            boxShadow: selectedCategory === 'INCOMING' ? '0 4px 12px rgba(16, 185, 129, 0.18)' : '0 1px 3px rgba(0,0,0,0.05)'
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.borderColor = '#10b981';
+            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.08)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = 'none';
-            if (selectedCategory !== 'INCOMING') e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.25)';
+            e.currentTarget.style.boxShadow = selectedCategory === 'INCOMING' ? '0 4px 12px rgba(16, 185, 129, 0.18)' : '0 1px 3px rgba(0,0,0,0.05)';
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={kpiTitleTheme}>Inbound Calls</span>
-            <div style={{ background: 'rgba(16, 185, 129, 0.2)', padding: '5px 7px', borderRadius: '8px' }}>
+            <span style={kpiTitleWhiteTheme}>Inbound Calls</span>
+            <div style={{ background: '#ecfdf5', padding: '5px 7px', borderRadius: '7px', border: '1px solid #a7f3d0' }}>
               <PhoneIncoming size={14} color="#10b981" />
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '6px' }}>
-            <span style={{ ...kpiValueTheme, color: '#34d399' }}>{categoryStats.incoming}</span>
-            <span style={{ fontSize: '10px', color: '#34d399', fontWeight: '800' }}>● INBOUND</span>
+            <span style={{ ...kpiValueWhiteTheme, color: '#059669' }}>{categoryStats.incoming}</span>
+            <span style={{ fontSize: '10px', color: '#059669', fontWeight: '800' }}>● INBOUND</span>
           </div>
-          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
             {categoryStats.total > 0 ? Math.round((categoryStats.incoming / categoryStats.total) * 100) : 0}% of all volume
           </div>
-          <div style={cardFooterPrompt}>
+          <div style={cardFooterWhitePrompt}>
             <span>View Inbound Logs</span>
-            <ExternalLink size={12} color="#34d399" />
+            <ExternalLink size={12} color="#059669" />
           </div>
         </div>
 
@@ -888,38 +888,36 @@ export default function PhoneSystemAnalyticsView({
           onClick={() => handleCardClick('OUTGOING')}
           title="Click to open pop-up modal with outbound connected calls"
           style={{
-            ...kpiCardTheme,
-            cursor: 'pointer',
-            border: selectedCategory === 'OUTGOING' ? '2px solid #3b82f6' : '1px solid rgba(20, 184, 166, 0.25)',
-            boxShadow: selectedCategory === 'OUTGOING' ? '0 0 16px rgba(59, 130, 246, 0.4)' : 'none',
-            background: selectedCategory === 'OUTGOING' ? 'linear-gradient(145deg, #1e3a5f, #0a2540)' : '#06352b',
-            transition: 'all 0.2s ease'
+            ...kpiCardWhiteTheme,
+            borderLeft: '4px solid #3b82f6',
+            borderColor: selectedCategory === 'OUTGOING' ? '#3b82f6' : '#e2e8f0',
+            boxShadow: selectedCategory === 'OUTGOING' ? '0 4px 12px rgba(59, 130, 246, 0.18)' : '0 1px 3px rgba(0,0,0,0.05)'
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.borderColor = '#3b82f6';
+            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.08)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = 'none';
-            if (selectedCategory !== 'OUTGOING') e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.25)';
+            e.currentTarget.style.boxShadow = selectedCategory === 'OUTGOING' ? '0 4px 12px rgba(59, 130, 246, 0.18)' : '0 1px 3px rgba(0,0,0,0.05)';
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={kpiTitleTheme}>Outbound Connected</span>
-            <div style={{ background: 'rgba(59, 130, 246, 0.2)', padding: '5px 7px', borderRadius: '8px' }}>
-              <PhoneOutgoing size={14} color="#60a5fa" />
+            <span style={kpiTitleWhiteTheme}>Outbound Connected</span>
+            <div style={{ background: '#eff6ff', padding: '5px 7px', borderRadius: '7px', border: '1px solid #bfdbfe' }}>
+              <PhoneOutgoing size={14} color="#3b82f6" />
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '6px' }}>
-            <span style={{ ...kpiValueTheme, color: '#60a5fa' }}>{categoryStats.outgoing}</span>
-            <span style={{ fontSize: '10px', color: '#60a5fa', fontWeight: '800' }}>● CONNECTED</span>
+            <span style={{ ...kpiValueWhiteTheme, color: '#2563eb' }}>{categoryStats.outgoing}</span>
+            <span style={{ fontSize: '10px', color: '#2563eb', fontWeight: '800' }}>● CONNECTED</span>
           </div>
-          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
             Duration &gt; 0 conversations
           </div>
-          <div style={cardFooterPrompt}>
+          <div style={cardFooterWhitePrompt}>
             <span>View Connected Logs</span>
-            <ExternalLink size={12} color="#60a5fa" />
+            <ExternalLink size={12} color="#2563eb" />
           </div>
         </div>
 
@@ -928,38 +926,36 @@ export default function PhoneSystemAnalyticsView({
           onClick={() => handleCardClick('MISSED')}
           title="Click to open pop-up modal with missed calls"
           style={{
-            ...kpiCardTheme,
-            cursor: 'pointer',
-            border: selectedCategory === 'MISSED' ? '2px solid #f59e0b' : '1px solid rgba(20, 184, 166, 0.25)',
-            boxShadow: selectedCategory === 'MISSED' ? '0 0 16px rgba(245, 158, 11, 0.4)' : 'none',
-            background: selectedCategory === 'MISSED' ? 'linear-gradient(145deg, #452b07, #2c1a02)' : '#06352b',
-            transition: 'all 0.2s ease'
+            ...kpiCardWhiteTheme,
+            borderLeft: '4px solid #f59e0b',
+            borderColor: selectedCategory === 'MISSED' ? '#f59e0b' : '#e2e8f0',
+            boxShadow: selectedCategory === 'MISSED' ? '0 4px 12px rgba(245, 158, 11, 0.18)' : '0 1px 3px rgba(0,0,0,0.05)'
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.borderColor = '#f59e0b';
+            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.08)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = 'none';
-            if (selectedCategory !== 'MISSED') e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.25)';
+            e.currentTarget.style.boxShadow = selectedCategory === 'MISSED' ? '0 4px 12px rgba(245, 158, 11, 0.18)' : '0 1px 3px rgba(0,0,0,0.05)';
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={kpiTitleTheme}>Missed Calls</span>
-            <div style={{ background: 'rgba(245, 158, 11, 0.2)', padding: '5px 7px', borderRadius: '8px' }}>
-              <PhoneMissed size={14} color="#fbbf24" />
+            <span style={kpiTitleWhiteTheme}>Missed Calls</span>
+            <div style={{ background: '#fffbeb', padding: '5px 7px', borderRadius: '7px', border: '1px solid #fde68a' }}>
+              <PhoneMissed size={14} color="#f59e0b" />
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '6px' }}>
-            <span style={{ ...kpiValueTheme, color: '#fbbf24' }}>{categoryStats.missed}</span>
-            <span style={{ fontSize: '10px', color: '#fbbf24', fontWeight: '800' }}>● MISSED</span>
+            <span style={{ ...kpiValueWhiteTheme, color: '#d97706' }}>{categoryStats.missed}</span>
+            <span style={{ fontSize: '10px', color: '#d97706', fontWeight: '800' }}>● MISSED</span>
           </div>
-          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
             Unanswered incoming customer calls
           </div>
-          <div style={cardFooterPrompt}>
+          <div style={cardFooterWhitePrompt}>
             <span>View Missed Logs</span>
-            <ExternalLink size={12} color="#fbbf24" />
+            <ExternalLink size={12} color="#d97706" />
           </div>
         </div>
 
@@ -968,38 +964,36 @@ export default function PhoneSystemAnalyticsView({
           onClick={() => handleCardClick('NOT_CONNECTED')}
           title="Click to open pop-up modal with unanswered / busy dials"
           style={{
-            ...kpiCardTheme,
-            cursor: 'pointer',
-            border: selectedCategory === 'NOT_CONNECTED' ? '2px solid #ef4444' : '1px solid rgba(20, 184, 166, 0.25)',
-            boxShadow: selectedCategory === 'NOT_CONNECTED' ? '0 0 16px rgba(239, 68, 68, 0.4)' : 'none',
-            background: selectedCategory === 'NOT_CONNECTED' ? 'linear-gradient(145deg, #4c1d1d, #2b0c0c)' : '#06352b',
-            transition: 'all 0.2s ease'
+            ...kpiCardWhiteTheme,
+            borderLeft: '4px solid #ef4444',
+            borderColor: selectedCategory === 'NOT_CONNECTED' ? '#ef4444' : '#e2e8f0',
+            boxShadow: selectedCategory === 'NOT_CONNECTED' ? '0 4px 12px rgba(239, 68, 68, 0.18)' : '0 1px 3px rgba(0,0,0,0.05)'
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.borderColor = '#ef4444';
+            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.08)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = 'none';
-            if (selectedCategory !== 'NOT_CONNECTED') e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.25)';
+            e.currentTarget.style.boxShadow = selectedCategory === 'NOT_CONNECTED' ? '0 4px 12px rgba(239, 68, 68, 0.18)' : '0 1px 3px rgba(0,0,0,0.05)';
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={kpiTitleTheme}>Not Connected</span>
-            <div style={{ background: 'rgba(239, 68, 68, 0.2)', padding: '5px 7px', borderRadius: '8px' }}>
-              <PhoneOff size={14} color="#f87171" />
+            <span style={kpiTitleWhiteTheme}>Not Connected</span>
+            <div style={{ background: '#fef2f2', padding: '5px 7px', borderRadius: '7px', border: '1px solid #fecaca' }}>
+              <PhoneOff size={14} color="#ef4444" />
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '6px' }}>
-            <span style={{ ...kpiValueTheme, color: '#f87171' }}>{categoryStats.notConnected}</span>
-            <span style={{ fontSize: '10px', color: '#f87171', fontWeight: '800' }}>● UNANSWERED</span>
+            <span style={{ ...kpiValueWhiteTheme, color: '#dc2626' }}>{categoryStats.notConnected}</span>
+            <span style={{ fontSize: '10px', color: '#dc2626', fontWeight: '800' }}>● UNANSWERED</span>
           </div>
-          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
             Outgoing dials not answered / busy
           </div>
-          <div style={cardFooterPrompt}>
+          <div style={cardFooterWhitePrompt}>
             <span>View Unanswered Logs</span>
-            <ExternalLink size={12} color="#f87171" />
+            <ExternalLink size={12} color="#dc2626" />
           </div>
         </div>
       </div>
@@ -1011,29 +1005,31 @@ export default function PhoneSystemAnalyticsView({
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
         gap: '12px',
-        marginBottom: '20px'
+        marginBottom: '16px'
       }}>
         {/* KPI 1: Total Talk Time */}
         <div style={{
-          background: 'linear-gradient(135deg, #063c32, #042921)',
-          border: '1px solid rgba(45, 212, 191, 0.3)',
+          background: '#ffffff',
+          border: '1px solid #e2e8f0',
+          borderLeft: '4px solid #0d9488',
           borderRadius: '12px',
           padding: '12px 16px',
           display: 'flex',
           alignItems: 'center',
-          gap: '12px'
+          gap: '12px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
         }}>
-          <div style={{ background: 'rgba(45, 212, 191, 0.15)', padding: '9px', borderRadius: '10px' }}>
-            <Clock size={18} color="#2dd4bf" />
+          <div style={{ background: '#f0fdf4', padding: '9px', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
+            <Clock size={18} color="#0d9488" />
           </div>
           <div>
-            <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>
               Total Talk Time
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#ffffff', marginTop: '1px' }}>
+            <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginTop: '1px' }}>
               {formatSeconds(categoryStats.totalDurationSec)}
             </div>
-            <div style={{ fontSize: '10.5px', color: '#6ee7b7' }}>
+            <div style={{ fontSize: '10.5px', color: '#059669', fontWeight: '500' }}>
               Active live conversations
             </div>
           </div>
@@ -1041,25 +1037,27 @@ export default function PhoneSystemAnalyticsView({
 
         {/* KPI 2: Average Call Duration */}
         <div style={{
-          background: 'linear-gradient(135deg, #063c32, #042921)',
-          border: '1px solid rgba(16, 185, 129, 0.3)',
+          background: '#ffffff',
+          border: '1px solid #e2e8f0',
+          borderLeft: '4px solid #10b981',
           borderRadius: '12px',
           padding: '12px 16px',
           display: 'flex',
           alignItems: 'center',
-          gap: '12px'
+          gap: '12px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
         }}>
-          <div style={{ background: 'rgba(16, 185, 129, 0.15)', padding: '9px', borderRadius: '10px' }}>
-            <Activity size={18} color="#34d399" />
+          <div style={{ background: '#ecfdf5', padding: '9px', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
+            <Activity size={18} color="#10b981" />
           </div>
           <div>
-            <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>
               Avg Call Duration
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#ffffff', marginTop: '1px' }}>
+            <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginTop: '1px' }}>
               {formatSeconds(categoryStats.avgDuration)}
             </div>
-            <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>
+            <div style={{ fontSize: '10.5px', color: '#64748b' }}>
               Per answered conversation
             </div>
           </div>
@@ -1067,26 +1065,28 @@ export default function PhoneSystemAnalyticsView({
 
         {/* KPI 3: Missed Call Recovery SLA */}
         <div style={{
-          background: 'linear-gradient(135deg, #063c32, #042921)',
-          border: '1px solid rgba(245, 158, 11, 0.3)',
+          background: '#ffffff',
+          border: '1px solid #e2e8f0',
+          borderLeft: '4px solid #f59e0b',
           borderRadius: '12px',
           padding: '12px 16px',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between'
+          justifyContent: 'space-between',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ background: 'rgba(245, 158, 11, 0.15)', padding: '9px', borderRadius: '10px' }}>
-              <PhoneForwarded size={18} color="#fbbf24" />
+            <div style={{ background: '#fffbeb', padding: '9px', borderRadius: '10px', border: '1px solid #fde68a' }}>
+              <PhoneForwarded size={18} color="#f59e0b" />
             </div>
             <div>
-              <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>
                 Missed Call Recovery SLA
               </div>
-              <div style={{ fontSize: '18px', fontWeight: '800', color: '#ffffff', marginTop: '1px' }}>
-                {missedCallSLA.rate}% <span style={{ fontSize: '11.5px', color: '#fbbf24', fontWeight: '600' }}>({missedCallSLA.calledBack}/{missedCallSLA.totalMissed})</span>
+              <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginTop: '1px' }}>
+                {missedCallSLA.rate}% <span style={{ fontSize: '11.5px', color: '#d97706', fontWeight: '600' }}>({missedCallSLA.calledBack}/{missedCallSLA.totalMissed})</span>
               </div>
-              <div style={{ fontSize: '10.5px', color: missedCallSLA.pending > 0 ? '#f87171' : '#34d399' }}>
+              <div style={{ fontSize: '10.5px', color: missedCallSLA.pending > 0 ? '#dc2626' : '#059669', fontWeight: '600' }}>
                 {missedCallSLA.pending > 0 ? `⚠️ ${missedCallSLA.pending} pending callbacks` : '✓ All missed calls returned'}
               </div>
             </div>
@@ -1096,12 +1096,12 @@ export default function PhoneSystemAnalyticsView({
               onClick={() => setActiveModalCategory('PENDING_MISSED')}
               title="View pending missed calls needing callback"
               style={{
-                background: 'rgba(239, 68, 68, 0.2)',
-                border: '1px solid rgba(239, 68, 68, 0.4)',
-                color: '#f87171',
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                color: '#dc2626',
                 borderRadius: '7px',
-                padding: '5px 8px',
-                fontSize: '10.5px',
+                padding: '5px 9px',
+                fontSize: '11px',
                 fontWeight: '700',
                 cursor: 'pointer'
               }}
@@ -1113,25 +1113,27 @@ export default function PhoneSystemAnalyticsView({
 
         {/* KPI 4: Positive Outcome / Lead Conversion */}
         <div style={{
-          background: 'linear-gradient(135deg, #063c32, #042921)',
-          border: '1px solid rgba(139, 92, 246, 0.3)',
+          background: '#ffffff',
+          border: '1px solid #e2e8f0',
+          borderLeft: '4px solid #8b5cf6',
           borderRadius: '12px',
           padding: '12px 16px',
           display: 'flex',
           alignItems: 'center',
-          gap: '12px'
+          gap: '12px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
         }}>
-          <div style={{ background: 'rgba(139, 92, 246, 0.15)', padding: '9px', borderRadius: '10px' }}>
-            <TrendingUp size={18} color="#a78bfa" />
+          <div style={{ background: '#f5f3ff', padding: '9px', borderRadius: '10px', border: '1px solid #ddd6fe' }}>
+            <TrendingUp size={18} color="#8b5cf6" />
           </div>
           <div>
-            <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>
               Positive Outcome Rate
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#ffffff', marginTop: '1px' }}>
-              {categoryStats.positiveRate}% <span style={{ fontSize: '11.5px', color: '#a78bfa', fontWeight: '600' }}>({categoryStats.positiveCount} leads)</span>
+            <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginTop: '1px' }}>
+              {categoryStats.positiveRate}% <span style={{ fontSize: '11.5px', color: '#7c3aed', fontWeight: '600' }}>({categoryStats.positiveCount} leads)</span>
             </div>
-            <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>
+            <div style={{ fontSize: '10.5px', color: '#64748b' }}>
               Interested, Demo, or Deal Closed
             </div>
           </div>
@@ -1141,29 +1143,30 @@ export default function PhoneSystemAnalyticsView({
       {/* Active Category Filter Status Banner */}
       {selectedCategory !== 'ALL' && (
         <div style={{
-          background: 'rgba(13, 148, 136, 0.15)',
-          border: '1px solid #0d9488',
+          background: '#f0fdf4',
+          border: '1px solid #bbf7d0',
           borderRadius: '10px',
           padding: '8px 16px',
-          marginBottom: '20px',
+          marginBottom: '16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          fontSize: '12.5px'
+          fontSize: '12.5px',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Filter size={15} color="#2dd4bf" />
-            <span>
-              Analytics currently focused on: <strong style={{ color: '#2dd4bf', textTransform: 'uppercase' }}>{selectedCategory.replace('_', ' ')} CALLS</strong> ({categoryFilteredLogs.length} records)
+            <Filter size={15} color="#0d9488" />
+            <span style={{ color: '#1e293b' }}>
+              Analytics currently focused on: <strong style={{ color: '#0d9488', textTransform: 'uppercase' }}>{selectedCategory.replace('_', ' ')} CALLS</strong> ({categoryFilteredLogs.length} records)
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button
               onClick={() => handleCardClick(selectedCategory)}
               style={{
-                background: 'rgba(45, 212, 191, 0.2)',
-                border: '1px solid rgba(45, 212, 191, 0.4)',
-                color: '#2dd4bf',
+                background: '#ffffff',
+                border: '1px solid #a7f3d0',
+                color: '#0d9488',
                 padding: '4px 10px',
                 borderRadius: '6px',
                 fontSize: '11px',
@@ -1198,25 +1201,25 @@ export default function PhoneSystemAnalyticsView({
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)',
-        gap: '20px',
-        marginBottom: '20px'
+        gap: '16px',
+        marginBottom: '16px'
       }}>
         {/* LEFT: HOURLY CALL PEAK HEATMAP */}
-        <div style={sectionCardTheme}>
+        <div style={sectionCardWhiteTheme}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
             <div>
-              <h2 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.2px' }}>
+              <h2 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.2px' }}>
                 Hourly Call Peak Heatmap {selectedCategory !== 'ALL' ? `(${selectedCategory.replace('_', ' ')})` : ''}
               </h2>
-              <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
+              <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#64748b' }}>
                 Call activity density across days & hours
               </p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#94a3b8' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#64748b' }}>
               <span>Low</span>
-              <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#0a4237' }} />
+              <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#f1f5f9' }} />
+              <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#99f6e4' }} />
               <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#0d9488' }} />
-              <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#34d399' }} />
               <span>Peak</span>
             </div>
           </div>
@@ -1226,9 +1229,9 @@ export default function PhoneSystemAnalyticsView({
             <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '4px', textAlign: 'center' }}>
               <thead>
                 <tr>
-                  <th style={{ width: '42px', fontSize: '11px', color: '#64748b', fontWeight: '600', textAlign: 'left', paddingBottom: '6px' }}>Day</th>
+                  <th style={{ width: '42px', fontSize: '11px', color: '#94a3b8', fontWeight: '600', textAlign: 'left', paddingBottom: '6px' }}>Day</th>
                   {HOURS.map(h => (
-                    <th key={h.hour} style={{ fontSize: '11px', color: '#99f6e4', fontWeight: '600', paddingBottom: '6px' }}>
+                    <th key={h.hour} style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', paddingBottom: '6px' }}>
                       {h.label}
                     </th>
                   ))}
@@ -1237,27 +1240,33 @@ export default function PhoneSystemAnalyticsView({
               <tbody>
                 {DAYS_OF_WEEK.map(d => (
                   <tr key={d.key}>
-                    <td style={{ fontSize: '11.5px', fontWeight: '700', color: '#cbd5e1', textAlign: 'left', paddingRight: '4px' }}>
+                    <td style={{ fontSize: '11.5px', fontWeight: '700', color: '#334155', textAlign: 'left', paddingRight: '4px' }}>
                       {d.label}
                     </td>
                     {HOURS.map(h => {
                       const count = heatmapData.matrix[d.key]?.[h.hour] || 0;
                       const intensity = Math.min(1, count / (heatmapData.maxVal || 1));
 
-                      let cellBg = '#062d25';
-                      let textColor = '#64748b';
+                      let cellBg = '#f8fafc';
+                      let textColor = '#94a3b8';
+                      let cellBorder = '1px solid #f1f5f9';
+
                       if (intensity > 0.75) {
-                        cellBg = '#10b981';
-                        textColor = '#04241d';
-                      } else if (intensity > 0.4) {
                         cellBg = '#0d9488';
                         textColor = '#ffffff';
+                        cellBorder = '1px solid #0f766e';
+                      } else if (intensity > 0.4) {
+                        cellBg = '#2dd4bf';
+                        textColor = '#0f172a';
+                        cellBorder = '1px solid #14b8a6';
                       } else if (intensity > 0.15) {
-                        cellBg = '#0b5549';
-                        textColor = '#a7f3d0';
+                        cellBg = '#99f6e4';
+                        textColor = '#0f766e';
+                        cellBorder = '1px solid #5eead4';
                       } else if (intensity > 0) {
-                        cellBg = '#0a3d33';
-                        textColor = '#94a3b8';
+                        cellBg = '#ccfbf1';
+                        textColor = '#0f766e';
+                        cellBorder = '1px solid #99f6e4';
                       }
 
                       return (
@@ -1269,6 +1278,7 @@ export default function PhoneSystemAnalyticsView({
                             borderRadius: '5px',
                             background: cellBg,
                             color: textColor,
+                            border: cellBorder,
                             fontSize: '11px',
                             fontWeight: '700',
                             transition: 'all 0.15s ease'
@@ -1286,17 +1296,17 @@ export default function PhoneSystemAnalyticsView({
         </div>
 
         {/* RIGHT: CALL DISPOSITION BREAKDOWN */}
-        <div style={sectionCardTheme}>
+        <div style={sectionCardWhiteTheme}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
             <div>
-              <h2 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.2px' }}>
+              <h2 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.2px' }}>
                 Call Disposition Breakdown {selectedCategory !== 'ALL' ? `(${selectedCategory.replace('_', ' ')})` : ''}
               </h2>
-              <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
+              <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#64748b' }}>
                 Outcome distribution across calls
               </p>
             </div>
-            <span style={{ fontSize: '11px', color: '#2dd4bf', fontWeight: '700', background: 'rgba(45, 212, 191, 0.12)', padding: '3px 8px', borderRadius: '6px' }}>
+            <span style={{ fontSize: '11px', color: '#0d9488', fontWeight: '700', background: '#f0fdf4', padding: '3px 8px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
               {categoryFilteredLogs.length} Calls
             </span>
           </div>
@@ -1307,10 +1317,10 @@ export default function PhoneSystemAnalyticsView({
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span>{item.icon}</span>
-                    <span style={{ fontWeight: '700', color: '#f1f5f9' }}>{item.name}</span>
+                    <span style={{ fontWeight: '700', color: '#1e293b' }}>{item.name}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '11px', color: '#94a3b8' }}>{item.count} calls</span>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>{item.count} calls</span>
                     <span style={{ fontWeight: '800', color: item.color, minWidth: '32px', textAlign: 'right' }}>
                       {item.percentage}%
                     </span>
@@ -1318,14 +1328,13 @@ export default function PhoneSystemAnalyticsView({
                 </div>
 
                 {/* Progress Track */}
-                <div style={{ width: '100%', height: '7px', background: '#0a3830', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ width: '100%', height: '7px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
                   <div
                     style={{
                       width: `${item.percentage}%`,
                       height: '100%',
                       background: item.color,
                       borderRadius: '4px',
-                      boxShadow: `0 0 8px ${item.color}66`,
                       transition: 'width 0.4s ease'
                     }}
                   />
@@ -1342,26 +1351,26 @@ export default function PhoneSystemAnalyticsView({
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1.3fr)',
-        gap: '20px',
+        gap: '16px',
         marginBottom: '20px'
       }}>
         {/* LEFT: DAILY CALLING VOLUME TREND GRAPH */}
-        <div style={sectionCardTheme}>
+        <div style={sectionCardWhiteTheme}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <BarChart2 size={16} color="#2dd4bf" />
-                <h2 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.2px' }}>
+                <BarChart2 size={16} color="#0d9488" />
+                <h2 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.2px' }}>
                   Daily Calling Volume Trend
                 </h2>
               </div>
-              <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
+              <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#64748b' }}>
                 Day-by-day distribution of Inbound vs Outbound
               </p>
             </div>
             
             {/* Legend */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '11px', color: '#cbd5e1' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '11px', color: '#475569' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <div style={{ width: '9px', height: '9px', borderRadius: '2px', background: '#10b981' }} />
                 <span>Inbound</span>
@@ -1385,11 +1394,11 @@ export default function PhoneSystemAnalyticsView({
             height: '180px',
             paddingTop: '20px',
             paddingBottom: '8px',
-            borderBottom: '1px solid rgba(20, 184, 166, 0.2)',
+            borderBottom: '1px solid #e2e8f0',
             gap: '8px'
           }}>
             {dailyTrendData.stats.map(d => {
-              const maxH = 130; // max px height
+              const maxH = 130;
               const total = d.total;
               const inH = total > 0 ? (d.inbound / dailyTrendData.maxDaily) * maxH : 0;
               const outH = total > 0 ? (d.outbound / dailyTrendData.maxDaily) * maxH : 0;
@@ -1408,7 +1417,7 @@ export default function PhoneSystemAnalyticsView({
                     justifyContent: 'flex-end'
                   }}
                 >
-                  <div style={{ fontSize: '11px', fontWeight: '800', color: total > 0 ? '#ffffff' : '#64748b' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '800', color: total > 0 ? '#0f172a' : '#94a3b8' }}>
                     {total > 0 ? total : '—'}
                   </div>
 
@@ -1420,10 +1429,9 @@ export default function PhoneSystemAnalyticsView({
                       style={{
                         width: '10px',
                         height: `${Math.max(4, inH)}px`,
-                        background: d.inbound > 0 ? '#10b981' : '#072e25',
+                        background: d.inbound > 0 ? '#10b981' : '#f1f5f9',
                         borderRadius: '3px 3px 0 0',
-                        transition: 'height 0.3s ease',
-                        boxShadow: d.inbound > 0 ? '0 0 8px rgba(16, 185, 129, 0.4)' : 'none'
+                        transition: 'height 0.3s ease'
                       }}
                     />
                     {/* Outbound Bar */}
@@ -1432,10 +1440,9 @@ export default function PhoneSystemAnalyticsView({
                       style={{
                         width: '10px',
                         height: `${Math.max(4, outH)}px`,
-                        background: d.outbound > 0 ? '#3b82f6' : '#072e25',
+                        background: d.outbound > 0 ? '#3b82f6' : '#f1f5f9',
                         borderRadius: '3px 3px 0 0',
-                        transition: 'height 0.3s ease',
-                        boxShadow: d.outbound > 0 ? '0 0 8px rgba(59, 130, 246, 0.4)' : 'none'
+                        transition: 'height 0.3s ease'
                       }}
                     />
                     {/* Missed Bar */}
@@ -1444,15 +1451,14 @@ export default function PhoneSystemAnalyticsView({
                       style={{
                         width: '10px',
                         height: `${Math.max(4, missH)}px`,
-                        background: d.missed > 0 ? '#f59e0b' : '#072e25',
+                        background: d.missed > 0 ? '#f59e0b' : '#f1f5f9',
                         borderRadius: '3px 3px 0 0',
-                        transition: 'height 0.3s ease',
-                        boxShadow: d.missed > 0 ? '0 0 8px rgba(245, 158, 11, 0.4)' : 'none'
+                        transition: 'height 0.3s ease'
                       }}
                     />
                   </div>
 
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: total > 0 ? '#2dd4bf' : '#64748b' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: total > 0 ? '#0d9488' : '#94a3b8' }}>
                     {d.label}
                   </div>
                 </div>
@@ -1460,27 +1466,27 @@ export default function PhoneSystemAnalyticsView({
             })}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '10px', fontSize: '11px', color: '#94a3b8' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '10px', fontSize: '11px', color: '#64748b' }}>
             <span>Peak Activity: <strong>Sunday & Saturday</strong></span>
-            <span>Total Calls in Period: <strong style={{ color: '#2dd4bf' }}>{categoryStats.total}</strong></span>
+            <span>Total Calls in Period: <strong style={{ color: '#0d9488' }}>{categoryStats.total}</strong></span>
           </div>
         </div>
 
         {/* RIGHT: TELECALLER PERFORMANCE LEADERBOARD */}
-        <div style={sectionCardTheme}>
+        <div style={sectionCardWhiteTheme}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Trophy size={16} color="#fbbf24" />
-                <h2 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.2px' }}>
+                <Trophy size={16} color="#d97706" />
+                <h2 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.2px' }}>
                   Telecaller Performance Leaderboard
                 </h2>
               </div>
-              <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
+              <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#64748b' }}>
                 Ranked by volume, talk time & positive outcomes
               </p>
             </div>
-            <span style={{ fontSize: '11px', color: '#2dd4bf', background: 'rgba(45, 212, 191, 0.12)', padding: '3px 8px', borderRadius: '6px', fontWeight: '700' }}>
+            <span style={{ fontSize: '11px', color: '#0d9488', background: '#f0fdf4', padding: '3px 8px', borderRadius: '6px', fontWeight: '700', border: '1px solid #bbf7d0' }}>
               {telecallerLeaderboard.length} Agents Active
             </span>
           </div>
@@ -1488,7 +1494,7 @@ export default function PhoneSystemAnalyticsView({
           {/* Leaderboard Items */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {telecallerLeaderboard.length === 0 ? (
-              <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>
+              <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '12px' }}>
                 No active telecaller activity recorded for this period.
               </div>
             ) : (
@@ -1502,23 +1508,25 @@ export default function PhoneSystemAnalyticsView({
                     onClick={() => handleAgentClick(ag.name)}
                     title={`Click to view all calls by ${ag.name}`}
                     style={{
-                      background: rank === 1 ? 'linear-gradient(135deg, #07473b, #05332a)' : '#072e26',
-                      border: rank === 1 ? '1px solid rgba(45, 212, 191, 0.4)' : '1px solid rgba(20, 184, 166, 0.15)',
+                      background: rank === 1 ? '#f0fdf4' : '#ffffff',
+                      border: rank === 1 ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
+                      borderLeft: rank === 1 ? '4px solid #10b981' : '4px solid #cbd5e1',
                       borderRadius: '10px',
                       padding: '10px 14px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       cursor: 'pointer',
-                      transition: 'all 0.2s ease'
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = 'translateX(3px)';
-                      e.currentTarget.style.borderColor = '#2dd4bf';
+                      e.currentTarget.style.borderColor = '#0d9488';
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.transform = 'none';
-                      if (rank !== 1) e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.15)';
+                      if (rank !== 1) e.currentTarget.style.borderColor = '#e2e8f0';
                     }}
                   >
                     {/* Rank & Name */}
@@ -1530,22 +1538,23 @@ export default function PhoneSystemAnalyticsView({
                         width: '32px',
                         height: '32px',
                         borderRadius: '50%',
-                        background: 'linear-gradient(135deg, #0d9488, #10b981)',
+                        background: '#eff6ff',
+                        border: '1px solid #bfdbfe',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: '#ffffff',
+                        color: '#2563eb',
                         fontWeight: '800',
                         fontSize: '12px'
                       }}>
                         {ag.name.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <div style={{ fontWeight: '700', color: '#ffffff', fontSize: '13px' }}>
+                        <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '13px' }}>
                           {ag.name}
                         </div>
-                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                          {ag.totalCalls} calls • Talk: <strong style={{ color: '#2dd4bf' }}>{ag.formattedTalkTime}</strong>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>
+                          {ag.totalCalls} calls • Talk: <strong style={{ color: '#0d9488' }}>{ag.formattedTalkTime}</strong>
                         </div>
                       </div>
                     </div>
@@ -1553,10 +1562,10 @@ export default function PhoneSystemAnalyticsView({
                     {/* Stats & Badge */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#34d399' }}>
+                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#059669' }}>
                           🎯 {ag.interested} Interested
                         </div>
-                        <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>
+                        <div style={{ fontSize: '10.5px', color: '#64748b' }}>
                           Connect: <strong>{ag.connectRate}%</strong>
                         </div>
                       </div>
@@ -1564,9 +1573,9 @@ export default function PhoneSystemAnalyticsView({
                       <div style={{
                         padding: '4px 8px',
                         borderRadius: '6px',
-                        background: 'rgba(45, 212, 191, 0.15)',
-                        border: '1px solid rgba(45, 212, 191, 0.3)',
-                        color: '#2dd4bf',
+                        background: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                        color: '#0d9488',
                         fontSize: '11px',
                         fontWeight: '700',
                         display: 'flex',
@@ -1595,8 +1604,8 @@ export default function PhoneSystemAnalyticsView({
             position: 'fixed',
             inset: 0,
             zIndex: 99999,
-            background: 'rgba(2, 20, 16, 0.82)',
-            backdropFilter: 'blur(8px)',
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(6px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -1606,23 +1615,23 @@ export default function PhoneSystemAnalyticsView({
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: '#06352b',
-              border: '1px solid rgba(45, 212, 191, 0.35)',
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
               borderRadius: '16px',
               width: '100%',
               maxWidth: '1020px',
               maxHeight: '88vh',
               display: 'flex',
               flexDirection: 'column',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 30px rgba(13, 148, 136, 0.25)',
+              boxShadow: '0 20px 45px rgba(0, 0, 0, 0.15)',
               overflow: 'hidden'
             }}
           >
             {/* Modal Header */}
             <div style={{
               padding: '16px 22px',
-              background: '#074135',
-              borderBottom: '1px solid rgba(20, 184, 166, 0.25)',
+              background: '#f8fafc',
+              borderBottom: '1px solid #e2e8f0',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -1637,13 +1646,13 @@ export default function PhoneSystemAnalyticsView({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  border: `1px solid ${currentModalMeta.badgeColor}44`
+                  border: `1px solid ${currentModalMeta.badgeColor}33`
                 }}>
                   {currentModalMeta.icon}
                 </div>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <h2 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.3px' }}>
+                    <h2 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.3px' }}>
                       {currentModalMeta.title}
                     </h2>
                     <span style={{
@@ -1653,12 +1662,12 @@ export default function PhoneSystemAnalyticsView({
                       fontWeight: '800',
                       background: currentModalMeta.badgeBg,
                       color: currentModalMeta.badgeColor,
-                      border: `1px solid ${currentModalMeta.badgeColor}55`
+                      border: `1px solid ${currentModalMeta.badgeColor}44`
                     }}>
                       {modalCategoryCalls.length} Calls
                     </span>
                   </div>
-                  <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>
                     {currentModalMeta.desc}
                   </p>
                 </div>
@@ -1670,13 +1679,13 @@ export default function PhoneSystemAnalyticsView({
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  background: '#042720',
-                  border: '1px solid rgba(20, 184, 166, 0.3)',
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
                   borderRadius: '8px',
                   padding: '6px 12px',
                   width: '240px'
                 }}>
-                  <Search size={14} color="#2dd4bf" />
+                  <Search size={14} color="#64748b" />
                   <input
                     type="text"
                     placeholder="Search name, phone, telecaller..."
@@ -1687,7 +1696,7 @@ export default function PhoneSystemAnalyticsView({
                       background: 'transparent',
                       border: 'none',
                       outline: 'none',
-                      color: '#ffffff',
+                      color: '#0f172a',
                       fontSize: '12px',
                       width: '100%'
                     }}
@@ -1709,9 +1718,9 @@ export default function PhoneSystemAnalyticsView({
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px',
-                    background: 'rgba(20, 184, 166, 0.15)',
-                    border: '1px solid rgba(45, 212, 191, 0.4)',
-                    color: '#2dd4bf',
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    color: '#0d9488',
                     padding: '7px 12px',
                     borderRadius: '8px',
                     fontSize: '12px',
@@ -1731,9 +1740,9 @@ export default function PhoneSystemAnalyticsView({
                     width: '32px',
                     height: '32px',
                     borderRadius: '8px',
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    color: '#cbd5e1',
+                    background: '#f1f5f9',
+                    border: '1px solid #e2e8f0',
+                    color: '#475569',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1741,14 +1750,14 @@ export default function PhoneSystemAnalyticsView({
                     transition: 'all 0.2s ease'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
-                    e.currentTarget.style.color = '#ef4444';
-                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                    e.currentTarget.style.background = '#fee2e2';
+                    e.currentTarget.style.color = '#dc2626';
+                    e.currentTarget.style.borderColor = '#fca5a5';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
-                    e.currentTarget.style.color = '#cbd5e1';
-                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                    e.currentTarget.style.background = '#f1f5f9';
+                    e.currentTarget.style.color = '#475569';
+                    e.currentTarget.style.borderColor = '#e2e8f0';
                   }}
                 >
                   <X size={18} />
@@ -1764,7 +1773,7 @@ export default function PhoneSystemAnalyticsView({
             }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
                 <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-                  <tr style={{ background: '#0a3d33', color: '#99f6e4', fontWeight: '700', borderBottom: '1px solid rgba(20, 184, 166, 0.2)' }}>
+                  <tr style={{ background: '#f8fafc', color: '#475569', fontWeight: '700', borderBottom: '1px solid #e2e8f0' }}>
                     <th style={{ padding: '10px 16px' }}>Customer / Lead</th>
                     <th style={{ padding: '10px 14px' }}>Telecaller Agent</th>
                     <th style={{ padding: '10px 12px' }}>Call Category</th>
@@ -1776,11 +1785,11 @@ export default function PhoneSystemAnalyticsView({
                 <tbody>
                   {modalFilteredCalls.length === 0 ? (
                     <tr>
-                      <td colSpan={6} style={{ padding: '40px 20px', textAlign: 'center', color: '#94a3b8' }}>
-                        <div style={{ fontSize: '14px', fontWeight: '600', color: '#cbd5e1' }}>
+                      <td colSpan={6} style={{ padding: '40px 20px', textAlign: 'center', color: '#64748b' }}>
+                        <div style={{ fontSize: '14px', fontWeight: '600', color: '#0f172a' }}>
                           No call records found
                         </div>
-                        <div style={{ fontSize: '12px', marginTop: '4px', color: '#64748b' }}>
+                        <div style={{ fontSize: '12px', marginTop: '4px', color: '#94a3b8' }}>
                           {modalSearchQuery ? 'Try adjusting your search keyword' : 'No calls logged in this period for this category.'}
                         </div>
                       </td>
@@ -1792,35 +1801,38 @@ export default function PhoneSystemAnalyticsView({
                       const isOutgoing = cat === 'OUTGOING';
                       const isMissed = cat === 'MISSED';
 
-                      const badgeBg = isIncoming ? 'rgba(16, 185, 129, 0.15)' : (isOutgoing ? 'rgba(59, 130, 246, 0.15)' : (isMissed ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)'));
-                      const badgeColor = isIncoming ? '#34d399' : (isOutgoing ? '#60a5fa' : (isMissed ? '#fbbf24' : '#f87171'));
+                      const badgeBg = isIncoming ? '#ecfdf5' : (isOutgoing ? '#eff6ff' : (isMissed ? '#fffbeb' : '#fef2f2'));
+                      const badgeColor = isIncoming ? '#059669' : (isOutgoing ? '#2563eb' : (isMissed ? '#d97706' : '#dc2626'));
+                      const badgeBorder = isIncoming ? '#a7f3d0' : (isOutgoing ? '#bfdbfe' : (isMissed ? '#fde68a' : '#fecaca'));
                       const badgeLabel = isIncoming ? 'INCOMING' : (isOutgoing ? 'OUTGOING' : (isMissed ? 'MISSED' : 'NOT ANSWERED'));
 
                       const dispName = log.status || log.disposition || (isMissed ? 'Missed Call' : 'Not Answered');
-                      const dispColor = dispName.toLowerCase().includes('interest') ? '#34d399' : (dispName.toLowerCase().includes('demo') ? '#60a5fa' : (dispName.toLowerCase().includes('miss') ? '#fbbf24' : '#f87171'));
+                      const dispColor = dispName.toLowerCase().includes('interest') ? '#059669' : (dispName.toLowerCase().includes('demo') ? '#2563eb' : (dispName.toLowerCase().includes('miss') ? '#d97706' : '#dc2626'));
+                      const dispBg = dispName.toLowerCase().includes('interest') ? '#ecfdf5' : (dispName.toLowerCase().includes('demo') ? '#eff6ff' : (dispName.toLowerCase().includes('miss') ? '#fffbeb' : '#fef2f2'));
+                      const dispBorder = dispName.toLowerCase().includes('interest') ? '#a7f3d0' : (dispName.toLowerCase().includes('demo') ? '#bfdbfe' : (dispName.toLowerCase().includes('miss') ? '#fde68a' : '#fecaca'));
 
                       return (
                         <tr
                           key={log.id || `${log.phone}_${log.call_time}_${Math.random()}`}
                           style={{
-                            borderBottom: '1px solid rgba(20, 184, 166, 0.08)',
+                            borderBottom: '1px solid #f1f5f9',
                             transition: 'background 0.15s ease'
                           }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)')}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = '#f8fafc')}
                           onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                         >
                           {/* Customer */}
                           <td style={{ padding: '11px 16px' }}>
-                            <div style={{ fontWeight: '700', color: '#ffffff' }}>
+                            <div style={{ fontWeight: '700', color: '#0f172a' }}>
                               {log.name || log.customer_name || log.caller_name || 'Customer'}
                             </div>
-                            <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                            <div style={{ fontSize: '11px', color: '#64748b' }}>
                               {log.phone || log.caller_number || ''}
                             </div>
                           </td>
 
                           {/* Telecaller */}
-                          <td style={{ padding: '11px 14px', color: '#cbd5e1' }}>
+                          <td style={{ padding: '11px 14px', color: '#334155' }}>
                             {log.agent_name || log.agentName || 'Telecaller'}
                           </td>
 
@@ -1833,14 +1845,14 @@ export default function PhoneSystemAnalyticsView({
                               fontWeight: '700',
                               background: badgeBg,
                               color: badgeColor,
-                              border: `1px solid ${badgeColor}44`
+                              border: `1px solid ${badgeBorder}`
                             }}>
                               {badgeLabel}
                             </span>
                           </td>
 
                           {/* Duration */}
-                          <td style={{ padding: '11px 12px', fontWeight: '700', color: parseDurationSeconds(log.duration || log.duration_seconds) > 0 ? '#2dd4bf' : '#64748b' }}>
+                          <td style={{ padding: '11px 12px', fontWeight: '700', color: parseDurationSeconds(log.duration || log.duration_seconds) > 0 ? '#0d9488' : '#94a3b8' }}>
                             {log.duration || '00:00'}
                           </td>
 
@@ -1851,16 +1863,16 @@ export default function PhoneSystemAnalyticsView({
                               borderRadius: '6px',
                               fontSize: '11px',
                               fontWeight: '700',
-                              background: `${dispColor}18`,
+                              background: dispBg,
                               color: dispColor,
-                              border: `1px solid ${dispColor}33`
+                              border: `1px solid ${dispBorder}`
                             }}>
                               {dispName}
                             </span>
                           </td>
 
                           {/* Formatted Date & Time */}
-                          <td style={{ padding: '11px 16px', fontSize: '12px', color: '#cbd5e1' }}>
+                          <td style={{ padding: '11px 16px', fontSize: '12px', color: '#64748b' }}>
                             {formatDateTime(log.call_time || log.callTime || log.created_at || log.timestamp)}
                           </td>
                         </tr>
@@ -1874,25 +1886,25 @@ export default function PhoneSystemAnalyticsView({
             {/* Modal Footer */}
             <div style={{
               padding: '12px 22px',
-              background: '#042720',
-              borderTop: '1px solid rgba(20, 184, 166, 0.2)',
+              background: '#f8fafc',
+              borderTop: '1px solid #e2e8f0',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               fontSize: '12px',
-              color: '#94a3b8'
+              color: '#64748b'
             }}>
               <div>
-                Showing <strong style={{ color: '#2dd4bf' }}>{modalFilteredCalls.length}</strong> of{' '}
-                <strong style={{ color: '#ffffff' }}>{modalCategoryCalls.length}</strong> {currentModalMeta.title}
+                Showing <strong style={{ color: '#0d9488' }}>{modalFilteredCalls.length}</strong> of{' '}
+                <strong style={{ color: '#0f172a' }}>{modalCategoryCalls.length}</strong> {currentModalMeta.title}
               </div>
               <button
                 onClick={() => setActiveModalCategory(null)}
                 style={{
                   padding: '6px 16px',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  color: '#ffffff',
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  color: '#0f172a',
                   borderRadius: '7px',
                   fontSize: '12px',
                   fontWeight: '600',
@@ -1909,49 +1921,52 @@ export default function PhoneSystemAnalyticsView({
   );
 }
 
-// Reusable Theme Styles
-const kpiCardTheme = {
-  background: '#06352b',
+// Reusable Light Theme Styles
+const kpiCardWhiteTheme = {
+  background: '#ffffff',
   borderRadius: '12px',
-  border: '1px solid rgba(20, 184, 166, 0.25)',
+  border: '1px solid #e2e8f0',
   padding: '16px 18px',
-  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03)',
   display: 'flex',
   flexDirection: 'column',
-  gap: '4px'
+  gap: '4px',
+  cursor: 'pointer',
+  transition: 'all 0.2s ease',
+  position: 'relative'
 };
 
-const kpiTitleTheme = {
+const kpiTitleWhiteTheme = {
   fontSize: '11px',
   fontWeight: '800',
-  color: '#94a3b8',
+  color: '#64748b',
   textTransform: 'uppercase',
   letterSpacing: '0.5px'
 };
 
-const kpiValueTheme = {
+const kpiValueWhiteTheme = {
   fontSize: '26px',
   fontWeight: '800',
-  color: '#ffffff',
+  color: '#0f172a',
   letterSpacing: '-0.5px'
 };
 
-const cardFooterPrompt = {
+const cardFooterWhitePrompt = {
   marginTop: '10px',
   paddingTop: '8px',
-  borderTop: '1px solid rgba(20, 184, 166, 0.15)',
+  borderTop: '1px solid #f1f5f9',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
   fontSize: '11px',
-  color: '#2dd4bf',
+  color: '#0d9488',
   fontWeight: '700'
 };
 
-const sectionCardTheme = {
-  background: '#06352b',
+const sectionCardWhiteTheme = {
+  background: '#ffffff',
   borderRadius: '14px',
-  border: '1px solid rgba(20, 184, 166, 0.25)',
+  border: '1px solid #e2e8f0',
   padding: '18px 20px',
-  boxShadow: '0 6px 16px rgba(0, 0, 0, 0.2)'
+  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.04)'
 };
