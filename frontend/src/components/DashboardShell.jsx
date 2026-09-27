@@ -13,6 +13,7 @@ const ConversationsPage = lazy(() => import('./pages/ConversationsPage'));
 const RecruitmentPage = lazy(() => import('./pages/RecruitmentPage'));
 const ModuleConfigCenter = lazy(() => import('./config/ModuleConfigCenter'));
 const TelecallingView = lazy(() => import('./telecalling/TelecallingView'));
+const DynamicReportingHub = lazy(() => import('./reporting/DynamicReportingHub'));
 const NoticeBoardPage = lazy(() => import('./pages/NoticeBoardPage'));
 const HolidaysPage = lazy(() => import('./pages/HolidaysPage'));
 const AppGuidePage = lazy(() => import('./pages/AppGuidePage'));
@@ -7209,6 +7210,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   {renderLockBadge('telecalling')}
                 </div>
               )}
+              {canNav('reports') && (
+                <div className={`nav-item ${activeTab === 'reports' ? 'active' : ''}`} onClick={() => setActiveTab('reports')}>
+                  <BarChart2 size={15} />
+                  <span style={{ fontSize: '13px' }}>Reports & Analytics</span>
+                  {renderLockBadge('reports')}
+                </div>
+              )}
             </AccordionCategory>
           )}
           {/* CATEGORY: OPERATIONS */}
@@ -7470,7 +7478,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           {/* Desktop Page Title (Aligned equal from left with content cards) */}
           <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '0px', marginRight: '20px', flexShrink: 0 }}>
             <span style={{ fontSize: '14px', fontWeight: '800', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                 {activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' '))))}
+                 {activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab === 'reports' ? 'REPORTS & ANALYTICS' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' ')))))}
             </span>
           </div>
 
@@ -8135,6 +8143,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               employees={employees}
               onOpenModuleConfig={handleOpenModuleConfig}
               openModuleConfigModal={handleOpenModuleConfig}
+              onNavigateToReports={() => setActiveTab('reports')}
+            />
+          </Suspense>
+        )}
+        {/* Dynamic Reporting & Intelligence Hub */}
+        {activeTab === 'reports' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Reporting Hub...</div>}>
+            <DynamicReportingHub
+              authUser={effectiveAuthUser || authUser}
+              callLogs={callLogs}
+              contacts={contacts}
+              employees={employees}
+              stages={stages}
+              systemDropdowns={systemDropdowns}
+              onOpenModuleConfig={handleOpenModuleConfig}
+              setActiveTab={setActiveTab}
             />
           </Suspense>
         )}

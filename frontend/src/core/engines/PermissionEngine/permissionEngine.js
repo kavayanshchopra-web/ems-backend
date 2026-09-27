@@ -102,6 +102,7 @@ class PermissionEngineService {
       { id: 'wa_live_web', label: 'WhatsApp', icon: '💻', category: 'CRM & SALES' },
       { id: 'kanban', label: 'CRM', icon: '📈', category: 'CRM & SALES' },
       { id: 'telecalling', label: 'Phone System', icon: '📞', category: 'CRM & SALES' },
+      { id: 'reports', label: 'Reports & Analytics', icon: '📊', category: 'CRM & SALES' },
 
       // OPERATIONS
       { id: 'tasks', label: 'Tasks Board', icon: '📋', category: 'OPERATIONS' },
@@ -171,14 +172,14 @@ class PermissionEngineService {
           });
           defaultScope = 'all';
         } else if (role.id === 'agent') {
-          const agentAllowed = ['channels', 'wa_live_web', 'kanban', 'telecalling', 'tasks', 'my_attendance', 'leaves', 'shifts', 'notice_board', 'holidays', 'app_guide'];
+          const agentAllowed = ['channels', 'wa_live_web', 'kanban', 'telecalling', 'reports', 'tasks', 'my_attendance', 'leaves', 'shifts', 'notice_board', 'holidays', 'app_guide'];
           STANDARD_ACTIONS.forEach(act => {
             defaultActions[act.id] = agentAllowed.includes(mod.id) && ['view', 'create', 'edit'].includes(act.id);
           });
           defaultScope = 'team';
         } else {
           // Standard employee — strictly scoped to self-portal & notice/holidays/employees directory
-          const empAllowed = ['employees', 'my_attendance', 'leaves', 'shifts', 'notice_board', 'holidays', 'app_guide', 'settings'];
+          const empAllowed = ['employees', 'my_attendance', 'leaves', 'shifts', 'notice_board', 'holidays', 'reports', 'app_guide', 'settings'];
           STANDARD_ACTIONS.forEach(act => {
             defaultActions[act.id] = empAllowed.includes(mod.id) && act.id === 'view';
           });

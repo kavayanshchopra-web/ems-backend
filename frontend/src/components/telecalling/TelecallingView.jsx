@@ -44,7 +44,8 @@ export default function TelecallingView({
   onOpenModuleConfig = null,
   openModuleConfigModal = null,
   onManageStages = () => {},
-  onOpenPositionModal = () => {}
+  onOpenPositionModal = () => {},
+  onNavigateToReports = null
 }) {
   const rawCompanyId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id || '1';
   let numericCompanyId = Number(rawCompanyId);
@@ -936,7 +937,8 @@ export default function TelecallingView({
       title: 'Phone System',
       searchPlaceholder: 'Search calls, telecallers, leads...',
       fields,
-      summaryWidgets: widgets,
+      summaryWidgets: [],
+      defaultSummaryWidgets: [],
       columns: cols.map((c, i) => ({ ...c, sortOrder: c.sortOrder || (i + 1) })).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
     };
   }, [config]);
@@ -961,130 +963,6 @@ export default function TelecallingView({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* 📊 PHASE 5: DYNAMIC TELEPHONY PERFORMANCE & PULSE LEDGER BAR */}
-      <div
-        className="telephony-pulse-banner"
-        style={{
-          background: 'linear-gradient(135deg, #064e3b 0%, #0f766e 100%)',
-          padding: '10px 18px',
-          color: '#ffffff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          borderBottom: '1px solid rgba(255,255,255,0.15)',
-          boxShadow: '0 2px 8px rgba(6,78,59,0.15)'
-        }}
-      >
-        {/* LEFT: Period Filter */}
-        <div className="telephony-pulse-header-row" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '800', color: '#a7f3d0' }}>
-            <BarChart2 size={16} />
-            <span>Telephony Pulse</span>
-          </div>
-
-          {/* Quick collapsed stats visible on mobile */}
-          <div className="telephony-pulse-mobile-collapsed-summary">
-            <span style={{ fontSize: '11px', color: '#d1fae5' }}>Calls: <strong>{summaryReport?.totalCalls || 0}</strong></span>
-            <span style={{ fontSize: '11px', color: '#6ee7b7' }}>• {summaryReport?.connectedRate || 0}%</span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(0,0,0,0.2)', padding: '3px', borderRadius: '8px' }}>
-            {[
-              { id: 'today', label: 'Today' },
-              { id: 'this_week', label: 'Week' },
-              { id: 'this_month', label: 'Month' }
-            ].map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => {
-                  setReportingPeriod(p.id);
-                  fetchReporting(p.id);
-                }}
-                style={{
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: reportingPeriod === p.id ? 'rgba(255,255,255,0.25)' : 'transparent',
-                  color: reportingPeriod === p.id ? '#ffffff' : '#d1fae5',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s'
-                }}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Mobile Collapse Toggle Button */}
-          <button
-            type="button"
-            className="telephony-pulse-toggle-btn"
-            onClick={() => setIsPulseExpanded(prev => !prev)}
-            title={isPulseExpanded ? "Hide detailed stats" : "Show detailed stats"}
-          >
-            <ChevronDown size={14} style={{ transform: isPulseExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
-          </button>
-        </div>
-
-        {/* RIGHT: LIVE METRICS PILLS */}
-        <div className={`telephony-pulse-metrics-body ${isPulseExpanded ? 'is-expanded' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
-            <span style={{ color: '#a7f3d0', fontSize: '11px' }}>Total Calls:</span>
-            <strong style={{ color: '#ffffff', background: 'rgba(255,255,255,0.15)', padding: '2px 8px', borderRadius: '6px' }}>
-              {summaryReport?.totalCalls || 0}
-            </strong>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
-            <span style={{ color: '#a7f3d0', fontSize: '11px' }}>Connected:</span>
-            <strong style={{ color: '#34d399', background: 'rgba(255,255,255,0.15)', padding: '2px 8px', borderRadius: '6px' }}>
-              {summaryReport?.connectedRate || 0}% ({summaryReport?.connectedCalls || 0})
-            </strong>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
-            <span style={{ color: '#a7f3d0', fontSize: '11px' }}>Billed Talk Time:</span>
-            <strong style={{ color: '#ffffff', background: 'rgba(255,255,255,0.15)', padding: '2px 8px', borderRadius: '6px' }}>
-              {summaryReport?.totalMinutes || 0} mins
-            </strong>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
-            <span style={{ color: '#a7f3d0', fontSize: '11px' }}>Wallet Spend:</span>
-            <strong style={{ color: '#fef08a', background: 'rgba(0,0,0,0.25)', padding: '2px 8px', borderRadius: '6px' }}>
-              ₹{parseFloat(summaryReport?.totalBilledAmount || 0).toFixed(2)}
-            </strong>
-          </div>
-
-          {/* AGENT BREAKDOWN MODAL BUTTON */}
-          <button
-            type="button"
-            onClick={() => setShowAgentReportModal(true)}
-            style={{
-              background: 'rgba(255,255,255,0.2)',
-              border: '1px solid rgba(255,255,255,0.3)',
-              borderRadius: '8px',
-              padding: '4px 12px',
-              color: '#ffffff',
-              fontSize: '11px',
-              fontWeight: '800',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              transition: 'all 0.15s'
-            }}
-          >
-            <Users size={13} />
-            <span>Agent Breakdown ({agentReport.length})</span>
-          </button>
-        </div>
-      </div>
       {/* Telecaller Device Health & Call Recording Live Monitor Panel */}
       {showHealthPanel && (isOwnerOrManager || isSuperAdmin) && (
         <div style={{
@@ -1312,6 +1190,31 @@ export default function TelecallingView({
                 >
                   All ({activeRecords.length})
                 </button>
+                {onNavigateToReports && (
+                  <button
+                    type="button"
+                    onClick={onNavigateToReports}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '5px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      color: '#0d9488',
+                      fontSize: '11.5px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.15s ease'
+                    }}
+                    title="View Telephony & CRM Reports"
+                  >
+                    <BarChart2 size={13} color="#0d9488" />
+                    <span>Analytics</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setBypassFilter('OFFICIAL')}
