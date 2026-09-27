@@ -91,6 +91,22 @@ export class SummaryEngine {
       }).length;
     }
 
+    // 6. SUM / AVG of numeric field
+    if (widget.metricType === 'SUM' && widget.fieldKey) {
+      return safeRecords.reduce((acc, r) => {
+        const val = parseFloat(r?.[widget.fieldKey]) || 0;
+        return acc + val;
+      }, 0);
+    }
+    if (widget.metricType === 'AVG' && widget.fieldKey) {
+      if (safeRecords.length === 0) return 0;
+      const sum = safeRecords.reduce((acc, r) => {
+        const val = parseFloat(r?.[widget.fieldKey]) || 0;
+        return acc + val;
+      }, 0);
+      return Math.round((sum / safeRecords.length) * 10) / 10;
+    }
+
     return safeRecords.length;
   }
 }

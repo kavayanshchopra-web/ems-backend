@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
@@ -35,6 +35,20 @@ export default function AtsConfigModal({
   // New Widget State
   const [newWidgetLabel, setNewWidgetLabel] = useState('');
   const [selectedWidgetStage, setSelectedWidgetStage] = useState('');
+
+  const resolvedAtsStages = useMemo(() => {
+    if (Array.isArray(activePipelineStages) && activePipelineStages.length > 0) {
+      return activePipelineStages;
+    }
+    return [
+      { id: 'applied', name: 'New Applied', emoji: '📥', color: '#0d9488' },
+      { id: 'screening', name: 'Screening', emoji: '🗣️', color: '#2563eb' },
+      { id: 'interviewing', name: 'Interviewing', emoji: '👥', color: '#6366f1' },
+      { id: 'offered', name: 'Offered', emoji: '📜', color: '#d97706' },
+      { id: 'hired', name: 'Hired', emoji: '✅', color: '#059669' },
+      { id: 'rejected', name: 'Rejected', emoji: '❌', color: '#dc2626' }
+    ];
+  }, [activePipelineStages]);
 
   // Field Reordering Controls
   const handleMoveField = (idx, direction) => {
@@ -146,9 +160,37 @@ export default function AtsConfigModal({
     }));
   };
 
+  const handleDeleteWidget = (widgetId) => {
+    setConfigState(prev => ({
+      ...prev,
+      summaryWidgets: prev.summaryWidgets.filter(w => w.id !== widgetId)
+    }));
+    showToast('Removed summary widget', 'info');
+  };
+
   const handleAddStageWidget = () => {
     if (!selectedWidgetStage) return;
-    const stageObj = activePipelineStages.find(s => (s.id || s.name) === selectedWidgetStage);
+
+    if (selectedWidgetStage === '__TOTAL__') {
+      const label = newWidgetLabel.trim() || 'TOTAL APPLICANTS';
+      const newWidget = {
+        id: 'widget_total_' + Date.now(),
+        label: label.toUpperCase(),
+        icon: '👥',
+        metricType: 'TOTAL',
+        bg: 'rgba(13, 148, 136, 0.1)',
+        color: '#0d9488',
+        enabled: true,
+        sortOrder: configState.summaryWidgets.length + 1
+      };
+      setConfigState(prev => ({ ...prev, summaryWidgets: [...prev.summaryWidgets, newWidget] }));
+      setNewWidgetLabel('');
+      setSelectedWidgetStage('');
+      showToast(`Added summary widget "${label}"`, 'success');
+      return;
+    }
+
+    const stageObj = resolvedAtsStages.find(s => (s.id || s.name) === selectedWidgetStage);
     const label = newWidgetLabel.trim() || stageObj?.name || 'Stage Count';
     const widgetId = 'widget_stage_' + Date.now();
 
@@ -159,7 +201,7 @@ export default function AtsConfigModal({
       metricType: 'STAGE_COUNT',
       stageName: stageObj?.name || selectedWidgetStage,
       color: stageObj?.color || '#0d9488',
-      bg: 'rgba(13, 148, 136, 0.1)',
+      bg: `${stageObj?.color || '#0d9488'}18`,
       enabled: true,
       sortOrder: configState.summaryWidgets.length + 1
     };
@@ -456,13 +498,35 @@ export default function AtsConfigModal({
                     </div>
                   </div>
 
-                  <Button
-                    variant={widget.enabled ? 'secondary' : 'outline'}
-                    size="sm"
-                    onClick={() => handleToggleWidget(widget.id)}
-                  >
-                    {widget.enabled ? 'Enabled' : 'Disabled'}
-                  </Button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Button
+                      variant={widget.enabled ? 'secondary' : 'outline'}
+                      size="sm"
+                      onClick={() => handleToggleWidget(widget.id)}
+                    >
+                      {widget.enabled ? 'Enabled' : 'Disabled'}
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteWidget(widget.id)}
+                      title="Delete Card"
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#ef4444',
+                        cursor: 'pointer',
+                        padding: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        borderRadius: '4px',
+                        opacity: 0.8
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                      onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -471,14 +535,19 @@ export default function AtsConfigModal({
               <select
                 value={selectedWidgetStage}
                 onChange={(e) => setSelectedWidgetStage(e.target.value)}
-                style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', outline: 'none', background: 'white', flex: 1 }}
+                style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', outline: 'none', background: 'white', flex: 1.2 }}
               >
-                <option value="">Select Stage for Stage-Count Widget...</option>
-                {activePipelineStages.map(s => (
-                  <option key={s.id || s.name} value={s.id || s.name}>
-                    Stage: {s.name}
-                  </option>
-                ))}
+                <option value="">Select Metric or Stage for KPI Card...</option>
+                <optgroup label="Standard Metrics">
+                  <option value="__TOTAL__">📊 Total Applicants Count (TOTAL)</option>
+                </optgroup>
+                <optgroup label="Pipeline Stages">
+                  {resolvedAtsStages.map(s => (
+                    <option key={s.id || s.name} value={s.id || s.name}>
+                      {s.emoji || '📋'} Stage: {s.name}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
               <input
                 type="text"

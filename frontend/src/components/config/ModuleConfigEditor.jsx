@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { LabelEngine } from '../../core/engines/LabelEngine';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { Plus, Trash2, Eye, EyeOff, Sliders, LayoutGrid, List, Search, Filter, Layers, ArrowLeft, Hash, Edit3, Settings, ChevronDown, ChevronUp, Calendar, Clock, Image, GitFork, BarChartHorizontal, MapPin, Shield } from 'lucide-react';
 import { formatCustomSequencePattern } from '../../services/atsStorageService';
 import { PermissionEngine, STANDARD_ACTIONS, ACCESS_SCOPES, DEFAULT_ROLES } from '../../core/engines/PermissionEngine/permissionEngine';
+import { masterModuleRegistry } from '../../core/registry/MasterModuleRegistry';
 
 export const ALL_FIELD_TYPES = [
   { value: 'text', label: 'Text' },
@@ -385,6 +386,150 @@ export default function ModuleConfigEditor({
   const [newWidgetLabel, setNewWidgetLabel] = useState('');
   const [selectedWidgetStage, setSelectedWidgetStage] = useState('');
 
+  // Dynamically resolve all possible stages/dispositions for ANY module being edited
+  const resolvedModuleStages = useMemo(() => {
+    const list = [];
+    const seen = new Set();
+
+    const addStage = (id, name, emoji = '📋', color = '#0d9488') => {
+      if (!name || typeof name !== 'string') return;
+      const cleanName = name.trim();
+      const normKey = cleanName.toLowerCase();
+      if (!cleanName || seen.has(normKey)) return;
+      seen.add(normKey);
+
+      let stageEmoji = emoji || '📋';
+      let stageColor = color || '#0d9488';
+      const lower = normKey;
+      if (lower.includes('interest') && !lower.includes('not')) { stageEmoji = '🎯'; stageColor = '#059669'; }
+      else if (lower.includes('demo') || lower.includes('meeting')) { stageEmoji = '📅'; stageColor = '#3b82f6'; }
+      else if (lower.includes('follow') || lower.includes('queue')) { stageEmoji = '⏰'; stageColor = '#d97706'; }
+      else if (lower.includes('closed') || lower.includes('won') || lower.includes('hired')) { stageEmoji = '🏆'; stageColor = '#10b981'; }
+      else if (lower.includes('not interest') || lower.includes('reject') || lower.includes('lost')) { stageEmoji = '❌'; stageColor = '#ef4444'; }
+      else if (lower.includes('missed')) { stageEmoji = '📵'; stageColor = '#f59e0b'; }
+      else if (lower.includes('applied') || lower.includes('inbound') || lower.includes('new')) { stageEmoji = '📥'; stageColor = '#0d9488'; }
+      else if (lower.includes('interview') || lower.includes('screen') || lower.includes('contacted')) { stageEmoji = '🗣️'; stageColor = '#6366f1'; }
+      else if (lower.includes('offer') || lower.includes('proposal')) { stageEmoji = '📜'; stageColor = '#8b5cf6'; }
+      else if (lower.includes('active') || lower.includes('in use') || lower.includes('progress')) { stageEmoji = '⏳'; stageColor = '#0284c7'; }
+      else if (lower.includes('completed') || lower.includes('resolved') || lower.includes('done')) { stageEmoji = '✅'; stageColor = '#10b981'; }
+
+      list.push({
+        id: id || cleanName,
+        name: cleanName,
+        emoji: stageEmoji,
+        color: stageColor
+      });
+    };
+
+    // 1. activePipelineStages prop (from parent component)
+    if (Array.isArray(activePipelineStages) && activePipelineStages.length > 0) {
+      activePipelineStages.forEach(s => {
+        if (typeof s === 'string') addStage(s, s);
+        else if (s && (s.name || s.id)) addStage(s.id || s.name, s.name || s.id, s.emoji, s.color);
+      });
+    }
+
+    // 2. Stages from initialConfig / configState / moduleDef
+    [
+      configState?.stages,
+      initialConfig?.stages,
+      initialConfig?.defaultStages,
+      moduleDef?.defaultStages,
+      moduleDef?.stages
+    ].forEach(arr => {
+      if (Array.isArray(arr)) {
+        arr.forEach(s => {
+          if (typeof s === 'string') addStage(s, s);
+          else if (s && (s.name || s.id || s.label)) addStage(s.id || s.name || s.label, s.name || s.label || s.id, s.emoji, s.color);
+        });
+      }
+    });
+
+    // 3. System Manifest stages, defaultLookupData, defaultFields
+    try {
+      const manifest = masterModuleRegistry.getSystemManifest(modId) || 
+                       masterModuleRegistry.getSystemManifest(moduleDef?.moduleId || moduleDef?.id);
+      if (manifest) {
+        if (Array.isArray(manifest.defaultStages)) {
+          manifest.defaultStages.forEach(s => addStage(s.id || s.name, s.name || s.id, s.emoji, s.color));
+        }
+        if (manifest.defaultLookupData) {
+          ['status', 'stages', 'ats_stages', 'pipeline_stages', 'disposition', 'candidate_status'].forEach(k => {
+            if (Array.isArray(manifest.defaultLookupData[k])) {
+              manifest.defaultLookupData[k].forEach(opt => addStage(opt, opt));
+            }
+          });
+        }
+        if (Array.isArray(manifest.defaultFields)) {
+          manifest.defaultFields.forEach(f => {
+            const fKey = (f.key || f.id || '').toLowerCase();
+            if (['status', 'stage', 'disposition', 'state', 'call_status'].includes(fKey)) {
+              if (Array.isArray(f.options)) {
+                f.options.forEach(opt => addStage(opt, opt));
+              }
+            }
+          });
+        }
+      }
+    } catch (e) {}
+
+    // 4. Fields in configState (status, stage, disposition dropdowns)
+    if (Array.isArray(configState?.fields)) {
+      configState.fields.forEach(f => {
+        const fieldKey = (f.key || f.id || '').toLowerCase();
+        const fieldType = (f.type || '').toLowerCase();
+        if (['status', 'stage', 'disposition', 'state', 'call_status'].includes(fieldKey) || fieldType === 'status' || fieldType === 'stage') {
+          if (Array.isArray(f.options)) {
+            f.options.forEach(opt => addStage(opt, opt));
+          }
+          if (f.optionsSource && configState.lookupData?.[f.optionsSource]) {
+            const opts = configState.lookupData[f.optionsSource];
+            if (Array.isArray(opts)) opts.forEach(opt => addStage(opt, opt));
+          }
+          if (f.optionsSource && systemDropdowns?.[f.optionsSource]) {
+            const opts = systemDropdowns[f.optionsSource];
+            if (Array.isArray(opts)) opts.forEach(opt => addStage(opt, opt));
+          }
+        }
+      });
+    }
+
+    // 5. LookupData in configState
+    if (configState?.lookupData) {
+      ['status', 'stages', 'ats_stages', 'pipeline_stages', 'disposition', 'candidate_status', 'lead_statuses'].forEach(k => {
+        if (Array.isArray(configState.lookupData[k])) {
+          configState.lookupData[k].forEach(opt => addStage(opt, opt));
+        }
+      });
+    }
+
+    // 6. Default lookups
+    if (defaultLookups) {
+      ['status', 'stages', 'ats_stages', 'pipeline_stages', 'disposition', 'candidate_status'].forEach(k => {
+        if (Array.isArray(defaultLookups[k])) {
+          defaultLookups[k].forEach(opt => addStage(opt, opt));
+        }
+      });
+    }
+
+    // 7. Robust module-specific fallbacks
+    if (list.length === 0) {
+      if (modId === 'telecalling' || moduleDef?.name === 'Phone System' || moduleDef?.label === 'Phone System') {
+        ['Interested', 'Demo Scheduled', 'Follow-up Required', 'Deal Closed', 'Not Interested', 'Missed Call'].forEach(s => addStage(s, s));
+      } else if (modId === 'crm' || modId === 'crm_sales' || moduleDef?.category === 'CRM & Sales') {
+        ['Lead In', 'Contacted', 'Demo Scheduled', 'Proposal Sent', 'Negotiation', 'Won', 'Lost'].forEach(s => addStage(s, s));
+      } else if (modId === 'tasks' || modId === 'task_management') {
+        ['To Do', 'In Progress', 'In Review', 'Completed', 'Blocked'].forEach(s => addStage(s, s));
+      } else if (modId === 'employees') {
+        ['Active', 'On Leave', 'Probation', 'Notice Period', 'Terminated'].forEach(s => addStage(s, s));
+      } else if (modId === 'asset_management' || modId === 'assets') {
+        ['In Use', 'Available', 'Under Repair', 'Retired', 'Lost/Stolen'].forEach(s => addStage(s, s));
+      }
+    }
+
+    return list;
+  }, [activePipelineStages, configState?.stages, configState?.fields, configState?.lookupData, initialConfig, moduleDef, modId, systemDropdowns, defaultLookups]);
+
   // Field Reordering Controls
   const handleMoveField = (idx, direction) => {
     const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
@@ -543,9 +688,56 @@ export default function ModuleConfigEditor({
     }));
   };
 
+  const handleDeleteWidget = (widgetId) => {
+    setConfigState(prev => ({
+      ...prev,
+      summaryWidgets: prev.summaryWidgets.filter(w => w.id !== widgetId)
+    }));
+    showToast('Removed summary widget', 'info');
+  };
+
   const handleAddStageWidget = () => {
     if (!selectedWidgetStage) return;
-    const stageObj = activePipelineStages.find(s => (s.id || s.name) === selectedWidgetStage);
+
+    if (selectedWidgetStage === '__TOTAL__') {
+      const label = newWidgetLabel.trim() || `TOTAL ${(moduleDef?.label || 'RECORDS').toUpperCase()}`;
+      const newWidget = {
+        id: 'widget_total_' + Date.now(),
+        label: label.toUpperCase(),
+        icon: moduleDef?.icon || '📊',
+        metricType: 'TOTAL',
+        bg: 'rgba(13, 148, 136, 0.1)',
+        color: '#0d9488',
+        enabled: true,
+        sortOrder: configState.summaryWidgets.length + 1
+      };
+      setConfigState(prev => ({ ...prev, summaryWidgets: [...prev.summaryWidgets, newWidget] }));
+      setNewWidgetLabel('');
+      setSelectedWidgetStage('');
+      showToast(`Added summary widget "${label}"`, 'success');
+      return;
+    }
+
+    if (selectedWidgetStage === '__BYPASS__') {
+      const label = newWidgetLabel.trim() || 'BYPASSED CALLS';
+      const newWidget = {
+        id: 'widget_bypass_' + Date.now(),
+        label: label.toUpperCase(),
+        icon: '🚨',
+        metricType: 'BYPASS_COUNT',
+        bg: 'rgba(239, 68, 68, 0.12)',
+        color: '#dc2626',
+        enabled: true,
+        sortOrder: configState.summaryWidgets.length + 1
+      };
+      setConfigState(prev => ({ ...prev, summaryWidgets: [...prev.summaryWidgets, newWidget] }));
+      setNewWidgetLabel('');
+      setSelectedWidgetStage('');
+      showToast(`Added summary widget "${label}"`, 'success');
+      return;
+    }
+
+    const stageObj = resolvedModuleStages.find(s => (s.id || s.name) === selectedWidgetStage);
     const label = newWidgetLabel.trim() || stageObj?.name || 'Stage Count';
     const widgetId = 'widget_stage_' + Date.now();
 
@@ -556,7 +748,7 @@ export default function ModuleConfigEditor({
       metricType: 'STAGE_COUNT',
       stageName: stageObj?.name || selectedWidgetStage,
       color: stageObj?.color || '#0d9488',
-      bg: 'rgba(13, 148, 136, 0.1)',
+      bg: `${stageObj?.color || '#0d9488'}18`,
       enabled: true,
       sortOrder: configState.summaryWidgets.length + 1
     };
@@ -1374,11 +1566,12 @@ export default function ModuleConfigEditor({
           {/* SECTION: SUMMARY */}
           {activeNav === 'summary' && capabilities.summary && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ fontSize: '11px', color: '#64748b', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                Reorder, enable/disable, or add custom stage-count summary KPI cards. Recruitment dashboard updates automatically.
+              <div style={{ fontSize: '12px', color: '#475569', background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>Reorder, enable/disable, or add custom stage-count summary KPI cards. <strong>{moduleDef?.label || 'Module'}</strong> updates live from configuration.</span>
+                <span style={{ fontSize: '11px', color: '#0d9488', fontWeight: '700' }}>{configState.summaryWidgets.length} Cards</span>
               </div>
 
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', maxHeight: '280px', overflowY: 'auto' }}>
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', maxHeight: '320px', overflowY: 'auto' }}>
                 {configState.summaryWidgets.map((widget, idx) => (
                   <div
                     key={widget.id}
@@ -1396,24 +1589,46 @@ export default function ModuleConfigEditor({
                         <button type="button" disabled={idx === 0} onClick={() => handleMoveWidget(idx, 'up')} style={{ border: 'none', background: 'none', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.3 : 1 }}>▲</button>
                         <button type="button" disabled={idx === configState.summaryWidgets.length - 1} onClick={() => handleMoveWidget(idx, 'down')} style={{ border: 'none', background: 'none', cursor: idx === configState.summaryWidgets.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === configState.summaryWidgets.length - 1 ? 0.3 : 1 }}>▼</button>
                       </div>
-                      <span style={{ fontSize: '16px' }}>{widget.icon || '📊'}</span>
+                      <span style={{ fontSize: '18px' }}>{widget.icon || '📊'}</span>
                       <div>
                         <div style={{ fontWeight: '700', fontSize: '12px', color: widget.enabled ? '#0f172a' : '#94a3b8' }}>
                           {widget.label}
                         </div>
                         <div style={{ fontSize: '10px', color: '#64748b' }}>
-                          Type: {widget.metricType} {widget.stageName ? `(${widget.stageName})` : ''}
+                          Type: <strong>{widget.metricType}</strong> {widget.stageName ? `(${widget.stageName})` : ''}
                         </div>
                       </div>
                     </div>
 
-                    <Button
-                      variant={widget.enabled ? 'secondary' : 'outline'}
-                      size="sm"
-                      onClick={() => handleToggleWidget(widget.id)}
-                    >
-                      {widget.enabled ? 'Enabled' : 'Disabled'}
-                    </Button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Button
+                        variant={widget.enabled ? 'secondary' : 'outline'}
+                        size="sm"
+                        onClick={() => handleToggleWidget(widget.id)}
+                      >
+                        {widget.enabled ? 'Enabled' : 'Disabled'}
+                      </Button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteWidget(widget.id)}
+                        title="Delete Card"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#ef4444',
+                          cursor: 'pointer',
+                          padding: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          borderRadius: '4px',
+                          opacity: 0.8
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1422,21 +1637,31 @@ export default function ModuleConfigEditor({
                 <select
                   value={selectedWidgetStage}
                   onChange={(e) => setSelectedWidgetStage(e.target.value)}
-                  style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', outline: 'none', background: 'white', flex: 1 }}
+                  style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', outline: 'none', background: 'white', flex: 1.2 }}
                 >
-                  <option value="">Select Stage for Stage-Count Widget...</option>
-                  {activePipelineStages.map(s => (
-                    <option key={s.id || s.name} value={s.id || s.name}>
-                      Stage: {s.name}
-                    </option>
-                  ))}
+                  <option value="">Select Metric or Stage for KPI Card...</option>
+                  <optgroup label="Standard Metrics">
+                    <option value="__TOTAL__">📊 Total Records Count (TOTAL)</option>
+                    {(modId === 'telecalling' || moduleDef?.name === 'Phone System' || moduleDef?.label === 'Phone System') && (
+                      <option value="__BYPASS__">🚨 Bypassed / Personal Calls (BYPASS_COUNT)</option>
+                    )}
+                  </optgroup>
+                  {resolvedModuleStages.length > 0 && (
+                    <optgroup label={`Stages & Dispositions (${resolvedModuleStages.length})`}>
+                      {resolvedModuleStages.map(s => (
+                        <option key={s.id || s.name} value={s.id || s.name}>
+                          {s.emoji} Stage: {s.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
                 <input
                   type="text"
-                  placeholder="Optional Label (e.g. SCREENING COUNT)"
+                  placeholder="Optional Custom Label (e.g. INTERESTED COUNT)"
                   value={newWidgetLabel}
                   onChange={(e) => setNewWidgetLabel(e.target.value)}
-                  style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', outline: 'none', flex: 1 }}
+                  style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', outline: 'none', flex: 1 }}
                 />
                 <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={handleAddStageWidget}>
                   Add Widget
