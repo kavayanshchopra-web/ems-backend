@@ -30,6 +30,7 @@ import {
   Trash2,
   FolderOpen
 } from 'lucide-react';
+import PhoneSystemAnalyticsView from './PhoneSystemAnalyticsView';
 
 // Currency formatting helper
 const formatINR = (val) => {
@@ -830,10 +831,19 @@ export default function DynamicReportingHub({
         </div>
       </div>
 
-      {/* 🔍 STANDARD ENGINE TOOLBAR (LayoutToolbar Style) */}
-      <div
-        style={{
-          background: '#ffffff',
+      {/* 📞 IF ACTIVE MODULE IS PHONE SYSTEM: RENDER DEDICATED DARK EMERALD ANALYTICS */}
+      {activeModule === 'telephony' ? (
+        <PhoneSystemAnalyticsView
+          callLogs={callLogs}
+          employees={employees}
+          authUser={authUser}
+        />
+      ) : (
+        <>
+          {/* 🔍 STANDARD ENGINE TOOLBAR (LayoutToolbar Style) */}
+          <div
+            style={{
+              background: '#ffffff',
           padding: '12px 24px',
           borderBottom: '1px solid #e2e8f0',
           display: 'flex',
@@ -1718,6 +1728,8 @@ export default function DynamicReportingHub({
           </>
         )}
       </div>
+    </>
+  )}
     </div>
   );
 }
