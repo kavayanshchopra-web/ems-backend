@@ -42,13 +42,14 @@ export default function WidgetEngine({
           boxSizing: 'border-box'
         }}
       >
-        {enabledWidgets.map(widget => {
+        {enabledWidgets.map((widget, index) => {
           const value = SummaryEngine.computeWidgetValue(widget, records, activePipelineStages);
           return (
             <div key={widget.id} className="widget-card-item" style={{ minWidth: '200px', flex: '1 0 200px' }}>
               <KPIWidget
                 widget={widget}
                 value={value}
+                index={index}
               />
             </div>
           );

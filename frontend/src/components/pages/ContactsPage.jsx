@@ -639,12 +639,12 @@ export default function ContactsPage({
             borderRadius: '7px',
             border: 'none',
             background: activeTab === 'all' ? '#0d9488' : 'transparent',
-            color: activeTab === 'all' ? '#ffffff' : '#475569',
+            color: activeTab === 'all' ? '#ffffff' : '#334155',
             fontSize: '12px',
-            fontWeight: activeTab === 'all' ? '700' : '500',
+            fontWeight: activeTab === 'all' ? '700' : '600',
             cursor: 'pointer',
             transition: 'all 0.15s ease',
-            boxShadow: activeTab === 'all' ? '0 1px 3px rgba(13, 148, 136, 0.3)' : 'none'
+            boxShadow: activeTab === 'all' ? '0 2px 6px rgba(13, 148, 136, 0.35)' : 'none'
           }}
         >
           <span>All Contacts</span>
@@ -654,8 +654,8 @@ export default function ContactsPage({
               borderRadius: '10px',
               fontSize: '11px',
               fontWeight: '700',
-              background: activeTab === 'all' ? 'rgba(255, 255, 255, 0.22)' : '#e2e8f0',
-              color: activeTab === 'all' ? '#ffffff' : '#64748b'
+              background: activeTab === 'all' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(13, 148, 136, 0.12)',
+              color: activeTab === 'all' ? '#ffffff' : '#0d9488'
             }}
           >
             {tabCounts.all}
@@ -673,13 +673,13 @@ export default function ContactsPage({
             padding: '5px 12px',
             borderRadius: '7px',
             border: 'none',
-            background: activeTab === 'leads' ? '#0d9488' : 'transparent',
-            color: activeTab === 'leads' ? '#ffffff' : '#475569',
+            background: activeTab === 'leads' ? '#d97706' : 'transparent',
+            color: activeTab === 'leads' ? '#ffffff' : '#334155',
             fontSize: '12px',
-            fontWeight: activeTab === 'leads' ? '700' : '500',
+            fontWeight: activeTab === 'leads' ? '700' : '600',
             cursor: 'pointer',
             transition: 'all 0.15s ease',
-            boxShadow: activeTab === 'leads' ? '0 1px 3px rgba(13, 148, 136, 0.3)' : 'none'
+            boxShadow: activeTab === 'leads' ? '0 2px 6px rgba(217, 119, 6, 0.35)' : 'none'
           }}
         >
           <span>Leads</span>
@@ -689,8 +689,8 @@ export default function ContactsPage({
               borderRadius: '10px',
               fontSize: '11px',
               fontWeight: '700',
-              background: activeTab === 'leads' ? 'rgba(255, 255, 255, 0.22)' : '#e2e8f0',
-              color: activeTab === 'leads' ? '#ffffff' : '#64748b'
+              background: activeTab === 'leads' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(217, 119, 6, 0.14)',
+              color: activeTab === 'leads' ? '#ffffff' : '#d97706'
             }}
           >
             {tabCounts.leads}
@@ -708,13 +708,13 @@ export default function ContactsPage({
             padding: '5px 12px',
             borderRadius: '7px',
             border: 'none',
-            background: activeTab === 'customers' ? '#0d9488' : 'transparent',
-            color: activeTab === 'customers' ? '#ffffff' : '#475569',
+            background: activeTab === 'customers' ? '#059669' : 'transparent',
+            color: activeTab === 'customers' ? '#ffffff' : '#334155',
             fontSize: '12px',
-            fontWeight: activeTab === 'customers' ? '700' : '500',
+            fontWeight: activeTab === 'customers' ? '700' : '600',
             cursor: 'pointer',
             transition: 'all 0.15s ease',
-            boxShadow: activeTab === 'customers' ? '0 1px 3px rgba(13, 148, 136, 0.3)' : 'none'
+            boxShadow: activeTab === 'customers' ? '0 2px 6px rgba(5, 150, 105, 0.35)' : 'none'
           }}
         >
           <span>Customers</span>
@@ -724,8 +724,8 @@ export default function ContactsPage({
               borderRadius: '10px',
               fontSize: '11px',
               fontWeight: '700',
-              background: activeTab === 'customers' ? 'rgba(255, 255, 255, 0.22)' : '#e2e8f0',
-              color: activeTab === 'customers' ? '#ffffff' : '#64748b'
+              background: activeTab === 'customers' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(5, 150, 105, 0.14)',
+              color: activeTab === 'customers' ? '#ffffff' : '#059669'
             }}
           >
             {tabCounts.customers}
@@ -743,13 +743,13 @@ export default function ContactsPage({
             padding: '5px 12px',
             borderRadius: '7px',
             border: 'none',
-            background: activeTab === 'segments' ? '#0d9488' : 'transparent',
-            color: activeTab === 'segments' ? '#ffffff' : '#475569',
+            background: activeTab === 'segments' ? '#2563eb' : 'transparent',
+            color: activeTab === 'segments' ? '#ffffff' : '#334155',
             fontSize: '12px',
-            fontWeight: activeTab === 'segments' ? '700' : '500',
+            fontWeight: activeTab === 'segments' ? '700' : '600',
             cursor: 'pointer',
             transition: 'all 0.15s ease',
-            boxShadow: activeTab === 'segments' ? '0 1px 3px rgba(13, 148, 136, 0.3)' : 'none'
+            boxShadow: activeTab === 'segments' ? '0 2px 6px rgba(37, 99, 235, 0.35)' : 'none'
           }}
         >
           <span>Lists / Segments</span>
@@ -759,8 +759,8 @@ export default function ContactsPage({
               borderRadius: '10px',
               fontSize: '11px',
               fontWeight: '700',
-              background: activeTab === 'segments' ? 'rgba(255, 255, 255, 0.22)' : '#e2e8f0',
-              color: activeTab === 'segments' ? '#ffffff' : '#64748b'
+              background: activeTab === 'segments' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(37, 99, 235, 0.14)',
+              color: activeTab === 'segments' ? '#ffffff' : '#2563eb'
             }}
           >
             {tabCounts.segments}
