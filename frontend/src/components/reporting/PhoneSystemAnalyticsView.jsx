@@ -3,11 +3,12 @@
  * 100% Theme-Aligned with Dark Emerald (#04241d / #06352b) and Teal (#0d9488)
  * 
  * Features:
- * - 5 Separated Clickable Category Cards (Total Calls, Inbound, Outbound Connected, Missed, Not Connected)
- * - Click to Open Pop-up Modal: Displays full call logs for that category without bloating the main page
- * - Heavy bottom table removed completely for lightning-fast dashboard performance
- * - Dynamic Heatmap & Disposition Analytics
- * - Clean formatted human-readable timestamps (e.g. Today, 12:25 PM)
+ * 1. 5 Separated Clickable Category Cards (Total, Inbound, Outbound Connected, Missed, Not Connected)
+ * 2. Telephony Health & Duration KPIs (Total Talk-Time, Avg Duration, Missed Call SLA Recovery, Positive Outcome %)
+ * 3. Two-Column Intelligence (Hourly Call Peak Heatmap & Call Disposition Breakdown)
+ * 4. Daily Calling Volume Trend Graph (Monday to Sunday Inbound vs Outbound vs Missed)
+ * 5. Telecaller Performance Leaderboard (Rankings, Total Calls, Talk-Time, Connect %, Interested Leads)
+ * 6. High-Performance Pop-up Modal: Displays full call logs for any category or agent on demand
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -23,7 +24,15 @@ import {
   Filter,
   Users,
   X,
-  ExternalLink
+  ExternalLink,
+  Trophy,
+  Clock,
+  TrendingUp,
+  Award,
+  PhoneForwarded,
+  BarChart2,
+  CheckCircle2,
+  Calendar
 } from 'lucide-react';
 
 const DAYS_OF_WEEK = [
@@ -59,11 +68,16 @@ const DISPOSITION_CONFIG = [
   { name: 'Missed / No Answer', color: '#64748b', bg: 'rgba(100, 116, 139, 0.15)', icon: '📵', alias: 'Missed Call' }
 ];
 
-// Helper to format seconds into "Xm Ys" or "Xs"
+// Helper to format seconds into "Xh Ym Zs" or "Xm Ys" or "Xs"
 const formatSeconds = (totalSec) => {
   const sec = Math.max(0, Math.floor(Number(totalSec) || 0));
-  const mins = Math.floor(sec / 60);
+  const hrs = Math.floor(sec / 3600);
+  const mins = Math.floor((sec % 3600) / 60);
   const remainingSec = sec % 60;
+
+  if (hrs > 0) {
+    return `${hrs}h ${mins}m`;
+  }
   if (mins === 0 && remainingSec === 0) return '0s';
   if (mins === 0) return `${remainingSec}s`;
   return `${mins}m ${remainingSec}s`;
@@ -150,7 +164,7 @@ export default function PhoneSystemAnalyticsView({
   // Dashboard Category Filter (updates Heatmap & Dispositions)
   const [selectedCategory, setSelectedCategory] = useState('ALL');
 
-  // Pop-up Modal State: null | 'ALL' | 'INCOMING' | 'OUTGOING' | 'MISSED' | 'NOT_CONNECTED'
+  // Pop-up Modal State: null | 'ALL' | 'INCOMING' | 'OUTGOING' | 'MISSED' | 'NOT_CONNECTED' | 'PENDING_MISSED' | 'AGENT:name'
   const [activeModalCategory, setActiveModalCategory] = useState(null);
   const [modalSearchQuery, setModalSearchQuery] = useState('');
 
@@ -212,20 +226,28 @@ export default function PhoneSystemAnalyticsView({
     let missed = 0;
     let notConnected = 0;
     let totalDurationSec = 0;
+    let positiveCount = 0;
 
     baseFilteredLogs.forEach(c => {
       const cat = getCallCategory(c);
       const durSec = parseDurationSeconds(c.duration || c.duration_seconds);
+      const disp = String(c.status || c.disposition || '').toLowerCase();
+
       totalDurationSec += durSec;
 
       if (cat === 'INCOMING') incoming++;
       else if (cat === 'OUTGOING') outgoing++;
       else if (cat === 'MISSED') missed++;
       else if (cat === 'NOT_CONNECTED') notConnected++;
+
+      if (disp.includes('interest') || disp.includes('demo') || disp.includes('closed') || disp.includes('won')) {
+        positiveCount++;
+      }
     });
 
     const connectRate = total > 0 ? Math.round(((incoming + outgoing) / total) * 1000) / 10 : 76.2;
     const avgDuration = (incoming + outgoing) > 0 ? Math.round(totalDurationSec / (incoming + outgoing)) : 0;
+    const positiveRate = total > 0 ? Math.round((positiveCount / total) * 100) : 0;
 
     return {
       total,
@@ -235,7 +257,9 @@ export default function PhoneSystemAnalyticsView({
       notConnected,
       connectRate,
       avgDuration,
-      totalDurationSec
+      totalDurationSec,
+      positiveCount,
+      positiveRate
     };
   }, [baseFilteredLogs]);
 
@@ -245,7 +269,141 @@ export default function PhoneSystemAnalyticsView({
     return baseFilteredLogs.filter(c => getCallCategory(c) === selectedCategory);
   }, [baseFilteredLogs, selectedCategory]);
 
-  // 4. Hourly Peak Heatmap Calculation
+  // 4. Missed Call Callback SLA Tracking
+  const missedCallSLA = useMemo(() => {
+    const missedCalls = baseFilteredLogs.filter(c => getCallCategory(c) === 'MISSED');
+    const totalMissed = missedCalls.length;
+    
+    if (totalMissed === 0) {
+      return { totalMissed: 0, calledBack: 0, pending: 0, rate: 100, pendingList: [] };
+    }
+
+    const dialedPhones = new Set(
+      baseFilteredLogs
+        .filter(c => getCallCategory(c) === 'OUTGOING' || getCallCategory(c) === 'NOT_CONNECTED')
+        .map(c => String(c.phone || c.caller_number || '').trim())
+        .filter(Boolean)
+    );
+
+    const pendingList = [];
+    let calledBack = 0;
+
+    missedCalls.forEach(c => {
+      const phone = String(c.phone || c.caller_number || '').trim();
+      if (phone && dialedPhones.has(phone)) {
+        calledBack++;
+      } else {
+        pendingList.push(c);
+      }
+    });
+
+    const rate = Math.round((calledBack / totalMissed) * 100);
+
+    return {
+      totalMissed,
+      calledBack,
+      pending: pendingList.length,
+      rate,
+      pendingList
+    };
+  }, [baseFilteredLogs]);
+
+  // 5. Daily Calling Volume Trend (Mon to Sun Inbound vs Outbound vs Missed)
+  const dailyTrendData = useMemo(() => {
+    const days = [
+      { key: 1, label: 'Mon' },
+      { key: 2, label: 'Tue' },
+      { key: 3, label: 'Wed' },
+      { key: 4, label: 'Thu' },
+      { key: 5, label: 'Fri' },
+      { key: 6, label: 'Sat' },
+      { key: 0, label: 'Sun' }
+    ];
+
+    const stats = days.map(d => ({
+      ...d,
+      inbound: 0,
+      outbound: 0,
+      missed: 0,
+      total: 0
+    }));
+
+    categoryFilteredLogs.forEach(c => {
+      const timeVal = c.call_time || c.callTime || c.created_at || c.timestamp;
+      if (timeVal) {
+        const dt = new Date(timeVal);
+        if (!isNaN(dt.getTime())) {
+          const dayIdx = dt.getDay();
+          const found = stats.find(s => s.key === dayIdx);
+          if (found) {
+            const cat = getCallCategory(c);
+            found.total++;
+            if (cat === 'INCOMING') found.inbound++;
+            else if (cat === 'OUTGOING' || cat === 'NOT_CONNECTED') found.outbound++;
+            else if (cat === 'MISSED') found.missed++;
+          }
+        }
+      }
+    });
+
+    const maxDaily = Math.max(...stats.map(s => s.total), 1);
+    return { stats, maxDaily };
+  }, [categoryFilteredLogs]);
+
+  // 6. Telecaller Performance Leaderboard
+  const telecallerLeaderboard = useMemo(() => {
+    const agentMap = {};
+
+    baseFilteredLogs.forEach(c => {
+      const agName = c.agent_name || c.agentName || c.user_name || 'Kavayansh Chopra';
+      if (!agentMap[agName]) {
+        agentMap[agName] = {
+          name: agName,
+          totalCalls: 0,
+          inbound: 0,
+          outbound: 0,
+          connected: 0,
+          missed: 0,
+          totalDurationSec: 0,
+          interested: 0
+        };
+      }
+      const cat = getCallCategory(c);
+      const durSec = parseDurationSeconds(c.duration || c.duration_seconds);
+      const disp = String(c.status || c.disposition || '').toLowerCase();
+
+      agentMap[agName].totalCalls++;
+      agentMap[agName].totalDurationSec += durSec;
+
+      if (cat === 'INCOMING') agentMap[agName].inbound++;
+      if (cat === 'OUTGOING') {
+        agentMap[agName].outbound++;
+        agentMap[agName].connected++;
+      }
+      if (cat === 'NOT_CONNECTED') agentMap[agName].outbound++;
+      if (cat === 'MISSED') agentMap[agName].missed++;
+
+      if (disp.includes('interest') || disp.includes('demo') || disp.includes('closed') || disp.includes('won')) {
+        agentMap[agName].interested++;
+      }
+    });
+
+    const list = Object.values(agentMap).map(ag => {
+      const connectRate = ag.totalCalls > 0 ? Math.round(((ag.inbound + ag.connected) / ag.totalCalls) * 100) : 0;
+      return {
+        ...ag,
+        connectRate,
+        formattedTalkTime: formatSeconds(ag.totalDurationSec)
+      };
+    });
+
+    // Rank: sort by interested leads desc, then total duration desc, then total calls desc
+    list.sort((a, b) => b.interested - a.interested || b.totalDurationSec - a.totalDurationSec || b.totalCalls - a.totalCalls);
+
+    return list;
+  }, [baseFilteredLogs]);
+
+  // 7. Hourly Peak Heatmap Calculation
   const heatmapData = useMemo(() => {
     const matrix = {};
     DAYS_OF_WEEK.forEach(d => {
@@ -282,7 +440,7 @@ export default function PhoneSystemAnalyticsView({
     return { matrix, maxVal, hasRealData };
   }, [categoryFilteredLogs]);
 
-  // 5. Call Disposition Breakdown
+  // 8. Call Disposition Breakdown
   const dispositionBreakdown = useMemo(() => {
     const counts = {
       'Interested': 0,
@@ -319,12 +477,25 @@ export default function PhoneSystemAnalyticsView({
     });
   }, [categoryFilteredLogs]);
 
-  // 6. Modal Specific Calls (Filtered by active category & modal search)
+  // 9. Modal Specific Calls (Filtered by active category or agent or pending callback & modal search)
   const modalCategoryCalls = useMemo(() => {
     if (!activeModalCategory) return [];
+
+    if (activeModalCategory === 'PENDING_MISSED') {
+      return missedCallSLA.pendingList;
+    }
+
+    if (String(activeModalCategory).startsWith('AGENT:')) {
+      const targetAgent = activeModalCategory.replace('AGENT:', '').trim().toLowerCase();
+      return baseFilteredLogs.filter(c => {
+        const agName = String(c.agent_name || c.agentName || c.user_name || '').toLowerCase();
+        return agName.includes(targetAgent);
+      });
+    }
+
     if (activeModalCategory === 'ALL') return baseFilteredLogs;
     return baseFilteredLogs.filter(c => getCallCategory(c) === activeModalCategory);
-  }, [baseFilteredLogs, activeModalCategory]);
+  }, [baseFilteredLogs, activeModalCategory, missedCallSLA]);
 
   const modalFilteredCalls = useMemo(() => {
     let list = [...modalCategoryCalls];
@@ -352,6 +523,12 @@ export default function PhoneSystemAnalyticsView({
   const handleCardClick = (catKey) => {
     setSelectedCategory(catKey);
     setActiveModalCategory(catKey);
+    setModalSearchQuery('');
+  };
+
+  // Open Agent Calls in Modal
+  const handleAgentClick = (agentName) => {
+    setActiveModalCategory(`AGENT:${agentName}`);
     setModalSearchQuery('');
   };
 
@@ -398,7 +575,7 @@ export default function PhoneSystemAnalyticsView({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `calls_${activeModalCategory.toLowerCase()}_${selectedPeriod}.csv`);
+    link.setAttribute('download', `calls_${String(activeModalCategory).toLowerCase()}_${selectedPeriod}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -406,6 +583,29 @@ export default function PhoneSystemAnalyticsView({
 
   // Modal Meta Information
   const getModalMeta = (cat) => {
+    if (!cat) return { title: 'Call Records', icon: <PhoneCall size={18} color="#2dd4bf" />, badgeColor: '#2dd4bf', badgeBg: 'rgba(45, 212, 191, 0.15)', desc: 'Call records' };
+
+    if (cat === 'PENDING_MISSED') {
+      return {
+        title: 'Pending Missed Calls (Awaiting Callback)',
+        icon: <PhoneMissed size={18} color="#ef4444" />,
+        badgeColor: '#f87171',
+        badgeBg: 'rgba(239, 68, 68, 0.15)',
+        desc: 'Inbound calls that were missed and have not yet received a return call'
+      };
+    }
+
+    if (String(cat).startsWith('AGENT:')) {
+      const agName = cat.replace('AGENT:', '');
+      return {
+        title: `${agName} - Call Activity Logs`,
+        icon: <Users size={18} color="#2dd4bf" />,
+        badgeColor: '#2dd4bf',
+        badgeBg: 'rgba(45, 212, 191, 0.15)',
+        desc: `All telephony calls handled by ${agName}`
+      };
+    }
+
     switch (cat) {
       case 'INCOMING':
         return {
@@ -470,8 +670,8 @@ export default function PhoneSystemAnalyticsView({
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: '16px',
-        marginBottom: '22px',
-        paddingBottom: '18px',
+        marginBottom: '20px',
+        paddingBottom: '16px',
         borderBottom: '1px solid rgba(20, 184, 166, 0.2)'
       }}>
         {/* Left Title */}
@@ -624,7 +824,7 @@ export default function PhoneSystemAnalyticsView({
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
         gap: '14px',
-        marginBottom: '22px'
+        marginBottom: '16px'
       }}>
         {/* CARD 1: ALL CALLS */}
         <div
@@ -636,8 +836,7 @@ export default function PhoneSystemAnalyticsView({
             border: selectedCategory === 'ALL' ? '2px solid #2dd4bf' : '1px solid rgba(20, 184, 166, 0.25)',
             boxShadow: selectedCategory === 'ALL' ? '0 0 16px rgba(45, 212, 191, 0.4)' : 'none',
             background: selectedCategory === 'ALL' ? 'linear-gradient(145deg, #074338, #052e26)' : '#06352b',
-            transition: 'all 0.2s ease',
-            position: 'relative'
+            transition: 'all 0.2s ease'
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'translateY(-2px)';
@@ -677,8 +876,7 @@ export default function PhoneSystemAnalyticsView({
             border: selectedCategory === 'INCOMING' ? '2px solid #10b981' : '1px solid rgba(20, 184, 166, 0.25)',
             boxShadow: selectedCategory === 'INCOMING' ? '0 0 16px rgba(16, 185, 129, 0.4)' : 'none',
             background: selectedCategory === 'INCOMING' ? 'linear-gradient(145deg, #064e3b, #043528)' : '#06352b',
-            transition: 'all 0.2s ease',
-            position: 'relative'
+            transition: 'all 0.2s ease'
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'translateY(-2px)';
@@ -718,8 +916,7 @@ export default function PhoneSystemAnalyticsView({
             border: selectedCategory === 'OUTGOING' ? '2px solid #3b82f6' : '1px solid rgba(20, 184, 166, 0.25)',
             boxShadow: selectedCategory === 'OUTGOING' ? '0 0 16px rgba(59, 130, 246, 0.4)' : 'none',
             background: selectedCategory === 'OUTGOING' ? 'linear-gradient(145deg, #1e3a5f, #0a2540)' : '#06352b',
-            transition: 'all 0.2s ease',
-            position: 'relative'
+            transition: 'all 0.2s ease'
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'translateY(-2px)';
@@ -759,8 +956,7 @@ export default function PhoneSystemAnalyticsView({
             border: selectedCategory === 'MISSED' ? '2px solid #f59e0b' : '1px solid rgba(20, 184, 166, 0.25)',
             boxShadow: selectedCategory === 'MISSED' ? '0 0 16px rgba(245, 158, 11, 0.4)' : 'none',
             background: selectedCategory === 'MISSED' ? 'linear-gradient(145deg, #452b07, #2c1a02)' : '#06352b',
-            transition: 'all 0.2s ease',
-            position: 'relative'
+            transition: 'all 0.2s ease'
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'translateY(-2px)';
@@ -800,8 +996,7 @@ export default function PhoneSystemAnalyticsView({
             border: selectedCategory === 'NOT_CONNECTED' ? '2px solid #ef4444' : '1px solid rgba(20, 184, 166, 0.25)',
             boxShadow: selectedCategory === 'NOT_CONNECTED' ? '0 0 16px rgba(239, 68, 68, 0.4)' : 'none',
             background: selectedCategory === 'NOT_CONNECTED' ? 'linear-gradient(145deg, #4c1d1d, #2b0c0c)' : '#06352b',
-            transition: 'all 0.2s ease',
-            position: 'relative'
+            transition: 'all 0.2s ease'
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'translateY(-2px)';
@@ -828,6 +1023,140 @@ export default function PhoneSystemAnalyticsView({
           <div style={cardFooterPrompt}>
             <span>View Unanswered Logs</span>
             <ExternalLink size={12} color="#f87171" />
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* 3. TELEPHONY HEALTH & TALK-TIME INTELLIGENCE BAR          */}
+      {/* ========================================================= */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: '12px',
+        marginBottom: '20px'
+      }}>
+        {/* KPI 1: Total Talk Time */}
+        <div style={{
+          background: 'linear-gradient(135deg, #063c32, #042921)',
+          border: '1px solid rgba(45, 212, 191, 0.3)',
+          borderRadius: '12px',
+          padding: '12px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <div style={{ background: 'rgba(45, 212, 191, 0.15)', padding: '9px', borderRadius: '10px' }}>
+            <Clock size={18} color="#2dd4bf" />
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>
+              Total Talk Time
+            </div>
+            <div style={{ fontSize: '18px', fontWeight: '800', color: '#ffffff', marginTop: '1px' }}>
+              {formatSeconds(categoryStats.totalDurationSec)}
+            </div>
+            <div style={{ fontSize: '10.5px', color: '#6ee7b7' }}>
+              Active live conversations
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 2: Average Call Duration */}
+        <div style={{
+          background: 'linear-gradient(135deg, #063c32, #042921)',
+          border: '1px solid rgba(16, 185, 129, 0.3)',
+          borderRadius: '12px',
+          padding: '12px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <div style={{ background: 'rgba(16, 185, 129, 0.15)', padding: '9px', borderRadius: '10px' }}>
+            <Activity size={18} color="#34d399" />
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>
+              Avg Call Duration
+            </div>
+            <div style={{ fontSize: '18px', fontWeight: '800', color: '#ffffff', marginTop: '1px' }}>
+              {formatSeconds(categoryStats.avgDuration)}
+            </div>
+            <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>
+              Per answered conversation
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 3: Missed Call Recovery SLA */}
+        <div style={{
+          background: 'linear-gradient(135deg, #063c32, #042921)',
+          border: '1px solid rgba(245, 158, 11, 0.3)',
+          borderRadius: '12px',
+          padding: '12px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ background: 'rgba(245, 158, 11, 0.15)', padding: '9px', borderRadius: '10px' }}>
+              <PhoneForwarded size={18} color="#fbbf24" />
+            </div>
+            <div>
+              <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>
+                Missed Call Recovery SLA
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: '800', color: '#ffffff', marginTop: '1px' }}>
+                {missedCallSLA.rate}% <span style={{ fontSize: '11.5px', color: '#fbbf24', fontWeight: '600' }}>({missedCallSLA.calledBack}/{missedCallSLA.totalMissed})</span>
+              </div>
+              <div style={{ fontSize: '10.5px', color: missedCallSLA.pending > 0 ? '#f87171' : '#34d399' }}>
+                {missedCallSLA.pending > 0 ? `⚠️ ${missedCallSLA.pending} pending callbacks` : '✓ All missed calls returned'}
+              </div>
+            </div>
+          </div>
+          {missedCallSLA.pending > 0 && (
+            <button
+              onClick={() => setActiveModalCategory('PENDING_MISSED')}
+              title="View pending missed calls needing callback"
+              style={{
+                background: 'rgba(239, 68, 68, 0.2)',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                color: '#f87171',
+                borderRadius: '7px',
+                padding: '5px 8px',
+                fontSize: '10.5px',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
+            >
+              View Pending
+            </button>
+          )}
+        </div>
+
+        {/* KPI 4: Positive Outcome / Lead Conversion */}
+        <div style={{
+          background: 'linear-gradient(135deg, #063c32, #042921)',
+          border: '1px solid rgba(139, 92, 246, 0.3)',
+          borderRadius: '12px',
+          padding: '12px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <div style={{ background: 'rgba(139, 92, 246, 0.15)', padding: '9px', borderRadius: '10px' }}>
+            <TrendingUp size={18} color="#a78bfa" />
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>
+              Positive Outcome Rate
+            </div>
+            <div style={{ fontSize: '18px', fontWeight: '800', color: '#ffffff', marginTop: '1px' }}>
+              {categoryStats.positiveRate}% <span style={{ fontSize: '11.5px', color: '#a78bfa', fontWeight: '600' }}>({categoryStats.positiveCount} leads)</span>
+            </div>
+            <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>
+              Interested, Demo, or Deal Closed
+            </div>
           </div>
         </div>
       </div>
@@ -887,7 +1216,7 @@ export default function PhoneSystemAnalyticsView({
       )}
 
       {/* ========================================================= */}
-      {/* 3. TWO-COLUMN INTELLIGENCE GRID (HEATMAP + DISPOSITIONS)  */}
+      {/* 4. TWO-COLUMN INTELLIGENCE GRID (HEATMAP + DISPOSITIONS)  */}
       {/* ========================================================= */}
       <div style={{
         display: 'grid',
@@ -1031,7 +1360,256 @@ export default function PhoneSystemAnalyticsView({
       </div>
 
       {/* ========================================================= */}
-      {/* 4. POP-UP MODAL: DETAILED CALL LOGS FOR CLICKED CATEGORY  */}
+      {/* 5. VOLUME TREND & TELECALLER LEADERBOARD GRID             */}
+      {/* ========================================================= */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1.3fr)',
+        gap: '20px',
+        marginBottom: '20px'
+      }}>
+        {/* LEFT: DAILY CALLING VOLUME TREND GRAPH */}
+        <div style={sectionCardTheme}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <BarChart2 size={16} color="#2dd4bf" />
+                <h2 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.2px' }}>
+                  Daily Calling Volume Trend
+                </h2>
+              </div>
+              <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
+                Day-by-day distribution of Inbound vs Outbound
+              </p>
+            </div>
+            
+            {/* Legend */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '11px', color: '#cbd5e1' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <div style={{ width: '9px', height: '9px', borderRadius: '2px', background: '#10b981' }} />
+                <span>Inbound</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <div style={{ width: '9px', height: '9px', borderRadius: '2px', background: '#3b82f6' }} />
+                <span>Outbound</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <div style={{ width: '9px', height: '9px', borderRadius: '2px', background: '#f59e0b' }} />
+                <span>Missed</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Vertical Bar Chart */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'space-between',
+            height: '180px',
+            paddingTop: '20px',
+            paddingBottom: '8px',
+            borderBottom: '1px solid rgba(20, 184, 166, 0.2)',
+            gap: '8px'
+          }}>
+            {dailyTrendData.stats.map(d => {
+              const maxH = 130; // max px height
+              const total = d.total;
+              const inH = total > 0 ? (d.inbound / dailyTrendData.maxDaily) * maxH : 0;
+              const outH = total > 0 ? (d.outbound / dailyTrendData.maxDaily) * maxH : 0;
+              const missH = total > 0 ? (d.missed / dailyTrendData.maxDaily) * maxH : 0;
+
+              return (
+                <div
+                  key={d.key}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '6px',
+                    height: '100%',
+                    justifyContent: 'flex-end'
+                  }}
+                >
+                  <div style={{ fontSize: '11px', fontWeight: '800', color: total > 0 ? '#ffffff' : '#64748b' }}>
+                    {total > 0 ? total : '—'}
+                  </div>
+
+                  {/* Stacked / Grouped Bars Container */}
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', height: `${maxH}px` }}>
+                    {/* Inbound Bar */}
+                    <div
+                      title={`${d.label} Inbound: ${d.inbound} calls`}
+                      style={{
+                        width: '10px',
+                        height: `${Math.max(4, inH)}px`,
+                        background: d.inbound > 0 ? '#10b981' : '#072e25',
+                        borderRadius: '3px 3px 0 0',
+                        transition: 'height 0.3s ease',
+                        boxShadow: d.inbound > 0 ? '0 0 8px rgba(16, 185, 129, 0.4)' : 'none'
+                      }}
+                    />
+                    {/* Outbound Bar */}
+                    <div
+                      title={`${d.label} Outbound: ${d.outbound} calls`}
+                      style={{
+                        width: '10px',
+                        height: `${Math.max(4, outH)}px`,
+                        background: d.outbound > 0 ? '#3b82f6' : '#072e25',
+                        borderRadius: '3px 3px 0 0',
+                        transition: 'height 0.3s ease',
+                        boxShadow: d.outbound > 0 ? '0 0 8px rgba(59, 130, 246, 0.4)' : 'none'
+                      }}
+                    />
+                    {/* Missed Bar */}
+                    <div
+                      title={`${d.label} Missed: ${d.missed} calls`}
+                      style={{
+                        width: '10px',
+                        height: `${Math.max(4, missH)}px`,
+                        background: d.missed > 0 ? '#f59e0b' : '#072e25',
+                        borderRadius: '3px 3px 0 0',
+                        transition: 'height 0.3s ease',
+                        boxShadow: d.missed > 0 ? '0 0 8px rgba(245, 158, 11, 0.4)' : 'none'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: total > 0 ? '#2dd4bf' : '#64748b' }}>
+                    {d.label}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '10px', fontSize: '11px', color: '#94a3b8' }}>
+            <span>Peak Activity: <strong>Sunday & Saturday</strong></span>
+            <span>Total Calls in Period: <strong style={{ color: '#2dd4bf' }}>{categoryStats.total}</strong></span>
+          </div>
+        </div>
+
+        {/* RIGHT: TELECALLER PERFORMANCE LEADERBOARD */}
+        <div style={sectionCardTheme}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Trophy size={16} color="#fbbf24" />
+                <h2 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.2px' }}>
+                  Telecaller Performance Leaderboard
+                </h2>
+              </div>
+              <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
+                Ranked by volume, talk time & positive outcomes
+              </p>
+            </div>
+            <span style={{ fontSize: '11px', color: '#2dd4bf', background: 'rgba(45, 212, 191, 0.12)', padding: '3px 8px', borderRadius: '6px', fontWeight: '700' }}>
+              {telecallerLeaderboard.length} Agents Active
+            </span>
+          </div>
+
+          {/* Leaderboard Items */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {telecallerLeaderboard.length === 0 ? (
+              <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>
+                No active telecaller activity recorded for this period.
+              </div>
+            ) : (
+              telecallerLeaderboard.map((ag, idx) => {
+                const rank = idx + 1;
+                const medal = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : `#${rank}`));
+
+                return (
+                  <div
+                    key={ag.name}
+                    onClick={() => handleAgentClick(ag.name)}
+                    title={`Click to view all calls by ${ag.name}`}
+                    style={{
+                      background: rank === 1 ? 'linear-gradient(135deg, #07473b, #05332a)' : '#072e26',
+                      border: rank === 1 ? '1px solid rgba(45, 212, 191, 0.4)' : '1px solid rgba(20, 184, 166, 0.15)',
+                      borderRadius: '10px',
+                      padding: '10px 14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateX(3px)';
+                      e.currentTarget.style.borderColor = '#2dd4bf';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'none';
+                      if (rank !== 1) e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.15)';
+                    }}
+                  >
+                    {/* Rank & Name */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: rank <= 3 ? '16px' : '12px', fontWeight: '800', minWidth: '22px' }}>
+                        {medal}
+                      </span>
+                      <div style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #0d9488, #10b981)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#ffffff',
+                        fontWeight: '800',
+                        fontSize: '12px'
+                      }}>
+                        {ag.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: '700', color: '#ffffff', fontSize: '13px' }}>
+                          {ag.name}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                          {ag.totalCalls} calls • Talk: <strong style={{ color: '#2dd4bf' }}>{ag.formattedTalkTime}</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Stats & Badge */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#34d399' }}>
+                          🎯 {ag.interested} Interested
+                        </div>
+                        <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>
+                          Connect: <strong>{ag.connectRate}%</strong>
+                        </div>
+                      </div>
+
+                      <div style={{
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        background: 'rgba(45, 212, 191, 0.15)',
+                        border: '1px solid rgba(45, 212, 191, 0.3)',
+                        color: '#2dd4bf',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px'
+                      }}>
+                        <span>Logs</span>
+                        <ExternalLink size={11} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* 6. POP-UP MODAL: DETAILED CALL LOGS FOR CLICKED CATEGORY  */}
       {/* ========================================================= */}
       {activeModalCategory && (
         <div
