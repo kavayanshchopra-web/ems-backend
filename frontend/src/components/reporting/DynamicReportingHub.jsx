@@ -665,34 +665,27 @@ export default function DynamicReportingHub({
       <div
         style={{
           background: 'linear-gradient(135deg, #064e3b 0%, #0d9488 100%)',
-          padding: '16px 24px',
+          padding: '10px 24px',
           color: '#ffffff',
           boxShadow: '0 2px 8px rgba(6, 78, 59, 0.15)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '16px'
+          gap: '12px'
         }}
       >
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ background: 'rgba(255,255,255,0.18)', padding: '6px', borderRadius: '8px' }}>
-              <BarChart2 size={22} color="#a7f3d0" />
-            </div>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', letterSpacing: '-0.3px', color: '#ffffff' }}>
-                Reporting & Analytics Hub
-              </h2>
-              <p style={{ margin: 0, fontSize: '12px', color: '#a7f3d0', opacity: 0.9 }}>
-                Dynamic schema-driven business intelligence, agent leaderboards & conversion metrics
-              </p>
-            </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+          <div style={{ background: 'rgba(255,255,255,0.18)', padding: '5px', borderRadius: '7px' }}>
+            <BarChart2 size={18} color="#a7f3d0" />
           </div>
+          <span style={{ fontSize: '16px', fontWeight: '800', letterSpacing: '-0.3px', color: '#ffffff' }}>
+            Reports & Analytics
+          </span>
         </div>
 
         {/* 4 Dedicated Module Switcher Tabs (In sync with sidebar) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.22)', padding: '4px', borderRadius: '10px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(0,0,0,0.22)', padding: '3px', borderRadius: '9px', flexWrap: 'wrap' }}>
           <button
             type="button"
             onClick={() => handleSwitchModule('telephony')}
@@ -700,8 +693,8 @@ export default function DynamicReportingHub({
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '6px 14px',
-              borderRadius: '8px',
+              padding: '5px 13px',
+              borderRadius: '7px',
               border: 'none',
               background: activeModule === 'telephony' ? '#ffffff' : 'transparent',
               color: activeModule === 'telephony' ? '#064e3b' : '#d1fae5',
@@ -711,7 +704,7 @@ export default function DynamicReportingHub({
               transition: 'all 0.15s ease'
             }}
           >
-            <PhoneCall size={14} />
+            <PhoneCall size={13} />
             <span>Phone System</span>
           </button>
 
@@ -722,8 +715,8 @@ export default function DynamicReportingHub({
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '6px 14px',
-              borderRadius: '8px',
+              padding: '5px 13px',
+              borderRadius: '7px',
               border: 'none',
               background: activeModule === 'crm' ? '#ffffff' : 'transparent',
               color: activeModule === 'crm' ? '#064e3b' : '#d1fae5',
@@ -733,7 +726,7 @@ export default function DynamicReportingHub({
               transition: 'all 0.15s ease'
             }}
           >
-            <Layers size={14} />
+            <Layers size={13} />
             <span>CRM Sales</span>
           </button>
 
@@ -744,8 +737,8 @@ export default function DynamicReportingHub({
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '6px 14px',
-              borderRadius: '8px',
+              padding: '5px 13px',
+              borderRadius: '7px',
               border: 'none',
               background: activeModule === 'cross' ? '#ffffff' : 'transparent',
               color: activeModule === 'cross' ? '#064e3b' : '#d1fae5',
@@ -755,7 +748,7 @@ export default function DynamicReportingHub({
               transition: 'all 0.15s ease'
             }}
           >
-            <Share2 size={14} />
+            <Share2 size={13} />
             <span>Cross-Analytics</span>
           </button>
 
@@ -766,8 +759,8 @@ export default function DynamicReportingHub({
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '6px 14px',
-              borderRadius: '8px',
+              padding: '5px 13px',
+              borderRadius: '7px',
               border: 'none',
               background: activeModule === 'builder' ? '#ffffff' : 'transparent',
               color: activeModule === 'builder' ? '#064e3b' : '#d1fae5',
@@ -777,33 +770,35 @@ export default function DynamicReportingHub({
               transition: 'all 0.15s ease'
             }}
           >
-            <Sliders size={14} />
+            <Sliders size={13} />
             <span>Report Builder</span>
           </button>
         </div>
 
         {/* Action Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button
-            type="button"
-            onClick={exportToCsv}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '6px 12px',
-              borderRadius: '7px',
-              background: 'rgba(255,255,255,0.18)',
-              border: '1px solid rgba(255,255,255,0.3)',
-              color: '#ffffff',
-              fontSize: '11.5px',
-              fontWeight: '700',
-              cursor: 'pointer'
-            }}
-          >
-            <Download size={13} />
-            <span>Export CSV</span>
-          </button>
+          {activeModule !== 'telephony' && (
+            <button
+              type="button"
+              onClick={exportToCsv}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '5px 11px',
+                borderRadius: '7px',
+                background: 'rgba(255,255,255,0.18)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                color: '#ffffff',
+                fontSize: '11.5px',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
+            >
+              <Download size={13} />
+              <span>Export CSV</span>
+            </button>
+          )}
 
           {onOpenModuleConfig && (
             <button

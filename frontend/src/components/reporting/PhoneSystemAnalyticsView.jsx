@@ -662,65 +662,42 @@ export default function PhoneSystemAnalyticsView({
       boxSizing: 'border-box'
     }}>
       {/* ========================================================= */}
-      {/* 1. TOP HEADER & FILTER BAR                                */}
+      {/* 1. SLIM & CLEAN CONTROL TOOLBAR (No redundant heavy header) */}
       {/* ========================================================= */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: '16px',
-        marginBottom: '20px',
-        paddingBottom: '16px',
-        borderBottom: '1px solid rgba(20, 184, 166, 0.2)'
+        gap: '12px',
+        marginBottom: '16px',
+        paddingBottom: '12px',
+        borderBottom: '1px solid rgba(20, 184, 166, 0.15)'
       }}>
-        {/* Left Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #0d9488, #065f46)',
-            display: 'flex',
+        {/* Left: Clean status pill and live indicator */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{
+            fontSize: '11px',
+            fontWeight: '700',
+            padding: '3px 8px',
+            borderRadius: '8px',
+            background: 'rgba(16, 185, 129, 0.15)',
+            color: '#34d399',
+            border: '1px solid rgba(52, 211, 153, 0.25)',
+            display: 'inline-flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 8px 16px rgba(13, 148, 136, 0.3)',
-            border: '1px solid rgba(45, 212, 191, 0.3)'
+            gap: '5px'
           }}>
-            <Activity size={22} color="#ffffff" />
-          </div>
-          <div>
-            <h1 style={{
-              margin: 0,
-              fontSize: '20px',
-              fontWeight: '800',
-              color: '#ffffff',
-              letterSpacing: '-0.3px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px'
-            }}>
-              Phone System Analytics & Call Intelligence
-              <span style={{
-                fontSize: '11px',
-                fontWeight: '700',
-                padding: '3px 8px',
-                borderRadius: '12px',
-                background: 'rgba(16, 185, 129, 0.15)',
-                color: '#34d399',
-                border: '1px solid rgba(52, 211, 153, 0.3)'
-              }}>
-                ● LIVE SYNC
-              </span>
-            </h1>
-            <p style={{ margin: '3px 0 0 0', fontSize: '12.5px', color: '#94a3b8' }}>
-              Click any card below to open the complete call log pop-up for that category.
-            </p>
-          </div>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34d399', boxShadow: '0 0 6px #34d399' }} />
+            LIVE TELEPHONY
+          </span>
+          <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+            ({categoryStats.total} total calls recorded)
+          </span>
         </div>
 
-        {/* Right Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        {/* Right Controls: Telecaller filter, Period switcher, Single Export */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {/* Agent Filter Selector */}
           {employees.length > 0 && (
             <div style={{
@@ -728,11 +705,11 @@ export default function PhoneSystemAnalyticsView({
               alignItems: 'center',
               gap: '6px',
               background: '#06352b',
-              borderRadius: '9px',
-              padding: '5px 10px',
+              borderRadius: '8px',
+              padding: '4px 10px',
               border: '1px solid rgba(20, 184, 166, 0.25)'
             }}>
-              <Users size={14} color="#2dd4bf" />
+              <Users size={13} color="#2dd4bf" />
               <select
                 value={selectedAgent}
                 onChange={(e) => setSelectedAgent(e.target.value)}
@@ -740,7 +717,7 @@ export default function PhoneSystemAnalyticsView({
                   background: 'transparent',
                   border: 'none',
                   color: '#e2e8f0',
-                  fontSize: '12.5px',
+                  fontSize: '12px',
                   fontWeight: '600',
                   outline: 'none',
                   cursor: 'pointer'
@@ -760,8 +737,8 @@ export default function PhoneSystemAnalyticsView({
           <div style={{
             display: 'flex',
             background: '#06352b',
-            borderRadius: '9px',
-            padding: '3px',
+            borderRadius: '8px',
+            padding: '2px',
             border: '1px solid rgba(20, 184, 166, 0.25)'
           }}>
             {[
@@ -779,9 +756,9 @@ export default function PhoneSystemAnalyticsView({
                     background: active ? '#0d9488' : 'transparent',
                     color: active ? '#ffffff' : '#94a3b8',
                     border: 'none',
-                    padding: '6px 12px',
-                    borderRadius: '7px',
-                    fontSize: '12px',
+                    padding: '5px 11px',
+                    borderRadius: '6px',
+                    fontSize: '11.5px',
                     fontWeight: active ? '700' : '500',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease'
@@ -799,19 +776,19 @@ export default function PhoneSystemAnalyticsView({
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
+              gap: '5px',
               background: '#06352b',
               color: '#2dd4bf',
               border: '1px solid rgba(20, 184, 166, 0.3)',
-              borderRadius: '9px',
-              padding: '7px 13px',
-              fontSize: '12.5px',
+              borderRadius: '8px',
+              padding: '5px 11px',
+              fontSize: '12px',
               fontWeight: '700',
               cursor: 'pointer',
               transition: 'all 0.15s ease'
             }}
           >
-            <Download size={14} />
+            <Download size={13} />
             <span>Export CSV</span>
           </button>
         </div>
