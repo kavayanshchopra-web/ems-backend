@@ -33,7 +33,11 @@ import {
   PhoneForwarded,
   BarChart2,
   CheckCircle2,
-  Calendar
+  Calendar,
+  MessageSquare,
+  Play,
+  Square,
+  Volume2
 } from 'lucide-react';
 
 const DAYS_OF_WEEK = [
@@ -165,15 +169,22 @@ export default function PhoneSystemAnalyticsView({
   // Dashboard Category Filter (updates Heatmap & Dispositions)
   const [selectedCategory, setSelectedCategory] = useState('ALL');
 
-  // Pop-up Modal State: null | 'ALL' | 'INCOMING' | 'OUTGOING' | 'MISSED' | 'NOT_CONNECTED' | 'PENDING_MISSED' | 'AGENT:name'
+  // Pop-up Modal State: null | 'ALL' | 'INCOMING' | 'OUTGOING' | 'MISSED' | 'NOT_CONNECTED' | 'PENDING_MISSED' | 'AGENT:name' | 'DISPOSITION:name' | 'HEATMAP:day_hour'
   const [activeModalCategory, setActiveModalCategory] = useState(null);
   const [modalSearchQuery, setModalSearchQuery] = useState('');
 
-  // Close modal on Escape key
+  // Audio Playback state inside Modal (Zero page lag)
+  const [activeAudioLog, setActiveAudioLog] = useState(null);
+
+  // Interactive Heatmap hover state
+  const [hoveredHeatmapCell, setHoveredHeatmapCell] = useState(null);
+
+  // Close modal on Escape key & reset audio
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         setActiveModalCategory(null);
+        setActiveAudioLog(null);
       }
     };
     if (activeModalCategory) {
@@ -494,9 +505,35 @@ export default function PhoneSystemAnalyticsView({
       });
     }
 
+    if (String(activeModalCategory).startsWith('DISPOSITION:')) {
+      const targetDisp = activeModalCategory.replace('DISPOSITION:', '').trim();
+      return baseFilteredLogs.filter(c => {
+        const raw = String(c.status || c.disposition || '').toLowerCase();
+        if (targetDisp === 'Interested') return raw.includes('interest') && !raw.includes('not');
+        if (targetDisp === 'Demo Scheduled') return raw.includes('demo') || raw.includes('meeting');
+        if (targetDisp === 'Follow-up') return raw.includes('follow') || raw.includes('queue');
+        if (targetDisp === 'Deal Closed') return raw.includes('closed') || raw.includes('won');
+        if (targetDisp === 'Missed / No Answer') return raw.includes('not answer') || raw.includes('miss') || raw.includes('busy');
+        if (targetDisp === 'Not Interested') return raw.includes('not') || raw.includes('reject');
+        return raw.includes(targetDisp.toLowerCase());
+      });
+    }
+
+    if (String(activeModalCategory).startsWith('HEATMAP:')) {
+      const parts = activeModalCategory.replace('HEATMAP:', '').split('_');
+      const day = parseInt(parts[0], 10);
+      const hour = parseInt(parts[1], 10);
+      return categoryFilteredLogs.filter(c => {
+        const timeVal = c.call_time || c.callTime || c.created_at || c.timestamp;
+        if (!timeVal) return false;
+        const dt = new Date(timeVal);
+        return dt.getDay() === day && dt.getHours() === hour;
+      });
+    }
+
     if (activeModalCategory === 'ALL') return baseFilteredLogs;
     return baseFilteredLogs.filter(c => getCallCategory(c) === activeModalCategory);
-  }, [baseFilteredLogs, activeModalCategory, missedCallSLA]);
+  }, [baseFilteredLogs, categoryFilteredLogs, activeModalCategory, missedCallSLA]);
 
   const modalFilteredCalls = useMemo(() => {
     let list = [...modalCategoryCalls];
@@ -607,6 +644,31 @@ export default function PhoneSystemAnalyticsView({
       };
     }
 
+    if (String(cat).startsWith('DISPOSITION:')) {
+      const dispName = cat.replace('DISPOSITION:', '');
+      const cfg = DISPOSITION_CONFIG.find(c => c.name === dispName) || { icon: '🎯', color: '#10b981', bg: '#ecfdf5' };
+      return {
+        title: `Disposition: ${dispName} Leads`,
+        icon: <span style={{ fontSize: '18px' }}>{cfg.icon}</span>,
+        badgeColor: cfg.color,
+        badgeBg: cfg.bg,
+        desc: `Calls categorized with outcome: ${dispName}`
+      };
+    }
+
+    if (String(cat).startsWith('HEATMAP:')) {
+      const parts = cat.replace('HEATMAP:', '').split('_');
+      const dayObj = DAYS_OF_WEEK.find(d => d.key === parseInt(parts[0], 10)) || { label: 'Day' };
+      const hourObj = HOURS.find(h => h.hour === parseInt(parts[1], 10)) || { label: 'Hour' };
+      return {
+        title: `Calls at ${dayObj.label} ${hourObj.label}`,
+        icon: <Clock size={18} color="#0d9488" />,
+        badgeColor: '#0d9488',
+        badgeBg: '#f0fdf4',
+        desc: `Drill-down call logs recorded during ${dayObj.label} around ${hourObj.label}`
+      };
+    }
+
     switch (cat) {
       case 'INCOMING':
         return {
@@ -699,7 +761,7 @@ export default function PhoneSystemAnalyticsView({
 
         {/* Right Controls: Telecaller filter, Period switcher, Single Export */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          {/* Agent Filter Selector */}
+            {/* Agent Filter Selector */}
           {employees.length > 0 && (
             <div style={{
               display: 'flex',
@@ -732,6 +794,31 @@ export default function PhoneSystemAnalyticsView({
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+
+          {/* Active Agent Filter Chip */}
+          {selectedAgent !== 'ALL' && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: '#ecfdf5',
+              border: '1px solid #a7f3d0',
+              color: '#065f46',
+              padding: '4px 10px',
+              borderRadius: '8px',
+              fontSize: '11.5px',
+              fontWeight: '700'
+            }}>
+              <span>👤 {selectedAgent} ({categoryStats.total} calls)</span>
+              <button
+                onClick={() => setSelectedAgent('ALL')}
+                style={{ background: 'transparent', border: 'none', color: '#065f46', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                title="Reset agent filter"
+              >
+                <X size={12} />
+              </button>
             </div>
           )}
 
@@ -810,7 +897,6 @@ export default function PhoneSystemAnalyticsView({
         {/* CARD 1: ALL CALLS */}
         <div
           onClick={() => handleCardClick('ALL')}
-          title="Click to open pop-up modal with all call records"
           style={{
             ...kpiCardWhiteTheme,
             borderLeft: '4px solid #0d9488',
@@ -848,7 +934,6 @@ export default function PhoneSystemAnalyticsView({
         {/* CARD 2: INBOUND / INCOMING CALLS */}
         <div
           onClick={() => handleCardClick('INCOMING')}
-          title="Click to open pop-up modal with inbound calls"
           style={{
             ...kpiCardWhiteTheme,
             borderLeft: '4px solid #10b981',
@@ -886,7 +971,6 @@ export default function PhoneSystemAnalyticsView({
         {/* CARD 3: OUTBOUND CONNECTED CALLS */}
         <div
           onClick={() => handleCardClick('OUTGOING')}
-          title="Click to open pop-up modal with outbound connected calls"
           style={{
             ...kpiCardWhiteTheme,
             borderLeft: '4px solid #3b82f6',
@@ -924,7 +1008,6 @@ export default function PhoneSystemAnalyticsView({
         {/* CARD 4: MISSED CALLS */}
         <div
           onClick={() => handleCardClick('MISSED')}
-          title="Click to open pop-up modal with missed calls"
           style={{
             ...kpiCardWhiteTheme,
             borderLeft: '4px solid #f59e0b',
@@ -962,7 +1045,6 @@ export default function PhoneSystemAnalyticsView({
         {/* CARD 5: OUTBOUND NOT CONNECTED / UNANSWERED */}
         <div
           onClick={() => handleCardClick('NOT_CONNECTED')}
-          title="Click to open pop-up modal with unanswered / busy dials"
           style={{
             ...kpiCardWhiteTheme,
             borderLeft: '4px solid #ef4444',
@@ -1272,7 +1354,14 @@ export default function PhoneSystemAnalyticsView({
                       return (
                         <td
                           key={h.hour}
-                          title={`${d.label} at ${h.label}: ${count} calls`}
+                          onClick={() => {
+                            if (count > 0) {
+                              setActiveModalCategory(`HEATMAP:${d.key}_${h.hour}`);
+                              setModalSearchQuery('');
+                            }
+                          }}
+                          onMouseEnter={() => setHoveredHeatmapCell({ day: d.label, hour: h.label, count })}
+                          onMouseLeave={() => setHoveredHeatmapCell(null)}
                           style={{
                             height: '32px',
                             borderRadius: '5px',
@@ -1281,6 +1370,7 @@ export default function PhoneSystemAnalyticsView({
                             border: cellBorder,
                             fontSize: '11px',
                             fontWeight: '700',
+                            cursor: count > 0 ? 'pointer' : 'default',
                             transition: 'all 0.15s ease'
                           }}
                         >
@@ -1293,6 +1383,33 @@ export default function PhoneSystemAnalyticsView({
               </tbody>
             </table>
           </div>
+
+          {/* Interactive Heatmap Inspector Bar */}
+          {hoveredHeatmapCell && hoveredHeatmapCell.count > 0 ? (
+            <div style={{
+              marginTop: '12px',
+              padding: '6px 12px',
+              background: '#0f172a',
+              color: '#ffffff',
+              borderRadius: '8px',
+              fontSize: '11.5px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              animation: 'fadeIn 0.2s ease'
+            }}>
+              <span>
+                <strong>{hoveredHeatmapCell.day} {hoveredHeatmapCell.hour}:</strong>{' '}
+                <span style={{ color: '#2dd4bf', fontWeight: '800' }}>{hoveredHeatmapCell.count} calls recorded</span>
+              </span>
+              <span style={{ color: '#94a3b8', fontSize: '11px' }}>Click cell to inspect call records ↗</span>
+            </div>
+          ) : (
+            <div style={{ marginTop: '10px', fontSize: '11px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span>💡</span>
+              <span>Click on any cell with call numbers to inspect exact records for that hour.</span>
+            </div>
+          )}
         </div>
 
         {/* RIGHT: CALL DISPOSITION BREAKDOWN */}
@@ -1311,13 +1428,40 @@ export default function PhoneSystemAnalyticsView({
             </span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '6px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
             {dispositionBreakdown.map(item => (
-              <div key={item.name} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div
+                key={item.name}
+                onClick={() => {
+                  setActiveModalCategory(`DISPOSITION:${item.name}`);
+                  setModalSearchQuery('');
+                }}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  padding: '7px 10px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  border: '1px solid transparent',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#f8fafc';
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.borderColor = 'transparent';
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span>{item.icon}</span>
                     <span style={{ fontWeight: '700', color: '#1e293b' }}>{item.name}</span>
+                    <span style={{ fontSize: '10px', color: '#0d9488', fontWeight: '700', background: '#f0fdf4', padding: '1px 5px', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
+                      view ↗
+                    </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ fontSize: '11px', color: '#64748b' }}>{item.count} calls</span>
@@ -1779,13 +1923,15 @@ export default function PhoneSystemAnalyticsView({
                     <th style={{ padding: '10px 12px' }}>Call Category</th>
                     <th style={{ padding: '10px 12px' }}>Duration</th>
                     <th style={{ padding: '10px 12px' }}>Disposition</th>
-                    <th style={{ padding: '10px 16px' }}>Date & Time</th>
+                    <th style={{ padding: '10px 12px' }}>Recording</th>
+                    <th style={{ padding: '10px 14px' }}>Date & Time</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'right' }}>Quick Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {modalFilteredCalls.length === 0 ? (
                     <tr>
-                      <td colSpan={6} style={{ padding: '40px 20px', textAlign: 'center', color: '#64748b' }}>
+                      <td colSpan={8} style={{ padding: '40px 20px', textAlign: 'center', color: '#64748b' }}>
                         <div style={{ fontSize: '14px', fontWeight: '600', color: '#0f172a' }}>
                           No call records found
                         </div>
@@ -1810,6 +1956,11 @@ export default function PhoneSystemAnalyticsView({
                       const dispColor = dispName.toLowerCase().includes('interest') ? '#059669' : (dispName.toLowerCase().includes('demo') ? '#2563eb' : (dispName.toLowerCase().includes('miss') ? '#d97706' : '#dc2626'));
                       const dispBg = dispName.toLowerCase().includes('interest') ? '#ecfdf5' : (dispName.toLowerCase().includes('demo') ? '#eff6ff' : (dispName.toLowerCase().includes('miss') ? '#fffbeb' : '#fef2f2'));
                       const dispBorder = dispName.toLowerCase().includes('interest') ? '#a7f3d0' : (dispName.toLowerCase().includes('demo') ? '#bfdbfe' : (dispName.toLowerCase().includes('miss') ? '#fde68a' : '#fecaca'));
+
+                      const audioSrc = log.recording_url || log.audio_url || log.media_url || log.call_recording || log.recording || log.voice_url;
+                      const rawPhone = String(log.phone || log.caller_number || '').trim();
+                      const cleanPhone = rawPhone.replace(/\D/g, '');
+                      const logKey = log.id || `${log.phone}_${log.call_time}`;
 
                       return (
                         <tr
@@ -1871,9 +2022,100 @@ export default function PhoneSystemAnalyticsView({
                             </span>
                           </td>
 
+                          {/* Audio Recording */}
+                          <td style={{ padding: '11px 12px' }}>
+                            {audioSrc ? (
+                              <button
+                                onClick={() => {
+                                  if (activeAudioLog?.id === logKey) {
+                                    setActiveAudioLog(null);
+                                  } else {
+                                    setActiveAudioLog({
+                                      id: logKey,
+                                      name: log.name || log.customer_name || 'Customer',
+                                      phone: rawPhone,
+                                      agentName: log.agent_name || log.agentName || 'Agent',
+                                      src: audioSrc
+                                    });
+                                  }
+                                }}
+                                style={{
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  background: activeAudioLog?.id === logKey ? '#0d9488' : '#ecfdf5',
+                                  border: '1px solid #a7f3d0',
+                                  color: activeAudioLog?.id === logKey ? '#ffffff' : '#059669',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {activeAudioLog?.id === logKey ? <Square size={10} fill="currentColor" /> : <Play size={10} fill="currentColor" />}
+                                <span>{activeAudioLog?.id === logKey ? 'Playing' : 'Listen'}</span>
+                              </button>
+                            ) : (
+                              <span style={{ color: '#94a3b8', fontSize: '11px' }}>—</span>
+                            )}
+                          </td>
+
                           {/* Formatted Date & Time */}
-                          <td style={{ padding: '11px 16px', fontSize: '12px', color: '#64748b' }}>
+                          <td style={{ padding: '11px 14px', fontSize: '12px', color: '#64748b' }}>
                             {formatDateTime(log.call_time || log.callTime || log.created_at || log.timestamp)}
+                          </td>
+
+                          {/* 1-Click Quick Actions */}
+                          <td style={{ padding: '11px 16px', textAlign: 'right' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              {cleanPhone && (
+                                <a
+                                  href={`https://wa.me/${cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone}?text=${encodeURIComponent(`Hi ${log.name || log.customer_name || 'there'}, regarding our recent conversation...`)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="Send WhatsApp message"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '4px 8px',
+                                    borderRadius: '6px',
+                                    background: '#ecfdf5',
+                                    border: '1px solid #a7f3d0',
+                                    color: '#059669',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    textDecoration: 'none'
+                                  }}
+                                >
+                                  <MessageSquare size={11} />
+                                  <span>WhatsApp</span>
+                                </a>
+                              )}
+                              {rawPhone && (
+                                <a
+                                  href={`tel:${rawPhone}`}
+                                  title="Direct dial"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '4px 8px',
+                                    borderRadius: '6px',
+                                    background: '#eff6ff',
+                                    border: '1px solid #bfdbfe',
+                                    color: '#2563eb',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    textDecoration: 'none'
+                                  }}
+                                >
+                                  <PhoneCall size={11} />
+                                  <span>Call</span>
+                                </a>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1882,6 +2124,56 @@ export default function PhoneSystemAnalyticsView({
                 </tbody>
               </table>
             </div>
+
+            {/* Embedded Mini Audio Player Banner */}
+            {activeAudioLog && (
+              <div style={{
+                padding: '10px 20px',
+                background: '#0f172a',
+                color: '#ffffff',
+                borderTop: '1px solid #334155',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '16px',
+                flexWrap: 'wrap'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ background: '#14b8a6', padding: '6px', borderRadius: '50%', color: '#ffffff' }}>
+                    <Volume2 size={15} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: '700', color: '#f8fafc' }}>
+                      Audio Recording: {activeAudioLog.name}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                      {activeAudioLog.phone} • Telecaller: {activeAudioLog.agentName}
+                    </div>
+                  </div>
+                </div>
+                <audio
+                  src={activeAudioLog.src}
+                  controls
+                  autoPlay
+                  style={{ height: '32px', maxWidth: '360px' }}
+                />
+                <button
+                  onClick={() => setActiveAudioLog(null)}
+                  style={{
+                    background: '#334155',
+                    border: 'none',
+                    color: '#ffffff',
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ✕ Close Audio
+                </button>
+              </div>
+            )}
 
             {/* Modal Footer */}
             <div style={{
