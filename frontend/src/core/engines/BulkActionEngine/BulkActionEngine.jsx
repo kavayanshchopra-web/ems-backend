@@ -55,10 +55,6 @@ export default function BulkActionEngine({
   const [selectedStage, setSelectedStage] = useState('');
   const [newTag, setNewTag] = useState('');
 
-  if (!selectedIds || selectedIds.length === 0) {
-    return null; // Hidden when no records are selected
-  }
-
   // Check if current module is CRM / Contacts
   const modId = String(moduleConfig.moduleId || moduleConfig.id || '').toLowerCase();
   const cat = String(moduleConfig.category || '').toLowerCase();
@@ -323,6 +319,10 @@ export default function BulkActionEngine({
   };
 
   const isAllTotalSelected = selectedIds.length === records.length && records.length > 0;
+
+  if (!selectedIds || selectedIds.length === 0) {
+    return null; // Hidden when no records are selected
+  }
 
   return (
     <>
