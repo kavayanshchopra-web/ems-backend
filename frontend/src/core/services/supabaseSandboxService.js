@@ -653,15 +653,48 @@ export const SupabaseSandboxService = {
     }
   },
 
-  async deleteContact(id, tenantId = 1) {
+  async deleteContact(id, tenantId = 1, phone = null) {
     try {
-      const res = await fetch(`${SUPABASE_URL}/contacts?id=eq.${id}&tenant_id=eq.${Number(tenantId)}`, {
-        method: 'DELETE',
-        headers: getHeaders()
+      const numTenant = Number(tenantId) || 1;
+      const cleanId = String(id || '').trim();
+      let ok = false;
+      if (cleanId) {
+        const res = await fetch(`${SUPABASE_URL}/contacts?id=eq.${encodeURIComponent(cleanId)}&tenant_id=eq.${numTenant}`, {
+          method: 'DELETE',
+          headers: getHeaders()
+        });
+        ok = res.ok;
+      }
+      if (phone) {
+        const cleanDigits = String(phone).replace(/\D/g, '');
+        if (cleanDigits.length >= 7) {
+          const norm10 = cleanDigits.slice(-10);
+          await fetch(`${SUPABASE_URL}/contacts?phone=ilike.*${norm10}*&tenant_id=eq.${numTenant}`, {
+            method: 'DELETE',
+            headers: getHeaders()
+          }).catch(() => {});
+        }
+      }
+      return ok;
+    } catch (err) {
+      console.error('[Supabase Sandbox] deleteContact error:', err);
+      return false;
+    }
+  },
+
+  async archiveContact(id, tenantId = 1, isArchived = true) {
+    try {
+      const numTenant = Number(tenantId) || 1;
+      const cleanId = String(id || '').trim();
+      if (!cleanId) return false;
+      const res = await fetch(`${SUPABASE_URL}/contacts?id=eq.${encodeURIComponent(cleanId)}&tenant_id=eq.${numTenant}`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify({ is_archived: Boolean(isArchived), updated_at: new Date().toISOString() })
       });
       return res.ok;
     } catch (err) {
-      console.error('[Supabase Sandbox] deleteContact error:', err);
+      console.error('[Supabase Sandbox] archiveContact error:', err);
       return false;
     }
   },

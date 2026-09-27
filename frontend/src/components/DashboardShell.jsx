@@ -2083,7 +2083,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     const cached = TenantStorage.getItem('contacts', tId, []);
     return (cached || []).filter(c => {
       const cT = String(c.tenant_id ?? c.tenantId ?? '');
-      return cT && cT === String(tId);
+      const isArchived = c.is_archived === 1 || c.is_archived === true || c.archived === true;
+      return cT && cT === String(tId) && !isArchived;
     });
   });
   const [activeContact, setActiveContact] = useState(null);
@@ -4839,11 +4840,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     const targetId = originalId || id || (entityData && entityData.id);
     const currentTenantId = authUser?.tenantId || authUser?.companyId || 'acme_corp';
     const currentTenantName = authUser?.companyName || (currentTenantId === 'platform_superadmin' ? 'SaaS Platform Admin' : 'Acme Corp');
+    const isContactItem = (moduleTab || '').toLowerCase().includes('contact') || (category || '').toLowerCase().includes('contact') || (category || '').toLowerCase().includes('lead');
+    const resolvedModuleTab = moduleTab || (isContactItem ? 'contacts' : 'employees');
     const itemPayload = {
       originalId: targetId || `item_${Date.now()}`,
       name: name || (entityData && (entityData.name || entityData.title)) || 'Untitled Record',
-      category: category || 'General Item',
-      moduleTab: moduleTab || 'employees',
+      category: category || (isContactItem ? 'Contacts & Leads' : 'General Item'),
+      moduleTab: resolvedModuleTab,
+      type: resolvedModuleTab,
       deletedBy: authUser?.name || authUser?.email?.split('@')[0] || 'System User',
       deletedByEmail: authUser?.email || 'user@company.com',
       tenantId: currentTenantId,
@@ -4854,14 +4858,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     // 1. Move to Trash Vault
     const newItem = TrashVaultEngine.moveToTrash(currentTenantId, itemPayload);
     setRecycleBinItems(TrashVaultEngine.getVaultItems('all'));
-    // 2. Save to recycle_bin and DELETE from active Firestore collection
+    // 2. Save to recycle_bin and DELETE from active Firestore collection / Supabase
     try {
-      if (db) {
+      if (isSandboxEnvironment() && isContactItem && targetId) {
+        const numTenant = Number(currentTenantId) || 1;
+        SupabaseSandboxService.deleteContact(targetId, numTenant, entityData?.phone).catch(() => {});
+      } else if (db) {
         if (newItem && newItem.id) {
           await setDoc(doc(db, 'recycle_bin', newItem.id), newItem);
         }
         if (targetId) {
-          const modCol = (moduleTab || 'employees').toLowerCase();
+          const modCol = (resolvedModuleTab || 'employees').toLowerCase();
           await deleteDoc(doc(db, modCol, targetId.toString()));
           await deleteDoc(doc(db, 'employees', targetId.toString()));
         }
@@ -4884,7 +4891,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         }).catch(() => {});
       } catch (e) {}
 
-      setContacts(prev => (prev || []).filter(c => !!c).map(c => String(c?.id) === String(targetId) ? { ...c, is_archived: 1 } : c));
+      setContacts(prev => {
+        const remaining = (prev || []).filter(c => c && String(c.id) !== String(targetId) && String(c.originalId) !== String(targetId));
+        try { TenantStorage.setItem('contacts', remaining, activeTenantKey); } catch (err) {}
+        return remaining;
+      });
 
       setEmployees(prev => {
         const updated = (prev || []).filter(emp => emp && String(emp.id) !== String(targetId));
@@ -5059,7 +5070,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         try { TenantStorage.setItem('contacts', updated, activeTenantKey); } catch (e) {}
         return updated;
       });
-      FirebaseCloudEngine.saveRecord('crm_leads', cleanRec, currentTenantId);
+      if (isSandboxEnvironment()) {
+        const numTenant = Number(currentTenantId) || 1;
+        SupabaseSandboxService.createContact(cleanRec, numTenant).catch(() => {});
+      } else {
+        FirebaseCloudEngine.saveRecord('crm_leads', cleanRec, currentTenantId);
+      }
     }
     if (item.id) TrashVaultEngine.restoreItem(binTenantTarget, item.id);
     if (cleanId) TrashVaultEngine.restoreItem(binTenantTarget, cleanId);
@@ -6103,9 +6119,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         const sbContacts = await SupabaseSandboxService.fetchContacts(currentTenantId);
         const strictlyTenant = (sbContacts || []).filter(c => {
           const cT = String(c.tenant_id ?? c.tenantId ?? '');
-          return cT && cT === String(currentTenantId);
+          const isArchived = c.is_archived === 1 || c.is_archived === true || c.archived === true;
+          return cT && cT === String(currentTenantId) && !isArchived;
         });
         setContacts(strictlyTenant);
+        try { TenantStorage.setItem('contacts', strictlyTenant, currentTenantId); } catch (e) {}
         return;
       }
       const token = localStorage.getItem('omnilflow_token');

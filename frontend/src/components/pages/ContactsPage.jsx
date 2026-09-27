@@ -78,6 +78,7 @@ export default function ContactsPage({
 
   const isContactVisibleToUser = (r) => {
     if (!r) return false;
+    if (r.is_archived === 1 || r.is_archived === true || r.archived === true) return false;
     const itemTenant = String(r.tenant_id ?? r.tenantId ?? '');
     if (itemTenant && itemTenant !== companyId) return false;
 
@@ -323,7 +324,8 @@ export default function ContactsPage({
         .then(sbContacts => {
           const tenantMatches = (sbContacts || []).filter(r => {
             const itemTenant = String(r.tenant_id ?? r.tenantId ?? '');
-            return itemTenant && itemTenant === String(safeTenant);
+            const isArchived = r.is_archived === 1 || r.is_archived === true || r.archived === true;
+            return itemTenant && itemTenant === String(safeTenant) && !isArchived;
           });
           TenantStorage.setItem('contacts', tenantMatches, safeTenant);
           const scoped = tenantMatches.filter(isContactVisibleToUser);
@@ -567,45 +569,79 @@ export default function ContactsPage({
   };
 
   // Soft Delete / Move to Recycle Bin
-  const handleSoftDelete = async (recordOrId) => {
-    const targetId = typeof recordOrId === 'object' ? (recordOrId.id || recordOrId.originalId) : recordOrId;
-    if (!targetId) return;
+  const handleSoftDelete = async (recordOrId, silent = false) => {
+    const rawTargetId = typeof recordOrId === 'object' ? (recordOrId.id || recordOrId.originalId) : recordOrId;
+    if (!rawTargetId) return;
+
+    // Find the record from internalRecords
+    const rec = (internalRecords || []).find(r => 
+      r && (String(r.id) === String(rawTargetId) || String(r.displayId) === String(rawTargetId) || String(r.originalId) === String(rawTargetId))
+    ) || (typeof recordOrId === 'object' ? recordOrId : { id: rawTargetId });
+
+    const safeTenant = Number(companyId) || 1;
+    const trueId = rec.id || rawTargetId;
 
     if (isSandboxEnvironment()) {
-      const safeTenant = Number(companyId) || 1;
       try {
-        await SupabaseSandboxService.deleteContact(targetId, safeTenant);
+        await SupabaseSandboxService.deleteContact(trueId, safeTenant, rec.phone);
+        if (rec.ghlContactId) {
+          await SupabaseSandboxService.deleteContact(`ghl_${rec.ghlContactId}`, safeTenant);
+        }
+        if (rec.phone) {
+          const cleanPhone = String(rec.phone).replace(/\D/g, '');
+          if (cleanPhone) await SupabaseSandboxService.deleteContact(`${cleanPhone}@s.whatsapp.net`, safeTenant);
+        }
       } catch (e) {
         console.warn('Sandbox contact delete notice:', e);
       }
     } else {
       try {
         if (db) {
-          await deleteDoc(doc(db, 'contacts', String(targetId)));
+          await deleteDoc(doc(db, 'contacts', String(trueId)));
         }
       } catch (e) {
         console.warn('Firestore contact delete notice:', e);
       }
     }
 
-    const rec = (internalRecords || []).find(r => r.id === targetId) || (typeof recordOrId === 'object' ? recordOrId : { id: targetId });
+    const archivedRec = {
+      ...rec,
+      id: trueId,
+      archived: true,
+      is_archived: 1,
+      lifecycleStatus: 'ARCHIVED',
+      archivedAt: new Date().toISOString()
+    };
+
     if (typeof softDeleteRecord === 'function') {
       softDeleteRecord({
-        originalId: targetId,
-        id: targetId,
+        originalId: trueId,
+        id: trueId,
         name: rec.name || rec.phone || 'CRM Contact',
         category: 'Contacts & Leads',
         moduleTab: 'contacts',
-        entityData: rec
+        type: 'contacts',
+        entityData: { record: archivedRec, ...archivedRec }
       });
     }
 
-    setInternalRecords(prev => prev.filter(r => r.id !== targetId));
-    if (showToast) showToast('🗑️ Contact moved to Recycle Bin', 'info');
+    const updated = (internalRecords || []).filter(r => 
+      r && String(r.id) !== String(trueId) && String(r.displayId) !== String(trueId) && String(r.id) !== String(rawTargetId)
+    );
+    setInternalRecords(updated);
+    if (typeof setPropContacts === 'function') {
+      setPropContacts(updated);
+    }
+    try {
+      TenantStorage.setItem('contacts', updated, safeTenant);
+    } catch (e) {}
+
+    if (!silent && showToast) showToast('🗑️ Contact moved to Recycle Bin', 'info');
   };
 
   const contactModuleConfig = useMemo(() => ({
     ...(config || {}),
+    moduleId: 'contacts',
     name: 'Contacts',
     moduleTitle: 'Contacts',
     description: 'Manage and track all customer contacts, calls, and leads.',

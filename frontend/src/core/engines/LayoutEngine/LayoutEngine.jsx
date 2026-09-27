@@ -122,18 +122,19 @@ export default function LayoutEngine({
     const entityPlural = getValString(LabelEngine.getEntityNamePlural(moduleConfig)).toLowerCase();
 
     return (
-      itemTab.includes(modId) ||
-      itemTab.includes(entityName) ||
-      itemTab.includes(entityPlural) ||
+      (modId && itemTab.includes(modId)) ||
+      (entityName && itemTab.includes(entityName)) ||
+      (entityPlural && itemTab.includes(entityPlural)) ||
       (modId === 'employees' && (itemTab.includes('employee') || itemTab.includes('staff'))) ||
       (modId === 'assets' && (itemTab.includes('asset') || itemTab.includes('device'))) ||
-      (modId === 'recruitment_ats' && (itemTab.includes('ats') || itemTab.includes('candidate')))
+      (modId === 'recruitment_ats' && (itemTab.includes('ats') || itemTab.includes('candidate'))) ||
+      ((modId === 'contacts' || modId === 'crm' || !modId) && (itemTab.includes('contact') || itemTab.includes('lead') || itemTab.includes('crm')))
     );
   });
 
   const unwrapArchivedRecord = (item) => {
     if (!item) return null;
-    const payloadRec = item.payload?.record || item.entityData?.record || item.payload?.employee || item.payload?.candidate || item.payload?.asset || item.payload || {};
+    const payloadRec = item.payload?.record || item.entityData?.record || item.payload?.employee || item.payload?.candidate || item.payload?.asset || item.payload?.entityData || item.payload || {};
     const trueId = item.originalId || payloadRec.id || payloadRec.originalId || item.id || `arch_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
     return {
       ...payloadRec,
@@ -142,6 +143,10 @@ export default function LayoutEngine({
       recycleBinId: item.id || trueId,
       name: payloadRec.name || payloadRec.title || (payloadRec.first_name ? `${payloadRec.first_name || ''} ${payloadRec.last_name || ''}`.trim() : null) || item.name || item.title || 'Archived Item',
       title: payloadRec.title || payloadRec.name || item.title || item.name || 'Archived Item',
+      phone: payloadRec.phone || payloadRec.phone_computed || payloadRec.customerPhone || '—',
+      email: payloadRec.email || payloadRec.customerEmail || '',
+      status: payloadRec.status || payloadRec.pipeline_stage || 'Archived',
+      source: payloadRec.source || 'CRM',
       createdAt: item.deletedAt || item.archivedAt || item.timestamp || payloadRec.createdAt,
       archivedBy: item.deletedBy || item.archivedBy || item.user || 'System Administrator',
       _vaultRawItem: item

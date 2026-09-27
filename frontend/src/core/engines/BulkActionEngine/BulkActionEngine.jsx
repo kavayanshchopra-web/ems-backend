@@ -128,23 +128,28 @@ export default function BulkActionEngine({
     const now = new Date().toISOString();
 
     (records || []).filter(r => !!r).forEach(r => {
-      if (idsSet.has(r.id)) {
+      if (idsSet.has(r.id) || idsSet.has(r.displayId) || idsSet.has(r.originalId)) {
         const archivedRec = {
           ...r,
           archived: true,
+          is_archived: 1,
           lifecycleStatus: 'ARCHIVED',
           archivedAt: now
         };
         if (typeof softDeleteRecord === 'function') {
           softDeleteRecord({
             originalId: r.id,
+            id: r.id,
             name: `${entityName}: "${r.name || r.title || r.id}"`,
             category: `${entityName} Record`,
-            entityData: { record: archivedRec, candidate: archivedRec },
-            moduleTab: moduleConfig.moduleId
-          });
+            entityData: { record: archivedRec, candidate: archivedRec, ...archivedRec },
+            moduleTab: moduleConfig.moduleId || 'contacts',
+            type: moduleConfig.moduleId || 'contacts'
+          }, true);
         }
-        FirebaseCloudEngine.deleteRecord(moduleConfig.moduleId || 'employees', r.id);
+        if (!isSandboxEnvironment()) {
+          FirebaseCloudEngine.deleteRecord(moduleConfig.moduleId || 'employees', r.id);
+        }
       }
     });
 
