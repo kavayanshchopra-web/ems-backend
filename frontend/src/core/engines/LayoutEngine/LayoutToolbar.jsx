@@ -94,50 +94,8 @@ export default function LayoutToolbar({
           boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
         }}
       >
-        {/* Module Title & Subtitle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div
-            style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, rgba(13,148,136,0.15) 0%, rgba(15,118,110,0.25) 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '18px',
-              flexShrink: 0
-            }}
-          >
-            {moduleConfig.icon || '🧑‍💼'}
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap' }}>
-              <h1 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#0f172a', whiteSpace: 'nowrap' }}>
-                {LabelEngine.getModuleTitle(moduleConfig)}
-              </h1>
-              <span style={{
-                padding: '2px 8px',
-                borderRadius: '12px',
-                background: 'rgba(13, 148, 136, 0.12)',
-                border: '1px solid rgba(13, 148, 136, 0.3)',
-                color: '#0d9488',
-                fontSize: '11px',
-                fontWeight: '800',
-                whiteSpace: 'nowrap',
-                display: 'inline-flex',
-                alignItems: 'center',
-                flexShrink: 0,
-                lineHeight: 1.3
-              }}>
-                {totalCount} Total
-              </span>
-            </div>
-            <p className="module-subtitle" style={{ margin: '1px 0 0 0', fontSize: '12px', color: '#64748b' }}>
-              {LabelEngine.getModuleSubtitle(moduleConfig)}
-            </p>
-          </div>
-        </div>
+        {/* Left Header Segment left blank as requested */}
+        <div style={{ display: 'flex', alignItems: 'center' }} />
 
         {/* Header Action Controls */}
         <div className="module-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginLeft: 'auto' }}>
