@@ -3354,7 +3354,6 @@ h1, h2, h3, h4, h5, h6 {
     align-items: center !important;
     width: 100% !important;
     overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
     padding: 3px !important;
     gap: 4px !important;
     box-sizing: border-box !important;
@@ -3496,7 +3495,6 @@ h1, h2, h3, h4, h5, h6 {
   .widget-engine-outer-wrapper {
     overflow-x: auto !important;
     overflow-y: hidden !important;
-    -webkit-overflow-scrolling: touch !important;
     padding-bottom: 4px !important;
     width: 100% !important;
     scrollbar-width: none !important;
