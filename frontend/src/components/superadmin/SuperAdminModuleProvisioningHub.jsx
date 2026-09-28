@@ -19,6 +19,10 @@ export default function SuperAdminModuleProvisioningHub({
       if (st) setProvisioningState(st);
     });
 
+    const handleUpdate = (e) => {
+      if (e.detail) setProvisioningState(e.detail);
+    };
+
     const handleCatalogUpdate = () => {
       setProvisioningState(st => ({ ...st }));
     };
