@@ -595,7 +595,11 @@ function SidebarMainNavItem({ id, label, icon: IconComponent, isActive, onClick,
     telecalling: { color: '#06b6d4', bg: 'rgba(6, 182, 212, 0.18)' },
     kanban: { color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.18)' },
     wa_live_web: { color: '#22c55e', bg: 'rgba(34, 197, 94, 0.18)' },
-    automations_sandbox: { color: '#a855f7', bg: 'rgba(168, 85, 247, 0.18)' }
+    automations_sandbox: { color: '#a855f7', bg: 'rgba(168, 85, 247, 0.18)' },
+    tasks: { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.18)' },
+    gps_attendance: { color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.18)' },
+    audit_logs: { color: '#ec4899', bg: 'rgba(236, 72, 153, 0.18)' },
+    media_storage: { color: '#14b8a6', bg: 'rgba(20, 184, 166, 0.18)' }
   };
   const theme = defaultColors[id] || { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' };
 
@@ -7143,42 +7147,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               </div>
             </AccordionCategory>
           )}
-          {/* CATEGORY: DASHBOARDS */}
-          {(canNav('admin_dashboard') || canNav('manager_dashboard') || canNav('gps_attendance') || canNav('audit_logs') || canNav('media_storage')) && (
+          {/* CATEGORY: DASHBOARDS (Only Company Overview) */}
+          {canNav('admin_dashboard') && (
             <AccordionCategory id="dashboards" label={t('dashboardsCat') || "DASHBOARDS"} icon={BarChart3} isExpanded={!!expandedCategories.dashboards} onToggle={toggleCategory}>
-              {canNav('admin_dashboard') && (
-                <div className={`nav-item ${activeTab === 'admin_dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('admin_dashboard')}>
-                  <BarChart3 size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('companyOverview')}</span>
-                </div>
-              )}
-              {canNav('manager_dashboard') && (
-                <div className={`nav-item ${activeTab === 'manager_dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('manager_dashboard')}>
-                  <BarChart3 size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('taskAnalytics')}</span>
-                </div>
-              )}
-              {canNav('gps_attendance') && (
-                <div className={`nav-item ${activeTab === 'gps_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('gps_attendance')}>
-                  <Globe size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('liveTracking')}</span>
-                  {renderLockBadge('gps_attendance')}
-                </div>
-              )}
-              {canNav('audit_logs') && (
-                <div className={`nav-item ${activeTab === 'audit_logs' ? 'active' : ''}`} onClick={() => setActiveTab('audit_logs')}>
-                  <FileText size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('auditLogs')}</span>
-                  {renderLockBadge('audit_logs')}
-                </div>
-              )}
-              {canNav('media_storage') && (
-                <div className={`nav-item ${activeTab === 'media_storage' ? 'active' : ''}`} onClick={() => setActiveTab('media_storage')}>
-                  <HardDrive size={15} style={{ color: '#14d2cb' }} />
-                  <span style={{ fontSize: '13px' }}>Media & Storage Vault</span>
-                  {renderLockBadge('media_storage')}
-                </div>
-              )}
+              <div className={`nav-item ${activeTab === 'admin_dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('admin_dashboard')}>
+                <BarChart3 size={15} />
+                <span style={{ fontSize: '13px' }}>{t('companyOverview')}</span>
+              </div>
             </AccordionCategory>
           )}
 
@@ -7253,6 +7228,48 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               </span>
             )}
           />
+
+          {/* MAIN HEADINGS: SEPARATED CORE SYSTEMS (Elevated from Dashboards) */}
+          {(canNav('tasks') || canNav('manager_dashboard')) && (
+            <SidebarMainNavItem
+              id="tasks"
+              label="TASK MANAGEMENT"
+              icon={ClipboardList}
+              isActive={activeTab === 'tasks' || activeTab === 'manager_dashboard'}
+              onClick={() => setActiveTab('tasks')}
+              lockBadge={renderLockBadge('tasks')}
+            />
+          )}
+          {canNav('gps_attendance') && (
+            <SidebarMainNavItem
+              id="gps_attendance"
+              label="LIVE TRACKING MAP"
+              icon={Globe}
+              isActive={activeTab === 'gps_attendance' || activeTab === 'gps_tracking'}
+              onClick={() => setActiveTab('gps_attendance')}
+              lockBadge={renderLockBadge('gps_attendance')}
+            />
+          )}
+          {canNav('audit_logs') && (
+            <SidebarMainNavItem
+              id="audit_logs"
+              label="SYSTEM AUDIT LOGS"
+              icon={FileText}
+              isActive={activeTab === 'audit_logs'}
+              onClick={() => setActiveTab('audit_logs')}
+              lockBadge={renderLockBadge('audit_logs')}
+            />
+          )}
+          {canNav('media_storage') && (
+            <SidebarMainNavItem
+              id="media_storage"
+              label="MEDIA & STORAGE"
+              icon={HardDrive}
+              isActive={activeTab === 'media_storage'}
+              onClick={() => setActiveTab('media_storage')}
+              lockBadge={renderLockBadge('media_storage')}
+            />
+          )}
 
           {/* CATEGORY: HR MANAGEMENT */}
           {(canNav('employees') || canNav('recruitment_ats') || canNav('asset_management') || canNav('verify_documents') || canNav('offboarding')) && (
@@ -7361,15 +7378,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </AccordionCategory>
           )}
           {/* CATEGORY: OPERATIONS */}
-          {(canNav('tasks') || canNav('office_kiosk') || canNav('notice_board') || canNav('holidays')) && (
+          {(canNav('office_kiosk') || canNav('notice_board') || canNav('holidays')) && (
             <AccordionCategory id="operations" label={t('opsCat') || "OPERATIONS"} icon={Briefcase} isExpanded={!!expandedCategories.operations} onToggle={toggleCategory}>
-              {canNav('tasks') && (
-                <div className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`} onClick={() => setActiveTab('tasks')}>
-                  <ClipboardList size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('tasksBoard')}</span>
-                  {renderLockBadge('tasks')}
-                </div>
-              )}
               {canNav('office_kiosk') && (
                 <div className={`nav-item ${activeTab === 'office_kiosk' ? 'active' : ''}`} onClick={() => setActiveTab('office_kiosk')}>
                   <Clock size={15} />
