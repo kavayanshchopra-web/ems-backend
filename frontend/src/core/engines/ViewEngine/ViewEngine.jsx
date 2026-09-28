@@ -54,6 +54,7 @@ export default function ViewEngine({
   handleRestoreBinItem = null,
   showToast = () => {},
   isArchivedView = false,
+  selectedRecord = null,
   onViewRecord = () => {},
   onEditRecord = () => {},
   onArchiveRecord = () => {},
@@ -468,6 +469,7 @@ export default function ViewEngine({
       handleRestoreBinItem={handleRestoreBinItem}
       showToast={showToast}
       isArchivedView={isArchivedView}
+      selectedRecord={selectedRecord}
       onViewRecord={onViewRecord}
       onEditRecord={onEditRecord}
       onArchiveRecord={onArchiveRecord}

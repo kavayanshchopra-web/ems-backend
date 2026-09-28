@@ -150,6 +150,7 @@ export default function ListEngine({
   handleRestoreBinItem = null,
   showToast = () => {},
   isArchivedView = false,
+  selectedRecord = null,
   onViewRecord = () => {},
   onEditRecord = () => {},
   onArchiveRecord = () => {},
@@ -647,17 +648,27 @@ export default function ListEngine({
     const recordSub = getValString(record.department || record.designation || record.position || record.appliedFor, '');
     const avatarGradient = getAvatarGradient(recordName, isArchivedView);
 
-    return (
-      <tr
-        key={record.id || idx || Math.random()}
-        className="ems-row-hover"
-        onClick={() => onViewRecord(record)}
-        style={{
-          background: isSelected ? 'rgba(13, 148, 136, 0.12)' : '#ffffff',
-          cursor: 'pointer',
-          transition: 'background 0.15s ease-in-out'
-        }}
-      >
+        const isViewing = selectedRecord && (
+          String(selectedRecord.id) === String(record.id) ||
+          String(selectedRecord.displayId) === String(record.id) ||
+          (selectedRecord.originalId && String(selectedRecord.originalId) === String(record.id)) ||
+          (record.originalId && String(selectedRecord.id) === String(record.originalId))
+        );
+
+        return (
+          <tr
+            key={record.id || idx || Math.random()}
+            className="ems-row-hover"
+            onClick={() => onViewRecord(record)}
+            style={{
+              background: isSelected
+                ? 'rgba(13, 148, 136, 0.12)'
+                : (isViewing ? 'rgba(13, 148, 136, 0.08)' : '#ffffff'),
+              cursor: 'pointer',
+              transition: 'background 0.15s ease-in-out',
+              boxShadow: isViewing ? 'inset 3px 0 0 #0d9488' : 'none'
+            }}
+          >
         {/* CHECKBOX CELL WITH COMPACT SPACING */}
         <td style={{ padding: '6px 10px', textAlign: 'center', borderBottom: '1px solid #e2e8f0', width: '38px', minWidth: '38px', maxWidth: '38px' }} onClick={(e) => e.stopPropagation()}>
           <input
