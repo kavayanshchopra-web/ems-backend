@@ -7618,41 +7618,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {/* Top Header Navigation */}
         {/* EMS-style white top header with search */}
         <header className="top-header" style={{ background: 'var(--sidebar-bg, #064e43)', color: '#ffffff', borderBottom: '1px solid rgba(255, 255, 255, 0.12)', padding: isGhlEmbedded ? '4px 12px' : '8px 18px', height: isGhlEmbedded ? '42px' : '52px', minHeight: isGhlEmbedded ? '42px' : '52px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
-          <button
-            type="button"
-            className="menu-toggle-btn"
-            onClick={() => {
-              if (isGhlEmbedded) {
-                setGhlSidebarOpen(prev => !prev);
-              } else {
-                setDesktopSidebarOpen(prev => !prev);
-                setMobileSidebarOpen(prev => !prev);
-              }
-            }}
-            title="Toggle Navigation Menu"
-            style={{
-              marginRight: '14px',
-              padding: '5px 12px',
-              borderRadius: '7px',
-              background: (isGhlEmbedded ? ghlSidebarOpen : desktopSidebarOpen) ? '#0d9488' : 'rgba(255,255,255,0.15)',
-              border: '1px solid rgba(255,255,255,0.25)',
-              color: '#14d2cb',
-              fontSize: '12px',
-              fontWeight: '800',
-              cursor: 'pointer',
-              display: activeTab === 'app_launcher' ? 'none' : 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-              flexShrink: 0
-            }}
-          >
-            <Menu size={16} style={{ color: '#14d2cb' }} />
-            <span className="menu-toggle-text" style={{ fontSize: '12px', color: '#ffffff', fontWeight: '800' }}>
-              {(isGhlEmbedded ? ghlSidebarOpen : desktopSidebarOpen) ? 'Hide Menu' : 'Menu'}
-            </span>
-          </button>
-
           {/* Universal Apps Launchpad Button */}
           <button
             type="button"
