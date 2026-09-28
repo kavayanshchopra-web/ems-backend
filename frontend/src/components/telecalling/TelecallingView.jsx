@@ -21,13 +21,16 @@ import {
   Users,
   Calendar,
   Clock,
-  DollarSign
+  DollarSign,
+  MessageSquare
 } from 'lucide-react';
 import { db } from '../../firebase';
 import { collection, onSnapshot, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { GhlOAuthService } from '../../core/services/ghlOAuthService';
 import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
 import TenantStorage from '../../core/services/TenantStorage';
+import WhatsAppTemplatesModal from './WhatsAppTemplatesModal';
+import WhatsAppQuickSendModal from './WhatsAppQuickSendModal';
 
 export default function TelecallingView({
   authUser,
@@ -85,6 +88,29 @@ export default function TelecallingView({
   const [dispositionOverrides, setDispositionOverrides] = useState(() => {
     return TenantStorage.getItem('telecalling_dispositions', companyId, {});
   });
+
+  // WhatsApp Template & 1-Click Quick Send State
+  const [showWhatsAppTemplatesModal, setShowWhatsAppTemplatesModal] = useState(false);
+  const [quickSendState, setQuickSendState] = useState({
+    isOpen: false,
+    phone: '',
+    contactName: 'Customer',
+    record: null
+  });
+
+  useEffect(() => {
+    window.openWhatsAppTemplatePicker = (phone, contactName, leadRecord) => {
+      setQuickSendState({
+        isOpen: true,
+        phone: phone || '',
+        contactName: contactName || 'Customer',
+        record: leadRecord || null
+      });
+    };
+    window.openWhatsAppTemplatesManager = () => {
+      setShowWhatsAppTemplatesModal(true);
+    };
+  }, []);
 
   // Phase 5: Dynamic Telephony Reporting & Agent Analytics State
   const [reportingPeriod, setReportingPeriod] = useState('this_month');
@@ -1228,6 +1254,29 @@ export default function TelecallingView({
                 )}
                 <button
                   type="button"
+                  onClick={() => setShowWhatsAppTemplatesModal(true)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '5px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid #a7f3d0',
+                    background: '#f0fdf4',
+                    color: '#047857',
+                    fontSize: '11.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="Configure WhatsApp Products & Message Templates"
+                >
+                  <MessageSquare size={13} color="#047857" />
+                  <span>WhatsApp Templates</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => setBypassFilter('OFFICIAL')}
                   style={{
                     padding: '5px 10px',
@@ -1479,6 +1528,32 @@ export default function TelecallingView({
             </div>
           </div>
         </div>
+      )}
+
+      {/* WhatsApp Templates Configuration Modal */}
+      {showWhatsAppTemplatesModal && (
+        <WhatsAppTemplatesModal
+          isOpen={showWhatsAppTemplatesModal}
+          onClose={() => setShowWhatsAppTemplatesModal(false)}
+          companyId={companyId}
+          authUser={authUser}
+          showToast={showToast}
+        />
+      )}
+
+      {/* WhatsApp 1-Click Quick Send Modal */}
+      {quickSendState.isOpen && (
+        <WhatsAppQuickSendModal
+          isOpen={quickSendState.isOpen}
+          onClose={() => setQuickSendState(prev => ({ ...prev, isOpen: false }))}
+          phone={quickSendState.phone}
+          contactName={quickSendState.contactName}
+          leadRecord={quickSendState.record}
+          companyId={companyId}
+          authUser={authUser}
+          showToast={showToast}
+          onOpenManageTemplates={() => setShowWhatsAppTemplatesModal(true)}
+        />
       )}
     </div>
   );

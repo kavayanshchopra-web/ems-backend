@@ -179,10 +179,12 @@ export default function KanbanCard({
           {/* Quick WhatsApp Chat Button */}
           <button
             type="button"
-            title={`Open WhatsApp Chat (${cardName})`}
+            title={`Send WhatsApp (${cardName}) - Pick Product / Template`}
             onClick={(e) => {
               e.stopPropagation();
-              if (onOpenChatWithLead) {
+              if (window.openWhatsAppTemplatePicker && cleanPhone) {
+                window.openWhatsAppTemplatePicker(cleanPhone, cardName, record);
+              } else if (onOpenChatWithLead) {
                 onOpenChatWithLead(record);
               } else if (cleanPhone) {
                 window.open(`https://wa.me/${cleanPhone.replace('+', '')}`, '_blank');

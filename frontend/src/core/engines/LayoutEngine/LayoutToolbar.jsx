@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Plus, Archive, Settings, Sliders, Filter, Download, Upload, X, Columns, ChevronDown, PhoneCall, Phone, Trash2 } from 'lucide-react';
+import { Plus, Archive, Settings, Sliders, Filter, Download, Upload, X, Columns, ChevronDown, PhoneCall, Phone, Trash2, MessageSquare } from 'lucide-react';
 import { db } from '../../../firebase';
 import { collection, getDocs, deleteDoc, query, where } from 'firebase/firestore';
 import Button from '../../../components/ui/Button';
@@ -205,6 +205,19 @@ export default function LayoutToolbar({
                         style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: '600', color: '#0f172a', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #f1f5f9' }}
                       >
                         <Download size={13} color="#0d9488" /> Export Data
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowManageDropdown(false);
+                          if (window.openWhatsAppTemplatesManager) {
+                            window.openWhatsAppTemplatesManager();
+                          }
+                        }}
+                        style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: '600', color: '#047857', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #f1f5f9' }}
+                      >
+                        <MessageSquare size={13} color="#25D366" /> WhatsApp Templates & Products
                       </button>
 
                       <button

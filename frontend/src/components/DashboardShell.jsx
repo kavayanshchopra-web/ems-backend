@@ -13,6 +13,8 @@ const ConversationsPage = lazy(() => import('./pages/ConversationsPage'));
 const RecruitmentPage = lazy(() => import('./pages/RecruitmentPage'));
 const ModuleConfigCenter = lazy(() => import('./config/ModuleConfigCenter'));
 const TelecallingView = lazy(() => import('./telecalling/TelecallingView'));
+const WhatsAppTemplatesModal = lazy(() => import('./telecalling/WhatsAppTemplatesModal'));
+const WhatsAppQuickSendModal = lazy(() => import('./telecalling/WhatsAppQuickSendModal'));
 const DynamicReportingHub = lazy(() => import('./reporting/DynamicReportingHub'));
 const NoticeBoardPage = lazy(() => import('./pages/NoticeBoardPage'));
 const HolidaysPage = lazy(() => import('./pages/HolidaysPage'));
@@ -1356,6 +1358,30 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       window.removeEventListener('omniflow:open_global_dialer', handleCustomGlobalEvent);
     };
   }, []);
+
+  // WhatsApp Template & 1-Click Quick Send State
+  const [showWhatsAppTemplatesModal, setShowWhatsAppTemplatesModal] = useState(false);
+  const [whatsAppQuickSendState, setWhatsAppQuickSendState] = useState({
+    isOpen: false,
+    phone: '',
+    contactName: 'Customer',
+    record: null
+  });
+
+  useEffect(() => {
+    window.openWhatsAppTemplatePicker = (phone, name = 'Customer', record = null) => {
+      setWhatsAppQuickSendState({
+        isOpen: true,
+        phone: phone || '',
+        contactName: name || 'Customer',
+        record: record || null
+      });
+    };
+    window.openWhatsAppTemplatesManager = () => {
+      setShowWhatsAppTemplatesModal(true);
+    };
+  }, []);
+
   // Floating Click-to-Call CRM Lead Dialpad Widget States
   const [showClickToCallModal, setShowClickToCallModal] = useState(false);
   const [showMobileAppGuideModal, setShowMobileAppGuideModal] = useState(false);
@@ -9222,6 +9248,36 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             showToast={showToast}
           />
         )}
+        {/* WHATSAPP TEMPLATES CONFIGURATION MODAL */}
+        {showWhatsAppTemplatesModal && (
+          <Suspense fallback={null}>
+            <WhatsAppTemplatesModal
+              isOpen={showWhatsAppTemplatesModal}
+              onClose={() => setShowWhatsAppTemplatesModal(false)}
+              companyId={currentTenantId || effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || '1'}
+              authUser={effectiveAuthUser || authUser}
+              showToast={showToast}
+            />
+          </Suspense>
+        )}
+
+        {/* WHATSAPP 1-CLICK QUICK SEND MODAL */}
+        {whatsAppQuickSendState.isOpen && (
+          <Suspense fallback={null}>
+            <WhatsAppQuickSendModal
+              isOpen={whatsAppQuickSendState.isOpen}
+              onClose={() => setWhatsAppQuickSendState(prev => ({ ...prev, isOpen: false }))}
+              phone={whatsAppQuickSendState.phone}
+              contactName={whatsAppQuickSendState.contactName}
+              leadRecord={whatsAppQuickSendState.record}
+              companyId={currentTenantId || effectiveAuthUser?.tenantId || effectiveAuthUser?.companyId || '1'}
+              authUser={effectiveAuthUser || authUser}
+              showToast={showToast}
+              onOpenManageTemplates={() => setShowWhatsAppTemplatesModal(true)}
+            />
+          </Suspense>
+        )}
+
         {/* FLOATING CLICK-TO-CALL LEAD DIALPAD WIDGET */}
         {showClickToCallModal && (
           <Suspense fallback={null}>
