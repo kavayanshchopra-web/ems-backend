@@ -601,7 +601,8 @@ function SidebarMainNavItem({ id, label, icon: IconComponent, isActive, onClick,
     tasks: { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.18)' },
     gps_attendance: { color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.18)' },
     audit_logs: { color: '#ec4899', bg: 'rgba(236, 72, 153, 0.18)' },
-    media_storage: { color: '#14b8a6', bg: 'rgba(20, 184, 166, 0.18)' }
+    media_storage: { color: '#14b8a6', bg: 'rgba(20, 184, 166, 0.18)' },
+    settings: { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' }
   };
   const theme = defaultColors[id] || { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' };
 
@@ -7147,6 +7148,27 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     );
   }
 
+  const isSettingsTab = [
+    'settings',
+    'integrations',
+    'roles_permissions',
+    'recycle_bin',
+    'system_dropdowns',
+    'module_configuration',
+    'module_config',
+    'billing'
+  ].includes(activeTab);
+
+  const settingsNavTabs = useMemo(() => [
+    { id: 'settings', label: t('generalSettings') || 'General Settings', icon: Settings, perm: 'settings' },
+    { id: 'integrations', label: t('integrationsWebhooks') || 'Integrations & Webhooks', icon: Share2, perm: 'integrations' },
+    { id: 'roles_permissions', label: t('rolesPermissions') || 'Roles & Permissions', icon: Shield, perm: 'roles_permissions' },
+    { id: 'recycle_bin', label: t('recycleBin') || 'Trash Bin', icon: Trash2, perm: 'recycle_bin' },
+    { id: 'system_dropdowns', label: t('systemDropdowns') || 'System Dropdowns', icon: Tag, perm: 'system_dropdowns' },
+    { id: 'module_configuration', altIds: ['module_config'], label: t('moduleConfig') || 'Module Configuration', icon: Sliders, perm: 'module_configuration' },
+    { id: 'billing', label: t('subscriptionBilling') || 'Subscription Billing', icon: CreditCard, perm: 'billing' }
+  ], [activeLanguage]);
+
   return (
     <div className="app-layout">
       <div
@@ -7469,52 +7491,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               )}
             </AccordionCategory>
           )}
-          {/* CATEGORY: SETTINGS */}
+          {/* MAIN NAV ITEM: SETTINGS (Unified Settings Hub - Sub-pages elevated to top-bar segmented tabs) */}
           {(canNav('settings') || canNav('integrations') || canNav('roles_permissions') || canNav('recycle_bin') || canNav('system_dropdowns') || canNav('module_configuration') || canNav('billing')) && (
-            <AccordionCategory id="saas_portal" label={t('settingsCat') || "SETTINGS"} icon={Settings} isExpanded={!!expandedCategories.saas_portal} onToggle={toggleCategory}>
-              {canNav('settings') && (
-                <div className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-                  <UserCheck size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('generalSettings')}</span>
-                </div>
-              )}
-              {canNav('integrations') && (
-                <div className={`nav-item ${activeTab === 'integrations' ? 'active' : ''}`} onClick={() => setActiveTab('integrations')}>
-                  <Share2 size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('integrationsWebhooks') || 'Integrations & Webhooks'}</span>
-                </div>
-              )}
-              {canNav('roles_permissions') && (
-                <div className={`nav-item ${activeTab === 'roles_permissions' ? 'active' : ''}`} onClick={() => setActiveTab('roles_permissions')}>
-                  <UserCheck size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('rolesPermissions')}</span>
-                </div>
-              )}
-              {canNav('recycle_bin') && (
-                <div className={`nav-item ${activeTab === 'recycle_bin' ? 'active' : ''}`} onClick={() => setActiveTab('recycle_bin')}>
-                  <Trash2 size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('recycleBin')}</span>
-                </div>
-              )}
-              {canNav('system_dropdowns') && (
-                <div className={`nav-item ${activeTab === 'system_dropdowns' ? 'active' : ''}`} onClick={() => setActiveTab('system_dropdowns')}>
-                  <Tag size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('systemDropdowns')}</span>
-                </div>
-              )}
-              {canNav('module_configuration') && (
-                <div className={`nav-item ${activeTab === 'module_configuration' ? 'active' : ''}`} onClick={() => { setPreselectedConfigModuleId(null); setActiveTab('module_configuration'); }}>
-                  <Sliders size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('moduleConfig')}</span>
-                </div>
-              )}
-              {canNav('billing') && (
-                <div className={`nav-item ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>
-                  <Megaphone size={15} style={{ transform: 'rotate(-20deg)' }} />
-                  <span style={{ fontSize: '13px' }}>{t('subscriptionBilling')}</span>
-                </div>
-              )}
-            </AccordionCategory>
+            <SidebarMainNavItem
+              id="settings"
+              label={t('settingsCat') || "SETTINGS"}
+              icon={Settings}
+              isActive={isSettingsTab}
+              onClick={() => setActiveTab('settings')}
+              lockBadge={renderLockBadge('settings')}
+            />
           )}
         </nav>
         <div className="sidebar-bottom-user" style={{
@@ -7655,7 +7641,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           {/* Desktop Page Title (Aligned equal from left with content cards) */}
           <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '0px', marginRight: '20px', flexShrink: 0 }}>
             <span style={{ fontSize: '14px', fontWeight: '800', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                 {activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab.startsWith('reports') ? 'REPORTS & ANALYTICS' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' ')))))}
+                 {isSettingsTab ? 'SETTINGS' : (activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab.startsWith('reports') ? 'REPORTS & ANALYTICS' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' '))))))}
             </span>
           </div>
 
@@ -8243,6 +8229,84 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </Suspense>
           </div>
 
+          {/* ========================================================================= */}
+          {/* UNIFIED SETTINGS HUB TOP SEGMENTED NAVIGATION BAR */}
+          {/* ========================================================================= */}
+          {isSettingsTab && (
+            <div
+              className="settings-top-subnav-bar"
+              style={{
+                position: 'sticky',
+                top: 0,
+                zIndex: 35,
+                background: '#ffffff',
+                borderBottom: '1px solid #e2e8f0',
+                padding: '10px 20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
+                flexShrink: 0
+              }}
+            >
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  background: '#f1f5f9',
+                  padding: '3px',
+                  borderRadius: '9px',
+                  border: '1px solid #e2e8f0',
+                  gap: '3px',
+                  overflowX: 'auto',
+                  maxWidth: '100%',
+                  scrollbarWidth: 'none'
+                }}
+              >
+                {settingsNavTabs.filter(tab => canNav(tab.perm)).map(tab => {
+                  const isActive = activeTab === tab.id || (tab.altIds && tab.altIds.includes(activeTab));
+                  const TabIcon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => {
+                        if (tab.id === 'module_configuration') setPreselectedConfigModuleId(null);
+                        setActiveTab(tab.id);
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '5px 13px',
+                        borderRadius: '7px',
+                        border: 'none',
+                        background: isActive ? '#0d9488' : 'transparent',
+                        color: isActive ? '#ffffff' : '#334155',
+                        fontSize: '12px',
+                        fontWeight: isActive ? '700' : '600',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        boxShadow: isActive ? '0 2px 6px rgba(13, 148, 136, 0.35)' : 'none',
+                        whiteSpace: 'nowrap'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) e.currentTarget.style.background = '#e2e8f0';
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) e.currentTarget.style.background = 'transparent';
+                      }}
+                    >
+                      <TabIcon size={14} style={{ color: isActive ? '#ffffff' : '#64748b' }} />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Module Subscription Paywall & Gating Screen */}
           {!isModuleSubscribed(activeTab) ? (
             <ModuleGateScreen
@@ -8432,6 +8496,17 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               language={language}
               setLanguage={setLanguage}
               showToast={showToast}
+              authUser={authUser}
+              systemDropdowns={systemDropdowns}
+              onNavigateTab={(dest) => {
+                if (dest === 'dropdowns') setActiveTab('system_dropdowns');
+                else if (dest === 'module_config') setActiveTab('module_configuration');
+                else setActiveTab(dest);
+              }}
+              openModuleConfigModal={(mod) => {
+                setPreselectedConfigModuleId(mod);
+                setActiveTab('module_configuration');
+              }}
             />
           </Suspense>
         )}
