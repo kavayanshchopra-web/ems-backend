@@ -14,6 +14,7 @@ import EmptyState from '../../../components/ui/EmptyState';
 import BulkActionEngine from '../BulkActionEngine/BulkActionEngine';
 import ColumnManagerPopover from './ColumnManagerPopover';
 import { formatCandidateId } from '../../../services/atsStorageService';
+import WhatsAppTemplateService from '../../services/whatsAppTemplateService';
 
 const getValString = (val, fallback = '') => {
   if (val === null || val === undefined) return fallback;
@@ -188,6 +189,40 @@ export default function ListEngine({
   const setPageSize = propOnPageSizeChange || setLocalPageSize;
   const hiddenColIds = propSetHiddenColIds ? propHiddenColIds : localHiddenColIds;
   const setHiddenColIds = propSetHiddenColIds || setLocalHiddenColIds;
+
+  const effectiveCompanyId = String(authUser?.tenantId || authUser?.companyId || authUser?.tenant_id || '1');
+  const [, setWaUpdateTrigger] = useState(0);
+
+  useEffect(() => {
+    const handleWaUpdate = () => setWaUpdateTrigger(v => v + 1);
+    window.addEventListener('whatsapp_sent_tags_updated', handleWaUpdate);
+    window.addEventListener('omniflow:whatsapp_sent', handleWaUpdate);
+    return () => {
+      window.removeEventListener('whatsapp_sent_tags_updated', handleWaUpdate);
+      window.removeEventListener('omniflow:whatsapp_sent', handleWaUpdate);
+    };
+  }, []);
+
+  const getRecordWhatsAppTag = (rec) => {
+    if (!rec) return null;
+    if (rec.whatsappTag) return rec.whatsappTag;
+    const phoneVal = rec.phone || rec.customerPhone || rec.phoneNumber;
+    if (phoneVal) {
+      const tagFromService = WhatsAppTemplateService.getWhatsAppTagForPhone(effectiveCompanyId, phoneVal);
+      if (tagFromService) return tagFromService;
+    }
+    const tagsArr = Array.isArray(rec.tags) ? rec.tags : (typeof rec.tags === 'string' ? rec.tags.split(',') : []);
+    const foundWaTag = tagsArr.find(t => typeof t === 'string' && (t.trim().startsWith('WA:') || t.toLowerCase().includes('whatsapp')));
+    if (foundWaTag) {
+      return {
+        tag: foundWaTag.trim(),
+        templateTitle: foundWaTag.replace(/^WA:\s*/, '').trim(),
+        agentName: rec.agentName || 'Executive',
+        sentAtFormatted: rec.lastWhatsAppSent ? new Date(rec.lastWhatsAppSent).toLocaleDateString('en-IN') : 'Recently'
+      };
+    }
+    return null;
+  };
 
   // Custom editable page size state
   const [customPageSizeInput, setCustomPageSizeInput] = useState(String(pageSize));
@@ -779,6 +814,41 @@ export default function ListEngine({
                     >
                       {recordName}
                     </div>
+                    {/* Auto-Tag WhatsApp Badge */}
+                    {(() => {
+                      const waTagInfo = getRecordWhatsAppTag(record);
+                      if (!waTagInfo) return null;
+                      return (
+                        <span
+                          style={{
+                            fontSize: '9.5px',
+                            padding: '1.5px 6px',
+                            borderRadius: '4px',
+                            background: '#ecfdf5',
+                            color: '#065f46',
+                            fontWeight: '700',
+                            border: '1px solid #a7f3d0',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            flexShrink: 0,
+                            cursor: 'pointer',
+                            boxShadow: '0 1px 2px rgba(6,95,70,0.06)'
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const rawPhone = record.phone || record.customerPhone || record.phoneNumber;
+                            if (rawPhone && window.openWhatsAppTemplatePicker) {
+                              window.openWhatsAppTemplatePicker(rawPhone, recordName, record);
+                            }
+                          }}
+                          title={`💬 WhatsApp Sent: "${waTagInfo.templateTitle || waTagInfo.tag}"\nBy: ${waTagInfo.agentName || 'Agent'}\nSent at: ${waTagInfo.sentAtFormatted || 'Recently'}\nClick to send another template`}
+                        >
+                          <span style={{ fontSize: '10px' }}>💬</span>
+                          <span>{waTagInfo.tag || `WA: ${waTagInfo.templateTitle}`}</span>
+                        </span>
+                      );
+                    })()}
                     {/* Call Recording OFF Badge next to lead */}
                     {Boolean(
                       record.recording_status === 'RECORDING_OFF' ||
@@ -1047,6 +1117,7 @@ export default function ListEngine({
             const cleanDigits = rawPhone.replace(/\D/g, '');
             const waDigits = cleanDigits.startsWith('91') && cleanDigits.length === 12 ? cleanDigits : (cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits);
             const contactName = getValString(record.name || record.fullName || record.title || 'Customer');
+            const actionWaTag = getRecordWhatsAppTag(record);
 
             return (
               <td
@@ -1092,7 +1163,11 @@ export default function ListEngine({
                   {/* 2. WhatsApp Button */}
                   <button
                     type="button"
-                    title={waDigits ? `💬 Send WhatsApp to ${contactName} (Pick Product / Template)` : 'No phone number'}
+                    title={
+                      actionWaTag
+                        ? `💬 WhatsApp Sent: "${actionWaTag.templateTitle || actionWaTag.tag}" by ${actionWaTag.agentName || 'Agent'} at ${actionWaTag.sentAtFormatted || 'Recently'}. Click to send another template!`
+                        : (waDigits ? `💬 Send WhatsApp to ${contactName} (Pick Product / Template)` : 'No phone number')
+                    }
                     disabled={!waDigits}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1106,19 +1181,34 @@ export default function ListEngine({
                     style={{
                       padding: '4px 7px',
                       borderRadius: '6px',
-                      background: waDigits ? 'rgba(37, 211, 102, 0.15)' : '#f1f5f9',
-                      border: `1px solid ${waDigits ? 'rgba(37, 211, 102, 0.35)' : '#e2e8f0'}`,
-                      color: waDigits ? '#16a34a' : '#94a3b8',
+                      background: actionWaTag ? '#dcfce7' : (waDigits ? 'rgba(37, 211, 102, 0.15)' : '#f1f5f9'),
+                      border: `1px solid ${actionWaTag ? '#86efac' : (waDigits ? 'rgba(37, 211, 102, 0.35)' : '#e2e8f0')}`,
+                      color: actionWaTag ? '#15803d' : (waDigits ? '#16a34a' : '#94a3b8'),
+                      fontWeight: actionWaTag ? '800' : 'normal',
                       cursor: waDigits ? 'pointer' : 'not-allowed',
                       display: 'inline-flex',
                       alignItems: 'center',
+                      gap: '3px',
                       justifyContent: 'center',
                       fontSize: '12px',
                       lineHeight: 1,
-                      transition: 'all 0.15s ease'
+                      transition: 'all 0.15s ease',
+                      position: 'relative',
+                      boxShadow: actionWaTag ? '0 1px 2px rgba(22, 163, 74, 0.2)' : 'none'
                     }}
                   >
                     💬
+                    {actionWaTag && (
+                      <span
+                        style={{
+                          width: '5px',
+                          height: '5px',
+                          borderRadius: '50%',
+                          background: '#16a34a',
+                          display: 'inline-block'
+                        }}
+                      />
+                    )}
                   </button>
 
                   {/* 3. SMS Message Button */}

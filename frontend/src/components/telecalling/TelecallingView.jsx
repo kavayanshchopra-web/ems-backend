@@ -31,6 +31,7 @@ import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/service
 import TenantStorage from '../../core/services/TenantStorage';
 import WhatsAppTemplatesModal from './WhatsAppTemplatesModal';
 import WhatsAppQuickSendModal from './WhatsAppQuickSendModal';
+import WhatsAppTemplateService from '../../core/services/whatsAppTemplateService';
 
 export default function TelecallingView({
   authUser,
@@ -109,6 +110,37 @@ export default function TelecallingView({
     };
     window.openWhatsAppTemplatesManager = () => {
       setShowWhatsAppTemplatesModal(true);
+    };
+
+    const handleWhatsAppSent = (e) => {
+      const { phone: sentPhone, tagInfo, leadRecord } = e.detail || {};
+      if (!sentPhone && !leadRecord) return;
+      setInternalLogs(prev => {
+        return prev.map(log => {
+          const logDigits = WhatsAppTemplateService.formatCleanPhone(log.phone || log.customerPhone || log.phoneNumber);
+          const isPhoneMatch = logDigits && (logDigits === sentPhone || (logDigits.length >= 10 && sentPhone.endsWith(logDigits.slice(-10))));
+          const isIdMatch = leadRecord && (log.id === leadRecord.id || log.leadId === leadRecord.id);
+
+          if (isPhoneMatch || isIdMatch) {
+            const existingTags = Array.isArray(log.tags) ? [...log.tags] : (typeof log.tags === 'string' ? log.tags.split(',') : []);
+            if (tagInfo?.tag && !existingTags.includes(tagInfo.tag)) {
+              existingTags.push(tagInfo.tag);
+            }
+            return {
+              ...log,
+              tags: existingTags,
+              whatsappTag: tagInfo,
+              lastWhatsAppSent: tagInfo?.sentAt
+            };
+          }
+          return log;
+        });
+      });
+    };
+
+    window.addEventListener('omniflow:whatsapp_sent', handleWhatsAppSent);
+    return () => {
+      window.removeEventListener('omniflow:whatsapp_sent', handleWhatsAppSent);
     };
   }, []);
 

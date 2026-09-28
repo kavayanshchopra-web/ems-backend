@@ -9,6 +9,7 @@ import { Eye, Edit2, Archive, FileText, Calendar, Mail, Phone, Briefcase, Messag
 import Badge from '../../../components/ui/Badge';
 import { LabelEngine } from '../LabelEngine';
 import { formatCandidateId } from '../../../services/atsStorageService';
+import WhatsAppTemplateService from '../../services/whatsAppTemplateService';
 
 const getValString = (val, fallback = '') => {
   if (val === null || val === undefined) return fallback;
@@ -85,6 +86,27 @@ export default function KanbanCard({
   const stagesList = (Array.isArray(activePipelineStages) && activePipelineStages.length > 0)
     ? activePipelineStages
     : (moduleConfig?.stages || []);
+
+  const tenantCompanyId = String(record?.tenantId || record?.tenant_id || (typeof window !== 'undefined' ? (localStorage.getItem('tenantId') || '1') : '1'));
+
+  const waTagInfo = React.useMemo(() => {
+    if (record?.whatsappTag) return record.whatsappTag;
+    if (cleanPhone) {
+      const tagFromService = WhatsAppTemplateService.getWhatsAppTagForPhone(tenantCompanyId, cleanPhone);
+      if (tagFromService) return tagFromService;
+    }
+    const tagsArr = Array.isArray(record?.tags) ? record.tags : (typeof record?.tags === 'string' ? record.tags.split(',') : []);
+    const foundWaTag = tagsArr.find(t => typeof t === 'string' && (t.trim().startsWith('WA:') || t.toLowerCase().includes('whatsapp')));
+    if (foundWaTag) {
+      return {
+        tag: foundWaTag.trim(),
+        templateTitle: foundWaTag.replace(/^WA:\s*/, '').trim(),
+        agentName: record?.agentName || 'Executive',
+        sentAtFormatted: record?.lastWhatsAppSent ? new Date(record.lastWhatsAppSent).toLocaleDateString('en-IN') : 'Recently'
+      };
+    }
+    return null;
+  }, [record, cleanPhone, tenantCompanyId]);
 
   const showPosition = kanbanConfig.position !== false && fieldsMap.get('position')?.showOnKanban !== false && cardSubtitle.length > 0;
   const showEmail = kanbanConfig.email !== false && fieldsMap.get('email')?.showOnKanban !== false;
@@ -179,7 +201,11 @@ export default function KanbanCard({
           {/* Quick WhatsApp Chat Button */}
           <button
             type="button"
-            title={`Send WhatsApp (${cardName}) - Pick Product / Template`}
+            title={
+              waTagInfo
+                ? `💬 WhatsApp Sent: "${waTagInfo.templateTitle || waTagInfo.tag}" by ${waTagInfo.agentName || 'Agent'} at ${waTagInfo.sentAtFormatted || 'Recently'}. Click to send another!`
+                : `Send WhatsApp (${cardName}) - Pick Product / Template`
+            }
             onClick={(e) => {
               e.stopPropagation();
               if (window.openWhatsAppTemplatePicker && cleanPhone) {
@@ -190,7 +216,21 @@ export default function KanbanCard({
                 window.open(`https://wa.me/${cleanPhone.replace('+', '')}`, '_blank');
               }
             }}
-            style={{ width: '26px', height: '26px', minWidth: '26px', borderRadius: '5px', border: 'none', background: '#25d366', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+            style={{
+              width: '26px',
+              height: '26px',
+              minWidth: '26px',
+              borderRadius: '5px',
+              border: waTagInfo ? '1.5px solid #16a34a' : 'none',
+              background: waTagInfo ? '#dcfce7' : '#25d366',
+              color: waTagInfo ? '#15803d' : 'white',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0,
+              boxShadow: waTagInfo ? '0 0 0 1px #86efac' : 'none'
+            }}
           >
             <MessageSquare size={12} />
           </button>
@@ -226,12 +266,44 @@ export default function KanbanCard({
 
       {/* 2. NAME & POSITION WITH SINGLE-LINE ELLIPSIS & TOOLTIPS */}
       <div>
-        <div
-          title={cardName}
-          onClick={() => onViewRecord(record)}
-          style={{ fontWeight: '800', color: '#0f172a', fontSize: '13px', lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}
-        >
-          {cardName}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+          <div
+            title={cardName}
+            onClick={() => onViewRecord(record)}
+            style={{ fontWeight: '800', color: '#0f172a', fontSize: '13px', lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', maxWidth: '170px' }}
+          >
+            {cardName}
+          </div>
+          {waTagInfo && (
+            <span
+              style={{
+                fontSize: '9.5px',
+                padding: '1px 5px',
+                borderRadius: '4px',
+                background: '#ecfdf5',
+                color: '#065f46',
+                fontWeight: '700',
+                border: '1px solid #a7f3d0',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+                cursor: 'pointer',
+                flexShrink: 0
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (window.openWhatsAppTemplatePicker && cleanPhone) {
+                  window.openWhatsAppTemplatePicker(cleanPhone, cardName, record);
+                }
+              }}
+              title={`💬 WhatsApp Sent: "${waTagInfo.templateTitle || waTagInfo.tag}"\nBy: ${waTagInfo.agentName || 'Agent'}\nSent: ${waTagInfo.sentAtFormatted || 'Recently'}`}
+            >
+              <span style={{ fontSize: '10px' }}>💬</span>
+              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>
+                {waTagInfo.tag || `WA: ${waTagInfo.templateTitle}`}
+              </span>
+            </span>
+          )}
         </div>
         {showPosition && (
           <div

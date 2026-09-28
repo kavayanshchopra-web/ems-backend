@@ -109,8 +109,26 @@ export default function WhatsAppQuickSendModal({
       return;
     }
 
+    const activeTpl = templates.find(t => t.id === selectedTemplateId) || {
+      id: 'custom',
+      title: 'WhatsApp Message',
+      category: selectedCategory !== 'All' ? selectedCategory : 'General'
+    };
+
+    // Auto-Tag the lead across Telecalling, CRM, and Kanban
+    const tagInfo = WhatsAppTemplateService.logWhatsAppSent({
+      companyId,
+      phone: cleanDigits,
+      contactName: contactName || leadRecord?.name || 'Customer',
+      template: activeTpl,
+      agentName: tenantAgent,
+      leadRecord: leadRecord
+    });
+
     WhatsAppTemplateService.openWhatsApp(cleanDigits, customizedMessage);
-    if (showToast) showToast(`🚀 Opened WhatsApp for ${contactName || 'Lead'}`, 'success');
+    if (showToast) {
+      showToast(`🚀 WhatsApp sent! Auto-tagged as "${tagInfo?.tag || activeTpl.title}"`, 'success');
+    }
     onClose();
   };
 

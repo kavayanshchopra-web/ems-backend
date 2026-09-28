@@ -190,7 +190,127 @@ export const WhatsAppTemplateService = {
       return true;
     }
     return false;
+  },
+
+  /**
+   * Log WhatsApp Sent & Auto-Tag Lead across Phone System, CRM, and Kanban
+   */
+  logWhatsAppSent({ companyId = '1', phone = '', contactName = 'Customer', template = null, agentName = 'Executive', leadRecord = null }) {
+    const rawCompanyId = String(companyId || '1');
+    const cleanDigits = this.formatCleanPhone(phone);
+    if (!cleanDigits) return null;
+
+    const tagTitle = template?.title || template?.productName || template?.category || 'Quick Message';
+    const tag = `WA: ${tagTitle}`;
+    const now = new Date();
+    const sentAtFormatted = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) + ', ' + now.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+
+    const tagInfo = {
+      tag,
+      templateId: template?.id || 'custom',
+      templateTitle: tagTitle,
+      category: template?.category || 'General',
+      productName: template?.productName || '',
+      agentName: agentName || 'Executive',
+      sentAt: now.toISOString(),
+      sentAtFormatted,
+      phone: cleanDigits,
+      contactName: contactName || 'Customer'
+    };
+
+    // 1. Store in TenantStorage under whatsapp_sent_tags
+    const currentTagsMap = TenantStorage.getItem('whatsapp_sent_tags', rawCompanyId, {}) || {};
+    currentTagsMap[cleanDigits] = tagInfo;
+    if (cleanDigits.length > 10) {
+      currentTagsMap[cleanDigits.slice(-10)] = tagInfo;
+    }
+    TenantStorage.setItem('whatsapp_sent_tags', currentTagsMap, rawCompanyId);
+
+    // 2. Update local call_logs in TenantStorage if present
+    try {
+      const callLogs = TenantStorage.getItem('call_logs', rawCompanyId, []);
+      if (Array.isArray(callLogs) && callLogs.length > 0) {
+        let changed = false;
+        const updatedLogs = callLogs.map(log => {
+          const logDigits = this.formatCleanPhone(log.phone || log.customerPhone || log.phoneNumber);
+          const isPhoneMatch = logDigits === cleanDigits || (logDigits.length >= 10 && cleanDigits.endsWith(logDigits.slice(-10)));
+          const isIdMatch = leadRecord && (log.id === leadRecord.id || log.leadId === leadRecord.id);
+
+          if (isPhoneMatch || isIdMatch) {
+            changed = true;
+            const existingTags = Array.isArray(log.tags) ? [...log.tags] : (typeof log.tags === 'string' ? log.tags.split(',') : []);
+            if (!existingTags.includes(tag)) {
+              existingTags.push(tag);
+            }
+            return {
+              ...log,
+              tags: existingTags,
+              whatsappTag: tagInfo,
+              lastWhatsAppSent: tagInfo.sentAt
+            };
+          }
+          return log;
+        });
+
+        if (changed) {
+          TenantStorage.setItem('call_logs', updatedLogs, rawCompanyId);
+        }
+      }
+    } catch (e) {
+      console.warn('Error updating call_logs with whatsapp tag:', e);
+    }
+
+    // 3. Dispatch global events for instant reactive UI updates
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('omniflow:whatsapp_sent', {
+        detail: {
+          companyId: rawCompanyId,
+          phone: cleanDigits,
+          tagInfo,
+          leadRecord
+        }
+      }));
+
+      window.dispatchEvent(new CustomEvent('whatsapp_sent_tags_updated', {
+        detail: { companyId: rawCompanyId, tagsMap: currentTagsMap }
+      }));
+    }
+
+    return tagInfo;
+  },
+
+  /**
+   * Get WhatsApp tag details for a specific phone number
+   */
+  getWhatsAppTagForPhone(companyId = '1', phone = '') {
+    if (!phone) return null;
+    const rawCompanyId = String(companyId || '1');
+    const cleanDigits = this.formatCleanPhone(phone);
+    if (!cleanDigits) return null;
+
+    const tagsMap = TenantStorage.getItem('whatsapp_sent_tags', rawCompanyId, {}) || {};
+    if (tagsMap[cleanDigits]) return tagsMap[cleanDigits];
+    if (cleanDigits.length > 10 && tagsMap[cleanDigits.slice(-10)]) {
+      return tagsMap[cleanDigits.slice(-10)];
+    }
+
+    // Also check 10-digit suffix matching across all stored keys
+    const last10 = cleanDigits.slice(-10);
+    for (const [key, val] of Object.entries(tagsMap)) {
+      if (key.endsWith(last10)) return val;
+    }
+
+    return null;
+  },
+
+  /**
+   * Retrieve all WhatsApp tags for a company
+   */
+  getAllWhatsAppTags(companyId = '1') {
+    const rawCompanyId = String(companyId || '1');
+    return TenantStorage.getItem('whatsapp_sent_tags', rawCompanyId, {}) || {};
   }
 };
 
 export default WhatsAppTemplateService;
+

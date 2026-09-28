@@ -328,9 +328,27 @@ export default function SchemaFieldRenderer({
       displayVal = tags.length > 0 ? (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
           {tags.map((t, idx) => {
-            const tagStyle = LabelEngine.getOptionStyle(t, moduleConfig);
+            const isWaTag = typeof t === 'string' && (t.startsWith('WA:') || t.toLowerCase().includes('whatsapp'));
+            const tagStyle = isWaTag
+              ? { bg: '#ecfdf5', color: '#065f46', border: '#a7f3d0' }
+              : LabelEngine.getOptionStyle(t, moduleConfig);
             return (
-              <span key={idx} style={{ background: tagStyle.bg, color: tagStyle.color, border: `1px solid ${tagStyle.border}`, padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '700' }}>
+              <span
+                key={idx}
+                style={{
+                  background: tagStyle.bg,
+                  color: tagStyle.color,
+                  border: `1px solid ${tagStyle.border}`,
+                  padding: '2px 8px',
+                  borderRadius: '10px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                {isWaTag && <span style={{ fontSize: '11px' }}>💬</span>}
                 {t}
               </span>
             );
