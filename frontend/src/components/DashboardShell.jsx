@@ -609,7 +609,9 @@ function SidebarMainNavItem({ id, label, icon: IconComponent, isActive, onClick,
     payroll_finance: { color: '#10b981', bg: 'rgba(16, 185, 129, 0.22)' },
     reporting: { color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.18)' },
     operations: { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.18)' },
-    my_portal: { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' }
+    my_portal: { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' },
+    system: { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' },
+    dashboards: { color: '#10b981', bg: 'rgba(16, 185, 129, 0.22)' }
   };
   const theme = defaultColors[id] || { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' };
 
@@ -7314,21 +7316,25 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         <nav className="sidebar-nav" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
           {/* CATEGORY: SYSTEM (Superadmin / Owner / Admin - Placed at Top) */}
           {authUser?.role === 'superadmin' && (
-            <AccordionCategory id="system" label={t('systemCat') || "SYSTEM"} icon={Shield} isExpanded={!!expandedCategories.system} onToggle={toggleCategory}>
-                <div className={`nav-item ${activeTab === 'superadmin_plans' ? 'active' : ''}`} onClick={() => setActiveTab('superadmin_plans')}>
-                <Shield size={15} />
-                <span style={{ fontSize: '13px' }}>{t('superAdminPanel')}</span>
-              </div>
-            </AccordionCategory>
+            <SidebarMainNavItem
+              id="system"
+              label={t('systemCat') || "SYSTEM"}
+              icon={Shield}
+              isActive={activeTab === 'superadmin_plans' || activeTab === 'superadmin'}
+              onClick={() => setActiveTab('superadmin_plans')}
+              lockBadge={renderLockBadge('system')}
+            />
           )}
-          {/* CATEGORY: DASHBOARDS (Only Company Overview) */}
+          {/* CATEGORY: DASHBOARDS (Direct Company Overview) */}
           {canNav('admin_dashboard') && (
-            <AccordionCategory id="dashboards" label={t('dashboardsCat') || "DASHBOARDS"} icon={BarChart3} isExpanded={!!expandedCategories.dashboards} onToggle={toggleCategory}>
-              <div className={`nav-item ${activeTab === 'admin_dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('admin_dashboard')}>
-                <BarChart3 size={15} />
-                <span style={{ fontSize: '13px' }}>{t('companyOverview')}</span>
-              </div>
-            </AccordionCategory>
+            <SidebarMainNavItem
+              id="dashboards"
+              label={t('dashboardsCat') || "DASHBOARDS"}
+              icon={BarChart3}
+              isActive={activeTab === 'admin_dashboard' || activeTab === 'dashboards'}
+              onClick={() => setActiveTab('admin_dashboard')}
+              lockBadge={renderLockBadge('admin_dashboard')}
+            />
           )}
 
           {/* MAIN HEADINGS: CRM & COMMUNICATIONS SUITE (Directly Below Dashboards) */}
@@ -7665,7 +7671,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           {/* Desktop Page Title (Aligned equal from left with content cards) */}
           <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '0px', marginRight: '20px', flexShrink: 0 }}>
             <span style={{ fontSize: '14px', fontWeight: '800', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                 {isSettingsTab ? 'SETTINGS' : (isHelpTab ? 'HELP & SUPPORT' : (isHrTab ? 'HR MANAGEMENT' : (isPayrollTab ? 'PAYROLL & FINANCE' : (isReportsTab ? 'REPORTS & ANALYTICS' : (isOperationsTab ? 'OPERATIONS' : (isMyPortalTab ? 'MY PORTAL' : (activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' ')))))))))))}
+                 {isSettingsTab ? 'SETTINGS' : (isHelpTab ? 'HELP & SUPPORT' : (isHrTab ? 'HR MANAGEMENT' : (isPayrollTab ? 'PAYROLL & FINANCE' : (isReportsTab ? 'REPORTS & ANALYTICS' : (isOperationsTab ? 'OPERATIONS' : (isMyPortalTab ? 'MY PORTAL' : (activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab === 'admin_dashboard' || activeTab === 'dashboards' ? 'DASHBOARD' : (activeTab || '').replace(/_/g, ' '))))))))))))}
             </span>
           </div>
 
