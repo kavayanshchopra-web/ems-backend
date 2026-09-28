@@ -3,8 +3,8 @@
   "name": "Employee Management Systems (EMS)",
   "icons": [
     {
-      "src": "/favicon.svg",
-      "type": "image/svg+xml",
+      "src": "/assets/ems-logo.png",
+      "type": "image/png",
       "sizes": "192x192 512x512"
     }
   ],

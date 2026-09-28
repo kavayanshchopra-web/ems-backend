@@ -1161,7 +1161,7 @@ export default function CompanyRegistrationWizard({ onComplete, onSwitchToLogin 
       {/* Sticky Header */}
       <header className="omniflow-wiz-header">
         <div className="omniflow-wiz-brand">
-          {/* Logo Slot (Awaiting new user logo file) */}
+          <img src="/assets/ems-logo.png" alt="EMS Logo" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'contain', flexShrink: 0 }} />
           <span className="omniflow-wiz-name">EMS</span>
           <div className="omniflow-wiz-brand-divider" />
           <span className="omniflow-wiz-tagline">Manage · Automate · Grow</span>

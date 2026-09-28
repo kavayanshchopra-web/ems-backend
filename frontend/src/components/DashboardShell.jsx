@@ -7306,10 +7306,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         className={`sidebar ${!desktopSidebarOpen ? 'collapsed' : ''} ${mobileSidebarOpen ? 'mobile-open' : ''}`}
         style={!desktopSidebarOpen || activeTab === 'app_launcher' || (isGhlEmbedded && !ghlSidebarOpen) ? { display: 'none' } : {}}
       >
-        {/* EMS-style Sidebar Branding - Removed OmniFlow EMS text as requested */}
-        <div className="sidebar-logo" style={{ padding: '20px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-start' }}>
+        {/* EMS Sidebar Branding with Logo */}
+        <div className="sidebar-logo" style={{ padding: '16px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <img src="/assets/ems-logo.png" alt="EMS Logo" style={{ width: '32px', height: '32px', borderRadius: '7px', objectFit: 'contain' }} />
           <span style={{ fontSize: '18px', fontWeight: '900', color: '#14d2cb', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
-            {/* OmniFlow EMS */}
+            EMS
           </span>
         </div>
         <nav className="sidebar-nav" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
@@ -7615,6 +7616,18 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {/* Top Header Navigation */}
         {/* EMS-style white top header with search */}
         <header className="top-header" style={{ background: 'var(--sidebar-bg, #064e43)', color: '#ffffff', borderBottom: '1px solid rgba(255, 255, 255, 0.12)', padding: isGhlEmbedded ? '4px 12px' : '8px 18px', height: isGhlEmbedded ? '42px' : '52px', minHeight: isGhlEmbedded ? '42px' : '52px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
+          {/* EMS Brand Logo */}
+          <div
+            onClick={() => setActiveTab('app_launcher')}
+            title="EMS Home"
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '14px', cursor: 'pointer', flexShrink: 0 }}
+          >
+            <img src="/assets/ems-logo.png" alt="EMS Logo" style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'contain' }} />
+            <span style={{ fontSize: '15px', fontWeight: '900', color: '#14d2cb', letterSpacing: '1px' }}>
+              EMS
+            </span>
+          </div>
+
           {/* Universal Apps Launchpad Button */}
           <button
             type="button"

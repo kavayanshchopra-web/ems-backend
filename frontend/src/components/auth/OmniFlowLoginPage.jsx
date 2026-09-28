@@ -1168,7 +1168,7 @@ export default function OmniFlowLoginPage({
         {/* Desktop Top Header Bar (With inline brand & divider) */}
         <header className="omniflow-header">
           <div className="omniflow-brand">
-            {/* Logo Slot (Awaiting new user logo file) */}
+            <img src="/assets/ems-logo.png" alt="EMS Logo" style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'contain', flexShrink: 0 }} />
             <span className="omniflow-name">{config.brandName || 'EMS'}</span>
             <div className="omniflow-brand-divider" />
             <span className="omniflow-tagline">{config.brandTagline || 'Manage · Automate · Grow'}</span>
@@ -1356,7 +1356,7 @@ export default function OmniFlowLoginPage({
               {/* Mobile View Top Brand */}
               <div className="omniflow-mobile-top-bar">
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
-                  {/* Logo Slot (Awaiting new user logo file) */}
+                  <img src="/assets/ems-logo.png" alt="EMS Logo" style={{ width: '36px', height: '36px', borderRadius: '7px', objectFit: 'contain', flexShrink: 0 }} />
                   <div style={{ textAlign: 'left' }}>
                     <div style={{ fontSize: '19px', fontWeight: '800', color: '#064e43', lineHeight: 1.1 }}>
                       {config.brandName || 'EMS'}
