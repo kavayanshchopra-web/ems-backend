@@ -25,6 +25,7 @@ import Modal from '../../../components/ui/Modal';
 import { LabelEngine } from '../LabelEngine';
 import { getNextSequentialId } from '../../../services/atsStorageService';
 import FirebaseCloudEngine from '../FirebaseCloudEngine';
+import { SupabaseSandboxService, isSandboxEnvironment } from '../../services/supabaseSandboxService';
 
 export default function BulkActionEngine({
   selectedIds = [],
@@ -123,43 +124,61 @@ export default function BulkActionEngine({
   };
 
   // 3. ARCHIVE SELECTED
-  const handleBulkArchive = () => {
+  const handleBulkArchive = async () => {
     const idsSet = new Set(selectedIds || []);
     const now = new Date().toISOString();
+    const activeTenant = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 1;
+    const numTenant = Number(activeTenant) || 1;
 
-    (records || []).filter(r => !!r).forEach(r => {
-      if (idsSet.has(r.id) || idsSet.has(r.displayId) || idsSet.has(r.originalId)) {
-        const archivedRec = {
-          ...r,
-          archived: true,
-          is_archived: 1,
-          lifecycleStatus: 'ARCHIVED',
-          archivedAt: now
-        };
-        if (typeof softDeleteRecord === 'function') {
-          softDeleteRecord({
-            originalId: r.id,
-            id: r.id,
-            name: `${entityName}: "${r.name || r.title || r.id}"`,
-            category: `${entityName} Record`,
-            entityData: { record: archivedRec, candidate: archivedRec, ...archivedRec },
-            moduleTab: moduleConfig.moduleId || 'contacts',
-            type: moduleConfig.moduleId || 'contacts'
-          }, true);
-        }
-        if (!isSandboxEnvironment()) {
-          FirebaseCloudEngine.deleteRecord(moduleConfig.moduleId || 'employees', r.id);
-        }
+    const matchedRecords = (records || []).filter(r => 
+      r && (idsSet.has(r.id) || idsSet.has(r.displayId) || idsSet.has(r.originalId))
+    );
+
+    if (matchedRecords.length === 0) return;
+
+    // A. Direct Supabase Sandbox batch update to is_archived: true
+    if (isSandboxEnvironment()) {
+      const dbIds = matchedRecords.map(r => r.id || r.originalId).filter(Boolean);
+      await SupabaseSandboxService.bulkArchiveContacts(dbIds, numTenant, true).catch(err => 
+        console.warn('Sandbox bulkArchive error:', err)
+      );
+    }
+
+    // B. Call softDeleteRecord for each to sync with vault
+    matchedRecords.forEach(r => {
+      const archivedRec = {
+        ...r,
+        archived: true,
+        is_archived: 1,
+        lifecycleStatus: 'ARCHIVED',
+        archivedAt: now
+      };
+      if (typeof softDeleteRecord === 'function') {
+        softDeleteRecord({
+          originalId: r.id,
+          id: r.id,
+          name: `${entityName}: "${r.name || r.title || r.id}"`,
+          category: `${entityName} Record`,
+          entityData: { record: archivedRec, candidate: archivedRec, ...archivedRec },
+          moduleTab: moduleConfig.moduleId || 'contacts',
+          type: moduleConfig.moduleId || 'contacts'
+        }, true);
+      }
+      if (!isSandboxEnvironment()) {
+        FirebaseCloudEngine.deleteRecord(moduleConfig.moduleId || 'employees', r.id);
       }
     });
 
-    const remaining = (records || []).filter(r => r && !idsSet.has(r.id));
+    const remaining = (records || []).filter(r => 
+      r && !idsSet.has(r.id) && !idsSet.has(r.displayId) && !idsSet.has(r.originalId)
+    );
     setRecords(remaining);
     setSelectedIds([]);
+    showToast(`Archived ${matchedRecords.length} ${entityNamePlural.toLowerCase()}`, 'success');
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('omnilflow_config_updated', {
-        detail: { moduleId: moduleConfig.moduleId || 'recruitment_ats' }
+        detail: { moduleId: moduleConfig.moduleId || 'contacts' }
       }));
     }
 

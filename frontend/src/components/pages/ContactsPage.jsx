@@ -50,6 +50,7 @@ export default function ContactsPage({
   const isManager = userRole === 'manager' || userRole.includes('manager');
 
   const [companyEmployees, setCompanyEmployees] = useState([]);
+  const [archivedContacts, setArchivedContacts] = useState([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -318,17 +319,27 @@ export default function ContactsPage({
     const fetchUniversalContacts = () => {
       if (!safeTenant) {
         setInternalRecords([]);
+        setArchivedContacts([]);
         return;
       }
       SupabaseSandboxService.fetchContacts(safeTenant)
         .then(sbContacts => {
-          const tenantMatches = (sbContacts || []).filter(r => {
+          const allTenantContacts = (sbContacts || []).filter(r => {
             const itemTenant = String(r.tenant_id ?? r.tenantId ?? '');
-            const isArchived = r.is_archived === 1 || r.is_archived === true || r.archived === true;
-            return itemTenant && itemTenant === String(safeTenant) && !isArchived;
+            return !itemTenant || itemTenant === String(safeTenant);
           });
-          TenantStorage.setItem('contacts', tenantMatches, safeTenant);
-          const scoped = tenantMatches.filter(isContactVisibleToUser);
+
+          const activeMatches = allTenantContacts.filter(r => 
+            r.is_archived !== 1 && r.is_archived !== true && !r.archived && r.status !== 'Archived'
+          );
+
+          const archivedMatches = allTenantContacts.filter(r => 
+            r.is_archived === 1 || r.is_archived === true || r.archived === true || r.status === 'Archived'
+          );
+
+          setArchivedContacts(archivedMatches);
+          TenantStorage.setItem('contacts', activeMatches, safeTenant);
+          const scoped = activeMatches.filter(isContactVisibleToUser);
           setInternalRecords(processAndMergeRecords([], scoped));
         })
         .catch(e => console.warn('[ContactsPage] Supabase fetch notice:', e));
@@ -568,7 +579,7 @@ export default function ContactsPage({
     }
   };
 
-  // Soft Delete / Move to Recycle Bin
+  // Soft Delete / Move to Recycle Bin (Archiving in Supabase, NOT deleting)
   const handleSoftDelete = async (recordOrId, silent = false) => {
     const rawTargetId = typeof recordOrId === 'object' ? (recordOrId.id || recordOrId.originalId) : recordOrId;
     if (!rawTargetId) return;
@@ -583,16 +594,12 @@ export default function ContactsPage({
 
     if (isSandboxEnvironment()) {
       try {
-        await SupabaseSandboxService.deleteContact(trueId, safeTenant, rec.phone);
+        await SupabaseSandboxService.archiveContact(trueId, safeTenant, true);
         if (rec.ghlContactId) {
-          await SupabaseSandboxService.deleteContact(`ghl_${rec.ghlContactId}`, safeTenant);
-        }
-        if (rec.phone) {
-          const cleanPhone = String(rec.phone).replace(/\D/g, '');
-          if (cleanPhone) await SupabaseSandboxService.deleteContact(`${cleanPhone}@s.whatsapp.net`, safeTenant);
+          await SupabaseSandboxService.archiveContact(`ghl_${rec.ghlContactId}`, safeTenant, true);
         }
       } catch (e) {
-        console.warn('Sandbox contact delete notice:', e);
+        console.warn('Sandbox contact archive notice:', e);
       }
     } else {
       try {
@@ -607,11 +614,14 @@ export default function ContactsPage({
     const archivedRec = {
       ...rec,
       id: trueId,
+      originalId: trueId,
       archived: true,
       is_archived: 1,
       lifecycleStatus: 'ARCHIVED',
       archivedAt: new Date().toISOString()
     };
+
+    setArchivedContacts(prev => [archivedRec, ...(prev || []).filter(c => String(c.id) !== String(trueId))]);
 
     if (typeof softDeleteRecord === 'function') {
       softDeleteRecord({
@@ -625,19 +635,80 @@ export default function ContactsPage({
       });
     }
 
-    const updated = (internalRecords || []).filter(r => 
-      r && String(r.id) !== String(trueId) && String(r.displayId) !== String(trueId) && String(r.id) !== String(rawTargetId)
-    );
-    setInternalRecords(updated);
+    setInternalRecords(prev => (prev || []).filter(r => 
+      r && String(r.id) !== String(trueId) && String(r.displayId) !== String(trueId) && String(r.id) !== String(rawTargetId) && String(r.originalId) !== String(trueId)
+    ));
     if (typeof setPropContacts === 'function') {
-      setPropContacts(updated);
+      setPropContacts(prev => (prev || []).filter(r => 
+        r && String(r.id) !== String(trueId) && String(r.displayId) !== String(trueId) && String(r.id) !== String(rawTargetId) && String(r.originalId) !== String(trueId)
+      ));
     }
-    try {
-      TenantStorage.setItem('contacts', updated, safeTenant);
-    } catch (e) {}
 
-    if (!silent && showToast) showToast('🗑️ Contact moved to Recycle Bin', 'info');
+    if (!silent && showToast) showToast('📁 Contact moved to Archived Vault', 'info');
   };
+
+  // Restore Contact from Archived View
+  const handleRestoreContact = async (itemOrId) => {
+    const rawTargetId = typeof itemOrId === 'object' ? (itemOrId.originalId || itemOrId.id || itemOrId.recycleBinId) : itemOrId;
+    if (!rawTargetId) return;
+    const safeTenant = Number(companyId) || 1;
+
+    if (isSandboxEnvironment()) {
+      await SupabaseSandboxService.archiveContact(rawTargetId, safeTenant, false).catch(() => {});
+    }
+    if (typeof handleRestoreBinItem === 'function') {
+      handleRestoreBinItem(itemOrId);
+    }
+    setArchivedContacts(prev => (prev || []).filter(c => String(c.id) !== String(rawTargetId) && String(c.originalId) !== String(rawTargetId)));
+    fetchUniversalContacts();
+    if (showToast) showToast('✅ Restored contact to active roster!', 'success');
+  };
+
+  // Permanent Delete Contact from Database
+  const handlePermanentDeleteContact = async (itemOrId) => {
+    const rawTargetId = typeof itemOrId === 'object' ? (itemOrId.originalId || itemOrId.id || itemOrId.recycleBinId) : itemOrId;
+    if (!rawTargetId) return;
+    const safeTenant = Number(companyId) || 1;
+
+    if (isSandboxEnvironment()) {
+      await SupabaseSandboxService.deleteContact(rawTargetId, safeTenant).catch(() => {});
+    }
+    if (typeof handlePermanentDeleteBinItem === 'function') {
+      handlePermanentDeleteBinItem(itemOrId);
+    }
+    setArchivedContacts(prev => (prev || []).filter(c => String(c.id) !== String(rawTargetId) && String(c.originalId) !== String(rawTargetId)));
+    if (showToast) showToast('🗑️ Permanently deleted contact record.', 'info');
+  };
+
+  // Unified Archived items merging Supabase Archived Contacts + TrashVault
+  const mergedRecycleBinItems = useMemo(() => {
+    const fromVault = Array.isArray(recycleBinItems) ? recycleBinItems : [];
+    const fromSbArchived = (archivedContacts || []).map(c => ({
+      id: c.id || `arch_${c.id}`,
+      originalId: c.id,
+      name: c.name || c.phone || 'Contact',
+      title: c.name || c.phone || 'Contact',
+      category: 'Contacts & Leads',
+      moduleTab: 'contacts',
+      type: 'contacts',
+      deletedAt: c.updated_at || c.created_at || new Date().toISOString(),
+      deletedBy: 'User Action',
+      payload: { record: c, ...c },
+      entityData: { record: c, ...c }
+    }));
+
+    const seenIds = new Set();
+    const combined = [];
+    [...fromSbArchived, ...fromVault].forEach(item => {
+      if (!item) return;
+      const key = String(item.originalId || item.id || '');
+      if (key && !seenIds.has(key)) {
+        seenIds.add(key);
+        combined.push(item);
+      }
+    });
+    return combined;
+  }, [recycleBinItems, archivedContacts]);
 
   const contactModuleConfig = useMemo(() => ({
     ...(config || {}),
@@ -846,9 +917,9 @@ export default function ContactsPage({
         authUser={authUser}
         systemDropdowns={enhancedSystemDropdowns}
         activePipelineStages={activePipelineStages}
-        recycleBinItems={recycleBinItems}
-        handleRestoreBinItem={handleRestoreBinItem}
-        handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
+        recycleBinItems={mergedRecycleBinItems}
+        handleRestoreBinItem={handleRestoreContact}
+        handlePermanentDeleteBinItem={handlePermanentDeleteContact}
         softDeleteRecord={handleSoftDelete}
         showToast={showToast}
         onOpenModuleConfig={openModuleConfigModal}

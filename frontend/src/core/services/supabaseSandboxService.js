@@ -699,6 +699,31 @@ export const SupabaseSandboxService = {
     }
   },
 
+  async bulkArchiveContacts(ids = [], tenantId = 1, isArchived = true) {
+    try {
+      const numTenant = Number(tenantId) || 1;
+      if (!Array.isArray(ids) || ids.length === 0) return true;
+      const cleanIds = ids.map(id => String(id).trim()).filter(Boolean);
+      if (cleanIds.length === 0) return true;
+
+      // Batch in chunks of 50 to prevent URL length overflow
+      const chunkSize = 50;
+      for (let i = 0; i < cleanIds.length; i += chunkSize) {
+        const chunk = cleanIds.slice(i, i + chunkSize);
+        const inClause = `(${chunk.map(id => `"${id}"`).join(',')})`;
+        await fetch(`${SUPABASE_URL}/contacts?id=in.${encodeURIComponent(inClause)}&tenant_id=eq.${numTenant}`, {
+          method: 'PATCH',
+          headers: getHeaders(),
+          body: JSON.stringify({ is_archived: Boolean(isArchived), updated_at: new Date().toISOString() })
+        });
+      }
+      return true;
+    } catch (err) {
+      console.error('[Supabase Sandbox] bulkArchiveContacts error:', err);
+      return false;
+    }
+  },
+
   // 3. TENANTS / COMPANIES
   async fetchTenants() {
     try {
