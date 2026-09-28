@@ -376,7 +376,7 @@ const getSafeFallbackData = (url, method = 'GET') => {
       id: '1',
       email: 'admin@omniflow.com',
       role: 'superadmin',
-      name: 'OmniFlow Super Admin'
+      name: 'EMS Super Admin'
     };
   }
   if (url.includes('/chatbot')) {
@@ -1000,7 +1000,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   };
   // SaaS Feature Gating & Subscription Tier Control
   const [companySubscription, setCompanySubscription] = useState({
-    planName: 'OmniFlow Pro SaaS Tier',
+    planName: 'EMS Pro SaaS Tier',
     subscribedModules: {
       whatsapp_crm: true,
       sim_call_recording: true, // Active by default, toggleable to test locked state!
@@ -1293,7 +1293,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [transcriptLog, setTranscriptLog] = useState(null);
   // Multi-Level Visual IVR & Call Flow Builder States
   const [isIvrActive, setIsIvrActive] = useState(true);
-  const [ivrWelcomeText, setIvrWelcomeText] = useState('Thank you for calling OmniFlow Solutions. For Sales & Product Demos, press 1. For Customer Support, press 2. For Billing & Accounts, press 3. Or stay on line for executive.');
+  const [ivrWelcomeText, setIvrWelcomeText] = useState('Thank you for calling Employee Management Systems. For Sales & Product Demos, press 1. For Customer Support, press 2. For Billing & Accounts, press 3. Or stay on line for executive.');
   const [ivrLanguage, setIvrLanguage] = useState('hi-IN');
   const [ivrTestKeyResult, setIvrTestKeyResult] = useState(null);
   // Global Voxbay Cloud Telephony Dialer State
@@ -4464,7 +4464,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     // 1. Online/Offline detection
     const handleOnline = () => {
       setIsOnline(true);
-      showToast('?? Internet Connection Restored! Reconnected to OmniFlow CRM.', 'success');
+      showToast('🌐 Internet Connection Restored! Reconnected to EMS.', 'success');
     };
     const handleOffline = () => {
       setIsOnline(false);
@@ -4564,7 +4564,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       localStorage.setItem('omnilflow_device_type', detectedDeviceType);
 
       const devName = detectedDeviceType === 'mobile'
-        ? (isAndroidApp ? 'OmniFlow Android Companion' : 'Mobile Phone Browser')
+        ? (isAndroidApp ? 'EMS Android Companion' : 'Mobile Phone Browser')
         : 'Desktop Laptop / PC';
 
       SupabaseSandboxService.registerDeviceSession(
@@ -9455,7 +9455,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             }}>
               Your account is now active on another <strong style={{ color: '#2DD4BF' }}>{deviceTakeoverModal.deviceType === 'mobile' ? 'Mobile Phone' : 'Computer'}</strong>.
               <br /><br />
-              Under our Enterprise Dual-Device Policy, you can have <strong>1 Mobile Phone and 1 Computer</strong> session active at the same time. To continue using OmniFlow on this device, simply sign in again.
+              Under our Enterprise Dual-Device Policy, you can have <strong>1 Mobile Phone and 1 Computer</strong> session active at the same time. To continue using EMS on this device, simply sign in again.
             </p>
 
             <div style={{

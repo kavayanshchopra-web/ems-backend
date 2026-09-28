@@ -204,8 +204,8 @@ export default function CompanyRegistrationWizard({ onComplete, onSwitchToLogin 
 
   // UPI Configuration
   const pricingConfig = config.pricing || DEFAULT_PRICING_CONFIG;
-  const upiId = pricingConfig?.upi?.vpa || pricingConfig?.upiId || 'omniflow.crm@icici';
-  const payeeName = pricingConfig?.upi?.payeeName || pricingConfig?.upiMerchantName || 'OmniFlow Technologies';
+  const upiId = pricingConfig?.upi?.vpa || pricingConfig?.upiId || 'ems.crm@icici';
+  const payeeName = pricingConfig?.upi?.payeeName || pricingConfig?.upiMerchantName || 'Employee Management Systems';
   
   const upiIntentString = useMemo(() => {
     return generateUpiPaymentString({
@@ -351,7 +351,7 @@ export default function CompanyRegistrationWizard({ onComplete, onSwitchToLogin 
         key: keyId,
         amount: order.amount,
         currency: order.currency || 'INR',
-        name: 'OmniFlow EMS',
+        name: 'Employee Management Systems',
         description: `${selectedPlan.name} (${billingCycle === 'yearly' ? 'Annual' : 'Monthly'} Subscription)`,
         image: 'https://cdn-icons-png.flaticon.com/512/906/906334.png',
         order_id: order.id,
@@ -1161,27 +1161,8 @@ export default function CompanyRegistrationWizard({ onComplete, onSwitchToLogin 
       {/* Sticky Header */}
       <header className="omniflow-wiz-header">
         <div className="omniflow-wiz-brand">
-          {/* 4-petal clover logo */}
-          <svg className="omniflow-wiz-logo-clover" viewBox="0 0 48 48" fill="none">
-            <rect width="48" height="48" rx="12" fill="#ffffff" />
-            <path
-              d="M16 12C12.6863 12 10 14.6863 10 18V24C10 27.3137 12.6863 30 16 30H22C25.3137 30 28 27.3137 28 24V18C28 14.6863 25.3137 12 22 12H16Z"
-              stroke="#064e43"
-              strokeWidth="4.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M26 18C26 14.6863 28.6863 12 32 12H38C41.3137 12 44 14.6863 44 18V24C44 27.3137 41.3137 30 38 30H32C28.6863 30 26 27.3137 26 24V30C26 33.3137 28.6863 36 32 36H38C41.3137 36 44 33.3137 44 30"
-              stroke="#0db49e"
-              strokeWidth="4.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <circle cx="24" cy="24" r="3.5" fill="#0db49e" />
-          </svg>
-
-          <span className="omniflow-wiz-name">OmniFlow</span>
+          {/* Logo Slot (Awaiting new user logo file) */}
+          <span className="omniflow-wiz-name">EMS</span>
           <div className="omniflow-wiz-brand-divider" />
           <span className="omniflow-wiz-tagline">Manage · Automate · Grow</span>
         </div>

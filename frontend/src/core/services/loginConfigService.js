@@ -8,7 +8,7 @@ import { db, doc, getDoc, setDoc } from '../../firebase';
 import { isSandboxEnvironment, SupabaseSandboxService } from './supabaseSandboxService';
 
 export const DEFAULT_LOGIN_CONFIG = {
-  heroTagline: 'WELCOME TO OMNIFLOW',
+  heroTagline: 'WELCOME TO EMPLOYEE MANAGEMENT SYSTEMS',
   heroHeading: 'Streamline Your Business, Effortlessly.',
   heroHighlightWord: 'Effortlessly.',
   heroDescription: 'An all-in-one platform to manage your team, automate processes and drive growth — beautifully simple.',
@@ -53,7 +53,7 @@ export const DEFAULT_LOGIN_CONFIG = {
   showLaptopVisual: true,
   workSmarterBadgeText: 'Work Smarter Together',
   footerText: 'Simple  |  Secure  |  Scalable',
-  brandName: 'OmniFlow',
+  brandName: 'EMS',
   brandTagline: 'Manage · Automate · Grow'
 };
 

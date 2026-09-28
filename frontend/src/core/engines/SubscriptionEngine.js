@@ -170,8 +170,8 @@ export const DEFAULT_PRICING_CONFIG = {
   gracePeriodDays: 2,
   
   // Platform Legal Billing Entity (Seller Info on GST Invoices)
-  platformLegalName: 'OmniFlow Cloud Technologies Private Limited',
-  platformTradeName: 'OmniFlow EMS & CRM Platform',
+  platformLegalName: 'Employee Management Systems Private Limited',
+  platformTradeName: 'Employee Management Systems',
   platformGSTIN: '06AAHCO0192A1ZK',
   platformPAN: 'AAHCO0192A',
   platformAddress: 'DLF Cyber City, Tower B, Phase III, Sector 24',
@@ -186,8 +186,8 @@ export const DEFAULT_PRICING_CONFIG = {
   invoicePrefix: 'INV/2026-27/',
 
   sellerDetails: {
-    legalName: 'OmniFlow Cloud Technologies Private Limited',
-    tagline: 'OmniFlow EMS & CRM Platform',
+    legalName: 'Employee Management Systems Private Limited',
+    tagline: 'Employee Management Systems',
     gstin: '06AAHCO0192A1ZK',
     pan: 'AAHCO0192A',
     address: 'DLF Cyber City, Tower B, Phase III, Sector 24, Gurugram, Haryana - 122002',
@@ -200,25 +200,25 @@ export const DEFAULT_PRICING_CONFIG = {
 
   // Direct 0% UPI Payment Configuration (GPay / PhonePe / Paytm)
   isUpiEnabled: true,
-  upiId: 'omniflow.crm@icici',
-  upiMerchantName: 'OmniFlow Technologies',
+  upiId: 'ems.crm@icici',
+  upiMerchantName: 'Employee Management Systems',
   upiQrCodeUrl: '', // Auto-generates standard UPI intent QR
   upi: {
-    vpa: 'omniflow.crm@icici',
-    payeeName: 'OmniFlow Technologies',
+    vpa: 'ems.crm@icici',
+    payeeName: 'Employee Management Systems',
     isEnabled: true
   },
 
   // Direct Bank NEFT / RTGS Wire Transfer
   isBankEnabled: true,
   bankName: 'HDFC Bank Ltd',
-  bankAccountName: 'OmniFlow Cloud Technologies Pvt Ltd',
+  bankAccountName: 'Employee Management Systems Pvt Ltd',
   bankAccountNumber: '50200084729103',
   bankIfscCode: 'HDFC0001234',
   bankBranch: 'Cyber Hub, Sector 24, Gurugram',
   bankDetails: {
     bankName: 'HDFC Bank Ltd',
-    accountName: 'OmniFlow Cloud Technologies Pvt Ltd',
+    accountName: 'Employee Management Systems Pvt Ltd',
     accountNumber: '50200084729103',
     ifsc: 'HDFC0001234',
     branch: 'Cyber Hub, Sector 24, Gurugram'
@@ -246,8 +246,8 @@ export const amountInWords = (amount) => {
 
 export const generateUpiPaymentString = (params = {}) => {
   if (typeof params === 'string') return params;
-  const cleanUpi = String(params.upiId || params.vpa || 'omniflow.crm@icici').trim();
-  const cleanName = encodeURIComponent(String(params.merchantName || params.payeeName || 'OmniFlow Technologies').trim());
+  const cleanUpi = String(params.upiId || params.vpa || 'ems.crm@icici').trim();
+  const cleanName = encodeURIComponent(String(params.merchantName || params.payeeName || 'Employee Management Systems').trim());
   const cleanAmount = Number(params.amount || 0).toFixed(2);
   const note = params.transactionNote || params.invoiceNumber || params.companyName || 'Subscription';
   const cleanNote = encodeURIComponent(note);

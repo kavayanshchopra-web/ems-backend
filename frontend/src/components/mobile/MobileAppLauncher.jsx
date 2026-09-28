@@ -921,7 +921,7 @@ export default function MobileAppLauncher({
       <button
         type="button"
         onClick={() => onNavigate('conversations')}
-        title="OmniFlow AI Assistant"
+        title="EMS AI Assistant"
         style={{
           position: 'fixed',
           bottom: isAndroidApp ? '20px' : '80px',

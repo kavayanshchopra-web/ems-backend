@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OmniFlow - Permission & Folder Selection Video Guide</title>
+<title>EMS - Permission & Folder Selection Video Guide</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
   body {
@@ -311,12 +311,12 @@
   <!-- Touch Cursor -->
   <div id="cursor" class="touch-pointer"></div>
 
-  <!-- SCREEN 1: OmniFlow App Permission Dashboard -->
+  <!-- SCREEN 1: EMS App Permission Dashboard -->
   <div id="screen-1" class="screen active">
     <div class="app-header">
-      <div class="app-logo">O</div>
+      <div class="app-logo">E</div>
       <div>
-        <h3 style="font-size: 16px; font-weight: 800;">OmniFlow CRM</h3>
+        <h3 style="font-size: 16px; font-weight: 800;">EMS CRM</h3>
         <p style="font-size: 11px; color: #14d2cb; font-weight: 700;">SIM Recorder & Dialer</p>
       </div>
     </div>
@@ -426,7 +426,7 @@
     <div class="dialog-box">
       <div style="font-size: 30px; margin-bottom: 8px;">🔐</div>
       <h4 style="font-size: 15px; font-weight: 800; margin-bottom: 6px;">Allow access to Record_calls?</h4>
-      <p style="font-size: 11.5px; color: #94a3b8; line-height: 1.4;">This will give OmniFlow permission to read audio files in this folder to auto-sync calls.</p>
+      <p style="font-size: 11.5px; color: #94a3b8; line-height: 1.4;">This will give EMS permission to read audio files in this folder to auto-sync calls.</p>
       <div class="dialog-actions">
         <button class="dialog-btn dialog-deny">Don't allow</button>
         <button id="btn-confirm-allow" class="dialog-btn dialog-allow">Allow</button>
@@ -495,7 +495,7 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'omniflow_folder_permission_guide.webm';
+        a.download = 'ems_folder_permission_guide.webm';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

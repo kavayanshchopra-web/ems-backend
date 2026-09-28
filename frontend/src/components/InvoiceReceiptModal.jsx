@@ -21,8 +21,8 @@ export default function InvoiceReceiptModal({ invoice, isOpen, onClose }) {
   if (!isOpen || !invoice) return null;
 
   const seller = DEFAULT_PRICING_CONFIG?.sellerDetails || {
-    legalName: DEFAULT_PRICING_CONFIG?.platformLegalName || 'OmniFlow Cloud Technologies Private Limited',
-    tagline: DEFAULT_PRICING_CONFIG?.platformTradeName || 'OmniFlow EMS & CRM Platform',
+    legalName: DEFAULT_PRICING_CONFIG?.platformLegalName || 'Employee Management Systems Private Limited',
+    tagline: DEFAULT_PRICING_CONFIG?.platformTradeName || 'Employee Management Systems',
     gstin: DEFAULT_PRICING_CONFIG?.platformGSTIN || '06AAHCO0192A1ZK',
     pan: DEFAULT_PRICING_CONFIG?.platformPAN || 'AAHCO0192A',
     address: DEFAULT_PRICING_CONFIG?.platformAddress || 'DLF Cyber City, Tower B, Phase III, Sector 24, Gurugram, Haryana - 122002',

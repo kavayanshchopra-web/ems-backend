@@ -1111,14 +1111,14 @@ export default function TelecallingView({
             }}>
               <AlertTriangle size={18} color="#dc2626" style={{ flexShrink: 0 }} />
               <div style={{ fontSize: '12px', color: '#991b1b', lineHeight: 1.4 }}>
-                <strong>Attention:</strong> One or more telecallers have not selected their Call Recordings folder. Their calls will be logged, but voice audio recordings <strong>cannot</strong> sync to CRM until they open the OmniFlow app, tap the top <strong>"⚠️ Link Folder"</strong> badge, and select their recordings folder.
+                <strong>Attention:</strong> One or more telecallers have not selected their Call Recordings folder. Their calls will be logged, but voice audio recordings <strong>cannot</strong> sync to CRM until they open the EMS Mobile app, tap the top <strong>"⚠️ Link Folder"</strong> badge, and select their recordings folder.
               </div>
             </div>
           )}
 
           {deviceHealthList.length === 0 ? (
             <div style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: '12.5px', background: '#f8fafc', borderRadius: '8px' }}>
-              📱 No telecaller devices reporting yet. When employees log into the OmniFlow Android App, their real-time device health and recording status will appear here.
+              📱 No telecaller devices reporting yet. When employees log into the EMS Android App, their real-time device health and recording status will appear here.
             </div>
           ) : (
             <div style={{

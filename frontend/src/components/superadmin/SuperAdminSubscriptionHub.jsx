@@ -66,9 +66,9 @@ export default function SuperAdminSubscriptionHub({ showToast }) {
 
   // Pricing Config Form
   const [configForm, setConfigForm] = useState({
-    upiVpa: DEFAULT_PRICING_CONFIG?.upi?.vpa || DEFAULT_PRICING_CONFIG?.upiId || 'omniflow.crm@icici',
-    upiPayeeName: DEFAULT_PRICING_CONFIG?.upi?.payeeName || DEFAULT_PRICING_CONFIG?.upiMerchantName || 'OmniFlow Technologies',
-    sellerLegalName: DEFAULT_PRICING_CONFIG?.sellerDetails?.legalName || DEFAULT_PRICING_CONFIG?.platformLegalName || 'OmniFlow Cloud Technologies Private Limited',
+    upiVpa: DEFAULT_PRICING_CONFIG?.upi?.vpa || DEFAULT_PRICING_CONFIG?.upiId || 'ems.crm@icici',
+    upiPayeeName: DEFAULT_PRICING_CONFIG?.upi?.payeeName || DEFAULT_PRICING_CONFIG?.upiMerchantName || 'Employee Management Systems',
+    sellerLegalName: DEFAULT_PRICING_CONFIG?.sellerDetails?.legalName || DEFAULT_PRICING_CONFIG?.platformLegalName || 'Employee Management Systems Private Limited',
     sellerGstin: DEFAULT_PRICING_CONFIG?.sellerDetails?.gstin || DEFAULT_PRICING_CONFIG?.platformGSTIN || '06AAHCO0192A1ZK',
     sellerAddress: DEFAULT_PRICING_CONFIG?.sellerDetails?.address || DEFAULT_PRICING_CONFIG?.platformAddress || 'DLF Cyber City, Tower B, Phase III, Sector 24, Gurugram, Haryana - 122002',
     sellerPhone: DEFAULT_PRICING_CONFIG?.sellerDetails?.phone || DEFAULT_PRICING_CONFIG?.platformPhone || '+91 98765 43210',
@@ -104,9 +104,9 @@ export default function SuperAdminSubscriptionHub({ showToast }) {
       if (config) {
         setPricingConfig(prev => ({ ...prev, ...config }));
         setConfigForm({
-          upiVpa: config.upi?.vpa || config.upiId || DEFAULT_PRICING_CONFIG?.upi?.vpa || 'omniflow.crm@icici',
-          upiPayeeName: config.upi?.payeeName || config.upiMerchantName || DEFAULT_PRICING_CONFIG?.upi?.payeeName || 'OmniFlow Technologies',
-          sellerLegalName: config.sellerDetails?.legalName || config.platformLegalName || DEFAULT_PRICING_CONFIG?.sellerDetails?.legalName || 'OmniFlow Cloud Technologies Private Limited',
+          upiVpa: config.upi?.vpa || config.upiId || DEFAULT_PRICING_CONFIG?.upi?.vpa || 'ems.crm@icici',
+          upiPayeeName: config.upi?.payeeName || config.upiMerchantName || DEFAULT_PRICING_CONFIG?.upi?.payeeName || 'Employee Management Systems',
+          sellerLegalName: config.sellerDetails?.legalName || config.platformLegalName || DEFAULT_PRICING_CONFIG?.sellerDetails?.legalName || 'Employee Management Systems Private Limited',
           sellerGstin: config.sellerDetails?.gstin || config.platformGSTIN || DEFAULT_PRICING_CONFIG?.sellerDetails?.gstin || '06AAHCO0192A1ZK',
           sellerAddress: config.sellerDetails?.address || config.platformAddress || DEFAULT_PRICING_CONFIG?.sellerDetails?.address || 'DLF Cyber City, Tower B, Phase III, Sector 24, Gurugram, Haryana - 122002',
           sellerPhone: config.sellerDetails?.phone || config.platformPhone || DEFAULT_PRICING_CONFIG?.sellerDetails?.phone || '+91 98765 43210',
@@ -890,7 +890,7 @@ export default function SuperAdminSubscriptionHub({ showToast }) {
               <input
                 type="text"
                 required
-                placeholder="omniflow.crm@icici"
+                placeholder="ems.crm@icici"
                 value={configForm.upiVpa}
                 onChange={(e) => setConfigForm(prev => ({ ...prev, upiVpa: e.target.value }))}
                 style={s.input}
@@ -904,7 +904,7 @@ export default function SuperAdminSubscriptionHub({ showToast }) {
               <input
                 type="text"
                 required
-                placeholder="OmniFlow Technologies"
+                placeholder="Employee Management Systems"
                 value={configForm.upiPayeeName}
                 onChange={(e) => setConfigForm(prev => ({ ...prev, upiPayeeName: e.target.value }))}
                 style={s.input}
@@ -918,7 +918,7 @@ export default function SuperAdminSubscriptionHub({ showToast }) {
               <input
                 type="text"
                 required
-                placeholder="OmniFlow Cloud Technologies Private Limited"
+                placeholder="Employee Management Systems Private Limited"
                 value={configForm.sellerLegalName}
                 onChange={(e) => setConfigForm(prev => ({ ...prev, sellerLegalName: e.target.value }))}
                 style={s.input}

@@ -22,7 +22,7 @@ class OnboardingConfigService {
 
   getDefaultConfig() {
     return {
-      brandName: 'OmniFlow EMS',
+      brandName: 'Employee Management Systems',
       brandTagline: 'Enterprise Cloud Provisioning & Dynamic Subscription Engine',
       steps: [
         { id: 1, label: 'Company Profile', short: 'Profile' },

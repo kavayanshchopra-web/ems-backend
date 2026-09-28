@@ -287,7 +287,7 @@ export default function VoxbayCloudDialerModal({
         callStatus: finalDuration > 0 ? 'ANSWERED' : 'MISSED',
         callStartTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
         recordingUrl: syncedRecording,
-        notes: `Call completed via OmniFlow Universal Cloud Dialer (${callingMode})`,
+        notes: `Call completed via EMS Universal Cloud Dialer (${callingMode})`,
         cost: parseFloat((Math.max(1, Math.ceil(finalDuration / 60)) * 0.38).toFixed(4)),
         billed_amount: parseFloat((Math.max(1, Math.ceil(finalDuration / 60)) * 0.75).toFixed(2))
       });

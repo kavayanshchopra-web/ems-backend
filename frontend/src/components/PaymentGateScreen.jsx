@@ -134,8 +134,8 @@ export default function PaymentGateScreen({ user, onLogout, onPaymentVerified })
   };
 
   const amountToPay = activeInvoice ? (activeInvoice.grand_total || activeInvoice.grandTotal || 1999) : 1999;
-  const upiId = pricingConfig?.upi?.vpa || pricingConfig?.upiId || DEFAULT_PRICING_CONFIG?.upi?.vpa || 'omniflow.crm@icici';
-  const payeeName = pricingConfig?.upi?.payeeName || pricingConfig?.upiMerchantName || DEFAULT_PRICING_CONFIG?.upi?.payeeName || 'OmniFlow Technologies';
+  const upiId = pricingConfig?.upi?.vpa || pricingConfig?.upiId || DEFAULT_PRICING_CONFIG?.upi?.vpa || 'ems.crm@icici';
+  const payeeName = pricingConfig?.upi?.payeeName || pricingConfig?.upiMerchantName || DEFAULT_PRICING_CONFIG?.upi?.payeeName || 'Employee Management Systems';
   
   const upiIntentString = useMemo(() => {
     return generateUpiPaymentString({
@@ -238,7 +238,7 @@ export default function PaymentGateScreen({ user, onLogout, onPaymentVerified })
           </div>
           <div>
             <h1 style={{ fontSize: '16px', fontWeight: '800', margin: 0, color: '#ffffff' }}>
-              OmniFlow EMS • Subscription Gate
+              Employee Management Systems (EMS) • Subscription Gate
             </h1>
             <p style={{ fontSize: '11.5px', color: '#94a3b8', margin: '2px 0 0 0' }}>
               Workspace Security & Provisioning Verification Hub
@@ -487,7 +487,7 @@ export default function PaymentGateScreen({ user, onLogout, onPaymentVerified })
 
       {/* Footer */}
       <footer style={{ textAlign: 'center', fontSize: '11.5px', color: '#64748b' }}>
-        © 2026 OmniFlow EMS Suite. Registered SAC 998313 Cloud IT Services.
+        © 2026 Employee Management Systems Suite. Registered SAC 998313 Cloud IT Services.
       </footer>
     </div>
   );

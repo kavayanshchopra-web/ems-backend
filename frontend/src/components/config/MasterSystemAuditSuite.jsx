@@ -179,7 +179,7 @@ export default function MasterSystemAuditSuite({
             </div>
             <div>
               <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700 }}>🧪 35-Module Universal System Audit Suite</h2>
-              <p style={{ margin: '4px 0 0', fontSize: '13px', opacity: 0.9 }}>Automated end-to-end diagnostic runner for OmniFlow EMS</p>
+              <p style={{ margin: '4px 0 0', fontSize: '13px', opacity: 0.9 }}>Automated end-to-end diagnostic runner for Employee Management Systems (EMS)</p>
             </div>
           </div>
           <button

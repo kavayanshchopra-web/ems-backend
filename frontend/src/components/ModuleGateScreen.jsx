@@ -13,7 +13,7 @@ export default function ModuleGateScreen({
     id: moduleId,
     name: moduleId ? moduleId.replace(/_/g, ' ').toUpperCase() : 'Module',
     icon: '🔒',
-    description: 'This premium capability is part of advanced OmniFlow EMS tiers.',
+    description: 'This premium capability is part of advanced Employee Management Systems (EMS) tiers.',
     category: 'FEATURES'
   };
 

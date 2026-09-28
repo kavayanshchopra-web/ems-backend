@@ -33,7 +33,7 @@ export default function GlobalSearchModal({
         <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {(() => {
             if (!query) {
-              return <div style={{ fontSize: '12px', color: '#64748b', textAlign: 'center', padding: '16px' }}>Type to search across OmniFlow database...</div>;
+              return <div style={{ fontSize: '12px', color: '#64748b', textAlign: 'center', padding: '16px' }}>Type to search across EMS database...</div>;
             }
 
             const results = [];

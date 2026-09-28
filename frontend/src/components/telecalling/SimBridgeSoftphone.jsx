@@ -251,7 +251,7 @@ export default function SimBridgeSoftphone({
             </div>
             <div>
               <div style={{ fontSize: '13px', fontWeight: '800', color: '#ffffff', letterSpacing: '0.3px' }}>
-                OmniFlow SIM Bridge Dialer
+                EMS SIM Bridge Dialer
               </div>
               <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>
                 Direct Mobile SIM &bull; ₹0 Cost &bull; Auto Record
@@ -863,7 +863,7 @@ export default function SimBridgeSoftphone({
               Pair Ext {selectedExtension} with Phone
             </div>
             <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', maxWidth: '280px', marginBottom: '14px' }}>
-              Open <strong style={{ color: '#14d2cb' }}>OmniFlow Mobile APK</strong> and tap <strong style={{ color: '#14d2cb' }}>[ 📷 Scan QR ]</strong> to pair your SIM instantly.
+              Open <strong style={{ color: '#14d2cb' }}>EMS Mobile APK</strong> and tap <strong style={{ color: '#14d2cb' }}>[ 📷 Scan QR ]</strong> to pair your SIM instantly.
             </div>
 
             {/* QR Code Box */}

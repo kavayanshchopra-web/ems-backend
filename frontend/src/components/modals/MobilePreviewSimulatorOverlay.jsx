@@ -54,7 +54,7 @@ export default function MobilePreviewSimulatorOverlay({
       <div className="mobile-simulator-topbar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: '700' }}>
           <Smartphone size={18} style={{ color: '#38bdf8' }} />
-          <span>OmniFlow Live Mobile Simulator (390px)</span>
+          <span>EMS Live Mobile Simulator (390px)</span>
         </div>
 
         {/* Mode Switcher: App View vs Permissions Onboarding */}
@@ -414,7 +414,7 @@ export default function MobilePreviewSimulatorOverlay({
                     </div>
                   </div>
                   <div style={{ fontSize: '10px', color: '#334155', lineHeight: '1.35', background: 'rgba(255,255,255,0.85)', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                    💡 <strong>Instruction:</strong> Select your phone's native Call Recordings folder (e.g. <code>Recordings/Call/</code> or <code>MIUI/sound_recorder/call_rec/</code>) to enable automatic HD audio sync to OmniFlow CRM.
+                    💡 <strong>Instruction:</strong> Select your phone's native Call Recordings folder (e.g. <code>Recordings/Call/</code> or <code>MIUI/sound_recorder/call_rec/</code>) to enable automatic HD audio sync to EMS CRM.
                   </div>
                 </div>
 
@@ -523,7 +523,7 @@ export default function MobilePreviewSimulatorOverlay({
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
                       <span style={{ fontSize: '16px', fontWeight: '900', color: '#14d2cb', letterSpacing: '1.2px', textTransform: 'uppercase' }}>
-                        OMNIFLOW
+                        EMS
                       </span>
                       <button
                         onClick={() => setMobileSidebarOpen(false)}
@@ -986,7 +986,7 @@ export default function MobilePreviewSimulatorOverlay({
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           {[
                             { name: 'Kavayansh Chopra', email: 'kavayanshchopra@gmail.com', role: 'Super Admin', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
-                            { name: 'OmniFlow Global Admin', email: 'admin@omniflow.com', role: 'Super Admin', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' }
+                            { name: 'EMS Global Admin', email: 'admin@omniflow.com', role: 'Super Admin', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' }
                           ].map((user, idx) => (
                             <div key={idx} style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.03)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <div>
@@ -1017,7 +1017,7 @@ export default function MobilePreviewSimulatorOverlay({
                           </button>
                         </div>
                         <div style={{ background: '#ffffff', borderRadius: '12px', padding: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
-                          <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f2b26' }}>🏢 OmniFlow Global HQ</div>
+                          <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f2b26' }}>🏢 EMS Global HQ</div>
                           <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>📍 Delhi NCR, India | 👥 8 Active Users</div>
                           <span style={{ background: '#dcfce7', color: '#16a34a', border: '1px solid #86efac', fontSize: '10px', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', display: 'inline-block', marginTop: '8px' }}>Active Enterprise</span>
                         </div>

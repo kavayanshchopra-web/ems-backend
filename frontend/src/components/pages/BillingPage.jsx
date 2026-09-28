@@ -213,8 +213,8 @@ export default function BillingPage({ user, showToast }) {
   }, [targetPlanId, activePlans, billingCycle, seatCount, channelCount, selectedAddons, subscription, plansConfig.pricing, modulePricing]);
 
   // UPI Strings
-  const upiId = pricingConfig?.upi?.vpa || pricingConfig?.upiId || DEFAULT_PRICING_CONFIG?.upi?.vpa || 'omniflow.crm@icici';
-  const payeeName = pricingConfig?.upi?.payeeName || pricingConfig?.upiMerchantName || DEFAULT_PRICING_CONFIG?.upi?.payeeName || 'OmniFlow Technologies';
+  const upiId = pricingConfig?.upi?.vpa || pricingConfig?.upiId || DEFAULT_PRICING_CONFIG?.upi?.vpa || 'ems.crm@icici';
+  const payeeName = pricingConfig?.upi?.payeeName || pricingConfig?.upiMerchantName || DEFAULT_PRICING_CONFIG?.upi?.payeeName || 'Employee Management Systems';
   
   const upiIntentString = useMemo(() => {
     return generateUpiPaymentString({

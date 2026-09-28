@@ -1168,27 +1168,8 @@ export default function OmniFlowLoginPage({
         {/* Desktop Top Header Bar (With inline brand & divider) */}
         <header className="omniflow-header">
           <div className="omniflow-brand">
-            {/* 4-petal interlocking clover logo */}
-            <svg className="omniflow-logo-clover" viewBox="0 0 48 48" fill="none">
-              <rect width="48" height="48" rx="12" fill="#ffffff" />
-              <path
-                d="M16 12C12.6863 12 10 14.6863 10 18V24C10 27.3137 12.6863 30 16 30H22C25.3137 30 28 27.3137 28 24V18C28 14.6863 25.3137 12 22 12H16Z"
-                stroke="#064e43"
-                strokeWidth="4.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M26 18C26 14.6863 28.6863 12 32 12H38C41.3137 12 44 14.6863 44 18V24C44 27.3137 41.3137 30 38 30H32C28.6863 30 26 27.3137 26 24V30C26 33.3137 28.6863 36 32 36H38C41.3137 36 44 33.3137 44 30"
-                stroke="#0db49e"
-                strokeWidth="4.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <circle cx="24" cy="24" r="3.5" fill="#0db49e" />
-            </svg>
-
-            <span className="omniflow-name">{config.brandName || 'OmniFlow'}</span>
+            {/* Logo Slot (Awaiting new user logo file) */}
+            <span className="omniflow-name">{config.brandName || 'EMS'}</span>
             <div className="omniflow-brand-divider" />
             <span className="omniflow-tagline">{config.brandTagline || 'Manage · Automate · Grow'}</span>
           </div>
@@ -1209,7 +1190,7 @@ export default function OmniFlowLoginPage({
           <div className="omniflow-hero-wrap">
             <div className="omniflow-hero-intro-box">
               <div className="omniflow-pill-badge">
-                <Sparkles size={13} color="#0db49e" /> {config.heroTagline || 'WELCOME TO OMNIFLOW'}
+                <Sparkles size={13} color="#0db49e" /> {config.heroTagline || 'WELCOME TO EMPLOYEE MANAGEMENT SYSTEMS'}
               </div>
 
               <h1 className="omniflow-headline-h1">
@@ -1240,13 +1221,13 @@ export default function OmniFlowLoginPage({
 
             {/* Bottom Row: UI Preview Card + Scale Feature & Doodle */}
             <div className="omniflow-showcase-row">
-              {/* OmniFlow Mini Dashboard UI Preview Card */}
+              {/* Mini Dashboard UI Preview Card */}
               <div className="omniflow-preview-card">
                 {/* Mini Sidebar */}
                 <div className="omniflow-mini-sidebar">
                   <div className="omniflow-mini-logo-row">
                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#0db49e' }} />
-                    <span className="omniflow-mini-logo-text">OmniFlow</span>
+                    <span className="omniflow-mini-logo-text">EMS</span>
                   </div>
                   <div className="omniflow-mini-nav-item active">
                     <BarChart3 size={11} />
@@ -1375,23 +1356,10 @@ export default function OmniFlowLoginPage({
               {/* Mobile View Top Brand */}
               <div className="omniflow-mobile-top-bar">
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
-                  <svg style={{ width: '36px', height: '36px' }} viewBox="0 0 48 48" fill="none">
-                    <rect width="48" height="48" rx="10" fill="#ffffff" />
-                    <path
-                      d="M16 12C12.6863 12 10 14.6863 10 18V24C10 27.3137 12.6863 30 16 30H22C25.3137 30 28 27.3137 28 24V18C28 14.6863 25.3137 12 22 12H16Z"
-                      stroke="#064e43"
-                      strokeWidth="4"
-                    />
-                    <path
-                      d="M26 18C26 14.6863 28.6863 12 32 12H38C41.3137 12 44 14.6863 44 18V24C44 27.3137 41.3137 30 38 30H32C28.6863 30 26 27.3137 26 24V30C26 33.3137 28.6863 36 32 36H38C41.3137 36 44 33.3137 44 30"
-                      stroke="#0db49e"
-                      strokeWidth="4"
-                    />
-                    <circle cx="24" cy="24" r="3" fill="#0db49e" />
-                  </svg>
+                  {/* Logo Slot (Awaiting new user logo file) */}
                   <div style={{ textAlign: 'left' }}>
                     <div style={{ fontSize: '19px', fontWeight: '800', color: '#064e43', lineHeight: 1.1 }}>
-                      {config.brandName || 'OmniFlow'}
+                      {config.brandName || 'EMS'}
                     </div>
                     <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '600' }}>
                       {config.brandTagline || 'Manage · Automate · Grow'}

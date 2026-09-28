@@ -277,7 +277,7 @@ export default function App() {
           email: user.email,
           name: user.name || (user.email.split('@')[0]),
           role: isMasterSuperAdmin ? 'superadmin' : (user.role || 'owner'),
-          companyName: isMasterSuperAdmin ? 'OmniFlow HQ' : (user.company_name || `Tenant #${user.tenant_id}`),
+          companyName: isMasterSuperAdmin ? 'EMS HQ' : (user.company_name || `Tenant #${user.tenant_id}`),
           tenantId: isMasterSuperAdmin ? 1 : Number(user.tenant_id),
           companyId: isMasterSuperAdmin ? 1 : Number(user.tenant_id),
           tenant_id: isMasterSuperAdmin ? 1 : Number(user.tenant_id),
@@ -323,7 +323,7 @@ export default function App() {
           localStorage.setItem('omnilflow_device_type', detectedDeviceType);
 
           const devName = detectedDeviceType === 'mobile' 
-            ? (isAndroidApp ? 'OmniFlow Android App' : 'Mobile Phone') 
+            ? (isAndroidApp ? 'EMS Android App' : 'Mobile Phone') 
             : 'Desktop Laptop / PC';
 
           await SupabaseSandboxService.registerDeviceSession(
@@ -860,7 +860,7 @@ export default function App() {
         fontWeight: '600',
         fontFamily: 'var(--font-body)'
       }}>
-        Loading OmniFlow CRM...
+        Loading EMS...
       </div>
     }>
       <DashboardShell authUser={authUser} setAuthUser={setAuthUser} />

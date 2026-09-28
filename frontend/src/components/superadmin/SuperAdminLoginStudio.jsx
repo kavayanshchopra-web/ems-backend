@@ -108,7 +108,7 @@ export default function SuperAdminLoginStudio({ authUser = null, showToast = () 
           </div>
           <div>
             <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
-              OmniFlow Login Page Studio
+              EMS Login Page Studio
             </div>
             <div style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>
               Configure marketing headlines, feature points, auth labels, and laptop visual for the public login screen.
@@ -204,7 +204,7 @@ export default function SuperAdminLoginStudio({ authUser = null, showToast = () 
                 type="text"
                 value={config.heroTagline || ''}
                 onChange={e => setConfig({ ...config, heroTagline: e.target.value })}
-                placeholder="e.g. WELCOME TO OMNIFLOW"
+                placeholder="e.g. WELCOME TO EMPLOYEE MANAGEMENT SYSTEMS"
                 style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
               />
             </div>
@@ -465,7 +465,7 @@ export default function SuperAdminLoginStudio({ authUser = null, showToast = () 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
               <div>
                 <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>Show Real Product Dashboard Laptop Visual</div>
-                <div style={{ fontSize: '12px', color: '#64748b' }}>Renders the authentic OmniFlow dark teal dashboard mockup inside a MacBook frame on desktop.</div>
+                <div style={{ fontSize: '12px', color: '#64748b' }}>Renders the authentic EMS dark teal dashboard mockup inside a MacBook frame on desktop.</div>
               </div>
               <input
                 type="checkbox"

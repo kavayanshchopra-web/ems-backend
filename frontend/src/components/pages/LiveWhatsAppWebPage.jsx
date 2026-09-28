@@ -706,8 +706,8 @@ export default function LiveWhatsAppWebPage({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <a
-            href="/OmniFlow-CRM-Setup.exe"
-            download="OmniFlow-CRM-Setup.exe"
+            href="/EMS-CRM-Setup.exe"
+            download="EMS-CRM-Setup.exe"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -726,8 +726,8 @@ export default function LiveWhatsAppWebPage({
             <span>📥 Download Desktop App (.exe)</span>
           </a>
           <a
-            href="/OmniFlow-CRM-Setup.exe"
-            download="OmniFlow-WhatsApp-Desktop-Suite.zip"
+            href="/EMS-CRM-Setup.exe"
+            download="EMS-WhatsApp-Desktop-Suite.zip"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -1133,7 +1133,7 @@ export default function LiveWhatsAppWebPage({
               </button>
 
               <div style={{ padding: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', fontSize: '12px', color: '#64748b', textAlign: 'left', lineHeight: '1.5' }}>
-                <strong style={{ color: '#14d2cb' }}>💡 Pro Tip:</strong> For fully embedded in-app WhatsApp viewing with native voice & video calling, run the <strong>OmniFlow Desktop App</strong> on your PC!
+                <strong style={{ color: '#14d2cb' }}>💡 Pro Tip:</strong> For fully embedded in-app WhatsApp viewing with native voice & video calling, run the <strong>EMS Desktop App</strong> on your PC!
               </div>
             </div>
           </div>

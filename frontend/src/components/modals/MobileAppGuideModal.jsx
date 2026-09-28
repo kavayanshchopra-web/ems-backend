@@ -80,7 +80,7 @@ export default function MobileAppGuideModal({
               <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                 <div style={{ background: '#0d9488', color: 'white', fontWeight: '800', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', flexShrink: 0 }}>1</div>
                 <div style={{ fontSize: '12px', color: '#334155', lineHeight: '1.5' }}>
-                  <strong>Install Android Service APK:</strong> Telecaller installs our lightweight <code>OmniFlow-SIM-Recorder.apk</code> on their phone.
+                  <strong>Install Android Service APK:</strong> Telecaller installs our lightweight <code>EMS-SIM-Recorder.apk</code> on their phone.
                 </div>
               </div>
 
