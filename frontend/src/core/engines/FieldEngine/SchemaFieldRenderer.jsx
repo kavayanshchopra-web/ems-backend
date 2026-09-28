@@ -250,13 +250,16 @@ export default function SchemaFieldRenderer({
       if (isInvalidPhone) {
         displayVal = '—';
       } else {
+        const cleanNumber = valStr.replace(/[^\d+]/g, '');
+        const waNumber = cleanNumber.replace(/^\+/, '');
         const contactLabel = 'Customer';
         displayVal = (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
             <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{valStr}</span>
+            {/* Call button */}
             <button
               type="button"
-              title="📞 Call Contact"
+              title="📞 Call via Softphone"
               onClick={(e) => {
                 e.stopPropagation();
                 if (window.openGlobalDialer) {
@@ -264,8 +267,8 @@ export default function SchemaFieldRenderer({
                 }
               }}
               style={{
-                padding: '3px 6px',
-                borderRadius: '6px',
+                padding: '2px 5px',
+                borderRadius: '5px',
                 background: 'rgba(16, 185, 129, 0.15)',
                 border: '1px solid rgba(16, 185, 129, 0.3)',
                 color: '#059669',
@@ -274,11 +277,58 @@ export default function SchemaFieldRenderer({
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: '11px',
-                lineHeight: 1
+                lineHeight: 1,
+                transition: 'all 0.15s ease'
               }}
             >
               📞
             </button>
+            {/* WhatsApp button */}
+            <a
+              href={`https://wa.me/${waNumber}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="💬 Chat on WhatsApp"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                padding: '2px 5px',
+                borderRadius: '5px',
+                background: 'rgba(37, 211, 102, 0.15)',
+                border: '1px solid rgba(37, 211, 102, 0.3)',
+                color: '#16a34a',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '11px',
+                lineHeight: 1,
+                textDecoration: 'none',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              💬
+            </a>
+            {/* SMS Message button */}
+            <a
+              href={`sms:${cleanNumber}`}
+              title="✉️ Send SMS Message"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                padding: '2px 5px',
+                borderRadius: '5px',
+                background: 'rgba(59, 130, 246, 0.12)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                color: '#2563eb',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '11px',
+                lineHeight: 1,
+                textDecoration: 'none',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              ✉️
+            </a>
           </span>
         );
       }
@@ -314,6 +364,14 @@ export default function SchemaFieldRenderer({
     } else if (field.type === 'dropdown' || field.type === 'status' || field.type === 'radio' || field.id === 'role' || field.id === 'department' || field.id === 'designation' || field.id === 'status' || field.key === 'role' || field.key === 'department' || field.key === 'designation' || field.key === 'status') {
       if (valStr) {
         const optionStyle = LabelEngine.getOptionStyle(valStr, moduleConfig);
+        const upper = valStr.toUpperCase();
+        let leadingIcon = null;
+        if (upper === 'OUTGOING' || upper === 'OUTBOUND') leadingIcon = '↗ ';
+        else if (upper === 'INCOMING' || upper === 'INBOUND') leadingIcon = '↙ ';
+        else if (upper === 'MISSED' || upper === 'MISSED CALL') leadingIcon = '✕ ';
+        else if (upper === 'SIM' || upper.startsWith('SIM')) leadingIcon = '📶 ';
+        else if (upper.includes('WHATSAPP')) leadingIcon = '💬 ';
+
         displayVal = (
           <span style={{
             background: optionStyle.bg,
@@ -328,7 +386,7 @@ export default function SchemaFieldRenderer({
             gap: '4px',
             letterSpacing: '0.2px'
           }}>
-            {valStr}
+            {leadingIcon}{valStr}
           </span>
         );
       }

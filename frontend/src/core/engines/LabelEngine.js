@@ -306,6 +306,55 @@ export class LabelEngine {
       return { bg: `${hex}1f`, color: hex, border: `${hex}4d` };
     }
 
+    // Call Types & Directions (Vibrant, distinct colors)
+    const upper = str.toUpperCase();
+    if (upper === 'INCOMING' || upper === 'INBOUND') {
+      return { bg: 'rgba(16, 185, 129, 0.12)', color: '#059669', border: 'rgba(16, 185, 129, 0.3)' }; // Mint Emerald
+    }
+    if (upper === 'OUTGOING' || upper === 'OUTBOUND') {
+      return { bg: 'rgba(59, 130, 246, 0.12)', color: '#2563eb', border: 'rgba(59, 130, 246, 0.3)' }; // Royal Blue
+    }
+    if (upper === 'MISSED' || upper === 'MISSED CALL') {
+      return { bg: 'rgba(239, 68, 68, 0.12)', color: '#e11d48', border: 'rgba(239, 68, 68, 0.3)' }; // Rose Red
+    }
+    if (upper === 'REJECTED' || upper === 'BUSY' || upper === 'NOT CONNECTED') {
+      return { bg: 'rgba(245, 158, 11, 0.12)', color: '#d97706', border: 'rgba(245, 158, 11, 0.3)' }; // Amber Orange
+    }
+
+    // Channels / SIM Slots (Distinct colors per user request)
+    if (upper === 'SIM 1') {
+      return { bg: 'rgba(14, 165, 233, 0.12)', color: '#0284c7', border: 'rgba(14, 165, 233, 0.3)' }; // Sky Blue
+    }
+    if (upper === 'SIM 2') {
+      return { bg: 'rgba(139, 92, 246, 0.12)', color: '#7c3aed', border: 'rgba(139, 92, 246, 0.3)' }; // Purple
+    }
+    if (upper === 'SIM') {
+      return { bg: 'rgba(249, 115, 22, 0.12)', color: '#ea580c', border: 'rgba(249, 115, 22, 0.3)' }; // Warm Orange
+    }
+    if (upper.includes('OFFICIAL') || upper.includes('BUSINESS')) {
+      return { bg: 'rgba(16, 185, 129, 0.12)', color: '#16a34a', border: 'rgba(16, 185, 129, 0.3)' }; // Green
+    }
+    if (upper.includes('WHATSAPP')) {
+      return { bg: 'rgba(34, 197, 94, 0.12)', color: '#15803d', border: 'rgba(34, 197, 94, 0.3)' }; // WhatsApp Green
+    }
+
+    // Dispositions & CRM Stages
+    if (lower.includes('interested') && !lower.includes('not')) {
+      return { bg: 'rgba(16, 185, 129, 0.12)', color: '#059669', border: 'rgba(16, 185, 129, 0.3)' };
+    }
+    if (lower.includes('not interested') || lower.includes('junk') || lower.includes('lost')) {
+      return { bg: 'rgba(239, 68, 68, 0.12)', color: '#dc2626', border: 'rgba(239, 68, 68, 0.3)' };
+    }
+    if (lower.includes('demo') || lower.includes('scheduled') || lower.includes('meeting')) {
+      return { bg: 'rgba(99, 102, 241, 0.12)', color: '#4f46e5', border: 'rgba(99, 102, 241, 0.3)' };
+    }
+    if (lower.includes('follow') || lower.includes('callback') || lower.includes('queue')) {
+      return { bg: 'rgba(245, 158, 11, 0.12)', color: '#d97706', border: 'rgba(245, 158, 11, 0.3)' };
+    }
+    if (lower.includes('closed') || lower.includes('won') || lower.includes('deal')) {
+      return { bg: 'rgba(168, 85, 247, 0.12)', color: '#9333ea', border: 'rgba(168, 85, 247, 0.3)' };
+    }
+
     // Color maps for common enterprise roles, departments, statuses
     if (lower.includes('admin') || lower.includes('owner') || lower.includes('super')) {
       return { bg: 'rgba(139, 92, 246, 0.12)', color: '#7c3aed', border: 'rgba(139, 92, 246, 0.3)' };

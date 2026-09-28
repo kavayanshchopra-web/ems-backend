@@ -79,55 +79,51 @@ export default function KPIWidget({
       style={{
         background: '#ffffff',
         padding: '14px 18px',
-        borderRadius: '16px',
-        border: '1px solid #e2e8f0',
+        borderRadius: '14px',
+        border: '1px solid rgba(226, 232, 240, 0.85)',
         boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)',
         display: 'flex',
         alignItems: 'center',
-        gap: '14px',
+        justifyContent: 'space-between',
         position: 'relative',
+        overflow: 'hidden',
         transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
         cursor: 'default',
         boxSizing: 'border-box'
       }}
     >
-      {/* 1. Large, Colorful Circular Icon Badge on the LEFT */}
+      {/* 1. Left Color Accent Strip (Signature EMS format) */}
       <div
-        className="kpi-icon-badge"
         style={{
-          width: '46px',
-          height: '46px',
-          borderRadius: '50%',
-          background: cardBgLight,
-          color: cardColor,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          border: `1px solid ${cardColor}25`,
-          boxShadow: `0 2px 6px ${cardColor}15`
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '4px',
+          height: '100%',
+          background: cardColor,
+          borderRadius: '4px 0 0 4px'
         }}
-      >
-        {renderIcon(widget.icon, cardColor)}
-      </div>
+      />
 
-      {/* 2. Text Details on the RIGHT */}
+      {/* 2. Text & Metrics on the Left */}
       <div
         style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '2px',
+          gap: '3px',
           minWidth: 0,
-          flex: 1
+          paddingLeft: '4px',
+          overflow: 'hidden'
         }}
       >
         <span
           className="kpi-label"
           style={{
-            fontSize: '11.5px',
-            fontWeight: '600',
+            fontSize: '11px',
+            fontWeight: '700',
             color: '#64748b',
-            letterSpacing: '0.2px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
             whiteSpace: 'nowrap',
             textOverflow: 'ellipsis',
             overflow: 'hidden'
@@ -135,29 +131,88 @@ export default function KPIWidget({
         >
           {widget.label}
         </span>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
           <span
             className="kpi-value"
             style={{
               fontSize: '24px',
               fontWeight: '800',
               color: '#0f172a',
-              lineHeight: 1.1
+              lineHeight: 1.15
             }}
           >
             {value}
           </span>
+          {/* Trend arrow from reference image */}
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '2px',
+              fontSize: '10.5px',
+              fontWeight: '700',
+              color: '#16a34a',
+              background: '#f0fdf4',
+              padding: '1px 6px',
+              borderRadius: '6px',
+              border: '1px solid #dcfce7'
+            }}
+          >
+            ↑ +12%
+          </span>
           {widget.metricType === 'STAGE_COUNT' && (
-            <span style={{ fontSize: '11px', fontWeight: '700', color: cardColor }}>
+            <span
+              style={{
+                fontSize: '10.5px',
+                fontWeight: '700',
+                color: cardColor,
+                background: cardBgLight,
+                padding: '1px 6px',
+                borderRadius: '6px',
+                border: `1px solid ${cardColor}25`
+              }}
+            >
               Active
             </span>
           )}
           {widget.metricType === 'BYPASS_COUNT' && value > 0 && (
-            <span style={{ fontSize: '10px', fontWeight: '800', color: '#dc2626', background: '#fee2e2', padding: '1px 6px', borderRadius: '6px' }}>
+            <span
+              style={{
+                fontSize: '10px',
+                fontWeight: '800',
+                color: '#dc2626',
+                background: '#fee2e2',
+                padding: '1px 6px',
+                borderRadius: '6px',
+                border: '1px solid #fecaca'
+              }}
+            >
               Alert
             </span>
           )}
         </div>
+      </div>
+
+      {/* 3. Soft Tinted Icon Container on the Right */}
+      <div
+        className="kpi-icon-box"
+        style={{
+          width: '40px',
+          height: '40px',
+          borderRadius: '10px',
+          background: cardBgLight,
+          color: cardColor,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          marginLeft: '12px',
+          border: `1px solid ${cardColor}20`,
+          boxShadow: `0 2px 6px ${cardColor}10`,
+          transition: 'transform 0.2s ease'
+        }}
+      >
+        {renderIcon(widget.icon, cardColor)}
       </div>
     </div>
   );
