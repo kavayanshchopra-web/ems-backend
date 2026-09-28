@@ -20,8 +20,6 @@ import {
 } from 'lucide-react';
 import WhatsAppTemplateService from '../../core/services/whatsAppTemplateService';
 
-const QUICK_CATEGORIES = ['All', 'Product', 'Brochure', 'Follow-up', 'Meeting', 'Billing', 'Offer'];
-
 export default function WhatsAppQuickSendModal({
   isOpen = false,
   onClose = () => {},
@@ -41,6 +39,15 @@ export default function WhatsAppQuickSendModal({
 
   const tenantCompany = authUser?.companyName || authUser?.company_name || 'Our Company';
   const tenantAgent = authUser?.name || authUser?.fullName || 'Sales Executive';
+
+  // Dynamically derive categories from configured templates
+  const quickCategories = useMemo(() => {
+    const set = new Set(['All']);
+    templates.forEach(t => {
+      if (t.category && t.category !== 'All') set.add(t.category);
+    });
+    return Array.from(set);
+  }, [templates]);
 
   // Load templates on open
   useEffect(() => {
@@ -274,7 +281,7 @@ export default function WhatsAppQuickSendModal({
 
             {/* Category Filter Chips */}
             <div style={{ padding: '6px 10px', display: 'flex', gap: '4px', overflowX: 'auto', background: '#ffffff', borderBottom: '1px solid #f1f5f9' }}>
-              {QUICK_CATEGORIES.map(cat => {
+              {quickCategories.map(cat => {
                 const isSelected = selectedCategory === cat;
                 return (
                   <button

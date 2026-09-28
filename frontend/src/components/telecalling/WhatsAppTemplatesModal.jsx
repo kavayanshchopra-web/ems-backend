@@ -22,9 +22,9 @@ import {
   Info
 } from 'lucide-react';
 import WhatsAppTemplateService, { DEFAULT_WHATSAPP_TEMPLATES } from '../../core/services/whatsAppTemplateService';
+import TenantStorage from '../../core/services/TenantStorage';
 
-const CATEGORIES = [
-  'All',
+const DEFAULT_CATEGORIES = [
   'Product',
   'Greeting',
   'Brochure',
@@ -46,12 +46,28 @@ export default function WhatsAppTemplatesModal({
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingTemplate, setEditingTemplate] = useState(null); // null means viewing list
+  const [customCategories, setCustomCategories] = useState(() => {
+    return TenantStorage.getItem('whatsapp_custom_categories', companyId, []);
+  });
+  const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
+  const [newCategoryInput, setNewCategoryInput] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     category: 'Product',
     productName: '',
     content: ''
   });
+
+  // Dynamically compute all available categories
+  const allCategories = useMemo(() => {
+    const set = new Set([...DEFAULT_CATEGORIES, ...(Array.isArray(customCategories) ? customCategories : [])]);
+    templates.forEach(t => {
+      if (t.category && t.category !== 'All') set.add(t.category);
+    });
+    return Array.from(set);
+  }, [customCategories, templates]);
+
+  const filterCategories = useMemo(() => ['All', ...allCategories], [allCategories]);
 
   const tenantCompany = authUser?.companyName || authUser?.company_name || 'Our Company';
   const tenantAgent = authUser?.name || authUser?.fullName || 'Sales Executive';
@@ -320,7 +336,7 @@ export default function WhatsAppTemplatesModal({
 
             {/* Category Filter Pills */}
             <div style={{ padding: '8px 18px', background: '#ffffff', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '6px', overflowX: 'auto' }}>
-              {CATEGORIES.map(cat => {
+              {filterCategories.map(cat => {
                 const isSelected = selectedCategory === cat;
                 const count = cat === 'All' ? templates.length : templates.filter(t => t.category === cat).length;
                 return (
@@ -398,25 +414,134 @@ export default function WhatsAppTemplatesModal({
                   </div>
 
                   <div>
-                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
-                      Category / Tag
-                    </label>
-                    <select
-                      value={formData.category}
-                      onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                      style={{
-                        width: '100%',
-                        padding: '8px 10px',
-                        borderRadius: '7px',
-                        border: '1px solid #cbd5e1',
-                        fontSize: '12.5px',
-                        boxSizing: 'border-box'
-                      }}
-                    >
-                      {CATEGORIES.filter(c => c !== 'All').map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <label style={{ fontSize: '11.5px', fontWeight: '700', color: '#334155' }}>
+                        Category / Tag *
+                      </label>
+                      {!isAddingNewCategory && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingNewCategory(true);
+                            setNewCategoryInput('');
+                          }}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            color: '#047857',
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            padding: 0
+                          }}
+                        >
+                          + Add New Category
+                        </button>
+                      )}
+                    </div>
+
+                    {isAddingNewCategory ? (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <input
+                          type="text"
+                          placeholder="Type custom tag (e.g. Solar, Loans, Real Estate)"
+                          value={newCategoryInput}
+                          onChange={(e) => setNewCategoryInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const trimmed = newCategoryInput.trim();
+                              if (trimmed) {
+                                const updated = Array.from(new Set([...customCategories, trimmed]));
+                                setCustomCategories(updated);
+                                TenantStorage.setItem('whatsapp_custom_categories', updated, companyId);
+                                setFormData(prev => ({ ...prev, category: trimmed }));
+                                setIsAddingNewCategory(false);
+                                setNewCategoryInput('');
+                              }
+                            }
+                          }}
+                          autoFocus
+                          style={{
+                            flex: 1,
+                            padding: '8px 10px',
+                            borderRadius: '7px',
+                            border: '1.5px solid #047857',
+                            fontSize: '12px',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const trimmed = newCategoryInput.trim();
+                            if (trimmed) {
+                              const updated = Array.from(new Set([...customCategories, trimmed]));
+                              setCustomCategories(updated);
+                              TenantStorage.setItem('whatsapp_custom_categories', updated, companyId);
+                              setFormData(prev => ({ ...prev, category: trimmed }));
+                              setIsAddingNewCategory(false);
+                              setNewCategoryInput('');
+                              if (showToast) showToast(`Added category "${trimmed}"`, 'success');
+                            }
+                          }}
+                          style={{
+                            padding: '0 12px',
+                            background: '#047857',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '7px',
+                            fontSize: '11.5px',
+                            fontWeight: '700',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Add
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingNewCategory(false)}
+                          style={{
+                            padding: '0 8px',
+                            background: '#f1f5f9',
+                            color: '#64748b',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: '7px',
+                            fontSize: '12px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <select
+                        value={formData.category}
+                        onChange={(e) => {
+                          if (e.target.value === '__add_custom__') {
+                            setIsAddingNewCategory(true);
+                            setNewCategoryInput('');
+                          } else {
+                            setFormData(prev => ({ ...prev, category: e.target.value }));
+                          }
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '8px 10px',
+                          borderRadius: '7px',
+                          border: '1px solid #cbd5e1',
+                          fontSize: '12.5px',
+                          boxSizing: 'border-box'
+                        }}
+                      >
+                        {allCategories.map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                        <option value="__add_custom__" style={{ fontWeight: '700', color: '#047857' }}>
+                          ➕ + Add New Custom Category / Tag...
+                        </option>
+                      </select>
+                    )}
                   </div>
                 </div>
 
