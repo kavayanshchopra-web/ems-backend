@@ -53,27 +53,27 @@ export default function AppLauncherScreen({
         id: 'system',
         tab: 'superadmin_plans',
         label: t('systemCat') || 'SYSTEM',
-        subLabel: 'Super Admin Panel',
+        subLabel: 'Super Admin',
         category: 'Administration',
         icon: Shield,
         color: '#14d2cb',
         accentBg: 'rgba(20, 210, 203, 0.12)',
         borderColor: 'rgba(20, 210, 203, 0.35)',
         visible: authUser?.role === 'superadmin',
-        desc: 'Multi-tenant provisioning, subscription plans, pricing & telemetry'
+        desc: 'Multi-tenant provisioning, plans, pricing & telemetry'
       },
       {
         id: 'dashboards',
         tab: 'admin_dashboard',
         label: t('dashboardsCat') || 'DASHBOARDS',
-        subLabel: 'Executive Overview',
+        subLabel: 'Overview',
         category: 'Analytics',
         icon: BarChart3,
         color: '#10b981',
         accentBg: 'rgba(16, 185, 129, 0.12)',
         borderColor: 'rgba(16, 185, 129, 0.35)',
         visible: typeof canNav === 'function' ? canNav('admin_dashboard') : true,
-        desc: 'Company KPIs, staff statistics, revenue overview & performance metrics'
+        desc: 'Company KPIs, staff statistics & revenue overview'
       },
       {
         id: 'contacts',
@@ -86,33 +86,33 @@ export default function AppLauncherScreen({
         accentBg: 'rgba(20, 210, 203, 0.12)',
         borderColor: 'rgba(20, 210, 203, 0.35)',
         visible: typeof canNav === 'function' ? canNav('contacts') : true,
-        desc: 'Omnichannel customer database, contact tags, pipeline segments & sync'
+        desc: 'Customer database, contact tags & pipeline segments'
       },
       {
         id: 'conversations',
         tab: 'conversations',
         label: t('conversations') || 'CONVERSATIONS',
-        subLabel: 'Omnichannel Inbox',
+        subLabel: 'Omni Inbox',
         category: 'Communications',
         icon: MessageSquare,
         color: '#10b981',
         accentBg: 'rgba(16, 185, 129, 0.12)',
         borderColor: 'rgba(16, 185, 129, 0.35)',
         visible: typeof canNav === 'function' ? canNav('conversations') : true,
-        desc: 'Unified omnichannel chat inbox with live customer messaging'
+        desc: 'Unified omnichannel chat inbox with live messaging'
       },
       {
         id: 'telecalling',
         tab: 'telecalling',
         label: t('phoneSystem') || 'PHONE SYSTEM',
-        subLabel: 'SIM & Cloud Dialer',
+        subLabel: 'Dialer & Audio',
         category: 'Communications',
         icon: PhoneCall,
         color: '#06b6d4',
         accentBg: 'rgba(6, 182, 212, 0.12)',
         borderColor: 'rgba(6, 182, 212, 0.35)',
         visible: typeof canNav === 'function' ? canNav('telecalling') : true,
-        desc: 'SIM recording bridge, Voxbay cloud dialer, call disposition & audio vault'
+        desc: 'SIM recording bridge, Voxbay cloud dialer & audio vault'
       },
       {
         id: 'kanban',
@@ -125,7 +125,7 @@ export default function AppLauncherScreen({
         accentBg: 'rgba(139, 92, 246, 0.12)',
         borderColor: 'rgba(139, 92, 246, 0.35)',
         visible: typeof canNav === 'function' ? canNav('kanban') : true,
-        desc: 'Visual sales pipeline stages, deal values, lead stages & drag-and-drop'
+        desc: 'Visual sales pipeline stages, deal values & drag-and-drop'
       },
       {
         id: 'wa_live_web',
@@ -138,13 +138,13 @@ export default function AppLauncherScreen({
         accentBg: 'rgba(34, 197, 94, 0.12)',
         borderColor: 'rgba(34, 197, 94, 0.35)',
         visible: typeof canNav === 'function' ? canNav('wa_live_web') : true,
-        desc: 'Native WhatsApp Web pairing, connected device sync & quick broadcast'
+        desc: 'Native WhatsApp Web pairing & connected device sync'
       },
       {
         id: 'automations_sandbox',
         tab: 'automations_sandbox',
         label: 'AUTOMATIONS',
-        subLabel: 'Triggers & Webhooks',
+        subLabel: 'Workflows',
         category: 'Workflows',
         icon: Zap,
         color: '#a855f7',
@@ -152,33 +152,33 @@ export default function AppLauncherScreen({
         borderColor: 'rgba(168, 85, 247, 0.35)',
         badge: 'SANDBOX',
         visible: typeof canNav === 'function' ? canNav('automations_sandbox') : true,
-        desc: 'Event triggers, webhooks, multi-step actions & automated workflows'
+        desc: 'Event triggers, webhooks & automated multi-step actions'
       },
       {
         id: 'tasks',
         tab: 'tasks',
         label: 'TASK MANAGEMENT',
-        subLabel: 'Team Tasks & Roster',
+        subLabel: 'Team Roster',
         category: 'Operations',
         icon: ClipboardList,
         color: '#f59e0b',
         accentBg: 'rgba(245, 158, 11, 0.12)',
         borderColor: 'rgba(245, 158, 11, 0.35)',
         visible: typeof canNav === 'function' ? (canNav('tasks') || canNav('manager_dashboard')) : true,
-        desc: 'Team task board, priority queues, deadlines & employee workload tracking'
+        desc: 'Team task board, priority queues & employee workload'
       },
       {
         id: 'gps_attendance',
         tab: 'gps_attendance',
         label: 'LIVE TRACKING MAP',
-        subLabel: 'Field Team Radar',
+        subLabel: 'Field Radar',
         category: 'Operations',
         icon: Globe,
         color: '#3b82f6',
         accentBg: 'rgba(59, 130, 246, 0.12)',
         borderColor: 'rgba(59, 130, 246, 0.35)',
         visible: typeof canNav === 'function' ? canNav('gps_attendance') : true,
-        desc: 'Real-time GPS pinpoints, field worker routes, breadcrumbs & client visits'
+        desc: 'Real-time GPS pinpoints, field worker routes & visits'
       },
       {
         id: 'audit_logs',
@@ -191,7 +191,7 @@ export default function AppLauncherScreen({
         accentBg: 'rgba(236, 72, 153, 0.12)',
         borderColor: 'rgba(236, 72, 153, 0.35)',
         visible: typeof canNav === 'function' ? canNav('audit_logs') : true,
-        desc: 'Immutable security audit trail, IP tracking, timestamps & user events'
+        desc: 'Immutable security audit trail, IP tracking & timestamps'
       },
       {
         id: 'media_storage',
@@ -204,72 +204,72 @@ export default function AppLauncherScreen({
         accentBg: 'rgba(20, 184, 166, 0.12)',
         borderColor: 'rgba(20, 184, 166, 0.35)',
         visible: typeof canNav === 'function' ? canNav('media_storage') : true,
-        desc: 'Secure cloud asset storage, company document library & storage quotas'
+        desc: 'Secure cloud asset storage & document library'
       },
       {
         id: 'hr_management',
         tab: 'employees',
         label: t('hrCat') || 'HR MANAGEMENT',
-        subLabel: 'Staff & Recruitment',
+        subLabel: 'Staff & ATS',
         category: 'Human Resources',
         icon: Users,
         color: '#3b82f6',
         accentBg: 'rgba(59, 130, 246, 0.12)',
         borderColor: 'rgba(59, 130, 246, 0.35)',
         visible: typeof canNav === 'function' ? (canNav('employees') || canNav('recruitment_ats') || canNav('asset_management') || canNav('verify_documents') || canNav('offboarding')) : true,
-        desc: 'Employee directory, recruitment ATS, company equipment & offboarding'
+        desc: 'Employee directory, recruitment ATS & offboarding'
       },
       {
         id: 'payroll_finance',
         tab: 'payroll',
         label: t('payrollCat') || 'PAYROLL & FINANCE',
-        subLabel: 'Salaries & Tax Compliance',
+        subLabel: 'Salaries & Taxes',
         category: 'Finance',
         icon: CreditCard,
         color: '#10b981',
         accentBg: 'rgba(16, 185, 129, 0.12)',
         borderColor: 'rgba(16, 185, 129, 0.35)',
         visible: typeof canNav === 'function' ? (canNav('payroll') || canNav('taxes_compliance') || canNav('ff_settlements') || canNav('advances_loans') || canNav('expenses')) : true,
-        desc: 'Automatic monthly payroll calculations, payslips, tax deductions & loan advances'
+        desc: 'Monthly payroll calculations, payslips & tax deductions'
       },
       {
         id: 'reporting',
         tab: 'reports_telephony',
         label: 'REPORTS & ANALYTICS',
-        subLabel: 'Business Intelligence',
+        subLabel: 'Analytics',
         category: 'Analytics',
         icon: BarChart2,
         color: '#8b5cf6',
         accentBg: 'rgba(139, 92, 246, 0.12)',
         borderColor: 'rgba(139, 92, 246, 0.35)',
         visible: typeof canNav === 'function' ? (canNav('reports_telephony') || canNav('reports_crm') || canNav('reports_cross') || canNav('reports_builder') || canNav('reports')) : true,
-        desc: 'Telephony reports, sales conversion metrics & custom dynamic report builder'
+        desc: 'Telephony reports, sales metrics & custom builder'
       },
       {
         id: 'operations',
         tab: 'office_kiosk',
         label: t('opsCat') || 'OPERATIONS',
-        subLabel: 'Kiosk & Bulletins',
+        subLabel: 'Kiosk & Notices',
         category: 'Operations',
         icon: Briefcase,
         color: '#f59e0b',
         accentBg: 'rgba(245, 158, 11, 0.12)',
         borderColor: 'rgba(245, 158, 11, 0.35)',
         visible: typeof canNav === 'function' ? (canNav('office_kiosk') || canNav('notice_board') || canNav('holidays')) : true,
-        desc: 'Office attendance kiosk punch mode, company notice board & holiday list'
+        desc: 'Attendance kiosk punch mode, notices & holidays'
       },
       {
         id: 'my_portal',
         tab: 'my_attendance',
         label: t('myPortalCat') || 'MY PORTAL',
-        subLabel: 'Self-Service Desk',
+        subLabel: 'Self-Service',
         category: 'Personal Portal',
         icon: User,
         color: '#14d2cb',
         accentBg: 'rgba(20, 210, 203, 0.12)',
         borderColor: 'rgba(20, 210, 203, 0.35)',
         visible: typeof canNav === 'function' ? (canNav('my_attendance') || canNav('leaves') || canNav('shifts')) : true,
-        desc: 'Self-service shift clock-in/out, leave requests & weekly duty roster'
+        desc: 'Self-service shift clock-in/out & leave requests'
       },
       {
         id: 'help_support',
@@ -282,20 +282,20 @@ export default function AppLauncherScreen({
         accentBg: 'rgba(6, 182, 212, 0.12)',
         borderColor: 'rgba(6, 182, 212, 0.35)',
         visible: typeof canNav === 'function' ? (canNav('app_guide') || canNav('feedback')) : true,
-        desc: 'Interactive guided application tour, step-by-step guides & feature suggestions'
+        desc: 'Interactive guided application tour & tutorials'
       },
       {
         id: 'settings',
         tab: 'settings',
         label: t('settingsCat') || 'SETTINGS',
-        subLabel: 'Workspace Control',
+        subLabel: 'Control Center',
         category: 'Administration',
         icon: Settings,
         color: '#14d2cb',
         accentBg: 'rgba(20, 210, 203, 0.12)',
         borderColor: 'rgba(20, 210, 203, 0.35)',
         visible: typeof canNav === 'function' ? (canNav('settings') || canNav('integrations') || canNav('roles_permissions') || canNav('recycle_bin') || canNav('system_dropdowns') || canNav('module_configuration') || canNav('billing')) : true,
-        desc: 'Role permissions matrix, API integrations, trash vault & subscription billing'
+        desc: 'Role permissions matrix, APIs, trash vault & billing'
       }
     ].filter(item => item.visible);
 
@@ -318,8 +318,8 @@ export default function AppLauncherScreen({
     <div style={{
       minHeight: '100%',
       width: '100%',
-      background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, rgba(20, 210, 203, 0.05) 100%)',
-      padding: '36px 24px 60px 24px',
+      background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, rgba(20, 210, 203, 0.04) 100%)',
+      padding: '24px 20px 48px 20px',
       boxSizing: 'border-box',
       display: 'flex',
       flexDirection: 'column',
@@ -328,29 +328,29 @@ export default function AppLauncherScreen({
       {/* Top Header / Search Hub */}
       <div style={{
         width: '100%',
-        maxWidth: '1240px',
+        maxWidth: '1100px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        marginBottom: '36px'
+        marginBottom: '22px'
       }}>
         {/* Welcome Tag & Badge */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          marginBottom: '10px'
+          marginBottom: '8px'
         }}>
           <span style={{
-            fontSize: '11px',
+            fontSize: '10px',
             fontWeight: '800',
             textTransform: 'uppercase',
-            letterSpacing: '1.2px',
+            letterSpacing: '1px',
             color: '#0d9488',
             background: 'rgba(20, 210, 203, 0.12)',
             border: '1px solid rgba(20, 210, 203, 0.3)',
-            padding: '4px 12px',
-            borderRadius: '20px'
+            padding: '3px 10px',
+            borderRadius: '16px'
           }}>
             ⚡ OmniFlow EMS Apps Directory
           </span>
@@ -363,16 +363,16 @@ export default function AppLauncherScreen({
           </span>
         </div>
 
-        {/* Big Search Input with Option 5 Glassmorphism Styling */}
+        {/* Compact Search Input */}
         <div style={{
           width: '100%',
-          maxWidth: '560px',
+          maxWidth: '440px',
           position: 'relative',
-          marginTop: '6px'
+          marginTop: '4px'
         }}>
           <div style={{
             position: 'absolute',
-            left: '16px',
+            left: '14px',
             top: '50%',
             transform: 'translateY(-50%)',
             color: '#14d2cb',
@@ -380,7 +380,7 @@ export default function AppLauncherScreen({
             alignItems: 'center',
             pointerEvents: 'none'
           }}>
-            <Search size={18} />
+            <Search size={16} />
           </div>
 
           <input
@@ -388,17 +388,17 @@ export default function AppLauncherScreen({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search applications (or press Ctrl + K)..."
+            placeholder="Search applications (Ctrl + K)..."
             style={{
               width: '100%',
-              height: '48px',
-              padding: '0 48px 0 44px',
-              borderRadius: '16px',
+              height: '38px',
+              padding: '0 40px 0 38px',
+              borderRadius: '12px',
               background: 'rgba(255, 255, 255, 0.95)',
-              backdropFilter: 'blur(12px)',
-              border: '1.5px solid rgba(20, 210, 203, 0.35)',
-              boxShadow: '0 8px 24px -4px rgba(15, 43, 38, 0.08), 0 2px 6px rgba(0,0,0,0.03)',
-              fontSize: '14px',
+              backdropFilter: 'blur(10px)',
+              border: '1.2px solid rgba(20, 210, 203, 0.35)',
+              boxShadow: '0 4px 14px -2px rgba(15, 43, 38, 0.06), 0 1px 3px rgba(0,0,0,0.02)',
+              fontSize: '13px',
               fontWeight: '600',
               color: '#0f2b26',
               outline: 'none',
@@ -407,11 +407,11 @@ export default function AppLauncherScreen({
             }}
             onFocus={(e) => {
               e.target.style.borderColor = '#14d2cb';
-              e.target.style.boxShadow = '0 12px 28px -4px rgba(20, 210, 203, 0.25), 0 0 0 2px rgba(20, 210, 203, 0.3)';
+              e.target.style.boxShadow = '0 6px 18px -2px rgba(20, 210, 203, 0.22), 0 0 0 2px rgba(20, 210, 203, 0.25)';
             }}
             onBlur={(e) => {
               e.target.style.borderColor = 'rgba(20, 210, 203, 0.35)';
-              e.target.style.boxShadow = '0 8px 24px -4px rgba(15, 43, 38, 0.08), 0 2px 6px rgba(0,0,0,0.03)';
+              e.target.style.boxShadow = '0 4px 14px -2px rgba(15, 43, 38, 0.06), 0 1px 3px rgba(0,0,0,0.02)';
             }}
           />
 
@@ -421,14 +421,14 @@ export default function AppLauncherScreen({
               onClick={() => setSearchQuery('')}
               style={{
                 position: 'absolute',
-                right: '14px',
+                right: '10px',
                 top: '50%',
                 transform: 'translateY(-50%)',
                 background: 'rgba(100, 116, 139, 0.15)',
                 border: 'none',
                 borderRadius: '50%',
-                width: '24px',
-                height: '24px',
+                width: '20px',
+                height: '20px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -436,19 +436,19 @@ export default function AppLauncherScreen({
                 color: '#64748b'
               }}
             >
-              <X size={14} />
+              <X size={12} />
             </button>
           ) : (
             <div style={{
               position: 'absolute',
-              right: '14px',
+              right: '10px',
               top: '50%',
               transform: 'translateY(-50%)',
-              padding: '2px 7px',
+              padding: '2px 6px',
               background: '#f1f5f9',
-              borderRadius: '6px',
+              borderRadius: '5px',
               border: '1px solid #e2e8f0',
-              fontSize: '11px',
+              fontSize: '10px',
               fontWeight: '700',
               color: '#94a3b8',
               pointerEvents: 'none'
@@ -459,34 +459,34 @@ export default function AppLauncherScreen({
         </div>
       </div>
 
-      {/* App Grid Container */}
+      {/* App Grid Container - Compact & Tightly Spaced */}
       <div style={{
         width: '100%',
-        maxWidth: '1240px'
+        maxWidth: '1100px'
       }}>
         {filteredModules.length === 0 ? (
           <div style={{
             textAlign: 'center',
-            padding: '60px 20px',
+            padding: '50px 20px',
             background: 'rgba(255, 255, 255, 0.7)',
-            borderRadius: '20px',
+            borderRadius: '16px',
             border: '1px dashed #cbd5e1',
-            maxWidth: '450px',
+            maxWidth: '400px',
             margin: '0 auto'
           }}>
-            <Search size={32} style={{ color: '#94a3b8', marginBottom: '12px' }} />
-            <h4 style={{ margin: '0 0 6px 0', fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>
+            <Search size={28} style={{ color: '#94a3b8', marginBottom: '10px' }} />
+            <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: '800', color: '#1e293b' }}>
               No matching applications
             </h4>
-            <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
+            <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
               No apps found for "{searchQuery}". Try searching for another keyword.
             </p>
           </div>
         ) : (
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
-            gap: '22px',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+            gap: '14px 16px',
             justifyItems: 'center'
           }}>
             {filteredModules.map((app) => {
@@ -506,24 +506,24 @@ export default function AppLauncherScreen({
                   title={`${app.label} — ${app.desc}`}
                   style={{
                     width: '100%',
-                    maxWidth: '185px',
-                    minHeight: '165px',
+                    maxWidth: '135px',
+                    minHeight: '122px',
                     background: isHovered ? 'rgba(255, 255, 255, 0.98)' : 'rgba(255, 255, 255, 0.82)',
-                    backdropFilter: 'blur(16px)',
-                    border: isHovered ? `1.5px solid ${app.color}` : '1.5px solid rgba(226, 232, 240, 0.9)',
-                    borderRadius: '22px',
-                    padding: '20px 14px 16px 14px',
+                    backdropFilter: 'blur(12px)',
+                    border: isHovered ? `1.5px solid ${app.color}` : '1px solid rgba(226, 232, 240, 0.85)',
+                    borderRadius: '16px',
+                    padding: '12px 6px 10px 6px',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
                     position: 'relative',
-                    transition: 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
-                    transform: isHovered ? 'translateY(-8px) scale(1.03)' : 'translateY(0) scale(1)',
+                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                    transform: isHovered ? 'translateY(-5px) scale(1.04)' : 'translateY(0) scale(1)',
                     boxShadow: isHovered
-                      ? `0 20px 32px -4px rgba(15, 43, 38, 0.14), 0 0 0 1.5px ${app.color}, 0 8px 16px -2px ${app.accentBg}`
-                      : '0 4px 16px -2px rgba(15, 43, 38, 0.05), 0 1px 3px rgba(0,0,0,0.02)',
+                      ? `0 12px 24px -4px rgba(15, 43, 38, 0.12), 0 0 0 1.5px ${app.color}`
+                      : '0 2px 8px -2px rgba(15, 43, 38, 0.04), 0 1px 2px rgba(0,0,0,0.02)',
                     boxSizing: 'border-box',
                     userSelect: 'none'
                   }}
@@ -532,61 +532,69 @@ export default function AppLauncherScreen({
                   {app.badge && (
                     <span style={{
                       position: 'absolute',
-                      top: '10px',
-                      right: '10px',
-                      fontSize: '9px',
+                      top: '6px',
+                      right: '6px',
+                      fontSize: '7.5px',
                       fontWeight: '800',
-                      padding: '2px 6px',
-                      borderRadius: '5px',
+                      padding: '1px 5px',
+                      borderRadius: '4px',
                       background: 'linear-gradient(135deg, #8b5cf6, #ec4899)',
                       color: '#ffffff',
-                      letterSpacing: '0.4px',
-                      boxShadow: '0 2px 4px rgba(139, 92, 246, 0.3)'
+                      letterSpacing: '0.3px',
+                      boxShadow: '0 2px 4px rgba(139, 92, 246, 0.25)'
                     }}>
                       {app.badge}
                     </span>
                   )}
 
-                  {/* Icon Card Box (Option 5 Theme: Pure White + Glowing Border Accent) */}
+                  {/* Compact Icon Box */}
                   <div style={{
-                    width: '66px',
-                    height: '66px',
-                    borderRadius: '18px',
+                    width: '46px',
+                    height: '46px',
+                    borderRadius: '13px',
                     background: app.accentBg,
-                    border: `1.5px solid ${app.borderColor}`,
+                    border: `1.2px solid ${app.borderColor}`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: app.color,
-                    boxShadow: isHovered ? `0 8px 18px ${app.accentBg}` : 'none',
-                    transition: 'all 0.22s ease',
-                    transform: isHovered ? 'scale(1.1)' : 'scale(1)',
-                    marginBottom: '12px'
+                    boxShadow: isHovered ? `0 6px 14px ${app.accentBg}` : 'none',
+                    transition: 'all 0.2s ease',
+                    transform: isHovered ? 'scale(1.08)' : 'scale(1)',
+                    marginBottom: '8px'
                   }}>
-                    <IconComp size={30} strokeWidth={2.2} />
+                    <IconComp size={23} strokeWidth={2.2} />
                   </div>
 
                   {/* Module Name */}
                   <span style={{
-                    fontSize: '12px',
+                    fontSize: '10.5px',
                     fontWeight: '800',
                     color: isHovered ? '#0f2b26' : '#1e293b',
                     textAlign: 'center',
                     textTransform: 'uppercase',
-                    letterSpacing: '0.4px',
-                    lineHeight: '1.25',
-                    marginBottom: '3px'
+                    letterSpacing: '0.3px',
+                    lineHeight: '1.2',
+                    marginBottom: '2px',
+                    width: '100%',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
                   }}>
                     {app.label}
                   </span>
 
                   {/* Subtitle / Category */}
                   <span style={{
-                    fontSize: '10.5px',
+                    fontSize: '9px',
                     fontWeight: '600',
                     color: '#64748b',
                     textAlign: 'center',
-                    lineHeight: '1.2'
+                    lineHeight: '1.15',
+                    width: '100%',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
                   }}>
                     {app.subLabel}
                   </span>

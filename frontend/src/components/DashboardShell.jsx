@@ -847,7 +847,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [simViewMode, setSimViewMode] = useState('app'); // 'app' or 'permissions'
   const [simPermissions, setSimPermissions] = useState({ calendar: false, location: false, notifications: false, battery: false, phone: false, overlay: false });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(false);
   const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('ems_theme') || 'emerald');
   const isGhlEmbedded = useMemo(() => {
     if (typeof window === 'undefined') return false;
@@ -857,6 +857,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [ghlSidebarOpen, setGhlSidebarOpen] = useState(false);
   useEffect(() => {
     setMobileSidebarOpen(false);
+    setDesktopSidebarOpen(false);
   }, [activeTab]);
 
   // Companion App Detection Engine: ONLY true inside Android App
@@ -7306,7 +7307,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       />
       <aside
         className={`sidebar ${!desktopSidebarOpen ? 'collapsed' : ''} ${mobileSidebarOpen ? 'mobile-open' : ''}`}
-        style={activeTab === 'app_launcher' || (isGhlEmbedded && !ghlSidebarOpen) ? { display: 'none' } : {}}
+        style={!desktopSidebarOpen || activeTab === 'app_launcher' || (isGhlEmbedded && !ghlSidebarOpen) ? { display: 'none' } : {}}
       >
         {/* EMS-style Sidebar Branding - Removed OmniFlow EMS text as requested */}
         <div className="sidebar-logo" style={{ padding: '20px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-start' }}>
@@ -7639,7 +7640,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               fontSize: '12px',
               fontWeight: '800',
               cursor: 'pointer',
-              display: 'flex',
+              display: activeTab === 'app_launcher' ? 'none' : 'flex',
               alignItems: 'center',
               gap: '6px',
               boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
