@@ -16,12 +16,7 @@ import {
   User, 
   Phone, 
   Sparkles,
-  ArrowRight,
-  Paperclip,
-  FileText,
-  Image as ImageIcon,
-  Download,
-  Copy
+  ArrowRight
 } from 'lucide-react';
 import WhatsAppTemplateService from '../../core/services/whatsAppTemplateService';
 
@@ -41,7 +36,6 @@ export default function WhatsAppQuickSendModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState(null);
   const [customizedMessage, setCustomizedMessage] = useState('');
-  const [copiedLink, setCopiedLink] = useState(false);
 
   const tenantCompany = authUser?.companyName || authUser?.company_name || 'Our Company';
   const tenantAgent = authUser?.name || authUser?.fullName || 'Sales Executive';
@@ -74,11 +68,7 @@ export default function WhatsAppQuickSendModal({
           name: contactName || leadRecord?.name || 'Customer',
           agentName: tenantAgent,
           companyName: tenantCompany,
-          phone: phone,
-          documentUrl: defaultTpl.attachment?.url || '',
-          brochureUrl: defaultTpl.attachment?.url || '',
-          attachmentUrl: defaultTpl.attachment?.url || '',
-          attachment: defaultTpl.attachment
+          phone: phone
         });
         setCustomizedMessage(personalized);
       } else {
@@ -95,11 +85,7 @@ export default function WhatsAppQuickSendModal({
       name: contactName || leadRecord?.name || 'Customer',
       agentName: tenantAgent,
       companyName: tenantCompany,
-      phone: phone,
-      documentUrl: tpl.attachment?.url || '',
-      brochureUrl: tpl.attachment?.url || '',
-      attachmentUrl: tpl.attachment?.url || '',
-      attachment: tpl.attachment
+      phone: phone
     });
     setCustomizedMessage(personalized);
   };
@@ -115,15 +101,6 @@ export default function WhatsAppQuickSendModal({
       return matchesCat && matchesQuery;
     });
   }, [templates, selectedCategory, searchQuery]);
-
-  // Handle copy document URL
-  const handleCopyDocUrl = (url) => {
-    if (!url) return;
-    navigator.clipboard.writeText(url);
-    setCopiedLink(true);
-    if (showToast) showToast('Document link copied to clipboard!', 'info');
-    setTimeout(() => setCopiedLink(false), 2200);
-  };
 
   // Send handler
   const handleSendWhatsApp = () => {
@@ -150,8 +127,7 @@ export default function WhatsAppQuickSendModal({
       contactName: contactName || leadRecord?.name || 'Customer',
       template: activeTpl,
       agentName: tenantAgent,
-      leadRecord: leadRecord,
-      attachment: activeTpl?.attachment
+      leadRecord: leadRecord
     });
 
     WhatsAppTemplateService.openWhatsApp(cleanDigits, customizedMessage);
@@ -403,27 +379,6 @@ export default function WhatsAppQuickSendModal({
                       }}>
                         {tpl.content}
                       </div>
-
-                      {tpl.attachment && (
-                        <div style={{
-                          marginTop: '6px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '2px 7px',
-                          borderRadius: '4px',
-                          background: '#ecfdf5',
-                          border: '1px solid #a7f3d0',
-                          color: '#065f46',
-                          fontSize: '10px',
-                          fontWeight: '700'
-                        }}>
-                          <Paperclip size={10} />
-                          <span style={{ maxWidth: '170px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {tpl.attachment.fileName || 'Attached Document'}
-                          </span>
-                        </div>
-                      )}
                     </div>
                   );
                 })
@@ -449,105 +404,6 @@ export default function WhatsAppQuickSendModal({
                 Editable before sending
               </span>
             </div>
-
-            {/* Attached Document Card (if template has attachment) */}
-            {activeTpl?.attachment && (
-              <div style={{
-                marginBottom: '10px',
-                padding: '10px 12px',
-                borderRadius: '10px',
-                background: '#f8fafc',
-                border: '1px solid #cbd5e1',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '10px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
-                  <div style={{
-                    width: '34px',
-                    height: '34px',
-                    borderRadius: '8px',
-                    background: activeTpl.attachment.mimeType?.startsWith('image/') ? '#eff6ff' : '#fef2f2',
-                    border: activeTpl.attachment.mimeType?.startsWith('image/') ? '1px solid #bfdbfe' : '1px solid #fecaca',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: activeTpl.attachment.mimeType?.startsWith('image/') ? '#2563eb' : '#dc2626',
-                    flexShrink: 0
-                  }}>
-                    {activeTpl.attachment.mimeType?.startsWith('image/') ? (
-                      <ImageIcon size={18} />
-                    ) : (
-                      <FileText size={18} />
-                    )}
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{
-                      fontSize: '12px',
-                      fontWeight: '700',
-                      color: '#0f172a',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }} title={activeTpl.attachment.fileName}>
-                      {activeTpl.attachment.fileName || 'Attached Document'}
-                    </div>
-                    <div style={{ fontSize: '10.5px', color: '#64748b' }}>
-                      {activeTpl.attachment.fileSize || 'Attached'} • Auto-linked in message
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                  <button
-                    type="button"
-                    onClick={() => handleCopyDocUrl(activeTpl.attachment.url)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '5px 8px',
-                      borderRadius: '6px',
-                      background: '#ffffff',
-                      border: '1px solid #cbd5e1',
-                      color: '#475569',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
-                    title="Copy document URL to clipboard"
-                  >
-                    {copiedLink ? <Check size={12} color="#059669" /> : <Copy size={12} />}
-                    {copiedLink ? 'Copied' : 'Copy Link'}
-                  </button>
-
-                  <a
-                    href={activeTpl.attachment.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '5px 9px',
-                      borderRadius: '6px',
-                      background: '#047857',
-                      border: 'none',
-                      color: '#ffffff',
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      textDecoration: 'none'
-                    }}
-                    title="Open document in browser"
-                  >
-                    <Download size={12} />
-                    Open
-                  </a>
-                </div>
-              </div>
-            )}
 
             {/* Editable Textarea with Green Tint WhatsApp Theme */}
             <div style={{
