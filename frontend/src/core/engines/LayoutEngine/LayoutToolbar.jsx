@@ -13,7 +13,6 @@ import ViewSwitcher from '../ViewEngine/ViewSwitcher';
 import FilterPanel from '../FilterEngine/FilterPanel';
 import SavedViewsEngine from '../FilterEngine/SavedViewsEngine';
 import ColumnManagerPopover from '../ListEngine/ColumnManagerPopover';
-import Pagination from '../ListEngine/Pagination';
 import { LabelEngine } from '../LabelEngine';
 import { PlaceholderEngine } from '../PlaceholderEngine';
 import { FilterEngine } from '../FilterEngine';
@@ -294,16 +293,6 @@ export default function LayoutToolbar({
               />
             )}
           </div>
-
-          {/* COMPACT PAGINATION (NO TEXT) */}
-          <Pagination
-            compact={true}
-            currentPage={currentPage}
-            pageSize={pageSize}
-            totalRecords={totalCount}
-            onPageChange={onPageChange}
-            onPageSizeChange={onPageSizeChange}
-          />
         </div>
 
         {/* B. CENTER: SEARCH INPUT WITH INTEGRATED MINI GREEN FILTER ARROW BOX + PRESET TABS */}

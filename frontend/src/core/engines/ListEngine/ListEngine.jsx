@@ -3,8 +3,7 @@
  * Enterprise CRM Scroll Architecture with Sticky <thead>, Sticky Bottom <Pagination>, & Thin Themed Scrollbars
  */
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Eye, Edit2, Archive, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Trash2, Columns, Play, Pause } from 'lucide-react';
+import { Eye, Edit2, Archive, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Trash2, Columns, Play, Pause, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import SchemaFieldRenderer from '../FieldEngine/SchemaFieldRenderer';
 import { LabelEngine } from '../LabelEngine';
 import FirebaseCloudEngine from '../FirebaseCloudEngine';
@@ -12,7 +11,6 @@ import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import EmptyState from '../../../components/ui/EmptyState';
 import BulkActionEngine from '../BulkActionEngine/BulkActionEngine';
-import Pagination from './Pagination';
 import ColumnManagerPopover from './ColumnManagerPopover';
 import { formatCandidateId } from '../../../services/atsStorageService';
 
@@ -189,6 +187,27 @@ export default function ListEngine({
   const setPageSize = propOnPageSizeChange || setLocalPageSize;
   const hiddenColIds = propSetHiddenColIds ? propHiddenColIds : localHiddenColIds;
   const setHiddenColIds = propSetHiddenColIds || setLocalHiddenColIds;
+
+  // Custom editable page size state
+  const [customPageSizeInput, setCustomPageSizeInput] = useState(String(pageSize));
+
+  useEffect(() => {
+    setCustomPageSizeInput(String(pageSize));
+  }, [pageSize]);
+
+  const handleApplyCustomPageSize = (val) => {
+    let num = parseInt(val, 10);
+    if (isNaN(num) || num <= 0) {
+      num = 25;
+    }
+    setCustomPageSizeInput(String(num));
+    if (typeof setPageSize === 'function') {
+      setPageSize(num);
+    }
+    if (typeof setCurrentPage === 'function') {
+      setCurrentPage(1);
+    }
+  };
 
   // Mobile Audio Recording Player State
   const [playingRecordId, setPlayingRecordId] = useState(null);
@@ -3431,64 +3450,234 @@ export default function ListEngine({
           ) : (
             <>
               {paginatedRecords.filter(r => !!r).map((record, idx) => renderMobileCard(record, idx))}
-
-              {/* Mobile Bottom Pagination Controls */}
-              {safeRecords.length > pageSize && (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '10px 12px',
-                  background: '#ffffff',
-                  borderRadius: '10px',
-                  border: '1px solid #e2e8f0',
-                  marginTop: '6px',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-                }}>
-                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700' }}>
-                    Page {validCurrentPage} of {totalPages} <span style={{ fontWeight: '500', color: '#94a3b8' }}>({safeRecords.length})</span>
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <button
-                      type="button"
-                      disabled={validCurrentPage <= 1}
-                      onClick={() => onPageChange(validCurrentPage - 1)}
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        border: '1px solid #cbd5e1',
-                        background: validCurrentPage <= 1 ? '#f8fafc' : '#ffffff',
-                        color: validCurrentPage <= 1 ? '#cbd5e1' : '#0d9488',
-                        fontSize: '11px',
-                        fontWeight: '700',
-                        cursor: validCurrentPage <= 1 ? 'not-allowed' : 'pointer'
-                      }}
-                    >
-                      ← Prev
-                    </button>
-                    <button
-                      type="button"
-                      disabled={validCurrentPage >= totalPages}
-                      onClick={() => onPageChange(validCurrentPage + 1)}
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        border: '1px solid #cbd5e1',
-                        background: validCurrentPage >= totalPages ? '#f8fafc' : '#ffffff',
-                        color: validCurrentPage >= totalPages ? '#cbd5e1' : '#0d9488',
-                        fontSize: '11px',
-                        fontWeight: '700',
-                        cursor: validCurrentPage >= totalPages ? 'not-allowed' : 'pointer'
-                      }}
-                    >
-                      Next →
-                    </button>
-                  </div>
-                </div>
-              )}
             </>
           )}
         </div>
+
+        {/* UNIFIED SLEEK BOTTOM PAGINATION ENGINE BAR (ALL MODULES) */}
+        {safeRecords.length > 0 && (
+          <div
+            className="ems-bottom-pagination-bar"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px 18px',
+              background: '#ffffff',
+              borderTop: '1px solid #e2e8f0',
+              borderBottomLeftRadius: '16px',
+              borderBottomRightRadius: '16px',
+              flexWrap: 'wrap',
+              gap: '12px',
+              userSelect: 'none'
+            }}
+          >
+            {/* LEFT: EDITABLE ROWS PER PAGE + RANGE SUMMARY */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>Rows:</span>
+
+                {/* Editable number input box */}
+                <input
+                  type="number"
+                  min="1"
+                  max="10000"
+                  value={customPageSizeInput}
+                  onChange={(e) => setCustomPageSizeInput(e.target.value)}
+                  onBlur={(e) => handleApplyCustomPageSize(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleApplyCustomPageSize(e.target.value);
+                      e.target.blur();
+                    }
+                  }}
+                  title="Type any number (e.g. 300, 1000) and press Enter"
+                  style={{
+                    width: '58px',
+                    height: '30px',
+                    padding: '0 6px',
+                    borderRadius: '7px',
+                    border: '1.5px solid #cbd5e1',
+                    fontSize: '12px',
+                    fontWeight: '800',
+                    color: '#0d9488',
+                    textAlign: 'center',
+                    background: '#f8fafc',
+                    outline: 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                />
+
+                {/* Quick Preset Selector */}
+                <select
+                  value={[10, 25, 50, 100, 250, 500].includes(Number(pageSize)) ? Number(pageSize) : 'custom'}
+                  onChange={(e) => {
+                    if (e.target.value === 'all') {
+                      handleApplyCustomPageSize(safeRecords.length || 1000);
+                    } else if (e.target.value !== 'custom') {
+                      handleApplyCustomPageSize(e.target.value);
+                    }
+                  }}
+                  style={{
+                    height: '30px',
+                    padding: '0 8px',
+                    borderRadius: '7px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    color: '#334155',
+                    background: '#ffffff',
+                    cursor: 'pointer',
+                    outline: 'none'
+                  }}
+                >
+                  <option value={10}>10 / page</option>
+                  <option value={25}>25 / page</option>
+                  <option value={50}>50 / page</option>
+                  <option value={100}>100 / page</option>
+                  <option value={250}>250 / page</option>
+                  <option value={500}>500 / page</option>
+                  <option value="all">All ({safeRecords.length})</option>
+                  {![10, 25, 50, 100, 250, 500].includes(Number(pageSize)) && (
+                    <option value="custom">Custom ({pageSize})</option>
+                  )}
+                </select>
+              </div>
+
+              {/* Showing range text */}
+              <span style={{ fontSize: '12.5px', color: '#475569', fontWeight: '600' }}>
+                Showing <strong style={{ color: '#0f172a' }}>{safeRecords.length === 0 ? 0 : startIdx + 1}–{Math.min(startIdx + pageSize, safeRecords.length)}</strong> of <strong style={{ color: '#0f172a' }}>{safeRecords.length}</strong> {LabelEngine.getEntityNamePlural(moduleConfig) || 'Records'}
+              </span>
+            </div>
+
+            {/* RIGHT: SLEEK NAVIGATION (ARROW BUTTONS ONLY, NO EXPANDING CHAIN OF NUMBERS) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {/* First Page Button */}
+              {totalPages > 2 && (
+                <button
+                  type="button"
+                  title="First Page"
+                  disabled={validCurrentPage <= 1}
+                  onClick={() => setCurrentPage(1)}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    background: validCurrentPage <= 1 ? '#f8fafc' : '#ffffff',
+                    color: validCurrentPage <= 1 ? '#cbd5e1' : '#334155',
+                    cursor: validCurrentPage <= 1 ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <ChevronsLeft size={15} />
+                </button>
+              )}
+
+              {/* Previous Page Button */}
+              <button
+                type="button"
+                title="Previous Page"
+                disabled={validCurrentPage <= 1}
+                onClick={() => setCurrentPage(validCurrentPage - 1)}
+                style={{
+                  height: '32px',
+                  padding: '0 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  background: validCurrentPage <= 1 ? '#f8fafc' : '#ffffff',
+                  color: validCurrentPage <= 1 ? '#cbd5e1' : '#0d9488',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: validCurrentPage <= 1 ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <ChevronLeft size={15} />
+                <span>Prev</span>
+              </button>
+
+              {/* Sleek Page Indicator Pill */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '0 12px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  background: '#f1f5f9',
+                  border: '1px solid #e2e8f0',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  color: '#1e293b'
+                }}
+              >
+                <span>Page</span>
+                <span style={{ color: '#0d9488', fontWeight: '900' }}>{validCurrentPage}</span>
+                <span style={{ color: '#94a3b8' }}>/</span>
+                <span>{totalPages}</span>
+              </div>
+
+              {/* Next Page Button */}
+              <button
+                type="button"
+                title="Next Page"
+                disabled={validCurrentPage >= totalPages}
+                onClick={() => setCurrentPage(validCurrentPage + 1)}
+                style={{
+                  height: '32px',
+                  padding: '0 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  background: validCurrentPage >= totalPages ? '#f8fafc' : '#ffffff',
+                  color: validCurrentPage >= totalPages ? '#cbd5e1' : '#0d9488',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: validCurrentPage >= totalPages ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>Next</span>
+                <ChevronRight size={15} />
+              </button>
+
+              {/* Last Page Button */}
+              {totalPages > 2 && (
+                <button
+                  type="button"
+                  title="Last Page"
+                  disabled={validCurrentPage >= totalPages}
+                  onClick={() => setCurrentPage(totalPages)}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    background: validCurrentPage >= totalPages ? '#f8fafc' : '#ffffff',
+                    color: validCurrentPage >= totalPages ? '#cbd5e1' : '#334155',
+                    cursor: validCurrentPage >= totalPages ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <ChevronsRight size={15} />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
