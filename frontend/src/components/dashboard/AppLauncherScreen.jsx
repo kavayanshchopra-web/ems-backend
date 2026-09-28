@@ -319,31 +319,31 @@ export default function AppLauncherScreen({
       minHeight: '100%',
       width: '100%',
       background: 'radial-gradient(circle at 12% 15%, rgba(20, 210, 203, 0.11) 0%, transparent 45%), radial-gradient(circle at 88% 22%, rgba(16, 185, 129, 0.10) 0%, transparent 45%), radial-gradient(circle at 50% 90%, rgba(15, 43, 38, 0.06) 0%, transparent 55%), linear-gradient(135deg, #edf6f5 0%, #f2f8f7 50%, #eaf4f2 100%)',
-      padding: '28px 24px 50px 24px',
+      padding: '20px 20px 36px 20px',
       boxSizing: 'border-box',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       position: 'relative'
     }}>
-      {/* Top Search Bar Hub - Clean & Minimal (Tags & Modules text removed) */}
+      {/* Top Search Bar Hub - Compact & Sleek */}
       <div style={{
         width: '100%',
-        maxWidth: '1180px',
+        maxWidth: '1140px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        marginBottom: '26px'
+        marginBottom: '18px'
       }}>
         {/* Sleek Search Input */}
         <div style={{
           width: '100%',
-          maxWidth: '460px',
+          maxWidth: '420px',
           position: 'relative'
         }}>
           <div style={{
             position: 'absolute',
-            left: '14px',
+            left: '13px',
             top: '50%',
             transform: 'translateY(-50%)',
             color: '#14d2cb',
@@ -351,7 +351,7 @@ export default function AppLauncherScreen({
             alignItems: 'center',
             pointerEvents: 'none'
           }}>
-            <Search size={16} />
+            <Search size={15} />
           </div>
 
           <input
@@ -362,14 +362,14 @@ export default function AppLauncherScreen({
             placeholder="Search applications (Ctrl + K)..."
             style={{
               width: '100%',
-              height: '42px',
-              padding: '0 40px 0 40px',
-              borderRadius: '14px',
+              height: '38px',
+              padding: '0 38px 0 38px',
+              borderRadius: '12px',
               background: 'rgba(255, 255, 255, 0.96)',
               backdropFilter: 'blur(12px)',
-              border: '1.5px solid rgba(20, 210, 203, 0.38)',
-              boxShadow: '0 6px 20px -3px rgba(15, 43, 38, 0.08), 0 2px 4px rgba(0,0,0,0.02)',
-              fontSize: '13.5px',
+              border: '1.2px solid rgba(20, 210, 203, 0.35)',
+              boxShadow: '0 4px 14px -2px rgba(15, 43, 38, 0.06), 0 1px 3px rgba(0,0,0,0.02)',
+              fontSize: '13px',
               fontWeight: '600',
               color: '#0f2b26',
               outline: 'none',
@@ -378,11 +378,11 @@ export default function AppLauncherScreen({
             }}
             onFocus={(e) => {
               e.target.style.borderColor = '#14d2cb';
-              e.target.style.boxShadow = '0 8px 24px -2px rgba(20, 210, 203, 0.25), 0 0 0 2px rgba(20, 210, 203, 0.25)';
+              e.target.style.boxShadow = '0 6px 18px -2px rgba(20, 210, 203, 0.22), 0 0 0 2px rgba(20, 210, 203, 0.20)';
             }}
             onBlur={(e) => {
-              e.target.style.borderColor = 'rgba(20, 210, 203, 0.38)';
-              e.target.style.boxShadow = '0 6px 20px -3px rgba(15, 43, 38, 0.08), 0 2px 4px rgba(0,0,0,0.02)';
+              e.target.style.borderColor = 'rgba(20, 210, 203, 0.35)';
+              e.target.style.boxShadow = '0 4px 14px -2px rgba(15, 43, 38, 0.06), 0 1px 3px rgba(0,0,0,0.02)';
             }}
           />
 
@@ -392,14 +392,14 @@ export default function AppLauncherScreen({
               onClick={() => setSearchQuery('')}
               style={{
                 position: 'absolute',
-                right: '10px',
+                right: '9px',
                 top: '50%',
                 transform: 'translateY(-50%)',
                 background: 'rgba(100, 116, 139, 0.15)',
                 border: 'none',
                 borderRadius: '50%',
-                width: '22px',
-                height: '22px',
+                width: '20px',
+                height: '20px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -407,19 +407,19 @@ export default function AppLauncherScreen({
                 color: '#64748b'
               }}
             >
-              <X size={12} />
+              <X size={11} />
             </button>
           ) : (
             <div style={{
               position: 'absolute',
-              right: '12px',
+              right: '10px',
               top: '50%',
               transform: 'translateY(-50%)',
-              padding: '2px 7px',
+              padding: '2px 6px',
               background: '#f1f5f9',
-              borderRadius: '6px',
+              borderRadius: '5px',
               border: '1px solid #e2e8f0',
-              fontSize: '10px',
+              fontSize: '9.5px',
               fontWeight: '700',
               color: '#94a3b8',
               pointerEvents: 'none'
@@ -430,34 +430,34 @@ export default function AppLauncherScreen({
         </div>
       </div>
 
-      {/* App Grid Container - Compact, Elevated & Non-Truncated */}
+      {/* App Grid Container - Sleek, Compact & Well-Spaced for Scaling */}
       <div style={{
         width: '100%',
-        maxWidth: '1180px'
+        maxWidth: '1140px'
       }}>
         {filteredModules.length === 0 ? (
           <div style={{
             textAlign: 'center',
-            padding: '50px 20px',
+            padding: '40px 20px',
             background: 'rgba(255, 255, 255, 0.85)',
-            borderRadius: '18px',
+            borderRadius: '16px',
             border: '1px dashed #cbd5e1',
-            maxWidth: '400px',
+            maxWidth: '380px',
             margin: '0 auto'
           }}>
-            <Search size={28} style={{ color: '#94a3b8', marginBottom: '10px' }} />
-            <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: '800', color: '#1e293b' }}>
+            <Search size={26} style={{ color: '#94a3b8', marginBottom: '8px' }} />
+            <h4 style={{ margin: '0 0 4px 0', fontSize: '14px', fontWeight: '800', color: '#1e293b' }}>
               No matching applications
             </h4>
-            <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
+            <p style={{ margin: 0, fontSize: '11.5px', color: '#64748b' }}>
               No apps found for "{searchQuery}". Try searching for another keyword.
             </p>
           </div>
         ) : (
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(132px, 1fr))',
-            gap: '16px 18px',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
+            gap: '12px 14px',
             justifyItems: 'center'
           }}>
             {filteredModules.map((app) => {
@@ -477,24 +477,24 @@ export default function AppLauncherScreen({
                   title={`${app.label} — ${app.desc}`}
                   style={{
                     width: '100%',
-                    maxWidth: '146px',
-                    minHeight: '136px',
+                    maxWidth: '120px',
+                    minHeight: '112px',
                     background: isHovered ? '#ffffff' : 'rgba(255, 255, 255, 0.94)',
-                    backdropFilter: 'blur(16px)',
-                    border: isHovered ? `1.5px solid ${app.color}` : '1.2px solid rgba(20, 210, 203, 0.22)',
-                    borderRadius: '18px',
-                    padding: '14px 8px 12px 8px',
+                    backdropFilter: 'blur(14px)',
+                    border: isHovered ? `1.4px solid ${app.color}` : '1px solid rgba(20, 210, 203, 0.20)',
+                    borderRadius: '14px',
+                    padding: '10px 6px 8px 6px',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
                     position: 'relative',
-                    transition: 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
-                    transform: isHovered ? 'translateY(-6px) scale(1.04)' : 'translateY(0) scale(1)',
+                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                    transform: isHovered ? 'translateY(-4px) scale(1.03)' : 'translateY(0) scale(1)',
                     boxShadow: isHovered
-                      ? `0 16px 28px -4px rgba(20, 210, 203, 0.24), 0 0 0 1.5px ${app.color}`
-                      : '0 4px 16px -2px rgba(15, 43, 38, 0.06), 0 1px 3px rgba(0,0,0,0.02)',
+                      ? `0 10px 22px -3px rgba(20, 210, 203, 0.22), 0 0 0 1px ${app.color}`
+                      : '0 2px 8px -2px rgba(15, 43, 38, 0.05), 0 1px 2px rgba(0,0,0,0.02)',
                     boxSizing: 'border-box',
                     userSelect: 'none'
                   }}
@@ -503,67 +503,67 @@ export default function AppLauncherScreen({
                   {app.badge && (
                     <span style={{
                       position: 'absolute',
-                      top: '6px',
-                      right: '6px',
-                      fontSize: '7.5px',
+                      top: '5px',
+                      right: '5px',
+                      fontSize: '7px',
                       fontWeight: '800',
-                      padding: '1px 5px',
-                      borderRadius: '4px',
+                      padding: '1px 4px',
+                      borderRadius: '3px',
                       background: 'linear-gradient(135deg, #8b5cf6, #ec4899)',
                       color: '#ffffff',
-                      letterSpacing: '0.3px',
-                      boxShadow: '0 2px 4px rgba(139, 92, 246, 0.25)'
+                      letterSpacing: '0.2px',
+                      boxShadow: '0 2px 4px rgba(139, 92, 246, 0.22)'
                     }}>
                       {app.badge}
                     </span>
                   )}
 
-                  {/* Compact Icon Box */}
+                  {/* Compact Icon Box - Retaining clear & crisp icon */}
                   <div style={{
-                    width: '48px',
-                    height: '48px',
-                    borderRadius: '14px',
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '11px',
                     background: app.accentBg,
-                    border: `1.2px solid ${app.borderColor}`,
+                    border: `1px solid ${app.borderColor}`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: app.color,
-                    boxShadow: isHovered ? `0 6px 14px ${app.accentBg}` : 'none',
-                    transition: 'all 0.22s ease',
-                    transform: isHovered ? 'scale(1.10)' : 'scale(1)',
-                    marginBottom: '8px'
+                    boxShadow: isHovered ? `0 4px 10px ${app.accentBg}` : 'none',
+                    transition: 'all 0.2s ease',
+                    transform: isHovered ? 'scale(1.06)' : 'scale(1)',
+                    marginBottom: '6px'
                   }}>
-                    <IconComp size={24} strokeWidth={2.2} />
+                    <IconComp size={22} strokeWidth={2.2} />
                   </div>
 
-                  {/* Module Name - Fixed 2-Line Wrap (No Ellipsis Cut-Off) */}
+                  {/* Module Name - Neatly Wrapped (No Ellipsis Cut-Off) */}
                   <span style={{
-                    fontSize: '11px',
+                    fontSize: '10px',
                     fontWeight: '800',
                     color: isHovered ? '#0f2b26' : '#1e293b',
                     textAlign: 'center',
                     textTransform: 'uppercase',
                     letterSpacing: '0.2px',
-                    lineHeight: '1.22',
+                    lineHeight: '1.2',
                     marginBottom: '2px',
                     width: '100%',
                     display: '-webkit-box',
                     WebkitLineClamp: 2,
                     WebkitBoxOrient: 'vertical',
                     overflow: 'hidden',
-                    minHeight: '26px'
+                    minHeight: '24px'
                   }}>
                     {app.label}
                   </span>
 
                   {/* Subtitle / Category */}
                   <span style={{
-                    fontSize: '9.5px',
+                    fontSize: '8.5px',
                     fontWeight: '600',
                     color: '#64748b',
                     textAlign: 'center',
-                    lineHeight: '1.15',
+                    lineHeight: '1.1',
                     width: '100%',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
