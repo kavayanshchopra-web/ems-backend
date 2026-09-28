@@ -76,7 +76,8 @@ export const TELECALLING_MANIFEST = {
     { id: 'type', label: 'Call Type', visible: true, fieldKey: 'type', width: '120px', align: 'left', sortOrder: 6 },
     { id: 'duration', label: 'Duration', visible: true, fieldKey: 'duration', width: '110px', align: 'left', sortOrder: 7 },
     { id: 'recording', label: 'Audio Recording', visible: true, fieldKey: 'recording', width: '210px', align: 'left', sortOrder: 8 },
-    { id: 'status', label: 'Call Disposition', visible: true, fieldKey: 'status', width: '160px', align: 'left', sortOrder: 9 }
+    { id: 'status', label: 'Call Disposition', visible: true, fieldKey: 'status', width: '160px', align: 'left', sortOrder: 9 },
+    { id: 'actions', label: 'Actions', visible: true, fieldKey: 'actions', width: '130px', align: 'center', sortOrder: 10 }
   ],
 
   defaultViews: {

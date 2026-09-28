@@ -373,7 +373,14 @@ export default function ListEngine({
   const [showColumnPopover, setShowColumnPopover] = useState(false);
   const scrollRef = useRef(null);
 
-  const allCols = moduleConfig.columns || [];
+  let allCols = moduleConfig.columns || [];
+  const isTelephonyModule = moduleConfig?.id === 'telecalling' || moduleConfig?.moduleId === 'telecalling' || moduleConfig?.name === 'Phone System';
+  if (isTelephonyModule && !allCols.some(c => c.id === 'actions' || c.fieldKey === 'actions')) {
+    allCols = [
+      ...allCols,
+      { id: 'actions', label: 'Actions', visible: true, fieldKey: 'actions', width: '130px', align: 'center', sortOrder: 99 }
+    ];
+  }
 
   // Filter out columns hidden via metadata or user popover toggle (and exclude redundant 'id'/'displayId' since we render a dedicated first ID column)
   const visibleCols = allCols
@@ -400,6 +407,7 @@ export default function ListEngine({
     if (col.id === 'position' || col.id === 'department' || col.id === 'role') return 130;
     if (col.id === 'salary') return 120;
     if (col.id === 'status' || col.id === 'stage' || col.id === 'disposition') return 140;
+    if (col.id === 'actions' || col.fieldKey === 'actions') return 130;
     return 140;
   };
 
@@ -1029,6 +1037,114 @@ export default function ListEngine({
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10.5px', fontWeight: '700', color: '#dc2626', background: '#fef2f2', padding: '2px 6px', borderRadius: '4px', border: '1px solid #fecaca' }}>
                   ⚠️ No Recording
                 </span>
+              </td>
+            );
+          }
+
+          {/* DEDICATED QUICK ACTIONS COLUMN (OPTION 2: CALL, WHATSAPP, SMS) */}
+          if (col.id === 'actions' || col.fieldKey === 'actions') {
+            const rawPhone = getValString(record.phone || record.phoneNumber || record.phone_number || '').trim();
+            const cleanDigits = rawPhone.replace(/\D/g, '');
+            const waDigits = cleanDigits.startsWith('91') && cleanDigits.length === 12 ? cleanDigits : (cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits);
+            const contactName = getValString(record.name || record.fullName || record.title || 'Customer');
+
+            return (
+              <td
+                key={col.id}
+                style={{
+                  padding: '6px 10px',
+                  borderBottom: '1px solid #e2e8f0',
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap'
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', justifyContent: 'center' }}>
+                  {/* 1. Dialer Call Button */}
+                  <button
+                    type="button"
+                    title={rawPhone ? `📞 Call ${contactName} (${rawPhone})` : 'No phone number'}
+                    disabled={!rawPhone}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (rawPhone && window.openGlobalDialer) {
+                        window.openGlobalDialer(rawPhone, contactName, true);
+                      }
+                    }}
+                    style={{
+                      padding: '4px 7px',
+                      borderRadius: '6px',
+                      background: rawPhone ? 'rgba(16, 185, 129, 0.15)' : '#f1f5f9',
+                      border: `1px solid ${rawPhone ? 'rgba(16, 185, 129, 0.35)' : '#e2e8f0'}`,
+                      color: rawPhone ? '#059669' : '#94a3b8',
+                      cursor: rawPhone ? 'pointer' : 'not-allowed',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      lineHeight: 1,
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    📞
+                  </button>
+
+                  {/* 2. WhatsApp Button */}
+                  <a
+                    href={waDigits ? `https://wa.me/${waDigits}` : '#'}
+                    target={waDigits ? '_blank' : '_self'}
+                    rel="noopener noreferrer"
+                    title={waDigits ? `💬 WhatsApp ${contactName}` : 'No phone number'}
+                    onClick={(e) => {
+                      if (!waDigits) e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    style={{
+                      padding: '4px 7px',
+                      borderRadius: '6px',
+                      background: waDigits ? 'rgba(37, 211, 102, 0.15)' : '#f1f5f9',
+                      border: `1px solid ${waDigits ? 'rgba(37, 211, 102, 0.35)' : '#e2e8f0'}`,
+                      color: waDigits ? '#16a34a' : '#94a3b8',
+                      cursor: waDigits ? 'pointer' : 'not-allowed',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      lineHeight: 1,
+                      textDecoration: 'none',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    💬
+                  </a>
+
+                  {/* 3. SMS Message Button */}
+                  <a
+                    href={cleanDigits ? `sms:${cleanDigits}` : '#'}
+                    title={cleanDigits ? `✉️ SMS ${contactName}` : 'No phone number'}
+                    onClick={(e) => {
+                      if (!cleanDigits) e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    style={{
+                      padding: '4px 7px',
+                      borderRadius: '6px',
+                      background: cleanDigits ? 'rgba(59, 130, 246, 0.12)' : '#f1f5f9',
+                      border: `1px solid ${cleanDigits ? 'rgba(59, 130, 246, 0.3)' : '#e2e8f0'}`,
+                      color: cleanDigits ? '#2563eb' : '#94a3b8',
+                      cursor: cleanDigits ? 'pointer' : 'not-allowed',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      lineHeight: 1,
+                      textDecoration: 'none',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    ✉️
+                  </a>
+                </div>
               </td>
             );
           }

@@ -250,85 +250,18 @@ export default function SchemaFieldRenderer({
       if (isInvalidPhone) {
         displayVal = '—';
       } else {
-        const cleanNumber = valStr.replace(/[^\d+]/g, '');
-        const waNumber = cleanNumber.replace(/^\+/, '');
-        const contactLabel = 'Customer';
         displayVal = (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-            <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{valStr}</span>
-            {/* Call button */}
-            <button
-              type="button"
-              title="📞 Call via Softphone"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (window.openGlobalDialer) {
-                  window.openGlobalDialer(valStr, contactLabel, true);
-                }
-              }}
-              style={{
-                padding: '2px 5px',
-                borderRadius: '5px',
-                background: 'rgba(16, 185, 129, 0.15)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                color: '#059669',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '11px',
-                lineHeight: 1,
-                transition: 'all 0.15s ease'
-              }}
-            >
-              📞
-            </button>
-            {/* WhatsApp button */}
-            <a
-              href={`https://wa.me/${waNumber}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="💬 Chat on WhatsApp"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                padding: '2px 5px',
-                borderRadius: '5px',
-                background: 'rgba(37, 211, 102, 0.15)',
-                border: '1px solid rgba(37, 211, 102, 0.3)',
-                color: '#16a34a',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '11px',
-                lineHeight: 1,
-                textDecoration: 'none',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              💬
-            </a>
-            {/* SMS Message button */}
-            <a
-              href={`sms:${cleanNumber}`}
-              title="✉️ Send SMS Message"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                padding: '2px 5px',
-                borderRadius: '5px',
-                background: 'rgba(59, 130, 246, 0.12)',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-                color: '#2563eb',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '11px',
-                lineHeight: 1,
-                textDecoration: 'none',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              ✉️
-            </a>
+          <span
+            style={{
+              fontFamily: 'monospace',
+              fontWeight: '600',
+              fontSize: '12px',
+              color: '#0f172a',
+              letterSpacing: '0.3px',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            📞 {valStr}
           </span>
         );
       }
