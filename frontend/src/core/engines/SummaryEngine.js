@@ -71,8 +71,8 @@ export class SummaryEngine {
     }
 
     // 4. STAGE COUNT BY NAME
-    if (widget.metricType === 'STAGE_COUNT' && widget.stageName) {
-      const targetStage = String(widget.stageName).toLowerCase();
+    if (widget.metricType === 'STAGE_COUNT' && (widget.stageName || widget.stage || widget.filterValue)) {
+      const targetStage = String(widget.stageName || widget.stage || widget.filterValue).toLowerCase();
       return safeRecords.filter(r => {
         if (!r) return false;
         const recStatus = getValString(r.disposition || r.status || r.stage).toLowerCase();

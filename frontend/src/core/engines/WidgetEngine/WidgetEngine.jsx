@@ -16,7 +16,7 @@ export default function WidgetEngine({
   const rawWidgets = moduleConfig.summaryWidgets || moduleConfig.defaultSummaryWidgets || [];
   const enabledWidgets = (Array.isArray(rawWidgets) ? rawWidgets : [])
     .filter(w => w.enabled !== false && w.id !== 'ghl_synced')
-    .sort((a, b) => (a.order || 0) - (b.order || 0));
+    .sort((a, b) => ((a.sortOrder ?? a.order) || 0) - ((b.sortOrder ?? b.order) || 0));
 
   if (enabledWidgets.length === 0) return null;
 

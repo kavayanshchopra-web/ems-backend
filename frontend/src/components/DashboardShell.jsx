@@ -8292,6 +8292,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               callLogs={callLogs}
               setCallLogs={setCallLogs}
               employees={employees}
+              activePipelineStages={stages || []}
               onOpenModuleConfig={handleOpenModuleConfig}
               openModuleConfigModal={handleOpenModuleConfig}
               onNavigateToReports={() => setActiveTab('reports')}

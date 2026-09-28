@@ -914,8 +914,19 @@ export default function TelecallingView({
       });
     }
 
-    const widgets = [...(config.summaryWidgets || config.defaultSummaryWidgets || [])];
-    if (!widgets.some(w => w && w.id === 'bypassed_calls')) {
+    const configuredWidgets = Array.isArray(config.summaryWidgets) && config.summaryWidgets.length > 0
+      ? config.summaryWidgets
+      : (Array.isArray(config.defaultSummaryWidgets) && config.defaultSummaryWidgets.length > 0
+          ? config.defaultSummaryWidgets
+          : [
+              { id: 'total_calls', label: 'TOTAL CALLS', metricType: 'TOTAL', bg: 'rgba(13, 148, 136, 0.1)', color: '#0d9488', icon: '📞', enabled: true, sortOrder: 1 },
+              { id: 'interested_calls', label: 'INTERESTED LEADS', metricType: 'STAGE_COUNT', stageName: 'Interested', bg: 'rgba(5, 150, 105, 0.1)', color: '#059669', icon: '🎯', enabled: true, sortOrder: 2 },
+              { id: 'followup_calls', label: 'FOLLOW-UP QUEUED', metricType: 'STAGE_COUNT', stageName: 'Follow-up Required', bg: 'rgba(217, 119, 6, 0.1)', color: '#d97706', icon: '⏰', enabled: true, sortOrder: 3 },
+              { id: 'bypassed_calls', label: '🚨 BYPASSED (PERSONAL)', metricType: 'BYPASS_COUNT', bg: 'rgba(239, 68, 68, 0.12)', color: '#dc2626', icon: '🚨', enabled: true, sortOrder: 4 }
+            ]);
+
+    const widgets = [...configuredWidgets];
+    if (!widgets.some(w => w && (w.id === 'bypassed_calls' || w.metricType === 'BYPASS_COUNT'))) {
       widgets.push({
         id: 'bypassed_calls',
         label: '🚨 BYPASSED (PERSONAL)',
@@ -924,7 +935,7 @@ export default function TelecallingView({
         color: '#dc2626',
         icon: '🚨',
         enabled: true,
-        sortOrder: 4
+        sortOrder: widgets.length + 1
       });
     }
 
@@ -937,8 +948,8 @@ export default function TelecallingView({
       title: 'Phone System',
       searchPlaceholder: 'Search calls, telecallers, leads...',
       fields,
-      summaryWidgets: [],
-      defaultSummaryWidgets: [],
+      summaryWidgets: Array.isArray(config.summaryWidgets) ? config.summaryWidgets : widgets,
+      defaultSummaryWidgets: widgets,
       columns: cols.map((c, i) => ({ ...c, sortOrder: c.sortOrder || (i + 1) })).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
     };
   }, [config]);
