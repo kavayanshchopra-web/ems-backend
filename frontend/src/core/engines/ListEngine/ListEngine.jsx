@@ -378,7 +378,7 @@ export default function ListEngine({
   if (isTelephonyModule && !allCols.some(c => c.id === 'actions' || c.fieldKey === 'actions')) {
     allCols = [
       ...allCols,
-      { id: 'actions', label: 'Actions', visible: true, fieldKey: 'actions', width: '130px', align: 'center', sortOrder: 99 }
+      { id: 'actions', label: 'Actions', visible: true, fieldKey: 'actions', width: '110px', align: 'center', sortOrder: 4 }
     ];
   }
 

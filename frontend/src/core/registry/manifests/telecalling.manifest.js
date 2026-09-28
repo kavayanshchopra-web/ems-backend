@@ -68,16 +68,16 @@ export const TELECALLING_MANIFEST = {
   ],
 
   defaultColumns: [
-    { id: 'name', label: 'Customer / Lead', visible: true, fieldKey: 'name', width: '200px', align: 'left', sortOrder: 1 },
-    { id: 'agentName', label: 'Telecaller Agent', visible: true, fieldKey: 'agentName', width: '180px', align: 'left', sortOrder: 2 },
+    { id: 'name', label: 'Customer / Lead', visible: true, fieldKey: 'name', width: '190px', align: 'left', sortOrder: 1 },
+    { id: 'agentName', label: 'Telecaller Agent', visible: true, fieldKey: 'agentName', width: '150px', align: 'left', sortOrder: 2 },
     { id: 'phone', label: 'Phone Number', visible: true, fieldKey: 'phone', width: '150px', align: 'left', sortOrder: 3 },
-    { id: 'callTime', label: 'Date & Time', visible: true, fieldKey: 'callTime', width: '160px', align: 'left', sortOrder: 4 },
-    { id: 'channel', label: 'Channel', visible: true, fieldKey: 'channel', width: '120px', align: 'left', sortOrder: 5 },
-    { id: 'type', label: 'Call Type', visible: true, fieldKey: 'type', width: '120px', align: 'left', sortOrder: 6 },
-    { id: 'duration', label: 'Duration', visible: true, fieldKey: 'duration', width: '110px', align: 'left', sortOrder: 7 },
-    { id: 'recording', label: 'Audio Recording', visible: true, fieldKey: 'recording', width: '210px', align: 'left', sortOrder: 8 },
-    { id: 'status', label: 'Call Disposition', visible: true, fieldKey: 'status', width: '160px', align: 'left', sortOrder: 9 },
-    { id: 'actions', label: 'Actions', visible: true, fieldKey: 'actions', width: '130px', align: 'center', sortOrder: 10 }
+    { id: 'actions', label: 'Actions', visible: true, fieldKey: 'actions', width: '110px', align: 'center', sortOrder: 4 },
+    { id: 'callTime', label: 'Date & Time', visible: true, fieldKey: 'callTime', width: '150px', align: 'left', sortOrder: 5 },
+    { id: 'channel', label: 'Channel', visible: true, fieldKey: 'channel', width: '100px', align: 'left', sortOrder: 6 },
+    { id: 'type', label: 'Call Type', visible: true, fieldKey: 'type', width: '115px', align: 'left', sortOrder: 7 },
+    { id: 'duration', label: 'Duration', visible: true, fieldKey: 'duration', width: '90px', align: 'left', sortOrder: 8 },
+    { id: 'recording', label: 'Audio Recording', visible: true, fieldKey: 'recording', width: '210px', align: 'left', sortOrder: 9 },
+    { id: 'status', label: 'Call Disposition', visible: true, fieldKey: 'status', width: '150px', align: 'left', sortOrder: 10 }
   ],
 
   defaultViews: {

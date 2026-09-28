@@ -143,36 +143,29 @@ export default function KPIWidget({
           >
             {value}
           </span>
-          {/* Trend arrow from reference image */}
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '2px',
-              fontSize: '10.5px',
-              fontWeight: '700',
-              color: '#16a34a',
-              background: '#f0fdf4',
-              padding: '1px 6px',
-              borderRadius: '6px',
-              border: '1px solid #dcfce7'
-            }}
-          >
-            ↑ +12%
-          </span>
-          {widget.metricType === 'STAGE_COUNT' && (
+          {/* Dynamic Trend (only if explicitly computed or provided in widget) */}
+          {widget.trend && (
             <span
               style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '2px',
                 fontSize: '10.5px',
                 fontWeight: '700',
-                color: cardColor,
-                background: cardBgLight,
+                color: String(widget.trend).includes('-') || String(widget.trend).includes('↓') ? '#dc2626' : '#16a34a',
+                background: String(widget.trend).includes('-') || String(widget.trend).includes('↓') ? '#fef2f2' : '#f0fdf4',
                 padding: '1px 6px',
                 borderRadius: '6px',
-                border: `1px solid ${cardColor}25`
+                border: `1px solid ${String(widget.trend).includes('-') || String(widget.trend).includes('↓') ? '#fecaca' : '#dcfce7'}`
               }}
             >
-              Active
+              {widget.trend}
+            </span>
+          )}
+          {/* Subtitle / Context note (only if provided in widget) */}
+          {widget.subtitle && (
+            <span style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '500' }}>
+              {widget.subtitle}
             </span>
           )}
           {widget.metricType === 'BYPASS_COUNT' && value > 0 && (
