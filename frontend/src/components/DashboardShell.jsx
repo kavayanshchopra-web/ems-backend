@@ -604,7 +604,12 @@ function SidebarMainNavItem({ id, label, icon: IconComponent, isActive, onClick,
     audit_logs: { color: '#ec4899', bg: 'rgba(236, 72, 153, 0.18)' },
     media_storage: { color: '#14b8a6', bg: 'rgba(20, 184, 166, 0.18)' },
     settings: { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' },
-    help_support: { color: '#06b6d4', bg: 'rgba(6, 182, 212, 0.18)' }
+    help_support: { color: '#06b6d4', bg: 'rgba(6, 182, 212, 0.18)' },
+    hr_management: { color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.18)' },
+    payroll_finance: { color: '#10b981', bg: 'rgba(16, 185, 129, 0.22)' },
+    reporting: { color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.18)' },
+    operations: { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.18)' },
+    my_portal: { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' }
   };
   const theme = defaultColors[id] || { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' };
 
@@ -7162,6 +7167,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   ].includes(activeTab);
 
   const isHelpTab = ['app_guide', 'feedback'].includes(activeTab);
+  const isHrTab = ['employees', 'recruitment_ats', 'asset_management', 'verify_documents', 'offboarding'].includes(activeTab);
+  const isPayrollTab = ['payroll', 'taxes_compliance', 'ff_settlements', 'advances_loans', 'expenses'].includes(activeTab);
+  const isReportsTab = ['reports_telephony', 'reports_crm', 'reports_cross', 'reports_builder', 'reports'].includes(activeTab) || (typeof activeTab === 'string' && activeTab.startsWith('reports_'));
+  const isOperationsTab = ['office_kiosk', 'notice_board', 'holidays'].includes(activeTab);
+  const isMyPortalTab = ['my_attendance', 'leaves', 'shifts'].includes(activeTab);
 
   const settingsNavTabs = useMemo(() => [
     { id: 'settings', label: t('generalSettings') || 'General Settings', icon: Settings, perm: 'settings' },
@@ -7177,6 +7187,113 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     { id: 'app_guide', label: 'App Guide & Tour', icon: Globe, perm: 'app_guide' },
     { id: 'feedback', label: 'Feedback & Suggestions', icon: MessageSquareHeart, perm: 'feedback' }
   ], [activeLanguage]);
+
+  const hrNavTabs = useMemo(() => [
+    { id: 'employees', label: 'All Employees', icon: Users, perm: 'employees' },
+    { id: 'recruitment_ats', label: 'Recruitment & ATS', icon: Briefcase, perm: 'recruitment_ats' },
+    { id: 'asset_management', label: 'Asset Management', icon: FileText, perm: 'asset_management' },
+    { id: 'verify_documents', label: 'Verify Documents', icon: FileText, perm: 'verify_documents' },
+    { id: 'offboarding', label: 'Offboarding Exit', icon: Trash2, perm: 'offboarding' }
+  ], []);
+
+  const payrollNavTabs = useMemo(() => [
+    { id: 'payroll', label: 'Payroll & Salary', icon: CreditCard, perm: 'payroll' },
+    { id: 'taxes_compliance', label: 'Taxes & Compliance', icon: FileText, perm: 'taxes_compliance' },
+    { id: 'ff_settlements', label: 'F&F Settlements', icon: Check, perm: 'ff_settlements' },
+    { id: 'advances_loans', label: 'Advances & Loans', icon: CreditCard, perm: 'advances_loans' },
+    { id: 'expenses', label: 'Expenses Claim', icon: CreditCard, perm: 'expenses' }
+  ], []);
+
+  const reportsNavTabs = useMemo(() => [
+    { id: 'reports_telephony', altIds: ['reports'], label: 'Phone System Reports', icon: PhoneCall, perm: 'reports_telephony' },
+    { id: 'reports_crm', label: 'CRM Sales Reports', icon: Layers, perm: 'reports_crm' },
+    { id: 'reports_cross', label: 'Cross-Analytics Reports', icon: Share2, perm: 'reports_cross' },
+    { id: 'reports_builder', label: 'Custom Report Builder', icon: Sliders, perm: 'reports_builder' }
+  ], []);
+
+  const operationsNavTabs = useMemo(() => [
+    { id: 'office_kiosk', label: 'Office Kiosk Mode', icon: Clock, perm: 'office_kiosk' },
+    { id: 'notice_board', label: 'Notice Board', icon: Bell, perm: 'notice_board' },
+    { id: 'holidays', label: 'Holidays List', icon: Calendar, perm: 'holidays' }
+  ], []);
+
+  const myPortalNavTabs = useMemo(() => [
+    { id: 'my_attendance', label: 'Shift Attendance', icon: Clock, perm: 'my_attendance' },
+    { id: 'leaves', label: 'Leaves Requests', icon: Calendar, perm: 'leaves' },
+    { id: 'shifts', label: 'Work Shift Roster', icon: Calendar, perm: 'shifts' }
+  ], []);
+
+  const renderSegmentedTopBar = (tabs, onSelectTab) => (
+    <div
+      className="top-subnav-hub-bar"
+      style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 35,
+        background: '#ffffff',
+        borderBottom: '1px solid #e2e8f0',
+        padding: '10px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '12px',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
+        flexShrink: 0
+      }}
+    >
+      <div
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          background: '#f1f5f9',
+          padding: '3px',
+          borderRadius: '9px',
+          border: '1px solid #e2e8f0',
+          gap: '3px',
+          overflowX: 'auto',
+          maxWidth: '100%',
+          scrollbarWidth: 'none'
+        }}
+      >
+        {tabs.filter(tab => canNav(tab.perm)).map(tab => {
+          const isActive = activeTab === tab.id || (tab.altIds && tab.altIds.includes(activeTab));
+          const TabIcon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => (onSelectTab ? onSelectTab(tab.id) : setActiveTab(tab.id))}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '5px 13px',
+                borderRadius: '7px',
+                border: 'none',
+                background: isActive ? '#0d9488' : 'transparent',
+                color: isActive ? '#ffffff' : '#334155',
+                fontSize: '12px',
+                fontWeight: isActive ? '700' : '600',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                boxShadow: isActive ? '0 2px 6px rgba(13, 148, 136, 0.35)' : 'none',
+                whiteSpace: 'nowrap'
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) e.currentTarget.style.background = '#e2e8f0';
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              {TabIcon && <TabIcon size={14} style={{ color: isActive ? '#ffffff' : '#64748b' }} />}
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 
   return (
     <div className="app-layout">
@@ -7328,160 +7445,64 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           )}
 
-          {/* CATEGORY: HR MANAGEMENT */}
+          {/* MAIN NAV ITEM: HR MANAGEMENT (Unified Hub) */}
           {(canNav('employees') || canNav('recruitment_ats') || canNav('asset_management') || canNav('verify_documents') || canNav('offboarding')) && (
-            <AccordionCategory id="hr_management" label={t('hrCat') || "HR MANAGEMENT"} icon={Users} isExpanded={!!expandedCategories.hr_management} onToggle={toggleCategory}>
-              {canNav('employees') && (
-                <div className={`nav-item ${activeTab === 'employees' ? 'active' : ''}`} onClick={() => setActiveTab('employees')}>
-                  <Users size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('allEmployees')}</span>
-                  {renderLockBadge('employees')}
-                </div>
-              )}
-              {canNav('recruitment_ats') && (
-                <div className={`nav-item ${activeTab === 'recruitment_ats' ? 'active' : ''}`} onClick={() => setActiveTab('recruitment_ats')}>
-                  <Briefcase size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('recruitmentAts')}</span>
-                  {renderLockBadge('recruitment_ats')}
-                </div>
-              )}
-              {canNav('asset_management') && (
-                <div className={`nav-item ${activeTab === 'asset_management' ? 'active' : ''}`} onClick={() => setActiveTab('asset_management')}>
-                  <FileText size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('assetManagement')}</span>
-                  {renderLockBadge('asset_management')}
-                </div>
-              )}
-              {canNav('verify_documents') && (
-                <div className={`nav-item ${activeTab === 'verify_documents' ? 'active' : ''}`} onClick={() => setActiveTab('verify_documents')}>
-                  <FileText size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('verifyDocuments')}</span>
-                  {renderLockBadge('verify_documents')}
-                </div>
-              )}
-              {canNav('offboarding') && (
-                <div className={`nav-item ${activeTab === 'offboarding' ? 'active' : ''}`} onClick={() => setActiveTab('offboarding')}>
-                  <Trash2 size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('offboardingExit')}</span>
-                  {renderLockBadge('offboarding')}
-                </div>
-              )}
-            </AccordionCategory>
-          )}
-          {/* CATEGORY: PAYROLL & FINANCE */}
-          {(canNav('payroll') || canNav('taxes_compliance') || canNav('ff_settlements') || canNav('advances_loans') || canNav('expenses')) && (
-            <AccordionCategory id="payroll_finance" label={t('payrollCat') || "PAYROLL & FINANCE"} icon={CreditCard} isExpanded={!!expandedCategories.payroll_finance} onToggle={toggleCategory}>
-              {canNav('payroll') && (
-                <div className={`nav-item ${activeTab === 'payroll' ? 'active' : ''}`} onClick={() => setActiveTab('payroll')}>
-                  <CreditCard size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('payrollSalary')}</span>
-                  {renderLockBadge('payroll')}
-                </div>
-              )}
-              {canNav('taxes_compliance') && (
-                <div className={`nav-item ${activeTab === 'taxes_compliance' ? 'active' : ''}`} onClick={() => setActiveTab('taxes_compliance')}>
-                  <FileText size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('taxesCompliance')}</span>
-                  {renderLockBadge('taxes_compliance')}
-                </div>
-              )}
-              {canNav('ff_settlements') && (
-                <div className={`nav-item ${activeTab === 'ff_settlements' ? 'active' : ''}`} onClick={() => setActiveTab('ff_settlements')}>
-                  <Check size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('ffSettlements')}</span>
-                  {renderLockBadge('ff_settlements')}
-                </div>
-              )}
-              {canNav('advances_loans') && (
-                <div className={`nav-item ${activeTab === 'advances_loans' ? 'active' : ''}`} onClick={() => setActiveTab('advances_loans')}>
-                  <CreditCard size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('advancesLoans')}</span>
-                  {renderLockBadge('advances_loans')}
-                </div>
-              )}
-              {canNav('expenses') && (
-                <div className={`nav-item ${activeTab === 'expenses' ? 'active' : ''}`} onClick={() => setActiveTab('expenses')}>
-                  <CreditCard size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('expensesClaim')}</span>
-                  {renderLockBadge('expenses')}
-                </div>
-              )}
-            </AccordionCategory>
+            <SidebarMainNavItem
+              id="hr_management"
+              label={t('hrCat') || "HR MANAGEMENT"}
+              icon={Users}
+              isActive={isHrTab}
+              onClick={() => setActiveTab('employees')}
+              lockBadge={renderLockBadge('employees')}
+            />
           )}
 
-          {/* CATEGORY: REPORTING & ANALYTICS (DEDICATED SEPARATE SIDEBAR HEADER) */}
+          {/* MAIN NAV ITEM: PAYROLL & FINANCE (Unified Hub) */}
+          {(canNav('payroll') || canNav('taxes_compliance') || canNav('ff_settlements') || canNav('advances_loans') || canNav('expenses')) && (
+            <SidebarMainNavItem
+              id="payroll_finance"
+              label={t('payrollCat') || "PAYROLL & FINANCE"}
+              icon={CreditCard}
+              isActive={isPayrollTab}
+              onClick={() => setActiveTab('payroll')}
+              lockBadge={renderLockBadge('payroll')}
+            />
+          )}
+
+          {/* MAIN NAV ITEM: REPORTING & ANALYTICS (Unified Hub) */}
           {(canNav('reports_telephony') || canNav('reports_crm') || canNav('reports_cross') || canNav('reports_builder') || canNav('reports')) && (
-            <AccordionCategory id="reporting" label="REPORTS & ANALYTICS" icon={BarChart2} isExpanded={!!expandedCategories.reporting} onToggle={toggleCategory}>
-              <div className={`nav-item ${activeTab === 'reports_telephony' || activeTab === 'reports' ? 'active' : ''}`} onClick={() => setActiveTab('reports_telephony')}>
-                <PhoneCall size={15} />
-                <span style={{ fontSize: '13px' }}>Phone System Reports</span>
-                {renderLockBadge('reports_telephony')}
-              </div>
-              <div className={`nav-item ${activeTab === 'reports_crm' ? 'active' : ''}`} onClick={() => setActiveTab('reports_crm')}>
-                <Layers size={15} />
-                <span style={{ fontSize: '13px' }}>CRM Sales Reports</span>
-                {renderLockBadge('reports_crm')}
-              </div>
-              <div className={`nav-item ${activeTab === 'reports_cross' ? 'active' : ''}`} onClick={() => setActiveTab('reports_cross')}>
-                <Share2 size={15} />
-                <span style={{ fontSize: '13px' }}>Cross-Analytics Reports</span>
-                {renderLockBadge('reports_cross')}
-              </div>
-              <div className={`nav-item ${activeTab === 'reports_builder' ? 'active' : ''}`} onClick={() => setActiveTab('reports_builder')}>
-                <Sliders size={15} />
-                <span style={{ fontSize: '13px' }}>Custom Report Builder</span>
-                {renderLockBadge('reports_builder')}
-              </div>
-            </AccordionCategory>
+            <SidebarMainNavItem
+              id="reporting"
+              label="REPORTS & ANALYTICS"
+              icon={BarChart2}
+              isActive={isReportsTab}
+              onClick={() => setActiveTab('reports_telephony')}
+              lockBadge={renderLockBadge('reports_telephony')}
+            />
           )}
-          {/* CATEGORY: OPERATIONS */}
+
+          {/* MAIN NAV ITEM: OPERATIONS (Unified Hub) */}
           {(canNav('office_kiosk') || canNav('notice_board') || canNav('holidays')) && (
-            <AccordionCategory id="operations" label={t('opsCat') || "OPERATIONS"} icon={Briefcase} isExpanded={!!expandedCategories.operations} onToggle={toggleCategory}>
-              {canNav('office_kiosk') && (
-                <div className={`nav-item ${activeTab === 'office_kiosk' ? 'active' : ''}`} onClick={() => setActiveTab('office_kiosk')}>
-                  <Clock size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('officeKiosk')}</span>
-                  {renderLockBadge('office_kiosk')}
-                </div>
-              )}
-              {canNav('notice_board') && (
-                <div className={`nav-item ${activeTab === 'notice_board' ? 'active' : ''}`} onClick={() => setActiveTab('notice_board')}>
-                  <Bell size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('noticeBoard')}</span>
-                  {renderLockBadge('notice_board')}
-                </div>
-              )}
-              {canNav('holidays') && (
-                <div className={`nav-item ${activeTab === 'holidays' ? 'active' : ''}`} onClick={() => setActiveTab('holidays')}>
-                  <Calendar size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('holidaysList')}</span>
-                  {renderLockBadge('holidays')}
-                </div>
-              )}
-            </AccordionCategory>
+            <SidebarMainNavItem
+              id="operations"
+              label={t('opsCat') || "OPERATIONS"}
+              icon={Briefcase}
+              isActive={isOperationsTab}
+              onClick={() => setActiveTab('office_kiosk')}
+              lockBadge={renderLockBadge('office_kiosk')}
+            />
           )}
-          {/* CATEGORY: MY PORTAL */}
+
+          {/* MAIN NAV ITEM: MY PORTAL (Unified Hub) */}
           {(canNav('my_attendance') || canNav('leaves') || canNav('shifts')) && (
-            <AccordionCategory id="my_portal" label={t('myPortalCat') || "MY PORTAL"} icon={User} isExpanded={!!expandedCategories.my_portal} onToggle={toggleCategory}>
-              {canNav('my_attendance') && (
-                <div className={`nav-item ${activeTab === 'my_attendance' ? 'active' : ''}`} onClick={() => setActiveTab('my_attendance')}>
-                  <Clock size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('shiftAttendance')}</span>
-                </div>
-              )}
-              {canNav('leaves') && (
-                <div className={`nav-item ${activeTab === 'leaves' ? 'active' : ''}`} onClick={() => setActiveTab('leaves')}>
-                  <Calendar size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('leavesRequests')}</span>
-                </div>
-              )}
-              {canNav('shifts') && (
-                <div className={`nav-item ${activeTab === 'shifts' ? 'active' : ''}`} onClick={() => setActiveTab('shifts')}>
-                  <Calendar size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('workRoster')}</span>
-                </div>
-              )}
-            </AccordionCategory>
+            <SidebarMainNavItem
+              id="my_portal"
+              label={t('myPortalCat') || "MY PORTAL"}
+              icon={User}
+              isActive={isMyPortalTab}
+              onClick={() => setActiveTab('my_attendance')}
+              lockBadge={renderLockBadge('my_attendance')}
+            />
           )}
           {/* MAIN NAV ITEM: HELP & SUPPORT (Unified Hub - Sub-pages elevated to top-bar segmented tabs) */}
           {(canNav('app_guide') || canNav('feedback')) && (
@@ -7644,7 +7665,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           {/* Desktop Page Title (Aligned equal from left with content cards) */}
           <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '0px', marginRight: '20px', flexShrink: 0 }}>
             <span style={{ fontSize: '14px', fontWeight: '800', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                 {isSettingsTab ? 'SETTINGS' : (isHelpTab ? 'HELP & SUPPORT' : (activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab.startsWith('reports') ? 'REPORTS & ANALYTICS' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' ')))))))}
+                 {isSettingsTab ? 'SETTINGS' : (isHelpTab ? 'HELP & SUPPORT' : (isHrTab ? 'HR MANAGEMENT' : (isPayrollTab ? 'PAYROLL & FINANCE' : (isReportsTab ? 'REPORTS & ANALYTICS' : (isOperationsTab ? 'OPERATIONS' : (isMyPortalTab ? 'MY PORTAL' : (activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' ')))))))))))}
             </span>
           </div>
 
@@ -8233,157 +8254,18 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </div>
 
           {/* ========================================================================= */}
-          {/* UNIFIED SETTINGS HUB TOP SEGMENTED NAVIGATION BAR */}
+          {/* UNIFIED SEGMENTED TOP-BAR PILL NAVIGATION ACROSS SECTIONS */}
           {/* ========================================================================= */}
-          {isSettingsTab && (
-            <div
-              className="settings-top-subnav-bar"
-              style={{
-                position: 'sticky',
-                top: 0,
-                zIndex: 35,
-                background: '#ffffff',
-                borderBottom: '1px solid #e2e8f0',
-                padding: '10px 20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '12px',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
-                flexShrink: 0
-              }}
-            >
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  background: '#f1f5f9',
-                  padding: '3px',
-                  borderRadius: '9px',
-                  border: '1px solid #e2e8f0',
-                  gap: '3px',
-                  overflowX: 'auto',
-                  maxWidth: '100%',
-                  scrollbarWidth: 'none'
-                }}
-              >
-                {settingsNavTabs.filter(tab => canNav(tab.perm)).map(tab => {
-                  const isActive = activeTab === tab.id || (tab.altIds && tab.altIds.includes(activeTab));
-                  const TabIcon = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => {
-                        if (tab.id === 'module_configuration') setPreselectedConfigModuleId(null);
-                        setActiveTab(tab.id);
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '5px 13px',
-                        borderRadius: '7px',
-                        border: 'none',
-                        background: isActive ? '#0d9488' : 'transparent',
-                        color: isActive ? '#ffffff' : '#334155',
-                        fontSize: '12px',
-                        fontWeight: isActive ? '700' : '600',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease',
-                        boxShadow: isActive ? '0 2px 6px rgba(13, 148, 136, 0.35)' : 'none',
-                        whiteSpace: 'nowrap'
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isActive) e.currentTarget.style.background = '#e2e8f0';
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) e.currentTarget.style.background = 'transparent';
-                      }}
-                    >
-                      <TabIcon size={14} style={{ color: isActive ? '#ffffff' : '#64748b' }} />
-                      <span>{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* ========================================================================= */}
-          {/* UNIFIED HELP & SUPPORT HUB TOP SEGMENTED NAVIGATION BAR */}
-          {/* ========================================================================= */}
-          {isHelpTab && (
-            <div
-              className="help-top-subnav-bar"
-              style={{
-                position: 'sticky',
-                top: 0,
-                zIndex: 35,
-                background: '#ffffff',
-                borderBottom: '1px solid #e2e8f0',
-                padding: '10px 20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '12px',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
-                flexShrink: 0
-              }}
-            >
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  background: '#f1f5f9',
-                  padding: '3px',
-                  borderRadius: '9px',
-                  border: '1px solid #e2e8f0',
-                  gap: '3px',
-                  overflowX: 'auto',
-                  maxWidth: '100%',
-                  scrollbarWidth: 'none'
-                }}
-              >
-                {helpNavTabs.filter(tab => canNav(tab.perm)).map(tab => {
-                  const isActive = activeTab === tab.id;
-                  const TabIcon = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setActiveTab(tab.id)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '5px 13px',
-                        borderRadius: '7px',
-                        border: 'none',
-                        background: isActive ? '#0d9488' : 'transparent',
-                        color: isActive ? '#ffffff' : '#334155',
-                        fontSize: '12px',
-                        fontWeight: isActive ? '700' : '600',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease',
-                        boxShadow: isActive ? '0 2px 6px rgba(13, 148, 136, 0.35)' : 'none',
-                        whiteSpace: 'nowrap'
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isActive) e.currentTarget.style.background = '#e2e8f0';
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) e.currentTarget.style.background = 'transparent';
-                      }}
-                    >
-                      <TabIcon size={14} style={{ color: isActive ? '#ffffff' : '#64748b' }} />
-                      <span>{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {isSettingsTab && renderSegmentedTopBar(settingsNavTabs, (id) => {
+            if (id === 'module_configuration') setPreselectedConfigModuleId(null);
+            setActiveTab(id);
+          })}
+          {isHelpTab && renderSegmentedTopBar(helpNavTabs)}
+          {isHrTab && renderSegmentedTopBar(hrNavTabs)}
+          {isPayrollTab && renderSegmentedTopBar(payrollNavTabs)}
+          {isReportsTab && renderSegmentedTopBar(reportsNavTabs)}
+          {isOperationsTab && renderSegmentedTopBar(operationsNavTabs)}
+          {isMyPortalTab && renderSegmentedTopBar(myPortalNavTabs)}
 
           {/* Module Subscription Paywall & Gating Screen */}
           {!isModuleSubscribed(activeTab) ? (
