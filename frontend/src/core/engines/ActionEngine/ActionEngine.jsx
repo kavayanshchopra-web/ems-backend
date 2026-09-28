@@ -642,7 +642,21 @@ export default function ActionEngine({
         />
       )}
 
-      {/* VIEW RECORD DRAWER HANDLED IN-PAGE IN LAYOUTENGINE */}
+      {/* VIEW RECORD DRAWER */}
+      {showDetailModal && selectedRecord && (
+        <UniversalDrawer
+          isOpen={showDetailModal}
+          onClose={() => setShowDetailModal(false)}
+          record={selectedRecord}
+          moduleConfig={moduleConfig}
+          onEditRecord={(rec) => { setSelectedRecord(rec); setShowEditModal(true); }}
+          onArchiveRecord={handleTriggerArchivePrompt}
+          onMoveStage={handleMoveStage}
+          canManage={canManage}
+          systemDropdowns={systemDropdowns}
+          activePipelineStages={activePipelineStages}
+        />
+      )}
 
       {/* ARCHIVE CONFIRMATION MODAL */}
       {showArchiveModal && (

@@ -9,8 +9,6 @@ import WidgetEngine from '../WidgetEngine/WidgetEngine';
 import ViewEngine from '../ViewEngine/ViewEngine';
 import ActiveFilterChips from '../FilterEngine/ActiveFilterChips';
 import ActionEngine from '../ActionEngine/ActionEngine';
-import UniversalDrawer from '../ActionEngine/UniversalDrawer';
-import { isSandboxEnvironment, SupabaseSandboxService } from '../../services/supabaseSandboxService';
 import ExportModal from '../ExportEngine/ExportEngine';
 import ImportModal from '../ImportEngine/ImportEngine';
 import SavedViewsEngine from '../FilterEngine/SavedViewsEngine';
@@ -330,163 +328,69 @@ export default function LayoutEngine({
         onResetAll={handleResetFilters}
       />
 
-      {/* D. CONTENT VIEW CONTAINER (SPLIT IN-PAGE DOCKED PANEL LAYOUT) */}
-      <div
-        className="layout-engine-split-container"
-        style={{
-          display: 'flex',
-          gap: '16px',
-          alignItems: 'flex-start',
-          width: '100%',
-          position: 'relative'
+      {/* D. CONTENT VIEW CONTAINER (KANBAN, LIST, OR ARCHIVED) */}
+      <ViewEngine
+        records={sortedRecords}
+        setRecords={setRecords}
+        moduleConfig={{ ...moduleConfig, activeCurrency }}
+        activeCurrency={activeCurrency}
+        authUser={authUser}
+        viewMode={viewMode}
+        onOpenChatWithLead={onOpenChatWithLead}
+        totalCount={activeModuleRecords.length}
+        isFilterActive={isFilterActive}
+        searchQuery={searchQuery}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSortChange={(key, dir) => { setSortKey(key); setSortDir(dir); }}
+        canManage={canManage}
+        softDeleteRecord={isArchivedView ? handlePermanentDeleteBinItem : softDeleteRecord}
+        handleRestoreBinItem={handleRestoreBinItem}
+        showToast={showToast}
+        isArchivedView={isArchivedView}
+        onViewRecord={(rec) => { setSelectedRecord(rec); setShowDetailModal(true); }}
+        onEditRecord={(rec) => { setSelectedRecord(rec); setShowEditModal(true); }}
+        onArchiveRecord={(rec) => { setRecordToArchive(rec); setSelectedRecord(rec); setShowArchiveModal(true); }}
+        onMoveStage={(recId, newStage) => {
+          let movedRec = null;
+          const updated = records.map(r => {
+            const isMatch = String(r.id) === String(recId) || 
+                            String(r.displayId) === String(recId) || 
+                            (r.originalId && String(r.originalId) === String(recId));
+            if (isMatch) {
+              movedRec = { 
+                ...r, 
+                status: newStage, 
+                stage: newStage, 
+                disposition: newStage, 
+                updatedAt: new Date().toISOString() 
+              };
+              return movedRec;
+            }
+            return r;
+          });
+          setRecords(updated);
+          const activeTenantId = authUser?.companyId || authUser?.tenantId || 'default_tenant';
+          if (movedRec && moduleConfig.moduleId) {
+            FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, movedRec, activeTenantId);
+            if (moduleConfig.moduleId === 'crm_deals' || moduleConfig.moduleId === 'contacts') {
+              GhlSyncBridge.pushSingleContactAuto(activeTenantId, movedRec).catch(() => {});
+            }
+          }
+          showToast(`Moved record to ${newStage}`, 'info');
         }}
-      >
-        {/* Left: ViewEngine (Table / Kanban) */}
-        <div
-          style={{
-            flex: (showDetailModal && selectedRecord) ? '1 1 calc(100% - 476px)' : '1 1 100%',
-            minWidth: 0,
-            transition: 'flex 0.25s ease'
-          }}
-        >
-          <ViewEngine
-            records={sortedRecords}
-            setRecords={setRecords}
-            moduleConfig={{ ...moduleConfig, activeCurrency }}
-            activeCurrency={activeCurrency}
-            authUser={authUser}
-            viewMode={viewMode}
-            onOpenChatWithLead={onOpenChatWithLead}
-            totalCount={activeModuleRecords.length}
-            isFilterActive={isFilterActive}
-            searchQuery={searchQuery}
-            sortKey={sortKey}
-            sortDir={sortDir}
-            onSortChange={(key, dir) => { setSortKey(key); setSortDir(dir); }}
-            canManage={canManage}
-            softDeleteRecord={isArchivedView ? handlePermanentDeleteBinItem : softDeleteRecord}
-            handleRestoreBinItem={handleRestoreBinItem}
-            showToast={showToast}
-            isArchivedView={isArchivedView}
-            selectedRecord={selectedRecord}
-            onViewRecord={(rec) => { setSelectedRecord(rec); setShowDetailModal(true); }}
-            onEditRecord={(rec) => { setSelectedRecord(rec); setShowEditModal(true); }}
-            onArchiveRecord={(rec) => { setRecordToArchive(rec); setSelectedRecord(rec); setShowArchiveModal(true); }}
-            onMoveStage={(recId, newStage) => {
-              let movedRec = null;
-              const updated = records.map(r => {
-                const isMatch = String(r.id) === String(recId) || 
-                                String(r.displayId) === String(recId) || 
-                                (r.originalId && String(r.originalId) === String(recId));
-                if (isMatch) {
-                  movedRec = { 
-                    ...r, 
-                    status: newStage, 
-                    stage: newStage, 
-                    disposition: newStage, 
-                    pipeline_stage: newStage,
-                    updatedAt: new Date().toISOString() 
-                  };
-                  return movedRec;
-                }
-                return r;
-              });
-              setRecords(updated);
-              if (selectedRecord && (String(selectedRecord.id) === String(recId) || String(selectedRecord.displayId) === String(recId))) {
-                setSelectedRecord(prev => ({ ...prev, status: newStage, stage: newStage, disposition: newStage, pipeline_stage: newStage }));
-              }
-              const activeTenantId = authUser?.companyId || authUser?.tenantId || '1';
-              if (movedRec) {
-                if (isSandboxEnvironment()) {
-                  const numTenant = Number(activeTenantId) || 1;
-                  SupabaseSandboxService.updateContact(movedRec.id, { pipeline_stage: newStage, stage: newStage }, numTenant).catch(() => {});
-                } else if (moduleConfig.moduleId) {
-                  FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, movedRec, activeTenantId);
-                  if (moduleConfig.moduleId === 'crm_deals' || moduleConfig.moduleId === 'contacts') {
-                    GhlSyncBridge.pushSingleContactAuto(activeTenantId, movedRec).catch(() => {});
-                  }
-                }
-                showToast(`Moved record to ${newStage}`, 'info');
-              }
-            }}
-            onResetFilters={handleResetFilters}
-            systemDropdowns={systemDropdowns}
-            activePipelineStages={activePipelineStages}
-            onOpenExportModal={() => setShowExportModal(true)}
-            hiddenColIds={hiddenColIds}
-            setHiddenColIds={setHiddenColIds}
-            currentPage={currentPage}
-            pageSize={pageSize}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={setPageSize}
-            customHeaderActions={customHeaderActions}
-          />
-        </div>
-
-        {/* Right: In-Page Docked Detail Panel (Page Ka Hi Part) */}
-        {showDetailModal && selectedRecord && (
-          <div
-            style={{
-              flex: '0 0 460px',
-              maxWidth: '460px',
-              minWidth: '340px',
-              position: 'sticky',
-              top: '16px',
-              zIndex: 10,
-              alignSelf: 'flex-start'
-            }}
-          >
-            <UniversalDrawer
-              isOpen={showDetailModal}
-              onClose={() => setShowDetailModal(false)}
-              record={selectedRecord}
-              moduleConfig={moduleConfig}
-              onEditRecord={(rec) => { setSelectedRecord(rec); setShowEditModal(true); }}
-              onArchiveRecord={(rec) => { setRecordToArchive(rec); setSelectedRecord(rec); setShowArchiveModal(true); }}
-              onMoveStage={(recId, newStage) => {
-                let movedRec = null;
-                const updated = records.map(r => {
-                  const isMatch = String(r.id) === String(recId) || 
-                                  String(r.displayId) === String(recId) || 
-                                  (r.originalId && String(r.originalId) === String(recId));
-                  if (isMatch) {
-                    movedRec = { 
-                      ...r, 
-                      status: newStage, 
-                      stage: newStage, 
-                      disposition: newStage, 
-                      pipeline_stage: newStage,
-                      updatedAt: new Date().toISOString() 
-                    };
-                    return movedRec;
-                  }
-                  return r;
-                });
-                setRecords(updated);
-                if (selectedRecord && (String(selectedRecord.id) === String(recId) || String(selectedRecord.displayId) === String(recId))) {
-                  setSelectedRecord(prev => ({ ...prev, status: newStage, stage: newStage, disposition: newStage, pipeline_stage: newStage }));
-                }
-                const activeTenantId = authUser?.companyId || authUser?.tenantId || '1';
-                if (movedRec) {
-                  if (isSandboxEnvironment()) {
-                    const numTenant = Number(activeTenantId) || 1;
-                    SupabaseSandboxService.updateContact(movedRec.id, { pipeline_stage: newStage, stage: newStage }, numTenant).catch(() => {});
-                  } else if (moduleConfig.moduleId) {
-                    FirebaseCloudEngine.saveRecord(moduleConfig.moduleId, movedRec, activeTenantId);
-                    if (moduleConfig.moduleId === 'crm_deals' || moduleConfig.moduleId === 'contacts') {
-                      GhlSyncBridge.pushSingleContactAuto(activeTenantId, movedRec).catch(() => {});
-                    }
-                  }
-                  showToast(`Moved record to ${newStage}`, 'info');
-                }
-              }}
-              canManage={canManage}
-              systemDropdowns={systemDropdowns}
-              activePipelineStages={activePipelineStages}
-            />
-          </div>
-        )}
-      </div>
+        onResetFilters={handleResetFilters}
+        systemDropdowns={systemDropdowns}
+        activePipelineStages={activePipelineStages}
+        onOpenExportModal={() => setShowExportModal(true)}
+        hiddenColIds={hiddenColIds}
+        setHiddenColIds={setHiddenColIds}
+        currentPage={currentPage}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+        customHeaderActions={customHeaderActions}
+      />
 
       {/* E. ACTION ENGINE MODALS & DRAWERS */}
       <ActionEngine
@@ -497,7 +401,7 @@ export default function LayoutEngine({
         setShowAddModal={setShowAddModal}
         showEditModal={showEditModal}
         setShowEditModal={setShowEditModal}
-        showDetailModal={false}
+        showDetailModal={showDetailModal}
         setShowDetailModal={setShowDetailModal}
         showArchiveModal={showArchiveModal}
         setShowArchiveModal={setShowArchiveModal}
