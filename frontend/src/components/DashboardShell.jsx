@@ -171,7 +171,8 @@ import {
   Share2,
   MessageSquareHeart,
   ArrowLeft,
-  Zap
+  Zap,
+  HelpCircle
 } from 'lucide-react';
 // Dynamic Registry - Auto-Extensible Module Config for RBAC
 export const DYNAMIC_MODULE_REGISTRY = [
@@ -602,7 +603,8 @@ function SidebarMainNavItem({ id, label, icon: IconComponent, isActive, onClick,
     gps_attendance: { color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.18)' },
     audit_logs: { color: '#ec4899', bg: 'rgba(236, 72, 153, 0.18)' },
     media_storage: { color: '#14b8a6', bg: 'rgba(20, 184, 166, 0.18)' },
-    settings: { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' }
+    settings: { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' },
+    help_support: { color: '#06b6d4', bg: 'rgba(6, 182, 212, 0.18)' }
   };
   const theme = defaultColors[id] || { color: '#14d2cb', bg: 'rgba(20, 210, 203, 0.16)' };
 
@@ -7159,14 +7161,21 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     'billing'
   ].includes(activeTab);
 
+  const isHelpTab = ['app_guide', 'feedback'].includes(activeTab);
+
   const settingsNavTabs = useMemo(() => [
     { id: 'settings', label: t('generalSettings') || 'General Settings', icon: Settings, perm: 'settings' },
-    { id: 'integrations', label: t('integrationsWebhooks') || 'Integrations & Webhooks', icon: Share2, perm: 'integrations' },
+    { id: 'integrations', label: 'Integrations & Webhooks', icon: Share2, perm: 'integrations' },
     { id: 'roles_permissions', label: t('rolesPermissions') || 'Roles & Permissions', icon: Shield, perm: 'roles_permissions' },
     { id: 'recycle_bin', label: t('recycleBin') || 'Trash Bin', icon: Trash2, perm: 'recycle_bin' },
     { id: 'system_dropdowns', label: t('systemDropdowns') || 'System Dropdowns', icon: Tag, perm: 'system_dropdowns' },
     { id: 'module_configuration', altIds: ['module_config'], label: t('moduleConfig') || 'Module Configuration', icon: Sliders, perm: 'module_configuration' },
     { id: 'billing', label: t('subscriptionBilling') || 'Subscription Billing', icon: CreditCard, perm: 'billing' }
+  ], [activeLanguage]);
+
+  const helpNavTabs = useMemo(() => [
+    { id: 'app_guide', label: 'App Guide & Tour', icon: Globe, perm: 'app_guide' },
+    { id: 'feedback', label: 'Feedback & Suggestions', icon: MessageSquareHeart, perm: 'feedback' }
   ], [activeLanguage]);
 
   return (
@@ -7474,22 +7483,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               )}
             </AccordionCategory>
           )}
-          {/* CATEGORY: HELP & SUPPORT */}
+          {/* MAIN NAV ITEM: HELP & SUPPORT (Unified Hub - Sub-pages elevated to top-bar segmented tabs) */}
           {(canNav('app_guide') || canNav('feedback')) && (
-            <AccordionCategory id="help_support" label={t('helpSupportCat') || "HELP & SUPPORT"} icon={Megaphone} isExpanded={!!expandedCategories.help_support} onToggle={toggleCategory}>
-              {canNav('app_guide') && (
-                <div className={`nav-item ${activeTab === 'app_guide' ? 'active' : ''}`} onClick={() => setActiveTab('app_guide')}>
-                  <Globe size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('appGuide')}</span>
-                </div>
-              )}
-              {canNav('feedback') && (
-                <div className={`nav-item ${activeTab === 'feedback' ? 'active' : ''}`} onClick={() => setActiveTab('feedback')}>
-                  <MessageSquareHeart size={15} />
-                  <span style={{ fontSize: '13px' }}>{t('feedbackSuggestions') || 'Feedback & Suggestions'}</span>
-                </div>
-              )}
-            </AccordionCategory>
+            <SidebarMainNavItem
+              id="help_support"
+              label={t('helpSupportCat') || "HELP & SUPPORT"}
+              icon={HelpCircle}
+              isActive={isHelpTab}
+              onClick={() => setActiveTab('app_guide')}
+              lockBadge={renderLockBadge('app_guide')}
+            />
           )}
           {/* MAIN NAV ITEM: SETTINGS (Unified Settings Hub - Sub-pages elevated to top-bar segmented tabs) */}
           {(canNav('settings') || canNav('integrations') || canNav('roles_permissions') || canNav('recycle_bin') || canNav('system_dropdowns') || canNav('module_configuration') || canNav('billing')) && (
@@ -7641,7 +7644,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           {/* Desktop Page Title (Aligned equal from left with content cards) */}
           <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '0px', marginRight: '20px', flexShrink: 0 }}>
             <span style={{ fontSize: '14px', fontWeight: '800', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                 {isSettingsTab ? 'SETTINGS' : (activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab.startsWith('reports') ? 'REPORTS & ANALYTICS' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' '))))))}
+                 {isSettingsTab ? 'SETTINGS' : (isHelpTab ? 'HELP & SUPPORT' : (activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab.startsWith('reports') ? 'REPORTS & ANALYTICS' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab || '').replace(/_/g, ' ')))))))}
             </span>
           </div>
 
@@ -8275,6 +8278,81 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                         if (tab.id === 'module_configuration') setPreselectedConfigModuleId(null);
                         setActiveTab(tab.id);
                       }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '5px 13px',
+                        borderRadius: '7px',
+                        border: 'none',
+                        background: isActive ? '#0d9488' : 'transparent',
+                        color: isActive ? '#ffffff' : '#334155',
+                        fontSize: '12px',
+                        fontWeight: isActive ? '700' : '600',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        boxShadow: isActive ? '0 2px 6px rgba(13, 148, 136, 0.35)' : 'none',
+                        whiteSpace: 'nowrap'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) e.currentTarget.style.background = '#e2e8f0';
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) e.currentTarget.style.background = 'transparent';
+                      }}
+                    >
+                      <TabIcon size={14} style={{ color: isActive ? '#ffffff' : '#64748b' }} />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* UNIFIED HELP & SUPPORT HUB TOP SEGMENTED NAVIGATION BAR */}
+          {/* ========================================================================= */}
+          {isHelpTab && (
+            <div
+              className="help-top-subnav-bar"
+              style={{
+                position: 'sticky',
+                top: 0,
+                zIndex: 35,
+                background: '#ffffff',
+                borderBottom: '1px solid #e2e8f0',
+                padding: '10px 20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
+                flexShrink: 0
+              }}
+            >
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  background: '#f1f5f9',
+                  padding: '3px',
+                  borderRadius: '9px',
+                  border: '1px solid #e2e8f0',
+                  gap: '3px',
+                  overflowX: 'auto',
+                  maxWidth: '100%',
+                  scrollbarWidth: 'none'
+                }}
+              >
+                {helpNavTabs.filter(tab => canNav(tab.perm)).map(tab => {
+                  const isActive = activeTab === tab.id;
+                  const TabIcon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveTab(tab.id)}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
