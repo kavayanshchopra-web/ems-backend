@@ -52,7 +52,13 @@ export const DEFAULT_WHATSAPP_TEMPLATES = [
     title: 'Company Brochure & Pricing Catalog',
     category: 'Brochure',
     isDefault: true,
-    content: 'Hello {name}! 📄 As requested, please review our official company brochure and product pricing catalog. Let me know which plan aligns best with your immediate goals so I can prepare a custom discount quote! Warm regards, {agent_name} ({company_name})'
+    content: 'Hello {name}! 📄 As requested, please review our official company brochure and product pricing catalog: {document_url}\n\nLet me know which plan aligns best with your immediate goals so I can prepare a custom discount quote! Warm regards, {agent_name} ({company_name})',
+    attachment: {
+      url: 'https://sandbox.employeemanagementsystems.com/catalog/EMS_Product_Catalog_2026.pdf',
+      fileName: 'EMS_Product_Catalog_2026.pdf',
+      fileSize: '2.4 MB',
+      mimeType: 'application/pdf'
+    }
   },
   {
     id: 'tpl_post_call_interested',
@@ -159,6 +165,7 @@ export const WhatsAppTemplateService = {
     const companyName = params.companyName || params.company_name || 'Our Company';
     const phone = params.phone || '';
     const date = params.date || new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    const documentUrl = params.documentUrl || params.document_url || params.attachmentUrl || params.attachment_url || params.attachment?.url || params.fileUrl || '';
 
     let text = content;
     text = text.replace(/\{name\}/gi, name);
@@ -167,6 +174,16 @@ export const WhatsAppTemplateService = {
     text = text.replace(/\{company_name\}/gi, companyName);
     text = text.replace(/\{phone\}/gi, phone);
     text = text.replace(/\{date\}/gi, date);
+    text = text.replace(/\{document_url\}/gi, documentUrl);
+    text = text.replace(/\{brochure_url\}/gi, documentUrl);
+    text = text.replace(/\{attachment_url\}/gi, documentUrl);
+    text = text.replace(/\{file_url\}/gi, documentUrl);
+
+    // If attachment URL is present and not explicitly referenced in text, append it cleanly at the end
+    if (documentUrl && !content.toLowerCase().includes('{document_url}') && !content.toLowerCase().includes('{brochure_url}') && !content.toLowerCase().includes('{file_url}') && !content.toLowerCase().includes('{attachment_url}') && !text.includes(documentUrl)) {
+      text = `${text.trim()}\n\n📄 View / Download Document: ${documentUrl}`;
+    }
+
     return text;
   },
 
@@ -211,6 +228,7 @@ export const WhatsAppTemplateService = {
       templateTitle: tagTitle,
       category: template?.category || 'General',
       productName: template?.productName || '',
+      attachment: template?.attachment || null,
       agentName: agentName || 'Executive',
       sentAt: now.toISOString(),
       sentAtFormatted,

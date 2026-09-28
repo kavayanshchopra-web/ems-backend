@@ -19,10 +19,28 @@ import {
   Tag, 
   Search,
   ExternalLink,
-  Info
+  Info,
+  Paperclip,
+  FileText,
+  Image as ImageIcon,
+  Download,
+  UploadCloud,
+  Folder,
+  HardDrive,
+  Loader2,
+  Link as LinkIcon
 } from 'lucide-react';
 import WhatsAppTemplateService, { DEFAULT_WHATSAPP_TEMPLATES } from '../../core/services/whatsAppTemplateService';
 import TenantStorage from '../../core/services/TenantStorage';
+import MediaStorageEngine from '../../core/engines/MediaStorageEngine';
+
+const formatFileSize = (bytes) => {
+  if (!bytes || isNaN(bytes) || bytes <= 0) return '0 KB';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
 
 const DEFAULT_CATEGORIES = [
   'Product',
@@ -55,8 +73,17 @@ export default function WhatsAppTemplatesModal({
     title: '',
     category: 'Product',
     productName: '',
-    content: ''
+    content: '',
+    attachment: null
   });
+
+  // Media Storage Picker State
+  const [showMediaPicker, setShowMediaPicker] = useState(false);
+  const [mediaVaultFiles, setMediaVaultFiles] = useState([]);
+  const [loadingMediaVault, setLoadingMediaVault] = useState(false);
+  const [mediaPickerSearch, setMediaPickerSearch] = useState('');
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   // Dynamically compute all available categories
   const allCategories = useMemo(() => {
@@ -80,6 +107,116 @@ export default function WhatsAppTemplatesModal({
     }
   }, [isOpen, companyId]);
 
+  // Open Media Storage Picker
+  const handleOpenMediaPicker = async () => {
+    setShowMediaPicker(true);
+    setLoadingMediaVault(true);
+    try {
+      const list = await MediaStorageEngine.fetchMediaList(companyId);
+      setMediaVaultFiles(Array.isArray(list) ? list : []);
+    } catch (e) {
+      console.warn('Error fetching media vault:', e);
+      setMediaVaultFiles([]);
+    } finally {
+      setLoadingMediaVault(false);
+    }
+  };
+
+  // Select an item from Media Storage
+  const handleSelectMediaItem = (item) => {
+    const downloadUrl = item.file_url || item.downloadUrl || item.fileUrl || '';
+    const fileName = item.file_name || item.original_file_name || item.fileName || 'Attached_Document';
+    const fileSize = formatFileSize(item.file_size || item.fileSize);
+    const mimeType = item.mime_type || item.mimeType || 'application/pdf';
+
+    setFormData(prev => {
+      const hasDocTag = prev.content.includes('{document_url}') || (downloadUrl && prev.content.includes(downloadUrl));
+      return {
+        ...prev,
+        attachment: {
+          url: downloadUrl,
+          fileName,
+          fileSize,
+          mimeType,
+          mediaId: item.id
+        },
+        content: hasDocTag ? prev.content : `${prev.content.trim()}\n\n📄 Brochure / Details: {document_url}`
+      };
+    });
+
+    setShowMediaPicker(false);
+    if (showToast) showToast(`Attached "${fileName}" from Media Storage`, 'success');
+  };
+
+  // Upload a new file directly into Media Storage & attach
+  const handleUploadDirectFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAttachment(true);
+    setUploadProgress(20);
+    try {
+      const res = await MediaStorageEngine.uploadMedia({
+        tenantId: companyId,
+        category: 'whatsapp_templates',
+        file,
+        metadata: { templateTitle: formData.title || 'WhatsApp Template' },
+        onProgress: (p) => setUploadProgress(p)
+      });
+
+      const downloadUrl = res.downloadUrl || res.fileUrl || '';
+      const fileName = res.fileName || file.name;
+      const fileSize = formatFileSize(res.fileSize || file.size);
+      const mimeType = res.mimeType || file.type || 'application/pdf';
+
+      setFormData(prev => {
+        const hasDocTag = prev.content.includes('{document_url}') || (downloadUrl && prev.content.includes(downloadUrl));
+        return {
+          ...prev,
+          attachment: {
+            url: downloadUrl,
+            fileName,
+            fileSize,
+            mimeType,
+            mediaId: res.id
+          },
+          content: hasDocTag ? prev.content : `${prev.content.trim()}\n\n📄 Brochure / Details: {document_url}`
+        };
+      });
+
+      // Also refresh vault list if picker was open
+      setMediaVaultFiles(prev => [res, ...prev]);
+      setShowMediaPicker(false);
+      if (showToast) showToast(`Uploaded & attached "${fileName}" to Media Storage!`, 'success');
+    } catch (err) {
+      console.error('File upload failed:', err);
+      if (showToast) showToast(`Failed to upload to Media Storage: ${err.message}`, 'warning');
+    } finally {
+      setUploadingAttachment(false);
+      setUploadProgress(0);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveAttachment = () => {
+    setFormData(prev => ({
+      ...prev,
+      attachment: null
+    }));
+    if (showToast) showToast('Attachment removed', 'info');
+  };
+
+  // Filtered Media Storage Files for Picker
+  const filteredVaultFiles = useMemo(() => {
+    if (!mediaPickerSearch.trim()) return mediaVaultFiles;
+    const q = mediaPickerSearch.toLowerCase();
+    return mediaVaultFiles.filter(f => {
+      const name = (f.file_name || f.original_file_name || f.fileName || '').toLowerCase();
+      const cat = (f.category || '').toLowerCase();
+      return name.includes(q) || cat.includes(q);
+    });
+  }, [mediaVaultFiles, mediaPickerSearch]);
+
   // Filtered list
   const filteredTemplates = useMemo(() => {
     return templates.filter((tpl) => {
@@ -97,7 +234,8 @@ export default function WhatsAppTemplatesModal({
       title: '',
       category: selectedCategory === 'All' ? 'Product' : selectedCategory,
       productName: '',
-      content: 'Hi {name}! 👋 '
+      content: 'Hi {name}! 👋 ',
+      attachment: null
     });
     setEditingTemplate('new');
   };
@@ -107,7 +245,8 @@ export default function WhatsAppTemplatesModal({
       title: tpl.title || '',
       category: tpl.category || 'Product',
       productName: tpl.productName || '',
-      content: tpl.content || ''
+      content: tpl.content || '',
+      attachment: tpl.attachment || null
     });
     setEditingTemplate(tpl.id);
   };
@@ -148,7 +287,8 @@ export default function WhatsAppTemplatesModal({
         title: formData.title.trim(),
         category: formData.category,
         productName: formData.productName.trim(),
-        content: formData.content.trim()
+        content: formData.content.trim(),
+        attachment: formData.attachment || null
       };
       updatedList.push(newTpl);
     } else {
@@ -159,7 +299,8 @@ export default function WhatsAppTemplatesModal({
             title: formData.title.trim(),
             category: formData.category,
             productName: formData.productName.trim(),
-            content: formData.content.trim()
+            content: formData.content.trim(),
+            attachment: formData.attachment || null
           };
         }
         return t;
@@ -582,32 +723,33 @@ export default function WhatsAppTemplatesModal({
                       { tag: '{agent_name}', label: 'Agent Name' },
                       { tag: '{company_name}', label: 'Company' },
                       { tag: '{phone}', label: 'Phone' },
-                      { tag: '{date}', label: 'Today\'s Date' }
+                      { tag: '{date}', label: 'Today\'s Date' },
+                      { tag: '{document_url}', label: 'Document / File Link' }
                     ].map(item => (
                       <button
                         key={item.tag}
                         type="button"
                         onClick={() => handleInsertTag(item.tag)}
                         style={{
-                          background: '#f1f5f9',
-                          border: '1px dashed #cbd5e1',
+                          background: item.tag === '{document_url}' ? '#ecfdf5' : '#f1f5f9',
+                          border: `1px dashed ${item.tag === '{document_url}' ? '#10b981' : '#cbd5e1'}`,
                           borderRadius: '5px',
                           padding: '3px 8px',
                           fontSize: '11px',
-                          fontWeight: '600',
-                          color: '#0f766e',
+                          fontWeight: '700',
+                          color: item.tag === '{document_url}' ? '#047857' : '#0f766e',
                           cursor: 'pointer'
                         }}
                       >
-                        + {item.tag} <span style={{ color: '#94a3b8', fontSize: '10px' }}>({item.label})</span>
+                        + {item.tag} <span style={{ color: item.tag === '{document_url}' ? '#059669' : '#94a3b8', fontSize: '10px' }}>({item.label})</span>
                       </button>
                     ))}
                   </div>
 
                   <textarea
-                    rows={6}
+                    rows={5}
                     required
-                    placeholder="Type WhatsApp message here. Use {name} for lead name, {agent_name} for caller name..."
+                    placeholder="Type WhatsApp message here. Use {name} for lead name, {agent_name} for caller name, {document_url} for brochure link..."
                     value={formData.content}
                     onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
                     style={{
@@ -621,6 +763,164 @@ export default function WhatsAppTemplatesModal({
                       fontFamily: 'inherit'
                     }}
                   />
+                </div>
+
+                {/* 📎 Attached Document / Media Section (Media Storage Engine) */}
+                <div style={{
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label style={{ fontSize: '12px', fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Paperclip size={14} color="#047857" />
+                      <span>Attached PDF, Brochure or Media (Optional)</span>
+                    </label>
+                    <span style={{ fontSize: '10.5px', color: '#047857', fontWeight: '700' }}>
+                      ⚡ Powered by Media Storage
+                    </span>
+                  </div>
+
+                  {formData.attachment ? (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 12px',
+                      background: '#ecfdf5',
+                      border: '1.5px solid #a7f3d0',
+                      borderRadius: '8px',
+                      gap: '10px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                        <div style={{
+                          width: '34px',
+                          height: '34px',
+                          borderRadius: '6px',
+                          background: (formData.attachment.mimeType || '').startsWith('image/') ? '#3b82f6' : '#ef4444',
+                          color: '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '10px',
+                          fontWeight: '800',
+                          flexShrink: 0
+                        }}>
+                          {(formData.attachment.mimeType || '').startsWith('image/') ? <ImageIcon size={18} /> : 'PDF'}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#064e3b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {formData.attachment.fileName}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#047857', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span>{formData.attachment.fileSize}</span>
+                            <a
+                              href={formData.attachment.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ color: '#0f766e', fontWeight: '700', textDecoration: 'underline' }}
+                            >
+                              👁️ View / Download
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        {!formData.content.includes('{document_url}') && (
+                          <button
+                            type="button"
+                            onClick={() => handleInsertTag('\n\n📄 Brochure / Details: {document_url}')}
+                            style={{
+                              padding: '4px 8px',
+                              borderRadius: '5px',
+                              border: '1px solid #86efac',
+                              background: '#ffffff',
+                              color: '#047857',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            + Insert Link in Text
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleRemoveAttachment}
+                          style={{
+                            padding: '4px 8px',
+                            borderRadius: '5px',
+                            border: '1px solid #fecaca',
+                            background: '#fef2f2',
+                            color: '#dc2626',
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ✕ Remove
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={handleOpenMediaPicker}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          border: '1.5px dashed #0d9488',
+                          background: 'rgba(13, 148, 136, 0.05)',
+                          color: '#0f766e',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <Folder size={15} color="#0d9488" />
+                        <span>📁 Select from Media Storage</span>
+                      </button>
+
+                      <label
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          border: '1.5px dashed #cbd5e1',
+                          background: '#ffffff',
+                          color: '#334155',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          cursor: uploadingAttachment ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <UploadCloud size={15} color="#047857" />
+                        <span>{uploadingAttachment ? `Uploading ${uploadProgress}%...` : '⬆️ Upload New File (PDF, Image)'}</span>
+                        <input
+                          type="file"
+                          accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx"
+                          disabled={uploadingAttachment}
+                          onChange={handleUploadDirectFile}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '10px' }}>
@@ -703,6 +1003,25 @@ export default function WhatsAppTemplatesModal({
                             {tpl.productName && (
                               <span style={{ fontSize: '11px', color: '#0d9488', fontWeight: '600' }}>
                                 📦 {tpl.productName}
+                              </span>
+                            )}
+                            {tpl.attachment && (
+                              <span style={{
+                                fontSize: '10.5px',
+                                fontWeight: '700',
+                                padding: '2px 7px',
+                                borderRadius: '12px',
+                                background: '#fef2f2',
+                                color: '#b91c1c',
+                                border: '1px solid #fecaca',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                              }} title={`Attached: ${tpl.attachment.fileName}`}>
+                                <FileText size={11} />
+                                <span style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {tpl.attachment.fileName}
+                                </span>
                               </span>
                             )}
                           </div>
@@ -814,19 +1133,76 @@ export default function WhatsAppTemplatesModal({
                 whiteSpace: 'pre-wrap',
                 position: 'relative'
               }}>
+                {/* 📄 WhatsApp Document / Image Card in Simulator */}
+                {(() => {
+                  const activeAttachment = editingTemplate ? formData.attachment : (filteredTemplates[0]?.attachment || null);
+                  if (!activeAttachment) return null;
+                  const isImg = (activeAttachment.mimeType || '').startsWith('image/');
+                  if (isImg && activeAttachment.url) {
+                    return (
+                      <div style={{ marginBottom: '8px', borderRadius: '6px', overflow: 'hidden', border: '1px solid rgba(0,0,0,0.1)' }}>
+                        <img
+                          src={activeAttachment.url}
+                          alt={activeAttachment.fileName || 'Attachment'}
+                          style={{ width: '100%', maxHeight: '140px', objectFit: 'cover', display: 'block' }}
+                        />
+                      </div>
+                    );
+                  }
+                  return (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      background: 'rgba(0, 0, 0, 0.06)',
+                      borderRadius: '6px',
+                      padding: '7px 9px',
+                      marginBottom: '8px',
+                      border: '1px solid rgba(0, 0, 0, 0.08)'
+                    }}>
+                      <div style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '5px',
+                        background: '#ef4444',
+                        color: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: '800',
+                        fontSize: '9.5px',
+                        flexShrink: 0
+                      }}>
+                        PDF
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {activeAttachment.fileName || 'Document.pdf'}
+                        </div>
+                        <div style={{ fontSize: '10px', color: '#6b7280' }}>
+                          {activeAttachment.fileSize || 'PDF Document'}
+                        </div>
+                      </div>
+                      <Download size={14} color="#047857" style={{ flexShrink: 0 }} />
+                    </div>
+                  );
+                })()}
+
                 {editingTemplate ? (
                   WhatsAppTemplateService.personalizeText(formData.content || 'Start typing a message...', {
                     name: 'Ramesh',
                     agentName: tenantAgent,
                     companyName: tenantCompany,
-                    phone: '+91 98765 43210'
+                    phone: '+91 98765 43210',
+                    documentUrl: formData.attachment?.url || ''
                   })
                 ) : filteredTemplates[0] ? (
                   WhatsAppTemplateService.personalizeText(filteredTemplates[0].content, {
                     name: 'Ramesh',
                     agentName: tenantAgent,
                     companyName: tenantCompany,
-                    phone: '+91 98765 43210'
+                    phone: '+91 98765 43210',
+                    documentUrl: filteredTemplates[0]?.attachment?.url || ''
                   })
                 ) : (
                   'No template selected'
@@ -875,6 +1251,314 @@ export default function WhatsAppTemplatesModal({
           </button>
         </div>
       </div>
+
+      {/* Media Storage Vault Picker Modal */}
+      {showMediaPicker && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10005,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '680px',
+            maxHeight: '85vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            border: '1px solid #e2e8f0',
+            overflow: 'hidden'
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '18px 22px',
+              borderBottom: '1px solid #e2e8f0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: '#f8fafc'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '10px',
+                  background: '#ecfdf5',
+                  border: '1px solid #a7f3d0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#059669'
+                }}>
+                  <Folder size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+                    Select from Media Storage Vault
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
+                    Choose any brochure, pricing sheet, or media stored in your workspace
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMediaPicker(false)}
+                style={{
+                  background: '#f1f5f9',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '6px',
+                  cursor: 'pointer',
+                  color: '#64748b'
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Search & Upload bar */}
+            <div style={{
+              padding: '12px 20px',
+              borderBottom: '1px solid #f1f5f9',
+              display: 'flex',
+              gap: '12px',
+              alignItems: 'center',
+              background: '#ffffff'
+            }}>
+              <div style={{
+                position: 'relative',
+                flex: 1
+              }}>
+                <Search size={15} style={{ position: 'absolute', left: '10px', top: '10px', color: '#94a3b8' }} />
+                <input
+                  type="text"
+                  placeholder="Search stored documents or images..."
+                  value={mediaPickerSearch}
+                  onChange={(e) => setMediaPickerSearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px 8px 34px',
+                    fontSize: '12.5px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+
+              <label style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                background: '#059669',
+                color: '#ffffff',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap'
+              }}>
+                {uploadingAttachment ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />}
+                {uploadingAttachment ? `Uploading (${uploadProgress}%)...` : 'Upload New File'}
+                <input
+                  type="file"
+                  accept="application/pdf,image/*,.doc,.docx"
+                  onChange={handleUploadDirectFile}
+                  disabled={uploadingAttachment}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            </div>
+
+            {/* Content List */}
+            <div style={{
+              padding: '16px 20px',
+              overflowY: 'auto',
+              flex: 1,
+              maxHeight: '400px'
+            }}>
+              {loadingMediaVault ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+                  <Loader2 size={28} className="animate-spin" style={{ margin: '0 auto 10px', color: '#059669' }} />
+                  <div style={{ fontSize: '13px', fontWeight: '600' }}>Loading Media Storage files...</div>
+                </div>
+              ) : mediaVaultFiles.length === 0 ? (
+                <div style={{
+                  padding: '40px 20px',
+                  textAlign: 'center',
+                  background: '#f8fafc',
+                  borderRadius: '12px',
+                  border: '1px dashed #cbd5e1'
+                }}>
+                  <HardDrive size={36} style={{ color: '#94a3b8', margin: '0 auto 10px' }} />
+                  <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#334155' }}>
+                    No files found in Media Storage
+                  </div>
+                  <p style={{ fontSize: '12px', color: '#64748b', maxWidth: '360px', margin: '4px auto 14px' }}>
+                    Upload your brochures, product PDF catalogs, or sample images directly to store and attach them.
+                  </p>
+                  <label style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    background: '#059669',
+                    color: '#ffffff',
+                    fontSize: '12.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}>
+                    <UploadCloud size={15} />
+                    Upload File to Vault
+                    <input
+                      type="file"
+                      accept="application/pdf,image/*,.doc,.docx"
+                      onChange={handleUploadDirectFile}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px' }}>
+                  {mediaVaultFiles
+                    .filter(file => {
+                      if (!mediaPickerSearch) return true;
+                      const q = mediaPickerSearch.toLowerCase();
+                      const name = (file.file_name || file.original_file_name || file.fileName || '').toLowerCase();
+                      const cat = (file.category || '').toLowerCase();
+                      return name.includes(q) || cat.includes(q);
+                    })
+                    .map((item, idx) => {
+                      const name = item.file_name || item.original_file_name || item.fileName || `Document_${idx + 1}`;
+                      const size = formatFileSize(item.file_size || item.fileSize);
+                      const isImg = (item.mime_type || item.mimeType || '').startsWith('image/');
+                      const isPdf = (item.mime_type || item.mimeType || '').includes('pdf') || name.toLowerCase().endsWith('.pdf');
+                      const url = item.file_url || item.downloadUrl || item.fileUrl || '';
+
+                      return (
+                        <div
+                          key={item.id || idx}
+                          onClick={() => handleSelectMediaItem(item)}
+                          style={{
+                            padding: '12px',
+                            borderRadius: '10px',
+                            border: '1px solid #e2e8f0',
+                            background: '#ffffff',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            gap: '10px',
+                            alignItems: 'center',
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = '#059669';
+                            e.currentTarget.style.backgroundColor = '#f0fdf4';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = '#e2e8f0';
+                            e.currentTarget.style.backgroundColor = '#ffffff';
+                          }}
+                        >
+                          <div style={{
+                            width: '42px',
+                            height: '42px',
+                            borderRadius: '8px',
+                            background: isImg ? '#eff6ff' : isPdf ? '#fef2f2' : '#f8fafc',
+                            border: isImg ? '1px solid #bfdbfe' : isPdf ? '1px solid #fecaca' : '1px solid #e2e8f0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            {isImg ? (
+                              <ImageIcon size={20} color="#2563eb" />
+                            ) : isPdf ? (
+                              <FileText size={20} color="#dc2626" />
+                            ) : (
+                              <Folder size={20} color="#64748b" />
+                            )}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              fontSize: '12.5px',
+                              fontWeight: '700',
+                              color: '#0f172a',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }} title={name}>
+                              {name}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', display: 'flex', gap: '8px' }}>
+                              <span>{size}</span>
+                              {item.category && <span style={{ color: '#059669', fontWeight: '600' }}>• {item.category}</span>}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            style={{
+                              padding: '5px 10px',
+                              borderRadius: '6px',
+                              background: '#ecfdf5',
+                              color: '#059669',
+                              border: '1px solid #a7f3d0',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Attach
+                          </button>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+
+            {/* Bottom cancel */}
+            <div style={{
+              padding: '12px 20px',
+              borderTop: '1px solid #e2e8f0',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              background: '#f8fafc'
+            }}>
+              <button
+                type="button"
+                onClick={() => setShowMediaPicker(false)}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: '8px',
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  color: '#475569',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
