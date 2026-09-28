@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'rea
 import io from 'socket.io-client';
 const GpsMap = lazy(() => import('./GpsMap'));
 import DataTable from './DataTable';
+const AppLauncherScreen = lazy(() => import('./dashboard/AppLauncherScreen'));
 const CompanyOverviewView = lazy(() => import('./dashboard/CompanyOverviewView'));
 const TaskAnalyticsView = lazy(() => import('./dashboard/TaskAnalyticsView'));
 const EmployeesPage = lazy(() => import('./pages/EmployeesPage'));
@@ -839,7 +840,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       const tabParam = urlParams.get('tab');
       if (tabParam) return tabParam;
     }
-    return 'admin_dashboard';
+    return 'app_launcher';
   });
   const [isMobilePreview, setIsMobilePreview] = useState(false);
   const [globalVoxbayOpen, setGlobalVoxbayOpen] = useState(false);
@@ -7305,7 +7306,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       />
       <aside
         className={`sidebar ${!desktopSidebarOpen ? 'collapsed' : ''} ${mobileSidebarOpen ? 'mobile-open' : ''}`}
-        style={isGhlEmbedded && !ghlSidebarOpen ? { display: 'none' } : {}}
+        style={activeTab === 'app_launcher' || (isGhlEmbedded && !ghlSidebarOpen) ? { display: 'none' } : {}}
       >
         {/* EMS-style Sidebar Branding - Removed OmniFlow EMS text as requested */}
         <div className="sidebar-logo" style={{ padding: '20px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-start' }}>
@@ -7314,6 +7315,14 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </span>
         </div>
         <nav className="sidebar-nav" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+          {/* ALL APPS LAUNCHPAD SHORTCUT */}
+          <SidebarMainNavItem
+            id="app_launcher"
+            label="ALL APPS"
+            icon={Grid}
+            isActive={activeTab === 'app_launcher'}
+            onClick={() => setActiveTab('app_launcher')}
+          />
           {/* CATEGORY: SYSTEM (Superadmin / Owner / Admin - Placed at Top) */}
           {authUser?.role === 'superadmin' && (
             <SidebarMainNavItem
@@ -7643,6 +7652,35 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             </span>
           </button>
 
+          {/* Universal Apps Launchpad Button */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('app_launcher')}
+            title="Return to Apps Launchpad"
+            style={{
+              marginRight: '12px',
+              padding: '5px 12px',
+              borderRadius: '7px',
+              background: activeTab === 'app_launcher' ? '#0d9488' : 'rgba(20, 210, 203, 0.16)',
+              border: activeTab === 'app_launcher' ? '1px solid #14d2cb' : '1px solid rgba(20, 210, 203, 0.35)',
+              color: '#ffffff',
+              fontSize: '12px',
+              fontWeight: '800',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+              flexShrink: 0,
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <Grid size={15} style={{ color: '#14d2cb' }} />
+            <span style={{ fontSize: '12px', color: '#ffffff', fontWeight: '800' }}>
+              Apps
+            </span>
+          </button>
+
           {isAndroidApp && (
             <button
               type="button"
@@ -7671,7 +7709,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           {/* Desktop Page Title (Aligned equal from left with content cards) */}
           <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '0px', marginRight: '20px', flexShrink: 0 }}>
             <span style={{ fontSize: '14px', fontWeight: '800', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                 {isSettingsTab ? 'SETTINGS' : (isHelpTab ? 'HELP & SUPPORT' : (isHrTab ? 'HR MANAGEMENT' : (isPayrollTab ? 'PAYROLL & FINANCE' : (isReportsTab ? 'REPORTS & ANALYTICS' : (isOperationsTab ? 'OPERATIONS' : (isMyPortalTab ? 'MY PORTAL' : (activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab === 'admin_dashboard' || activeTab === 'dashboards' ? 'DASHBOARD' : (activeTab || '').replace(/_/g, ' '))))))))))))}
+                 {activeTab === 'app_launcher' ? 'APPS DIRECTORY' : (isSettingsTab ? 'SETTINGS' : (isHelpTab ? 'HELP & SUPPORT' : (isHrTab ? 'HR MANAGEMENT' : (isPayrollTab ? 'PAYROLL & FINANCE' : (isReportsTab ? 'REPORTS & ANALYTICS' : (isOperationsTab ? 'OPERATIONS' : (isMyPortalTab ? 'MY PORTAL' : (activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab === 'admin_dashboard' || activeTab === 'dashboards' ? 'DASHBOARD' : (activeTab || '').replace(/_/g, ' ')))))))))))))}
             </span>
           </div>
 
@@ -8274,7 +8312,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           {isMyPortalTab && renderSegmentedTopBar(myPortalNavTabs)}
 
           {/* Module Subscription Paywall & Gating Screen */}
-          {!isModuleSubscribed(activeTab) ? (
+          {activeTab === 'app_launcher' ? (
+            <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#14d2cb', fontWeight: 'bold' }}>Loading Apps Directory...</div>}>
+              <AppLauncherScreen
+                authUser={effectiveAuthUser}
+                canNav={canNav}
+                setActiveTab={setActiveTab}
+                t={t}
+              />
+            </Suspense>
+          ) : !isModuleSubscribed(activeTab) ? (
             <ModuleGateScreen
               moduleId={activeTab}
               tenantSubscription={tenantSubscription}
