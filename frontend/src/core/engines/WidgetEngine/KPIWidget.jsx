@@ -24,19 +24,20 @@ import {
 } from 'lucide-react';
 
 const COLOR_PALETTE = [
-  { color: '#0d9488', bg: 'rgba(13, 148, 136, 0.1)' }, // Teal
-  { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' },   // Rose / Red
-  { color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' }, // Emerald / Green
-  { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' }, // Amber / Orange
-  { color: '#0284c7', bg: 'rgba(2, 132, 199, 0.1)' },  // Sky Blue
-  { color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)' }, // Purple / Violet
-  { color: '#ec4899', bg: 'rgba(236, 72, 153, 0.1)' }, // Pink
-  { color: '#0f766e', bg: 'rgba(15, 118, 110, 0.1)' }  // Deep Teal
+  { color: '#2563eb', bg: '#eff6ff' }, // Sky Blue (like Total Calls)
+  { color: '#16a34a', bg: '#f0fdf4' }, // Emerald Green (like Answered)
+  { color: '#dc2626', bg: '#fef2f2' }, // Crimson / Coral (like Missed)
+  { color: '#d97706', bg: '#fffbeb' }, // Amber Orange (like Follow-up)
+  { color: '#0284c7', bg: '#f0f9ff' }, // Ocean Blue
+  { color: '#8b5cf6', bg: '#f5f3ff' }, // Purple
+  { color: '#ec4899', bg: '#fdf2f8' }, // Rose Pink
+  { color: '#0d9488', bg: '#f0fdfa' }  // Teal
 ];
 
 // Helper to render known icon or fallback emoji
 function renderIcon(icon, color) {
-  if (!icon) return <Users size={18} color={color} />;
+  const iconSize = 22;
+  if (!icon) return <Users size={iconSize} color={color} />;
 
   // If already a React element
   if (React.isValidElement(icon)) return icon;
@@ -44,21 +45,22 @@ function renderIcon(icon, color) {
   const str = String(icon).trim();
 
   // Map common emojis and string keys to Lucide icons
-  if (str === '👥' || str.toLowerCase() === 'users') return <Users size={18} color={color} />;
-  if (str === '💬' || str.toLowerCase().includes('whatsapp') || str.toLowerCase() === 'chat') return <MessageSquare size={18} color={color} />;
-  if (str === '🎯' || str.toLowerCase() === 'target' || str.toLowerCase().includes('lead')) return <Target size={18} color={color} />;
-  if (str === '💰' || str === '$' || str.toLowerCase().includes('revenue') || str.toLowerCase() === 'dollar') return <DollarSign size={18} color={color} />;
-  if (str.toLowerCase() === 'briefcase' || str === '🏢') return <Briefcase size={18} color={color} />;
-  if (str.toLowerCase() === 'shield' || str === '🛡️') return <Shield size={18} color={color} />;
-  if (str.toLowerCase() === 'layers' || str === '📚') return <Layers size={18} color={color} />;
-  if (str.toLowerCase() === 'phone' || str === '📞') return <Phone size={18} color={color} />;
-  if (str.toLowerCase() === 'clock' || str === '⏱️') return <Clock size={18} color={color} />;
-  if (str.toLowerCase() === 'trendup' || str === '📈') return <TrendingUp size={18} color={color} />;
-  if (str.toLowerCase() === 'trenddown' || str === '📉') return <TrendingDown size={18} color={color} />;
-  if (str.toLowerCase() === 'usercheck' || str === '👤') return <UserCheck size={18} color={color} />;
+  if (str === '👥' || str.toLowerCase() === 'users') return <Users size={iconSize} color={color} />;
+  if (str === '💬' || str.toLowerCase().includes('whatsapp') || str.toLowerCase() === 'chat') return <MessageSquare size={iconSize} color={color} />;
+  if (str === '🎯' || str.toLowerCase() === 'target' || str.toLowerCase().includes('lead')) return <Target size={iconSize} color={color} />;
+  if (str === '💰' || str === '$' || str.toLowerCase().includes('revenue') || str.toLowerCase() === 'dollar') return <DollarSign size={iconSize} color={color} />;
+  if (str.toLowerCase() === 'briefcase' || str === '🏢') return <Briefcase size={iconSize} color={color} />;
+  if (str.toLowerCase() === 'shield' || str === '🛡️') return <Shield size={iconSize} color={color} />;
+  if (str.toLowerCase() === 'layers' || str === '📚') return <Layers size={iconSize} color={color} />;
+  if (str.toLowerCase() === 'phone' || str === '📞') return <Phone size={iconSize} color={color} />;
+  if (str.toLowerCase() === 'clock' || str === '⏱️' || str === '⏰') return <Clock size={iconSize} color={color} />;
+  if (str === '🚨' || str.toLowerCase().includes('bypass') || str.toLowerCase().includes('alert')) return <AlertCircle size={iconSize} color={color} />;
+  if (str.toLowerCase() === 'trendup' || str === '📈') return <TrendingUp size={iconSize} color={color} />;
+  if (str.toLowerCase() === 'trenddown' || str === '📉') return <TrendingDown size={iconSize} color={color} />;
+  if (str.toLowerCase() === 'usercheck' || str === '👤') return <UserCheck size={iconSize} color={color} />;
 
   // Fallback to emoji/text
-  return <span style={{ fontSize: '18px', lineHeight: 1 }}>{str}</span>;
+  return <span style={{ fontSize: '20px', lineHeight: 1 }}>{str}</span>;
 }
 
 export default function KPIWidget({
@@ -68,59 +70,64 @@ export default function KPIWidget({
 }) {
   const fallback = COLOR_PALETTE[index % COLOR_PALETTE.length];
   const cardColor = widget.color || fallback.color;
-  const cardBgLight = widget.bgLight || widget.bg || fallback.bg;
+  // Ensure soft pastel background for the circular badge
+  const cardBgLight = widget.bgLight || (widget.bg && widget.bg.includes('rgba') ? widget.bg : fallback.bg);
 
   return (
     <div
       className="kpi-widget-card"
       style={{
         background: '#ffffff',
-        padding: '12px 16px',
-        borderRadius: '14px',
-        border: '1px solid rgba(226, 232, 240, 0.85)',
-        boxShadow: '0 3px 10px rgba(15, 23, 42, 0.03)',
+        padding: '14px 18px',
+        borderRadius: '16px',
+        border: '1px solid #e2e8f0',
+        boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        gap: '14px',
         position: 'relative',
-        overflow: 'hidden',
         transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
         cursor: 'default',
         boxSizing: 'border-box'
       }}
     >
-      {/* 1. Left Color Accent Strip (Matching SuperAdmin visual style) */}
+      {/* 1. Large, Colorful Circular Icon Badge on the LEFT */}
       <div
+        className="kpi-icon-badge"
         style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '4px',
-          height: '100%',
-          background: cardColor,
-          borderRadius: '4px 0 0 4px'
+          width: '46px',
+          height: '46px',
+          borderRadius: '50%',
+          background: cardBgLight,
+          color: cardColor,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          border: `1px solid ${cardColor}25`,
+          boxShadow: `0 2px 6px ${cardColor}15`
         }}
-      />
+      >
+        {renderIcon(widget.icon, cardColor)}
+      </div>
 
-      {/* 2. Metric Label & Vibrant Value */}
+      {/* 2. Text Details on the RIGHT */}
       <div
         style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '3px',
+          gap: '2px',
           minWidth: 0,
-          paddingLeft: '4px',
-          overflow: 'hidden'
+          flex: 1
         }}
       >
         <span
           className="kpi-label"
           style={{
-            fontSize: '10.5px',
-            fontWeight: '700',
+            fontSize: '11.5px',
+            fontWeight: '600',
             color: '#64748b',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
+            letterSpacing: '0.2px',
             whiteSpace: 'nowrap',
             textOverflow: 'ellipsis',
             overflow: 'hidden'
@@ -128,37 +135,29 @@ export default function KPIWidget({
         >
           {widget.label}
         </span>
-        <span
-          className="kpi-value"
-          style={{
-            fontSize: '22px',
-            fontWeight: '800',
-            color: cardColor,
-            lineHeight: 1.15
-          }}
-        >
-          {value}
-        </span>
-      </div>
-
-      {/* 3. Soft Tinted Icon Container on the Right */}
-      <div
-        className="kpi-icon-box"
-        style={{
-          width: '38px',
-          height: '38px',
-          borderRadius: '10px',
-          background: cardBgLight,
-          color: cardColor,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          marginLeft: '12px',
-          transition: 'transform 0.2s ease'
-        }}
-      >
-        {renderIcon(widget.icon, cardColor)}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+          <span
+            className="kpi-value"
+            style={{
+              fontSize: '24px',
+              fontWeight: '800',
+              color: '#0f172a',
+              lineHeight: 1.1
+            }}
+          >
+            {value}
+          </span>
+          {widget.metricType === 'STAGE_COUNT' && (
+            <span style={{ fontSize: '11px', fontWeight: '700', color: cardColor }}>
+              Active
+            </span>
+          )}
+          {widget.metricType === 'BYPASS_COUNT' && value > 0 && (
+            <span style={{ fontSize: '10px', fontWeight: '800', color: '#dc2626', background: '#fee2e2', padding: '1px 6px', borderRadius: '6px' }}>
+              Alert
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
