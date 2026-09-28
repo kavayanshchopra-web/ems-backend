@@ -11,9 +11,9 @@
       "type": "SINGLE",
       "filters": [],
       "attributes": [],
-      "versionCode": 1,
-      "versionName": "1.0.0",
-      "outputFile": "OmniFlowSIMRecorder-debug.apk"
+      "versionCode": 9,
+      "versionName": "1.0.9",
+      "outputFile": "EMS-Live-Companion-debug.apk"
     }
   ],
   "elementType": "File"

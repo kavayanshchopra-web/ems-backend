@@ -29,13 +29,15 @@
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="OmniFlow Telecalling"
+        android:label="EMS"
         android:usesCleartextTraffic="true"
         android:requestLegacyExternalStorage="true"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
         <activity
             android:name=".PermissionsActivity"
+            android:label="EMS"
+            android:icon="@mipmap/ic_launcher"
             android:exported="true"
             android:configChanges="orientation|keyboardHidden|screenSize">
             <intent-filter>

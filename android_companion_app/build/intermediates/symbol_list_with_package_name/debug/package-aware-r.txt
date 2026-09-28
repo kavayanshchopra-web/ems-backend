@@ -2858,6 +2858,13 @@ drawable ic_mtrl_checked_circle
 drawable ic_mtrl_chip_checked_black
 drawable ic_mtrl_chip_checked_circle
 drawable ic_mtrl_chip_close_circle
+drawable ic_nav_apps
+drawable ic_nav_contacts
+drawable ic_nav_crm
+drawable ic_nav_dialer
+drawable ic_nav_home
+drawable ic_nav_recents
+drawable ic_phone_white
 drawable ic_search_black_24
 drawable launch_background
 drawable m3_appbar_background
@@ -3586,6 +3593,7 @@ layout support_simple_spinner_dropdown_item
 layout zxing_barcode_scanner
 layout zxing_capture
 mipmap ic_launcher
+mipmap ic_launcher_round
 plurals mtrl_badge_content_description
 raw zxing_beep
 string abc_action_bar_home_description
@@ -3616,6 +3624,7 @@ string abc_shareactionprovider_share_with
 string abc_shareactionprovider_share_with_application
 string abc_toolbar_collapse_description
 string androidx_startup
+string app_name
 string app_version
 string appbar_scrolling_view_behavior
 string bottom_sheet_behavior
@@ -5013,3 +5022,4 @@ styleable ViewStubCompat android_id android_layout android_inflatedId
 styleable zxing_camera_preview zxing_framing_rect_height zxing_framing_rect_width zxing_preview_scaling_strategy zxing_use_texture_view
 styleable zxing_finder zxing_possible_result_points zxing_result_view zxing_viewfinder_laser zxing_viewfinder_laser_visibility zxing_viewfinder_mask
 styleable zxing_view zxing_scanner_layout
+xml provider_paths

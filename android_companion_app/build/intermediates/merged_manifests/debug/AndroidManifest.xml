@@ -1,17 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.omniflow.simrecorder"
-    android:versionCode="1"
-    android:versionName="1.0.0" >
+    android:versionCode="9"
+    android:versionName="1.0.9" >
 
     <uses-sdk
         android:minSdkVersion="24"
         android:targetSdkVersion="34" />
 
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS" />
     <uses-permission android:name="android.permission.INTERNET" />
@@ -35,6 +37,8 @@
         android:required="false" />
 
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <uses-feature
         android:name="android.hardware.camera.front"
@@ -60,18 +64,21 @@
     <uses-permission android:name="com.omniflow.simrecorder.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
 
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:appComponentFactory="androidx.core.app.CoreComponentFactory"
         android:debuggable="true"
         android:extractNativeLibs="false"
         android:icon="@mipmap/ic_launcher"
-        android:label="OmniFlow Telecalling"
+        android:label="EMS"
+        android:requestLegacyExternalStorage="true"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar"
         android:usesCleartextTraffic="true" >
         <activity
             android:name="com.omniflow.simrecorder.PermissionsActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
-            android:exported="true" >
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="EMS" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -81,7 +88,8 @@
         <activity
             android:name="com.omniflow.simrecorder.MainActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
-            android:exported="false" />
+            android:exported="true"
+            android:launchMode="singleTask" />
         <activity
             android:name="com.omniflow.simrecorder.PostCallDispositionActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
@@ -120,6 +128,17 @@
             android:name="com.omniflow.simrecorder.SimBridgeService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- FileProvider for OTA In-App APK Updates -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.omniflow.simrecorder.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true" >
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/provider_paths" />
+        </provider>
 
         <activity
             android:name="com.journeyapps.barcodescanner.CaptureActivity"

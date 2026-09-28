@@ -176,7 +176,7 @@ MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\Le
 	android:appComponentFactory
 		ADDED from [androidx.core:core:1.9.0] C:\Users\Lenovo\.gradle\caches\transforms-3\543740e42155bb89dcbd6bdda0f43b68\transformed\core-1.9.0\AndroidManifest.xml:28:18-86
 	android:label
-		ADDED from D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:32:9-45
+		ADDED from D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:32:9-28
 	android:icon
 		ADDED from D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:31:9-43
 	android:allowBackup

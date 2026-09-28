@@ -38,6 +38,8 @@
 
         <activity
             android:name=".PermissionsActivity"
+            android:label="EMS"
+            android:icon="@mipmap/ic_launcher"
             android:exported="true"
             android:configChanges="orientation|keyboardHidden|screenSize">
             <intent-filter>

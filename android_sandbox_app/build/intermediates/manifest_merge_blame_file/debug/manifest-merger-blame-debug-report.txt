@@ -136,8 +136,8 @@
 67        android:extractNativeLibs="false"
 68        android:icon="@mipmap/ic_launcher"
 68-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:31:9-43
-69        android:label="OmniFlow Telecalling"
-69-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:32:9-45
+69        android:label="EMS"
+69-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:32:9-28
 70        android:requestLegacyExternalStorage="true"
 70-->D:\AG Projects\whatsapp-crm\android_sandbox_app\src\main\AndroidManifest.xml:34:9-52
 71        android:theme="@style/Theme.AppCompat.Light.NoActionBar"

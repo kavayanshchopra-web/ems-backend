@@ -7125,37 +7125,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
     return true;
   };
-  // Mobile App Launcher Mode: Strictly active inside Android Companion App ONLY
-  if (isAndroidApp && (mobileActiveView === 'home' || mobileActiveView === 'all_apps')) {
-    return (
-      <div className="mobile-app-shell" style={{ minHeight: '100vh', background: '#f8fafc' }}>
-        <MobileAppLauncher
-          currentView={mobileActiveView}
-          onNavigate={handleMobileNav}
-          canNav={canNav}
-          authUser={effectiveAuthUser}
-          tenantSubscription={tenantSubscription}
-          metrics={{
-            unreadMessages: '14',
-            pipelineValue: '₹4.85L',
-            tasksText: 'All caught up',
-            appointmentsCount: '0'
-          }}
-        />
-        {/* Universal Voxbay Cloud Dialer Modal */}
-        {globalVoxbayOpen && (
-          <VoxbayCloudDialerModal
-            isOpen={globalVoxbayOpen}
-            onClose={() => setGlobalVoxbayOpen(false)}
-            callLogs={callLogs}
-            setCallLogs={setCallLogs}
-            authUser={effectiveAuthUser}
-          />
-        )}
-      </div>
-    );
-  }
-
   const isSettingsTab = [
     'settings',
     'integrations',
@@ -7223,6 +7192,37 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     { id: 'leaves', label: 'Leaves Requests', icon: Calendar, perm: 'leaves' },
     { id: 'shifts', label: 'Work Shift Roster', icon: Calendar, perm: 'shifts' }
   ], []);
+
+  // Mobile App Launcher Mode: Strictly active inside Android Companion App ONLY
+  if (isAndroidApp && (mobileActiveView === 'home' || mobileActiveView === 'all_apps')) {
+    return (
+      <div className="mobile-app-shell" style={{ minHeight: '100vh', background: '#f8fafc' }}>
+        <MobileAppLauncher
+          currentView={mobileActiveView}
+          onNavigate={handleMobileNav}
+          canNav={canNav}
+          authUser={effectiveAuthUser}
+          tenantSubscription={tenantSubscription}
+          metrics={{
+            unreadMessages: '14',
+            pipelineValue: '₹4.85L',
+            tasksText: 'All caught up',
+            appointmentsCount: '0'
+          }}
+        />
+        {/* Universal Voxbay Cloud Dialer Modal */}
+        {globalVoxbayOpen && (
+          <VoxbayCloudDialerModal
+            isOpen={globalVoxbayOpen}
+            onClose={() => setGlobalVoxbayOpen(false)}
+            callLogs={callLogs}
+            setCallLogs={setCallLogs}
+            authUser={effectiveAuthUser}
+          />
+        )}
+      </div>
+    );
+  }
 
   const renderSegmentedTopBar = (tabs, onSelectTab) => (
     <div

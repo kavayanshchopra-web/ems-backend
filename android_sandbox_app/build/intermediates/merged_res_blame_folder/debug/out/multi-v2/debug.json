@@ -6233,10 +6233,10 @@
                     "from": {
                         "startLines": "3,13",
                         "startColumns": "4,4",
-                        "startOffsets": "173,817",
+                        "startOffsets": "176,830",
                         "endLines": "7,15",
                         "endColumns": "12,12",
-                        "endOffsets": "476,977"
+                        "endOffsets": "483,992"
                     },
                     "to": {
                         "startLines": "5401,5497",
@@ -6400,9 +6400,9 @@
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",
-                        "startOffsets": "55",
+                        "startOffsets": "57",
                         "endColumns": "56",
-                        "endOffsets": "107"
+                        "endOffsets": "109"
                     },
                     "to": {
                         "startLines": "615",
