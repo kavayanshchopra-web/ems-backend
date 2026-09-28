@@ -26,6 +26,7 @@ import { CONTACTS_MANIFEST } from './manifests/contacts.manifest';
 import { CONVERSATIONS_MANIFEST } from './manifests/conversations.manifest';
 import { FEEDBACK_MANIFEST } from './manifests/feedback.manifest';
 import { moduleConfigService } from '../../services/moduleConfigService';
+import { getAllProvisionableModules, registerDynamicPage } from './platformCatalog';
 
 class MasterModuleRegistry {
   constructor() {
@@ -102,6 +103,21 @@ class MasterModuleRegistry {
 
   getAllManifests() {
     return this.getAllSystemManifests();
+  }
+
+  /**
+   * Return all provisionable modules & sub-pages from platform catalog
+   */
+  getProvisioningModules() {
+    return getAllProvisionableModules();
+  }
+
+  static getProvisioningModules() {
+    return getAllProvisionableModules();
+  }
+
+  static registerDynamicPage(pageDef) {
+    return registerDynamicPage(pageDef);
   }
 
   static getSystemManifest(moduleId) {

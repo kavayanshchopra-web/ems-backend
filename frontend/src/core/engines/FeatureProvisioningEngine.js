@@ -5,6 +5,7 @@
  */
 
 import FirebaseCloudEngine from './FirebaseCloudEngine';
+import { getAllProvisionableModules, getCatalogCategories, registerDynamicPage } from '../registry/platformCatalog';
 
 const STORAGE_KEY = 'omnilflow_feature_provisioning';
 const FIRESTORE_DOC_ID = 'global_provisioning_state';
@@ -32,6 +33,28 @@ class FeatureProvisioningEngineService {
 
   getState() {
     return this._state;
+  }
+
+  /**
+   * Return all platform modules and pages dynamically from the Master Catalog & Registries.
+   * Auto-extensible for new pages and runtime manifests.
+   */
+  getAllModules() {
+    return getAllProvisionableModules();
+  }
+
+  /**
+   * Return dynamic list of categories based on current platform catalog
+   */
+  getCategories(modules = null) {
+    return getCatalogCategories(modules);
+  }
+
+  /**
+   * Register a new page/module dynamically into the catalog at runtime
+   */
+  registerDynamicModule(pageDef) {
+    return registerDynamicPage(pageDef);
   }
 
   getGlobalDisabledModules() {

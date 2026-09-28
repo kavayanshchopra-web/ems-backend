@@ -19,75 +19,35 @@ export default function SuperAdminModuleProvisioningHub({
       if (st) setProvisioningState(st);
     });
 
-    const handleUpdate = (e) => {
-      if (e.detail) setProvisioningState(e.detail);
+    const handleCatalogUpdate = () => {
+      setProvisioningState(st => ({ ...st }));
     };
 
     window.addEventListener('omnilflow_provisioning_updated', handleUpdate);
-    return () => window.removeEventListener('omnilflow_provisioning_updated', handleUpdate);
+    window.addEventListener('omnilflow_catalog_updated', handleCatalogUpdate);
+    return () => {
+      window.removeEventListener('omnilflow_provisioning_updated', handleUpdate);
+      window.removeEventListener('omnilflow_catalog_updated', handleCatalogUpdate);
+    };
   }, []);
 
+  // Dynamic modules loaded directly from the platform catalog engine
   const allModules = useMemo(() => {
-    return [
-      // DASHBOARDS
-      { id: 'admin_dashboard', label: 'Company Overview', icon: '📊', category: 'DASHBOARDS', desc: 'Executive KPI metrics, staff statistics, and live company overview dashboard.' },
-      { id: 'manager_dashboard', label: 'Task Analytics', icon: '📈', category: 'DASHBOARDS', desc: 'Department-level productivity tracking and workload metrics.' },
-      { id: 'gps_attendance', label: 'Live Tracking Map', icon: '🌐', category: 'DASHBOARDS', desc: 'Real-time GPS route tracking & live geo-location pin map.' },
+    return FeatureProvisioningEngine.getAllModules();
+  }, [provisioningState]);
 
-      // HR MANAGEMENT
-      { id: 'employees', label: 'All Employees', icon: '👥', category: 'HR MANAGEMENT', desc: 'Staff directory, dynamic employee profiles, salary, and status.' },
-      { id: 'recruitment_ats', label: 'Recruitment & ATS', icon: '🎯', category: 'HR MANAGEMENT', desc: 'Candidate pipeline, resume management, hiring stages, and job postings.' },
-      { id: 'asset_management', label: 'Asset Management', icon: '💻', category: 'HR MANAGEMENT', desc: 'Company hardware, laptops, SIM cards, serial tags, and allocations.' },
-      { id: 'verify_documents', label: 'Verify Documents', icon: '📋', category: 'HR MANAGEMENT', desc: 'Employee KYC verification, ID cards, education proofs, and approvals.' },
-      { id: 'offboarding', label: 'Offboarding Exit', icon: '🚪', category: 'HR MANAGEMENT', desc: 'Employee resignation, clearance checklists, handover, and exit surveys.' },
-
-      // PAYROLL & FINANCE
-      { id: 'payroll', label: 'Payroll & Salary', icon: '💰', category: 'PAYROLL & FINANCE', desc: 'Monthly salary generation, deductions, bonuses, and pay slip downloads.' },
-      { id: 'taxes_compliance', label: 'Taxes & Compliance', icon: '📄', category: 'PAYROLL & FINANCE', desc: 'Tax slabs, PF/ESI deductions, compliance records, and certificates.' },
-      { id: 'ff_settlements', label: 'F&F Settlements', icon: '✅', category: 'PAYROLL & FINANCE', desc: 'Full & Final settlement calculations for relieved employees.' },
-      { id: 'advances_loans', label: 'Advances & Loans', icon: '💳', category: 'PAYROLL & FINANCE', desc: 'Staff salary advance requests, EMI tracking, and approval workflow.' },
-      { id: 'expenses', label: 'Expenses Claim', icon: '🧾', category: 'PAYROLL & FINANCE', desc: 'Travel & daily expense reimbursements with receipt upload and approval.' },
-
-      // CRM & SALES
-      { id: 'contacts', label: 'Contacts', icon: '👥', category: 'CRM & SALES', desc: 'Contact directory, leads, and duplicate restrictions.' },
-      { id: 'conversations', label: 'Conversations', icon: '💬', category: 'CRM & SALES', desc: 'Unified communications feed, WhatsApp chats, and call recordings.' },
-      { id: 'wa_live_web', label: 'WhatsApp', icon: '💻', category: 'CRM & SALES', desc: 'Embedded WhatsApp Web interface for direct customer conversations.' },
-      { id: 'kanban', label: 'CRM', icon: '📈', category: 'CRM & SALES', desc: 'Drag-and-drop sales lead stages, deal values, and customer notes.' },
-      { id: 'telecalling', label: 'Phone System', icon: '📞', category: 'CRM & SALES', desc: 'Telecalling call logs, audio playback, dispositions, and SIM bridge.' },
-
-      // OPERATIONS
-      { id: 'tasks', label: 'Tasks Board', icon: '📋', category: 'OPERATIONS', desc: 'Team task delegation, priorities, due dates, and completion status.' },
-      { id: 'office_kiosk', label: 'Office Kiosk Mode', icon: '🏢', category: 'OPERATIONS', desc: 'Tablet / Kiosk face-scan attendance mode for office entry gates.' },
-      { id: 'notice_board', label: 'Notice Board', icon: '🔔', category: 'OPERATIONS', desc: 'Company announcements, circulars, and broadcast notices.' },
-      { id: 'holidays', label: 'Holidays List', icon: '🏖️', category: 'OPERATIONS', desc: 'Annual festival calendar, national holidays, and regional day-offs.' },
-
-      // MY PORTAL
-      { id: 'my_attendance', label: 'Shift Attendance', icon: '⏱️', category: 'MY PORTAL', desc: 'Employee self check-in / check-out with selfie and geolocation.' },
-      { id: 'leaves', label: 'Leaves Requests', icon: '🏖️', category: 'MY PORTAL', desc: 'Casual, sick, and earned leave balance application and manager approvals.' },
-      { id: 'shifts', label: 'Work Roster', icon: '📅', category: 'MY PORTAL', desc: 'Monthly work shifts, weekly off schedules, and roster planner.' },
-
-      // SETTINGS
-      { id: 'settings', label: 'General Settings', icon: '👤', category: 'SETTINGS', desc: 'Company branding, logos, timezone, and general workspace configurations.' },
-      { id: 'integrations', label: 'Integrations & Webhooks', icon: '🔌', category: 'SETTINGS', desc: 'Third-party API keys, webhook URLs, and GoHighLevel sync.' },
-      { id: 'roles_permissions', label: 'Roles & Permissions', icon: '🔐', category: 'SETTINGS', desc: 'Granular RBAC matrix for Admin, Manager, HR, and Employee roles.' },
-      { id: 'recycle_bin', label: 'Trash & Recycle Bin', icon: '🗑️', category: 'SETTINGS', desc: 'Trash vault for restoring soft-deleted records or permanent purge.' },
-      { id: 'system_dropdowns', label: 'System Master Dropdowns', icon: '🏷️', category: 'SETTINGS', desc: 'Master dropdown values for departments, designations, and tags.' },
-      { id: 'module_configuration', label: 'Module Configuration', icon: '🎛️', category: 'SETTINGS', desc: 'Custom fields, dynamic forms builder, and table column customizer.' },
-      { id: 'billing', label: 'Subscription Billing', icon: '💳', category: 'SETTINGS', desc: 'SaaS plan upgrades, seat quotas, invoices, and payment gateways.' }
-    ];
-  }, []);
-
+  // Dynamically extract categories from all registered modules
   const categories = useMemo(() => {
-    return ['ALL', 'DASHBOARDS', 'HR MANAGEMENT', 'PAYROLL & FINANCE', 'CRM & SALES', 'OPERATIONS', 'MY PORTAL', 'SETTINGS'];
-  }, []);
+    return FeatureProvisioningEngine.getCategories(allModules);
+  }, [allModules]);
 
   const filteredModules = useMemo(() => {
     return allModules.filter(mod => {
-      const matchCat = selectedCategory === 'ALL' || mod.category === selectedCategory;
+      const matchCat = selectedCategory === 'ALL' || (mod.category && mod.category.toUpperCase() === selectedCategory.toUpperCase());
       const matchSearch = !searchQuery.trim() ||
-        mod.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        mod.desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        mod.id.toLowerCase().includes(searchQuery.toLowerCase());
+        (mod.label && mod.label.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (mod.desc && mod.desc.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (mod.id && mod.id.toLowerCase().includes(searchQuery.toLowerCase()));
       return matchCat && matchSearch;
     });
   }, [allModules, selectedCategory, searchQuery]);
@@ -112,7 +72,7 @@ export default function SuperAdminModuleProvisioningHub({
       globalDisabledModules: []
     });
     setProvisioningState({ ...updated });
-    showToast('🟢 All 24 Platform Modules are now ACTIVE globally!', 'success');
+    showToast(`🟢 All ${allModules.length} Platform Modules & Pages are now ACTIVE globally!`, 'success');
   };
 
   const handleLaunchPreset = async () => {
@@ -238,7 +198,7 @@ export default function SuperAdminModuleProvisioningHub({
             }}
           >
             <CheckCircle2 size={14} />
-            <span>🟢 Enable All 24 Modules</span>
+            <span>🟢 Enable All {allModules.length} Modules</span>
           </button>
         </div>
       </div>
@@ -316,9 +276,21 @@ export default function SuperAdminModuleProvisioningHub({
                       <h4 style={{ fontSize: '14px', fontWeight: '800', color: isGloballyDisabled ? '#991b1b' : '#0f2b26', margin: 0 }}>
                         {mod.label}
                       </h4>
-                      <span style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '600' }}>
-                        {mod.category}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                        <span style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '700' }}>
+                          {mod.category}
+                        </span>
+                        {mod.isParentModule && (
+                          <span style={{ fontSize: '9px', fontWeight: '800', background: 'rgba(20, 210, 203, 0.15)', color: '#0d9488', padding: '1px 5px', borderRadius: '4px', letterSpacing: '0.3px' }}>
+                            MAIN APP
+                          </span>
+                        )}
+                        {mod.parentModuleId && (
+                          <span style={{ fontSize: '9px', fontWeight: '800', background: '#f1f5f9', color: '#64748b', padding: '1px 5px', borderRadius: '4px' }}>
+                            SUB-PAGE
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 

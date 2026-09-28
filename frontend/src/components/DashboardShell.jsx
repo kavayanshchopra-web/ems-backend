@@ -7111,9 +7111,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
     const currentTenantId = authUser?.tenantId || authUser?.companyId || 'default_tenant';
     const activeTenant = FirebaseCloudEngine.getTenantId(currentTenantId);
-
-    if (modId.startsWith('reports')) return true;
-
     // 1. Check SuperAdmin Feature Provisioning (Global & Company-Specific)
     if (!FeatureProvisioningEngine.isModuleEnabledForTenant(modId, activeTenant, authUser)) {
       return false;

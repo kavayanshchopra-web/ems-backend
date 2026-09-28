@@ -216,7 +216,7 @@ export default function AppLauncherScreen({
         color: '#3b82f6',
         accentBg: 'rgba(59, 130, 246, 0.12)',
         borderColor: 'rgba(59, 130, 246, 0.35)',
-        visible: typeof canNav === 'function' ? (canNav('employees') || canNav('recruitment_ats') || canNav('asset_management') || canNav('verify_documents') || canNav('offboarding')) : true,
+        visible: typeof canNav === 'function' ? (canNav('hr_management') && (canNav('employees') || canNav('recruitment_ats') || canNav('asset_management') || canNav('verify_documents') || canNav('offboarding'))) : true,
         desc: 'Employee directory, recruitment ATS & offboarding'
       },
       {
@@ -229,7 +229,7 @@ export default function AppLauncherScreen({
         color: '#10b981',
         accentBg: 'rgba(16, 185, 129, 0.12)',
         borderColor: 'rgba(16, 185, 129, 0.35)',
-        visible: typeof canNav === 'function' ? (canNav('payroll') || canNav('taxes_compliance') || canNav('ff_settlements') || canNav('advances_loans') || canNav('expenses')) : true,
+        visible: typeof canNav === 'function' ? (canNav('payroll_finance') && (canNav('payroll') || canNav('taxes_compliance') || canNav('ff_settlements') || canNav('advances_loans') || canNav('expenses'))) : true,
         desc: 'Monthly payroll calculations, payslips & tax deductions'
       },
       {
@@ -242,7 +242,7 @@ export default function AppLauncherScreen({
         color: '#8b5cf6',
         accentBg: 'rgba(139, 92, 246, 0.12)',
         borderColor: 'rgba(139, 92, 246, 0.35)',
-        visible: typeof canNav === 'function' ? (canNav('reports_telephony') || canNav('reports_crm') || canNav('reports_cross') || canNav('reports_builder') || canNav('reports')) : true,
+        visible: typeof canNav === 'function' ? (canNav('reporting') && (canNav('reports_telephony') || canNav('reports_crm') || canNav('reports_cross') || canNav('reports_builder') || canNav('reports'))) : true,
         desc: 'Telephony reports, sales metrics & custom builder'
       },
       {
@@ -255,7 +255,7 @@ export default function AppLauncherScreen({
         color: '#f59e0b',
         accentBg: 'rgba(245, 158, 11, 0.12)',
         borderColor: 'rgba(245, 158, 11, 0.35)',
-        visible: typeof canNav === 'function' ? (canNav('office_kiosk') || canNav('notice_board') || canNav('holidays')) : true,
+        visible: typeof canNav === 'function' ? (canNav('operations') && (canNav('office_kiosk') || canNav('notice_board') || canNav('holidays'))) : true,
         desc: 'Attendance kiosk punch mode, notices & holidays'
       },
       {
@@ -268,7 +268,7 @@ export default function AppLauncherScreen({
         color: '#14d2cb',
         accentBg: 'rgba(20, 210, 203, 0.12)',
         borderColor: 'rgba(20, 210, 203, 0.35)',
-        visible: typeof canNav === 'function' ? (canNav('my_attendance') || canNav('leaves') || canNav('shifts')) : true,
+        visible: typeof canNav === 'function' ? (canNav('my_portal') && (canNav('my_attendance') || canNav('leaves') || canNav('shifts'))) : true,
         desc: 'Self-service shift clock-in/out & leave requests'
       },
       {
@@ -281,7 +281,7 @@ export default function AppLauncherScreen({
         color: '#06b6d4',
         accentBg: 'rgba(6, 182, 212, 0.12)',
         borderColor: 'rgba(6, 182, 212, 0.35)',
-        visible: typeof canNav === 'function' ? (canNav('app_guide') || canNav('feedback')) : true,
+        visible: typeof canNav === 'function' ? (canNav('help_support') && (canNav('app_guide') || canNav('feedback'))) : true,
         desc: 'Interactive guided application tour & tutorials'
       },
       {
@@ -294,7 +294,7 @@ export default function AppLauncherScreen({
         color: '#14d2cb',
         accentBg: 'rgba(20, 210, 203, 0.12)',
         borderColor: 'rgba(20, 210, 203, 0.35)',
-        visible: typeof canNav === 'function' ? (canNav('settings') || canNav('integrations') || canNav('roles_permissions') || canNav('recycle_bin') || canNav('system_dropdowns') || canNav('module_configuration') || canNav('billing')) : true,
+        visible: typeof canNav === 'function' ? (canNav('settings') && (canNav('settings') || canNav('integrations') || canNav('roles_permissions') || canNav('recycle_bin') || canNav('system_dropdowns') || canNav('module_configuration') || canNav('billing'))) : true,
         desc: 'Role permissions matrix, APIs, trash vault & billing'
       }
     ].filter(item => item.visible);
