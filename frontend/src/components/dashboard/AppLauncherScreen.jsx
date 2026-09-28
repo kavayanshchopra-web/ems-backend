@@ -318,57 +318,28 @@ export default function AppLauncherScreen({
     <div style={{
       minHeight: '100%',
       width: '100%',
-      background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, rgba(20, 210, 203, 0.04) 100%)',
-      padding: '24px 20px 48px 20px',
+      background: 'radial-gradient(circle at 12% 15%, rgba(20, 210, 203, 0.11) 0%, transparent 45%), radial-gradient(circle at 88% 22%, rgba(16, 185, 129, 0.10) 0%, transparent 45%), radial-gradient(circle at 50% 90%, rgba(15, 43, 38, 0.06) 0%, transparent 55%), linear-gradient(135deg, #edf6f5 0%, #f2f8f7 50%, #eaf4f2 100%)',
+      padding: '28px 24px 50px 24px',
       boxSizing: 'border-box',
       display: 'flex',
       flexDirection: 'column',
-      alignItems: 'center'
+      alignItems: 'center',
+      position: 'relative'
     }}>
-      {/* Top Header / Search Hub */}
+      {/* Top Search Bar Hub - Clean & Minimal (Tags & Modules text removed) */}
       <div style={{
         width: '100%',
-        maxWidth: '1100px',
+        maxWidth: '1180px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        marginBottom: '22px'
+        marginBottom: '26px'
       }}>
-        {/* Welcome Tag & Badge */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          marginBottom: '8px'
-        }}>
-          <span style={{
-            fontSize: '10px',
-            fontWeight: '800',
-            textTransform: 'uppercase',
-            letterSpacing: '1px',
-            color: '#0d9488',
-            background: 'rgba(20, 210, 203, 0.12)',
-            border: '1px solid rgba(20, 210, 203, 0.3)',
-            padding: '3px 10px',
-            borderRadius: '16px'
-          }}>
-            ⚡ OmniFlow EMS Apps Directory
-          </span>
-          <span style={{
-            fontSize: '11px',
-            fontWeight: '700',
-            color: '#64748b'
-          }}>
-            {allModules.length} Active Modules
-          </span>
-        </div>
-
-        {/* Compact Search Input */}
+        {/* Sleek Search Input */}
         <div style={{
           width: '100%',
-          maxWidth: '440px',
-          position: 'relative',
-          marginTop: '4px'
+          maxWidth: '460px',
+          position: 'relative'
         }}>
           <div style={{
             position: 'absolute',
@@ -391,14 +362,14 @@ export default function AppLauncherScreen({
             placeholder="Search applications (Ctrl + K)..."
             style={{
               width: '100%',
-              height: '38px',
-              padding: '0 40px 0 38px',
-              borderRadius: '12px',
-              background: 'rgba(255, 255, 255, 0.95)',
-              backdropFilter: 'blur(10px)',
-              border: '1.2px solid rgba(20, 210, 203, 0.35)',
-              boxShadow: '0 4px 14px -2px rgba(15, 43, 38, 0.06), 0 1px 3px rgba(0,0,0,0.02)',
-              fontSize: '13px',
+              height: '42px',
+              padding: '0 40px 0 40px',
+              borderRadius: '14px',
+              background: 'rgba(255, 255, 255, 0.96)',
+              backdropFilter: 'blur(12px)',
+              border: '1.5px solid rgba(20, 210, 203, 0.38)',
+              boxShadow: '0 6px 20px -3px rgba(15, 43, 38, 0.08), 0 2px 4px rgba(0,0,0,0.02)',
+              fontSize: '13.5px',
               fontWeight: '600',
               color: '#0f2b26',
               outline: 'none',
@@ -407,11 +378,11 @@ export default function AppLauncherScreen({
             }}
             onFocus={(e) => {
               e.target.style.borderColor = '#14d2cb';
-              e.target.style.boxShadow = '0 6px 18px -2px rgba(20, 210, 203, 0.22), 0 0 0 2px rgba(20, 210, 203, 0.25)';
+              e.target.style.boxShadow = '0 8px 24px -2px rgba(20, 210, 203, 0.25), 0 0 0 2px rgba(20, 210, 203, 0.25)';
             }}
             onBlur={(e) => {
-              e.target.style.borderColor = 'rgba(20, 210, 203, 0.35)';
-              e.target.style.boxShadow = '0 4px 14px -2px rgba(15, 43, 38, 0.06), 0 1px 3px rgba(0,0,0,0.02)';
+              e.target.style.borderColor = 'rgba(20, 210, 203, 0.38)';
+              e.target.style.boxShadow = '0 6px 20px -3px rgba(15, 43, 38, 0.08), 0 2px 4px rgba(0,0,0,0.02)';
             }}
           />
 
@@ -427,8 +398,8 @@ export default function AppLauncherScreen({
                 background: 'rgba(100, 116, 139, 0.15)',
                 border: 'none',
                 borderRadius: '50%',
-                width: '20px',
-                height: '20px',
+                width: '22px',
+                height: '22px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -441,12 +412,12 @@ export default function AppLauncherScreen({
           ) : (
             <div style={{
               position: 'absolute',
-              right: '10px',
+              right: '12px',
               top: '50%',
               transform: 'translateY(-50%)',
-              padding: '2px 6px',
+              padding: '2px 7px',
               background: '#f1f5f9',
-              borderRadius: '5px',
+              borderRadius: '6px',
               border: '1px solid #e2e8f0',
               fontSize: '10px',
               fontWeight: '700',
@@ -459,17 +430,17 @@ export default function AppLauncherScreen({
         </div>
       </div>
 
-      {/* App Grid Container - Compact & Tightly Spaced */}
+      {/* App Grid Container - Compact, Elevated & Non-Truncated */}
       <div style={{
         width: '100%',
-        maxWidth: '1100px'
+        maxWidth: '1180px'
       }}>
         {filteredModules.length === 0 ? (
           <div style={{
             textAlign: 'center',
             padding: '50px 20px',
-            background: 'rgba(255, 255, 255, 0.7)',
-            borderRadius: '16px',
+            background: 'rgba(255, 255, 255, 0.85)',
+            borderRadius: '18px',
             border: '1px dashed #cbd5e1',
             maxWidth: '400px',
             margin: '0 auto'
@@ -485,8 +456,8 @@ export default function AppLauncherScreen({
         ) : (
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-            gap: '14px 16px',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(132px, 1fr))',
+            gap: '16px 18px',
             justifyItems: 'center'
           }}>
             {filteredModules.map((app) => {
@@ -506,24 +477,24 @@ export default function AppLauncherScreen({
                   title={`${app.label} — ${app.desc}`}
                   style={{
                     width: '100%',
-                    maxWidth: '135px',
-                    minHeight: '122px',
-                    background: isHovered ? 'rgba(255, 255, 255, 0.98)' : 'rgba(255, 255, 255, 0.82)',
-                    backdropFilter: 'blur(12px)',
-                    border: isHovered ? `1.5px solid ${app.color}` : '1px solid rgba(226, 232, 240, 0.85)',
-                    borderRadius: '16px',
-                    padding: '12px 6px 10px 6px',
+                    maxWidth: '146px',
+                    minHeight: '136px',
+                    background: isHovered ? '#ffffff' : 'rgba(255, 255, 255, 0.94)',
+                    backdropFilter: 'blur(16px)',
+                    border: isHovered ? `1.5px solid ${app.color}` : '1.2px solid rgba(20, 210, 203, 0.22)',
+                    borderRadius: '18px',
+                    padding: '14px 8px 12px 8px',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
                     position: 'relative',
-                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                    transform: isHovered ? 'translateY(-5px) scale(1.04)' : 'translateY(0) scale(1)',
+                    transition: 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+                    transform: isHovered ? 'translateY(-6px) scale(1.04)' : 'translateY(0) scale(1)',
                     boxShadow: isHovered
-                      ? `0 12px 24px -4px rgba(15, 43, 38, 0.12), 0 0 0 1.5px ${app.color}`
-                      : '0 2px 8px -2px rgba(15, 43, 38, 0.04), 0 1px 2px rgba(0,0,0,0.02)',
+                      ? `0 16px 28px -4px rgba(20, 210, 203, 0.24), 0 0 0 1.5px ${app.color}`
+                      : '0 4px 16px -2px rgba(15, 43, 38, 0.06), 0 1px 3px rgba(0,0,0,0.02)',
                     boxSizing: 'border-box',
                     userSelect: 'none'
                   }}
@@ -549,9 +520,9 @@ export default function AppLauncherScreen({
 
                   {/* Compact Icon Box */}
                   <div style={{
-                    width: '46px',
-                    height: '46px',
-                    borderRadius: '13px',
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '14px',
                     background: app.accentBg,
                     border: `1.2px solid ${app.borderColor}`,
                     display: 'flex',
@@ -559,34 +530,36 @@ export default function AppLauncherScreen({
                     justifyContent: 'center',
                     color: app.color,
                     boxShadow: isHovered ? `0 6px 14px ${app.accentBg}` : 'none',
-                    transition: 'all 0.2s ease',
-                    transform: isHovered ? 'scale(1.08)' : 'scale(1)',
+                    transition: 'all 0.22s ease',
+                    transform: isHovered ? 'scale(1.10)' : 'scale(1)',
                     marginBottom: '8px'
                   }}>
-                    <IconComp size={23} strokeWidth={2.2} />
+                    <IconComp size={24} strokeWidth={2.2} />
                   </div>
 
-                  {/* Module Name */}
+                  {/* Module Name - Fixed 2-Line Wrap (No Ellipsis Cut-Off) */}
                   <span style={{
-                    fontSize: '10.5px',
+                    fontSize: '11px',
                     fontWeight: '800',
                     color: isHovered ? '#0f2b26' : '#1e293b',
                     textAlign: 'center',
                     textTransform: 'uppercase',
-                    letterSpacing: '0.3px',
-                    lineHeight: '1.2',
+                    letterSpacing: '0.2px',
+                    lineHeight: '1.22',
                     marginBottom: '2px',
                     width: '100%',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
                     overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
+                    minHeight: '26px'
                   }}>
                     {app.label}
                   </span>
 
                   {/* Subtitle / Category */}
                   <span style={{
-                    fontSize: '9px',
+                    fontSize: '9.5px',
                     fontWeight: '600',
                     color: '#64748b',
                     textAlign: 'center',

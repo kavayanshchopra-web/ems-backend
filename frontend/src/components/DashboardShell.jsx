@@ -7675,7 +7675,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           {/* Desktop Page Title (Aligned equal from left with content cards) */}
           <div className="desktop-page-title" style={{ display: 'flex', alignItems: 'center', marginLeft: '0px', marginRight: '20px', flexShrink: 0 }}>
             <span style={{ fontSize: '14px', fontWeight: '800', color: '#14d2cb', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                 {activeTab === 'app_launcher' ? 'APPS DIRECTORY' : (isSettingsTab ? 'SETTINGS' : (isHelpTab ? 'HELP & SUPPORT' : (isHrTab ? 'HR MANAGEMENT' : (isPayrollTab ? 'PAYROLL & FINANCE' : (isReportsTab ? 'REPORTS & ANALYTICS' : (isOperationsTab ? 'OPERATIONS' : (isMyPortalTab ? 'MY PORTAL' : (activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab === 'admin_dashboard' || activeTab === 'dashboards' ? 'DASHBOARD' : (activeTab || '').replace(/_/g, ' ')))))))))))))}
+                 {activeTab === 'app_launcher' ? '' : (isSettingsTab ? 'SETTINGS' : (isHelpTab ? 'HELP & SUPPORT' : (isHrTab ? 'HR MANAGEMENT' : (isPayrollTab ? 'PAYROLL & FINANCE' : (isReportsTab ? 'REPORTS & ANALYTICS' : (isOperationsTab ? 'OPERATIONS' : (isMyPortalTab ? 'MY PORTAL' : (activeTab === 'wa_live_web' ? 'WHATSAPP' : (activeTab === 'telecalling' ? 'PHONE SYSTEM' : (activeTab === 'kanban' ? 'CRM' : (activeTab === 'superadmin' || activeTab === 'superadmin_plans' ? 'SUPER ADMIN PANEL' : (activeTab === 'admin_dashboard' || activeTab === 'dashboards' ? 'DASHBOARD' : (activeTab || '').replace(/_/g, ' ')))))))))))))}
             </span>
           </div>
 
