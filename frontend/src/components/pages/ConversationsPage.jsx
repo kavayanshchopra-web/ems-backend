@@ -498,6 +498,12 @@ export default function ConversationsPage({
 
   const activeTenantId = String(authUser?.tenantId || authUser?.companyId || companyId || '1');
 
+  const primarySession = localSessions[0] || null;
+  const isConnected = primarySession?.status === 'connected';
+  const isQRReady = primarySession?.status === 'qr_ready' && Boolean(primarySession?.qr_code);
+  const isConnecting = primarySession?.status === 'connecting' || qrLoading;
+  const connectedPhone = primarySession?.phone_number || primarySession?.phoneNumber || '';
+
   // Fetch active sessions from backend API
   const fetchCurrentSessions = async () => {
     try {
@@ -531,12 +537,6 @@ export default function ConversationsPage({
       return () => clearInterval(interval);
     }
   }, [API_URL, token, showQrModal, isConnected, activeTenantId]);
-
-  const primarySession = localSessions[0] || null;
-  const isConnected = primarySession?.status === 'connected';
-  const isQRReady = primarySession?.status === 'qr_ready' && Boolean(primarySession?.qr_code);
-  const isConnecting = primarySession?.status === 'connecting' || qrLoading;
-  const connectedPhone = primarySession?.phone_number || primarySession?.phoneNumber || '';
 
   // Start or trigger QR code generation for WhatsApp session
   const handleStartSession = async (sessId) => {
