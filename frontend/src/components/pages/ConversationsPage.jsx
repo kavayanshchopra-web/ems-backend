@@ -496,47 +496,70 @@ export default function ConversationsPage({
     }
   }, [sessions]);
 
+  const activeTenantId = String(authUser?.tenantId || authUser?.companyId || companyId || '1');
+
   // Fetch active sessions from backend API
   const fetchCurrentSessions = async () => {
     try {
       const res = await fetch(`${API_URL}/sessions`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          'x-tenant-id': activeTenantId
+        }
       });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
           setLocalSessions(data);
+          return data;
         }
       }
     } catch (e) {
       console.warn('[ConversationsPage] Sessions fetch notice:', e);
     }
+    return [];
   };
 
+  // Poll sessions while QR modal is open to capture QR image and connection updates in real-time
   useEffect(() => {
     fetchCurrentSessions();
-  }, [API_URL, token]);
+    if (showQrModal && !isConnected) {
+      const interval = setInterval(() => {
+        fetchCurrentSessions();
+      }, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [API_URL, token, showQrModal, isConnected, activeTenantId]);
 
   const primarySession = localSessions[0] || null;
   const isConnected = primarySession?.status === 'connected';
-  const isQRReady = primarySession?.status === 'qr_ready';
+  const isQRReady = primarySession?.status === 'qr_ready' && Boolean(primarySession?.qr_code);
   const isConnecting = primarySession?.status === 'connecting' || qrLoading;
   const connectedPhone = primarySession?.phone_number || primarySession?.phoneNumber || '';
 
   // Start or trigger QR code generation for WhatsApp session
   const handleStartSession = async (sessId) => {
     setQrLoading(true);
-    setQrActionMsg('Requesting WhatsApp QR Code...');
+    setQrActionMsg('Requesting WhatsApp QR Code from Baileys gateway...');
     try {
-      let targetId = sessId || primarySession?.id;
+      const reqHeaders = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        'x-tenant-id': activeTenantId
+      };
+
+      let currentList = localSessions;
+      if (!currentList || currentList.length === 0) {
+        currentList = await fetchCurrentSessions();
+      }
+
+      let targetId = sessId || currentList[0]?.id;
       if (!targetId) {
         // Create primary session if none exists yet
         const createRes = await fetch(`${API_URL}/sessions`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-          },
+          headers: reqHeaders,
           body: JSON.stringify({ phoneName: 'Primary WhatsApp Line' })
         });
         if (createRes.ok) {
@@ -545,20 +568,21 @@ export default function ConversationsPage({
           setLocalSessions([created]);
         }
       }
+
       if (targetId) {
-        await fetch(`${API_URL}/sessions/start/${targetId}`, {
+        const startRes = await fetch(`${API_URL}/sessions/start/${targetId}`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-          }
+          headers: reqHeaders
         });
-        setQrActionMsg('Connecting to WhatsApp Baileys gateway...');
+        if (startRes.ok) {
+          setQrActionMsg('Connecting to Baileys... QR will appear in 2-3 seconds.');
+        }
       }
-      setTimeout(fetchCurrentSessions, 1500);
+      setTimeout(fetchCurrentSessions, 1200);
+      setTimeout(fetchCurrentSessions, 2800);
     } catch (err) {
       console.error('[Start Session Error]', err);
-      setQrActionMsg('Failed to initialize session: ' + err.message);
+      setQrActionMsg('Connection notice: ' + err.message);
     } finally {
       setQrLoading(false);
     }
