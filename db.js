@@ -17,6 +17,12 @@ export async function initDb() {
       await pool.query('SELECT 1');
       console.log('⚡ Connected to Supabase PostgreSQL 17 Master Database successfully!');
       db = postgresAdapter;
+      try {
+        const { initPostgresSandboxTables } = await import('../init_sandbox_automations_pg.mjs');
+        await initPostgresSandboxTables();
+      } catch (sbErr) {
+        console.warn('[Sandbox Postgre Init Warn]', sbErr.message);
+      }
       return db;
     } catch (pgErr) {
       console.error('❌ Failed to connect to Supabase PostgreSQL, falling back to SQLite:', pgErr.message);
@@ -845,6 +851,193 @@ export async function initDb() {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // ==============================================================================
+  // ⚡ ISOLATED SANDBOX AUTOMATIONS & WORKFLOW ENGINE (ZERO LIVE RISK)
+  // ==============================================================================
+  // 1. sandbox_automation_flows: Isolated Workflow Node Graphs & Archetypes
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS sandbox_automation_flows (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL DEFAULT 'org_default',
+      name TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'custom',
+      description TEXT,
+      trigger_type TEXT NOT NULL DEFAULT 'keyword',
+      trigger_config TEXT NOT NULL DEFAULT '{}',
+      nodes_json TEXT NOT NULL DEFAULT '[]',
+      edges_json TEXT NOT NULL DEFAULT '[]',
+      is_active INTEGER DEFAULT 0,
+      execution_count INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // 2. sandbox_flow_sessions: Real-Time Flow State Machine & User Progress
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS sandbox_flow_sessions (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL DEFAULT 'org_default',
+      flow_id TEXT NOT NULL,
+      phone_number TEXT NOT NULL,
+      contact_name TEXT,
+      current_node_id TEXT NOT NULL,
+      variables_collected TEXT DEFAULT '{}',
+      status TEXT DEFAULT 'active',
+      last_interaction_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(flow_id) REFERENCES sandbox_automation_flows(id) ON DELETE CASCADE
+    )
+  `);
+
+  // 3. sandbox_flow_logs: Execution Debug & Analytics Trail
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS sandbox_flow_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'org_default',
+      flow_id TEXT NOT NULL,
+      phone_number TEXT,
+      node_id TEXT,
+      node_type TEXT,
+      event_type TEXT NOT NULL,
+      payload TEXT,
+      status TEXT DEFAULT 'success',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Auto-seed Top 6 Master Industry Archetypes in Sandbox if empty
+  try {
+    const existingFlowCount = await db.get(`SELECT COUNT(*) as count FROM sandbox_automation_flows`);
+    if (!existingFlowCount || existingFlowCount.count === 0) {
+      const archetypes = [
+        {
+          id: 'flow_real_estate_site_visit',
+          name: '🏢 Real Estate 24/7 Site Visit & Brochure Bot',
+          category: 'real_estate',
+          description: 'Auto-qualifies buyers, delivers project catalog PDFs, and schedules VIP site visits.',
+          trigger_type: 'keyword',
+          trigger_config: JSON.stringify({ keywords: ['property', 'flat', 'villa', 'site visit', 'price', 'bhk'], match_type: 'contains' }),
+          nodes_json: JSON.stringify([
+            { id: '1', type: 'trigger', data: { label: 'Keyword: property / flat / price' } },
+            { id: '2', type: 'interactive_button', data: { text: 'Namaste {{name}}! Welcome to Palm Heights Luxury Residencies. How can we assist you today?', buttons: ['2 & 3 BHK Flats', 'Commercial Units', 'Book Site Visit 🚗'] } },
+            { id: '3', type: 'send_media', data: { text: 'Here is our Luxury 2026 Brochure & Floor Plans PDF.', media_url: 'https://example.com/brochure.pdf' } },
+            { id: '4', type: 'assign_agent', data: { extension: '101', tag: 'VIP Site Visit Scheduled' } }
+          ]),
+          edges_json: JSON.stringify([
+            { id: 'e1-2', source: '1', target: '2' },
+            { id: 'e2-3', source: '2', target: '3', sourceHandle: 'btn_1' },
+            { id: 'e2-4', source: '2', target: '4', sourceHandle: 'btn_3' }
+          ]),
+          is_active: 1
+        },
+        {
+          id: 'flow_ecommerce_abandoned_cart',
+          name: '🛒 E-Commerce Abandoned Cart Recovery & COD Confirm',
+          category: 'ecommerce',
+          description: 'Recovers dropped checkouts with instant 10% coupon and handles 1-click COD confirmation.',
+          trigger_type: 'webhook',
+          trigger_config: JSON.stringify({ event: 'cart_abandoned', delay_minutes: 15 }),
+          nodes_json: JSON.stringify([
+            { id: '1', type: 'trigger', data: { label: 'Shopify / Webhook: Cart Abandoned' } },
+            { id: '2', type: 'interactive_button', data: { text: 'Hey {{name}}, you left items in your cart! Complete your order today & get flat 10% OFF with code FLASH10.', buttons: ['Complete Order 🛍️', 'Need Help / Call Me'] } },
+            { id: '3', type: 'assign_agent', data: { extension: '102', tag: 'High-Value Cart Dropout' } }
+          ]),
+          edges_json: JSON.stringify([
+            { id: 'e1-2', source: '1', target: '2' },
+            { id: 'e2-3', source: '2', target: '3', sourceHandle: 'btn_2' }
+          ]),
+          is_active: 1
+        },
+        {
+          id: 'flow_clinic_appointment_booking',
+          name: '🏥 Doctor & Dental Appointment Booking Bot',
+          category: 'healthcare',
+          description: 'Allows patients to pick consultation slots and sends automatic WhatsApp reminders 1 hour before.',
+          trigger_type: 'keyword',
+          trigger_config: JSON.stringify({ keywords: ['appointment', 'doctor', 'clinic', 'consultation', 'book'], match_type: 'contains' }),
+          nodes_json: JSON.stringify([
+            { id: '1', type: 'trigger', data: { label: 'Keyword: appointment / doctor' } },
+            { id: '2', type: 'interactive_button', data: { text: 'Hello! Welcome to CarePlus Specialty Clinic. Select your appointment type:', buttons: ['Dental Checkup 🦷', 'General Physician 🩺', 'Eye Care 👁️'] } },
+            { id: '3', type: 'send_message', data: { text: 'Thank you! Your slot is booked for 11:30 AM. Location: CarePlus Sector 14 Clinic.' } }
+          ]),
+          edges_json: JSON.stringify([
+            { id: 'e1-2', source: '1', target: '2' },
+            { id: 'e2-3', source: '2', target: '3' }
+          ]),
+          is_active: 1
+        },
+        {
+          id: 'flow_edtech_coaching_qualifier',
+          name: '🎓 Coaching & Course Lead Qualifier with Syllabus PDF',
+          category: 'coaching',
+          description: 'Captures student leads from Meta Ads, delivers complete syllabus, and books free live demo.',
+          trigger_type: 'keyword',
+          trigger_config: JSON.stringify({ keywords: ['admission', 'course', 'demo', 'syllabus', 'fees'], match_type: 'contains' }),
+          nodes_json: JSON.stringify([
+            { id: '1', type: 'trigger', data: { label: 'Meta Ad Form / Keyword' } },
+            { id: '2', type: 'interactive_button', data: { text: 'Hi {{name}}! Next batch enrollment is open. What would you like to explore?', buttons: ['Download Syllabus 📄', 'Fee & Scholarships 💰', 'Free Demo Class 🎯'] } },
+            { id: '3', type: 'send_media', data: { text: 'Here is the 2026 Curriculum Syllabus PDF.', media_url: 'https://example.com/syllabus.pdf' } }
+          ]),
+          edges_json: JSON.stringify([
+            { id: 'e1-2', source: '1', target: '2' },
+            { id: 'e2-3', source: '2', target: '3', sourceHandle: 'btn_1' }
+          ]),
+          is_active: 1
+        },
+        {
+          id: 'flow_google_5star_review_booster',
+          name: '⭐ Google 5-Star Review Booster & Feedback Shield',
+          category: 'reviews',
+          description: 'Routes 5-star happy customers directly to Google Maps, while filtering issues to private manager tickets.',
+          trigger_type: 'crm_event',
+          trigger_config: JSON.stringify({ event: 'deal_won_or_delivered' }),
+          nodes_json: JSON.stringify([
+            { id: '1', type: 'trigger', data: { label: 'CRM Event: Service Delivered' } },
+            { id: '2', type: 'interactive_button', data: { text: 'Dear {{name}}, how was your recent experience with our team?', buttons: ['⭐⭐⭐⭐⭐ Loved It!', 'Average 🙂', 'Had an Issue ⚠️'] } },
+            { id: '3', type: 'send_message', data: { text: 'Thank you so much! Please drop your review on Google: https://g.page/review' } },
+            { id: '4', type: 'assign_agent', data: { extension: '101', tag: 'Manager Attention Needed' } }
+          ]),
+          edges_json: JSON.stringify([
+            { id: 'e1-2', source: '1', target: '2' },
+            { id: 'e2-3', source: '2', target: '3', sourceHandle: 'btn_1' },
+            { id: 'e2-4', source: '2', target: '4', sourceHandle: 'btn_3' }
+          ]),
+          is_active: 1
+        },
+        {
+          id: 'flow_247_faq_human_routing',
+          name: '💬 24/7 Smart FAQ & Telecaller Extension Router',
+          category: 'support',
+          description: 'Instant answers for office hours, location map, pricing, and 1-click transfer to live telecaller extension.',
+          trigger_type: 'keyword',
+          trigger_config: JSON.stringify({ keywords: ['help', 'support', 'timing', 'address', 'contact'], match_type: 'contains' }),
+          nodes_json: JSON.stringify([
+            { id: '1', type: 'trigger', data: { label: 'Keyword: help / support' } },
+            { id: '2', type: 'interactive_button', data: { text: 'Hello! I am your 24/7 Virtual Assistant. Select an option:', buttons: ['📍 Office Location', '⏰ Working Hours', '📞 Speak to Agent'] } },
+            { id: '3', type: 'assign_agent', data: { extension: '101', tag: 'Live Call Request' } }
+          ]),
+          edges_json: JSON.stringify([
+            { id: 'e1-2', source: '1', target: '2' },
+            { id: 'e2-3', source: '2', target: '3', sourceHandle: 'btn_3' }
+          ]),
+          is_active: 1
+        }
+      ];
+
+      for (const f of archetypes) {
+        await db.run(
+          `INSERT INTO sandbox_automation_flows (id, tenant_id, name, category, description, trigger_type, trigger_config, nodes_json, edges_json, is_active)
+           VALUES (?, 'org_default', ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [f.id, f.name, f.category, f.description, f.trigger_type, f.trigger_config, f.nodes_json, f.edges_json, f.is_active]
+        );
+      }
+    }
+  } catch (seedErr) {
+    console.warn('[Sandbox Flow Auto-Seed Warning]', seedErr.message);
+  }
 
   // Seed standard 4 SaaS plans if table is empty or incomplete
   const planCount = await db.get(`SELECT COUNT(*) as count FROM plans`);
@@ -3358,6 +3551,109 @@ export async function setSaaSPricingConfig(configKey, configValue) {
   return await getSaaSPricingConfigs();
 }
 
+// ==============================================================================
+// ⚡ SANDBOX AUTOMATION HELPER FUNCTIONS (ISOLATED)
+// ==============================================================================
+export async function getSandboxFlows(tenantId = 'org_default') {
+  const rows = await db.all(
+    `SELECT * FROM sandbox_automation_flows WHERE tenant_id = ? OR tenant_id = 'org_default' ORDER BY created_at DESC`,
+    [String(tenantId)]
+  );
+  return (rows || []).map(r => {
+    try { r.nodes = JSON.parse(r.nodes_json || '[]'); } catch (e) { r.nodes = []; }
+    try { r.edges = JSON.parse(r.edges_json || '[]'); } catch (e) { r.edges = []; }
+    try { r.triggerConfig = JSON.parse(r.trigger_config || '{}'); } catch (e) { r.triggerConfig = {}; }
+    return r;
+  });
+}
+
+export async function getSandboxFlowById(id) {
+  const r = await db.get(`SELECT * FROM sandbox_automation_flows WHERE id = ?`, [id]);
+  if (!r) return null;
+  try { r.nodes = JSON.parse(r.nodes_json || '[]'); } catch (e) { r.nodes = []; }
+  try { r.edges = JSON.parse(r.edges_json || '[]'); } catch (e) { r.edges = []; }
+  try { r.triggerConfig = JSON.parse(r.trigger_config || '{}'); } catch (e) { r.triggerConfig = {}; }
+  return r;
+}
+
+export async function saveSandboxFlow(flow) {
+  const id = flow.id || `flow_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+  const tenantId = flow.tenant_id || flow.tenantId || 'org_default';
+  const name = flow.name || 'Untitled Automation Flow';
+  const category = flow.category || 'custom';
+  const description = flow.description || '';
+  const triggerType = flow.trigger_type || flow.triggerType || 'keyword';
+  const triggerConfigStr = typeof flow.trigger_config === 'object' ? JSON.stringify(flow.trigger_config) : (flow.trigger_config || '{}');
+  const nodesJsonStr = typeof flow.nodes === 'object' ? JSON.stringify(flow.nodes) : (flow.nodes_json || '[]');
+  const edgesJsonStr = typeof flow.edges === 'object' ? JSON.stringify(flow.edges) : (flow.edges_json || '[]');
+  const isActive = flow.is_active !== undefined ? (flow.is_active ? 1 : 0) : 1;
+
+  await db.run(
+    `INSERT INTO sandbox_automation_flows (id, tenant_id, name, category, description, trigger_type, trigger_config, nodes_json, edges_json, is_active, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+     ON CONFLICT(id) DO UPDATE SET 
+       name = excluded.name,
+       category = excluded.category,
+       description = excluded.description,
+       trigger_type = excluded.trigger_type,
+       trigger_config = excluded.trigger_config,
+       nodes_json = excluded.nodes_json,
+       edges_json = excluded.edges_json,
+       is_active = excluded.is_active,
+       updated_at = CURRENT_TIMESTAMP`,
+    [id, tenantId, name, category, description, triggerType, triggerConfigStr, nodesJsonStr, edgesJsonStr, isActive]
+  );
+  return await getSandboxFlowById(id);
+}
+
+export async function toggleSandboxFlow(id, isActive) {
+  await db.run(`UPDATE sandbox_automation_flows SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [isActive ? 1 : 0, id]);
+  return await getSandboxFlowById(id);
+}
+
+export async function deleteSandboxFlow(id) {
+  await db.run(`DELETE FROM sandbox_automation_flows WHERE id = ?`, [id]);
+  return { success: true, deletedId: id };
+}
+
+export async function logSandboxFlowExecution(logData) {
+  await db.run(
+    `INSERT INTO sandbox_flow_logs (tenant_id, flow_id, phone_number, node_id, node_type, event_type, payload, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      logData.tenant_id || 'org_default',
+      logData.flow_id || 'unknown_flow',
+      logData.phone_number || '',
+      logData.node_id || '',
+      logData.node_type || 'message',
+      logData.event_type || 'EXECUTION',
+      typeof logData.payload === 'object' ? JSON.stringify(logData.payload) : String(logData.payload || ''),
+      logData.status || 'success'
+    ]
+  );
+  try {
+    await db.run(`UPDATE sandbox_automation_flows SET execution_count = execution_count + 1 WHERE id = ?`, [logData.flow_id]);
+  } catch (e) {}
+}
+
+export async function getSandboxFlowLogs(arg1, arg2 = 50, arg3 = 50) {
+  let flowId = arg1;
+  let limit = typeof arg2 === 'number' ? arg2 : 50;
+  
+  if (typeof arg2 === 'string' && isNaN(Number(arg2))) {
+    // Called as (tenantId, flowId, limit)
+    flowId = arg2;
+    limit = typeof arg3 === 'number' ? arg3 : 50;
+  }
+
+  const rows = await db.all(
+    `SELECT * FROM sandbox_flow_logs WHERE flow_id = ? ORDER BY created_at DESC LIMIT ?`,
+    [flowId, limit]
+  );
+  return rows || [];
+}
+
 export function getDb() {
   return db;
 }
+
