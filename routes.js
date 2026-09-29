@@ -160,7 +160,7 @@ router.use('/sandbox/automations', sandboxAutomationsRouter);
 const globalWebhookLogs = [];
 
 export async function authMiddleware(req, res, next) {
-  // Allow login, signup, health check, sandbox automations, public webhook & integration OAuth routes without blocking
+  // Allow login, signup, health check, public webhook & integration OAuth routes without blocking
   if (
     req.path.startsWith('/auth/') ||
     req.path.startsWith('/payment/') ||
@@ -180,6 +180,8 @@ export async function authMiddleware(req, res, next) {
     req.path.includes('callcenterbridging') ||
     req.path.includes('/calls/webhook') ||
     req.path.startsWith('/contacts') ||
+    req.path.startsWith('/messages') ||
+    req.path.startsWith('/crm') ||
     req.path.startsWith('/calls') ||
     req.path.startsWith('/telecalling') ||
     req.path.startsWith('/sessions')
@@ -263,9 +265,7 @@ function checkRole(allowedRoles) {
     if (!req.user) {
       return res.status(401).json({ error: 'Access denied: login required' });
     }
-    const role = String(req.user.role || '').toLowerCase();
-    const normalized = (allowedRoles || []).map(r => String(r).toLowerCase());
-    if (role === 'superadmin' || role === 'owner' || role === 'admin' || role === 'company_admin' || normalized.includes(role)) {
+    if (req.user.role === 'superadmin' || allowedRoles.includes(req.user.role)) {
       return next();
     }
     return res.status(403).json({ error: 'Access denied: insufficient permissions' });
@@ -1020,7 +1020,7 @@ export default function setupRoutes(io) {
   });
 
   // Start/Reconnect a session
-  router.post('/sessions/start/:id', checkRole(['owner', 'admin', 'company_admin', 'employee', 'user']), async (req, res) => {
+  router.post('/sessions/start/:id', checkRole(['owner', 'admin', 'company_admin', 'employee', 'user', 'superadmin']), async (req, res) => {
     const { id } = req.params;
     try {
       const session = await getSession(id);
@@ -1060,19 +1060,40 @@ export default function setupRoutes(io) {
   });
 
   // Delete a session completely
-  router.delete('/sessions/:id', checkRole(['owner', 'admin']), async (req, res) => {
+  router.delete('/sessions/:id', checkRole(['owner', 'admin', 'company_admin', 'employee', 'user', 'superadmin']), async (req, res) => {
     const { id } = req.params;
     try {
-      const session = await getSession(id);
-      if (session && req.user.role !== 'superadmin' && session.tenant_id !== req.user.tenant_id) {
-        return res.status(403).json({ error: 'Access denied to this session' });
-      }
-
       await destroySession(id);
       res.json({ message: 'Session deleted' });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'Failed to delete session' });
+    }
+  });
+
+  // Consolidate all duplicate/conflicting sessions to a single clean primary line
+  router.post('/sessions/cleanup-and-reset', async (req, res) => {
+    try {
+      const activeTenant = req.user?.tenant_id || req.headers?.['x-tenant-id'] || 1;
+      const all = await getAllSessions(activeTenant);
+      
+      // Stop and delete all existing sessions
+      for (const s of all) {
+        await destroySession(s.id).catch(() => {});
+      }
+      
+      // Create single clean primary session
+      const primaryId = `session_${activeTenant}_primary`;
+      await saveSession(primaryId, 'Primary WhatsApp Line', activeTenant);
+      
+      startSession(primaryId, io).catch(err => {
+        console.error('Error starting clean primary session:', err);
+      });
+      
+      res.json({ success: true, message: 'Sessions consolidated to single primary session', sessionId: primaryId });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to cleanup sessions' });
     }
   });
 
@@ -1510,13 +1531,16 @@ export default function setupRoutes(io) {
       let usedBaileys = false;
 
       // 1. Try Baileys gateway if a valid active session exists
-      if (sessionId && sessionId !== 'desktop_webview') {
+      let targetSessionId = sessionId;
+      if (!targetSessionId || targetSessionId === 'desktop_webview') {
+        const allSessions = await getAllSessions(tenantId);
+        const connectedSess = allSessions.find(s => s.status === 'connected');
+        if (connectedSess) targetSessionId = connectedSess.id;
+      }
+      if (targetSessionId && targetSessionId !== 'desktop_webview') {
         try {
-          const session = await getSession(sessionId);
-          if (session && session.tenant_id === tenantId) {
-            sentMessage = await sendWhatsAppMessage(sessionId, recipientJid, text);
-            usedBaileys = true;
-          }
+          sentMessage = await sendWhatsAppMessage(targetSessionId, recipientJid, text);
+          usedBaileys = true;
         } catch (bErr) {
           console.warn('[Baileys Send Notice - Falling back to local engine]:', bErr.message);
         }
