@@ -615,7 +615,22 @@ export default function ConversationsPage({
       const tenantScoped = propContacts.filter(p => isContactVisibleToUser(p, allCallLogs));
       const formatted = formatContactRoster(tenantScoped);
       if (formatted.length > 0) {
-        setConversationsList(formatted);
+        setConversationsList(prev => {
+          const map = new Map();
+          (prev || []).forEach(c => {
+            const key = c.normPhone10 || normalizePhone10(c.phone || c.rawPhone || c.id || '') || c.id;
+            map.set(key, c);
+          });
+          formatted.forEach(c => {
+            const key = c.normPhone10 || normalizePhone10(c.phone || c.rawPhone || c.id || '') || c.id;
+            if (map.has(key)) {
+              map.set(key, { ...map.get(key), ...c });
+            } else {
+              map.set(key, c);
+            }
+          });
+          return Array.from(map.values()).sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+        });
         if (!activeContact) {
           setActiveContact(formatted[0]);
         } else {
@@ -627,7 +642,7 @@ export default function ConversationsPage({
         setActiveContact(null);
       }
     }
-  }, [propContacts, companyId, userRole, userEmpId, userEmail, userName, allCallLogs]);
+  }, [propContacts, companyId, userRole, userEmpId, userEmail, userName]);
 
   // 2. Fetch / Stream Call Logs (Firestore + SQLite with live caching)
   useEffect(() => {
@@ -2054,9 +2069,26 @@ export default function ConversationsPage({
                 <button
                   type="button"
                   onClick={async () => {
-                    if (!window.confirm('⚠️ Kya aap saare CRM Contacts aur Messages reset karna chahte hain taaki WhatsApp fresh scan ho sake?')) return;
+                    if (!window.confirm('⚠️ Kya aap saare CRM Contacts aur Messages reset karke conversation section poora empty karna chahte hain?')) return;
                     try {
+                      // 1. Wipe local browser caches
+                      try {
+                        TenantStorage.removeItem('contacts', companyId);
+                        TenantStorage.removeItem('call_logs', companyId);
+                        localStorage.removeItem(`omniflow_cached_contacts_${companyId}`);
+                        localStorage.removeItem('omniflow_cached_call_logs');
+                        messagesCacheRef.current.clear();
+                      } catch (e) {}
+
+                      // 2. Clear local React states
+                      setConversationsList([]);
+                      setActiveContact(null);
+                      setActiveMessages([]);
+                      setAllCallLogs([]);
+
+                      // 3. Clear backend SQLite database & sessions
                       const res = await fetch(`${API_URL}/crm/conversations/reset-all`, {
+                        method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
                           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -2065,13 +2097,15 @@ export default function ConversationsPage({
                       });
                       const d = await res.json();
                       if (d.success) {
-                        alert('✅ ' + (d.message || 'Reset complete! Refreshing...'));
+                        alert('✅ ' + (d.message || 'Conversation section completely cleared! Refreshing...'));
                         window.location.reload();
                       } else {
-                        alert('❌ Reset failed: ' + (d.error || 'Unknown error'));
+                        alert('❌ Reset notice: ' + (d.error || 'Server error'));
+                        window.location.reload();
                       }
                     } catch (err) {
-                      alert('❌ Reset failed: ' + err.message);
+                      alert('❌ Reset notice: ' + err.message);
+                      window.location.reload();
                     }
                   }}
                   style={{

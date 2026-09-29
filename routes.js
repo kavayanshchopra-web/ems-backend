@@ -1117,13 +1117,25 @@ export default function setupRoutes(io) {
   });
 
   // Clear all contacts and messages across SQLite for clean reset
-  router.post(['/contacts/clear-all', '/api/contacts/clear-all', '/v1/contacts/clear-all'], async (req, res) => {
+  router.all(['/crm/conversations/reset-all', '/api/crm/conversations/reset-all', '/contacts/clear-all', '/api/contacts/clear-all', '/v1/contacts/clear-all'], async (req, res) => {
     try {
-      await clearAllCrmData(req.user?.tenant_id || 1);
-      if (io) {
-        io.emit('contacts_cleared', { tenantId: req.user?.tenant_id || 1 });
+      const activeTenant = req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.query?.tenant_id || 1;
+      await clearAllCrmData(activeTenant);
+
+      // Stop and delete all sessions for clean reconnect
+      try {
+        const allSessions = await getAllSessions(activeTenant);
+        for (const s of allSessions) {
+          await destroySession(s.id).catch(() => {});
+        }
+      } catch (sessErr) {
+        console.warn('[Reset All] Session cleanup notice:', sessErr);
       }
-      res.json({ success: true, message: 'All CRM contacts and conversation history have been cleared successfully.' });
+
+      if (io) {
+        io.emit('contacts_cleared', { tenantId: activeTenant });
+      }
+      res.json({ success: true, message: 'All CRM conversations, contacts, and WhatsApp sessions have been completely cleared.' });
     } catch (err) {
       console.error('Error clearing CRM data:', err);
       res.status(500).json({ error: err.message || 'Failed to clear CRM data' });
