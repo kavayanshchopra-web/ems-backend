@@ -43,6 +43,7 @@ export default function ActionEngine({
   handleRestoreBinItem = () => {},
   handlePermanentDeleteBinItem = () => {},
   softDeleteRecord = () => {},
+  onArchiveRecord = null,
   showToast = () => {},
   authUser = null
 }) {
@@ -512,18 +513,22 @@ export default function ActionEngine({
     const archivedRecordObject = {
       ...record,
       archived: true,
+      is_archived: 1,
       lifecycleStatus: 'ARCHIVED',
       archivedAt: new Date().toISOString()
     };
 
     if (isSandboxEnvironment()) {
       const numericTenantId = Number(authUser?.tenantId || authUser?.companyId || authUser?.tenant_id) || 1;
-      SupabaseSandboxService.deleteUniversalRecord(moduleConfig.moduleId, record.id, numericTenantId).catch(console.error);
-    } else if (moduleConfig.moduleId && record.id) {
-      FirebaseCloudEngine.deleteRecord(moduleConfig.moduleId, record.id);
+      const cleanMod = String(moduleConfig.moduleId || '').toLowerCase();
+      if (cleanMod === 'contacts' || cleanMod === 'crm_deals') {
+        SupabaseSandboxService.archiveContact(record.id, numericTenantId, true, record.phone, record.email).catch(console.error);
+      }
     }
 
-    if (typeof softDeleteRecord === 'function') {
+    if (typeof onArchiveRecord === 'function') {
+      onArchiveRecord(record);
+    } else if (typeof softDeleteRecord === 'function') {
       softDeleteRecord({
         originalId: record.id,
         name: `${entityName}: "${nameStr}"`,
@@ -539,7 +544,7 @@ export default function ActionEngine({
     // Broadcast config/data update event
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('omnilflow_config_updated', {
-        detail: { moduleId: moduleConfig.moduleId || 'recruitment_ats' }
+        detail: { moduleId: moduleConfig.moduleId || 'contacts' }
       }));
     }
 
@@ -548,6 +553,37 @@ export default function ActionEngine({
     setShowArchiveModal(false);
     if (setRecordToArchive) setRecordToArchive(null);
     setInternalRecordToArchive(null);
+    setShowDetailModal(false);
+    setShowEditModal(false);
+  };
+
+  const handleDirectPermanentDelete = async (record) => {
+    if (!record) return;
+    const nameStr = record.name || record.title || 'Record';
+    const entityName = LabelEngine.getEntityName(moduleConfig);
+
+    if (!window.confirm(`⚠️ Permanently delete ${entityName.toLowerCase()} "${nameStr}"? This action cannot be undone.`)) return;
+
+    const numericTenantId = Number(authUser?.tenantId || authUser?.companyId || authUser?.tenant_id) || 1;
+    const cleanMod = String(moduleConfig.moduleId || '').toLowerCase();
+
+    if (isSandboxEnvironment()) {
+      await SupabaseSandboxService.deleteUniversalRecord(moduleConfig.moduleId, record.id, numericTenantId).catch(console.error);
+      if (cleanMod === 'contacts' || cleanMod === 'crm_deals') {
+        await SupabaseSandboxService.deleteContact(record.id, numericTenantId, record.phone, record.email).catch(console.error);
+      }
+    } else if (moduleConfig.moduleId && record.id) {
+      FirebaseCloudEngine.deleteRecord(moduleConfig.moduleId, record.id);
+    }
+
+    if (typeof softDeleteRecord === 'function') {
+      softDeleteRecord(record.id);
+    }
+
+    const updatedList = (records || []).filter(r => r && r.id !== record?.id);
+    setRecords(updatedList);
+
+    showToast(`🗑️ Permanently deleted ${entityName.toLowerCase()} "${nameStr}".`, 'info');
     setShowDetailModal(false);
     setShowEditModal(false);
   };
@@ -651,6 +687,7 @@ export default function ActionEngine({
           moduleConfig={moduleConfig}
           onEditRecord={(rec) => { setSelectedRecord(rec); setShowEditModal(true); }}
           onArchiveRecord={handleTriggerArchivePrompt}
+          onDeleteRecord={handleDirectPermanentDelete}
           onMoveStage={handleMoveStage}
           canManage={canManage}
           systemDropdowns={systemDropdowns}

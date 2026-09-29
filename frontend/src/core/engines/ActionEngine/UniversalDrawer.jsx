@@ -29,6 +29,7 @@ export default function UniversalDrawer({
   moduleConfig = {},
   onEditRecord = () => {},
   onArchiveRecord = () => {},
+  onDeleteRecord = () => {},
   onMoveStage = () => {},
   canManage = true,
   systemDropdowns = null,
@@ -158,6 +159,14 @@ export default function UniversalDrawer({
                 onClick={() => { onClose(); onArchiveRecord(record); }}
               >
                 Archive
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { onClose(); onDeleteRecord(record); }}
+                style={{ color: '#e11d48', borderColor: '#fecdd3', background: '#fff1f2' }}
+              >
+                Delete
               </Button>
             </div>
           )}

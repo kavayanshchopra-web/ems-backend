@@ -46,6 +46,7 @@ export default function LayoutEngine({
   handleRestoreBinItem = () => {},
   handlePermanentDeleteBinItem = () => {},
   softDeleteRecord = () => {},
+  onArchiveRecord = null,
   showToast = () => {},
   onOpenModuleConfig = null,
   onManageStages = () => {},
@@ -419,6 +420,7 @@ export default function LayoutEngine({
         handleRestoreBinItem={handleRestoreBinItem}
         handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
         softDeleteRecord={softDeleteRecord}
+        onArchiveRecord={onArchiveRecord}
         showToast={showToast}
         authUser={authUser}
       />

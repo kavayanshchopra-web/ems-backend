@@ -881,29 +881,57 @@ export default function TelecallingView({
     } catch (e) {}
   };
 
-  const handleSoftDelete = async (recordOrId) => {
+  const handlePermanentDeleteCallLog = async (recordOrId) => {
     const targetId = typeof recordOrId === 'object' ? (recordOrId.id || recordOrId.originalId) : recordOrId;
     if (!targetId) return;
 
-    if (isSandboxEnvironment()) {
-      try {
-        await SupabaseSandboxService.deleteCallLog(targetId, companyId);
-      } catch (e) {
-        console.warn('Sandbox call_log delete notice:', e);
-      }
-    } else {
-      // 1. Delete from active Firestore collections
-      try {
-        if (db) {
-          await deleteDoc(doc(db, 'callLogs', String(targetId)));
-          await deleteDoc(doc(db, 'call_logs', String(targetId)));
-        }
-      } catch (e) {
-        console.warn('Firestore callLog delete notice:', e);
-      }
+    const confirmed = window.confirm('Are you sure you want to permanently delete this call log?');
+    if (!confirmed) return;
+
+    // 1. Delete from PostgreSQL (Supabase Sandbox)
+    try {
+      await SupabaseSandboxService.deleteCallLog(targetId, companyId);
+    } catch (e) {
+      console.warn('Sandbox call_log delete notice:', e);
     }
 
-    // 2. Move to Universal Recycle Bin / Archive
+    // 2. Delete from Firestore if present
+    try {
+      if (db) {
+        await deleteDoc(doc(db, 'callLogs', String(targetId)));
+        await deleteDoc(doc(db, 'call_logs', String(targetId)));
+      }
+    } catch (e) {
+      console.warn('Firestore callLog delete notice:', e);
+    }
+
+    // 3. Delete from Backend SQLite API if available
+    try {
+      const API_BASE = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+        ? 'http://localhost:5000/api'
+        : '/api';
+      const authToken = typeof window !== 'undefined' ? (localStorage.getItem('omnilflow_token') || localStorage.getItem('token')) : null;
+      await fetch(`${API_BASE}/telecalling/logs/${encodeURIComponent(targetId)}`, {
+        method: 'DELETE',
+        headers: { ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) }
+      });
+    } catch (e) {}
+
+    // 4. Update React local state & TenantStorage
+    setInternalLogs(prev => prev.filter(r => r.id !== targetId));
+    if (typeof setCallLogs === 'function') {
+      setCallLogs(prev => prev.filter(r => r.id !== targetId));
+    }
+    const filtered = (activeRecords || []).filter(r => r.id !== targetId);
+    TenantStorage.setItem('call_logs', filtered, companyId);
+    if (showToast) showToast('🗑️ Call log permanently deleted', 'success');
+  };
+
+  const handleArchiveCallLog = async (recordOrId) => {
+    const targetId = typeof recordOrId === 'object' ? (recordOrId.id || recordOrId.originalId) : recordOrId;
+    if (!targetId) return;
+
+    // Move to Universal Recycle Bin / Archive
     const rec = (activeRecords || []).find(r => r.id === targetId) || (typeof recordOrId === 'object' ? recordOrId : { id: targetId });
     if (typeof softDeleteRecord === 'function') {
       softDeleteRecord({
@@ -916,13 +944,12 @@ export default function TelecallingView({
       });
     }
 
-    // 3. Update React local state
     setInternalLogs(prev => prev.filter(r => r.id !== targetId));
     if (typeof setCallLogs === 'function') {
       setCallLogs(prev => prev.filter(r => r.id !== targetId));
     }
     TenantStorage.setItem('call_logs', (activeRecords || []).filter(r => r.id !== targetId), companyId);
-    if (showToast) showToast('🗑️ Call log moved to Trash Archive', 'info');
+    if (showToast) showToast('📁 Call log moved to Archive', 'info');
   };
 
   const handleHeaderDialClick = () => {
@@ -1409,7 +1436,8 @@ export default function TelecallingView({
           recycleBinItems={recycleBinItems}
           handleRestoreBinItem={handleRestoreBinItem}
           handlePermanentDeleteBinItem={handlePermanentDeleteBinItem}
-          softDeleteRecord={handleSoftDelete}
+          softDeleteRecord={handlePermanentDeleteCallLog}
+          onArchiveRecord={handleArchiveCallLog}
           showToast={showToast}
           onOpenModuleConfig={onOpenModuleConfig || openModuleConfigModal}
           onManageStages={onManageStages}

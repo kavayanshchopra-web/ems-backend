@@ -185,6 +185,45 @@ export default function BulkActionEngine({
     showToast(`📦 Archived ${selectedCount} ${selectedCount === 1 ? entityName.toLowerCase() : entityNamePlural.toLowerCase()}`, 'info');
   };
 
+  // 3B. PERMANENT DELETE SELECTED (From Active View)
+  const handleBulkActiveDelete = async () => {
+    if (!window.confirm(`⚠️ Permanently delete ${selectedCount} ${entityNamePlural.toLowerCase()} from the database? This action cannot be undone.`)) return;
+
+    const idsSet = new Set(selectedIds || []);
+    const activeTenant = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id || 1;
+    const numTenant = Number(activeTenant) || 1;
+
+    const matchedRecords = (records || []).filter(r => 
+      r && (idsSet.has(r.id) || idsSet.has(r.displayId) || idsSet.has(r.originalId))
+    );
+
+    if (matchedRecords.length === 0) return;
+
+    if (isSandboxEnvironment()) {
+      const dbIds = matchedRecords.map(r => r.id || r.originalId).filter(Boolean);
+      await SupabaseSandboxService.bulkDeleteContacts(dbIds, numTenant).catch(() => {});
+      for (const r of matchedRecords) {
+        if (r.email || r.phone) {
+          await SupabaseSandboxService.deleteContact(r.id, numTenant, r.phone, r.email).catch(() => {});
+        }
+      }
+    }
+
+    // Call softDeleteRecord / parent delete for each to clean up states & storage
+    for (const r of matchedRecords) {
+      if (typeof softDeleteRecord === 'function') {
+        softDeleteRecord(r.id || r.displayId || r.originalId);
+      }
+    }
+
+    const remaining = (records || []).filter(r => 
+      r && !idsSet.has(r.id) && !idsSet.has(r.displayId) && !idsSet.has(r.originalId)
+    );
+    setRecords(remaining);
+    setSelectedIds([]);
+    showToast(`🗑️ Permanently deleted ${matchedRecords.length} ${entityNamePlural.toLowerCase()}`, 'success');
+  };
+
   // 4. RESTORE SELECTED (For Archived View)
   const handleBulkRestore = () => {
     if (typeof handleRestoreBinItem === 'function') {
@@ -495,6 +534,19 @@ export default function BulkActionEngine({
               style={{ background: 'rgba(255, 255, 255, 0.08)', color: '#ffffff', borderColor: '#475569', fontSize: '11px', padding: '4px 10px' }}
             >
               Archive ({selectedCount})
+            </Button>
+          )}
+
+          {/* PERMANENT DELETE BUTTON (ACTIVE VIEW) */}
+          {!isArchivedView && canManage && (
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Trash2 size={13} />}
+              onClick={handleBulkActiveDelete}
+              style={{ background: '#fff1f2', color: '#e11d48', borderColor: '#fca5a5', fontSize: '11px', padding: '4px 10px', fontWeight: '700' }}
+            >
+              Delete ({selectedCount})
             </Button>
           )}
 

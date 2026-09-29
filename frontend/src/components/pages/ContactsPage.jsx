@@ -579,7 +579,7 @@ export default function ContactsPage({
     }
   };
 
-  // Soft Delete / Move to Recycle Bin (Archiving in Supabase, NOT deleting)
+  // Soft Delete / Move to Archive (Archiving in Supabase PostgreSQL, NOT deleting)
   const handleSoftDelete = async (recordOrId, silent = false) => {
     const rawTargetId = typeof recordOrId === 'object' ? (recordOrId.id || recordOrId.originalId) : recordOrId;
     if (!rawTargetId) return;
@@ -591,25 +591,26 @@ export default function ContactsPage({
 
     const safeTenant = Number(companyId) || 1;
     const trueId = rec.id || rawTargetId;
+    const email = rec.email;
+    const phone = rec.phone || rec.rawPhone;
 
-    if (isSandboxEnvironment()) {
-      try {
-        await SupabaseSandboxService.archiveContact(trueId, safeTenant, true);
-        if (rec.ghlContactId) {
-          await SupabaseSandboxService.archiveContact(`ghl_${rec.ghlContactId}`, safeTenant, true);
-        }
-      } catch (e) {
-        console.warn('Sandbox contact archive notice:', e);
+    try {
+      await SupabaseSandboxService.archiveContact(trueId, safeTenant, true, phone, email);
+      if (rec.ghlContactId) {
+        await SupabaseSandboxService.archiveContact(`ghl_${rec.ghlContactId}`, safeTenant, true);
       }
-    } else {
-      try {
-        if (db) {
-          await deleteDoc(doc(db, 'contacts', String(trueId)));
-        }
-      } catch (e) {
-        console.warn('Firestore contact delete notice:', e);
+      if (rec.originalId && rec.originalId !== trueId) {
+        await SupabaseSandboxService.archiveContact(rec.originalId, safeTenant, true);
       }
+    } catch (e) {
+      console.warn('Sandbox contact archive notice:', e);
     }
+
+    try {
+      if (db) {
+        await deleteDoc(doc(db, 'contacts', String(trueId))).catch(() => {});
+      }
+    } catch (e) {}
 
     const archivedRec = {
       ...rec,
@@ -636,13 +637,14 @@ export default function ContactsPage({
     }
 
     setInternalRecords(prev => (prev || []).filter(r => 
-      r && String(r.id) !== String(trueId) && String(r.displayId) !== String(trueId) && String(r.id) !== String(rawTargetId) && String(r.originalId) !== String(trueId)
+      r && String(r.id) !== String(trueId) && String(r.displayId) !== String(rawTargetId) && (!email || r.email !== email) && (!phone || r.phone !== phone)
     ));
     if (typeof setPropContacts === 'function') {
       setPropContacts(prev => (prev || []).filter(r => 
-        r && String(r.id) !== String(trueId) && String(r.displayId) !== String(trueId) && String(r.id) !== String(rawTargetId) && String(r.originalId) !== String(trueId)
+        r && String(r.id) !== String(trueId) && String(r.displayId) !== String(rawTargetId) && (!email || r.email !== email) && (!phone || r.phone !== phone)
       ));
     }
+    TenantStorage.setItem('contacts', (internalRecords || []).filter(r => r.id !== trueId && (!email || r.email !== email)), safeTenant);
 
     if (!silent && showToast) showToast('📁 Contact moved to Archived Vault', 'info');
   };
@@ -653,31 +655,75 @@ export default function ContactsPage({
     if (!rawTargetId) return;
     const safeTenant = Number(companyId) || 1;
 
-    if (isSandboxEnvironment()) {
-      await SupabaseSandboxService.archiveContact(rawTargetId, safeTenant, false).catch(() => {});
-    }
+    await SupabaseSandboxService.archiveContact(rawTargetId, safeTenant, false).catch(() => {});
     if (typeof handleRestoreBinItem === 'function') {
       handleRestoreBinItem(itemOrId);
     }
     setArchivedContacts(prev => (prev || []).filter(c => String(c.id) !== String(rawTargetId) && String(c.originalId) !== String(rawTargetId)));
-    fetchUniversalContacts();
     if (showToast) showToast('✅ Restored contact to active roster!', 'success');
   };
 
-  // Permanent Delete Contact from Database
+  // Permanent Delete Contact from Database (PostgreSQL + SQLite + Local Storage)
   const handlePermanentDeleteContact = async (itemOrId) => {
     const rawTargetId = typeof itemOrId === 'object' ? (itemOrId.originalId || itemOrId.id || itemOrId.recycleBinId) : itemOrId;
     if (!rawTargetId) return;
-    const safeTenant = Number(companyId) || 1;
 
-    if (isSandboxEnvironment()) {
-      await SupabaseSandboxService.deleteContact(rawTargetId, safeTenant).catch(() => {});
+    const rec = (internalRecords || []).find(r => 
+      r && (String(r.id) === String(rawTargetId) || String(r.displayId) === String(rawTargetId) || String(r.originalId) === String(rawTargetId))
+    ) || (archivedContacts || []).find(r => 
+      r && (String(r.id) === String(rawTargetId) || String(r.displayId) === String(rawTargetId) || String(r.originalId) === String(rawTargetId))
+    ) || (typeof itemOrId === 'object' ? itemOrId : { id: rawTargetId });
+
+    const confirmed = window.confirm(`⚠️ Are you sure you want to permanently delete "${rec.name || rec.phone || rec.email || 'this contact'}"? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    const safeTenant = Number(companyId) || 1;
+    const trueId = rec.id || rawTargetId;
+    const email = rec.email;
+    const phone = rec.phone || rec.rawPhone;
+
+    // 1. Delete from Supabase PostgreSQL across both sandbox and production
+    await SupabaseSandboxService.deleteContact(trueId, safeTenant, phone, email);
+    if (rec.ghlContactId) {
+      await SupabaseSandboxService.deleteContact(`ghl_${rec.ghlContactId}`, safeTenant);
     }
+    if (rec.originalId && rec.originalId !== trueId) {
+      await SupabaseSandboxService.deleteContact(rec.originalId, safeTenant);
+    }
+
+    // 2. Delete from Firestore and SQLite
+    try {
+      if (db) {
+        await deleteDoc(doc(db, 'contacts', String(trueId))).catch(() => {});
+      }
+      await fetch(`${API_URL}/contacts/${encodeURIComponent(trueId)}`, {
+        method: 'DELETE',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          'x-tenant-id': String(safeTenant)
+        }
+      }).catch(() => {});
+    } catch (e) {}
+
+    // 3. Clear from all local states and caches
     if (typeof handlePermanentDeleteBinItem === 'function') {
       handlePermanentDeleteBinItem(itemOrId);
     }
-    setArchivedContacts(prev => (prev || []).filter(c => String(c.id) !== String(rawTargetId) && String(c.originalId) !== String(rawTargetId)));
-    if (showToast) showToast('🗑️ Permanently deleted contact record.', 'info');
+    setArchivedContacts(prev => (prev || []).filter(c => String(c.id) !== String(trueId) && (!email || c.email !== email) && (!phone || c.phone !== phone)));
+    setInternalRecords(prev => (prev || []).filter(r => 
+      r && String(r.id) !== String(trueId) && String(r.displayId) !== String(rawTargetId) && (!email || r.email !== email) && (!phone || r.phone !== phone)
+    ));
+    if (typeof setPropContacts === 'function') {
+      setPropContacts(prev => (prev || []).filter(r => 
+        r && String(r.id) !== String(trueId) && String(r.displayId) !== String(rawTargetId) && (!email || r.email !== email) && (!phone || r.phone !== phone)
+      ));
+    }
+    TenantStorage.setItem('contacts', (internalRecords || []).filter(r => r.id !== trueId && (!email || r.email !== email)), safeTenant);
+    try {
+      localStorage.removeItem(`omniflow_cached_contacts_${safeTenant}`);
+    } catch (e) {}
+
+    if (showToast) showToast('🗑️ Permanently deleted contact record from database.', 'info');
   };
 
   // Unified Archived items merging Supabase Archived Contacts + TrashVault
@@ -920,7 +966,8 @@ export default function ContactsPage({
         recycleBinItems={mergedRecycleBinItems}
         handleRestoreBinItem={handleRestoreContact}
         handlePermanentDeleteBinItem={handlePermanentDeleteContact}
-        softDeleteRecord={handleSoftDelete}
+        softDeleteRecord={handlePermanentDeleteContact}
+        onArchiveRecord={handleSoftDelete}
         showToast={showToast}
         onOpenModuleConfig={openModuleConfigModal}
         onManageStages={onManageStages}
