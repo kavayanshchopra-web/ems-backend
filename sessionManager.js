@@ -547,6 +547,19 @@ export async function startSession(id, io) {
             console.warn(`[GHL Realtime Sync] Note: ${syncErr.message}`);
           }
         }).catch(() => {});
+      // ⚡ Isolated Sandbox n8n Workflow Trigger Hook
+      if (!fromMe && textContent && textContent.trim()) {
+        try {
+          const { n8nBridge } = await import('./services/n8nBridge.js');
+          await n8nBridge.processInboundMessage({
+            tenantId,
+            phone: jid,
+            text: textContent,
+            sock
+          });
+        } catch (autoErr) {
+          console.warn('[Sandbox Automation Trigger Error]', autoErr.message);
+        }
       }
 
       // Chatbot Auto-Reply Logic

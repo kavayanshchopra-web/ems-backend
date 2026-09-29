@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { initDb, getDb } from './db.js';
 import setupRoutes from './routes.js';
 import { initAllSessions } from './sessionManager.js';
+import { ghlAuthService } from './services/ghl/index.js';
 import paymentGatewayService from './services/PaymentGatewayService.js';
 import jwt from 'jsonwebtoken';
 
@@ -65,8 +66,10 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'OmniFlow Server is running', timestamp: new Date().toISOString() });
 });
 
-// Setup API routes
-app.use('/api', setupRoutes(io));
+// Setup API routes (Mount on both /api and / for unified GHL webhook compatibility)
+const routesHandler = setupRoutes(io);
+app.use('/api', routesHandler);
+app.use('/', routesHandler);
 
 // Voxbay standard webhook endpoint (/callcenterbridging)
 const handleVoxbayWebhook = async (req, res) => {
@@ -97,7 +100,10 @@ async function start() {
     // 2. Start all active sessions in the background
     await initAllSessions(io);
 
-    // 3. Socket.io handling with Multi-Tenant Room Isolation
+    // 3. Start GHL Token Expiry Background Refresh Daemon
+    ghlAuthService.startBackgroundRefreshWorker();
+
+    // 4. Socket.io handling with Multi-Tenant Room Isolation
     io.use((socket, next) => {
       try {
         const token = socket.handshake.auth?.token || socket.handshake.query?.token;

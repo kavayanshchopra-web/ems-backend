@@ -1,0 +1,1128 @@
+import ghlApiClient, { GhlApiError } from './GhlApiClient.js';
+import { 
+  normalizePhoneToE164, 
+  phoneToWhatsAppJid, 
+  splitFullName, 
+  calculatePayloadHash 
+} from './ghlUtils.js';
+import { 
+  getGhlIntegrationByTenant,
+  getGhlIntegrationByLocation,
+  getAllActiveGhlIntegrations,
+  getContact, 
+  getAllContacts,
+  saveContact,
+  updateContactCRM,
+  saveGhlEntityLink, 
+  getGhlEntityLink, 
+  getEmsEntityByGhlId,
+  createGhlSyncLog,
+  findContactByPhoneOrEmail
+} from '../../db.js';
+
+/**
+ * Production-grade GHL Contact Bidirectional Synchronization Engine
+ * Implements deterministic deduplication, entity linking, loop suppression,
+ * and tenant-isolated audit logging.
+ */
+export class GhlSyncEngine {
+  /**
+   * Generates a cryptographic MD5 hash of an entity payload to prevent infinite echo loops.
+   * @param {Object} payload 
+   * @returns {string}
+   */
+  generatePayloadHash(payload) {
+    return calculatePayloadHash(payload);
+  }
+
+  /**
+   * Synchronizes an EMS Contact to GoHighLevel.
+   * - If already linked: updates the existing GHL Contact.
+   * - If unlinked: checks for existing GHL contact or creates a new one, then stores the link.
+   * - Suppresses infinite loop echoes if the payload has not changed.
+   * 
+   * @param {number} tenantId - EMS Tenant ID
+   * @param {string} emsContactId - EMS Contact Identifier (e.g. WhatsApp JID)
+   * @returns {Promise<Object>} Sync result with status and GHL contact details
+   */
+  async syncContactToGhl(tenantId, emsContactId, explicitContact = null) {
+    if (!tenantId) throw new GhlApiError('tenantId is required for contact sync', 'GHL_VALIDATION_ERROR', 400);
+    if (!emsContactId && !explicitContact) throw new GhlApiError('emsContactId is required for contact sync', 'GHL_VALIDATION_ERROR', 400);
+
+    const actualContactId = emsContactId || explicitContact?.id || explicitContact?.phone;
+
+    // Skip WhatsApp Groups & Broadcasts
+    const idStr = String(actualContactId);
+    if (idStr.includes('@g.us') || idStr.includes('@broadcast') || idStr.includes('status@') || (idStr.includes('-') && idStr.length > 15)) {
+      return {
+        status: 'skipped',
+        reason: 'whatsapp_group_or_broadcast',
+        emsContactId: actualContactId
+      };
+    }
+
+    // 1. Verify tenant has an active GHL integration
+    let integration = await getGhlIntegrationByTenant(tenantId);
+    if (!integration && typeof tenantId === 'string') {
+      integration = await getGhlIntegrationByLocation(tenantId);
+    }
+    if (!integration && !tenantId) {
+      const allActive = await getAllActiveGhlIntegrations();
+      if (allActive && allActive.length > 0) integration = allActive[0];
+    }
+    if (!integration || !integration.is_active || !integration.location_id) {
+      throw new GhlApiError('GoHighLevel integration is not active or connected for this tenant', 'GHL_NOT_CONNECTED', 400);
+    }
+    const locationId = integration.location_id;
+
+    // 2. Fetch EMS contact record
+    let emsContact = explicitContact || await getContact(actualContactId, tenantId);
+    if (!emsContact && typeof emsContactId === 'object') {
+      emsContact = emsContactId;
+    }
+    if (!emsContact) {
+      throw new GhlApiError(`EMS Contact "${actualContactId}" not found in tenant ${tenantId}`, 'GHL_NOT_FOUND', 404);
+    }
+
+    // Skip groups if phone or name is invalid
+    if (String(emsContact.phone || '').includes('@g.us') || String(emsContact.phone || '').includes('-')) {
+      return {
+        status: 'skipped',
+        reason: 'whatsapp_group_or_broadcast',
+        emsContactId: actualContactId
+      };
+    }
+
+    // 3. Compute deterministic payload hash for loop suppression
+    const payloadHash = this.generatePayloadHash(emsContact);
+    const existingLink = await getGhlEntityLink(tenantId, locationId, 'contact', actualContactId);
+
+    if (existingLink && existingLink.last_synced_hash === payloadHash) {
+      return {
+        status: 'skipped',
+        reason: 'echo_suppressed',
+        emsContactId,
+        ghlContactId: existingLink.ghl_entity_id,
+        locationId
+      };
+    }
+
+    // 4. Prepare HighLevel standard contact payload with multi-field phone resolution
+    const phoneCandidate = emsContact.phone 
+      || emsContact.phoneNumber 
+      || emsContact.customerPhone 
+      || emsContact.rawPhone 
+      || emsContact.phone_computed 
+      || emsContact.id 
+      || emsContactId 
+      || '';
+    
+    const normalizedPhone = normalizePhoneToE164(String(phoneCandidate)) 
+      || normalizePhoneToE164(String(emsContact.phone || '')) 
+      || normalizePhoneToE164(String(emsContact.phone_computed || '')) 
+      || normalizePhoneToE164(String(emsContact.id || '')) 
+      || null;
+
+    const displayName = (emsContact.custom_name || emsContact.name || emsContact.contactName || emsContact.customerName || '').trim();
+    const { firstName, lastName, name } = splitFullName(displayName);
+
+    const contactPayload = {
+      name: name || undefined,
+      firstName: firstName || undefined,
+      lastName: lastName || undefined,
+      email: (emsContact.email || '').trim() || undefined,
+      phone: normalizedPhone || undefined,
+      tags: Array.isArray(emsContact.labels) ? emsContact.labels : (Array.isArray(emsContact.tags) ? emsContact.tags : undefined)
+    };
+
+    let ghlContactId = existingLink ? existingLink.ghl_entity_id : null;
+    let operation = existingLink ? 'UPDATE' : 'CREATE';
+
+    try {
+      if (ghlContactId) {
+        // Update existing HighLevel Contact
+        await ghlApiClient.updateContact(locationId, ghlContactId, contactPayload);
+      } else {
+        // Check if matching contact already exists in GHL by email or phone before creating
+        const existingGhl = await ghlApiClient.lookupContact(locationId, {
+          email: contactPayload.email,
+          phone: contactPayload.phone
+        });
+
+        if (existingGhl && existingGhl.id) {
+          ghlContactId = existingGhl.id;
+          operation = 'LINK_AND_UPDATE';
+          await ghlApiClient.updateContact(locationId, ghlContactId, contactPayload);
+        } else {
+          // Create brand new HighLevel Contact
+          const created = await ghlApiClient.createContact(locationId, contactPayload);
+          ghlContactId = created.contact?.id || created.id;
+        }
+      }
+
+      if (!ghlContactId) {
+        throw new GhlApiError('HighLevel did not return a valid Contact ID', 'GHL_SYNC_ERROR', 500);
+      }
+
+      // 5. Store / update bidirectional entity link
+      await saveGhlEntityLink(tenantId, {
+        locationId,
+        entityType: 'contact',
+        emsEntityId: emsContactId,
+        ghlEntityId: ghlContactId,
+        lastSyncedHash: payloadHash
+      });
+
+      // 6. Log successful sync operation in audit trail
+      await createGhlSyncLog(tenantId, {
+        locationId,
+        direction: 'OUTBOUND',
+        entityType: 'contact',
+        emsEntityId: emsContactId,
+        ghlEntityId: ghlContactId,
+        eventType: operation === 'UPDATE' ? 'ContactUpdatedInGhl' : 'ContactCreatedInGhl',
+        status: 'SUCCESS',
+        httpStatus: 200,
+        payload: { emsContactId, ghlContactId, payloadHash },
+        idempotencyKey: `${locationId}_contact_${emsContactId}_${payloadHash}`
+      });
+
+      return {
+        status: 'success',
+        operation,
+        emsContactId,
+        ghlContactId,
+        locationId,
+        syncedAt: new Date().toISOString()
+      };
+    } catch (err) {
+      // Record failed sync attempt
+      await createGhlSyncLog(tenantId, {
+        locationId,
+        direction: 'OUTBOUND',
+        entityType: 'contact',
+        emsEntityId: emsContactId,
+        ghlEntityId: ghlContactId,
+        eventType: 'ContactSyncFailed',
+        status: 'FAILED',
+        httpStatus: err.status || 500,
+        errorMessage: err.message,
+        payload: { emsContactId, contactPayload },
+        idempotencyKey: `${locationId}_contact_${emsContactId}_err_${Date.now()}`
+      });
+
+      throw err;
+    }
+  }
+
+  /**
+   * Imports or updates a HighLevel Contact into the local EMS database.
+   * - If already linked: updates local EMS contact.
+   * - If unlinked: uses deterministic matching (Email -> Phone).
+   * - If conflict detected: logs MATCH_CONFLICT and refuses to merge blindly.
+   * 
+   * @param {number} tenantId - EMS Tenant ID
+   * @param {string} ghlContactId - HighLevel Contact ID
+   * @param {Object} [ghlContactData=null] - Optional pre-fetched contact data
+   * @returns {Promise<Object>} Import result summary
+   */
+  async importGhlContact(tenantId, ghlContactId, ghlContactData = null) {
+    if (!tenantId) throw new GhlApiError('tenantId is required for contact import', 'GHL_VALIDATION_ERROR', 400);
+    if (!ghlContactId) throw new GhlApiError('ghlContactId is required for contact import', 'GHL_VALIDATION_ERROR', 400);
+
+    let integration = await getGhlIntegrationByTenant(tenantId);
+    if (!integration && typeof tenantId === 'string') {
+      integration = await getGhlIntegrationByLocation(tenantId);
+    }
+    if (!integration || !integration.is_active || !integration.location_id) {
+      throw new GhlApiError('GoHighLevel integration is not active for this tenant', 'GHL_NOT_CONNECTED', 400);
+    }
+    const locationId = integration.location_id;
+
+    // 1. Fetch Contact from HighLevel if not provided
+    let contact = ghlContactData;
+    if (!contact) {
+      const response = await ghlApiClient.getContact(locationId, ghlContactId);
+      contact = response.contact || response;
+    }
+
+    if (!contact || (!contact.id && !ghlContactId)) {
+      throw new GhlApiError(`Contact "${ghlContactId}" not found in HighLevel`, 'GHL_NOT_FOUND', 404);
+    }
+
+    const payloadHash = this.generatePayloadHash(contact);
+
+    // 2. Check if already linked
+    const existingLink = await getEmsEntityByGhlId(tenantId, locationId, 'contact', ghlContactId);
+
+    if (existingLink && existingLink.last_synced_hash === payloadHash) {
+      return {
+        status: 'skipped',
+        reason: 'echo_suppressed',
+        emsContactId: existingLink.ems_entity_id,
+        ghlContactId,
+        locationId
+      };
+    }
+
+    let emsContactId = existingLink ? existingLink.ems_entity_id : null;
+    let operation = existingLink ? 'UPDATE' : 'CREATE';
+
+    // 3. If unlinked, perform deterministic matching
+    if (!emsContactId) {
+      const matchResult = await findContactByPhoneOrEmail(tenantId, contact.phone, contact.email);
+
+      if (matchResult && matchResult.matchConflict) {
+        // Ambiguous match with multiple local records — log conflict & do not auto-merge
+        await createGhlSyncLog(tenantId, {
+          locationId,
+          direction: 'INBOUND',
+          entityType: 'contact',
+          ghlEntityId: ghlContactId,
+          eventType: 'ContactMatchConflict',
+          status: 'CONFLICT',
+          httpStatus: 409,
+          errorMessage: `Ambiguous match: found ${matchResult.matches.length} local contacts matching GHL contact`,
+          payload: { ghlContactId, phone: contact.phone, email: contact.email }
+        });
+
+        return {
+          status: 'conflict',
+          code: 'GHL_MATCH_CONFLICT',
+          reason: 'Multiple matching contacts found in EMS database',
+          ghlContactId,
+          matches: matchResult.matches.map(m => m.id)
+        };
+      }
+
+      if (matchResult && matchResult.id) {
+        emsContactId = matchResult.id;
+        operation = 'LINK_AND_UPDATE';
+      } else {
+        // Derive EMS contact ID from phone (WhatsApp JID format) or GHL ID fallback
+        emsContactId = phoneToWhatsAppJid(contact.phone) || `ghl_${ghlContactId}`;
+      }
+    }
+
+    const fullName = (contact.name || `${contact.firstName || ''} ${contact.lastName || ''}`).trim() || 'HighLevel Contact';
+    const email = (contact.email || '').trim();
+
+    // 4. Upsert into local EMS contacts table
+    await saveContact(emsContactId, fullName, tenantId, 'lead');
+    await updateContactCRM(emsContactId, {
+      customName: fullName,
+      email: email || undefined,
+      labels: Array.isArray(contact.tags) ? contact.tags : undefined
+    }, tenantId);
+
+    // 5. Store / update entity link
+    await saveGhlEntityLink(tenantId, {
+      locationId,
+      entityType: 'contact',
+      emsEntityId: emsContactId,
+      ghlEntityId: ghlContactId,
+      lastSyncedHash: payloadHash
+    });
+
+    // 6. Record sync audit log
+    await createGhlSyncLog(tenantId, {
+      locationId,
+      direction: 'INBOUND',
+      entityType: 'contact',
+      emsEntityId: emsContactId,
+      ghlEntityId: ghlContactId,
+      eventType: operation === 'UPDATE' ? 'ContactUpdatedFromGhl' : 'ContactImportedFromGhl',
+      status: 'SUCCESS',
+      httpStatus: 200,
+      payload: { emsContactId, ghlContactId, payloadHash }
+    });
+
+    return {
+      status: 'success',
+      operation,
+      emsContactId,
+      ghlContactId,
+      locationId,
+      importedAt: new Date().toISOString()
+    };
+  }
+
+  /**
+   * Batch synchronizes all active EMS contacts for a tenant to HighLevel.
+   * 
+   * @param {number} tenantId 
+   * @returns {Promise<Object>} Batch summary with total, synced, skipped, and failed counts
+   */
+  async syncAllContactsToGhl(tenantId, explicitContacts = null) {
+    if (!tenantId) throw new GhlApiError('tenantId is required', 'GHL_VALIDATION_ERROR', 400);
+
+    let allContacts = explicitContacts;
+    if (!allContacts || !Array.isArray(allContacts) || allContacts.length === 0) {
+      allContacts = await getAllContacts(tenantId);
+    }
+    const summary = {
+      total: (allContacts || []).length,
+      synced: 0,
+      skipped: 0,
+      failed: 0,
+      errors: []
+    };
+
+    for (const contact of (allContacts || [])) {
+      try {
+        const cId = contact.id || contact.phone;
+        const result = await this.syncContactToGhl(tenantId, cId, contact);
+        if (result.status === 'skipped') {
+          summary.skipped++;
+        } else {
+          summary.synced++;
+        }
+      } catch (err) {
+        summary.failed++;
+        summary.errors.push({
+          contactId: contact.id || contact.phone,
+          error: err.message
+        });
+      }
+    }
+
+    return summary;
+  }
+
+  // ============================================================================
+  // OPPORTUNITIES & PIPELINES SYNC
+  // ============================================================================
+
+  /**
+   * Resolves the appropriate HighLevel Pipeline ID, Stage ID, and Status
+   * based on the EMS contact's pipeline stage.
+   * 
+   * @param {number} tenantId 
+   * @param {string} locationId 
+   * @param {string} emsStage 
+   * @returns {Promise<{ pipelineId: string, pipelineStageId: string, status: string }>}
+   */
+  async resolveGhlPipelineAndStage(tenantId, locationId, emsStage = 'new') {
+    const pipelinesData = await ghlApiClient.getPipelines(locationId);
+    const pipelines = pipelinesData.pipelines || [];
+
+    if (!pipelines.length) {
+      throw new GhlApiError(`No pipelines found for HighLevel location ${locationId}`, 'GHL_NOT_FOUND', 404);
+    }
+
+    const activePipeline = pipelines[0];
+    const stages = activePipeline.stages || [];
+
+    if (!stages.length) {
+      throw new GhlApiError(`Pipeline ${activePipeline.id} has no stages defined`, 'GHL_VALIDATION_ERROR', 400);
+    }
+
+    const cleanStage = String(emsStage || '').toLowerCase().trim();
+    let status = 'open';
+    if (cleanStage === 'won' || cleanStage === 'closed_won' || cleanStage === 'customer') {
+      status = 'won';
+    } else if (cleanStage === 'lost' || cleanStage === 'closed_lost' || cleanStage === 'disqualified') {
+      status = 'lost';
+    }
+
+    // Match stage by semantic name
+    let matchedStage = stages.find(s => s.name && s.name.toLowerCase().includes(cleanStage));
+    if (!matchedStage) {
+      if (status === 'won') {
+        matchedStage = stages.find(s => s.name && s.name.toLowerCase().includes('won'));
+      } else if (status === 'lost') {
+        matchedStage = stages.find(s => s.name && s.name.toLowerCase().includes('lost'));
+      }
+    }
+
+    // Default fallback to first stage if unmapped
+    const targetStage = matchedStage || stages[0];
+
+    return {
+      pipelineId: activePipeline.id,
+      pipelineStageId: targetStage.id,
+      status
+    };
+  }
+
+  /**
+   * Synchronizes an EMS Contact's Deal / Opportunity to GoHighLevel.
+   * Ensures the prerequisite Contact exists on GHL first, resolves pipeline & stage,
+   * enforces loop suppression, and persists opportunity entity link.
+   * 
+   * @param {number} tenantId 
+   * @param {string} emsContactId 
+   * @returns {Promise<Object>}
+   */
+  async syncOpportunityToGhl(tenantId, emsContactId) {
+    if (!tenantId) throw new GhlApiError('tenantId is required', 'GHL_VALIDATION_ERROR', 400);
+    if (!emsContactId) throw new GhlApiError('emsContactId is required', 'GHL_VALIDATION_ERROR', 400);
+
+    const integration = await getGhlIntegrationByTenant(tenantId);
+    if (!integration || !integration.is_active || !integration.location_id) {
+      throw new GhlApiError('GoHighLevel is not connected for this tenant', 'GHL_NOT_CONNECTED', 400);
+    }
+    const locationId = integration.location_id;
+
+    // 1. Fetch EMS Contact Record
+    const emsContact = await getContact(emsContactId, tenantId);
+    if (!emsContact) {
+      throw new GhlApiError(`Contact "${emsContactId}" not found in EMS`, 'GHL_NOT_FOUND', 404);
+    }
+
+    // 2. Ensure Prerequisite Contact is Linked on HighLevel
+    let contactLink = await getGhlEntityLink(tenantId, locationId, 'contact', emsContactId);
+    let ghlContactId = contactLink ? contactLink.ghl_entity_id : null;
+
+    if (!ghlContactId) {
+      const contactSyncRes = await this.syncContactToGhl(tenantId, emsContactId);
+      ghlContactId = contactSyncRes.ghlContactId;
+    }
+
+    if (!ghlContactId) {
+      throw new GhlApiError('Failed to establish prerequisite HighLevel Contact link', 'GHL_SYNC_ERROR', 500);
+    }
+
+    // 3. Resolve Pipeline & Stage
+    const { pipelineId, pipelineStageId, status } = await this.resolveGhlPipelineAndStage(tenantId, locationId, emsContact.pipeline_stage);
+
+    const dealTitle = (emsContact.custom_name || emsContact.name || 'Deal').trim() + ' Opportunity';
+    const monetaryValue = Number(emsContact.deal_value) || 0;
+
+    const oppPayload = {
+      name: dealTitle,
+      pipelineId,
+      pipelineStageId,
+      status,
+      monetaryValue,
+      contactId: ghlContactId
+    };
+
+    // 4. Loop Suppression Hash
+    const payloadHash = this.generatePayloadHash(oppPayload);
+    const existingOppLink = await getGhlEntityLink(tenantId, locationId, 'opportunity', emsContactId);
+
+    if (existingOppLink && existingOppLink.last_synced_hash === payloadHash) {
+      return {
+        status: 'skipped',
+        reason: 'echo_suppressed',
+        emsContactId,
+        ghlOpportunityId: existingOppLink.ghl_entity_id,
+        locationId
+      };
+    }
+
+    let ghlOppId = existingOppLink ? existingOppLink.ghl_entity_id : null;
+    let operation = existingOppLink ? 'UPDATE' : 'CREATE';
+
+    try {
+      if (ghlOppId) {
+        await ghlApiClient.updateOpportunity(locationId, ghlOppId, oppPayload);
+      } else {
+        const created = await ghlApiClient.createOpportunity(locationId, oppPayload);
+        ghlOppId = created.opportunity?.id || created.id;
+      }
+
+      if (!ghlOppId) {
+        throw new GhlApiError('HighLevel did not return a valid Opportunity ID', 'GHL_SYNC_ERROR', 500);
+      }
+
+      // 5. Store / update entity link
+      await saveGhlEntityLink(tenantId, {
+        locationId,
+        entityType: 'opportunity',
+        emsEntityId: emsContactId,
+        ghlEntityId: ghlOppId,
+        lastSyncedHash: payloadHash
+      });
+
+      // 6. Record sync log
+      await createGhlSyncLog(tenantId, {
+        locationId,
+        direction: 'OUTBOUND',
+        entityType: 'opportunity',
+        emsEntityId: emsContactId,
+        ghlEntityId: ghlOppId,
+        eventType: operation === 'UPDATE' ? 'OpportunityUpdatedInGhl' : 'OpportunityCreatedInGhl',
+        status: 'SUCCESS',
+        httpStatus: 200,
+        payload: { emsContactId, ghlOppId, payloadHash },
+        idempotencyKey: `${locationId}_opp_${emsContactId}_${payloadHash}`
+      });
+
+      return {
+        status: 'success',
+        operation,
+        emsContactId,
+        ghlOpportunityId: ghlOppId,
+        pipelineId,
+        pipelineStageId,
+        locationId,
+        syncedAt: new Date().toISOString()
+      };
+    } catch (err) {
+      await createGhlSyncLog(tenantId, {
+        locationId,
+        direction: 'OUTBOUND',
+        entityType: 'opportunity',
+        emsEntityId: emsContactId,
+        ghlEntityId: ghlOppId,
+        eventType: 'OpportunitySyncFailed',
+        status: 'FAILED',
+        httpStatus: err.status || 500,
+        errorMessage: err.message,
+        payload: { emsContactId, oppPayload },
+        idempotencyKey: `${locationId}_opp_${emsContactId}_err_${Date.now()}`
+      });
+
+      throw err;
+    }
+  }
+
+  /**
+   * Ingests or updates a HighLevel Opportunity into local EMS CRM contact/deal record.
+   * 
+   * @param {number} tenantId 
+   * @param {string} ghlOppId 
+   * @param {Object} [ghlOppData=null] 
+   * @returns {Promise<Object>}
+   */
+  async importGhlOpportunity(tenantId, ghlOppId, ghlOppData = null) {
+    if (!tenantId) throw new GhlApiError('tenantId is required', 'GHL_VALIDATION_ERROR', 400);
+    if (!ghlOppId) throw new GhlApiError('ghlOppId is required', 'GHL_VALIDATION_ERROR', 400);
+
+    const integration = await getGhlIntegrationByTenant(tenantId);
+    if (!integration || !integration.is_active || !integration.location_id) {
+      throw new GhlApiError('GoHighLevel is not active for this tenant', 'GHL_NOT_CONNECTED', 400);
+    }
+    const locationId = integration.location_id;
+
+    let opp = ghlOppData;
+    if (!opp) {
+      const response = await ghlApiClient.getOpportunity(locationId, ghlOppId);
+      opp = response.opportunity || response;
+    }
+
+    if (!opp) {
+      throw new GhlApiError(`Opportunity "${ghlOppId}" not found in HighLevel`, 'GHL_NOT_FOUND', 404);
+    }
+
+    const payloadHash = this.generatePayloadHash(opp);
+
+    // 1. Check existing opportunity link
+    const existingOppLink = await getEmsEntityByGhlId(tenantId, locationId, 'opportunity', ghlOppId);
+
+    if (existingOppLink && existingOppLink.last_synced_hash === payloadHash) {
+      return {
+        status: 'skipped',
+        reason: 'echo_suppressed',
+        emsContactId: existingOppLink.ems_entity_id,
+        ghlOpportunityId: ghlOppId,
+        locationId
+      };
+    }
+
+    let emsContactId = existingOppLink ? existingOppLink.ems_entity_id : null;
+
+    // 2. If unlinked, resolve EMS contact from GHL contactId
+    const ghlContactId = opp.contactId || opp.contact_id || (opp.contact && opp.contact.id);
+    if (!emsContactId && ghlContactId) {
+      const contactLink = await getEmsEntityByGhlId(tenantId, locationId, 'contact', ghlContactId);
+      if (contactLink) {
+        emsContactId = contactLink.ems_entity_id;
+      } else {
+        // Automatically import prerequisite contact
+        const contactImport = await this.importGhlContact(tenantId, ghlContactId);
+        emsContactId = contactImport.emsContactId;
+      }
+    }
+
+    if (!emsContactId) {
+      throw new GhlApiError('Could not resolve EMS Contact for incoming Opportunity', 'GHL_SYNC_ERROR', 500);
+    }
+
+    // 3. Map GHL status / stage to EMS pipeline_stage
+    let emsStage = 'lead';
+    const status = String(opp.status || 'open').toLowerCase();
+    if (status === 'won') {
+      emsStage = 'won';
+    } else if (status === 'lost' || status === 'abandoned') {
+      emsStage = 'lost';
+    } else {
+      emsStage = 'lead';
+    }
+
+    const monetaryValue = Number(opp.monetaryValue || opp.value) || 0;
+
+    // 4. Update local contact CRM stage & deal value
+    await updateContactCRM(emsContactId, {
+      pipelineStage: emsStage,
+      dealValue: monetaryValue
+    }, tenantId);
+
+    // 5. Store / update opportunity entity link
+    await saveGhlEntityLink(tenantId, {
+      locationId,
+      entityType: 'opportunity',
+      emsEntityId: emsContactId,
+      ghlEntityId: ghlOppId,
+      lastSyncedHash: payloadHash
+    });
+
+    // 6. Record sync audit log
+    await createGhlSyncLog(tenantId, {
+      locationId,
+      direction: 'INBOUND',
+      entityType: 'opportunity',
+      emsEntityId: emsContactId,
+      ghlEntityId: ghlOppId,
+      eventType: existingOppLink ? 'OpportunityUpdatedFromGhl' : 'OpportunityImportedFromGhl',
+      status: 'SUCCESS',
+      httpStatus: 200,
+      payload: { emsContactId, ghlOppId, payloadHash }
+    });
+
+    return {
+      status: 'success',
+      operation: existingOppLink ? 'UPDATE' : 'CREATE',
+      emsContactId,
+      ghlOpportunityId: ghlOppId,
+      locationId,
+      importedAt: new Date().toISOString()
+    };
+  }
+
+  /**
+   * Batch synchronizes all active CRM deals/opportunities to HighLevel.
+   * 
+   * @param {number} tenantId 
+   * @returns {Promise<Object>}
+   */
+  async syncAllOpportunitiesToGhl(tenantId) {
+    if (!tenantId) throw new GhlApiError('tenantId is required', 'GHL_VALIDATION_ERROR', 400);
+
+    const allContacts = await getAllContacts(tenantId);
+    const summary = {
+      total: allContacts.length,
+      synced: 0,
+      skipped: 0,
+      failed: 0,
+      errors: []
+    };
+
+    for (const contact of allContacts) {
+      try {
+        const result = await this.syncOpportunityToGhl(tenantId, contact.id);
+        if (result.status === 'skipped') {
+          summary.skipped++;
+        } else {
+          summary.synced++;
+        }
+      } catch (err) {
+        summary.failed++;
+        summary.errors.push({
+          contactId: contact.id,
+          error: err.message
+        });
+      }
+    }
+
+    return summary;
+  }
+
+  /**
+   * Bulk Inbound Import: Fetches all Contacts from HighLevel into EMS.
+   * Uses cursor pagination to import all contacts (up to 10,000+).
+   * 
+   * @param {string|number} tenantId 
+   * @param {Object} [options]
+   * @returns {Promise<Object>}
+   */
+  async importAllContactsFromGhl(tenantId, { limit = 100, maxTotal = 10000, locationId: overrideLocId = null } = {}) {
+    if (!tenantId && !overrideLocId) throw new GhlApiError('tenantId or locationId is required', 'GHL_VALIDATION_ERROR', 400);
+
+    let integration = tenantId ? await getGhlIntegrationByTenant(tenantId) : null;
+    if (!integration && (overrideLocId || tenantId)) {
+      integration = await getGhlIntegrationByLocation(overrideLocId || tenantId);
+    }
+    if (!integration || !integration.location_id || integration.is_active !== 1) {
+      throw new GhlApiError('GoHighLevel is not connected for this sub-account', 'GHL_NOT_CONNECTED', 400);
+    }
+    const locationId = integration.location_id;
+    const effectiveTenantId = integration.tenant_id || tenantId || 1;
+
+    const summary = {
+      totalFound: 0,
+      imported: 0,
+      updated: 0,
+      skipped: 0,
+      errors: [],
+      contacts: []
+    };
+
+    let startAfter = null;
+    let hasMore = true;
+    let pagesProcessed = 0;
+
+    while (hasMore && (summary.imported + summary.updated + summary.skipped) < maxTotal && pagesProcessed < 150) {
+      pagesProcessed++;
+      const response = await ghlApiClient.searchContacts(locationId, {
+        limit: Math.min(limit, 100),
+        startAfter: startAfter || undefined
+      });
+
+      const contacts = response.contacts || [];
+      if (!contacts.length) {
+        hasMore = false;
+        break;
+      }
+
+      summary.totalFound = response.total || (summary.totalFound + contacts.length);
+
+      for (const ghlContact of contacts) {
+        try {
+          const importResult = await this.importGhlContact(tenantId, ghlContact.id, ghlContact);
+          const fullName = ghlContact.name || `${ghlContact.firstName || ''} ${ghlContact.lastName || ''}`.trim() || 'GHL Contact';
+          
+          if (importResult.status === 'success') {
+            if (importResult.operation === 'CREATE') {
+              summary.imported++;
+            } else {
+              summary.updated++;
+            }
+            summary.contacts.push({
+              id: importResult.emsContactId,
+              ghlId: ghlContact.id,
+              name: fullName,
+              phone: ghlContact.phone || '',
+              email: ghlContact.email || '',
+              pipelineStage: 'lead',
+              tags: Array.isArray(ghlContact.tags) ? ghlContact.tags : []
+            });
+          } else if (importResult.status === 'skipped') {
+            summary.skipped++;
+          }
+        } catch (err) {
+          summary.errors.push({ id: ghlContact.id, error: err.message });
+        }
+      }
+
+      // Check cursor pagination
+      if (response.meta && (response.meta.startAfter || response.meta.nextPageUrl)) {
+        startAfter = response.meta.startAfter || response.meta.startAfterId;
+        if (!startAfter) hasMore = false;
+      } else if (contacts.length < limit) {
+        hasMore = false;
+      } else {
+        startAfter = contacts[contacts.length - 1].dateAdded || contacts[contacts.length - 1].id;
+      }
+    }
+
+    return summary;
+  }
+
+  /**
+   * Bulk Inbound Import: Fetches all Opportunities and Pipeline Stages from HighLevel into EMS.
+   * 
+   * @param {string|number} tenantId 
+   * @param {Object} [options]
+   * @returns {Promise<Object>}
+   */
+  async importAllOpportunitiesFromGhl(tenantId, { limit = 100, locationId: overrideLocId = null } = {}) {
+    if (!tenantId && !overrideLocId) throw new GhlApiError('tenantId or locationId is required', 'GHL_VALIDATION_ERROR', 400);
+
+    let integration = tenantId ? await getGhlIntegrationByTenant(tenantId) : null;
+    if (!integration && (overrideLocId || tenantId)) {
+      integration = await getGhlIntegrationByLocation(overrideLocId || tenantId);
+    }
+    if (!integration || !integration.location_id || integration.is_active !== 1) {
+      throw new GhlApiError('GoHighLevel is not connected for this sub-account', 'GHL_NOT_CONNECTED', 400);
+    }
+    const locationId = integration.location_id;
+    const effectiveTenantId = integration.tenant_id || tenantId || 1;
+
+    // 1. Fetch all pipelines and stages
+    const pipelinesRes = await ghlApiClient.getPipelines(locationId);
+    const pipelines = pipelinesRes.pipelines || [];
+
+    const summary = {
+      totalFound: 0,
+      imported: 0,
+      updated: 0,
+      skipped: 0,
+      errors: [],
+      opportunities: [],
+      pipelines: pipelines.map(p => ({ id: p.id, name: p.name, stages: p.stages || [] }))
+    };
+
+    for (const pipeline of pipelines) {
+      try {
+        const oppsRes = await ghlApiClient.searchOpportunities(locationId, {
+          pipelineId: pipeline.id,
+          limit
+        });
+        const opps = oppsRes.opportunities || [];
+        summary.totalFound += opps.length;
+
+        for (const opp of opps) {
+          try {
+            const importResult = await this.importGhlOpportunity(tenantId, opp.id, opp);
+            if (importResult.status === 'success') {
+              if (importResult.operation === 'CREATE') {
+                summary.imported++;
+              } else {
+                summary.updated++;
+              }
+              summary.opportunities.push({
+                id: importResult.emsContactId,
+                ghlId: opp.id,
+                name: opp.name,
+                status: opp.status,
+                monetaryValue: opp.monetaryValue || 0,
+                pipelineName: pipeline.name
+              });
+            } else if (importResult.status === 'skipped') {
+              summary.skipped++;
+            }
+          } catch (err) {
+            summary.errors.push({ id: opp.id, error: err.message });
+          }
+        }
+      } catch (pipeErr) {
+        summary.errors.push({ pipelineId: pipeline.id, error: pipeErr.message });
+      }
+    }
+
+    return summary;
+  }
+
+  /**
+   * Synchronize an EMS Call Record & Recording to GoHighLevel Conversation & Timeline.
+   * Works for both Voxbay PBX Cloud calls and Runo-style Mobile SIM Companion recordings.
+   * 
+   * @param {number} tenantId 
+   * @param {Object} callLog 
+   * @returns {Promise<Object>}
+   */
+  async syncCallRecordToGhl(tenantId, callLog = {}) {
+    if (!tenantId || !callLog) return { status: 'skipped', reason: 'missing_parameters' };
+
+    try {
+      // 1. Verify tenant has an active GHL integration
+      let integration = await getGhlIntegrationByTenant(tenantId);
+      if (!integration && typeof tenantId === 'string') {
+        integration = await getGhlIntegrationByLocation(tenantId);
+      }
+      if (!integration && !tenantId) {
+        const allActive = await getAllActiveGhlIntegrations();
+        if (allActive && allActive.length > 0) integration = allActive[0];
+      }
+      if (!integration || !integration.is_active || !integration.location_id) {
+        return { status: 'skipped', reason: 'ghl_not_connected_or_inactive' };
+      }
+      const locationId = integration.location_id;
+
+      // 2. Resolve Customer Phone and Details
+      const rawPhone = callLog.customerPhone || callLog.customer_phone || callLog.phoneNumber || callLog.phone;
+      if (!rawPhone) return { status: 'skipped', reason: 'no_customer_phone' };
+
+      const cleanPhone = String(rawPhone).replace(/[^\d+]/g, '');
+      const e164Phone = normalizePhoneToE164(cleanPhone);
+      const customerName = callLog.customerName || callLog.customer_name || callLog.contactName || 'Customer';
+
+      // 3. Find GHL Contact ID
+      let ghlContactId = null;
+      const link = await getGhlEntityLink(tenantId, locationId, 'contact', cleanPhone) 
+                || (e164Phone ? await getGhlEntityLink(tenantId, locationId, 'contact', e164Phone) : null);
+
+      if (link && link.ghl_entity_id) {
+        ghlContactId = link.ghl_entity_id;
+      } else {
+        // Search in HighLevel or auto-provision
+        try {
+          const searchRes = await ghlApiClient.searchContacts(locationId, { query: cleanPhone.slice(-10) });
+          const found = (searchRes?.contacts || [])[0];
+          if (found && found.id) {
+            ghlContactId = found.id;
+            await saveGhlEntityLink(tenantId, locationId, 'contact', cleanPhone, ghlContactId, 'FOUND_ON_CALL_SYNC');
+          }
+        } catch (searchErr) {
+          console.warn('[GhlSyncEngine] Contact search during call sync warning:', searchErr.message);
+        }
+      }
+
+      // If still not found, create contact in GHL so call log is attached
+      if (!ghlContactId) {
+        try {
+          const syncRes = await this.syncContactToGhl(tenantId, cleanPhone, {
+            phone: e164Phone || cleanPhone,
+            name: customerName
+          });
+          if (syncRes && syncRes.ghlContactId) {
+            ghlContactId = syncRes.ghlContactId;
+          }
+        } catch (createErr) {
+          console.warn('[GhlSyncEngine] Auto-create contact for call log warning:', createErr.message);
+        }
+      }
+
+      if (!ghlContactId) {
+        return { status: 'failed', reason: 'could_not_resolve_ghl_contact', phone: cleanPhone };
+      }
+
+      // 4. Extract Duration, Recording, and Meta
+      let durationSeconds = 30;
+      const rawDur = callLog.durationSeconds ?? callLog.duration_seconds ?? callLog.duration ?? 0;
+      if (typeof rawDur === 'number' && !isNaN(rawDur)) {
+        durationSeconds = Math.max(0, Math.round(rawDur));
+      } else if (typeof rawDur === 'string') {
+        const s = rawDur.trim().toLowerCase();
+        if (/^\d+\s*s?$/.test(s)) {
+          durationSeconds = parseInt(s, 10) || 30;
+        } else if (s.includes(':')) {
+          const parts = s.split(':').map(p => parseInt(p, 10) || 0);
+          if (parts.length === 2) durationSeconds = parts[0] * 60 + parts[1];
+          else if (parts.length === 3) durationSeconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        } else {
+          const p = parseInt(s.replace(/\D/g, ''), 10);
+          durationSeconds = isNaN(p) ? 30 : p;
+        }
+      }
+      const recordingUrl = callLog.recordingUrl || callLog.recording_url || callLog.recording || callLog.audioUrl || '';
+      const channel = callLog.channel || (callLog.isSimCall ? 'SIM_COMPANION' : 'VOXBAY');
+      const staffName = callLog.staffName || callLog.staff_name || callLog.agentName || 'Agent';
+      const status = callLog.disposition || callLog.status || 'Completed';
+      const notes = callLog.notes || '';
+      const direction = (callLog.type || 'OUTGOING').toLowerCase();
+
+      // 5. Post to GHL Conversations & Activity Timeline
+      const ghlResult = await ghlApiClient.createConversationCallMessage(locationId, {
+        contactId: ghlContactId,
+        durationSeconds,
+        recordingUrl,
+        status,
+        direction,
+        channel,
+        staffName,
+        notes
+      });
+
+      // 6. Log Sync Audit
+      try {
+        await createGhlSyncLog(tenantId, {
+          location_id: locationId,
+          entity_type: 'call_recording',
+          entity_id: String(callLog.id || cleanPhone),
+          action: 'SYNC_CALL_TO_GHL',
+          status: 'SUCCESS',
+          details: JSON.stringify({
+            ghlContactId,
+            durationSeconds,
+            hasRecording: Boolean(recordingUrl),
+            channel
+          })
+        });
+      } catch (logErr) {}
+
+      return {
+        status: 'success',
+        ghlContactId,
+        locationId,
+        ghlResult
+      };
+    } catch (err) {
+      console.error('[GhlSyncEngine] syncCallRecordToGhl error:', err);
+      return { status: 'error', error: err.message };
+    }
+  }
+
+  /**
+   * Synchronize an entire EMS Conversation (Contact + WhatsApp Messages + Call Records) to GoHighLevel.
+   * 
+   * @param {number|string} tenantId 
+   * @param {Object} params
+   * @param {Object} params.contact - EMS Contact object (name, phone, etc.)
+   * @param {Array} [params.messages=[]] - List of WhatsApp messages
+   * @param {Array} [params.callLogs=[]] - List of Call logs
+   * @returns {Promise<Object>}
+   */
+  async syncConversationToGhl(tenantId, { contact, messages = [], callLogs = [] } = {}) {
+    if (!tenantId) throw new GhlApiError('tenantId is required', 'GHL_VALIDATION_ERROR', 400);
+    if (!contact) throw new GhlApiError('contact is required', 'GHL_VALIDATION_ERROR', 400);
+
+    let integration = await getGhlIntegrationByTenant(tenantId);
+    if (!integration && typeof tenantId === 'string') {
+      integration = await getGhlIntegrationByLocation(tenantId);
+    }
+    if (!integration && !tenantId) {
+      const allActive = await getAllActiveGhlIntegrations();
+      if (allActive && allActive.length > 0) integration = allActive[0];
+    }
+    if (!integration || !integration.is_active || !integration.location_id) {
+      throw new GhlApiError('GoHighLevel is not connected for this tenant', 'GHL_NOT_CONNECTED', 400);
+    }
+    const locationId = integration.location_id;
+
+    // 1. Ensure Contact is synced / updated on GHL with correct phone number
+    const contactRes = await this.syncContactToGhl(tenantId, contact.id || contact.phone, contact);
+    const ghlContactId = contactRes.ghlContactId;
+    if (!ghlContactId) {
+      throw new GhlApiError('Could not sync contact to HighLevel', 'GHL_SYNC_ERROR', 500);
+    }
+
+    const summary = {
+      ghlContactId,
+      locationId,
+      messagesSynced: 0,
+      callsSynced: 0,
+      errors: []
+    };
+
+    // 2. Sync Call Logs to GHL Conversations & Activity Timeline
+    if (Array.isArray(callLogs) && callLogs.length > 0) {
+      for (const call of callLogs) {
+        try {
+          const res = await this.syncCallRecordToGhl(tenantId, {
+            ...call,
+            customerPhone: call.customerPhone || call.phoneNumber || contact.phone || contact.id,
+            customerName: call.customerName || contact.custom_name || contact.name
+          });
+          if (res && (res.status === 'success' || res.ghlContactId)) {
+            summary.callsSynced++;
+          }
+        } catch (callErr) {
+          summary.errors.push({ type: 'call', id: call.id, error: callErr.message });
+        }
+      }
+    }
+
+    // 3. Sync Recent Messages to GHL Conversations Inbox
+    if (Array.isArray(messages) && messages.length > 0) {
+      // Sync the most recent 25 messages to avoid rate limits
+      const recentMessages = messages.slice(-25);
+      for (const msg of recentMessages) {
+        try {
+          const direction = msg.fromMe || msg.is_from_me || msg.direction === 'outbound' ? 'outbound' : 'inbound';
+          const text = msg.text || msg.body || msg.caption || msg.message || '';
+          if (!text && !msg.mediaUrl && !msg.media_url) continue;
+
+          await ghlApiClient.createConversationChatMessage(locationId, {
+            contactId: ghlContactId,
+            message: text,
+            direction,
+            status: msg.status || 'delivered',
+            mediaUrl: msg.mediaUrl || msg.media_url || ''
+          });
+          summary.messagesSynced++;
+        } catch (msgErr) {
+          summary.errors.push({ type: 'message', id: msg.id, error: msgErr.message });
+        }
+      }
+    }
+
+    return summary;
+  }
+}
+
+export default new GhlSyncEngine();
+
