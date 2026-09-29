@@ -37,7 +37,14 @@ import {
   Mic,
   Trash2,
   ArrowLeft,
-  ChevronLeft
+  ChevronLeft,
+  QrCode,
+  CheckCircle2,
+  X,
+  Smartphone,
+  Wifi,
+  WifiOff,
+  AlertCircle
 } from 'lucide-react';
 import { TimelineEngine } from '../../core/engines/TimelineEngine';
 import { normalizePhone10, formatPhoneDisplay, toE164Phone, isSamePhone } from '../../core/utils/phoneUtils';
@@ -475,6 +482,107 @@ export default function ConversationsPage({
     ? 'http://localhost:5000/api'
     : 'https://api.employeemanagementsystems.com/api';
   const token = typeof window !== 'undefined' ? (localStorage.getItem('omnilflow_token') || localStorage.getItem('token')) : null;
+
+  // WhatsApp Baileys Gateway & QR Connection State
+  const [localSessions, setLocalSessions] = useState(() => (Array.isArray(sessions) ? sessions : []));
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrActionMsg, setQrActionMsg] = useState('');
+
+  // Sync prop sessions when parent updates
+  useEffect(() => {
+    if (Array.isArray(sessions) && sessions.length > 0) {
+      setLocalSessions(sessions);
+    }
+  }, [sessions]);
+
+  // Fetch active sessions from backend API
+  const fetchCurrentSessions = async () => {
+    try {
+      const res = await fetch(`${API_URL}/sessions`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setLocalSessions(data);
+        }
+      }
+    } catch (e) {
+      console.warn('[ConversationsPage] Sessions fetch notice:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchCurrentSessions();
+  }, [API_URL, token]);
+
+  const primarySession = localSessions[0] || null;
+  const isConnected = primarySession?.status === 'connected';
+  const isQRReady = primarySession?.status === 'qr_ready';
+  const isConnecting = primarySession?.status === 'connecting' || qrLoading;
+  const connectedPhone = primarySession?.phone_number || primarySession?.phoneNumber || '';
+
+  // Start or trigger QR code generation for WhatsApp session
+  const handleStartSession = async (sessId) => {
+    setQrLoading(true);
+    setQrActionMsg('Requesting WhatsApp QR Code...');
+    try {
+      let targetId = sessId || primarySession?.id;
+      if (!targetId) {
+        // Create primary session if none exists yet
+        const createRes = await fetch(`${API_URL}/sessions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ phoneName: 'Primary WhatsApp Line' })
+        });
+        if (createRes.ok) {
+          const created = await createRes.json();
+          targetId = created.id;
+          setLocalSessions([created]);
+        }
+      }
+      if (targetId) {
+        await fetch(`${API_URL}/sessions/start/${targetId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          }
+        });
+        setQrActionMsg('Connecting to WhatsApp Baileys gateway...');
+      }
+      setTimeout(fetchCurrentSessions, 1500);
+    } catch (err) {
+      console.error('[Start Session Error]', err);
+      setQrActionMsg('Failed to initialize session: ' + err.message);
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  // Disconnect active WhatsApp session
+  const handleDisconnectSession = async (sessId) => {
+    if (!window.confirm('Are you sure you want to disconnect this WhatsApp session?')) return;
+    try {
+      const targetId = sessId || primarySession?.id;
+      if (targetId) {
+        await fetch(`${API_URL}/sessions/stop/${targetId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          }
+        });
+        fetchCurrentSessions();
+      }
+    } catch (err) {
+      console.error('[Disconnect Session Error]', err);
+    }
+  };
 
   // Sync prop contacts when parent updates (scoped by Model A)
   useEffect(() => {
@@ -1172,6 +1280,36 @@ export default function ConversationsPage({
         }
       });
 
+      socket.on('session_update', (data) => {
+        if (!data || !data.id) return;
+        setLocalSessions(prev => {
+          const exists = prev.some(s => String(s.id) === String(data.id));
+          if (exists) {
+            return prev.map(s => {
+              if (String(s.id) === String(data.id)) {
+                return {
+                  ...s,
+                  status: data.status,
+                  qr_code: data.qr || data.qr_code || s.qr_code,
+                  phone_number: data.phoneNumber || data.phone_number || s.phone_number,
+                  profile_pic_url: data.profilePicUrl || data.profile_pic_url || s.profile_pic_url
+                };
+              }
+              return s;
+            });
+          } else {
+            return [{
+              id: data.id,
+              phone_name: 'Primary WhatsApp',
+              status: data.status,
+              qr_code: data.qr || data.qr_code || null,
+              phone_number: data.phoneNumber || data.phone_number || null,
+              profile_pic_url: data.profilePicUrl || data.profile_pic_url || null
+            }, ...prev];
+          }
+        });
+      });
+
       socket.on('contacts_cleared', () => {
         setConversationsList([]);
         setActiveContact(null);
@@ -1793,6 +1931,53 @@ export default function ConversationsPage({
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {/* WhatsApp Baileys Gateway Status & QR Trigger */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowQrModal(true);
+                    if (!isConnected && (!primarySession || primarySession.status === 'disconnected')) {
+                      handleStartSession();
+                    }
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '4px 9px',
+                    borderRadius: '6px',
+                    background: isConnected 
+                      ? '#ecfdf5' 
+                      : (isQRReady ? '#fefce8' : '#f0fdf4'),
+                    border: `1px solid ${isConnected ? '#a7f3d0' : (isQRReady ? '#fef08a' : '#bbf7d0')}`,
+                    color: isConnected ? '#15803d' : (isQRReady ? '#a16207' : '#166534'),
+                    fontSize: '10.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title={isConnected ? `Connected Live: +${connectedPhone}. Click to view details` : 'Connect WhatsApp / Scan QR Code'}
+                >
+                  {isConnected ? (
+                    <>
+                      <span style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        background: '#10b981',
+                        boxShadow: '0 0 5px #10b981',
+                        display: 'inline-block'
+                      }} />
+                      <span>{connectedPhone ? `+${connectedPhone}` : 'WA Live'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <QrCode size={12} color="#059669" />
+                      <span>{isQRReady ? 'Scan QR' : isConnecting ? 'Connecting...' : 'Scan QR'}</span>
+                    </>
+                  )}
+                </button>
+
                 <button
                   type="button"
                   onClick={async () => {
@@ -2611,6 +2796,300 @@ export default function ConversationsPage({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#2563eb', fontWeight: '700' }}>
                   <Zap size={12} /> GHL Linked
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* IN-PAGE WHATSAPP BAILEYS QR CODE & CONNECTION MODAL                       */}
+      {/* ========================================================================= */}
+      {showQrModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.7)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '16px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '20px',
+            width: '100%',
+            maxWidth: '460px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            border: '1px solid #e2e8f0',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '18px 22px',
+              background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <QrCode size={19} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800' }}>WhatsApp Baileys Gateway</h3>
+                  <div style={{ fontSize: '11px', opacity: 0.9 }}>
+                    {isConnected ? 'Active & Synced with VPS' : 'Pair phone to enable direct WhatsApp CRM sync'}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQrModal(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.18)',
+                  border: 'none',
+                  color: '#ffffff',
+                  width: '30px',
+                  height: '30px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'background 0.15s ease'
+                }}
+                title="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div style={{ padding: '24px 22px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '18px' }}>
+              {isConnected ? (
+                <div style={{
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  gap: '14px'
+                }}>
+                  <div style={{
+                    width: '72px',
+                    height: '72px',
+                    borderRadius: '50%',
+                    background: '#dcfce7',
+                    border: '3px solid #86efac',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#16a34a',
+                    boxShadow: '0 4px 14px rgba(22, 163, 74, 0.2)'
+                  }}>
+                    <CheckCircle2 size={38} />
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '17px', fontWeight: '800', color: '#0f172a' }}>
+                      WhatsApp is Live & Connected!
+                    </div>
+                    <div style={{
+                      display: 'inline-block',
+                      marginTop: '6px',
+                      padding: '4px 12px',
+                      borderRadius: '16px',
+                      background: '#ecfdf5',
+                      border: '1px solid #a7f3d0',
+                      fontSize: '13px',
+                      fontWeight: '800',
+                      color: '#047857'
+                    }}>
+                      +{connectedPhone || 'WhatsApp Account Active'}
+                    </div>
+                    <p style={{ margin: '12px 0 0 0', fontSize: '12px', color: '#64748b', lineHeight: '1.5' }}>
+                      Baileys gateway session is actively running on your VPS. Incoming messages and CRM replies sync instantly without page reload.
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', width: '100%', marginTop: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleDisconnectSession()}
+                      style={{
+                        flex: 1,
+                        padding: '11px',
+                        borderRadius: '10px',
+                        background: '#fff1f2',
+                        border: '1px solid #fecdd3',
+                        color: '#e11d48',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Disconnect Number
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowQrModal(false)}
+                      style={{
+                        flex: 1,
+                        padding: '11px',
+                        borderRadius: '10px',
+                        background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
+                        border: 'none',
+                        color: '#ffffff',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 8px rgba(13, 148, 136, 0.3)'
+                      }}
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Step-by-Step Instructions */}
+                  <div style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    padding: '12px 16px',
+                    width: '100%',
+                    boxSizing: 'border-box'
+                  }}>
+                    <div style={{ fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                      Pairing Instructions:
+                    </div>
+                    <ol style={{ margin: 0, paddingLeft: '18px', fontSize: '11.5px', color: '#64748b', lineHeight: '1.6' }}>
+                      <li>Open <b>WhatsApp</b> on your mobile phone</li>
+                      <li>Tap <b>Menu (⋮)</b> or <b>Settings</b> &gt; <b>Linked Devices</b></li>
+                      <li>Tap <b>Link a Device</b></li>
+                      <li>Scan the QR code displayed below</li>
+                    </ol>
+                  </div>
+
+                  {/* Live QR Box */}
+                  <div style={{
+                    background: '#ffffff',
+                    border: '2px solid #e2e8f0',
+                    borderRadius: '16px',
+                    padding: '16px',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: '230px',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    position: 'relative'
+                  }}>
+                    {primarySession?.qr_code ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                        <img
+                          src={primarySession.qr_code}
+                          alt="Scan WhatsApp QR"
+                          style={{ width: '210px', height: '210px', objectFit: 'contain', display: 'block', borderRadius: '8px' }}
+                        />
+                        <div style={{ fontSize: '11.5px', color: '#0d9488', fontWeight: '700' }}>
+                          🟢 Live QR Ready • Waiting for scan
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '24px' }}>
+                        <RefreshCw size={28} className="animate-spin" style={{ color: '#0d9488', animation: 'spin 1.2s linear infinite' }} />
+                        <span style={{ fontSize: '12.5px', color: '#475569', fontWeight: '600', textAlign: 'center' }}>
+                          {qrActionMsg || (isConnecting ? 'Connecting to WhatsApp gateway...' : 'Initializing WhatsApp session...')}
+                        </span>
+                        {!isConnecting && (
+                          <button
+                            type="button"
+                            onClick={() => handleStartSession()}
+                            style={{
+                              marginTop: '6px',
+                              padding: '8px 14px',
+                              borderRadius: '8px',
+                              background: '#0d9488',
+                              color: '#ffffff',
+                              border: 'none',
+                              fontSize: '11.5px',
+                              fontWeight: '700',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Generate QR Code
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions Bar */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleStartSession()}
+                      disabled={qrLoading}
+                      style={{
+                        flex: 1,
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        background: '#f1f5f9',
+                        border: '1px solid #cbd5e1',
+                        color: '#334155',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: qrLoading ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        transition: 'background 0.15s ease'
+                      }}
+                    >
+                      <RefreshCw size={13} className={qrLoading ? 'animate-spin' : ''} />
+                      <span>Refresh QR</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowQrModal(false)}
+                      style={{
+                        padding: '10px 20px',
+                        borderRadius: '10px',
+                        background: '#0f172a',
+                        border: 'none',
+                        color: '#ffffff',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           </div>
