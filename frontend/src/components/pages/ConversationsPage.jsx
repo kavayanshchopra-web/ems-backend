@@ -936,20 +936,26 @@ export default function ConversationsPage({
       const cleanRoster = formatContactRoster(scopedRaw);
 
       if (cleanRoster.length > 0) {
-        setConversationsList(cleanRoster);
+        setConversationsList(prev => {
+          const map = new Map();
+          // Keep all existing contacts (including live call leads)
+          (prev || []).forEach(c => {
+            const key = c.normPhone10 || normalizePhone10(c.phone || c.rawPhone || c.id || '') || c.id;
+            map.set(key, c);
+          });
+          // Merge newly fetched cleanRoster
+          cleanRoster.forEach(c => {
+            const key = c.normPhone10 || normalizePhone10(c.phone || c.rawPhone || c.id || '') || c.id;
+            if (map.has(key)) {
+              map.set(key, { ...map.get(key), ...c });
+            } else {
+              map.set(key, c);
+            }
+          });
+          return Array.from(map.values()).sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+        });
         if (!activeContact) {
           setActiveContact(cleanRoster[0]);
-        } else {
-          const stillExists = cleanRoster.find(c => c.id === activeContact.id || (c.normPhone10 && c.normPhone10 === activeContact.normPhone10));
-          setActiveContact(stillExists || cleanRoster[0]);
-        }
-      } else {
-        if (!isOwnerOrAdmin) {
-          setConversationsList([]);
-          setActiveContact(null);
-        } else if (rawList.length === 0) {
-          setConversationsList([]);
-          setActiveContact(null);
         }
       }
     } catch (err) {
@@ -1585,7 +1591,8 @@ export default function ConversationsPage({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            'x-tenant-id': String(companyId)
           },
           body: JSON.stringify({
             phone: intlPhone || cleanPhone,
@@ -1638,14 +1645,16 @@ export default function ConversationsPage({
             phone: intlPhone || cleanPhone || targetPhone,
             recipientJid: intlPhone ? `${intlPhone}@s.whatsapp.net` : (cleanPhone ? `${cleanPhone}@s.whatsapp.net` : activeContact.id),
             text: textToSend,
-            message: textToSend
+            message: textToSend,
+            tenantId: companyId
           };
 
           const res = await fetch(`${API_URL}/messages/send`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+              'x-tenant-id': String(companyId)
             },
             body: JSON.stringify(payload)
           });
@@ -2506,7 +2515,7 @@ export default function ConversationsPage({
               flexDirection: 'column',
               gap: '6px'
             }}>
-              {isLoadingMessages ? (
+              {isLoadingMessages && filteredTimeline.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px', color: '#64748b', fontSize: '12px' }}>
                   <RefreshCw size={18} className="animate-spin" style={{ animation: 'spin 1s linear infinite', margin: '0 auto 8px' }} />
                   Loading conversation stream...
@@ -2518,7 +2527,13 @@ export default function ConversationsPage({
                   <div style={{ fontSize: '11px' }}>Send a WhatsApp message or start a phone call below</div>
                 </div>
               ) : (
-                filteredTimeline.map((item) => {
+                <>
+                  {isLoadingMessages && (
+                    <div style={{ textAlign: 'center', padding: '4px', fontSize: '10.5px', color: '#0d9488', fontWeight: '600' }}>
+                      ⚡ Syncing latest messages...
+                    </div>
+                  )}
+                  {filteredTimeline.map((item) => {
                   const itemTime = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                   const itemDate = new Date(item.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 
@@ -2648,8 +2663,9 @@ export default function ConversationsPage({
                       </div>
                     </div>
                   );
-                })
-              )}
+                })}
+              </>
+            )}
               <div ref={messagesEndRef} />
             </div>
 

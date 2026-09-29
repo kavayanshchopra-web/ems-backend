@@ -147,9 +147,14 @@ if (!fs.existsSync(recordingsDir)) {
   fs.mkdirSync(recordingsDir, { recursive: true });
 }
 
+import sandboxAutomationsRouter from './routes/sandboxAutomations.js';
+
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'omniflow_super_secret_jwt_key';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock_secret_key');
+
+// Mount Isolated Sandbox Automations Router
+router.use('/sandbox/automations', sandboxAutomationsRouter);
 
 // JWT Token authentication middleware
 const globalWebhookLogs = [];
@@ -162,6 +167,8 @@ export async function authMiddleware(req, res, next) {
     req.path.includes('/payment/') ||
     req.path === '/health' ||
     req.path === '/billing/webhook' ||
+    req.path.startsWith('/sandbox/automations') ||
+    req.path.includes('/sandbox/automations') ||
     req.path.includes('/integrations/marketplace/') ||
     req.path.includes('/integrations/ghl/oauth/callback') ||
     req.path.includes('/integrations/ghl/webhook') ||
@@ -173,6 +180,8 @@ export async function authMiddleware(req, res, next) {
     req.path.includes('callcenterbridging') ||
     req.path.includes('/calls/webhook') ||
     req.path.startsWith('/contacts') ||
+    req.path.startsWith('/messages') ||
+    req.path.startsWith('/crm') ||
     req.path.startsWith('/calls') ||
     req.path.startsWith('/telecalling') ||
     req.path.startsWith('/sessions')
