@@ -113,9 +113,10 @@ let dbSyncQueue = Promise.resolve();
 export async function initAllSessions(io) {
   try {
     const sessions = await getAllSessions();
-    console.log(`Auto-starting ${sessions.length} saved sessions...`);
+    console.log(`Checking ${sessions.length} saved sessions...`);
     for (const session of sessions) {
-      if (session.status !== 'disconnected') {
+      // ONLY auto-reconnect if it was previously connected, NOT unlinked/stale sessions
+      if (session.status === 'connected') {
         console.log(`Auto-reconnecting session: ${session.phone_name} (${session.id})`);
         startSession(session.id, io).catch(err => {
           console.error(`Failed to auto-start session ${session.id}:`, err);
@@ -362,9 +363,8 @@ export async function startSession(id, io) {
 
             if (!textContent && mediaType === 'text') continue;
 
-            if (mediaType !== 'text') {
-              triggerDownloadMediaBackground(msg, mediaType, io, tenantId);
-            }
+            // Note: Skip eager media downloads during bulk history sync to conserve VPS RAM and prevent connection drops.
+            // Live incoming media is downloaded in messages.upsert.
 
             const contactName = msg.key.fromMe ? null : msg.pushName;
             await db.run(

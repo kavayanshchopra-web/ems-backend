@@ -1062,15 +1062,29 @@ export default function setupRoutes(io) {
     }
   });
 
-  // Reset a session to trigger fresh pairing with full chat history sync
-  router.post('/sessions/reset/:id', checkRole(['owner', 'admin', 'company_admin', 'employee', 'user', 'superadmin']), async (req, res) => {
-    const { id } = req.params;
+  // Consolidate all duplicate/conflicting sessions to a single clean primary line
+  router.post('/sessions/cleanup-and-reset', async (req, res) => {
     try {
-      await destroySession(id);
-      res.json({ message: 'Session reset successfully' });
+      const activeTenant = req.user?.tenant_id || req.headers?.['x-tenant-id'] || 1;
+      const all = await getAllSessions(activeTenant);
+      
+      // Stop and delete all existing sessions
+      for (const s of all) {
+        await destroySession(s.id).catch(() => {});
+      }
+      
+      // Create single clean primary session
+      const primaryId = `session_${activeTenant}_primary`;
+      await saveSession(primaryId, 'Primary WhatsApp Line', activeTenant);
+      
+      startSession(primaryId, io).catch(err => {
+        console.error('Error starting clean primary session:', err);
+      });
+      
+      res.json({ success: true, message: 'Sessions consolidated to single primary session', sessionId: primaryId });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: 'Failed to reset session' });
+      res.status(500).json({ error: 'Failed to cleanup sessions' });
     }
   });
 
@@ -1508,13 +1522,16 @@ export default function setupRoutes(io) {
       let usedBaileys = false;
 
       // 1. Try Baileys gateway if a valid active session exists
-      if (sessionId && sessionId !== 'desktop_webview') {
+      let targetSessionId = sessionId;
+      if (!targetSessionId || targetSessionId === 'desktop_webview') {
+        const allSessions = await getAllSessions(tenantId);
+        const connectedSess = allSessions.find(s => s.status === 'connected');
+        if (connectedSess) targetSessionId = connectedSess.id;
+      }
+      if (targetSessionId && targetSessionId !== 'desktop_webview') {
         try {
-          const session = await getSession(sessionId);
-          if (session && session.tenant_id === tenantId) {
-            sentMessage = await sendWhatsAppMessage(sessionId, recipientJid, text);
-            usedBaileys = true;
-          }
+          sentMessage = await sendWhatsAppMessage(targetSessionId, recipientJid, text);
+          usedBaileys = true;
         } catch (bErr) {
           console.warn('[Baileys Send Notice - Falling back to local engine]:', bErr.message);
         }

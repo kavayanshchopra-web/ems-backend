@@ -849,41 +849,80 @@ export default function ConversationsPage({
     };
   }, [API_URL, token, companyId]);
 
-  // 3. Load Contacts & Build Active Conversations Roster (Sandbox Supabase + REST Fallback with Model A Scoping)
+  // 3. Load Contacts & Build Active Conversations Roster (Unified WhatsApp SQLite + Supabase Leads)
   const fetchConversations = async () => {
     setLoadingConversations(true);
     try {
-      let rawList = [];
+      let whatsappContacts = [];
+      let crmContacts = [];
 
-      // A. Direct Supabase Sandbox Fetch
-      if (isSandboxEnvironment()) {
-        const tenantNum = Number(companyId) || 1;
-        const sbContacts = await SupabaseSandboxService.fetchContacts(tenantNum);
-        if (Array.isArray(sbContacts) && sbContacts.length > 0) {
-          rawList = sbContacts;
-          TenantStorage.setItem('contacts', sbContacts, companyId);
-        }
-      }
-
-      // B. REST API / SQLite Fallback if not sandbox or if sandbox returned empty
-      if (rawList.length === 0) {
-        try {
-          const res = await fetch(`${API_URL}/contacts`, {
-            headers: {
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-              'x-tenant-id': String(companyId)
-            }
-          });
-          if (res.ok) {
-            const data = await res.json();
-            rawList = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
+      // A. Live WhatsApp Contacts from VPS Baileys SQLite Engine
+      try {
+        const res = await fetch(`${API_URL}/contacts`, {
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            'x-tenant-id': String(companyId)
           }
-        } catch (apiErr) {
-          console.warn('[ConversationsPage] REST API contacts fetch notice:', apiErr);
+        });
+        if (res.ok) {
+          const data = await res.json();
+          whatsappContacts = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
+        }
+      } catch (apiErr) {
+        console.warn('[ConversationsPage] Live WhatsApp contacts fetch notice:', apiErr);
+      }
+
+      // B. CRM Contacts from Supabase Sandbox
+      if (isSandboxEnvironment()) {
+        try {
+          const tenantNum = Number(companyId) || 1;
+          const sbContacts = await SupabaseSandboxService.fetchContacts(tenantNum);
+          if (Array.isArray(sbContacts) && sbContacts.length > 0) {
+            crmContacts = sbContacts;
+            TenantStorage.setItem('contacts', sbContacts, companyId);
+          }
+        } catch (sbErr) {
+          console.warn('[ConversationsPage] Supabase contacts fetch notice:', sbErr);
         }
       }
 
-      // C. Fallback to parent propContacts or cached contacts
+      // C. Merge Live WhatsApp and CRM contacts
+      const mergedMap = new Map();
+
+      // Add WhatsApp contacts first
+      whatsappContacts.forEach(c => {
+        if (!c || !c.id) return;
+        const norm = c.phone_normalized || c.phone || String(c.id).replace(/\D/g, '').slice(-10);
+        mergedMap.set(norm || c.id, {
+          ...c,
+          phone: c.phone || c.phone_computed || (c.id.includes('@') ? c.id.split('@')[0] : c.id),
+          normPhone10: norm,
+          source: 'whatsapp'
+        });
+      });
+
+      // Merge CRM contacts
+      crmContacts.forEach(c => {
+        if (!c || !c.id) return;
+        const norm = c.normPhone10 || String(c.phone || c.rawPhone || c.id || '').replace(/\D/g, '').slice(-10);
+        const key = norm || c.id;
+        if (!mergedMap.has(key)) {
+          mergedMap.set(key, c);
+        } else {
+          const existing = mergedMap.get(key);
+          mergedMap.set(key, {
+            ...existing,
+            name: existing.name || c.name || c.displayName,
+            email: existing.email || c.email,
+            stage: c.stage || c.pipeline_stage || existing.stage,
+            dealValue: c.dealValue || c.deal_value || existing.dealValue
+          });
+        }
+      });
+
+      let rawList = Array.from(mergedMap.values());
+
+      // Fallback to parent propContacts or cached contacts if both empty
       if (rawList.length === 0 && Array.isArray(propContacts) && propContacts.length > 0) {
         rawList = propContacts;
       }
@@ -3101,6 +3140,42 @@ export default function ConversationsPage({
                     >
                       <RefreshCw size={13} className={qrLoading ? 'animate-spin' : ''} />
                       <span>Refresh QR</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!window.confirm('Kya aap WhatsApp line ko cleanly reset karna chahte hain taaki naya stable QR code generate ho sake?')) return;
+                        setQrLoading(true);
+                        try {
+                          await fetch(`${API_URL}/sessions/cleanup-and-reset`, {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              ...(token ? { Authorization: `Bearer ${token}` } : {})
+                            }
+                          });
+                          await fetchCurrentSessions();
+                        } catch (e) {
+                          console.error(e);
+                        } finally {
+                          setQrLoading(false);
+                        }
+                      }}
+                      disabled={qrLoading}
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        background: '#fff1f2',
+                        border: '1px solid #fecdd3',
+                        color: '#e11d48',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: qrLoading ? 'not-allowed' : 'pointer'
+                      }}
+                      title="Wipe stale conflicting sessions and generate 1 clean QR code"
+                    >
+                      Reset Line
                     </button>
 
                     <button
