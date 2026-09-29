@@ -174,7 +174,8 @@ export async function authMiddleware(req, res, next) {
     req.path.includes('/calls/webhook') ||
     req.path.startsWith('/contacts') ||
     req.path.startsWith('/calls') ||
-    req.path.startsWith('/telecalling')
+    req.path.startsWith('/telecalling') ||
+    req.path.startsWith('/sessions')
   ) {
     const headerTenant = req.headers?.['x-tenant-id'] || req.headers?.['x-company-id'] || req.query?.tenant_id || null;
     const authHeader = req.headers?.['authorization'];
@@ -958,24 +959,25 @@ export default function setupRoutes(io) {
   // ==========================================
 
   // Create a new WhatsApp session
-  router.post('/sessions', checkRole(['owner', 'admin']), async (req, res) => {
+  router.post('/sessions', checkRole(['owner', 'admin', 'company_admin', 'employee', 'user', 'superadmin']), async (req, res) => {
     const { phoneName } = req.body;
     if (!phoneName) {
       return res.status(400).json({ error: 'phoneName is required' });
     }
 
     try {
-      const plan = await getTenantPlanDetails(req.user.tenant_id);
-      const currentSessions = await getAllSessions(req.user.tenant_id);
+      const activeTenant = req.user?.tenant_id || req.headers?.['x-tenant-id'] || 1;
+      const plan = await getTenantPlanDetails(activeTenant);
+      const currentSessions = await getAllSessions(activeTenant);
       
-      if (req.user.role !== 'superadmin' && plan && currentSessions.length >= plan.max_channels) {
+      if (req.user?.role !== 'superadmin' && plan && currentSessions.length >= plan.max_channels) {
         return res.status(403).json({ 
           error: `Plan Limit Exceeded: Your plan (${plan.name}) allows a maximum of ${plan.max_channels} active channel(s). Please upgrade to add more.` 
         });
       }
 
-      const sessionId = 'session_' + Date.now();
-      await saveSession(sessionId, phoneName, req.user.tenant_id);
+      const sessionId = 'session_' + activeTenant + '_' + Date.now();
+      await saveSession(sessionId, phoneName, activeTenant);
       
       startSession(sessionId, io).catch(err => {
         console.error('Error starting session:', err);
@@ -991,7 +993,16 @@ export default function setupRoutes(io) {
   // Get all active sessions
   router.get('/sessions', async (req, res) => {
     try {
-      const sessions = await getAllSessions(req.user.tenant_id);
+      const activeTenant = req.user?.tenant_id || req.headers?.['x-tenant-id'] || 1;
+      let sessions = await getAllSessions(activeTenant);
+      if (!sessions || sessions.length === 0) {
+        const sessionId = 'session_' + activeTenant + '_' + Date.now();
+        await saveSession(sessionId, 'Primary WhatsApp Line', activeTenant);
+        startSession(sessionId, io).catch(err => {
+          console.error('Error auto-starting session:', err);
+        });
+        sessions = await getAllSessions(activeTenant);
+      }
       res.json(sessions);
     } catch (err) {
       console.error(err);
@@ -1000,13 +1011,17 @@ export default function setupRoutes(io) {
   });
 
   // Start/Reconnect a session
-  router.post('/sessions/start/:id', checkRole(['owner', 'admin']), async (req, res) => {
+  router.post('/sessions/start/:id', checkRole(['owner', 'admin', 'company_admin', 'employee', 'user', 'superadmin']), async (req, res) => {
     const { id } = req.params;
     try {
       const session = await getSession(id);
-      if (!session || session.tenant_id !== req.user.tenant_id) {
+      const activeTenant = req.user?.tenant_id || req.headers?.['x-tenant-id'] || 1;
+      if (session && String(session.tenant_id) !== String(activeTenant) && req.user?.role !== 'superadmin') {
         return res.status(403).json({ error: 'Access denied to this session' });
       }
+
+      // Force cleanup of any stale socket so Baileys generates a fresh live QR code
+      await stopSession(id).catch(() => {});
 
       startSession(id, io).catch(err => {
         console.error('Error starting session:', err);
