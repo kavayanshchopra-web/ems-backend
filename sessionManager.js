@@ -166,8 +166,8 @@ export async function startSession(id, io) {
     connectTimeoutMs: 60000,
     defaultQueryTimeoutMs: 60000,
     keepAliveIntervalMs: 25000,
-    syncFullHistory: false, // Lite mode: Prevents downloading huge past chat history to conserve VPS RAM
-    shouldSyncHistoryMessage: () => false,
+    syncFullHistory: true, // Enable downloading past WhatsApp chats
+    shouldSyncHistoryMessage: () => true, // Download and process history messages (capped at 50 per chat)
     markOnlineOnConnect: false,
     retryRequestDelayMs: 250,
     generateHighQualityLinkPreview: false
@@ -243,9 +243,36 @@ export async function startSession(id, io) {
   sock.ev.on('messaging-history.set', (history) => {
     dbSyncQueue = dbSyncQueue.then(async () => {
       const { chats, contacts, messages } = history;
-      console.log(`[Session ${id}] Received history sync. Contacts: ${contacts?.length || 0}, Messages: ${messages?.length || 0}`);
+      console.log(`[Session ${id}] Received history sync. Chats: ${chats?.length || 0}, Contacts: ${contacts?.length || 0}, Messages: ${messages?.length || 0}`);
       
       const db = getDb();
+
+      // 0. Sync chats inside a transaction
+      if (chats && chats.length > 0) {
+        await db.run('BEGIN TRANSACTION');
+        try {
+          for (const chat of chats) {
+            const jid = chat.id;
+            if (!jid || jid === 'status@broadcast' || jid.endsWith('@broadcast') || jid.endsWith('@newsletter')) continue;
+            const name = chat.name || null;
+            await db.run(
+              `INSERT OR IGNORE INTO contacts (id, name, pipeline_stage, labels, tenant_id) VALUES (?, ?, 'new', '[]', ?)`,
+              [jid, name, tenantId]
+            );
+            if (name) {
+              await db.run(
+                `UPDATE contacts SET name = ? WHERE id = ? AND tenant_id = ? AND (name IS NULL OR name = '')`,
+                [name, jid, tenantId]
+              );
+            }
+          }
+          await db.run('COMMIT');
+          console.log(`[Session ${id}] Transaction: Successfully synced ${chats.length} history chats.`);
+        } catch (err) {
+          await db.run('ROLLBACK');
+          console.error(`[History Sync] Failed to sync chats:`, err.message);
+        }
+      }
       
       // 1. Sync contacts inside a transaction
       if (contacts && contacts.length > 0) {
@@ -374,6 +401,31 @@ export async function startSession(id, io) {
     }).catch(err => {
       console.error(`[History Sync Queue Error]`, err);
     });
+  });
+
+  // Chats upsert handler (realtime sync of new or active chats)
+  sock.ev.on('chats.upsert', async (chatsList) => {
+    try {
+      const db = getDb();
+      for (const chat of chatsList) {
+        const jid = chat.id;
+        if (!jid || jid === 'status@broadcast' || jid.endsWith('@broadcast') || jid.endsWith('@newsletter')) continue;
+        const name = chat.name || null;
+        await db.run(
+          `INSERT OR IGNORE INTO contacts (id, name, pipeline_stage, labels, tenant_id) VALUES (?, ?, 'new', '[]', ?)`,
+          [jid, name, tenantId]
+        );
+        if (name) {
+          await db.run(
+            `UPDATE contacts SET name = ? WHERE id = ? AND tenant_id = ? AND (name IS NULL OR name = '')`,
+            [name, jid, tenantId]
+          );
+        }
+      }
+      emitToTenant('new_message', { system_sync: true });
+    } catch (err) {
+      console.error('Error handling chats.upsert:', err);
+    }
   });
 
   // Contact Address Book Sync Handlers

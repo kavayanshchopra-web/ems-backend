@@ -588,20 +588,21 @@ export default function ConversationsPage({
     }
   };
 
-  // Disconnect active WhatsApp session
+  // Disconnect / Reset active WhatsApp session
   const handleDisconnectSession = async (sessId) => {
-    if (!window.confirm('Are you sure you want to disconnect this WhatsApp session?')) return;
+    if (!window.confirm('Kya aap WhatsApp re-link karna chahte hain taaki saari past chats aur 50-50 messages CRM mein fetch ho sakein?')) return;
     try {
       const targetId = sessId || primarySession?.id;
       if (targetId) {
-        await fetch(`${API_URL}/sessions/stop/${targetId}`, {
+        await fetch(`${API_URL}/sessions/reset/${targetId}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {})
           }
         });
-        fetchCurrentSessions();
+        await fetchCurrentSessions();
+        handleStartSession(targetId);
       }
     } catch (err) {
       console.error('[Disconnect Session Error]', err);
@@ -2007,7 +2008,13 @@ export default function ConversationsPage({
                   onClick={async () => {
                     if (!window.confirm('⚠️ Kya aap saare CRM Contacts aur Messages reset karna chahte hain taaki WhatsApp fresh scan ho sake?')) return;
                     try {
-                      const res = await fetch('/api/crm/conversations/reset-all', { credentials: 'include' });
+                      const res = await fetch(`${API_URL}/crm/conversations/reset-all`, {
+                        headers: {
+                          'Content-Type': 'application/json',
+                          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                          'x-tenant-id': activeTenantId
+                        }
+                      });
                       const d = await res.json();
                       if (d.success) {
                         alert('✅ ' + (d.message || 'Reset complete! Refreshing...'));

@@ -1051,19 +1051,26 @@ export default function setupRoutes(io) {
   });
 
   // Delete a session completely
-  router.delete('/sessions/:id', checkRole(['owner', 'admin']), async (req, res) => {
+  router.delete('/sessions/:id', checkRole(['owner', 'admin', 'company_admin', 'employee', 'user', 'superadmin']), async (req, res) => {
     const { id } = req.params;
     try {
-      const session = await getSession(id);
-      if (session && req.user.role !== 'superadmin' && session.tenant_id !== req.user.tenant_id) {
-        return res.status(403).json({ error: 'Access denied to this session' });
-      }
-
       await destroySession(id);
       res.json({ message: 'Session deleted' });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'Failed to delete session' });
+    }
+  });
+
+  // Reset a session to trigger fresh pairing with full chat history sync
+  router.post('/sessions/reset/:id', checkRole(['owner', 'admin', 'company_admin', 'employee', 'user', 'superadmin']), async (req, res) => {
+    const { id } = req.params;
+    try {
+      await destroySession(id);
+      res.json({ message: 'Session reset successfully' });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to reset session' });
     }
   });
 
