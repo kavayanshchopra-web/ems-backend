@@ -969,16 +969,16 @@ export default function setupRoutes(io) {
   // ==========================================
 
   // Create a new WhatsApp session
-  router.post('/sessions', checkRole(['owner', 'admin', 'company_admin', 'employee', 'user', 'superadmin']), async (req, res) => {
+  router.post(['/sessions', '/api/sessions'], async (req, res) => {
     const { phoneName } = req.body;
     if (!phoneName) {
       return res.status(400).json({ error: 'phoneName is required' });
     }
 
     try {
-      const activeTenant = req.user?.tenant_id || req.headers?.['x-tenant-id'] || 1;
-      const plan = await getTenantPlanDetails(activeTenant);
-      const currentSessions = await getAllSessions(activeTenant);
+      const activeTenant = parseInt(req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.body?.tenantId || 1, 10) || 1;
+      const plan = await getTenantPlanDetails(activeTenant).catch(() => null);
+      const currentSessions = await getAllSessions(activeTenant).catch(() => []);
       
       if (req.user?.role !== 'superadmin' && plan && currentSessions.length >= plan.max_channels) {
         return res.status(403).json({ 
@@ -1001,9 +1001,9 @@ export default function setupRoutes(io) {
   });
 
   // Get all active sessions
-  router.get('/sessions', async (req, res) => {
+  router.get(['/sessions', '/api/sessions'], async (req, res) => {
     try {
-      const activeTenant = req.user?.tenant_id || req.headers?.['x-tenant-id'] || 1;
+      const activeTenant = parseInt(req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.query?.tenant_id || 1, 10) || 1;
       let sessions = await getAllSessions(activeTenant);
       if (!sessions || sessions.length === 0) {
         const sessionId = 'session_' + activeTenant + '_' + Date.now();
@@ -1021,12 +1021,12 @@ export default function setupRoutes(io) {
   });
 
   // Start/Reconnect a session
-  router.post('/sessions/start/:id', checkRole(['owner', 'admin', 'company_admin', 'employee', 'user', 'superadmin']), async (req, res) => {
+  router.post(['/sessions/start/:id', '/api/sessions/start/:id'], async (req, res) => {
     const { id } = req.params;
     try {
+      const activeTenant = parseInt(req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.body?.tenantId || 1, 10) || 1;
       const session = await getSession(id);
-      const activeTenant = req.user?.tenant_id || req.headers?.['x-tenant-id'] || 1;
-      if (session && String(session.tenant_id) !== String(activeTenant) && req.user?.role !== 'superadmin') {
+      if (session && parseInt(session.tenant_id, 10) !== activeTenant && req.user?.role !== 'superadmin') {
         return res.status(403).json({ error: 'Access denied to this session' });
       }
 
@@ -1036,7 +1036,7 @@ export default function setupRoutes(io) {
       startSession(id, io).catch(err => {
         console.error('Error starting session:', err);
       });
-      res.json({ message: 'Session start initiated' });
+      res.json({ message: 'Session start initiated', id });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'Failed to initiate session start' });

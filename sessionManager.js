@@ -134,8 +134,15 @@ export async function initAllSessions(io) {
 // Start a single WhatsApp session
 export async function startSession(id, io) {
   if (activeSockets.has(id)) {
-    console.log(`Session ${id} is already active.`);
-    return activeSockets.get(id);
+    const existingSock = activeSockets.get(id);
+    if (existingSock?.user?.id) {
+      console.log(`Session ${id} is already connected.`);
+      return existingSock;
+    }
+    try {
+      existingSock.end(new Error('Resetting socket for fresh QR'));
+    } catch (e) {}
+    activeSockets.delete(id);
   }
 
   const session = await getSession(id);
@@ -159,7 +166,19 @@ export async function startSession(id, io) {
   // Set up low-verbosity logger for Baileys
   const logger = pino({ level: 'silent' });
 
-  const { version, isLatest } = await fetchLatestWaWebVersion().catch(() => ({ version: [2, 3000, 1015901307], isLatest: false }));
+  let version = [2, 3000, 1015901307];
+  let isLatest = false;
+  try {
+    const versionPromise = fetchLatestWaWebVersion();
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Version fetch timeout')), 2500));
+    const res = await Promise.race([versionPromise, timeoutPromise]);
+    if (res && res.version) {
+      version = res.version;
+      isLatest = res.isLatest;
+    }
+  } catch (vErr) {
+    // Fast-fallback to stable Baileys version without hanging
+  }
   console.log(`[Session ${id}] Using WAWeb version: ${version.join('.')} (isLatest: ${isLatest})`);
 
   const sock = makeWASocket({
@@ -187,9 +206,9 @@ export async function startSession(id, io) {
     if (qr) {
       console.log(`[Session ${id}] QR code received.`);
       try {
-        const qrDataUrl = await QRCode.toDataURL(qr);
+        const qrDataUrl = await QRCode.toDataURL(qr, { scale: 8, margin: 2 });
         await updateSessionStatus(id, 'qr_ready', qrDataUrl, null);
-        emitToTenant('session_update', { id, status: 'qr_ready', qr: qrDataUrl });
+        emitToTenant('session_update', { id, status: 'qr_ready', qr: qrDataUrl, qr_code: qrDataUrl });
       } catch (err) {
         console.error('Error generating QR data URL:', err);
       }
