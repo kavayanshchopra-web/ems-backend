@@ -136,6 +136,7 @@ import {
   destroySession, 
   sendWhatsAppMessage, 
   sendWhatsAppMedia,
+  markWhatsAppMessagesAsRead,
   getProfilePicUrl,
   checkWhatsAppNumber
 } from './sessionManager.js';
@@ -1097,6 +1098,51 @@ export default function setupRoutes(io) {
     }
   });
 
+  // Disconnect / Reset a specific or active WhatsApp session and generate a fresh clean QR code
+  router.post(['/sessions/reset/:id', '/sessions/disconnect/:id', '/sessions/reset', '/api/sessions/reset/:id', '/api/sessions/disconnect/:id', '/api/sessions/reset'], async (req, res) => {
+    const rawId = req.params.id;
+    const rawTenant = req.headers?.['x-tenant-id'] || req.query?.tenantId || req.body?.tenantId || req.user?.tenant_id || 1;
+    const tenantId = parseInt(rawTenant, 10) || 1;
+
+    try {
+      let targetId = rawId;
+      if (!targetId || targetId === 'undefined' || targetId === 'primary') {
+        const tenantSessions = await getAllSessions(tenantId);
+        const active = tenantSessions.find(s => s.status === 'connected') || tenantSessions[0];
+        targetId = active?.id;
+      }
+
+      if (targetId && targetId !== 'undefined') {
+        await destroySession(targetId).catch(err => {
+          console.warn('[Destroy Session Notice]', err.message);
+        });
+      }
+
+      // Generate a fresh session ID for new QR scan
+      const newSessionId = `session_${tenantId}_${Date.now()}`;
+      await saveSession(newSessionId, 'Primary WhatsApp Line', tenantId);
+
+      // Auto-start the new session so QR code is immediately generated and broadcasted via socket
+      startSession(newSessionId, io).catch(err => {
+        console.error('[Session Reset Auto-Start Error]', err);
+      });
+
+      if (io) {
+        io.emit('session_disconnected', { sessionId: targetId, newSessionId, tenantId });
+      }
+
+      res.json({
+        success: true,
+        message: 'Session disconnected and reset for new QR scan',
+        oldSessionId: targetId,
+        newSessionId
+      });
+    } catch (err) {
+      console.error('[Session Reset Route Error]', err);
+      res.status(500).json({ error: err.message || 'Failed to disconnect session' });
+    }
+  });
+
   // ==========================================
   // CRM CONTACTS
   // ==========================================
@@ -1117,13 +1163,25 @@ export default function setupRoutes(io) {
   });
 
   // Clear all contacts and messages across SQLite for clean reset
-  router.post(['/contacts/clear-all', '/api/contacts/clear-all', '/v1/contacts/clear-all'], async (req, res) => {
+  router.all(['/crm/conversations/reset-all', '/api/crm/conversations/reset-all', '/contacts/clear-all', '/api/contacts/clear-all', '/v1/contacts/clear-all'], async (req, res) => {
     try {
-      await clearAllCrmData(req.user?.tenant_id || 1);
-      if (io) {
-        io.emit('contacts_cleared', { tenantId: req.user?.tenant_id || 1 });
+      const activeTenant = req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.query?.tenant_id || 1;
+      await clearAllCrmData(activeTenant);
+
+      // Stop and delete all sessions for clean reconnect
+      try {
+        const allSessions = await getAllSessions(activeTenant);
+        for (const s of allSessions) {
+          await destroySession(s.id).catch(() => {});
+        }
+      } catch (sessErr) {
+        console.warn('[Reset All] Session cleanup notice:', sessErr);
       }
-      res.json({ success: true, message: 'All CRM contacts and conversation history have been cleared successfully.' });
+
+      if (io) {
+        io.emit('contacts_cleared', { tenantId: activeTenant });
+      }
+      res.json({ success: true, message: 'All CRM conversations, contacts, and WhatsApp sessions have been completely cleared.' });
     } catch (err) {
       console.error('Error clearing CRM data:', err);
       res.status(500).json({ error: err.message || 'Failed to clear CRM data' });
@@ -1131,32 +1189,53 @@ export default function setupRoutes(io) {
   });
 
   // Get messages for a contact
-  router.get('/contacts/:id/messages', async (req, res) => {
+  router.get(['/contacts/:id/messages', '/api/contacts/:id/messages'], async (req, res) => {
     const { id } = req.params;
-    const limit = parseInt(req.query.limit) || 100;
-    const offset = parseInt(req.query.offset) || 0;
+    const limit = parseInt(req.query.limit, 10) || 100;
+    const offset = parseInt(req.query.offset, 10) || 0;
     const phone = req.query.phone || req.query.phoneNumber || null;
-    const tenantId = req.user?.tenant_id || (req.query.tenantId && !isNaN(parseInt(req.query.tenantId, 10)) ? parseInt(req.query.tenantId, 10) : 1);
+    const rawTenant = req.headers?.['x-tenant-id'] || req.query?.tenantId || req.user?.tenant_id || 1;
+    const tenantId = parseInt(rawTenant, 10) || 1;
 
     try {
       const messages = await getMessagesForContact(id, limit, offset, tenantId, phone);
       res.json({
-        messages,
-        total: messages.length,
+        messages: Array.isArray(messages) ? messages : [],
+        total: Array.isArray(messages) ? messages.length : 0,
         hasMore: false
       });
     } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Failed to retrieve message history' });
+      console.error('[Get Contact Messages Error]', err);
+      res.status(200).json({ messages: [], total: 0, hasMore: false });
     }
   });
 
   // Mark messages as read
-  router.put('/contacts/:id/read', async (req, res) => {
+  router.put(['/contacts/:id/read', '/api/contacts/:id/read'], async (req, res) => {
     const { id } = req.params;
-    const tenantId = req.user?.tenant_id || 1;
+    const tenantId = req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.body?.tenantId || 1;
     try {
       await markMessagesAsRead(id, tenantId);
+
+      // Also trigger read receipt (blue tick) on active WhatsApp Baileys session
+      try {
+        const allSessions = await getAllSessions(tenantId);
+        const connectedSess = allSessions.find(s => s.status === 'connected');
+        if (connectedSess) {
+          let jid = id;
+          if (!jid.includes('@')) {
+            const clean = id.replace(/\D/g, '');
+            jid = `${clean}@s.whatsapp.net`;
+          }
+          await markWhatsAppMessagesAsRead(connectedSess.id, jid);
+        }
+      } catch (readErr) {
+        console.warn('[WhatsApp Read Receipt Notice]', readErr.message);
+      }
+
+      if (io) {
+        io.emit('messages_marked_read', { contactId: id, tenantId });
+      }
       res.json({ success: true });
     } catch (err) {
       console.error(err);
@@ -1508,11 +1587,11 @@ export default function setupRoutes(io) {
   });
 
   // Send WhatsApp message (Unified Desktop Webview + Baileys + Local SQLite Engine)
-  router.post('/messages/send', async (req, res) => {
+  router.post(['/messages/send', '/api/messages/send'], async (req, res) => {
     const rawText = req.body.text || req.body.message || req.body.textContent || '';
     const rawTarget = req.body.recipientJid || req.body.contactId || req.body.phone || '';
-    const sessionId = req.body.sessionId || 'desktop_webview';
-    const tenantId = req.user?.tenant_id || 1;
+    const sessionId = req.body.sessionId || null;
+    const tenantId = req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.body?.tenantId || 1;
 
     if (!rawTarget || !rawText.trim()) {
       return res.status(400).json({ error: 'recipientJid (or phone/contactId) and text (or message) are required' });
@@ -1529,25 +1608,29 @@ export default function setupRoutes(io) {
     try {
       let sentMessage = null;
       let usedBaileys = false;
+      let sendError = null;
 
-      // 1. Try Baileys gateway if a valid active session exists
+      // 1. Resolve Baileys WhatsApp session
       let targetSessionId = sessionId;
       if (!targetSessionId || targetSessionId === 'desktop_webview') {
         const allSessions = await getAllSessions(tenantId);
         const connectedSess = allSessions.find(s => s.status === 'connected');
         if (connectedSess) targetSessionId = connectedSess.id;
       }
+
       if (targetSessionId && targetSessionId !== 'desktop_webview') {
         try {
-          sentMessage = await sendWhatsAppMessage(targetSessionId, recipientJid, text);
+          sentMessage = await sendWhatsAppMessage(targetSessionId, recipientJid, text, tenantId);
           usedBaileys = true;
         } catch (bErr) {
-          console.warn('[Baileys Send Notice - Falling back to local engine]:', bErr.message);
+          sendError = bErr.message;
+          console.warn('[Baileys Send Notice]:', bErr.message);
         }
       }
 
-      // 2. If not sent via Baileys (e.g. Desktop Webview mode), store directly in SQLite & emit Socket.IO
-      if (!sentMessage) {
+      // 2. If client explicitly requested offline mock:
+      const allowOfflineMock = req.body.allowOfflineMock === true || req.body.provider === 'desktop_webview';
+      if (!sentMessage && allowOfflineMock) {
         const messageId = `wa_out_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
         const ts = Math.floor(Date.now() / 1000);
 
@@ -1562,7 +1645,7 @@ export default function setupRoutes(io) {
           mediaUrl: null,
           mediaType: 'text',
           timestamp: ts,
-          status: 'sent',
+          status: 1,
           tenantId
         };
         await saveMessage(messagePayload);
@@ -1574,31 +1657,46 @@ export default function setupRoutes(io) {
           text,
           timestamp: ts,
           fromMe: true,
-          status: 'sent'
+          status: 1
         };
       }
 
-      // 3. Emit real-time WebSocket event
-      if (io) {
-        io.emit('new_message', {
-          id: sentMessage.id,
-          sessionId: usedBaileys ? sessionId : 'desktop_webview',
-          session_id: usedBaileys ? sessionId : 'desktop_webview',
-          contactId: recipientJid,
-          contact_id: recipientJid,
-          fromMe: 1,
-          from_me: 1,
-          textContent: text,
-          text_content: text,
-          mediaType: 'text',
-          media_type: 'text',
-          timestamp: sentMessage.timestamp || Math.floor(Date.now() / 1000),
-          status: 'sent',
-          tenantId
+      // If not sent via Baileys and offline mock not allowed:
+      if (!sentMessage) {
+        return res.status(400).json({
+          success: false,
+          error: sendError || 'WhatsApp line is not connected. Please scan the QR code to link your WhatsApp.',
+          status: 'error'
         });
       }
 
-      res.json({ success: true, message: 'Message processed successfully', data: sentMessage });
+      // 3. Emit real-time WebSocket event to all clients & tenant room
+      const outPayload = {
+        id: sentMessage.id,
+        sessionId: usedBaileys ? targetSessionId : 'desktop_webview',
+        session_id: usedBaileys ? targetSessionId : 'desktop_webview',
+        contactId: recipientJid,
+        contact_id: recipientJid,
+        fromMe: 1,
+        from_me: 1,
+        textContent: text,
+        text_content: text,
+        mediaType: 'text',
+        media_type: 'text',
+        timestamp: sentMessage.timestamp || Math.floor(Date.now() / 1000),
+        status: 1,
+        tenantId
+      };
+
+      if (io) {
+        io.to(`tenant_${tenantId}`).emit('new_message', outPayload);
+        if (String(tenantId) === '1' || tenantId === 1) {
+          io.to('tenant_default').emit('new_message', outPayload);
+        }
+        io.emit('new_message', outPayload);
+      }
+
+      res.json({ success: true, message: 'Message sent successfully', data: sentMessage, status: 1 });
     } catch (err) {
       console.error('[Send Message Error]', err);
       res.status(500).json({ error: err.message || 'Failed to send message' });

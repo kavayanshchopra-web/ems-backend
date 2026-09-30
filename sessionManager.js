@@ -113,9 +113,10 @@ let dbSyncQueue = Promise.resolve();
 export async function initAllSessions(io) {
   try {
     const sessions = await getAllSessions();
-    console.log(`Auto-starting ${sessions.length} saved sessions...`);
+    console.log(`Checking ${sessions.length} saved sessions...`);
     for (const session of sessions) {
-      if (session.status !== 'disconnected') {
+      // ONLY auto-reconnect if it was previously connected, NOT unlinked/stale sessions
+      if (session.status === 'connected') {
         console.log(`Auto-reconnecting session: ${session.phone_name} (${session.id})`);
         startSession(session.id, io).catch(err => {
           console.error(`Failed to auto-start session ${session.id}:`, err);
@@ -143,8 +144,12 @@ export async function startSession(id, io) {
   const emitToTenant = (event, data) => {
     try {
       io.to(tenantRoom).emit(event, data);
+      if (String(tenantId) === '1' || tenantId === 1) {
+        io.to('tenant_default').emit(event, data);
+      }
+      io.emit(event, { ...data, tenantId });
     } catch {
-      io.emit(event, data);
+      io.emit(event, { ...data, tenantId });
     }
   };
 
@@ -166,8 +171,8 @@ export async function startSession(id, io) {
     connectTimeoutMs: 60000,
     defaultQueryTimeoutMs: 60000,
     keepAliveIntervalMs: 25000,
-    syncFullHistory: false, // Lite mode: Prevents downloading huge past chat history to conserve VPS RAM
-    shouldSyncHistoryMessage: () => false,
+    syncFullHistory: true, // Enable downloading past WhatsApp chats
+    shouldSyncHistoryMessage: () => true, // Download and process history messages (capped at 50 per chat)
     markOnlineOnConnect: false,
     retryRequestDelayMs: 250,
     generateHighQualityLinkPreview: false
@@ -243,9 +248,36 @@ export async function startSession(id, io) {
   sock.ev.on('messaging-history.set', (history) => {
     dbSyncQueue = dbSyncQueue.then(async () => {
       const { chats, contacts, messages } = history;
-      console.log(`[Session ${id}] Received history sync. Contacts: ${contacts?.length || 0}, Messages: ${messages?.length || 0}`);
+      console.log(`[Session ${id}] Received history sync. Chats: ${chats?.length || 0}, Contacts: ${contacts?.length || 0}, Messages: ${messages?.length || 0}`);
       
       const db = getDb();
+
+      // 0. Sync chats inside a transaction
+      if (chats && chats.length > 0) {
+        await db.run('BEGIN TRANSACTION');
+        try {
+          for (const chat of chats) {
+            const jid = chat.id;
+            if (!jid || jid === 'status@broadcast' || jid.endsWith('@broadcast') || jid.endsWith('@newsletter')) continue;
+            const name = chat.name || null;
+            await db.run(
+              `INSERT OR IGNORE INTO contacts (id, name, pipeline_stage, labels, tenant_id) VALUES (?, ?, 'new', '[]', ?)`,
+              [jid, name, tenantId]
+            );
+            if (name) {
+              await db.run(
+                `UPDATE contacts SET name = ? WHERE id = ? AND tenant_id = ? AND (name IS NULL OR name = '')`,
+                [name, jid, tenantId]
+              );
+            }
+          }
+          await db.run('COMMIT');
+          console.log(`[Session ${id}] Transaction: Successfully synced ${chats.length} history chats.`);
+        } catch (err) {
+          await db.run('ROLLBACK');
+          console.error(`[History Sync] Failed to sync chats:`, err.message);
+        }
+      }
       
       // 1. Sync contacts inside a transaction
       if (contacts && contacts.length > 0) {
@@ -335,9 +367,8 @@ export async function startSession(id, io) {
 
             if (!textContent && mediaType === 'text') continue;
 
-            if (mediaType !== 'text') {
-              triggerDownloadMediaBackground(msg, mediaType, io, tenantId);
-            }
+            // Note: Skip eager media downloads during bulk history sync to conserve VPS RAM and prevent connection drops.
+            // Live incoming media is downloaded in messages.upsert.
 
             const contactName = msg.key.fromMe ? null : msg.pushName;
             await db.run(
@@ -374,6 +405,31 @@ export async function startSession(id, io) {
     }).catch(err => {
       console.error(`[History Sync Queue Error]`, err);
     });
+  });
+
+  // Chats upsert handler (realtime sync of new or active chats)
+  sock.ev.on('chats.upsert', async (chatsList) => {
+    try {
+      const db = getDb();
+      for (const chat of chatsList) {
+        const jid = chat.id;
+        if (!jid || jid === 'status@broadcast' || jid.endsWith('@broadcast') || jid.endsWith('@newsletter')) continue;
+        const name = chat.name || null;
+        await db.run(
+          `INSERT OR IGNORE INTO contacts (id, name, pipeline_stage, labels, tenant_id) VALUES (?, ?, 'new', '[]', ?)`,
+          [jid, name, tenantId]
+        );
+        if (name) {
+          await db.run(
+            `UPDATE contacts SET name = ? WHERE id = ? AND tenant_id = ? AND (name IS NULL OR name = '')`,
+            [name, jid, tenantId]
+          );
+        }
+      }
+      emitToTenant('new_message', { system_sync: true });
+    } catch (err) {
+      console.error('Error handling chats.upsert:', err);
+    }
   });
 
   // Contact Address Book Sync Handlers
@@ -547,19 +603,6 @@ export async function startSession(id, io) {
             console.warn(`[GHL Realtime Sync] Note: ${syncErr.message}`);
           }
         }).catch(() => {});
-      // ⚡ Isolated Sandbox n8n Workflow Trigger Hook
-      if (!fromMe && textContent && textContent.trim()) {
-        try {
-          const { n8nBridge } = await import('./services/n8nBridge.js');
-          await n8nBridge.processInboundMessage({
-            tenantId,
-            phone: jid,
-            text: textContent,
-            sock
-          });
-        } catch (autoErr) {
-          console.warn('[Sandbox Automation Trigger Error]', autoErr.message);
-        }
       }
 
       // Chatbot Auto-Reply Logic
@@ -614,8 +657,15 @@ export async function startSession(id, io) {
       if (update.status !== undefined) {
         try {
           await updateMessageStatus(key.id, update.status);
+          const statusPayload = {
+            id: key.id,
+            status: update.status,
+            contactId: key.remoteJid,
+            fromMe: key.fromMe ? 1 : 0,
+            tenantId
+          };
           // Broadcast status change to client
-          io.emit('message_status_update', { id: key.id, status: update.status });
+          emitToTenant('message_status_update', statusPayload);
         } catch (err) {
           console.error(`[Message Status Update] Failed for msg ${key.id}:`, err.message);
         }
@@ -653,7 +703,7 @@ export async function destroySession(id) {
 }
 
 // Send WhatsApp text message
-export async function sendWhatsAppMessage(sessionId, recipientJid, text) {
+export async function sendWhatsAppMessage(sessionId, recipientJid, text, tenantId = 1) {
   const sock = activeSockets.get(sessionId);
   if (!sock) {
     throw new Error('WhatsApp session is not connected or active');
@@ -665,10 +715,14 @@ export async function sendWhatsAppMessage(sessionId, recipientJid, text) {
     jid = `${jid}@s.whatsapp.net`;
   }
 
-  // Send message using Baileys socket
-  const result = await sock.sendMessage(jid, { text });
+  // Send message using Baileys socket with 10s safety timeout to prevent hanging
+  const sendPromise = sock.sendMessage(jid, { text });
+  const timeoutPromise = new Promise((_, reject) => 
+    setTimeout(() => reject(new Error('WhatsApp message delivery timeout (10s)')), 10000)
+  );
+  const result = await Promise.race([sendPromise, timeoutPromise]);
 
-  // Save the outbound message to database
+  // Save the outbound message to database with status 1 (sent / server_ack)
   if (result && result.key) {
     const timestamp = Math.floor(Date.now() / 1000);
     await saveMessage({
@@ -678,18 +732,42 @@ export async function sendWhatsAppMessage(sessionId, recipientJid, text) {
       fromMe: true,
       textContent: text,
       mediaType: 'text',
-      timestamp
+      timestamp,
+      status: 1,
+      tenantId
     });
 
     return {
       id: result.key.id,
       recipientJid: jid,
       text,
-      timestamp
+      timestamp,
+      status: 1
     };
   }
 
   throw new Error('Failed to capture sent message key');
+}
+
+// Mark WhatsApp messages as read on recipient's WhatsApp (sends blue ticks)
+export async function markWhatsAppMessagesAsRead(sessionId, contactJid, messageKeys = []) {
+  try {
+    const sock = activeSockets.get(sessionId);
+    if (!sock) return false;
+    let jid = contactJid;
+    if (!jid.includes('@')) jid = `${jid}@s.whatsapp.net`;
+
+    if (Array.isArray(messageKeys) && messageKeys.length > 0) {
+      const keysToRead = messageKeys.map(k => typeof k === 'string' ? { remoteJid: jid, id: k } : k);
+      await sock.readMessages(keysToRead);
+    } else {
+      await sock.readMessages([{ remoteJid: jid, id: undefined }]);
+    }
+    return true;
+  } catch (err) {
+    console.warn(`[Baileys Read Receipts] Notice for ${contactJid}:`, err.message);
+    return false;
+  }
 }
 
 // Send WhatsApp media message
