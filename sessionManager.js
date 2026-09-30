@@ -715,8 +715,12 @@ export async function sendWhatsAppMessage(sessionId, recipientJid, text, tenantI
     jid = `${jid}@s.whatsapp.net`;
   }
 
-  // Send message using Baileys socket
-  const result = await sock.sendMessage(jid, { text });
+  // Send message using Baileys socket with 10s safety timeout to prevent hanging
+  const sendPromise = sock.sendMessage(jid, { text });
+  const timeoutPromise = new Promise((_, reject) => 
+    setTimeout(() => reject(new Error('WhatsApp message delivery timeout (10s)')), 10000)
+  );
+  const result = await Promise.race([sendPromise, timeoutPromise]);
 
   // Save the outbound message to database with status 1 (sent / server_ack)
   if (result && result.key) {

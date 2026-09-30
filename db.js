@@ -1703,23 +1703,30 @@ export async function getMessagesForContact(contactId, limit = 100, offset = 0, 
 }
 
 export async function getRecentChats(tenantId = 1, limit = 2000, offset = 0) {
-  // Ultra-fast single-pass indexed Window CTE query (Executes in <10ms on 100,000+ records)
+  // Ultra-fast single-pass indexed Window CTE query with 10-digit phone normalization
   const chats = await db.all(`
-    WITH LatestMsg AS (
+    WITH CleanMsgs AS (
+      SELECT m.*,
+             SUBSTR(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(m.contact_id, '@s.whatsapp.net', ''), '@c.us', ''), '+', ''), ' ', ''), '-', ''), -10) as phone10
+      FROM messages m
+      WHERE m.tenant_id = ?
+    ),
+    LatestMsg AS (
       SELECT contact_id,
+             phone10,
              text_content,
              timestamp,
              from_me,
              media_type,
-             ROW_NUMBER() OVER (PARTITION BY contact_id ORDER BY timestamp DESC, id DESC) as rn
-      FROM messages
-      WHERE tenant_id = ?
+             ROW_NUMBER() OVER (PARTITION BY phone10 ORDER BY timestamp DESC, id DESC) as rn
+      FROM CleanMsgs
+      WHERE phone10 IS NOT NULL AND phone10 != ''
     ),
     UnreadSummary AS (
-      SELECT contact_id, COUNT(*) as unread_count
-      FROM messages
-      WHERE tenant_id = ? AND from_me = 0 AND is_read = 0
-      GROUP BY contact_id
+      SELECT phone10, COUNT(*) as unread_count
+      FROM CleanMsgs
+      WHERE from_me = 0 AND (is_read = 0 OR is_read IS NULL) AND phone10 IS NOT NULL AND phone10 != ''
+      GROUP BY phone10
     )
     SELECT c.*, 
            COALESCE(NULLIF(c.name, ''), c.custom_name, REPLACE(REPLACE(c.id, '@s.whatsapp.net', ''), '@g.us', '')) as displayName,
@@ -1732,15 +1739,21 @@ export async function getRecentChats(tenantId = 1, limit = 2000, offset = 0) {
            lm.media_type as last_message_media_type,
            COALESCE(us.unread_count, 0) as unread_count
     FROM contacts c
-    LEFT JOIN LatestMsg lm ON (lm.contact_id = c.id OR lm.contact_id = c.id || '@s.whatsapp.net') AND lm.rn = 1
-    LEFT JOIN UnreadSummary us ON (us.contact_id = c.id OR us.contact_id = c.id || '@s.whatsapp.net')
+    LEFT JOIN LatestMsg lm ON (
+      lm.phone10 = SUBSTR(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(c.phone_normalized, c.phone, c.id), '@s.whatsapp.net', ''), '+', ''), ' ', ''), '-', ''), -10)
+      OR lm.contact_id = c.id
+    ) AND lm.rn = 1
+    LEFT JOIN UnreadSummary us ON (
+      us.phone10 = SUBSTR(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(c.phone_normalized, c.phone, c.id), '@s.whatsapp.net', ''), '+', ''), ' ', ''), '-', ''), -10)
+      OR us.phone10 = c.id
+    )
     WHERE c.tenant_id = ? 
       AND c.id != '0@s.whatsapp.net' 
       AND c.id NOT LIKE '%@lid'
       AND (c.is_archived IS NULL OR c.is_archived = 0)
     ORDER BY COALESCE(lm.timestamp, 0) DESC, c.created_at DESC
     LIMIT ? OFFSET ?
-  `, [tenantId, tenantId, tenantId, limit, offset]);
+  `, [tenantId, tenantId, limit, offset]);
   
   return chats.map(c => {
     try {

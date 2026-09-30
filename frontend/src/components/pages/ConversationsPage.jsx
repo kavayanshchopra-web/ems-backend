@@ -97,6 +97,45 @@ function unwrapCallRecord(raw) {
   };
 }
 
+// Native WhatsApp-style crisp incoming message chime
+function playWhatsAppChime() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, now);
+    osc.frequency.exponentialRampToValueAtTime(1400, now + 0.08);
+    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+    osc.start(now);
+    osc.stop(now + 0.3);
+  } catch (e) {}
+}
+
+// WhatsApp-style relative time formatter for roster
+function formatWhatsAppTime(timestamp) {
+  if (!timestamp) return '';
+  const date = new Date((timestamp < 10000000000) ? timestamp * 1000 : timestamp);
+  if (isNaN(date.getTime())) return '';
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  if (isToday) {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) {
+    return 'Yesterday';
+  }
+  return date.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+}
+
 // In-thread Embedded Audio Player Component
 function TimelineAudioPlayer({ src, duration = 0 }) {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -1228,6 +1267,11 @@ export default function ConversationsPage({
         const msgTimestamp = msg.timestamp || Math.floor(Date.now() / 1000);
         const curActive = activeContactRef.current;
 
+        // Play crisp native WhatsApp chime on inbound messages
+        if (!isFromMe) {
+          playWhatsAppChime();
+        }
+
         if (curActive) {
           const contactPhoneNorm = String(curActive.phone || curActive.rawPhone || curActive.id || '').replace(/\D/g, '').slice(-10);
           const targetNorm = String(targetId || msg.phone || '').replace(/\D/g, '').slice(-10);
@@ -1265,7 +1309,9 @@ export default function ConversationsPage({
           }
         }
 
-        // Update live conversation previews & sort (or auto-insert new lead)
+        // Update live conversation previews, unread count & sort to top
+        const isDocFocused = typeof document !== 'undefined' && !document.hidden;
+
         setConversationsList(prev => {
           const targetNorm = normalizePhone10(targetId || msg.phone || msg.normPhone10 || '');
           let matchFound = false;
@@ -1273,12 +1319,16 @@ export default function ConversationsPage({
             const cNorm = c.normPhone10 || normalizePhone10(c.phone || c.rawPhone || c.id || '');
             if (c.id === targetId || (targetNorm && cNorm && targetNorm === cNorm)) {
               matchFound = true;
-              const isCurrentlyOpen = curActive && (curActive.id === c.id || (cNorm && curActive.normPhone10 === cNorm));
+              const isViewingActiveChat = curActive && (curActive.id === c.id || (cNorm && curActive.normPhone10 === cNorm)) && isDocFocused;
+              const newUnread = isFromMe 
+                ? (c.unreadCount || 0)
+                : (isViewingActiveChat ? 0 : (Number(c.unreadCount) || 0) + 1);
+
               return {
                 ...c,
                 lastMessage: msgText || c.lastMessage,
                 lastMessageTime: Date.now(),
-                unreadCount: (isFromMe || isCurrentlyOpen) ? 0 : (c.unreadCount || 0) + 1
+                unreadCount: newUnread
               };
             }
             return c;
@@ -1287,7 +1337,7 @@ export default function ConversationsPage({
           let resultList = updated;
           if (!matchFound && targetNorm) {
             const formattedPhone = formatPhoneDisplay(targetNorm);
-            const isCurrentlyOpen = curActive && (curActive.normPhone10 === targetNorm);
+            const isViewingActiveChat = curActive && (curActive.normPhone10 === targetNorm) && isDocFocused;
             const newContact = {
               id: msg.contact_id || `91${targetNorm}@s.whatsapp.net`,
               name: msg.contactName || formattedPhone,
@@ -1297,7 +1347,7 @@ export default function ConversationsPage({
               email: '',
               lastMessage: msgText,
               lastMessageTime: Date.now(),
-              unreadCount: (isFromMe || isCurrentlyOpen) ? 0 : 1,
+              unreadCount: (isFromMe || isViewingActiveChat) ? 0 : 1,
               stage: 'New Leads',
               source: 'WhatsApp',
               displayId: `CON-${String(prev.length + 1).padStart(4, '0')}`,
@@ -1744,24 +1794,38 @@ export default function ConversationsPage({
             tenantId: companyId
           };
 
-          const res = await fetch(`${API_URL}/messages/send`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-              'x-tenant-id': String(companyId)
-            },
-            body: JSON.stringify(payload)
-          });
+          const abortCtrl = new AbortController();
+          const abortTimer = setTimeout(() => abortCtrl.abort(), 12000);
 
-          const data = await res.json();
-          if (res.ok && data && (data.success || data.message || data.id)) {
-            sentSuccess = true;
-            sendMethod = 'backend_api';
-            // Update message status to 1 (sent / server_ack)
-            setActiveMessages(prev => prev.map(m => m.id === outMsgId ? { ...m, status: 1 } : m));
-          } else {
-            errorMsg = data?.error || 'Failed to send WhatsApp message';
+          try {
+            const res = await fetch(`${API_URL}/messages/send`, {
+              signal: abortCtrl.signal,
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+                'x-tenant-id': String(companyId)
+              },
+              body: JSON.stringify(payload)
+            });
+            clearTimeout(abortTimer);
+
+            const data = await res.json();
+            if (res.ok && data && (data.success || data.message || data.id)) {
+              sentSuccess = true;
+              sendMethod = 'backend_api';
+              // Update message status to 1 (sent / server_ack)
+              setActiveMessages(prev => prev.map(m => m.id === outMsgId ? { ...m, status: 1 } : m));
+            } else {
+              errorMsg = data?.error || 'Failed to send WhatsApp message';
+            }
+          } catch (fetchErr) {
+            clearTimeout(abortTimer);
+            if (fetchErr.name === 'AbortError') {
+              errorMsg = 'Message send timed out (12s). Check WhatsApp connection.';
+            } else {
+              errorMsg = fetchErr.message;
+            }
           }
         } catch (apiErr) {
           errorMsg = apiErr.message;
@@ -2085,6 +2149,21 @@ export default function ConversationsPage({
     }
   };
 
+  // Calculate total unread messages count across all active conversations
+  const totalUnreadCount = useMemo(() => {
+    return (conversationsList || []).reduce((acc, c) => acc + (Number(c.unreadCount) || 0), 0);
+  }, [conversationsList]);
+
+  // Dynamically update browser tab title with unread badge (WhatsApp Web standard)
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (totalUnreadCount > 0) {
+      document.title = `(${totalUnreadCount}) Conversations • EMS WhatsApp`;
+    } else {
+      document.title = 'Conversations • EMS WhatsApp CRM';
+    }
+  }, [totalUnreadCount]);
+
   // 9. Filtered Conversations List for Search
   const filteredConversations = useMemo(() => {
     if (!searchQuery.trim()) return conversationsList;
@@ -2137,8 +2216,21 @@ export default function ConversationsPage({
                 </div>
                 <div>
                   <h2 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>Conversations</h2>
-                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
-                    {conversationsList.length} Active Leads
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
+                    <span>{conversationsList.length} Active Leads</span>
+                    {totalUnreadCount > 0 && (
+                      <span style={{
+                        padding: '1px 7px',
+                        borderRadius: '10px',
+                        background: '#25D366',
+                        color: '#ffffff',
+                        fontSize: '10px',
+                        fontWeight: '800',
+                        boxShadow: '0 1px 3px rgba(37, 211, 102, 0.4)'
+                      }}>
+                        {totalUnreadCount} unread
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2360,45 +2452,76 @@ export default function ConversationsPage({
 
                   {/* Info */}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                      <div style={{
-                        fontSize: '13px',
-                        fontWeight: hasUnread || isSelected ? '800' : '700',
-                        color: isSelected ? '#0d9488' : '#0f172a',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}>
-                        {contact.name}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, overflow: 'hidden' }}>
+                        <span style={{
+                          fontSize: '13px',
+                          fontWeight: hasUnread ? '800' : (isSelected ? '700' : '600'),
+                          color: isSelected ? '#0d9488' : '#0f172a',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {contact.name}
+                        </span>
+                        {contact.displayId && (
+                          <span style={{
+                            fontSize: '9.5px',
+                            color: '#64748b',
+                            background: '#f1f5f9',
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            fontWeight: '600',
+                            flexShrink: 0
+                          }}>
+                            {contact.displayId}
+                          </span>
+                        )}
                       </div>
-                      <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600' }}>
-                        {contact.displayId}
+                      <span style={{
+                        fontSize: '11px',
+                        color: hasUnread ? '#25D366' : '#94a3b8',
+                        fontWeight: hasUnread ? '700' : '500',
+                        flexShrink: 0,
+                        marginLeft: '6px'
+                      }}>
+                        {formatWhatsAppTime(contact.lastMessageTime)}
                       </span>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '20px' }}>
                       <div style={{
-                        fontSize: '11.5px',
+                        fontSize: '12px',
                         color: hasUnread ? '#0f172a' : '#64748b',
-                        fontWeight: hasUnread ? '700' : '500',
+                        fontWeight: hasUnread ? '700' : '400',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        maxWidth: '170px'
+                        paddingRight: '6px'
                       }}>
-                        {contact.lastMessage ? `💬 ${contact.lastMessage}` : (contact.phone !== '—' ? contact.phone : 'No messages yet')}
+                        {contact.lastMessage 
+                          ? (contact.lastMessage.startsWith('📞') ? contact.lastMessage : `💬 ${contact.lastMessage}`)
+                          : (contact.phone !== '—' ? contact.phone : 'No messages yet')}
                       </div>
 
                       {hasUnread && (
                         <span style={{
-                          padding: '1px 6px',
+                          minWidth: '20px',
+                          height: '20px',
+                          padding: '0 5px',
                           borderRadius: '10px',
-                          background: '#0d9488',
+                          background: '#25D366',
                           color: '#ffffff',
-                          fontSize: '10px',
-                          fontWeight: '800'
+                          fontSize: '11px',
+                          fontWeight: '800',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          boxShadow: '0 2px 4px rgba(37, 211, 102, 0.4)',
+                          lineHeight: 1
                         }}>
-                          {contact.unreadCount}
+                          {contact.unreadCount > 99 ? '99+' : contact.unreadCount}
                         </span>
                       )}
                     </div>
