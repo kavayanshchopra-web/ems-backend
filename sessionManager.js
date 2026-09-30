@@ -161,41 +161,63 @@ export async function startSession(id, io) {
   };
 
   const sessionPath = path.join(sessionsDir, id);
+
+  // If credentials exist but are unlinked/corrupted (no registered user), clean them so a fresh cryptographic keypair is generated
+  if (fs.existsSync(sessionPath)) {
+    try {
+      const credsPath = path.join(sessionPath, 'creds.json');
+      if (fs.existsSync(credsPath)) {
+        const credsRaw = fs.readFileSync(credsPath, 'utf8');
+        const creds = JSON.parse(credsRaw);
+        if (!creds?.me?.id && !creds?.registered) {
+          console.log(`[Session ${id}] Cleaning unlinked auth folder for fresh QR keys...`);
+          fs.rmSync(sessionPath, { recursive: true, force: true });
+        }
+      }
+    } catch (e) {
+      console.warn(`[Session ${id}] Creds validation warning:`, e.message);
+    }
+  }
+
   const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
 
   // Set up low-verbosity logger for Baileys
   const logger = pino({ level: 'silent' });
 
-  let version = [2, 3000, 1015901307];
-  let isLatest = false;
+  // ONLY provide version if fetchLatestWaWebVersion actually succeeds with a real version tuple.
+  // DO NOT use a fake placeholder fallback because WhatsApp rejects unknown versions during handshake with "Could not link device".
+  let version = undefined;
   try {
     const versionPromise = fetchLatestWaWebVersion();
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Version fetch timeout')), 2500));
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Version fetch timeout')), 3000));
     const res = await Promise.race([versionPromise, timeoutPromise]);
-    if (res && res.version) {
+    if (res && res.version && Array.isArray(res.version)) {
       version = res.version;
-      isLatest = res.isLatest;
+      console.log(`[Session ${id}] Using live WAWeb version: ${version.join('.')}`);
     }
   } catch (vErr) {
-    // Fast-fallback to stable Baileys version without hanging
+    console.log(`[Session ${id}] Using Baileys internal tested version default`);
   }
-  console.log(`[Session ${id}] Using WAWeb version: ${version.join('.')} (isLatest: ${isLatest})`);
 
-  const sock = makeWASocket({
-    version,
+  const socketOptions = {
     auth: state,
     logger,
-    printQRInTerminal: true,
-    browser: Browsers.ubuntu('Chrome'),
+    printQRInTerminal: false,
+    browser: Browsers.macOS('Chrome'), // Legitimate desktop user agent to prevent 428 / "Could not link device" anti-bot flags
     connectTimeoutMs: 60000,
     defaultQueryTimeoutMs: 60000,
     keepAliveIntervalMs: 25000,
-    syncFullHistory: true, // Enable downloading past WhatsApp chats
-    shouldSyncHistoryMessage: () => true, // Download and process history messages (capped at 50 per chat)
+    syncFullHistory: false, // Prevents giant payload handshake timeouts that cause "Could not link device"
     markOnlineOnConnect: false,
     retryRequestDelayMs: 250,
     generateHighQualityLinkPreview: false
-  });
+  };
+
+  if (version) {
+    socketOptions.version = version;
+  }
+
+  const sock = makeWASocket(socketOptions);
 
   activeSockets.set(id, sock);
 
