@@ -4033,6 +4033,8 @@ export default function ConversationsPage({
             </div>
           </div>
         </div>
+      )}
+
       {/* Fullscreen WhatsApp Image Lightbox Modal */}
       {lightboxImage && (
         <div 
