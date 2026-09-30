@@ -593,6 +593,22 @@ export async function startSession(id, io) {
       await saveContact(jid, contactName, tenantId);
       const db = getDb();
       await db.run(`UPDATE contacts SET is_archived = 0 WHERE id = ? AND tenant_id = ?`, [jid, tenantId]);
+
+      // Asynchronously fetch WhatsApp profile picture if not cached
+      if (sock && !isGroup) {
+        (async () => {
+          try {
+            const existing = await getContact(jid, tenantId);
+            if (!existing?.profile_pic_url) {
+              const picUrl = await sock.profilePictureUrl(jid, 'image').catch(() => null);
+              if (picUrl) {
+                await updateContactProfilePic(jid, picUrl);
+                emitToTenant('contact_updated', { id: jid, profile_pic_url: picUrl });
+              }
+            }
+          } catch (_) {}
+        })();
+      }
       
       const rawTs = typeof msg.messageTimestamp === 'object' && msg.messageTimestamp !== null
         ? (msg.messageTimestamp.low ?? msg.messageTimestamp.toNumber?.() ?? Math.floor(Date.now() / 1000))

@@ -439,6 +439,7 @@ export default function ConversationsPage({
         rawPhone: cleanPhone,
         normPhone10: norm10,
         email: c.email || '',
+        profile_pic_url: c.profile_pic_url || c.profilePic || c.photoUrl || null,
         lastMessage: c.lastMessage || c.last_message_text || '',
         lastMessageTime: c.lastMessageTime || c.last_message_time || c.updatedAt || c.createdAt || Date.now(),
         unreadCount: c.unread_count || c.unreadCount || 0,
@@ -462,6 +463,7 @@ export default function ConversationsPage({
           ...rec,
           name: betterName,
           phone: (existing.phone && existing.phone !== '—') ? existing.phone : formattedPhone,
+          profile_pic_url: rec.profile_pic_url || existing.profile_pic_url || null,
           lastMessage: rec.lastMessage || existing.lastMessage,
           lastMessageTime: Math.max(new Date(existing.lastMessageTime || 0).getTime(), new Date(rec.lastMessageTime || 0).getTime()),
           unreadCount: mergedUnread,
@@ -606,6 +608,34 @@ export default function ConversationsPage({
     ? 'http://localhost:5000/api'
     : 'https://api.employeemanagementsystems.com/api';
   const token = typeof window !== 'undefined' ? (localStorage.getItem('omnilflow_token') || localStorage.getItem('token')) : null;
+
+  // On-demand fetch real WhatsApp profile picture when active contact lacks one
+  useEffect(() => {
+    if (!activeContact?.id || activeContact.profile_pic_url) return;
+    const targetId = activeContact.id;
+    let isCurrent = true;
+
+    fetch(`${API_URL}/contacts/${encodeURIComponent(targetId)}/profile-pic`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        'x-tenant-id': String(companyId)
+      }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (!isCurrent) return;
+        if (data?.success && data?.profile_pic_url) {
+          const pic = data.profile_pic_url;
+          setActiveContact(prev => (prev && prev.id === targetId ? { ...prev, profile_pic_url: pic } : prev));
+          setConversationsList(prev => prev.map(c => c.id === targetId ? { ...c, profile_pic_url: pic } : c));
+        }
+      })
+      .catch(() => {});
+
+    return () => { isCurrent = false; };
+  }, [activeContact?.id, API_URL, token, companyId]);
+
 
   // WhatsApp Baileys Gateway & QR Connection State
   const [localSessions, setLocalSessions] = useState(() => (Array.isArray(sessions) ? sessions : []));
@@ -1073,6 +1103,7 @@ export default function ConversationsPage({
         mergedMap.set(norm || c.id, {
           ...c,
           phone: c.phone || c.phone_computed || (c.id.includes('@') ? c.id.split('@')[0] : c.id),
+          profile_pic_url: c.profile_pic_url || c.profilePic || null,
           normPhone10: norm,
           unreadCount: c.unread_count || c.unreadCount || 0,
           source: 'whatsapp'
@@ -2717,19 +2748,29 @@ export default function ConversationsPage({
                   >
                   {/* Avatar */}
                   <div style={{
-                    width: '38px',
-                    height: '38px',
+                    width: '40px',
+                    height: '40px',
                     borderRadius: '50%',
                     background: isSelected ? '#0d9488' : '#e2e8f0',
                     color: isSelected ? '#ffffff' : '#334155',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '13px',
+                    fontSize: '14px',
                     fontWeight: '800',
-                    flexShrink: 0
+                    flexShrink: 0,
+                    overflow: 'hidden'
                   }}>
-                    {(contact.name || contact.phone || 'Contact').charAt(0).toUpperCase()}
+                    {contact.profile_pic_url && contact.profile_pic_url !== 'none' ? (
+                      <img
+                        src={contact.profile_pic_url}
+                        alt={contact.name || ''}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    ) : (
+                      (contact.name || contact.phone || 'Contact').charAt(0).toUpperCase()
+                    )}
                   </div>
 
                   {/* Info */}
@@ -2757,19 +2798,6 @@ export default function ConversationsPage({
                             flexShrink: 0
                           }}>
                             {labelObj.name}
-                          </span>
-                        )}
-                        {contact.displayId && !labelObj && (
-                          <span style={{
-                            fontSize: '9.5px',
-                            color: '#64748b',
-                            background: '#f1f5f9',
-                            padding: '1px 5px',
-                            borderRadius: '4px',
-                            fontWeight: '600',
-                            flexShrink: 0
-                          }}>
-                            {contact.displayId}
                           </span>
                         )}
                       </div>
@@ -3035,9 +3063,19 @@ export default function ConversationsPage({
                     justifyContent: 'center',
                     fontSize: isMobile ? '12px' : '14px',
                     fontWeight: '800',
-                    flexShrink: 0
+                    flexShrink: 0,
+                    overflow: 'hidden'
                   }}>
-                    {(activeContact.name || activeContact.phone || 'Contact').charAt(0).toUpperCase()}
+                    {activeContact.profile_pic_url && activeContact.profile_pic_url !== 'none' ? (
+                      <img
+                        src={activeContact.profile_pic_url}
+                        alt={activeContact.name || ''}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    ) : (
+                      (activeContact.name || activeContact.phone || 'Contact').charAt(0).toUpperCase()
+                    )}
                   </div>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
@@ -3052,18 +3090,6 @@ export default function ConversationsPage({
                       }}>
                         {activeContact.name}
                       </h3>
-                      <span style={{
-                        fontSize: '9.5px',
-                        fontFamily: 'monospace',
-                        padding: '1px 5px',
-                        borderRadius: '4px',
-                        background: 'rgba(13, 148, 136, 0.1)',
-                        color: '#0d9488',
-                        fontWeight: '700',
-                        flexShrink: 0
-                      }}>
-                        {activeContact.displayId}
-                      </span>
                     </div>
                     <div style={{
                       fontSize: '11px',
@@ -3236,7 +3262,10 @@ export default function ConversationsPage({
                 padding: '12px 18px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '6px'
+                gap: '5px',
+                background: '#efeae2',
+                backgroundImage: 'radial-gradient(#dfd7cb 1.1px, transparent 1.1px)',
+                backgroundSize: '18px 18px'
               }}
             >
               {isLoadingMessages && filteredTimeline.length === 0 ? (
@@ -3343,20 +3372,21 @@ export default function ConversationsPage({
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: isMe ? 'flex-end' : 'flex-start',
-                        margin: '2px 0'
+                        margin: '1px 0'
                       }}
                     >
                       <div style={{
-                        maxWidth: '70%',
-                        padding: '10px 14px',
-                        borderRadius: isMe ? '14px 14px 2px 14px' : '14px 14px 14px 2px',
-                        background: isMe ? 'linear-gradient(135deg, #0d9488 0%, #047857 100%)' : '#ffffff',
-                        color: isMe ? '#ffffff' : '#0f172a',
-                        border: isMe ? 'none' : '1px solid #e2e8f0',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                        fontSize: '13px',
-                        lineHeight: '1.45',
-                        wordBreak: 'break-word'
+                        maxWidth: '72%',
+                        padding: '6px 10px 4px 10px',
+                        borderRadius: isMe ? '8px 8px 1px 8px' : '8px 8px 8px 1px',
+                        background: isMe ? '#d9fdd3' : '#ffffff',
+                        color: '#111b21',
+                        border: 'none',
+                        boxShadow: '0 1px 1px rgba(11,20,26,0.12)',
+                        fontSize: '13.5px',
+                        lineHeight: '1.4',
+                        wordBreak: 'break-word',
+                        position: 'relative'
                       }}>
                         {item.mediaUrl && (
                           <div style={{ marginBottom: '6px' }}>
@@ -3365,11 +3395,11 @@ export default function ConversationsPage({
                                 src={item.mediaUrl} 
                                 alt="attachment" 
                                 onClick={() => setLightboxImage(item.mediaUrl)}
-                                style={{ maxWidth: '100%', borderRadius: '8px', cursor: 'pointer', transition: 'opacity 0.15s' }} 
+                                style={{ maxWidth: '100%', borderRadius: '6px', cursor: 'pointer', transition: 'opacity 0.15s' }} 
                                 title="Click to view full size"
                               />
                             ) : (
-                              <a href={item.mediaUrl} target="_blank" rel="noreferrer" style={{ color: isMe ? '#ffffff' : '#0d9488', textDecoration: 'underline', fontSize: '12px' }}>
+                              <a href={item.mediaUrl} target="_blank" rel="noreferrer" style={{ color: '#0d9488', textDecoration: 'underline', fontSize: '12.5px', fontWeight: '600' }}>
                                 📎 View Attachment
                               </a>
                             )}
@@ -3382,54 +3412,31 @@ export default function ConversationsPage({
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'flex-end',
-                          gap: '4px',
-                          marginTop: '4px',
-                          fontSize: '10px',
-                          color: isMe ? 'rgba(255,255,255,0.75)' : '#94a3b8'
+                          gap: '3px',
+                          marginTop: '2px',
+                          fontSize: '10.5px',
+                          color: '#667781'
                         }}>
-                          {/* Quick Reply Button on Hover */}
-                          <button
-                            type="button"
-                            onClick={() => setReplyingToMessage({
-                              id: item.id,
-                              content: item.content || item.textContent,
-                              fromMe: isMe,
-                              senderName: isMe ? 'You' : (activeContact?.name || 'Contact')
-                            })}
-                            style={{
-                              border: 'none',
-                              background: 'transparent',
-                              color: isMe ? 'rgba(255,255,255,0.8)' : '#64748b',
-                              cursor: 'pointer',
-                              padding: '0 4px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              marginRight: '2px'
-                            }}
-                            title="Reply to message"
-                          >
-                            <CornerUpLeft size={11} />
-                          </button>
                           <span>{itemTime}</span>
                           {isMe && (
                             (() => {
                               const s = item.status;
                               if (s === 'pending' || s === 0) {
-                                return <Clock size={11} color="rgba(255,255,255,0.7)" title="Pending" />;
+                                return <Clock size={11} color="#8696a0" title="Pending" />;
                               }
                               if (s === 1 || s === 'sent' || s === 'server_ack') {
-                                return <Check size={12} color="rgba(255,255,255,0.75)" title="Sent" />;
+                                return <Check size={13} color="#8696a0" title="Sent" />;
                               }
                               if (s === 2 || s === 'delivered' || s === 'delivery_ack') {
-                                return <CheckCheck size={12} color="rgba(255,255,255,0.85)" title="Delivered" />;
+                                return <CheckCheck size={14} color="#8696a0" title="Delivered" />;
                               }
                               if (s === 3 || s === 4 || s === 5 || s === 'read' || s === 'played') {
-                                return <CheckCheck size={12} color="#38bdf8" title="Read" style={{ strokeWidth: 2.5 }} />;
+                                return <CheckCheck size={14} color="#53bdeb" title="Read" style={{ strokeWidth: 2.2 }} />;
                               }
                               if (s === 'error' || s === 'failed') {
-                                return <AlertCircle size={12} color="#fca5a5" title="Failed to deliver" />;
+                                return <AlertCircle size={12} color="#ea0038" title="Failed to deliver" />;
                               }
-                              return <Check size={12} color="rgba(255,255,255,0.75)" title="Sent" />;
+                              return <Check size={13} color="#8696a0" title="Sent" />;
                             })()
                           )}
                         </div>
@@ -3618,16 +3625,23 @@ export default function ConversationsPage({
               fontSize: '20px',
               fontWeight: '800',
               margin: '0 auto 10px',
-              boxShadow: '0 4px 10px rgba(13, 148, 136, 0.25)'
+              boxShadow: '0 4px 10px rgba(13, 148, 136, 0.25)',
+              overflow: 'hidden'
             }}>
-              {(activeContact.name || activeContact.phone || 'Contact').charAt(0).toUpperCase()}
+              {activeContact.profile_pic_url && activeContact.profile_pic_url !== 'none' ? (
+                <img
+                  src={activeContact.profile_pic_url}
+                  alt={activeContact.name || ''}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+              ) : (
+                (activeContact.name || activeContact.phone || 'Contact').charAt(0).toUpperCase()
+              )}
             </div>
             <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: '0 0 2px 0' }}>
               {activeContact.name}
             </h4>
-            <div style={{ fontSize: '11.5px', fontFamily: 'monospace', color: '#0d9488', fontWeight: '700' }}>
-              ID: {activeContact.displayId}
-            </div>
           </div>
 
           {/* Lead Stage Selector */}
