@@ -651,22 +651,41 @@ export default function ConversationsPage({
 
   // Disconnect / Reset active WhatsApp session
   const handleDisconnectSession = async (sessId) => {
-    if (!window.confirm('Kya aap WhatsApp re-link karna chahte hain taaki saari past chats aur 50-50 messages CRM mein fetch ho sakein?')) return;
+    if (!window.confirm('Kya aap is WhatsApp number ko disconnect karke naya QR code scan karna chahte hain?')) return;
+    setQrLoading(true);
+    setQrActionMsg('Disconnecting WhatsApp session...');
     try {
-      const targetId = sessId || primarySession?.id;
-      if (targetId) {
-        await fetch(`${API_URL}/sessions/reset/${targetId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-          }
-        });
-        await fetchCurrentSessions();
-        handleStartSession(targetId);
+      const targetId = sessId || primarySession?.id || 'primary';
+      // Optimistically update UI so modal immediately shows connecting state
+      setLocalSessions([{ id: targetId, status: 'connecting', qr_code: null }]);
+
+      const res = await fetch(`${API_URL}/sessions/reset/${encodeURIComponent(targetId)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': String(companyId),
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ tenantId: companyId })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      const newId = data.newSessionId || targetId;
+
+      await fetchCurrentSessions();
+      handleStartSession(newId);
+
+      if (showToast) {
+        showToast('WhatsApp number disconnected. Generating fresh QR code...', 'success');
       }
     } catch (err) {
       console.error('[Disconnect Session Error]', err);
+      if (showToast) {
+        showToast('Disconnect notice: ' + (err.message || 'Server error'), 'error');
+      }
+      setQrActionMsg('Disconnect failed: ' + err.message);
+    } finally {
+      setQrLoading(false);
     }
   };
 
@@ -1068,26 +1087,43 @@ export default function ConversationsPage({
     }
 
     const queryPhone = norm10 ? `91${norm10}` : cleanPhone;
-    fetch(`${API_URL}/contacts/${encodeURIComponent(contactId)}/messages?limit=200&phone=${encodeURIComponent(queryPhone)}`, {
+    const abortCtrl = new AbortController();
+
+    // Safety timeout: Ensure loading spinner is NEVER stuck past 4 seconds
+    const safetyTimer = setTimeout(() => {
+      setIsLoadingMessages(false);
+    }, 4000);
+
+    fetch(`${API_URL}/contacts/${encodeURIComponent(contactId)}/messages?limit=200&phone=${encodeURIComponent(queryPhone)}&tenantId=${encodeURIComponent(companyId)}`, {
+      signal: abortCtrl.signal,
       headers: {
         ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        'x-tenant-id': String(companyId)
+        'x-tenant-id': String(companyId),
+        'Accept': 'application/json'
       }
     })
-      .then(res => res.json())
+      .then(async (res) => {
+        if (!res.ok) {
+          return { messages: [] };
+        }
+        return res.json().catch(() => ({ messages: [] }));
+      })
       .then(data => {
+        clearTimeout(safetyTimer);
         const msgs = Array.isArray(data?.messages) ? data.messages : (Array.isArray(data) ? data : []);
         setActiveMessages(prev => {
           const map = new Map();
           // First add server messages
           msgs.forEach(m => {
+            if (!m) return;
             const key = m.id || `${m.text_content || m.textContent}_${m.timestamp}`;
             map.set(key, m);
           });
           // Then preserve any recent local/optimistic messages not yet returned by server
           (prev || []).forEach(p => {
+            if (!p) return;
             const key = p.id || `${p.text_content || p.textContent}_${p.timestamp}`;
-            const existsInServer = msgs.some(m => m.id === p.id || ((m.text_content === p.text_content || m.textContent === p.textContent) && Math.abs((m.timestamp || 0) - (p.timestamp || 0)) < 8));
+            const existsInServer = msgs.some(m => m && (m.id === p.id || ((m.text_content === p.text_content || m.textContent === p.textContent) && Math.abs((m.timestamp || 0) - (p.timestamp || 0)) < 8)));
             if (!existsInServer) {
               map.set(key, p);
             }
@@ -1108,10 +1144,20 @@ export default function ConversationsPage({
         }, 80);
       })
       .catch(err => {
-        console.warn('[ConversationsPage] Messages fetch error:', err);
+        if (err.name !== 'AbortError') {
+          console.warn('[ConversationsPage] Messages fetch notice:', err.message);
+        }
+      })
+      .finally(() => {
+        clearTimeout(safetyTimer);
         setIsLoadingMessages(false);
       });
-  }, [activeContact?.id, activeContact?.phone, activeContact?.rawPhone, API_URL, token]);
+
+    return () => {
+      clearTimeout(safetyTimer);
+      abortCtrl.abort();
+    };
+  }, [activeContact?.id, activeContact?.phone, activeContact?.rawPhone, API_URL, token, companyId]);
 
   // Real-time Electron WhatsApp Webview Incoming Message & Batch Sync Listener
   useEffect(() => {
@@ -3321,19 +3367,25 @@ export default function ConversationsPage({
                     <button
                       type="button"
                       onClick={() => handleDisconnectSession()}
+                      disabled={qrLoading}
                       style={{
                         flex: 1,
                         padding: '11px',
                         borderRadius: '10px',
-                        background: '#fff1f2',
+                        background: qrLoading ? '#f1f5f9' : '#fff1f2',
                         border: '1px solid #fecdd3',
-                        color: '#e11d48',
+                        color: qrLoading ? '#94a3b8' : '#e11d48',
                         fontSize: '12px',
                         fontWeight: '700',
-                        cursor: 'pointer'
+                        cursor: qrLoading ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px'
                       }}
                     >
-                      Disconnect Number
+                      {qrLoading && <RefreshCw size={13} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />}
+                      <span>{qrLoading ? 'Disconnecting...' : 'Disconnect Number'}</span>
                     </button>
                     <button
                       type="button"

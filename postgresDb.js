@@ -39,6 +39,8 @@ export function convertSqliteToPostgres(sql) {
   converted = converted.replace(/\bDATETIME\b/gi, 'TIMESTAMPTZ');
   converted = converted.replace(/\browid\b/gi, 'id');
   converted = converted.replace(/WHEN\s+\$(\d+)\s+IS\s+NOT\s+NULL/gi, (m, p1) => `WHEN $${p1}::text IS NOT NULL`);
+  // Convert SQLite SUBSTR(expr, -N) to PostgreSQL RIGHT(expr, N)
+  converted = converted.replace(/SUBSTR\(([\s\S]+?),\s*-(\d+)\)/gi, (m, p1, p2) => `RIGHT(${p1}, ${p2})`);
   
   if (/INSERT\s+OR\s+IGNORE\s+INTO/i.test(converted)) {
     converted = converted.replace(/INSERT\s+OR\s+IGNORE\s+INTO/gi, 'INSERT INTO');

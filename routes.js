@@ -1098,6 +1098,51 @@ export default function setupRoutes(io) {
     }
   });
 
+  // Disconnect / Reset a specific or active WhatsApp session and generate a fresh clean QR code
+  router.post(['/sessions/reset/:id', '/sessions/disconnect/:id', '/sessions/reset', '/api/sessions/reset/:id', '/api/sessions/disconnect/:id', '/api/sessions/reset'], async (req, res) => {
+    const rawId = req.params.id;
+    const rawTenant = req.headers?.['x-tenant-id'] || req.query?.tenantId || req.body?.tenantId || req.user?.tenant_id || 1;
+    const tenantId = parseInt(rawTenant, 10) || 1;
+
+    try {
+      let targetId = rawId;
+      if (!targetId || targetId === 'undefined' || targetId === 'primary') {
+        const tenantSessions = await getAllSessions(tenantId);
+        const active = tenantSessions.find(s => s.status === 'connected') || tenantSessions[0];
+        targetId = active?.id;
+      }
+
+      if (targetId && targetId !== 'undefined') {
+        await destroySession(targetId).catch(err => {
+          console.warn('[Destroy Session Notice]', err.message);
+        });
+      }
+
+      // Generate a fresh session ID for new QR scan
+      const newSessionId = `session_${tenantId}_${Date.now()}`;
+      await saveSession(newSessionId, 'Primary WhatsApp Line', tenantId);
+
+      // Auto-start the new session so QR code is immediately generated and broadcasted via socket
+      startSession(newSessionId, io).catch(err => {
+        console.error('[Session Reset Auto-Start Error]', err);
+      });
+
+      if (io) {
+        io.emit('session_disconnected', { sessionId: targetId, newSessionId, tenantId });
+      }
+
+      res.json({
+        success: true,
+        message: 'Session disconnected and reset for new QR scan',
+        oldSessionId: targetId,
+        newSessionId
+      });
+    } catch (err) {
+      console.error('[Session Reset Route Error]', err);
+      res.status(500).json({ error: err.message || 'Failed to disconnect session' });
+    }
+  });
+
   // ==========================================
   // CRM CONTACTS
   // ==========================================
@@ -1144,23 +1189,24 @@ export default function setupRoutes(io) {
   });
 
   // Get messages for a contact
-  router.get('/contacts/:id/messages', async (req, res) => {
+  router.get(['/contacts/:id/messages', '/api/contacts/:id/messages'], async (req, res) => {
     const { id } = req.params;
-    const limit = parseInt(req.query.limit) || 100;
-    const offset = parseInt(req.query.offset) || 0;
+    const limit = parseInt(req.query.limit, 10) || 100;
+    const offset = parseInt(req.query.offset, 10) || 0;
     const phone = req.query.phone || req.query.phoneNumber || null;
-    const tenantId = req.user?.tenant_id || (req.query.tenantId && !isNaN(parseInt(req.query.tenantId, 10)) ? parseInt(req.query.tenantId, 10) : 1);
+    const rawTenant = req.headers?.['x-tenant-id'] || req.query?.tenantId || req.user?.tenant_id || 1;
+    const tenantId = parseInt(rawTenant, 10) || 1;
 
     try {
       const messages = await getMessagesForContact(id, limit, offset, tenantId, phone);
       res.json({
-        messages,
-        total: messages.length,
+        messages: Array.isArray(messages) ? messages : [],
+        total: Array.isArray(messages) ? messages.length : 0,
         hasMore: false
       });
     } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Failed to retrieve message history' });
+      console.error('[Get Contact Messages Error]', err);
+      res.status(200).json({ messages: [], total: 0, hasMore: false });
     }
   });
 

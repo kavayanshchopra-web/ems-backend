@@ -1595,6 +1595,9 @@ export async function clearAllCrmData(tenantId = null) {
 }
 
 export async function getMessagesForContact(contactId, limit = 100, offset = 0, tenantId = 1, extraPhone = null) {
+  const numericTenant = parseInt(tenantId, 10) || 1;
+  const numLimit = parseInt(limit, 10) || 100;
+  const numOffset = parseInt(offset, 10) || 0;
   const possibleIds = new Set();
   
   if (contactId) {
@@ -1637,17 +1640,41 @@ export async function getMessagesForContact(contactId, limit = 100, offset = 0, 
     }
   }
 
+  const idDigits = String(contactId || '').replace(/\D/g, '');
+  const norm10 = (cleanExtra && cleanExtra.length >= 7 ? cleanExtra.slice(-10) : '') || 
+                 (idDigits && idDigits.length >= 7 ? idDigits.slice(-10) : '');
+
+  if (norm10) {
+    possibleIds.add(norm10);
+    possibleIds.add(`91${norm10}`);
+    possibleIds.add(`+91${norm10}`);
+    possibleIds.add(`91${norm10}@s.whatsapp.net`);
+    possibleIds.add(`91${norm10}@c.us`);
+    possibleIds.add(`${norm10}@s.whatsapp.net`);
+    possibleIds.add(`${norm10}@c.us`);
+
+    // Check lid_mappings for any WhatsApp privacy LID mapped to this phone
+    try {
+      const lidRows = await db.all(
+        `SELECT lid FROM lid_mappings WHERE (pn LIKE ? OR pn LIKE ?) AND tenant_id = ?`,
+        [`%${norm10}`, `%${norm10}%`, numericTenant]
+      );
+      (lidRows || []).forEach(r => {
+        if (r.lid) possibleIds.add(r.lid);
+      });
+    } catch (lidErr) {}
+  }
+
   // Lookup contact row to find all associated phone numbers
   try {
-    const idClean = String(contactId || '').replace(/\D/g, '');
-    const searchTarget = cleanExtra || idClean;
-    const last10 = searchTarget.length >= 7 ? searchTarget.slice(-10) : '';
+    const searchTarget = cleanExtra || idDigits;
+    const last10 = norm10;
 
     const contactRow = await db.get(
       `SELECT id, phone, phone_normalized FROM contacts 
        WHERE (id = ? OR id LIKE ? OR phone = ? OR phone LIKE ? OR phone_normalized = ? OR phone_normalized LIKE ?) 
          AND tenant_id = ? LIMIT 1`,
-      [contactId, `%${last10}%`, searchTarget, `%${last10}%`, last10, `%${last10}%`, tenantId]
+      [contactId, `%${last10}%`, searchTarget, `%${last10}%`, last10, `%${last10}%`, numericTenant]
     );
 
     if (contactRow) {
@@ -1670,22 +1697,6 @@ export async function getMessagesForContact(contactId, limit = 100, offset = 0, 
     }
   } catch (e) {}
 
-  const idDigits = String(contactId || '').replace(/\D/g, '');
-  if (idDigits.length >= 7) {
-    possibleIds.add(idDigits);
-    possibleIds.add(`${idDigits}@s.whatsapp.net`);
-    possibleIds.add(`${idDigits}@c.us`);
-    if (idDigits.length >= 10) {
-      const l10 = idDigits.slice(-10);
-      possibleIds.add(l10);
-      possibleIds.add(`91${l10}`);
-      possibleIds.add(`+91${l10}`);
-      possibleIds.add(`91${l10}@s.whatsapp.net`);
-      possibleIds.add(`91${l10}@c.us`);
-      possibleIds.add(`${l10}@s.whatsapp.net`);
-    }
-  }
-
   const idList = Array.from(possibleIds).filter(Boolean);
   if (idList.length === 0) return [];
   const placeholders = idList.map(() => '?').join(', ');
@@ -1694,10 +1705,17 @@ export async function getMessagesForContact(contactId, limit = 100, offset = 0, 
     `SELECT m.*, s.phone_name as session_name 
      FROM messages m
      LEFT JOIN whatsapp_sessions s ON m.session_id = s.id
-     WHERE m.tenant_id = ? AND m.contact_id IN (${placeholders})
+     WHERE m.tenant_id = ? 
+       AND (
+         m.contact_id IN (${placeholders})
+         OR (
+           ? != '' AND 
+           SUBSTR(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(m.contact_id, '@s.whatsapp.net', ''), '@c.us', ''), '+', ''), ' ', ''), '-', ''), -10) = ?
+         )
+       )
      ORDER BY m.timestamp DESC
      LIMIT ? OFFSET ?`,
-    [tenantId, ...idList, limit, offset]
+    [numericTenant, ...idList, norm10 || '', norm10 || '', numLimit, numOffset]
   );
   return messages.reverse();
 }
