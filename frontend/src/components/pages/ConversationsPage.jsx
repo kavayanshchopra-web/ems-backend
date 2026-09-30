@@ -694,19 +694,29 @@ export default function ConversationsPage({
     return [];
   };
 
-  // Poll sessions while QR modal is open and auto-request QR if none present
+  const startingSessionRef = useRef(false);
+
+  // Poll sessions while QR modal is open and auto-request QR once safely
   useEffect(() => {
+    if (!showQrModal) return;
+
     fetchCurrentSessions();
-    if (showQrModal && !isConnected) {
-      if (!isQRReady) {
-        handleStartSession();
-      }
-      const interval = setInterval(() => {
-        fetchCurrentSessions();
-      }, 2000);
-      return () => clearInterval(interval);
+
+    // Auto-request QR code only if not already connected, connecting, or qr_ready
+    const isBusy = isConnected || isQRReady || primarySession?.status === 'connecting';
+    if (!isBusy && !startingSessionRef.current) {
+      startingSessionRef.current = true;
+      handleStartSession().finally(() => {
+        setTimeout(() => { startingSessionRef.current = false; }, 4000);
+      });
     }
-  }, [showQrModal, isConnected, isQRReady]);
+
+    const interval = setInterval(() => {
+      fetchCurrentSessions();
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [showQrModal, isConnected]);
 
   // Start or trigger QR code generation for WhatsApp session
   const handleStartSession = async (sessId) => {

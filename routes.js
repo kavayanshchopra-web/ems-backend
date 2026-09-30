@@ -986,7 +986,7 @@ export default function setupRoutes(io) {
         });
       }
 
-      const sessionId = 'session_' + activeTenant + '_' + Date.now();
+      const sessionId = req.body?.id || `session_${activeTenant}_primary`;
       await saveSession(sessionId, phoneName, activeTenant);
       
       startSession(sessionId, io).catch(err => {
@@ -1006,7 +1006,7 @@ export default function setupRoutes(io) {
       const activeTenant = parseInt(req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.query?.tenant_id || 1, 10) || 1;
       let sessions = await getAllSessions(activeTenant);
       if (!sessions || sessions.length === 0) {
-        const sessionId = 'session_' + activeTenant + '_' + Date.now();
+        const sessionId = `session_${activeTenant}_primary`;
         await saveSession(sessionId, 'Primary WhatsApp Line', activeTenant);
         startSession(sessionId, io).catch(err => {
           console.error('Error auto-starting session:', err);
@@ -1028,6 +1028,11 @@ export default function setupRoutes(io) {
       const session = await getSession(id);
       if (session && parseInt(session.tenant_id, 10) !== activeTenant && req.user?.role !== 'superadmin') {
         return res.status(403).json({ error: 'Access denied to this session' });
+      }
+
+      // If session is already connected or connecting (pairing in progress), do NOT kill socket
+      if (session && (session.status === 'connected' || session.status === 'connecting')) {
+        return res.json({ message: 'Session is already in progress', id, status: session.status });
       }
 
       // Force cleanup of any stale socket so Baileys generates a fresh live QR code

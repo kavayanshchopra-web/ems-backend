@@ -105,6 +105,8 @@ function triggerDownloadMediaBackground(msg, mediaType, io, tenantId) {
 
 // Map to hold active sockets
 const activeSockets = new Map();
+// Map to hold debounced reconnect timers to prevent tight loop flapping
+const reconnectTimers = new Map();
 
 // Global promise chain to serialize database transactions during history sync
 let dbSyncQueue = Promise.resolve();
@@ -133,6 +135,12 @@ export async function initAllSessions(io) {
 
 // Start a single WhatsApp session
 export async function startSession(id, io) {
+  // Cancel any pending reconnect timer for this session
+  if (reconnectTimers.has(id)) {
+    clearTimeout(reconnectTimers.get(id));
+    reconnectTimers.delete(id);
+  }
+
   if (activeSockets.has(id)) {
     const existingSock = activeSockets.get(id);
     if (existingSock?.user?.id) {
@@ -140,6 +148,7 @@ export async function startSession(id, io) {
       return existingSock;
     }
     try {
+      existingSock.ev?.removeAllListeners();
       existingSock.end(new Error('Resetting socket for fresh QR'));
     } catch (e) {}
     activeSockets.delete(id);
@@ -262,14 +271,28 @@ export async function startSession(id, io) {
         console.error(`[Session ${id}] Connection error object:`, JSON.stringify(lastDisconnect.error, null, 2) || lastDisconnect.error);
       }
 
+      activeSockets.delete(id);
+
       if (shouldReconnect) {
-        // Reconnect if not logged out
-        activeSockets.delete(id);
-        startSession(id, io);
+        // Safe debounced reconnect with 2500ms backoff to let previous socket finish closing
+        if (reconnectTimers.has(id)) {
+          clearTimeout(reconnectTimers.get(id));
+        }
+        console.log(`[Session ${id}] Scheduling safe backoff reconnect in 2500ms...`);
+        const timer = setTimeout(() => {
+          reconnectTimers.delete(id);
+          startSession(id, io).catch(err => {
+            console.error(`[Session ${id}] Reconnect failed:`, err.message);
+          });
+        }, 2500);
+        reconnectTimers.set(id, timer);
       } else {
         // Logged out: clean credentials folder and delete session socket
         console.log(`[Session ${id}] Logged out. Cleaning files...`);
-        activeSockets.delete(id);
+        if (reconnectTimers.has(id)) {
+          clearTimeout(reconnectTimers.get(id));
+          reconnectTimers.delete(id);
+        }
         await updateSessionStatus(id, 'disconnected', null, null);
         
         if (fs.existsSync(sessionPath)) {
@@ -738,9 +761,14 @@ export async function startSession(id, io) {
 
 // Stop session
 export async function stopSession(id) {
+  if (reconnectTimers.has(id)) {
+    clearTimeout(reconnectTimers.get(id));
+    reconnectTimers.delete(id);
+  }
   const sock = activeSockets.get(id);
   if (sock) {
     try {
+      sock.ev?.removeAllListeners();
       sock.end();
     } catch (err) {
       console.error(`Error closing socket for session ${id}:`, err);
