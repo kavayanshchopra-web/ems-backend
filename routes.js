@@ -1073,10 +1073,11 @@ export default function setupRoutes(io) {
   });
 
   // Consolidate all duplicate/conflicting sessions to a single clean primary line
-  router.post('/sessions/cleanup-and-reset', async (req, res) => {
+  router.post(['/sessions/cleanup-and-reset', '/api/sessions/cleanup-and-reset'], async (req, res) => {
     try {
-      const activeTenant = req.user?.tenant_id || req.headers?.['x-tenant-id'] || 1;
-      const all = await getAllSessions(activeTenant);
+      const rawTenant = req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.query?.tenantId || 1;
+      const tenantId = parseInt(rawTenant, 10) || 1;
+      const all = await getAllSessions(tenantId);
       
       // Stop and delete all existing sessions
       for (const s of all) {
@@ -1084,8 +1085,8 @@ export default function setupRoutes(io) {
       }
       
       // Create single clean primary session
-      const primaryId = `session_${activeTenant}_primary`;
-      await saveSession(primaryId, 'Primary WhatsApp Line', activeTenant);
+      const primaryId = `session_${tenantId}_primary`;
+      await saveSession(primaryId, 'Primary WhatsApp Line', tenantId);
       
       startSession(primaryId, io).catch(err => {
         console.error('Error starting clean primary session:', err);
