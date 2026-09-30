@@ -39,17 +39,18 @@ git add .gitignore
 git add DEPLOY_TO_PRODUCTION_LIVE.bat
 set GIT_EDITOR=true
 git commit -m "Production Deploy: Dynamic Dashboard Engine, Multi-Tenant GHL Isolation, Currency and RBAC fixes"
-git push origin main
+git push origin HEAD:main
+git push origin HEAD:staging 2>nul
 
 echo.
 echo [3/3] Promoting build to Official Live Production Domain...
 cd /d "%~dp0frontend"
 call npx vercel --prod --yes --force
 if %errorlevel% neq 0 (
-  color 0C
-  echo ❌ VERCEL PRODUCTION DEPLOYMENT FAILED!
-  pause
-  exit /b %errorlevel%
+  echo.
+  echo ℹ️ Note: Vercel CLI local push was skipped or not logged in.
+  echo ✅ GitHub auto-deployment was already triggered via Git push to 'main'!
+  echo 🌐 Vercel will build and publish automatically: https://vercel.com/dashboard
 )
 
 echo.

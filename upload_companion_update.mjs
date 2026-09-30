@@ -42,7 +42,9 @@ async function verifyUrl(publicUrl) {
 async function main() {
   console.log('🚀 Starting OmniFlow Companion OTA Update Publisher...');
 
-  const apkPath = path.resolve('OmniFlow-Live-Companion.apk');
+  const apkPath = fs.existsSync(path.resolve('EMS-Live-Companion.apk'))
+    ? path.resolve('EMS-Live-Companion.apk')
+    : path.resolve('OmniFlow-Live-Companion.apk');
   if (!fs.existsSync(apkPath)) {
     throw new Error(`APK not found at ${apkPath}`);
   }
@@ -50,15 +52,16 @@ async function main() {
   const apkBuffer = fs.readFileSync(apkPath);
   console.log(`Read APK file: ${apkPath} (${(apkBuffer.length / (1024 * 1024)).toFixed(2)} MB)`);
 
-  // 1. Upload APK
+  // 1. Upload APK under both EMS and OmniFlow names for 100% compatibility
+  await uploadFile('app/EMS-Live-Companion.apk', apkBuffer, 'application/vnd.android.package-archive');
   await uploadFile('app/OmniFlow-Live-Companion.apk', apkBuffer, 'application/vnd.android.package-archive');
 
   // 2. Prepare and Upload version.json
   const versionInfo = {
-    versionCode: 8,
-    versionName: "1.0.8",
-    apkUrl: `${SUPABASE_BASE}/storage/v1/object/public/${BUCKET}/app/OmniFlow-Live-Companion.apk`,
-    changeLog: "OmniFlow Teal Theme UI, Strict User Identity Isolation on Offline Queue (0% leak between users), and Manual Logout Policy.",
+    versionCode: 9,
+    versionName: "1.0.9",
+    apkUrl: `${SUPABASE_BASE}/storage/v1/object/public/${BUCKET}/app/EMS-Live-Companion.apk`,
+    changeLog: "Official EMS Branding, EMS top header on Recents/Dialer/Contacts, and enhanced front page.",
     minVersionCode: 1,
     forceUpdate: true,
     updatedAt: new Date().toISOString()

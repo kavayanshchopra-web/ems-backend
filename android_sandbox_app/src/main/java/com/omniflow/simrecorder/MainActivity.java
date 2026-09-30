@@ -265,24 +265,45 @@ public class MainActivity extends AppCompatActivity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Color.parseColor("#F8FAFC"));
 
-        // 1. TOP HEADER BAR: Deep Forest Teal (#064E43) Brand Bar (NO REFRESH BUTTON)
+        // 1. TOP HEADER BAR: Deep Forest Teal (#064E43) Brand Bar
         headerBar = new LinearLayout(this);
-        headerBar.setOrientation(LinearLayout.VERTICAL);
+        headerBar.setOrientation(LinearLayout.HORIZONTAL);
         headerBar.setBackgroundColor(Color.parseColor("#064E43"));
-        headerBar.setPadding((int)(20 * density), (int)(14 * density), (int)(20 * density), (int)(14 * density));
+        headerBar.setPadding((int)(16 * density), (int)(10 * density), (int)(16 * density), (int)(10 * density));
+        headerBar.setGravity(Gravity.CENTER_VERTICAL);
+
+        LinearLayout logoContainer = new LinearLayout(this);
+        logoContainer.setOrientation(LinearLayout.HORIZONTAL);
+        logoContainer.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f);
+        logoContainer.setLayoutParams(logoParams);
+
+        ImageView ivBrandIcon = new ImageView(this);
+        ivBrandIcon.setImageResource(R.mipmap.ic_launcher);
+        int iconPx = (int)(32 * density);
+        LinearLayout.LayoutParams ivParams = new LinearLayout.LayoutParams(iconPx, iconPx);
+        ivParams.rightMargin = (int)(10 * density);
+        ivBrandIcon.setLayoutParams(ivParams);
+        logoContainer.addView(ivBrandIcon);
+
+        LinearLayout textContainer = new LinearLayout(this);
+        textContainer.setOrientation(LinearLayout.VERTICAL);
 
         TextView tvLogo = new TextView(this);
-        tvLogo.setText("OmniFlow");
+        tvLogo.setText("EMS");
         tvLogo.setTextColor(Color.WHITE);
-        tvLogo.setTextSize(21f);
+        tvLogo.setTextSize(19f);
         tvLogo.setTypeface(null, Typeface.BOLD);
-        headerBar.addView(tvLogo);
+        textContainer.addView(tvLogo);
 
         TextView tvSubHeader = new TextView(this);
-        tvSubHeader.setText("Active SIM Telecaller");
+        tvSubHeader.setText("SIM Telecaller");
         tvSubHeader.setTextColor(Color.parseColor("#99F6E4")); // Soft mint
         tvSubHeader.setTextSize(11f);
-        headerBar.addView(tvSubHeader);
+        textContainer.addView(tvSubHeader);
+
+        logoContainer.addView(textContainer);
+        headerBar.addView(logoContainer);
 
         root.addView(headerBar);
 

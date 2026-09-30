@@ -289,23 +289,36 @@ public class MainActivity extends AppCompatActivity {
         headerBar.setGravity(Gravity.CENTER_VERTICAL);
 
         LinearLayout logoContainer = new LinearLayout(this);
-        logoContainer.setOrientation(LinearLayout.VERTICAL);
+        logoContainer.setOrientation(LinearLayout.HORIZONTAL);
+        logoContainer.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f);
         logoContainer.setLayoutParams(logoParams);
 
+        ImageView ivBrandIcon = new ImageView(this);
+        ivBrandIcon.setImageResource(R.mipmap.ic_launcher);
+        int iconPx = (int)(32 * density);
+        LinearLayout.LayoutParams ivParams = new LinearLayout.LayoutParams(iconPx, iconPx);
+        ivParams.rightMargin = (int)(10 * density);
+        ivBrandIcon.setLayoutParams(ivParams);
+        logoContainer.addView(ivBrandIcon);
+
+        LinearLayout textContainer = new LinearLayout(this);
+        textContainer.setOrientation(LinearLayout.VERTICAL);
+
         TextView tvLogo = new TextView(this);
-        tvLogo.setText("OmniFlow");
+        tvLogo.setText("EMS");
         tvLogo.setTextColor(Color.WHITE);
-        tvLogo.setTextSize(20f);
+        tvLogo.setTextSize(19f);
         tvLogo.setTypeface(null, Typeface.BOLD);
-        logoContainer.addView(tvLogo);
+        textContainer.addView(tvLogo);
 
         TextView tvSubHeader = new TextView(this);
-        tvSubHeader.setText("Active SIM Telecaller");
+        tvSubHeader.setText("SIM Telecaller");
         tvSubHeader.setTextColor(Color.parseColor("#99F6E4")); // Soft mint
         tvSubHeader.setTextSize(11f);
-        logoContainer.addView(tvSubHeader);
+        textContainer.addView(tvSubHeader);
 
+        logoContainer.addView(textContainer);
         headerBar.addView(logoContainer);
 
         // Recording & Folder Settings Button
