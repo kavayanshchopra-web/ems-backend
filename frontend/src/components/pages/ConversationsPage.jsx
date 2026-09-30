@@ -561,12 +561,12 @@ export default function ConversationsPage({
 
   const primarySession = useMemo(() => {
     if (!Array.isArray(localSessions) || localSessions.length === 0) return null;
-    // 1. Prioritize session that has live QR code ready
-    const qrSess = localSessions.find(s => (s.status === 'qr_ready' || s.qr_code) && s.qr_code);
-    if (qrSess) return qrSess;
-    // 2. Next prioritize connected session
+    // 1. FIRST prioritize connected session (active linked line is ALWAYS top priority)
     const connSess = localSessions.find(s => s.status === 'connected');
     if (connSess) return connSess;
+    // 2. Next prioritize session that has live QR code ready
+    const qrSess = localSessions.find(s => s.status === 'qr_ready' && s.qr_code);
+    if (qrSess) return qrSess;
     // 3. Next prioritize connecting session
     const ingSess = localSessions.find(s => s.status === 'connecting');
     if (ingSess) return ingSess;
@@ -1099,6 +1099,7 @@ export default function ConversationsPage({
       setActiveMessages(cached);
       setIsLoadingMessages(false);
     } else {
+      setActiveMessages([]);
       setIsLoadingMessages(true);
     }
 
@@ -1126,7 +1127,11 @@ export default function ConversationsPage({
       })
       .then(data => {
         clearTimeout(safetyTimer);
+        // Ensure this response is still for the currently active contact
+        if (activeContactRef.current?.id !== contactId) return;
+
         const msgs = Array.isArray(data?.messages) ? data.messages : (Array.isArray(data) ? data : []);
+        
         setActiveMessages(prev => {
           const map = new Map();
           // First add server messages
@@ -1135,9 +1140,14 @@ export default function ConversationsPage({
             const key = m.id || `${m.text_content || m.textContent}_${m.timestamp}`;
             map.set(key, m);
           });
-          // Then preserve any recent local/optimistic messages not yet returned by server
+          // ONLY preserve recent optimistic messages sent specifically for THIS active contact
           (prev || []).forEach(p => {
             if (!p) return;
+            const pContact = String(p.contact_id || p.contactId || '');
+            const pPhone = String(p.phone || '').replace(/\D/g, '').slice(-10);
+            const belongsToThisContact = pContact === String(contactId) || (norm10 && pPhone && pPhone === norm10);
+            if (!belongsToThisContact) return;
+
             const key = p.id || `${p.text_content || p.textContent}_${p.timestamp}`;
             const existsInServer = msgs.some(m => m && (m.id === p.id || ((m.text_content === p.text_content || m.textContent === p.textContent) && Math.abs((m.timestamp || 0) - (p.timestamp || 0)) < 8)));
             if (!existsInServer) {
@@ -1558,6 +1568,10 @@ export default function ConversationsPage({
 
       socket.on('session_update', (data) => {
         if (!data || !data.id) return;
+        if (data.status === 'connected') {
+          fetchCurrentSessions();
+          fetchConversations();
+        }
         setLocalSessions(prev => {
           const exists = prev.some(s => String(s.id) === String(data.id));
           if (exists) {
@@ -1566,7 +1580,7 @@ export default function ConversationsPage({
                 return {
                   ...s,
                   status: data.status,
-                  qr_code: data.qr || data.qr_code || s.qr_code,
+                  qr_code: data.status === 'connected' ? null : (data.qr || data.qr_code || s.qr_code),
                   phone_number: data.phoneNumber || data.phone_number || s.phone_number,
                   profile_pic_url: data.profilePicUrl || data.profile_pic_url || s.profile_pic_url
                 };
@@ -1578,7 +1592,7 @@ export default function ConversationsPage({
               id: data.id,
               phone_name: 'Primary WhatsApp',
               status: data.status,
-              qr_code: data.qr || data.qr_code || null,
+              qr_code: data.status === 'connected' ? null : (data.qr || data.qr_code || null),
               phone_number: data.phoneNumber || data.phone_number || null,
               profile_pic_url: data.profilePicUrl || data.profile_pic_url || null
             }, ...prev];
@@ -1917,6 +1931,10 @@ export default function ConversationsPage({
   // Handle contact selection & mark as read
   const handleSelectContact = (contact) => {
     if (!contact) return;
+    if (activeContact?.id !== contact.id) {
+      const cached = messagesCacheRef.current.get(contact.id);
+      setActiveMessages(cached || []);
+    }
     setActiveContact(contact);
 
     if (contact.unreadCount > 0) {

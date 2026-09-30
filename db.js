@@ -1667,32 +1667,36 @@ export async function getMessagesForContact(contactId, limit = 100, offset = 0, 
 
   // Lookup contact row to find all associated phone numbers
   try {
-    const searchTarget = cleanExtra || idDigits;
-    const last10 = norm10;
-
-    const contactRow = await db.get(
-      `SELECT id, phone, phone_normalized FROM contacts 
-       WHERE (id = ? OR id LIKE ? OR phone = ? OR phone LIKE ? OR phone_normalized = ? OR phone_normalized LIKE ?) 
-         AND tenant_id = ? LIMIT 1`,
-      [contactId, `%${last10}%`, searchTarget, `%${last10}%`, last10, `%${last10}%`, numericTenant]
-    );
+    let contactRow = null;
+    if (contactId) {
+      contactRow = await db.get(
+        `SELECT id, phone, phone_normalized FROM contacts WHERE id = ? AND tenant_id = ? LIMIT 1`,
+        [contactId, numericTenant]
+      );
+    }
+    if (!contactRow && norm10 && norm10.length >= 7) {
+      contactRow = await db.get(
+        `SELECT id, phone, phone_normalized FROM contacts 
+         WHERE (phone_normalized = ? OR phone LIKE ? OR id LIKE ?) 
+           AND tenant_id = ? LIMIT 1`,
+        [norm10, `%${norm10}%`, `%${norm10}%`, numericTenant]
+      );
+    }
 
     if (contactRow) {
       if (contactRow.id) possibleIds.add(String(contactRow.id));
       const cleanP = String(contactRow.phone || contactRow.phone_normalized || '').replace(/\D/g, '');
-      if (cleanP) {
+      if (cleanP && cleanP.length >= 7) {
         possibleIds.add(cleanP);
         possibleIds.add(`${cleanP}@s.whatsapp.net`);
         possibleIds.add(`${cleanP}@c.us`);
-        if (cleanP.length >= 10) {
-          const l10 = cleanP.slice(-10);
-          possibleIds.add(l10);
-          possibleIds.add(`91${l10}`);
-          possibleIds.add(`+91${l10}`);
-          possibleIds.add(`91${l10}@s.whatsapp.net`);
-          possibleIds.add(`91${l10}@c.us`);
-          possibleIds.add(`${l10}@s.whatsapp.net`);
-        }
+        const l10 = cleanP.slice(-10);
+        possibleIds.add(l10);
+        possibleIds.add(`91${l10}`);
+        possibleIds.add(`+91${l10}`);
+        possibleIds.add(`91${l10}@s.whatsapp.net`);
+        possibleIds.add(`91${l10}@c.us`);
+        possibleIds.add(`${l10}@s.whatsapp.net`);
       }
     }
   } catch (e) {}
