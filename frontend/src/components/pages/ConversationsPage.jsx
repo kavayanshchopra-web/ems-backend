@@ -389,6 +389,7 @@ export default function ConversationsPage({
         const isExistingGeneric = !existing.name || existing.name === existing.phone || existing.name === 'Contact';
         const isCleanGeneric = !rawName || rawName === formattedPhone || rawName === 'Contact';
         const betterName = (!isExistingGeneric) ? existing.name : (!isCleanGeneric ? rawName : (existing.name || rawName));
+        const mergedUnread = Math.max(existing.unreadCount || 0, rec.unreadCount || 0);
 
         dedupMap.set(key, {
           ...existing,
@@ -397,6 +398,7 @@ export default function ConversationsPage({
           phone: (existing.phone && existing.phone !== '—') ? existing.phone : formattedPhone,
           lastMessage: rec.lastMessage || existing.lastMessage,
           lastMessageTime: Math.max(new Date(existing.lastMessageTime || 0).getTime(), new Date(rec.lastMessageTime || 0).getTime()),
+          unreadCount: mergedUnread,
           assigned_to: rec.assigned_to || existing.assigned_to
         });
       } else {
@@ -416,28 +418,44 @@ export default function ConversationsPage({
     }));
   };
 
-  // 1. Master State strictly scoped to companyId and Model A role
+  // 1. Master State strictly scoped to companyId and Model A role (with 0ms instant cached load)
   const [conversationsList, setConversationsList] = useState(() => {
-    let source = [];
-    if (Array.isArray(propContacts) && propContacts.length > 0) {
-      source = propContacts;
-    } else {
-      source = TenantStorage.getItem('contacts', companyId, []) || [];
-    }
-    const scoped = (source || []).filter(c => isContactVisibleToUser(c));
-    return formatContactRoster(scoped);
+    try {
+      const cachedRoster = TenantStorage.getItem('cached_conversations_roster', companyId, null);
+      if (Array.isArray(cachedRoster) && cachedRoster.length > 0) {
+        return cachedRoster;
+      }
+      const cached = TenantStorage.getItem('contacts', companyId, null);
+      if (Array.isArray(cached) && cached.length > 0) {
+        const scoped = cached.filter(c => isContactVisibleToUser(c));
+        const formatted = formatContactRoster(scoped);
+        if (formatted.length > 0) return formatted;
+      }
+      if (Array.isArray(propContacts) && propContacts.length > 0) {
+        const scoped = propContacts.filter(c => isContactVisibleToUser(c));
+        return formatContactRoster(scoped);
+      }
+    } catch (e) {}
+    return [];
   });
 
   const [activeContact, setActiveContact] = useState(() => {
-    let source = [];
-    if (Array.isArray(propContacts) && propContacts.length > 0) {
-      source = propContacts;
-    } else {
-      source = TenantStorage.getItem('contacts', companyId, []) || [];
-    }
-    const scoped = (source || []).filter(c => isContactVisibleToUser(c));
-    const roster = formatContactRoster(scoped);
-    return roster.length > 0 ? roster[0] : null;
+    try {
+      const cachedRoster = TenantStorage.getItem('cached_conversations_roster', companyId, null);
+      if (Array.isArray(cachedRoster) && cachedRoster.length > 0) {
+        return cachedRoster[0];
+      }
+      let source = [];
+      if (Array.isArray(propContacts) && propContacts.length > 0) {
+        source = propContacts;
+      } else {
+        source = TenantStorage.getItem('contacts', companyId, []) || [];
+      }
+      const scoped = (source || []).filter(c => isContactVisibleToUser(c));
+      const roster = formatContactRoster(scoped);
+      return roster.length > 0 ? roster[0] : null;
+    } catch (e) {}
+    return null;
   });
 
   const [activeMessages, setActiveMessages] = useState([]);
@@ -476,6 +494,10 @@ export default function ConversationsPage({
 
   const messagesEndRef = useRef(null);
   const messagesCacheRef = useRef(new Map());
+  const activeContactRef = useRef(activeContact);
+  useEffect(() => {
+    activeContactRef.current = activeContact;
+  }, [activeContact]);
 
   const isDesktop = typeof window !== 'undefined' && (Boolean(window.electronAPI) || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
   const API_URL = isDesktop
@@ -629,17 +651,15 @@ export default function ConversationsPage({
               map.set(key, c);
             }
           });
-          return Array.from(map.values()).sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+          const merged = Array.from(map.values()).sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+          try {
+            TenantStorage.setItem('cached_conversations_roster', merged.slice(0, 500), companyId);
+          } catch (e) {}
+          return merged;
         });
         if (!activeContact) {
           setActiveContact(formatted[0]);
-        } else {
-          const updatedActive = formatted.find(c => c.id === activeContact.id || (c.normPhone10 && c.normPhone10 === activeContact.normPhone10));
-          setActiveContact(updatedActive || formatted[0]);
         }
-      } else if (!isOwnerOrAdmin) {
-        setConversationsList([]);
-        setActiveContact(null);
       }
     }
   }, [propContacts, companyId, userRole, userEmpId, userEmail, userName]);
@@ -967,7 +987,11 @@ export default function ConversationsPage({
               map.set(key, c);
             }
           });
-          return Array.from(map.values()).sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+          const sorted = Array.from(map.values()).sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+          try {
+            TenantStorage.setItem('cached_conversations_roster', sorted.slice(0, 500), companyId);
+          } catch (e) {}
+          return sorted;
         });
         if (!activeContact) {
           setActiveContact(cleanRoster[0]);
@@ -1175,21 +1199,39 @@ export default function ConversationsPage({
     let socket = null;
     try {
       socket = io(SOCKET_BASE, {
-        query: { token: token || '' },
+        auth: {
+          token: token || '',
+          tenantId: companyId,
+          tenant_id: companyId
+        },
+        query: {
+          token: token || '',
+          tenantId: companyId,
+          tenant_id: companyId
+        },
         transports: ['websocket', 'polling']
+      });
+
+      socket.on('connect', () => {
+        socket.emit('join_tenant', companyId);
       });
 
       socket.on('new_message', (msg) => {
         if (!msg) return;
+        if (msg.tenantId && String(msg.tenantId) !== String(companyId) && msg.tenantId !== 'default') {
+          return;
+        }
+
         const msgText = msg.textContent || msg.text_content || msg.text || '';
         const targetId = msg.contactId || msg.contact_id || msg.recipientJid || '';
         const isFromMe = (msg.fromMe === 1 || msg.fromMe === true || msg.from_me === 1 || msg.from_me === true);
         const msgTimestamp = msg.timestamp || Math.floor(Date.now() / 1000);
+        const curActive = activeContactRef.current;
 
-        if (activeContact) {
-          const contactPhoneNorm = String(activeContact.phone || activeContact.rawPhone || activeContact.id || '').replace(/\D/g, '').slice(-10);
+        if (curActive) {
+          const contactPhoneNorm = String(curActive.phone || curActive.rawPhone || curActive.id || '').replace(/\D/g, '').slice(-10);
           const targetNorm = String(targetId || msg.phone || '').replace(/\D/g, '').slice(-10);
-          const idMatches = targetId && (targetId === activeContact.id || targetId === activeContact.phone || targetId === activeContact.rawPhone);
+          const idMatches = targetId && (targetId === curActive.id || targetId === curActive.phone || targetId === curActive.rawPhone);
           const phoneMatches = contactPhoneNorm && targetNorm && contactPhoneNorm === targetNorm;
 
           if (idMatches || phoneMatches) {
@@ -1200,17 +1242,18 @@ export default function ConversationsPage({
               fromMe: isFromMe,
               from_me: isFromMe ? 1 : 0,
               timestamp: msgTimestamp,
+              status: msg.status !== undefined ? msg.status : (isFromMe ? 1 : 0),
               mediaUrl: msg.mediaUrl || msg.media_url || null,
               mediaType: msg.mediaType || msg.media_type || 'text',
-              contact_id: activeContact.id
+              contact_id: curActive.id
             };
 
             setActiveMessages(prev => {
               if (prev.some(m => m.id === newMsgObj.id || ((m.textContent === msgText || m.text_content === msgText) && Math.abs((m.timestamp || 0) - msgTimestamp) < 5))) {
-                return prev;
+                return prev.map(m => m.id === newMsgObj.id ? { ...m, ...newMsgObj } : m);
               }
               const updated = [...prev, newMsgObj];
-              messagesCacheRef.current.set(activeContact.id, updated);
+              messagesCacheRef.current.set(curActive.id, updated);
               return updated;
             });
 
@@ -1230,18 +1273,21 @@ export default function ConversationsPage({
             const cNorm = c.normPhone10 || normalizePhone10(c.phone || c.rawPhone || c.id || '');
             if (c.id === targetId || (targetNorm && cNorm && targetNorm === cNorm)) {
               matchFound = true;
+              const isCurrentlyOpen = curActive && (curActive.id === c.id || (cNorm && curActive.normPhone10 === cNorm));
               return {
                 ...c,
                 lastMessage: msgText || c.lastMessage,
                 lastMessageTime: Date.now(),
-                unreadCount: isFromMe ? 0 : (c.unreadCount || 0) + 1
+                unreadCount: (isFromMe || isCurrentlyOpen) ? 0 : (c.unreadCount || 0) + 1
               };
             }
             return c;
           });
 
+          let resultList = updated;
           if (!matchFound && targetNorm) {
             const formattedPhone = formatPhoneDisplay(targetNorm);
+            const isCurrentlyOpen = curActive && (curActive.normPhone10 === targetNorm);
             const newContact = {
               id: msg.contact_id || `91${targetNorm}@s.whatsapp.net`,
               name: msg.contactName || formattedPhone,
@@ -1251,17 +1297,50 @@ export default function ConversationsPage({
               email: '',
               lastMessage: msgText,
               lastMessageTime: Date.now(),
-              unreadCount: isFromMe ? 0 : 1,
+              unreadCount: (isFromMe || isCurrentlyOpen) ? 0 : 1,
               stage: 'New Leads',
               source: 'WhatsApp',
               displayId: `CON-${String(prev.length + 1).padStart(4, '0')}`,
               tags: []
             };
-            return [newContact, ...updated].sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+            resultList = [newContact, ...updated];
           }
 
-          return updated.sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+          const sorted = resultList.sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+          try {
+            TenantStorage.setItem('cached_conversations_roster', sorted.slice(0, 500), companyId);
+          } catch (e) {}
+          return sorted;
         });
+      });
+
+      socket.on('message_status_update', (data) => {
+        if (!data || !data.id) return;
+        const curActive = activeContactRef.current;
+        setActiveMessages(prev => {
+          const mapped = prev.map(m => {
+            if (m.id === data.id) {
+              return { ...m, status: data.status };
+            }
+            return m;
+          });
+          if (curActive?.id) {
+            messagesCacheRef.current.set(curActive.id, mapped);
+          }
+          return mapped;
+        });
+      });
+
+      socket.on('messages_marked_read', (data) => {
+        if (!data || !data.contactId) return;
+        const norm = normalizePhone10(data.contactId);
+        setConversationsList(prev => prev.map(c => {
+          const cNorm = c.normPhone10 || normalizePhone10(c.phone || c.rawPhone || c.id || '');
+          if (c.id === data.contactId || (norm && cNorm && norm === cNorm)) {
+            return { ...c, unreadCount: 0 };
+          }
+          return c;
+        }));
       });
 
       socket.on('contact_updated', (data) => {
@@ -1402,6 +1481,7 @@ export default function ConversationsPage({
         messagesCacheRef.current.clear();
         try {
           localStorage.removeItem('omniflow_cached_contacts');
+          TenantStorage.removeItem('cached_conversations_roster', companyId);
         } catch (e) {}
       });
     } catch (err) {
@@ -1413,7 +1493,7 @@ export default function ConversationsPage({
         try { socket.disconnect(); } catch (e) {}
       }
     };
-  }, [activeContact, token]);
+  }, [token, companyId]);
 
   // Pre-indexed Call Logs by 10-digit Phone for O(1) instantaneous lookup
   const callLogsByPhoneMap = useMemo(() => {
@@ -1568,7 +1648,7 @@ export default function ConversationsPage({
       fromMe: true,
       from_me: 1,
       timestamp: nowSec,
-      status: 'sent',
+      status: 0, // 0 = pending (clock)
       contact_id: activeContact.id
     };
 
@@ -1588,7 +1668,11 @@ export default function ConversationsPage({
         }
         return c;
       });
-      return updated.sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+      const sorted = updated.sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+      try {
+        TenantStorage.setItem('cached_conversations_roster', sorted.slice(0, 500), companyId);
+      } catch (e) {}
+      return sorted;
     });
     setReplyText('');
 
@@ -1599,6 +1683,7 @@ export default function ConversationsPage({
     try {
       let sentSuccess = false;
       let sendMethod = 'desktop_webview';
+      let errorMsg = null;
 
       // 2. Direct Backend SQLite DB Persistence via Inbound-Sync (Ensures message never disappears on reload/tab switch)
       try {
@@ -1621,10 +1706,8 @@ export default function ConversationsPage({
             }],
             tenantId: companyId
           })
-        }).catch(e => console.warn('[Direct DB Persist Notice]', e));
-      } catch (dbErr) {
-        console.warn('[Direct DB Persist Error]', dbErr);
-      }
+        }).catch(() => {});
+      } catch (dbErr) {}
 
       // 3. Trigger Real WhatsApp Web in Embedded Desktop Webview
       if (typeof window !== 'undefined' && window.__omniflow_send_whatsapp_message) {
@@ -1634,9 +1717,7 @@ export default function ConversationsPage({
             sentSuccess = true;
             sendMethod = 'desktop_webview';
           }
-        } catch (bridgeErr) {
-          console.warn('[Desktop Bridge Notice]', bridgeErr);
-        }
+        } catch (bridgeErr) {}
       }
 
       // 4. Trigger Electron IPC WhatsApp Web API
@@ -1647,15 +1728,14 @@ export default function ConversationsPage({
             sentSuccess = true;
             sendMethod = 'electron_ipc';
           }
-        } catch (eleErr) {
-          console.warn('[Electron IPC Notice]', eleErr);
-        }
+        } catch (eleErr) {}
       }
 
-      // 5. Fallback to Cloud Backend API (Baileys or Local Sync)
+      // 5. Cloud Backend API (Baileys WhatsApp line)
       if (!sentSuccess) {
         try {
           const payload = {
+            sessionId: primarySession?.id || null,
             contactId: activeContact.id,
             phone: intlPhone || cleanPhone || targetPhone,
             recipientJid: intlPhone ? `${intlPhone}@s.whatsapp.net` : (cleanPhone ? `${cleanPhone}@s.whatsapp.net` : activeContact.id),
@@ -1675,23 +1755,68 @@ export default function ConversationsPage({
           });
 
           const data = await res.json();
-          if (data && (data.success || data.message || data.id)) {
+          if (res.ok && data && (data.success || data.message || data.id)) {
             sentSuccess = true;
             sendMethod = 'backend_api';
+            // Update message status to 1 (sent / server_ack)
+            setActiveMessages(prev => prev.map(m => m.id === outMsgId ? { ...m, status: 1 } : m));
+          } else {
+            errorMsg = data?.error || 'Failed to send WhatsApp message';
           }
         } catch (apiErr) {
-          console.warn('[Backend API Notice]', apiErr);
+          errorMsg = apiErr.message;
         }
       }
 
-      if (showToast) {
-        showToast(sendMethod === 'backend_api' ? '💬 WhatsApp message sent' : '⚡ WhatsApp sent & saved to CRM', 'success');
+      if (sentSuccess) {
+        if (showToast) {
+          showToast(sendMethod === 'backend_api' ? '💬 WhatsApp message sent' : '⚡ WhatsApp sent & saved to CRM', 'success');
+        }
+      } else {
+        // Mark message status as error
+        setActiveMessages(prev => prev.map(m => m.id === outMsgId ? { ...m, status: 'error' } : m));
+        if (showToast) {
+          showToast(`❌ ${errorMsg || 'WhatsApp not connected. Scan QR in sidebar.'}`, 'error');
+        }
       }
     } catch (err) {
       console.error('[Send Message Error]', err);
+      setActiveMessages(prev => prev.map(m => m.id === outMsgId ? { ...m, status: 'error' } : m));
       if (showToast) showToast(`❌ Send Error: ${err.message}`, 'error');
     } finally {
       setIsSending(false);
+    }
+  };
+
+  // Handle contact selection & mark as read
+  const handleSelectContact = (contact) => {
+    if (!contact) return;
+    setActiveContact(contact);
+
+    if (contact.unreadCount > 0) {
+      setConversationsList(prev => {
+        const updated = prev.map(c => {
+          if (c.id === contact.id || (contact.normPhone10 && c.normPhone10 === contact.normPhone10)) {
+            return { ...c, unreadCount: 0 };
+          }
+          return c;
+        });
+        try {
+          TenantStorage.setItem('cached_conversations_roster', updated.slice(0, 500), companyId);
+        } catch (e) {}
+        return updated;
+      });
+
+      // Mark read in DB and trigger WhatsApp blue ticks
+      fetch(`${API_URL}/contacts/${encodeURIComponent(contact.id)}/read`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': String(companyId || '1')
+        },
+        body: JSON.stringify({ tenantId: companyId })
+      }).catch(() => {});
     }
   };
 
@@ -2201,7 +2326,7 @@ export default function ConversationsPage({
                   <div
                     key={contact.id}
                     onClick={() => {
-                      setActiveContact(contact);
+                      handleSelectContact(contact);
                       if (isMobile) setMobileTab('chat');
                     }}
                     style={{
@@ -2692,7 +2817,27 @@ export default function ConversationsPage({
                           color: isMe ? 'rgba(255,255,255,0.75)' : '#94a3b8'
                         }}>
                           <span>{itemTime}</span>
-                          {isMe && <CheckCheck size={12} />}
+                          {isMe && (
+                            (() => {
+                              const s = item.status;
+                              if (s === 'pending' || s === 0) {
+                                return <Clock size={11} color="rgba(255,255,255,0.7)" title="Pending" />;
+                              }
+                              if (s === 1 || s === 'sent' || s === 'server_ack') {
+                                return <Check size={12} color="rgba(255,255,255,0.75)" title="Sent" />;
+                              }
+                              if (s === 2 || s === 'delivered' || s === 'delivery_ack') {
+                                return <CheckCheck size={12} color="rgba(255,255,255,0.85)" title="Delivered" />;
+                              }
+                              if (s === 3 || s === 4 || s === 5 || s === 'read' || s === 'played') {
+                                return <CheckCheck size={12} color="#38bdf8" title="Read" style={{ strokeWidth: 2.5 }} />;
+                              }
+                              if (s === 'error' || s === 'failed') {
+                                return <AlertCircle size={12} color="#fca5a5" title="Failed to deliver" />;
+                              }
+                              return <Check size={12} color="rgba(255,255,255,0.75)" title="Sent" />;
+                            })()
+                          )}
                         </div>
                       </div>
                     </div>

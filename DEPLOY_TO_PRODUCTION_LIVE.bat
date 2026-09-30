@@ -29,6 +29,7 @@ cd /d "%~dp0"
 git add -f frontend/dist/
 git add frontend/
 git add routes.js
+git add sessionManager.js
 git add services/
 git add db.js
 git add server.js

@@ -136,6 +136,7 @@ import {
   destroySession, 
   sendWhatsAppMessage, 
   sendWhatsAppMedia,
+  markWhatsAppMessagesAsRead,
   getProfilePicUrl,
   checkWhatsAppNumber
 } from './sessionManager.js';
@@ -1164,11 +1165,31 @@ export default function setupRoutes(io) {
   });
 
   // Mark messages as read
-  router.put('/contacts/:id/read', async (req, res) => {
+  router.put(['/contacts/:id/read', '/api/contacts/:id/read'], async (req, res) => {
     const { id } = req.params;
-    const tenantId = req.user?.tenant_id || 1;
+    const tenantId = req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.body?.tenantId || 1;
     try {
       await markMessagesAsRead(id, tenantId);
+
+      // Also trigger read receipt (blue tick) on active WhatsApp Baileys session
+      try {
+        const allSessions = await getAllSessions(tenantId);
+        const connectedSess = allSessions.find(s => s.status === 'connected');
+        if (connectedSess) {
+          let jid = id;
+          if (!jid.includes('@')) {
+            const clean = id.replace(/\D/g, '');
+            jid = `${clean}@s.whatsapp.net`;
+          }
+          await markWhatsAppMessagesAsRead(connectedSess.id, jid);
+        }
+      } catch (readErr) {
+        console.warn('[WhatsApp Read Receipt Notice]', readErr.message);
+      }
+
+      if (io) {
+        io.emit('messages_marked_read', { contactId: id, tenantId });
+      }
       res.json({ success: true });
     } catch (err) {
       console.error(err);
@@ -1520,11 +1541,11 @@ export default function setupRoutes(io) {
   });
 
   // Send WhatsApp message (Unified Desktop Webview + Baileys + Local SQLite Engine)
-  router.post('/messages/send', async (req, res) => {
+  router.post(['/messages/send', '/api/messages/send'], async (req, res) => {
     const rawText = req.body.text || req.body.message || req.body.textContent || '';
     const rawTarget = req.body.recipientJid || req.body.contactId || req.body.phone || '';
-    const sessionId = req.body.sessionId || 'desktop_webview';
-    const tenantId = req.user?.tenant_id || 1;
+    const sessionId = req.body.sessionId || null;
+    const tenantId = req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.body?.tenantId || 1;
 
     if (!rawTarget || !rawText.trim()) {
       return res.status(400).json({ error: 'recipientJid (or phone/contactId) and text (or message) are required' });
@@ -1541,25 +1562,29 @@ export default function setupRoutes(io) {
     try {
       let sentMessage = null;
       let usedBaileys = false;
+      let sendError = null;
 
-      // 1. Try Baileys gateway if a valid active session exists
+      // 1. Resolve Baileys WhatsApp session
       let targetSessionId = sessionId;
       if (!targetSessionId || targetSessionId === 'desktop_webview') {
         const allSessions = await getAllSessions(tenantId);
         const connectedSess = allSessions.find(s => s.status === 'connected');
         if (connectedSess) targetSessionId = connectedSess.id;
       }
+
       if (targetSessionId && targetSessionId !== 'desktop_webview') {
         try {
-          sentMessage = await sendWhatsAppMessage(targetSessionId, recipientJid, text);
+          sentMessage = await sendWhatsAppMessage(targetSessionId, recipientJid, text, tenantId);
           usedBaileys = true;
         } catch (bErr) {
-          console.warn('[Baileys Send Notice - Falling back to local engine]:', bErr.message);
+          sendError = bErr.message;
+          console.warn('[Baileys Send Notice]:', bErr.message);
         }
       }
 
-      // 2. If not sent via Baileys (e.g. Desktop Webview mode), store directly in SQLite & emit Socket.IO
-      if (!sentMessage) {
+      // 2. If client explicitly requested offline mock:
+      const allowOfflineMock = req.body.allowOfflineMock === true || req.body.provider === 'desktop_webview';
+      if (!sentMessage && allowOfflineMock) {
         const messageId = `wa_out_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
         const ts = Math.floor(Date.now() / 1000);
 
@@ -1574,7 +1599,7 @@ export default function setupRoutes(io) {
           mediaUrl: null,
           mediaType: 'text',
           timestamp: ts,
-          status: 'sent',
+          status: 1,
           tenantId
         };
         await saveMessage(messagePayload);
@@ -1586,31 +1611,46 @@ export default function setupRoutes(io) {
           text,
           timestamp: ts,
           fromMe: true,
-          status: 'sent'
+          status: 1
         };
       }
 
-      // 3. Emit real-time WebSocket event
-      if (io) {
-        io.emit('new_message', {
-          id: sentMessage.id,
-          sessionId: usedBaileys ? sessionId : 'desktop_webview',
-          session_id: usedBaileys ? sessionId : 'desktop_webview',
-          contactId: recipientJid,
-          contact_id: recipientJid,
-          fromMe: 1,
-          from_me: 1,
-          textContent: text,
-          text_content: text,
-          mediaType: 'text',
-          media_type: 'text',
-          timestamp: sentMessage.timestamp || Math.floor(Date.now() / 1000),
-          status: 'sent',
-          tenantId
+      // If not sent via Baileys and offline mock not allowed:
+      if (!sentMessage) {
+        return res.status(400).json({
+          success: false,
+          error: sendError || 'WhatsApp line is not connected. Please scan the QR code to link your WhatsApp.',
+          status: 'error'
         });
       }
 
-      res.json({ success: true, message: 'Message processed successfully', data: sentMessage });
+      // 3. Emit real-time WebSocket event to all clients & tenant room
+      const outPayload = {
+        id: sentMessage.id,
+        sessionId: usedBaileys ? targetSessionId : 'desktop_webview',
+        session_id: usedBaileys ? targetSessionId : 'desktop_webview',
+        contactId: recipientJid,
+        contact_id: recipientJid,
+        fromMe: 1,
+        from_me: 1,
+        textContent: text,
+        text_content: text,
+        mediaType: 'text',
+        media_type: 'text',
+        timestamp: sentMessage.timestamp || Math.floor(Date.now() / 1000),
+        status: 1,
+        tenantId
+      };
+
+      if (io) {
+        io.to(`tenant_${tenantId}`).emit('new_message', outPayload);
+        if (String(tenantId) === '1' || tenantId === 1) {
+          io.to('tenant_default').emit('new_message', outPayload);
+        }
+        io.emit('new_message', outPayload);
+      }
+
+      res.json({ success: true, message: 'Message sent successfully', data: sentMessage, status: 1 });
     } catch (err) {
       console.error('[Send Message Error]', err);
       res.status(500).json({ error: err.message || 'Failed to send message' });

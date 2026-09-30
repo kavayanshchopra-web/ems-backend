@@ -8,37 +8,37 @@ import { db, doc, getDoc, setDoc } from '../../firebase';
 import { isSandboxEnvironment, SupabaseSandboxService } from './supabaseSandboxService';
 
 export const DEFAULT_LOGIN_CONFIG = {
-  heroTagline: 'WELCOME TO EMPLOYEE MANAGEMENT SYSTEMS',
-  heroHeading: 'Streamline Your Business, Effortlessly.',
-  heroHighlightWord: 'Effortlessly.',
-  heroDescription: 'An all-in-one platform to manage your team, automate processes and drive growth — beautifully simple.',
+  heroTagline: 'ENTERPRISE WORKFORCE & SIM TELECALLER',
+  heroHeading: 'Manage Your Workforce, Smartly & Effortlessly.',
+  heroHighlightWord: 'Smartly & Effortlessly.',
+  heroDescription: 'Unified HR, SIM Telecalling, WhatsApp CRM & Payroll — crafted for high-performing teams.',
   features: [
     {
       id: 'f1',
-      title: 'Unify Your Teams',
-      description: 'Work together in one place',
+      title: 'Unified Workforce',
+      description: 'Attendance, shifts & payroll in one place',
       icon: 'Users',
       enabled: true
     },
     {
       id: 'f2',
-      title: 'Track What Matters',
-      description: 'Real-time insights',
-      icon: 'TrendingUp',
+      title: 'SIM Telecalling',
+      description: 'Native call recording & instant CRM sync',
+      icon: 'PhoneCall',
       enabled: true
     },
     {
       id: 'f3',
-      title: 'Automate Workflows',
-      description: 'Save time, do more',
-      icon: 'Settings',
+      title: 'WhatsApp Automation',
+      description: 'Live shared inbox & smart workflows',
+      icon: 'MessageSquare',
       enabled: true
     },
     {
       id: 'f4',
-      title: 'Scale Your Business',
-      description: 'Built for growth',
-      icon: 'BarChart3',
+      title: 'Real-Time Insights',
+      description: 'Live team tracking & business growth analytics',
+      icon: 'TrendingUp',
       enabled: true
     }
   ],

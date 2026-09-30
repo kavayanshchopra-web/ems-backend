@@ -167,6 +167,14 @@ export default function OmniFlowLoginPage({
           flex-shrink: 0;
         }
 
+        .omniflow-logo-img {
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
+          object-fit: contain;
+          flex-shrink: 0;
+        }
+
         .omniflow-name {
           font-size: 22px;
           font-weight: 800;
@@ -955,12 +963,17 @@ export default function OmniFlowLoginPage({
           .omniflow-tagline {
             display: none;
           }
-          .omniflow-logo-clover {
-            width: 26px;
-            height: 26px;
+          .omniflow-logo-clover,
+          .omniflow-logo-img {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
           }
           .omniflow-name {
-            font-size: 16px;
+            font-size: 17px;
+            font-weight: 900;
+            color: #064e43;
+            letter-spacing: -0.3px;
           }
           .omniflow-signup-top-prompt {
             display: flex !important;
@@ -1168,10 +1181,10 @@ export default function OmniFlowLoginPage({
         {/* Desktop Top Header Bar (With inline brand & divider) */}
         <header className="omniflow-header">
           <div className="omniflow-brand">
-            <img src="/assets/ems-logo.png" alt="EMS Logo" style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'contain', flexShrink: 0 }} />
+            <img src="/assets/ems-logo.png" alt="EMS Logo" className="omniflow-logo-img" />
             <span className="omniflow-name">{config.brandName || 'EMS'}</span>
             <div className="omniflow-brand-divider" />
-            <span className="omniflow-tagline">{config.brandTagline || 'Manage · Automate · Grow'}</span>
+            <span className="omniflow-tagline">{config.brandTagline || 'Enterprise Suite'}</span>
           </div>
 
           <div className="omniflow-signup-top-prompt">
@@ -1190,17 +1203,17 @@ export default function OmniFlowLoginPage({
           <div className="omniflow-hero-wrap">
             <div className="omniflow-hero-intro-box">
               <div className="omniflow-pill-badge">
-                <Sparkles size={13} color="#0db49e" /> {config.heroTagline || 'WELCOME TO EMPLOYEE MANAGEMENT SYSTEMS'}
+                <Sparkles size={13} color="#0db49e" /> {config.heroTagline || 'ENTERPRISE WORKFORCE & SIM TELECALLER'}
               </div>
 
               <h1 className="omniflow-headline-h1">
-                Streamline Your<br />
-                Business, <span className="omniflow-teal-accent">Effortlessly.</span>
+                Manage Your Workforce,<br />
+                <span className="omniflow-teal-accent">Smartly & Effortlessly.</span>
               </h1>
 
               <p className="omniflow-desc-p">
                 {config.heroDescription ||
-                  'An all-in-one platform to manage your team, automate processes and drive growth — beautifully simple.'}
+                  'Unified HR, SIM Telecalling, WhatsApp CRM & Payroll — crafted for high-performing teams.'}
               </p>
             </div>
 

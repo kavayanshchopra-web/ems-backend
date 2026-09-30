@@ -144,8 +144,12 @@ export async function startSession(id, io) {
   const emitToTenant = (event, data) => {
     try {
       io.to(tenantRoom).emit(event, data);
+      if (String(tenantId) === '1' || tenantId === 1) {
+        io.to('tenant_default').emit(event, data);
+      }
+      io.emit(event, { ...data, tenantId });
     } catch {
-      io.emit(event, data);
+      io.emit(event, { ...data, tenantId });
     }
   };
 
@@ -653,8 +657,15 @@ export async function startSession(id, io) {
       if (update.status !== undefined) {
         try {
           await updateMessageStatus(key.id, update.status);
+          const statusPayload = {
+            id: key.id,
+            status: update.status,
+            contactId: key.remoteJid,
+            fromMe: key.fromMe ? 1 : 0,
+            tenantId
+          };
           // Broadcast status change to client
-          io.emit('message_status_update', { id: key.id, status: update.status });
+          emitToTenant('message_status_update', statusPayload);
         } catch (err) {
           console.error(`[Message Status Update] Failed for msg ${key.id}:`, err.message);
         }
@@ -692,7 +703,7 @@ export async function destroySession(id) {
 }
 
 // Send WhatsApp text message
-export async function sendWhatsAppMessage(sessionId, recipientJid, text) {
+export async function sendWhatsAppMessage(sessionId, recipientJid, text, tenantId = 1) {
   const sock = activeSockets.get(sessionId);
   if (!sock) {
     throw new Error('WhatsApp session is not connected or active');
@@ -707,7 +718,7 @@ export async function sendWhatsAppMessage(sessionId, recipientJid, text) {
   // Send message using Baileys socket
   const result = await sock.sendMessage(jid, { text });
 
-  // Save the outbound message to database
+  // Save the outbound message to database with status 1 (sent / server_ack)
   if (result && result.key) {
     const timestamp = Math.floor(Date.now() / 1000);
     await saveMessage({
@@ -717,18 +728,42 @@ export async function sendWhatsAppMessage(sessionId, recipientJid, text) {
       fromMe: true,
       textContent: text,
       mediaType: 'text',
-      timestamp
+      timestamp,
+      status: 1,
+      tenantId
     });
 
     return {
       id: result.key.id,
       recipientJid: jid,
       text,
-      timestamp
+      timestamp,
+      status: 1
     };
   }
 
   throw new Error('Failed to capture sent message key');
+}
+
+// Mark WhatsApp messages as read on recipient's WhatsApp (sends blue ticks)
+export async function markWhatsAppMessagesAsRead(sessionId, contactJid, messageKeys = []) {
+  try {
+    const sock = activeSockets.get(sessionId);
+    if (!sock) return false;
+    let jid = contactJid;
+    if (!jid.includes('@')) jid = `${jid}@s.whatsapp.net`;
+
+    if (Array.isArray(messageKeys) && messageKeys.length > 0) {
+      const keysToRead = messageKeys.map(k => typeof k === 'string' ? { remoteJid: jid, id: k } : k);
+      await sock.readMessages(keysToRead);
+    } else {
+      await sock.readMessages([{ remoteJid: jid, id: undefined }]);
+    }
+    return true;
+  } catch (err) {
+    console.warn(`[Baileys Read Receipts] Notice for ${contactJid}:`, err.message);
+    return false;
+  }
 }
 
 // Send WhatsApp media message

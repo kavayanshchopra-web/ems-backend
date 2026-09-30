@@ -265,24 +265,43 @@ export default function MobileAppLauncher({
             width: '38px',
             height: '38px',
             borderRadius: '10px',
-            background: 'linear-gradient(135deg, #064e43 0%, #0d9488 100%)',
+            background: '#064e43',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#ffffff',
-            fontWeight: '900',
-            fontSize: '15px',
-            boxShadow: '0 2px 6px rgba(6, 78, 67, 0.25)'
+            boxShadow: '0 2px 6px rgba(6, 78, 67, 0.25)',
+            overflow: 'hidden',
+            flexShrink: 0
           }}>
-            {companyName.replace(/[^A-Za-z0-9]/g, '').substring(0, 2).toUpperCase() || 'CO'}
+            <img
+              src="/assets/ems-logo.png"
+              alt="EMS Logo"
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              onError={(e) => {
+                e.target.style.display = 'none';
+              }}
+            />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
-              <span>{companyName}</span>
-              <span style={{ fontSize: '11px', color: '#64748b' }}>▾</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '16px', fontWeight: '900', color: '#064e43', letterSpacing: '-0.3px' }}>
+                EMS
+              </span>
+              <span style={{
+                fontSize: '9.5px',
+                fontWeight: '800',
+                padding: '1.5px 6px',
+                borderRadius: '4px',
+                background: currentView === 'all_apps' ? 'rgba(13, 148, 136, 0.12)' : 'rgba(6, 78, 67, 0.08)',
+                color: '#064e43',
+                letterSpacing: '0.4px',
+                textTransform: 'uppercase'
+              }}>
+                {currentView === 'all_apps' ? 'All Apps' : 'Workspace'}
+              </span>
             </div>
-            <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>
-              {companyLocation}
+            <div style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '500', maxWidth: '210px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {companyName && companyName !== 'My Workspace' ? companyName : 'Employee Management Systems'}
             </div>
           </div>
         </div>

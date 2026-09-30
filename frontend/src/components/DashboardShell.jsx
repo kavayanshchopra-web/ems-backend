@@ -855,6 +855,20 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     return window.self !== window.top || urlParams.has('location_id') || urlParams.has('iframe');
   }, []);
   const [ghlSidebarOpen, setGhlSidebarOpen] = useState(false);
+  const [visitedConversations, setVisitedConversations] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('tab') === 'conversations';
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (activeTab === 'conversations') {
+      setVisitedConversations(true);
+    }
+  }, [activeTab]);
+
   useEffect(() => {
     setMobileSidebarOpen(false);
     setDesktopSidebarOpen(false);
@@ -8329,16 +8343,18 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {/* Voxbay Phone & Web Dialer */}
         
         {/* Unified Conversations & Omni-Timeline Hub */}
-        {activeTab === 'conversations' && (
-          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Conversations...</div>}>
-            <ConversationsPage
-              authUser={effectiveAuthUser || authUser}
-              contacts={contacts}
-              sessions={sessions}
-              activePipelineStages={stages}
-              showToast={showToast}
-            />
-          </Suspense>
+        {(activeTab === 'conversations' || visitedConversations) && (
+          <div style={{ display: activeTab === 'conversations' ? 'contents' : 'none' }}>
+            <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Conversations...</div>}>
+              <ConversationsPage
+                authUser={effectiveAuthUser || authUser}
+                contacts={contacts}
+                sessions={sessions}
+                activePipelineStages={stages}
+                showToast={showToast}
+              />
+            </Suspense>
+          </div>
         )}
 
         {/* CRM Contacts & Leads (GHL 2-Way Sync) */}
