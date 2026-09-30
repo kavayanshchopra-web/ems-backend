@@ -1745,10 +1745,14 @@ export async function getRecentChats(tenantId = 1, limit = 2000, offset = 0) {
       WHERE phone10 IS NOT NULL AND phone10 != ''
     ),
     UnreadSummary AS (
-      SELECT phone10, COUNT(*) as unread_count
+      SELECT 
+        COALESCE(NULLIF(phone10, ''), contact_id) as unread_key,
+        phone10,
+        contact_id,
+        COUNT(*) as unread_count
       FROM CleanMsgs
-      WHERE from_me = 0 AND (is_read = 0 OR is_read IS NULL) AND phone10 IS NOT NULL AND phone10 != ''
-      GROUP BY phone10
+      WHERE from_me = 0 AND (is_read = 0 OR is_read IS NULL)
+      GROUP BY COALESCE(NULLIF(phone10, ''), contact_id)
     )
     SELECT c.*, 
            COALESCE(NULLIF(c.name, ''), c.custom_name, REPLACE(REPLACE(c.id, '@s.whatsapp.net', ''), '@g.us', '')) as displayName,
@@ -1766,8 +1770,9 @@ export async function getRecentChats(tenantId = 1, limit = 2000, offset = 0) {
       OR lm.contact_id = c.id
     ) AND lm.rn = 1
     LEFT JOIN UnreadSummary us ON (
-      us.phone10 = SUBSTR(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(c.phone_normalized, c.phone, c.id), '@s.whatsapp.net', ''), '+', ''), ' ', ''), '-', ''), -10)
-      OR us.phone10 = c.id
+      (us.phone10 IS NOT NULL AND us.phone10 != '' AND us.phone10 = SUBSTR(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(c.phone_normalized, c.phone, c.id), '@s.whatsapp.net', ''), '+', ''), ' ', ''), '-', ''), -10))
+      OR us.contact_id = c.id
+      OR us.unread_key = c.id
     )
     WHERE c.tenant_id = ? 
       AND c.id != '0@s.whatsapp.net' 
