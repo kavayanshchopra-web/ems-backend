@@ -1499,6 +1499,32 @@ export default function setupRoutes(io) {
     }
   });
 
+  // Fetch real WhatsApp profile picture on demand & cache in DB
+  router.get('/contacts/:id/profile-pic', async (req, res) => {
+    const { id } = req.params;
+    try {
+      const contact = await getContact(id, req.user?.tenant_id || 1);
+      if (contact && contact.profile_pic_url && contact.profile_pic_url !== 'none') {
+        return res.json({ success: true, profile_pic_url: contact.profile_pic_url });
+      }
+
+      // Fetch from Baileys WhatsApp socket
+      const picUrl = await getProfilePicUrl(id);
+      if (picUrl) {
+        await updateContactProfilePic(id, picUrl);
+        if (io) {
+          io.emit('contact_updated', { id, profile_pic_url: picUrl });
+        }
+        return res.json({ success: true, profile_pic_url: picUrl });
+      }
+      return res.json({ success: false, profile_pic_url: null });
+    } catch (err) {
+      console.warn(`[Profile Pic Fetch] Could not fetch pic for ${id}:`, err.message);
+      return res.json({ success: false, profile_pic_url: null, error: err.message });
+    }
+  });
+
+
   // ==========================================
   // SCHEDULED MESSAGES
   // ==========================================
