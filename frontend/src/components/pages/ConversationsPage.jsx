@@ -44,7 +44,13 @@ import {
   Smartphone,
   Wifi,
   WifiOff,
-  AlertCircle
+  AlertCircle,
+  Pin,
+  Archive,
+  MoreVertical,
+  CornerUpLeft,
+  Copy,
+  Star
 } from 'lucide-react';
 import { TimelineEngine } from '../../core/engines/TimelineEngine';
 import { normalizePhone10, formatPhoneDisplay, toE164Phone, isSamePhone } from '../../core/utils/phoneUtils';
@@ -135,6 +141,27 @@ function formatWhatsAppTime(timestamp) {
   }
   return date.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
 }
+
+// Robust timestamp normalizer ensuring seconds or milliseconds are uniform
+function normalizeTs(t) {
+  if (!t) return Math.floor(Date.now() / 1000);
+  if (typeof t === 'object' && t !== null) {
+    return t.low ?? t.toNumber?.() ?? Math.floor(Date.now() / 1000);
+  }
+  const n = Number(t);
+  if (isNaN(n) || n === 0) return Math.floor(Date.now() / 1000);
+  return n > 10000000000 ? Math.floor(n / 1000) : n;
+}
+
+// WhatsApp Business Color-Coded Labels
+const WHATSAPP_LABELS = {
+  new_lead: { id: 'new_lead', name: 'New Lead', color: '#0284c7', bg: '#e0f2fe' },
+  contacted: { id: 'contacted', name: 'Contacted', color: '#6366f1', bg: '#e0e7ff' },
+  qualified: { id: 'qualified', name: 'Qualified', color: '#16a34a', bg: '#dcfce7' },
+  pending_payment: { id: 'pending_payment', name: 'Pending Payment', color: '#ea580c', bg: '#ffedd5' },
+  customer: { id: 'customer', name: 'Customer', color: '#0d9488', bg: '#ccfbf1' },
+  archived: { id: 'archived', name: 'Archived', color: '#64748b', bg: '#f1f5f9' }
+};
 
 // In-thread Embedded Audio Player Component
 function TimelineAudioPlayer({ src, duration = 0 }) {
@@ -514,6 +541,18 @@ export default function ConversationsPage({
   });
   const [crmNotes, setCrmNotes] = useState([]);
   const [activeTabFilter, setActiveTabFilter] = useState('all'); // 'all' | 'whatsapp' | 'calls' | 'notes'
+  const [rosterTab, setRosterTab] = useState('all'); // 'all' | 'unread' | 'archived'
+  const [pinnedContacts, setPinnedContacts] = useState(() => {
+    try {
+      return TenantStorage.getItem('pinned_contacts', companyId, []) || [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [activeContactMenuId, setActiveContactMenuId] = useState(null);
+  const [replyingToMessage, setReplyingToMessage] = useState(null);
+  const [lightboxImage, setLightboxImage] = useState(null);
+  const [hoveredMsgId, setHoveredMsgId] = useState(null);
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
   const [mobileTab, setMobileTab] = useState('list'); // 'list' | 'chat' | 'details'
 
@@ -1185,7 +1224,15 @@ export default function ConversationsPage({
             if (!belongsToThisContact) return;
 
             const key = p.id || `${p.text_content || p.textContent}_${p.timestamp}`;
-            const existsInServer = msgs.some(m => m && (m.id === p.id || ((m.text_content === p.text_content || m.textContent === p.textContent) && Math.abs((m.timestamp || 0) - (p.timestamp || 0)) < 8)));
+            const pTs = normalizeTs(p.timestamp);
+            const pText = (p.text_content || p.textContent || '').trim();
+            const existsInServer = msgs.some(m => {
+              if (!m) return false;
+              if (m.id && p.id && m.id === p.id) return true;
+              const mText = (m.text_content || m.textContent || '').trim();
+              const mTs = normalizeTs(m.timestamp);
+              return mText && pText && mText === pText && Math.abs(mTs - pTs) <= 20;
+            });
             if (!existsInServer) {
               map.set(key, p);
             }
@@ -1363,10 +1410,10 @@ export default function ConversationsPage({
           return;
         }
 
-        const msgText = msg.textContent || msg.text_content || msg.text || '';
+        const msgText = (msg.textContent || msg.text_content || msg.text || '').trim();
         const targetId = msg.contactId || msg.contact_id || msg.recipientJid || '';
         const isFromMe = (msg.fromMe === 1 || msg.fromMe === true || msg.from_me === 1 || msg.from_me === true);
-        const msgTimestamp = msg.timestamp || Math.floor(Date.now() / 1000);
+        const msgTimestamp = normalizeTs(msg.timestamp || msg.messageTimestamp);
         const curActive = activeContactRef.current;
 
         // Play crisp native WhatsApp chime on inbound messages
@@ -1410,9 +1457,26 @@ export default function ConversationsPage({
             };
 
             setActiveMessages(prev => {
-              if (prev.some(m => m.id === newMsgObj.id || ((m.textContent === msgText || m.text_content === msgText) && Math.abs((m.timestamp || 0) - msgTimestamp) < 5))) {
-                return prev.map(m => m.id === newMsgObj.id ? { ...m, ...newMsgObj } : m);
+              const incomingTs = msgTimestamp;
+              const existsIndex = prev.findIndex(m => {
+                if (m.id && newMsgObj.id && m.id === newMsgObj.id) return true;
+                const mText = (m.textContent || m.text_content || '').trim();
+                const mTs = normalizeTs(m.timestamp);
+                const isSameDirection = (Boolean(m.fromMe) === Boolean(newMsgObj.fromMe) || (m.from_me ? 1 : 0) === (newMsgObj.from_me ? 1 : 0));
+                return isSameDirection && mText && msgText && mText === msgText && Math.abs(mTs - incomingTs) <= 20;
+              });
+
+              if (existsIndex !== -1) {
+                const copy = [...prev];
+                copy[existsIndex] = {
+                  ...copy[existsIndex],
+                  ...newMsgObj,
+                  id: newMsgObj.id || copy[existsIndex].id
+                };
+                messagesCacheRef.current.set(curActive.id, copy);
+                return copy;
               }
+
               const updated = [...prev, newMsgObj];
               messagesCacheRef.current.set(curActive.id, updated);
               return updated;
@@ -2290,17 +2354,75 @@ export default function ConversationsPage({
     }
   }, [totalUnreadCount]);
 
-  // 9. Filtered Conversations List for Search
-  const filteredConversations = useMemo(() => {
-    if (!searchQuery.trim()) return conversationsList;
-    const q = searchQuery.toLowerCase().trim();
-    return conversationsList.filter(c => {
-      const nameMatch = (c.name || '').toLowerCase().includes(q);
-      const phoneMatch = (c.phone || '').includes(q) || (c.rawPhone || '').includes(q);
-      const idMatch = (c.displayId || '').toLowerCase().includes(q);
-      return nameMatch || phoneMatch || idMatch;
+  // Toggle Pin Contact
+  const handleTogglePinContact = (contactId) => {
+    setPinnedContacts(prev => {
+      const next = prev.includes(contactId) ? prev.filter(id => id !== contactId) : [...prev, contactId];
+      try {
+        TenantStorage.setItem('pinned_contacts', next, companyId);
+      } catch (e) {}
+      return next;
     });
-  }, [conversationsList, searchQuery]);
+    setActiveContactMenuId(null);
+  };
+
+  // Toggle Archive Contact
+  const handleToggleArchiveContact = (contactId) => {
+    setConversationsList(prev => prev.map(c => {
+      if (c.id === contactId) {
+        return { ...c, is_archived: !c.is_archived };
+      }
+      return c;
+    }));
+    setActiveContactMenuId(null);
+  };
+
+  // Assign WhatsApp Business Label
+  const handleAssignLabel = (contactId, labelKey) => {
+    setConversationsList(prev => prev.map(c => {
+      if (c.id === contactId) {
+        return { ...c, label: labelKey };
+      }
+      return c;
+    }));
+    setActiveContactMenuId(null);
+  };
+
+  // 9. Filtered Conversations List for Search, Tabs & Pinning
+  const filteredConversations = useMemo(() => {
+    let list = conversationsList || [];
+
+    // Filter by Tab: 'all' | 'unread' | 'archived'
+    if (rosterTab === 'unread') {
+      list = list.filter(c => (c.unreadCount || 0) > 0);
+    } else if (rosterTab === 'archived') {
+      list = list.filter(c => Boolean(c.is_archived));
+    } else {
+      // 'all' shows non-archived
+      list = list.filter(c => !c.is_archived);
+    }
+
+    // Filter by Search Query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(c => {
+        const nameMatch = (c.name || '').toLowerCase().includes(q);
+        const phoneMatch = (c.phone || '').includes(q) || (c.rawPhone || '').includes(q);
+        const idMatch = (c.displayId || '').toLowerCase().includes(q);
+        const msgMatch = (c.lastMessage || '').toLowerCase().includes(q);
+        return nameMatch || phoneMatch || idMatch || msgMatch;
+      });
+    }
+
+    // Sort: Pinned contacts stay on TOP, then by latest message time
+    return [...list].sort((a, b) => {
+      const aPinned = pinnedContacts.includes(a.id) || a.is_pinned;
+      const bPinned = pinnedContacts.includes(b.id) || b.is_pinned;
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+      return new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime();
+    });
+  }, [conversationsList, rosterTab, searchQuery, pinnedContacts]);
 
   return (
     <div style={{
@@ -2527,6 +2649,37 @@ export default function ConversationsPage({
                 </button>
               )}
             </div>
+
+            {/* Native WhatsApp Filter Pills */}
+            <div style={{ display: 'flex', gap: '6px', marginTop: '10px', overflowX: 'auto', paddingBottom: '2px' }}>
+              {[
+                { id: 'all', label: 'All' },
+                { id: 'unread', label: 'Unread' },
+                { id: 'archived', label: 'Archived' }
+              ].map(f => {
+                const isActive = rosterTab === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setRosterTab(f.id)}
+                    style={{
+                      padding: '4px 12px',
+                      borderRadius: '16px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: isActive ? '#0d9488' : '#f1f5f9',
+                      color: isActive ? '#ffffff' : '#64748b',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Conversations List */}
@@ -2539,6 +2692,8 @@ export default function ConversationsPage({
               filteredConversations.map((contact) => {
                 const isSelected = activeContact && activeContact.id === contact.id;
                 const hasUnread = contact.unreadCount > 0;
+                const isPinned = pinnedContacts.includes(contact.id) || contact.is_pinned;
+                const labelObj = contact.label ? WHATSAPP_LABELS[contact.label] : null;
 
                 return (
                   <div
@@ -2548,6 +2703,7 @@ export default function ConversationsPage({
                       if (isMobile) setMobileTab('chat');
                     }}
                     style={{
+                      position: 'relative',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '12px',
@@ -2590,7 +2746,20 @@ export default function ConversationsPage({
                         }}>
                           {contact.name}
                         </span>
-                        {contact.displayId && (
+                        {labelObj && (
+                          <span style={{
+                            fontSize: '9.5px',
+                            fontWeight: '700',
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            background: labelObj.bg,
+                            color: labelObj.color,
+                            flexShrink: 0
+                          }}>
+                            {labelObj.name}
+                          </span>
+                        )}
+                        {contact.displayId && !labelObj && (
                           <span style={{
                             fontSize: '9.5px',
                             color: '#64748b',
@@ -2604,15 +2773,19 @@ export default function ConversationsPage({
                           </span>
                         )}
                       </div>
-                      <span style={{
-                        fontSize: '11px',
-                        color: hasUnread ? '#25D366' : '#94a3b8',
-                        fontWeight: hasUnread ? '700' : '500',
-                        flexShrink: 0,
-                        marginLeft: '6px'
-                      }}>
-                        {formatWhatsAppTime(contact.lastMessageTime)}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                        {isPinned && (
+                          <Pin size={11} color="#0d9488" style={{ transform: 'rotate(45deg)' }} title="Pinned Chat" />
+                        )}
+                        <span style={{
+                          fontSize: '11px',
+                          color: hasUnread ? '#25D366' : '#94a3b8',
+                          fontWeight: hasUnread ? '700' : '500',
+                          marginLeft: '2px'
+                        }}>
+                          {formatWhatsAppTime(contact.lastMessageTime)}
+                        </span>
+                      </div>
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '20px' }}>
@@ -2630,28 +2803,168 @@ export default function ConversationsPage({
                           : (contact.phone !== '—' ? contact.phone : 'No messages yet')}
                       </div>
 
-                      {hasUnread && (
-                        <span style={{
-                          minWidth: '20px',
-                          height: '20px',
-                          padding: '0 5px',
-                          borderRadius: '10px',
-                          background: '#25D366',
-                          color: '#ffffff',
-                          fontSize: '11px',
-                          fontWeight: '800',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                          boxShadow: '0 2px 4px rgba(37, 211, 102, 0.4)',
-                          lineHeight: 1
-                        }}>
-                          {contact.unreadCount > 99 ? '99+' : contact.unreadCount}
-                        </span>
-                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        {hasUnread && (
+                          <span style={{
+                            minWidth: '20px',
+                            height: '20px',
+                            padding: '0 5px',
+                            borderRadius: '10px',
+                            background: '#25D366',
+                            color: '#ffffff',
+                            fontSize: '11px',
+                            fontWeight: '800',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: '0 2px 4px rgba(37, 211, 102, 0.4)',
+                            lineHeight: 1
+                          }}>
+                            {contact.unreadCount > 99 ? '99+' : contact.unreadCount}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveContactMenuId(activeContactMenuId === contact.id ? null : contact.id);
+                          }}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            cursor: 'pointer',
+                            padding: '2px',
+                            color: '#94a3b8',
+                            borderRadius: '4px',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                          title="Chat Options"
+                        >
+                          <MoreVertical size={13} />
+                        </button>
+                      </div>
                     </div>
                   </div>
+
+                  {/* WhatsApp Context Menu Dropdown */}
+                  {activeContactMenuId === contact.id && (
+                    <div 
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '40px',
+                        zIndex: 99,
+                        background: '#ffffff',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                        border: '1px solid #e2e8f0',
+                        padding: '6px 0',
+                        minWidth: '150px'
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePinContact(contact.id)}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '7px 12px',
+                          background: 'none',
+                          border: 'none',
+                          fontSize: '12px',
+                          color: '#334155',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}
+                      >
+                        <Pin size={12} />
+                        <span>{isPinned ? 'Unpin Chat' : 'Pin Chat'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (contact.unreadCount > 0) {
+                            handleSelectContact(contact);
+                          } else {
+                            setConversationsList(prev => prev.map(c => c.id === contact.id ? { ...c, unreadCount: 1 } : c));
+                          }
+                          setActiveContactMenuId(null);
+                        }}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '7px 12px',
+                          background: 'none',
+                          border: 'none',
+                          fontSize: '12px',
+                          color: '#334155',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}
+                      >
+                        <MessageSquare size={12} />
+                        <span>{contact.unreadCount > 0 ? 'Mark as Read' : 'Mark as Unread'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleToggleArchiveContact(contact.id)}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '7px 12px',
+                          background: 'none',
+                          border: 'none',
+                          fontSize: '12px',
+                          color: '#334155',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}
+                      >
+                        <Archive size={12} />
+                        <span>{contact.is_archived ? 'Unarchive Chat' : 'Archive Chat'}</span>
+                      </button>
+
+                      <div style={{ height: '1px', background: '#f1f5f9', margin: '4px 0' }} />
+
+                      <div style={{ padding: '4px 12px', fontSize: '10px', fontWeight: '700', color: '#94a3b8' }}>
+                        LABELS
+                      </div>
+                      {Object.values(WHATSAPP_LABELS).slice(0, 4).map(l => (
+                        <button
+                          key={l.id}
+                          type="button"
+                          onClick={() => handleAssignLabel(contact.id, contact.label === l.id ? null : l.id)}
+                          style={{
+                            width: '100%',
+                            textAlign: 'left',
+                            padding: '5px 12px',
+                            background: contact.label === l.id ? l.bg : 'none',
+                            border: 'none',
+                            fontSize: '11px',
+                            color: l.color,
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: l.color }} />
+                          <span>{l.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })
@@ -3048,7 +3361,13 @@ export default function ConversationsPage({
                         {item.mediaUrl && (
                           <div style={{ marginBottom: '6px' }}>
                             {item.mediaType?.startsWith('image') ? (
-                              <img src={item.mediaUrl} alt="attachment" style={{ maxWidth: '100%', borderRadius: '8px' }} />
+                              <img 
+                                src={item.mediaUrl} 
+                                alt="attachment" 
+                                onClick={() => setLightboxImage(item.mediaUrl)}
+                                style={{ maxWidth: '100%', borderRadius: '8px', cursor: 'pointer', transition: 'opacity 0.15s' }} 
+                                title="Click to view full size"
+                              />
                             ) : (
                               <a href={item.mediaUrl} target="_blank" rel="noreferrer" style={{ color: isMe ? '#ffffff' : '#0d9488', textDecoration: 'underline', fontSize: '12px' }}>
                                 📎 View Attachment
@@ -3068,6 +3387,29 @@ export default function ConversationsPage({
                           fontSize: '10px',
                           color: isMe ? 'rgba(255,255,255,0.75)' : '#94a3b8'
                         }}>
+                          {/* Quick Reply Button on Hover */}
+                          <button
+                            type="button"
+                            onClick={() => setReplyingToMessage({
+                              id: item.id,
+                              content: item.content || item.textContent,
+                              fromMe: isMe,
+                              senderName: isMe ? 'You' : (activeContact?.name || 'Contact')
+                            })}
+                            style={{
+                              border: 'none',
+                              background: 'transparent',
+                              color: isMe ? 'rgba(255,255,255,0.8)' : '#64748b',
+                              cursor: 'pointer',
+                              padding: '0 4px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              marginRight: '2px'
+                            }}
+                            title="Reply to message"
+                          >
+                            <CornerUpLeft size={11} />
+                          </button>
                           <span>{itemTime}</span>
                           {isMe && (
                             (() => {
@@ -3099,6 +3441,44 @@ export default function ConversationsPage({
             )}
               <div ref={messagesEndRef} />
             </div>
+
+            {/* Quoted Message Preview Banner */}
+            {replyingToMessage && (
+              <div style={{
+                padding: '8px 16px',
+                background: '#f1f5f9',
+                borderTop: '1px solid #e2e8f0',
+                borderLeft: '4px solid #0d9488',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px'
+              }}>
+                <div style={{ overflow: 'hidden' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#0d9488' }}>
+                    Replying to {replyingToMessage.senderName}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {replyingToMessage.content || '(Attachment)'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReplyingToMessage(null)}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#64748b',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    padding: '2px 6px'
+                  }}
+                  title="Cancel reply"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
 
             {/* In-Line Reply Footer */}
             <form
@@ -3650,6 +4030,69 @@ export default function ConversationsPage({
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      {/* Fullscreen WhatsApp Image Lightbox Modal */}
+      {lightboxImage && (
+        <div 
+          onClick={() => setLightboxImage(null)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.88)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px'
+          }}
+        >
+          <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+            <img 
+              src={lightboxImage} 
+              alt="Fullscreen preview" 
+              style={{ maxWidth: '100%', maxHeight: '85vh', borderRadius: '10px', objectFit: 'contain', boxShadow: '0 12px 32px rgba(0,0,0,0.5)' }} 
+            />
+            <div style={{ position: 'absolute', top: '-45px', right: 0, display: 'flex', gap: '10px' }}>
+              <a 
+                href={lightboxImage} 
+                download="whatsapp-image" 
+                target="_blank" 
+                rel="noreferrer" 
+                style={{ 
+                  color: '#ffffff', 
+                  background: 'rgba(255,255,255,0.2)', 
+                  padding: '6px 14px', 
+                  borderRadius: '6px', 
+                  textDecoration: 'none', 
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  backdropFilter: 'blur(4px)'
+                }}
+              >
+                ⬇️ Download
+              </a>
+              <button 
+                type="button" 
+                onClick={() => setLightboxImage(null)} 
+                style={{ 
+                  color: '#ffffff', 
+                  background: 'rgba(255,255,255,0.2)', 
+                  border: 'none', 
+                  padding: '6px 12px', 
+                  borderRadius: '6px', 
+                  cursor: 'pointer', 
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  backdropFilter: 'blur(4px)'
+                }}
+              >
+                ✕
+              </button>
             </div>
           </div>
         </div>

@@ -154,7 +154,6 @@ export async function startSession(id, io) {
       if (String(tenantId) === '1' || tenantId === 1) {
         io.to('tenant_default').emit(event, data);
       }
-      io.emit(event, { ...data, tenantId });
     } catch {
       io.emit(event, { ...data, tenantId });
     }
@@ -595,6 +594,10 @@ export async function startSession(id, io) {
       const db = getDb();
       await db.run(`UPDATE contacts SET is_archived = 0 WHERE id = ? AND tenant_id = ?`, [jid, tenantId]);
       
+      const rawTs = typeof msg.messageTimestamp === 'object' && msg.messageTimestamp !== null
+        ? (msg.messageTimestamp.low ?? msg.messageTimestamp.toNumber?.() ?? Math.floor(Date.now() / 1000))
+        : (Number(msg.messageTimestamp) || Math.floor(Date.now() / 1000));
+
       const messagePayload = {
         id: msg.key.id,
         sessionId: id,
@@ -603,7 +606,7 @@ export async function startSession(id, io) {
         textContent: textContent || (mediaType !== 'text' ? `[Sent ${mediaType}]` : ''),
         mediaUrl: mediaUrl,
         mediaType: mediaType,
-        timestamp: msg.messageTimestamp,
+        timestamp: rawTs,
         tenantId: tenantId
       };
 
