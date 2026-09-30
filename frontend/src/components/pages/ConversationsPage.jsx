@@ -3,7 +3,7 @@
  * Consolidates WhatsApp Chats, Multi-Call Recordings, and Lead Interactions into a single continuous stream
  */
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import io from 'socket.io-client';
 import { 
   MessageSquare, 
@@ -532,11 +532,35 @@ export default function ConversationsPage({
   const [newNoteText, setNewNoteText] = useState('');
 
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const messagesCacheRef = useRef(new Map());
   const activeContactRef = useRef(activeContact);
   useEffect(() => {
     activeContactRef.current = activeContact;
   }, [activeContact]);
+
+  // Instant or smooth scroll to bottom helper
+  const scrollToBottom = useCallback((instant = true) => {
+    if (messagesContainerRef.current) {
+      if (instant) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      } else {
+        messagesContainerRef.current.scrollTo({
+          top: messagesContainerRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
+    } else if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: instant ? 'auto' : 'smooth' });
+    }
+  }, []);
+
+  // Request native browser desktop notification permissions on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
 
   const isDesktop = typeof window !== 'undefined' && (Boolean(window.electronAPI) || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
   const API_URL = isDesktop
@@ -720,7 +744,12 @@ export default function ConversationsPage({
           formatted.forEach(c => {
             const key = c.normPhone10 || normalizePhone10(c.phone || c.rawPhone || c.id || '') || c.id;
             if (map.has(key)) {
-              map.set(key, { ...map.get(key), ...c });
+              const existing = map.get(key);
+              map.set(key, {
+                ...existing,
+                ...c,
+                unreadCount: Math.max(existing.unreadCount || 0, c.unreadCount || 0)
+              });
             } else {
               map.set(key, c);
             }
@@ -1006,6 +1035,7 @@ export default function ConversationsPage({
           ...c,
           phone: c.phone || c.phone_computed || (c.id.includes('@') ? c.id.split('@')[0] : c.id),
           normPhone10: norm,
+          unreadCount: c.unread_count || c.unreadCount || 0,
           source: 'whatsapp'
         });
       });
@@ -1024,7 +1054,8 @@ export default function ConversationsPage({
             name: existing.name || c.name || c.displayName,
             email: existing.email || c.email,
             stage: c.stage || c.pipeline_stage || existing.stage,
-            dealValue: c.dealValue || c.deal_value || existing.dealValue
+            dealValue: c.dealValue || c.deal_value || existing.dealValue,
+            unreadCount: Math.max(existing.unreadCount || 0, c.unread_count || c.unreadCount || 0)
           });
         }
       });
@@ -1056,7 +1087,12 @@ export default function ConversationsPage({
           cleanRoster.forEach(c => {
             const key = c.normPhone10 || normalizePhone10(c.phone || c.rawPhone || c.id || '') || c.id;
             if (map.has(key)) {
-              map.set(key, { ...map.get(key), ...c });
+              const existing = map.get(key);
+              map.set(key, {
+                ...existing,
+                ...c,
+                unreadCount: Math.max(existing.unreadCount || 0, c.unreadCount || 0)
+              });
             } else {
               map.set(key, c);
             }
@@ -1164,10 +1200,8 @@ export default function ConversationsPage({
         });
         setIsLoadingMessages(false);
         setTimeout(() => {
-          if (messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-          }
-        }, 80);
+          scrollToBottom(true);
+        }, 30);
       })
       .catch(err => {
         if (err.name !== 'AbortError') {
@@ -1222,10 +1256,8 @@ export default function ConversationsPage({
                 return updated;
               });
               setTimeout(() => {
-                if (messagesEndRef.current) {
-                  messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-                }
-              }, 80);
+                scrollToBottom(true);
+              }, 30);
             }
           }
         });
@@ -1271,10 +1303,8 @@ export default function ConversationsPage({
           });
 
           setTimeout(() => {
-            if (messagesEndRef.current) {
-              messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-            }
-          }, 100);
+            scrollToBottom(true);
+          }, 30);
         }
       };
 
@@ -1342,6 +1372,21 @@ export default function ConversationsPage({
         // Play crisp native WhatsApp chime on inbound messages
         if (!isFromMe) {
           playWhatsAppChime();
+
+          // Native Desktop / OS Notification if window/tab is hidden or inactive
+          if (typeof window !== 'undefined' && document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+            try {
+              const notifTitle = msg.contactName || (targetId ? `WhatsApp (${String(targetId).slice(-10)})` : 'New WhatsApp Message');
+              const notif = new Notification(notifTitle, {
+                body: msgText || 'New message received',
+                icon: '/favicon.ico'
+              });
+              notif.onclick = () => {
+                window.focus();
+                notif.close();
+              };
+            } catch (e) {}
+          }
         }
 
         if (curActive) {
@@ -1374,10 +1419,8 @@ export default function ConversationsPage({
             });
 
             setTimeout(() => {
-              if (messagesEndRef.current) {
-                messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-              }
-            }, 80);
+              scrollToBottom(true);
+            }, 30);
           }
         }
 
@@ -1803,8 +1846,8 @@ export default function ConversationsPage({
     setReplyText('');
 
     setTimeout(() => {
-      if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }, 50);
+      scrollToBottom(false);
+    }, 30);
 
     try {
       let sentSuccess = false;
@@ -1934,6 +1977,9 @@ export default function ConversationsPage({
     if (activeContact?.id !== contact.id) {
       const cached = messagesCacheRef.current.get(contact.id);
       setActiveMessages(cached || []);
+      setTimeout(() => {
+        scrollToBottom(true);
+      }, 10);
     }
     setActiveContact(contact);
 
@@ -2869,14 +2915,17 @@ export default function ConversationsPage({
             </div>
 
             {/* Stream Content */}
-            <div style={{
-              flex: 1,
-              overflowY: 'auto',
-              padding: '12px 18px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px'
-            }}>
+            <div 
+              ref={messagesContainerRef}
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '12px 18px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px'
+              }}
+            >
               {isLoadingMessages && filteredTimeline.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px', color: '#64748b', fontSize: '12px' }}>
                   <RefreshCw size={18} className="animate-spin" style={{ animation: 'spin 1s linear infinite', margin: '0 auto 8px' }} />
