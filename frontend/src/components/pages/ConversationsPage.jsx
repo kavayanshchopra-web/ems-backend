@@ -559,9 +559,22 @@ export default function ConversationsPage({
 
   const activeTenantId = String(authUser?.tenantId || authUser?.companyId || companyId || '1');
 
-  const primarySession = localSessions[0] || null;
+  const primarySession = useMemo(() => {
+    if (!Array.isArray(localSessions) || localSessions.length === 0) return null;
+    // 1. Prioritize session that has live QR code ready
+    const qrSess = localSessions.find(s => (s.status === 'qr_ready' || s.qr_code) && s.qr_code);
+    if (qrSess) return qrSess;
+    // 2. Next prioritize connected session
+    const connSess = localSessions.find(s => s.status === 'connected');
+    if (connSess) return connSess;
+    // 3. Next prioritize connecting session
+    const ingSess = localSessions.find(s => s.status === 'connecting');
+    if (ingSess) return ingSess;
+    return localSessions[0] || null;
+  }, [localSessions]);
+
   const isConnected = primarySession?.status === 'connected';
-  const isQRReady = primarySession?.status === 'qr_ready' && Boolean(primarySession?.qr_code);
+  const isQRReady = (primarySession?.status === 'qr_ready' || Boolean(primarySession?.qr_code)) && Boolean(primarySession?.qr_code);
   const isConnecting = primarySession?.status === 'connecting' || qrLoading;
   const connectedPhone = primarySession?.phone_number || primarySession?.phoneNumber || '';
 
@@ -588,16 +601,19 @@ export default function ConversationsPage({
     return [];
   };
 
-  // Poll sessions while QR modal is open to capture QR image and connection updates in real-time
+  // Poll sessions while QR modal is open and auto-request QR if none present
   useEffect(() => {
     fetchCurrentSessions();
     if (showQrModal && !isConnected) {
+      if (!isQRReady) {
+        handleStartSession();
+      }
       const interval = setInterval(() => {
         fetchCurrentSessions();
       }, 2000);
       return () => clearInterval(interval);
     }
-  }, [API_URL, token, showQrModal, isConnected, activeTenantId]);
+  }, [showQrModal, isConnected, isQRReady]);
 
   // Start or trigger QR code generation for WhatsApp session
   const handleStartSession = async (sessId) => {
