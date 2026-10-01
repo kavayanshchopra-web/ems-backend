@@ -26,7 +26,9 @@ import {
   getChatbotRules,
   getPendingScheduledMessages,
   updateScheduledMessageStatus,
-  getTenantPlanDetails
+  getTenantPlanDetails,
+  updateMessageReaction,
+  deleteMessageRecord
 } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -587,6 +589,41 @@ export async function startSession(id, io) {
         const cachedPn = await getPnFromLid(lid);
         if (cachedPn) jid = cachedPn;
       }
+
+      // Handle incoming message reactions (emoji)
+      if (msg.message?.reactionMessage) {
+        const reaction = msg.message.reactionMessage;
+        const targetId = reaction.key?.id;
+        const emoji = reaction.text || '';
+        if (targetId) {
+          await updateMessageReaction(targetId, emoji, reaction.key?.fromMe ? 1 : 0);
+          emitToTenant('message_reaction', {
+            messageId: targetId,
+            id: targetId,
+            emoji,
+            reaction: emoji,
+            fromMe: reaction.key?.fromMe ? 1 : 0,
+            contactId: jid,
+            tenantId
+          });
+        }
+        continue;
+      }
+
+      // Handle incoming message deletion / revocation ("Delete for Everyone")
+      if (msg.message?.protocolMessage && (msg.message.protocolMessage.type === 0 || msg.message.protocolMessage.type === 'REVOKE')) {
+        const targetId = msg.message.protocolMessage.key?.id;
+        if (targetId) {
+          await deleteMessageRecord(targetId, '🚫 This message was deleted');
+          emitToTenant('message_deleted', {
+            id: targetId,
+            contactId: jid,
+            text: '🚫 This message was deleted',
+            tenantId
+          });
+        }
+        continue;
+      }
       
       // Get sender details
       const isGroup = jid.endsWith('@g.us');
@@ -756,6 +793,86 @@ export async function startSession(id, io) {
     }
   });
 
+  // 1. Message Read Receipts (Live Blue Ticks from WhatsApp recipient)
+  sock.ev.on('message-receipt.update', async (receipts) => {
+    for (const { key, receipt } of receipts) {
+      if (key?.id && receipt?.readTimestamp) {
+        try {
+          await updateMessageStatus(key.id, 4); // 4 = READ
+          emitToTenant('message_status_update', {
+            id: key.id,
+            status: 4,
+            contactId: key.remoteJid,
+            fromMe: key.fromMe ? 1 : 0,
+            tenantId
+          });
+        } catch (err) {
+          console.error(`[Message Receipt Update] Error for ${key.id}:`, err.message);
+        }
+      }
+    }
+  });
+
+  // 2. Message Reactions update event
+  sock.ev.on('messages.reaction', async (reactions) => {
+    for (const item of reactions) {
+      const targetId = item.reaction?.key?.id || item.key?.id;
+      const emoji = item.reaction?.text || '';
+      if (targetId) {
+        try {
+          await updateMessageReaction(targetId, emoji, item.reaction?.key?.fromMe ? 1 : 0);
+          emitToTenant('message_reaction', {
+            messageId: targetId,
+            id: targetId,
+            emoji,
+            reaction: emoji,
+            fromMe: item.reaction?.key?.fromMe ? 1 : 0,
+            contactId: item.key?.remoteJid,
+            tenantId
+          });
+        } catch (err) {
+          console.error(`[Reaction Update] Error for ${targetId}:`, err.message);
+        }
+      }
+    }
+  });
+
+  // 3. Message Delete / Revocation event
+  sock.ev.on('messages.delete', async (item) => {
+    if (item.keys) {
+      for (const key of item.keys) {
+        if (key.id) {
+          try {
+            await deleteMessageRecord(key.id, '🚫 This message was deleted');
+            emitToTenant('message_deleted', {
+              id: key.id,
+              contactId: key.remoteJid,
+              text: '🚫 This message was deleted',
+              tenantId
+            });
+          } catch (err) {
+            console.error(`[Delete Update] Error for ${key.id}:`, err.message);
+          }
+        }
+      }
+    }
+  });
+
+  // 4. Live Presence Update ("composing" = typing, "recording" = recording audio)
+  sock.ev.on('presence.update', async ({ id: presenceJid, presences }) => {
+    if (!presences) return;
+    for (const [userJid, presence] of Object.entries(presences)) {
+      const lastKnown = presence?.lastKnownPresence;
+      emitToTenant('presence_update', {
+        contactId: presenceJid,
+        userJid,
+        presence: lastKnown, // 'composing' | 'recording' | 'paused' | 'available'
+        timestamp: Date.now(),
+        tenantId
+      });
+    }
+  });
+
   return sock;
 }
 
@@ -840,16 +957,34 @@ export async function sendWhatsAppMessage(sessionId, recipientJid, text, tenantI
 // Mark WhatsApp messages as read on recipient's WhatsApp (sends blue ticks)
 export async function markWhatsAppMessagesAsRead(sessionId, contactJid, messageKeys = []) {
   try {
-    const sock = activeSockets.get(sessionId);
+    let sock = activeSockets.get(sessionId);
+    if (!sock) {
+      for (const s of activeSockets.values()) {
+        if (s && !s.isClosed) { sock = s; break; }
+      }
+    }
     if (!sock) return false;
-    let jid = contactJid;
-    if (!jid.includes('@')) jid = `${jid}@s.whatsapp.net`;
+
+    let raw = String(contactJid || '').trim();
+    let jid = raw;
+    if (!jid.includes('@')) {
+      const digits = jid.replace(/\D/g, '');
+      const l10 = digits.slice(-10);
+      jid = digits.length >= 10 ? (digits.startsWith('91') ? `${digits}@s.whatsapp.net` : `91${l10}@s.whatsapp.net`) : `${digits}@s.whatsapp.net`;
+    }
+
+    // Subscribe to presence so we receive live typing/recording presence from this contact
+    try {
+      await sock.presenceSubscribe(jid);
+    } catch (e) {}
 
     if (Array.isArray(messageKeys) && messageKeys.length > 0) {
-      const keysToRead = messageKeys.map(k => typeof k === 'string' ? { remoteJid: jid, id: k } : k);
-      await sock.readMessages(keysToRead);
-    } else {
-      await sock.readMessages([{ remoteJid: jid, id: undefined }]);
+      const keysToRead = messageKeys
+        .map(k => typeof k === 'string' ? { remoteJid: jid, id: k } : k)
+        .filter(k => k && k.remoteJid && k.id);
+      if (keysToRead.length > 0) {
+        await sock.readMessages(keysToRead);
+      }
     }
     return true;
   } catch (err) {
@@ -1082,5 +1217,102 @@ export function startScheduledMessagesWorker(io) {
       console.error('[Scheduler Worker Error]:', err);
     }
   }, 10000); // Check every 10 seconds
+}
+
+// React to a WhatsApp message (emoji)
+export async function sendWhatsAppReaction(sessionId, recipientJid, messageId, emoji, fromMe = true) {
+  let sock = activeSockets.get(sessionId);
+  if (!sock) {
+    for (const s of activeSockets.values()) {
+      if (s && !s.isClosed) { sock = s; break; }
+    }
+  }
+  if (!sock) throw new Error('WhatsApp session is not active');
+
+  let raw = String(recipientJid || '').trim();
+  let jid = raw;
+  if (!jid.includes('@')) {
+    const digits = jid.replace(/\D/g, '');
+    const l10 = digits.slice(-10);
+    jid = digits.length >= 10 ? (digits.startsWith('91') ? `${digits}@s.whatsapp.net` : `91${l10}@s.whatsapp.net`) : `${digits}@s.whatsapp.net`;
+  }
+
+  try {
+    await sock.sendMessage(jid, {
+      react: {
+        text: emoji || '', // empty string removes reaction
+        key: {
+          remoteJid: jid,
+          fromMe: Boolean(fromMe),
+          id: messageId
+        }
+      }
+    });
+  } catch (err) {
+    console.warn(`[Baileys Reaction] Error: ${err.message}`);
+  }
+
+  await updateMessageReaction(messageId, emoji || null);
+  return { success: true, messageId, emoji };
+}
+
+// Delete WhatsApp message for everyone (Revoke)
+export async function deleteWhatsAppMessage(sessionId, recipientJid, messageId) {
+  let sock = activeSockets.get(sessionId);
+  if (!sock) {
+    for (const s of activeSockets.values()) {
+      if (s && !s.isClosed) { sock = s; break; }
+    }
+  }
+  if (!sock) throw new Error('WhatsApp session is not active');
+
+  let raw = String(recipientJid || '').trim();
+  let jid = raw;
+  if (!jid.includes('@')) {
+    const digits = jid.replace(/\D/g, '');
+    const l10 = digits.slice(-10);
+    jid = digits.length >= 10 ? (digits.startsWith('91') ? `${digits}@s.whatsapp.net` : `91${l10}@s.whatsapp.net`) : `${digits}@s.whatsapp.net`;
+  }
+
+  try {
+    await sock.sendMessage(jid, {
+      delete: {
+        remoteJid: jid,
+        fromMe: true,
+        id: messageId
+      }
+    });
+  } catch (err) {
+    console.warn(`[Baileys Delete] Error: ${err.message}`);
+  }
+
+  await deleteMessageRecord(messageId, '🚫 You deleted this message');
+  return { success: true, messageId };
+}
+
+// Send presence update ("composing" | "recording" | "paused")
+export async function sendWhatsAppPresence(sessionId, recipientJid, presence = 'composing') {
+  let sock = activeSockets.get(sessionId);
+  if (!sock) {
+    for (const s of activeSockets.values()) {
+      if (s && !s.isClosed) { sock = s; break; }
+    }
+  }
+  if (!sock) return false;
+
+  let raw = String(recipientJid || '').trim();
+  let jid = raw;
+  if (!jid.includes('@')) {
+    const digits = jid.replace(/\D/g, '');
+    const l10 = digits.slice(-10);
+    jid = digits.length >= 10 ? (digits.startsWith('91') ? `${digits}@s.whatsapp.net` : `91${l10}@s.whatsapp.net`) : `${digits}@s.whatsapp.net`;
+  }
+
+  try {
+    await sock.sendPresenceUpdate(presence, jid);
+    return true;
+  } catch (err) {
+    return false;
+  }
 }
 

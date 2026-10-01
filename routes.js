@@ -128,7 +128,9 @@ import {
   getCallLogs,
   createCallLog,
   findRecentCallLog,
-  updateCallLog
+  updateCallLog,
+  updateMessageReaction,
+  deleteMessageRecord
 } from './db.js';
 import { 
   startSession, 
@@ -138,7 +140,10 @@ import {
   sendWhatsAppMedia,
   markWhatsAppMessagesAsRead,
   getProfilePicUrl,
-  checkWhatsAppNumber
+  checkWhatsAppNumber,
+  sendWhatsAppReaction,
+  deleteWhatsAppMessage,
+  sendWhatsAppPresence
 } from './sessionManager.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1235,12 +1240,23 @@ export default function setupRoutes(io) {
         const allSessions = await getAllSessions(tenantId);
         const connectedSess = allSessions.find(s => s.status === 'connected');
         if (connectedSess) {
-          let jid = id;
-          if (!jid.includes('@')) {
-            const clean = id.replace(/\D/g, '');
-            jid = `${clean}@s.whatsapp.net`;
+          const dbInstance = await getDb();
+          const contact = await dbInstance.get('SELECT id, phone, phone_normalized FROM contacts WHERE id = ? LIMIT 1', [id]);
+          const rawPhone = contact?.phone_normalized || contact?.phone || id;
+          const clean = String(rawPhone || '').replace(/\D/g, '');
+          const norm10 = clean.length >= 7 ? clean.slice(-10) : '';
+          const jid = norm10 ? `91${norm10}@s.whatsapp.net` : (clean ? `${clean}@s.whatsapp.net` : null);
+
+          if (jid) {
+            const possibleContactIds = [id, clean, norm10, jid].filter(Boolean);
+            const placeholders = possibleContactIds.map(() => '?').join(', ');
+            const unreadMsgs = await dbInstance.all(
+              `SELECT id FROM messages WHERE contact_id IN (${placeholders}) AND from_me = 0 ORDER BY timestamp DESC LIMIT 20`,
+              possibleContactIds
+            );
+            const msgKeys = (unreadMsgs || []).map(m => ({ remoteJid: jid, id: m.id }));
+            await markWhatsAppMessagesAsRead(connectedSess.id, jid, msgKeys);
           }
-          await markWhatsAppMessagesAsRead(connectedSess.id, jid);
         }
       } catch (readErr) {
         console.warn('[WhatsApp Read Receipt Notice]', readErr.message);
@@ -1858,6 +1874,152 @@ export default function setupRoutes(io) {
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: err.message || 'Failed to send media' });
+    }
+  });
+
+  // React to a WhatsApp Message
+  router.post(['/messages/:id/react', '/api/messages/:id/react'], async (req, res) => {
+    const { id } = req.params;
+    let { emoji, contactId, phone, sessionId, fromMe } = req.body || {};
+    const tenantId = req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.body?.tenantId || 1;
+
+    try {
+      const dbInstance = await getDb();
+      // Look up original message from database to accurately determine fromMe and contact
+      const msgRow = await dbInstance.get('SELECT * FROM messages WHERE id = ?', [id]);
+      if (msgRow) {
+        if (!contactId) contactId = msgRow.contact_id;
+        if (fromMe === undefined) fromMe = Boolean(msgRow.from_me === 1);
+        if (!sessionId) sessionId = msgRow.session_id;
+      }
+
+      // Resolve recipient phone number
+      let recipientPhone = phone || contactId;
+      if (contactId && (!phone || !phone.replace(/\D/g, ''))) {
+        const cRow = await dbInstance.get('SELECT id, phone, phone_normalized FROM contacts WHERE id = ? LIMIT 1', [contactId]);
+        if (cRow) recipientPhone = cRow.phone_normalized || cRow.phone || recipientPhone;
+      }
+
+      let targetSessionId = sessionId;
+      if (!targetSessionId || targetSessionId === 'desktop_webview') {
+        const allSessions = await getAllSessions(tenantId);
+        const connectedSess = allSessions.find(s => s.status === 'connected');
+        if (connectedSess) targetSessionId = connectedSess.id;
+      }
+
+      if (targetSessionId && recipientPhone) {
+        try {
+          await sendWhatsAppReaction(targetSessionId, recipientPhone, id, emoji, fromMe !== false);
+        } catch (bErr) {
+          console.warn('[Baileys Reaction Notice]:', bErr.message);
+        }
+      }
+
+      await updateMessageReaction(id, emoji || null);
+
+      if (io) {
+        const payload = { messageId: id, id, emoji, reaction: emoji, contactId, fromMe: fromMe ? 1 : 0, tenantId };
+        io.to(`tenant_${tenantId}`).emit('message_reaction', payload);
+        if (String(tenantId) === '1' || tenantId === 1) {
+          io.to('tenant_default').emit('message_reaction', payload);
+        }
+        io.emit('message_reaction', payload);
+      }
+
+      res.json({ success: true, messageId: id, emoji });
+    } catch (err) {
+      console.error('[Message Reaction Error]:', err);
+      res.status(500).json({ error: err.message || 'Failed to update reaction' });
+    }
+  });
+
+  // Delete / Revoke WhatsApp Message ("Delete for Everyone")
+  const handleDeleteMessage = async (req, res) => {
+    const { id } = req.params;
+    let { contactId, phone, sessionId } = req.body || {};
+    const tenantId = req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.body?.tenantId || 1;
+
+    try {
+      const dbInstance = await getDb();
+      const msgRow = await dbInstance.get('SELECT * FROM messages WHERE id = ?', [id]);
+      if (msgRow) {
+        if (!contactId) contactId = msgRow.contact_id;
+        if (!sessionId) sessionId = msgRow.session_id;
+      }
+
+      let recipientPhone = phone || contactId;
+      if (contactId && (!phone || !phone.replace(/\D/g, ''))) {
+        const cRow = await dbInstance.get('SELECT id, phone, phone_normalized FROM contacts WHERE id = ? LIMIT 1', [contactId]);
+        if (cRow) recipientPhone = cRow.phone_normalized || cRow.phone || recipientPhone;
+      }
+
+      let targetSessionId = sessionId;
+      if (!targetSessionId || targetSessionId === 'desktop_webview') {
+        const allSessions = await getAllSessions(tenantId);
+        const connectedSess = allSessions.find(s => s.status === 'connected');
+        if (connectedSess) targetSessionId = connectedSess.id;
+      }
+
+      if (targetSessionId && recipientPhone) {
+        try {
+          await deleteWhatsAppMessage(targetSessionId, recipientPhone, id);
+        } catch (bErr) {
+          console.warn('[Baileys Delete Notice]:', bErr.message);
+        }
+      }
+
+      await deleteMessageRecord(id, '🚫 You deleted this message');
+
+      if (io) {
+        const payload = { id, contactId, text: '🚫 You deleted this message', is_deleted: 1, tenantId };
+        io.to(`tenant_${tenantId}`).emit('message_deleted', payload);
+        if (String(tenantId) === '1' || tenantId === 1) {
+          io.to('tenant_default').emit('message_deleted', payload);
+        }
+        io.emit('message_deleted', payload);
+      }
+
+      res.json({ success: true, messageId: id });
+    } catch (err) {
+      console.error('[Message Delete Error]:', err);
+      res.status(500).json({ error: err.message || 'Failed to delete message' });
+    }
+  };
+
+  router.delete(['/messages/:id', '/api/messages/:id'], handleDeleteMessage);
+  router.post(['/messages/:id/delete', '/api/messages/:id/delete'], handleDeleteMessage);
+
+  // Send Live Typing / Recording Presence
+  router.post(['/whatsapp/presence', '/api/whatsapp/presence'], async (req, res) => {
+    let { contactId, phone, presence, sessionId } = req.body || {};
+    const tenantId = req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.body?.tenantId || 1;
+
+    try {
+      const dbInstance = await getDb();
+      let recipientPhone = phone || contactId;
+      if (contactId && (!phone || !phone.replace(/\D/g, ''))) {
+        const cRow = await dbInstance.get('SELECT id, phone, phone_normalized FROM contacts WHERE id = ? LIMIT 1', [contactId]);
+        if (cRow) recipientPhone = cRow.phone_normalized || cRow.phone || recipientPhone;
+      }
+
+      if (!recipientPhone) {
+        return res.status(400).json({ error: 'recipient contact/phone is required' });
+      }
+
+      let targetSessionId = sessionId;
+      if (!targetSessionId || targetSessionId === 'desktop_webview') {
+        const allSessions = await getAllSessions(tenantId);
+        const connectedSess = allSessions.find(s => s.status === 'connected');
+        if (connectedSess) targetSessionId = connectedSess.id;
+      }
+
+      if (targetSessionId) {
+        await sendWhatsAppPresence(targetSessionId, recipientPhone, presence || 'composing');
+      }
+
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message || 'Failed to send presence' });
     }
   });
 
