@@ -1254,6 +1254,7 @@ export async function initDb() {
     console.error('Failed to run database cleanup:', err);
   }
 
+  try {
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_contact_ts ON messages(contact_id, timestamp DESC);`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_tenant_contact_ts ON messages(tenant_id, contact_id, timestamp DESC);`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(tenant_id, contact_id, from_me, is_read);`);
