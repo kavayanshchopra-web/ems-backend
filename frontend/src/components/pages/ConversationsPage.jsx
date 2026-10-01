@@ -636,21 +636,6 @@ export default function ConversationsPage({
       } catch (e) {}
     }
   }, []);
-
-  // Guarantee chat always opens scrolled down to latest message at bottom
-  useEffect(() => {
-    scrollToBottom(true);
-    const t1 = setTimeout(() => scrollToBottom(true), 40);
-    const t2 = setTimeout(() => scrollToBottom(true), 120);
-    const t3 = setTimeout(() => scrollToBottom(true), 300);
-    const t4 = setTimeout(() => scrollToBottom(true), 600);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
-    };
-  }, [activeContact?.id, filteredTimeline?.length, scrollToBottom]);
  
   // Fast local caching helpers for 0ms instant conversation loading & switching
   const getCachedMessages = useCallback((targetContactId) => {
@@ -2029,6 +2014,21 @@ export default function ConversationsPage({
     }
     return timeline;
   }, [timeline, activeTabFilter]);
+
+  // Guarantee chat always opens scrolled down to latest message at bottom
+  useEffect(() => {
+    scrollToBottom(true);
+    const t1 = setTimeout(() => scrollToBottom(true), 40);
+    const t2 = setTimeout(() => scrollToBottom(true), 120);
+    const t3 = setTimeout(() => scrollToBottom(true), 300);
+    const t4 = setTimeout(() => scrollToBottom(true), 600);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
+    };
+  }, [activeContact?.id, filteredTimeline?.length, scrollToBottom]);
 
   // Helper to dispatch media attachment or voice note to backend & Baileys
   const sendMediaDirect = async ({ name, type, mediaType, base64, caption = '' }) => {
