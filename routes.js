@@ -1030,9 +1030,16 @@ export default function setupRoutes(io) {
         return res.status(403).json({ error: 'Access denied to this session' });
       }
 
-      // If session is already connected or connecting (pairing in progress), do NOT kill socket
-      if (session && (session.status === 'connected' || session.status === 'connecting')) {
+      const force = req.query.force === 'true' || req.body?.force === true;
+
+      // If session is already fully connected, do NOT kill socket unless forced
+      if (!force && session && session.status === 'connected') {
         return res.json({ message: 'Session is already in progress', id, status: session.status });
+      }
+
+      // If session already has a valid live QR code ready in DB and not forcing, return it
+      if (!force && session && session.status === 'qr_ready' && session.qr_code) {
+        return res.json({ message: 'QR Code already active', id, status: session.status, qr_code: session.qr_code });
       }
 
       // Force cleanup of any stale socket so Baileys generates a fresh live QR code

@@ -774,12 +774,12 @@ export default function ConversationsPage({
 
     fetchCurrentSessions();
 
-    // Auto-request QR code only if not already connected, connecting, or qr_ready
-    const isBusy = isConnected || isQRReady || primarySession?.status === 'connecting';
+    // Auto-request QR code if not already connected and no live QR code ready
+    const isBusy = isConnected || isQRReady;
     if (!isBusy && !startingSessionRef.current) {
       startingSessionRef.current = true;
-      handleStartSession().finally(() => {
-        setTimeout(() => { startingSessionRef.current = false; }, 4000);
+      handleStartSession(null, true).finally(() => {
+        setTimeout(() => { startingSessionRef.current = false; }, 3000);
       });
     }
 
@@ -788,17 +788,18 @@ export default function ConversationsPage({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [showQrModal, isConnected]);
+  }, [showQrModal, isConnected, isQRReady]);
 
   // Start or trigger QR code generation for WhatsApp session
-  const handleStartSession = async (sessId) => {
+  const handleStartSession = async (sessId, force = false) => {
     setQrLoading(true);
     setQrActionMsg('Requesting WhatsApp QR Code from Baileys gateway...');
     try {
+      const tenantToUse = String(companyId || activeTenantId || '1');
       const reqHeaders = {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        'x-tenant-id': activeTenantId
+        'x-tenant-id': tenantToUse
       };
 
       let currentList = localSessions;
@@ -822,9 +823,11 @@ export default function ConversationsPage({
       }
 
       if (targetId) {
-        const startRes = await fetch(`${API_URL}/sessions/start/${targetId}`, {
+        const url = `${API_URL}/sessions/start/${targetId}${force ? '?force=true' : ''}`;
+        const startRes = await fetch(url, {
           method: 'POST',
-          headers: reqHeaders
+          headers: reqHeaders,
+          body: JSON.stringify({ force: Boolean(force) })
         });
         if (startRes.ok) {
           setQrActionMsg('Connecting to Baileys... QR will appear momentarily.');
@@ -4842,7 +4845,7 @@ export default function ConversationsPage({
                         {!isConnecting && (
                           <button
                             type="button"
-                            onClick={() => handleStartSession()}
+                            onClick={() => handleStartSession(null, true)}
                             style={{
                               marginTop: '6px',
                               padding: '8px 14px',
@@ -4866,7 +4869,7 @@ export default function ConversationsPage({
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '10px' }}>
                     <button
                       type="button"
-                      onClick={() => handleStartSession()}
+                      onClick={() => handleStartSession(null, true)}
                       disabled={qrLoading}
                       style={{
                         flex: 1,
