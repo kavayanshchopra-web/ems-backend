@@ -3809,6 +3809,7 @@ export default function ConversationsPage({
                     >
                       <div style={{
                         maxWidth: '72%',
+                        width: 'fit-content',
                         padding: '6px 10px 4px 10px',
                         borderRadius: isMe ? '8px 8px 1px 8px' : '8px 8px 8px 1px',
                         background: isMe ? '#d9fdd3' : '#ffffff',
@@ -3821,13 +3822,13 @@ export default function ConversationsPage({
                         position: 'relative'
                       }}>
                         {(item.mediaUrl || item.media_url) && (
-                          <div style={{ marginBottom: '6px' }}>
+                          <div style={{ marginBottom: '4px' }}>
                             {item.mediaType?.startsWith('image') ? (
                               <img 
                                 src={resolveMediaUrl(item.mediaUrl || item.media_url)} 
                                 alt="attachment" 
                                 onClick={() => setLightboxImage(resolveMediaUrl(item.mediaUrl || item.media_url))}
-                                style={{ maxWidth: '100%', maxHeight: '280px', borderRadius: '6px', cursor: 'pointer', transition: 'opacity 0.15s', objectFit: 'contain' }} 
+                                style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '6px', cursor: 'pointer', transition: 'opacity 0.15s', objectFit: 'contain', display: 'block' }} 
                                 title="Click to view full size"
                               />
                             ) : (item.mediaType === 'audio' || item.mediaType?.startsWith('audio')) ? (
@@ -3868,7 +3869,14 @@ export default function ConversationsPage({
                             text === '(Media Attachment)' || 
                             text === '[Media Attachment]' || 
                             text.startsWith('🎤 Voice Note') ||
-                            text.startsWith('[Voice Note');
+                            text.startsWith('[Voice Note') ||
+                            (hasMedia && (
+                              /^WhatsApp Image \d{4}-\d{2}-\d{2}/i.test(text) ||
+                              /^IMG[-_]\d+/i.test(text) ||
+                              /\.(jpeg|jpg|png|webp|gif|mp4|mov|avi|mp3|ogg|m4a|aac)$/i.test(text) ||
+                              text.startsWith('blob:') ||
+                              text.startsWith('http')
+                            ));
 
                           if (hasMedia && isPlaceholder) return null;
                           if (!text) return null;
