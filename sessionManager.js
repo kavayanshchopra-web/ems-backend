@@ -859,8 +859,16 @@ export async function markWhatsAppMessagesAsRead(sessionId, contactJid, messageK
 }
 
 // Send WhatsApp media message
-export async function sendWhatsAppMedia(sessionId, recipientJid, mediaType, fileBuffer, fileName, fileMimeType, caption = '') {
-  const sock = activeSockets.get(sessionId);
+export async function sendWhatsAppMedia(sessionId, recipientJid, mediaType, fileBuffer, fileName, fileMimeType, caption = '', tenantId = 1) {
+  let sock = activeSockets.get(sessionId);
+  if (!sock) {
+    for (const [sId, s] of activeSockets.entries()) {
+      if (s && !s.isClosed) {
+        sock = s;
+        break;
+      }
+    }
+  }
   if (!sock) {
     throw new Error('WhatsApp session is not active');
   }
@@ -869,6 +877,10 @@ export async function sendWhatsAppMedia(sessionId, recipientJid, mediaType, file
   let jid = recipientJid;
   if (!jid.includes('@')) {
     jid = `${jid}@s.whatsapp.net`;
+  }
+
+  if (!fs.existsSync(mediaStorePath)) {
+    fs.mkdirSync(mediaStorePath, { recursive: true });
   }
 
   // Create local file path to save it in media_store
@@ -880,18 +892,26 @@ export async function sendWhatsAppMedia(sessionId, recipientJid, mediaType, file
 
   // Construct message payload based on mediaType
   let options = {};
-  const finalCaption = caption || fileName || '';
+  const finalCaption = (caption || fileName || '').trim();
   if (mediaType === 'image') {
-    options = { image: fileBuffer, caption: finalCaption };
+    options = { image: fileBuffer, mimetype: fileMimeType || 'image/jpeg' };
+    if (finalCaption) options.caption = finalCaption;
   } else if (mediaType === 'video') {
-    options = { video: fileBuffer, caption: finalCaption };
+    options = { video: fileBuffer, mimetype: fileMimeType || 'video/mp4' };
+    if (finalCaption) options.caption = finalCaption;
   } else if (mediaType === 'audio') {
     options = { audio: fileBuffer, mimetype: fileMimeType || 'audio/ogg; codecs=opus', ptt: true };
   } else if (mediaType === 'document') {
-    options = { document: fileBuffer, mimetype: fileMimeType, fileName: fileName, caption: finalCaption };
+    options = { document: fileBuffer, mimetype: fileMimeType || 'application/pdf', fileName: fileName || 'document.pdf' };
+    if (finalCaption) options.caption = finalCaption;
   }
 
-  const response = await sock.sendMessage(jid, options);
+  const sendPromise = sock.sendMessage(jid, options);
+  const timeoutPromise = new Promise((_, reject) => 
+    setTimeout(() => reject(new Error('WhatsApp media delivery timeout (25s)')), 25000)
+  );
+  const response = await Promise.race([sendPromise, timeoutPromise]);
+
   if (response && response.key) {
     const timestamp = response.messageTimestamp
       ? response.messageTimestamp.low || response.messageTimestamp.toNumber?.() || Math.floor(Date.now() / 1000)
@@ -906,7 +926,8 @@ export async function sendWhatsAppMedia(sessionId, recipientJid, mediaType, file
       textContent: finalCaption || `[Sent ${mediaType}]`,
       mediaUrl: mediaUrl,
       mediaType: mediaType,
-      timestamp: timestamp
+      timestamp: timestamp,
+      tenantId: tenantId
     });
 
     return {
@@ -921,7 +942,7 @@ export async function sendWhatsAppMedia(sessionId, recipientJid, mediaType, file
     };
   }
 
-  throw new Error('Failed to send media message');
+  throw new Error('Failed to capture sent media key from WhatsApp');
 }
 
 // Fetch WhatsApp profile picture dynamically from any active socket

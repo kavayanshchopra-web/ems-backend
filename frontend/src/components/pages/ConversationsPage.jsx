@@ -59,7 +59,7 @@ import { collection, onSnapshot, doc, getDocs, setDoc, query, where, deleteDoc }
 import GhlOAuthService from '../../core/services/ghlOAuthService';
 import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
 import TenantStorage from '../../core/services/TenantStorage';
-import WhatsAppTemplateService from '../../core/services/whatsAppTemplateService';
+import WhatsAppTemplateService, { DEFAULT_WHATSAPP_TEMPLATES } from '../../core/services/whatsAppTemplateService';
 
 // Robust unwrap helper for Firestore REST API, Web SDK, SQLite, or Socket.IO call records
 function unwrapCallRecord(raw) {
@@ -583,7 +583,8 @@ export default function ConversationsPage({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showTemplatesPicker, setShowTemplatesPicker] = useState(false);
   const [templatesSearch, setTemplatesSearch] = useState('');
-  const [availableTemplates, setAvailableTemplates] = useState([]);
+  const [availableTemplates, setAvailableTemplates] = useState(DEFAULT_WHATSAPP_TEMPLATES || []);
+  const [rosterLimit, setRosterLimit] = useState(60);
   const fileInputRef = useRef(null);
   const composerInputRef = useRef(null);
 
@@ -591,9 +592,9 @@ export default function ConversationsPage({
   useEffect(() => {
     try {
       const tpls = WhatsAppTemplateService.getTemplates(companyId);
-      setAvailableTemplates(Array.isArray(tpls) ? tpls : []);
+      setAvailableTemplates(Array.isArray(tpls) && tpls.length > 0 ? tpls : (DEFAULT_WHATSAPP_TEMPLATES || []));
     } catch (e) {
-      setAvailableTemplates([]);
+      setAvailableTemplates(DEFAULT_WHATSAPP_TEMPLATES || []);
     }
   }, [companyId]);
 
@@ -633,6 +634,17 @@ export default function ConversationsPage({
     ? 'http://localhost:5000/api'
     : 'https://api.employeemanagementsystems.com/api';
   const token = typeof window !== 'undefined' ? (localStorage.getItem('omnilflow_token') || localStorage.getItem('token')) : null;
+
+  // Resolve media URLs to full VPS backend endpoints if relative
+  const resolveMediaUrl = useCallback((url) => {
+    if (!url || typeof url !== 'string') return '';
+    if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    const cleanPath = url.startsWith('/') ? url : `/${url}`;
+    const base = API_URL.replace(/\/api\/?$/, '');
+    return `${base}${cleanPath}`;
+  }, [API_URL]);
 
   // On-demand fetch real WhatsApp profile picture when active contact lacks one
   useEffect(() => {
@@ -1638,6 +1650,30 @@ export default function ConversationsPage({
         }));
       });
 
+      socket.on('media_downloaded', (data) => {
+        if (!data || !data.id) return;
+        const targetMediaUrl = data.mediaUrl || data.media_url;
+        if (!targetMediaUrl) return;
+
+        const curActive = activeContactRef.current;
+        setActiveMessages(prev => {
+          const updated = prev.map(m => {
+            if (m.id === data.id) {
+              return {
+                ...m,
+                mediaUrl: targetMediaUrl,
+                media_url: targetMediaUrl
+              };
+            }
+            return m;
+          });
+          if (curActive?.id) {
+            messagesCacheRef.current.set(curActive.id, updated);
+          }
+          return updated;
+        });
+      });
+
       socket.on('contact_updated', (data) => {
         if (!data) return;
         const dataNorm = normalizePhone10(data.normPhone10 || data.phone || data.id || '');
@@ -2166,13 +2202,24 @@ export default function ConversationsPage({
 
   const handleSelectTemplate = (tpl) => {
     try {
-      const rawText = tpl.body || tpl.text || tpl.content || '';
-      const interpolated = WhatsAppTemplateService.interpolateTemplate(rawText, activeContact, { companyName: 'EMS' });
-      setReplyText(interpolated);
+      const rawText = tpl.content || tpl.body || tpl.text || '';
+      const contactName = activeContact?.name || activeContact?.contactName || activeContact?.customerName || 'Friend';
+      const params = {
+        name: contactName,
+        customerName: contactName,
+        customer_name: contactName,
+        phone: activeContact?.phone || '',
+        companyName: 'EMS',
+        company_name: 'EMS',
+        agentName: userName || 'Executive',
+        agent_name: userName || 'Executive'
+      };
+      const interpolated = WhatsAppTemplateService.personalizeText(rawText, params);
+      setReplyText(interpolated || rawText);
       setShowTemplatesPicker(false);
       composerInputRef.current?.focus();
     } catch (e) {
-      setReplyText(tpl.body || tpl.text || '');
+      setReplyText(tpl.content || tpl.body || tpl.text || '');
       setShowTemplatesPicker(false);
       composerInputRef.current?.focus();
     }
@@ -2759,6 +2806,16 @@ export default function ConversationsPage({
     });
   }, [conversationsList, rosterTab, searchQuery, pinnedContacts]);
 
+  // Reset lazy roster window on filter/tab changes
+  useEffect(() => {
+    setRosterLimit(60);
+  }, [searchQuery, rosterTab]);
+
+  // Progressive slicing for silky smooth 60fps rendering without lag
+  const displayedConversations = useMemo(() => {
+    return filteredConversations.slice(0, rosterLimit);
+  }, [filteredConversations, rosterLimit]);
+
   return (
     <div style={{
       display: 'flex',
@@ -3018,13 +3075,21 @@ export default function ConversationsPage({
           </div>
 
           {/* Conversations List */}
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div 
+            style={{ flex: 1, overflowY: 'auto' }}
+            onScroll={(e) => {
+              const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+              if (scrollTop + clientHeight >= scrollHeight - 350) {
+                setRosterLimit(prev => Math.min(prev + 50, filteredConversations.length));
+              }
+            }}
+          >
             {filteredConversations.length === 0 ? (
               <div style={{ padding: '30px 20px', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>
                 No conversations found
               </div>
             ) : (
-              filteredConversations.map((contact) => {
+              displayedConversations.map((contact) => {
                 const isSelected = activeContact && activeContact.id === contact.id;
                 const hasUnread = contact.unreadCount > 0;
                 const isPinned = pinnedContacts.includes(contact.id) || contact.is_pinned;
@@ -3692,21 +3757,21 @@ export default function ConversationsPage({
                         wordBreak: 'break-word',
                         position: 'relative'
                       }}>
-                        {item.mediaUrl && (
+                        {(item.mediaUrl || item.media_url) && (
                           <div style={{ marginBottom: '6px' }}>
                             {item.mediaType?.startsWith('image') ? (
                               <img 
-                                src={item.mediaUrl.startsWith('/media') ? `${API_URL.replace('/api', '')}${item.mediaUrl}` : item.mediaUrl} 
+                                src={resolveMediaUrl(item.mediaUrl || item.media_url)} 
                                 alt="attachment" 
-                                onClick={() => setLightboxImage(item.mediaUrl.startsWith('/media') ? `${API_URL.replace('/api', '')}${item.mediaUrl}` : item.mediaUrl)}
+                                onClick={() => setLightboxImage(resolveMediaUrl(item.mediaUrl || item.media_url))}
                                 style={{ maxWidth: '100%', maxHeight: '280px', borderRadius: '6px', cursor: 'pointer', transition: 'opacity 0.15s', objectFit: 'contain' }} 
                                 title="Click to view full size"
                               />
                             ) : (item.mediaType === 'audio' || item.mediaType?.startsWith('audio')) ? (
-                              <TimelineAudioPlayer src={item.mediaUrl.startsWith('/media') ? `${API_URL.replace('/api', '')}${item.mediaUrl}` : item.mediaUrl} />
+                              <TimelineAudioPlayer src={resolveMediaUrl(item.mediaUrl || item.media_url)} />
                             ) : (
                               <a 
-                                href={item.mediaUrl.startsWith('/media') ? `${API_URL.replace('/api', '')}${item.mediaUrl}` : item.mediaUrl} 
+                                href={resolveMediaUrl(item.mediaUrl || item.media_url)} 
                                 target="_blank" 
                                 rel="noreferrer" 
                                 style={{ 
@@ -3996,6 +4061,7 @@ export default function ConversationsPage({
                         if (!templatesSearch) return true;
                         const q = templatesSearch.toLowerCase();
                         return (t.title && t.title.toLowerCase().includes(q)) || 
+                               (t.content && t.content.toLowerCase().includes(q)) || 
                                (t.body && t.body.toLowerCase().includes(q)) || 
                                (t.category && t.category.toLowerCase().includes(q));
                       })
@@ -4027,7 +4093,7 @@ export default function ConversationsPage({
                             </span>
                           </div>
                           <div style={{ fontSize: '11px', color: '#64748b', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.35 }}>
-                            {t.body || t.text}
+                            {t.content || t.body || t.text}
                           </div>
                         </div>
                       ))}
