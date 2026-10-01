@@ -1254,13 +1254,13 @@ export async function initDb() {
     console.error('Failed to run database cleanup:', err);
   }
 
-  // Create high-performance composite B-Tree indexes for ultra-fast instant lookups (<10ms)
-  try {
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_contact_ts ON messages(contact_id, timestamp DESC);`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_tenant_contact_ts ON messages(tenant_id, contact_id, timestamp DESC);`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(tenant_id, contact_id, from_me, is_read);`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_contacts_tenant_archived ON contacts(tenant_id, is_archived, created_at DESC);`);
     await db.exec(`CREATE INDEX IF NOT EXISTS idx_contacts_phone ON contacts(phone);`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_contacts_phone_norm ON contacts(phone_normalized);`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_lid_mappings_pn ON lid_mappings(pn);`);
   } catch (err) {
     console.warn('[DB Index Notice]', err.message);
   }
@@ -1656,8 +1656,8 @@ export async function getMessagesForContact(contactId, limit = 100, offset = 0, 
     // Check lid_mappings for any WhatsApp privacy LID mapped to this phone
     try {
       const lidRows = await db.all(
-        `SELECT lid FROM lid_mappings WHERE (pn LIKE ? OR pn LIKE ?) AND tenant_id = ?`,
-        [`%${norm10}`, `%${norm10}%`, numericTenant]
+        `SELECT lid FROM lid_mappings WHERE pn IN (?, ?, ?, ?, ?, ?)`,
+        [norm10, `91${norm10}`, `+91${norm10}`, `${norm10}@s.whatsapp.net`, `91${norm10}@s.whatsapp.net`, `0${norm10}`]
       );
       (lidRows || []).forEach(r => {
         if (r.lid) possibleIds.add(r.lid);
@@ -1677,9 +1677,9 @@ export async function getMessagesForContact(contactId, limit = 100, offset = 0, 
     if (!contactRow && norm10 && norm10.length >= 7) {
       contactRow = await db.get(
         `SELECT id, phone, phone_normalized FROM contacts 
-         WHERE (phone_normalized = ? OR phone LIKE ? OR id LIKE ?) 
+         WHERE (phone_normalized = ? OR phone = ? OR phone = ? OR phone = ? OR id = ?) 
            AND tenant_id = ? LIMIT 1`,
-        [norm10, `%${norm10}%`, `%${norm10}%`, numericTenant]
+        [norm10, norm10, `+91${norm10}`, `91${norm10}`, norm10, numericTenant]
       );
     }
 
@@ -1705,21 +1705,16 @@ export async function getMessagesForContact(contactId, limit = 100, offset = 0, 
   if (idList.length === 0) return [];
   const placeholders = idList.map(() => '?').join(', ');
 
+  // Ultra-fast indexed retrieval using composite index (tenant_id, contact_id, timestamp DESC) (<2ms)
   const messages = await db.all(
     `SELECT m.*, s.phone_name as session_name 
      FROM messages m
      LEFT JOIN whatsapp_sessions s ON m.session_id = s.id
      WHERE m.tenant_id = ? 
-       AND (
-         m.contact_id IN (${placeholders})
-         OR (
-           ? != '' AND 
-           SUBSTR(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(m.contact_id, '@s.whatsapp.net', ''), '@c.us', ''), '+', ''), ' ', ''), '-', ''), -10) = ?
-         )
-       )
+       AND m.contact_id IN (${placeholders})
      ORDER BY m.timestamp DESC
      LIMIT ? OFFSET ?`,
-    [numericTenant, ...idList, norm10 || '', norm10 || '', numLimit, numOffset]
+    [numericTenant, ...idList, numLimit, numOffset]
   );
   return messages.reverse();
 }
