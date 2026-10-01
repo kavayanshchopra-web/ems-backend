@@ -50,7 +50,8 @@ import {
   MoreVertical,
   CornerUpLeft,
   Copy,
-  Star
+  Star,
+  Ban
 } from 'lucide-react';
 import { TimelineEngine } from '../../core/engines/TimelineEngine';
 import { normalizePhone10, formatPhoneDisplay, toE164Phone, isSamePhone } from '../../core/utils/phoneUtils';
@@ -567,8 +568,30 @@ export default function ConversationsPage({
   const [replyingToMessage, setReplyingToMessage] = useState(null);
   const [lightboxImage, setLightboxImage] = useState(null);
   const [hoveredMsgId, setHoveredMsgId] = useState(null);
+  const [activeReactionPickerId, setActiveReactionPickerId] = useState(null);
+  const [typingStatus, setTypingStatus] = useState({});
+  const typingTimerRef = useRef(null);
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
   const [mobileTab, setMobileTab] = useState('list'); // 'list' | 'chat' | 'details'
+
+  // Auto-expire typing presence after 4.5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setTypingStatus(prev => {
+        let changed = false;
+        const next = { ...prev };
+        for (const k in next) {
+          if (now - (next[k]?.timestamp || 0) > 4500) {
+            delete next[k];
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }, 1500);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -1728,6 +1751,68 @@ export default function ConversationsPage({
         });
       });
 
+      socket.on('message_reaction', (data) => {
+        if (!data) return;
+        const targetId = data.messageId || data.id;
+        if (!targetId) return;
+        const curActive = activeContactRef.current;
+        setActiveMessages(prev => {
+          const mapped = prev.map(m => {
+            if (m.id === targetId) {
+              return { ...m, reactions: data.emoji || data.reaction || null };
+            }
+            return m;
+          });
+          if (curActive?.id) {
+            messagesCacheRef.current.set(curActive.id, mapped);
+          }
+          return mapped;
+        });
+      });
+
+      socket.on('message_deleted', (data) => {
+        if (!data || !data.id) return;
+        const curActive = activeContactRef.current;
+        setActiveMessages(prev => {
+          const mapped = prev.map(m => {
+            if (m.id === data.id) {
+              return {
+                ...m,
+                is_deleted: 1,
+                isDeleted: true,
+                textContent: data.text || '🚫 This message was deleted',
+                text_content: data.text || '🚫 This message was deleted',
+                mediaUrl: null,
+                media_url: null
+              };
+            }
+            return m;
+          });
+          if (curActive?.id) {
+            messagesCacheRef.current.set(curActive.id, mapped);
+          }
+          return mapped;
+        });
+      });
+
+      socket.on('presence_update', (data) => {
+        if (!data || !data.contactId) return;
+        const cId = data.contactId;
+        const presence = data.presence; // 'composing' | 'recording' | 'paused' | 'available'
+        const norm = normalizePhone10(cId);
+        setTypingStatus(prev => {
+          const next = { ...prev };
+          if (presence === 'composing' || presence === 'recording') {
+            next[cId] = { status: presence, timestamp: Date.now() };
+            if (norm) next[norm] = { status: presence, timestamp: Date.now() };
+          } else {
+            delete next[cId];
+            if (norm) delete next[norm];
+          }
+          return next;
+        });
+      });
+
       socket.on('contact_updated', (data) => {
         if (!data) return;
         const dataNorm = normalizePhone10(data.normPhone10 || data.phone || data.id || '');
@@ -2353,6 +2438,114 @@ export default function ConversationsPage({
       setReplyText(tpl.content || tpl.body || tpl.text || '');
       setShowTemplatesPicker(false);
       composerInputRef.current?.focus();
+    }
+  };
+
+  const handleComposerChange = (e) => {
+    const val = e.target.value;
+    setReplyText(val);
+
+    // Throttled presence update to WhatsApp
+    if (activeContact?.id) {
+      if (!typingTimerRef.current && val.trim().length > 0) {
+        fetch(`${API_URL}/whatsapp/presence`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            'x-tenant-id': String(companyId)
+          },
+          body: JSON.stringify({
+            contactId: activeContact.id,
+            presence: 'composing',
+            sessionId: primarySession?.id || null
+          })
+        }).catch(() => {});
+      }
+
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = setTimeout(() => {
+        typingTimerRef.current = null;
+        fetch(`${API_URL}/whatsapp/presence`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            'x-tenant-id': String(companyId)
+          },
+          body: JSON.stringify({
+            contactId: activeContact.id,
+            presence: 'paused',
+            sessionId: primarySession?.id || null
+          })
+        }).catch(() => {});
+      }, 2500);
+    }
+  };
+
+  const handleSendReaction = async (messageId, emoji) => {
+    if (!messageId || !activeContact) return;
+    const curMsg = activeMessages.find(m => m.id === messageId);
+    const newEmoji = curMsg?.reactions === emoji ? '' : emoji; // toggle off if same emoji clicked
+
+    // Optimistic UI update
+    setActiveMessages(prev => prev.map(m => m.id === messageId ? { ...m, reactions: newEmoji || null } : m));
+    setActiveReactionPickerId(null);
+
+    try {
+      await fetch(`${API_URL}/messages/${encodeURIComponent(messageId)}/react`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': String(companyId)
+        },
+        body: JSON.stringify({
+          emoji: newEmoji,
+          contactId: activeContact.id,
+          sessionId: primarySession?.id || null,
+          tenantId: companyId
+        })
+      });
+    } catch (err) {
+      console.warn('[Reaction Error]', err.message);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    if (!messageId || !activeContact) return;
+    const ok = window.confirm('Delete this message for everyone on WhatsApp?');
+    if (!ok) return;
+
+    // Optimistic UI update
+    setActiveMessages(prev => prev.map(m => m.id === messageId ? {
+      ...m,
+      is_deleted: 1,
+      isDeleted: true,
+      text_content: '🚫 You deleted this message',
+      textContent: '🚫 You deleted this message',
+      mediaUrl: null,
+      media_url: null
+    } : m));
+
+    try {
+      await fetch(`${API_URL}/messages/${encodeURIComponent(messageId)}/delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': String(companyId)
+        },
+        body: JSON.stringify({
+          contactId: activeContact.id,
+          sessionId: primarySession?.id || null,
+          tenantId: companyId
+        })
+      });
+      if (showToast) showToast('Message deleted for everyone', 'success');
+    } catch (err) {
+      console.error('[Delete Message Error]', err);
+      if (showToast) showToast('Failed to delete message', 'error');
     }
   };
 
@@ -3353,7 +3546,15 @@ export default function ConversationsPage({
                         textOverflow: 'ellipsis',
                         paddingRight: '6px'
                       }}>
-                        {contact.lastMessage 
+                        {(typingStatus[contact.id]?.status === 'recording' || (contact.normPhone10 && typingStatus[contact.normPhone10]?.status === 'recording')) ? (
+                          <span style={{ color: '#25D366', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                            <Mic size={11} /> recording audio...
+                          </span>
+                        ) : (typingStatus[contact.id]?.status === 'composing' || (contact.normPhone10 && typingStatus[contact.normPhone10]?.status === 'composing')) ? (
+                          <span style={{ color: '#25D366', fontWeight: '700' }}>
+                            typing...
+                          </span>
+                        ) : contact.lastMessage 
                           ? (contact.lastMessage.startsWith('📞') ? contact.lastMessage : `💬 ${contact.lastMessage}`)
                           : (contact.phone !== '—' ? contact.phone : 'No messages yet')}
                       </div>
@@ -3620,14 +3821,22 @@ export default function ConversationsPage({
                     </div>
                     <div style={{
                       fontSize: '11px',
-                      color: '#64748b',
-                      fontWeight: '600',
                       marginTop: '1px',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis'
                     }}>
-                      📞 {activeContact.phone}
+                      {(typingStatus[activeContact.id]?.status === 'recording' || (activeContact.normPhone10 && typingStatus[activeContact.normPhone10]?.status === 'recording')) ? (
+                        <span style={{ color: '#25D366', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                          <Mic size={11} /> recording audio...
+                        </span>
+                      ) : (typingStatus[activeContact.id]?.status === 'composing' || (activeContact.normPhone10 && typingStatus[activeContact.normPhone10]?.status === 'composing')) ? (
+                        <span style={{ color: '#25D366', fontWeight: '700' }}>
+                          typing...
+                        </span>
+                      ) : (
+                        <span style={{ color: '#64748b', fontWeight: '600' }}>📞 {activeContact.phone}</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -3919,20 +4128,167 @@ export default function ConversationsPage({
                     if (s === 'pending' || s === 0) {
                       return <Clock size={11} color={defaultColor} title="Pending" />;
                     }
-                    if (s === 1 || s === 'sent' || s === 'server_ack') {
+                    if (s === 1 || s === 2 || s === 'sent' || s === 'server_ack') {
                       return <Check size={13} color={defaultColor} title="Sent" />;
                     }
-                    if (s === 2 || s === 'delivered' || s === 'delivery_ack') {
+                    if (s === 3 || s === 'delivered' || s === 'delivery_ack') {
                       return <CheckCheck size={14} color={defaultColor} title="Delivered" />;
                     }
-                    if (s === 3 || s === 4 || s === 5 || s === 'read' || s === 'played') {
-                      return <CheckCheck size={14} color={readColor} title="Read" style={{ strokeWidth: 2.2 }} />;
+                    if (s === 4 || s === 5 || s === 'read' || s === 'played') {
+                      return <CheckCheck size={14} color={readColor} title="Read" style={{ strokeWidth: 2.3 }} />;
                     }
                     if (s === 'error' || s === 'failed') {
                       return <AlertCircle size={12} color="#ea0038" title="Failed to deliver" />;
                     }
                     return <Check size={13} color={defaultColor} title="Sent" />;
                   };
+
+                  const isDeleted = Boolean(item.is_deleted === 1 || item.isDeleted || rawContent === '🚫 This message was deleted' || rawContent === '🚫 You deleted this message');
+
+                  if (isDeleted) {
+                    return (
+                      <div
+                        key={item.id}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: isMe ? 'flex-end' : 'flex-start',
+                          margin: '2px 0'
+                        }}
+                      >
+                        <div style={{
+                          maxWidth: '72%',
+                          padding: '6px 12px',
+                          borderRadius: isMe ? '8px 8px 1px 8px' : '8px 8px 8px 1px',
+                          background: isMe ? '#d9fdd3' : '#ffffff',
+                          color: '#8696a0',
+                          boxShadow: '0 1px 1px rgba(11,20,26,0.12)',
+                          fontSize: '13px',
+                          fontStyle: 'italic',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          <Ban size={13} color="#8696a0" />
+                          <span>{rawContent || (isMe ? '🚫 You deleted this message' : '🚫 This message was deleted')}</span>
+                          <span style={{ fontSize: '10px', marginLeft: '6px', fontStyle: 'normal', color: '#8696a0' }}>{itemTime}</span>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  const isHovered = hoveredMsgId === item.id;
+                  const isPickerOpen = activeReactionPickerId === item.id;
+
+                  const renderHoverToolbar = () => isHovered ? (
+                    <div style={{
+                      position: 'absolute',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      [isMe ? 'left' : 'right']: '-66px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '2px',
+                      background: '#ffffff',
+                      padding: '2px 4px',
+                      borderRadius: '16px',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.14)',
+                      border: '1px solid #e2e8f0',
+                      zIndex: 10
+                    }}>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setActiveReactionPickerId(isPickerOpen ? null : item.id); }}
+                        title="React with emoji"
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '3px', borderRadius: '50%', display: 'flex', alignItems: 'center', color: '#64748b' }}
+                      >
+                        <Smile size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setReplyingToMessage({ id: item.id, senderName: isMe ? 'You' : activeContact.name, content: captionText || (hasMedia ? 'Media Attachment' : '') }); }}
+                        title="Reply"
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '3px', borderRadius: '50%', display: 'flex', alignItems: 'center', color: '#64748b' }}
+                      >
+                        <CornerUpLeft size={13} />
+                      </button>
+                      {isMe && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteMessage(item.id); }}
+                          title="Delete for everyone"
+                          style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '3px', borderRadius: '50%', display: 'flex', alignItems: 'center', color: '#e11d48' }}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </div>
+                  ) : null;
+
+                  const renderReactionPicker = () => isPickerOpen ? (
+                    <div style={{
+                      position: 'absolute',
+                      top: '-38px',
+                      [isMe ? 'right' : 'left']: '0px',
+                      background: '#ffffff',
+                      borderRadius: '24px',
+                      padding: '3px 8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+                      border: '1px solid #e2e8f0',
+                      zIndex: 99
+                    }}>
+                      {['👍', '❤️', '😂', '😮', '😢', '🙏'].map(em => (
+                        <button
+                          key={em}
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleSendReaction(item.id, em); }}
+                          style={{
+                            border: 'none',
+                            background: item.reactions === em ? '#ecfdf5' : 'transparent',
+                            fontSize: '17px',
+                            cursor: 'pointer',
+                            padding: '2px 3px',
+                            borderRadius: '50%',
+                            transition: 'transform 0.1s ease',
+                            lineHeight: 1
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.25)'}
+                          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                        >
+                          {em}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null;
+
+                  const renderReactionBadge = () => item.reactions ? (
+                    <div
+                      onClick={(e) => { e.stopPropagation(); handleSendReaction(item.id, ''); }}
+                      title="Click to remove reaction"
+                      style={{
+                        position: 'absolute',
+                        bottom: '-9px',
+                        [isMe ? 'right' : 'left']: '8px',
+                        background: '#ffffff',
+                        borderRadius: '12px',
+                        padding: '1px 5px',
+                        boxShadow: '0 1px 3px rgba(11,20,26,0.16)',
+                        border: '1px solid #e2e8f0',
+                        fontSize: '12px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '2px',
+                        zIndex: 4,
+                        cursor: 'pointer',
+                        lineHeight: '1.2'
+                      }}
+                    >
+                      <span>{item.reactions}</span>
+                    </div>
+                  ) : null;
 
                   return (
                     <div
@@ -3941,9 +4297,18 @@ export default function ConversationsPage({
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: isMe ? 'flex-end' : 'flex-start',
-                        margin: '1px 0'
+                        margin: '1px 0',
+                        position: 'relative'
                       }}
+                      onMouseEnter={() => setHoveredMsgId(item.id)}
+                      onMouseLeave={() => setHoveredMsgId(null)}
                     >
+                      {/* Floating Emoji Picker Popover */}
+                      {renderReactionPicker()}
+
+                      {/* Floating Action Toolbar */}
+                      {renderHoverToolbar()}
+
                       {isImage && !captionText ? (
                         /* Native Image Bubble with No Caption: Hugs image snugly, timestamp inside */
                         <div style={{
@@ -3987,6 +4352,7 @@ export default function ConversationsPage({
                               {isMe && renderStatusTicks(item.status, '#ffffff', '#53bdeb')}
                             </div>
                           </div>
+                          {renderReactionBadge()}
                         </div>
                       ) : isImage && captionText ? (
                         /* Native Image Bubble WITH Caption */
@@ -4038,6 +4404,7 @@ export default function ConversationsPage({
                             <span>{itemTime}</span>
                             {isMe && renderStatusTicks(item.status)}
                           </div>
+                          {renderReactionBadge()}
                         </div>
                       ) : (
                         /* Standard Text, Audio or Document Bubble */
@@ -4110,6 +4477,7 @@ export default function ConversationsPage({
                             <span>{itemTime}</span>
                             {isMe && renderStatusTicks(item.status)}
                           </div>
+                          {renderReactionBadge()}
                         </div>
                       )}
                     </div>
@@ -4577,7 +4945,7 @@ export default function ConversationsPage({
                         : `Reply to ${activeContact.name} via WhatsApp...`
                     }
                     value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
+                    onChange={handleComposerChange}
                     disabled={isSending}
                     style={{
                       flex: 1,

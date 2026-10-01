@@ -191,6 +191,14 @@ export async function initDb() {
     )
   `);
 
+  // Auto-migrate is_deleted and reactions columns to messages table
+  try {
+    await db.exec(`ALTER TABLE messages ADD COLUMN is_deleted INTEGER DEFAULT 0;`);
+  } catch (e) {}
+  try {
+    await db.exec(`ALTER TABLE messages ADD COLUMN reactions TEXT;`);
+  } catch (e) {}
+
   // Create chatbot_rules table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS webhook_logs (
@@ -1581,6 +1589,29 @@ export async function updateMessageStatus(id, status) {
     `UPDATE messages SET status = ? WHERE id = ?`,
     [status, id]
   );
+}
+
+export async function updateMessageReaction(id, emoji, fromMe = 0) {
+  try {
+    if (!emoji) {
+      await db.run(`UPDATE messages SET reactions = NULL WHERE id = ?`, [id]);
+    } else {
+      await db.run(`UPDATE messages SET reactions = ? WHERE id = ?`, [emoji, id]);
+    }
+  } catch (err) {
+    console.error(`[DB] Error updating reaction for msg ${id}:`, err.message);
+  }
+}
+
+export async function deleteMessageRecord(id, placeholderText = '🚫 This message was deleted') {
+  try {
+    await db.run(
+      `UPDATE messages SET is_deleted = 1, text_content = ?, media_url = NULL, media_type = 'text' WHERE id = ?`,
+      [placeholderText, id]
+    );
+  } catch (err) {
+    console.error(`[DB] Error deleting msg record ${id}:`, err.message);
+  }
 }
 
 export async function clearAllCrmData(tenantId = null) {

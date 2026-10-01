@@ -128,7 +128,9 @@ import {
   getCallLogs,
   createCallLog,
   findRecentCallLog,
-  updateCallLog
+  updateCallLog,
+  updateMessageReaction,
+  deleteMessageRecord
 } from './db.js';
 import { 
   startSession, 
@@ -138,7 +140,10 @@ import {
   sendWhatsAppMedia,
   markWhatsAppMessagesAsRead,
   getProfilePicUrl,
-  checkWhatsAppNumber
+  checkWhatsAppNumber,
+  sendWhatsAppReaction,
+  deleteWhatsAppMessage,
+  sendWhatsAppPresence
 } from './sessionManager.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1858,6 +1863,116 @@ export default function setupRoutes(io) {
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: err.message || 'Failed to send media' });
+    }
+  });
+
+  // React to a WhatsApp Message
+  router.post(['/messages/:id/react', '/api/messages/:id/react'], async (req, res) => {
+    const { id } = req.params;
+    const { emoji, contactId, sessionId, fromMe } = req.body;
+    const tenantId = req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.body?.tenantId || 1;
+
+    try {
+      let targetSessionId = sessionId;
+      if (!targetSessionId || targetSessionId === 'desktop_webview') {
+        const allSessions = await getAllSessions(tenantId);
+        const connectedSess = allSessions.find(s => s.status === 'connected');
+        if (connectedSess) targetSessionId = connectedSess.id;
+      }
+
+      if (targetSessionId && contactId) {
+        try {
+          await sendWhatsAppReaction(targetSessionId, contactId, id, emoji, fromMe !== false);
+        } catch (bErr) {
+          console.warn('[Baileys Reaction Notice]:', bErr.message);
+        }
+      }
+
+      await updateMessageReaction(id, emoji || null);
+
+      if (io) {
+        const payload = { messageId: id, id, emoji, reaction: emoji, contactId, fromMe: 1, tenantId };
+        io.to(`tenant_${tenantId}`).emit('message_reaction', payload);
+        if (String(tenantId) === '1' || tenantId === 1) {
+          io.to('tenant_default').emit('message_reaction', payload);
+        }
+        io.emit('message_reaction', payload);
+      }
+
+      res.json({ success: true, messageId: id, emoji });
+    } catch (err) {
+      console.error('[Message Reaction Error]:', err);
+      res.status(500).json({ error: err.message || 'Failed to update reaction' });
+    }
+  });
+
+  // Delete / Revoke WhatsApp Message ("Delete for Everyone")
+  const handleDeleteMessage = async (req, res) => {
+    const { id } = req.params;
+    const { contactId, sessionId } = req.body || {};
+    const tenantId = req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.body?.tenantId || 1;
+
+    try {
+      let targetSessionId = sessionId;
+      if (!targetSessionId || targetSessionId === 'desktop_webview') {
+        const allSessions = await getAllSessions(tenantId);
+        const connectedSess = allSessions.find(s => s.status === 'connected');
+        if (connectedSess) targetSessionId = connectedSess.id;
+      }
+
+      if (targetSessionId && contactId) {
+        try {
+          await deleteWhatsAppMessage(targetSessionId, contactId, id);
+        } catch (bErr) {
+          console.warn('[Baileys Delete Notice]:', bErr.message);
+        }
+      }
+
+      await deleteMessageRecord(id, '🚫 You deleted this message');
+
+      if (io) {
+        const payload = { id, contactId, text: '🚫 You deleted this message', is_deleted: 1, tenantId };
+        io.to(`tenant_${tenantId}`).emit('message_deleted', payload);
+        if (String(tenantId) === '1' || tenantId === 1) {
+          io.to('tenant_default').emit('message_deleted', payload);
+        }
+        io.emit('message_deleted', payload);
+      }
+
+      res.json({ success: true, messageId: id });
+    } catch (err) {
+      console.error('[Message Delete Error]:', err);
+      res.status(500).json({ error: err.message || 'Failed to delete message' });
+    }
+  };
+
+  router.delete(['/messages/:id', '/api/messages/:id'], handleDeleteMessage);
+  router.post(['/messages/:id/delete', '/api/messages/:id/delete'], handleDeleteMessage);
+
+  // Send Live Typing / Recording Presence
+  router.post(['/whatsapp/presence', '/api/whatsapp/presence'], async (req, res) => {
+    const { contactId, presence, sessionId } = req.body;
+    const tenantId = req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.body?.tenantId || 1;
+
+    if (!contactId) {
+      return res.status(400).json({ error: 'contactId is required' });
+    }
+
+    try {
+      let targetSessionId = sessionId;
+      if (!targetSessionId || targetSessionId === 'desktop_webview') {
+        const allSessions = await getAllSessions(tenantId);
+        const connectedSess = allSessions.find(s => s.status === 'connected');
+        if (connectedSess) targetSessionId = connectedSess.id;
+      }
+
+      if (targetSessionId) {
+        await sendWhatsAppPresence(targetSessionId, contactId, presence || 'composing');
+      }
+
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message || 'Failed to send presence' });
     }
   });
 
