@@ -619,19 +619,38 @@ export default function ConversationsPage({
 
   // Instant or smooth scroll to bottom helper
   const scrollToBottom = useCallback((instant = true) => {
-    if (messagesContainerRef.current) {
+    const el = messagesContainerRef.current;
+    if (el) {
       if (instant) {
-        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        el.scrollTop = el.scrollHeight;
       } else {
-        messagesContainerRef.current.scrollTo({
-          top: messagesContainerRef.current.scrollHeight,
+        el.scrollTo({
+          top: el.scrollHeight,
           behavior: 'smooth'
         });
       }
-    } else if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: instant ? 'auto' : 'smooth' });
+    }
+    if (messagesEndRef.current) {
+      try {
+        messagesEndRef.current.scrollIntoView({ behavior: instant ? 'auto' : 'smooth' });
+      } catch (e) {}
     }
   }, []);
+
+  // Guarantee chat always opens scrolled down to latest message at bottom
+  useEffect(() => {
+    scrollToBottom(true);
+    const t1 = setTimeout(() => scrollToBottom(true), 40);
+    const t2 = setTimeout(() => scrollToBottom(true), 120);
+    const t3 = setTimeout(() => scrollToBottom(true), 300);
+    const t4 = setTimeout(() => scrollToBottom(true), 600);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
+    };
+  }, [activeContact?.id, filteredTimeline?.length, scrollToBottom]);
  
   // Fast local caching helpers for 0ms instant conversation loading & switching
   const getCachedMessages = useCallback((targetContactId) => {
@@ -1290,6 +1309,7 @@ export default function ConversationsPage({
     if (cached && cached.length > 0) {
       setActiveMessages(cached);
       setIsLoadingMessages(false);
+      setTimeout(() => scrollToBottom(true), 15);
     } else {
       setActiveMessages([]);
       setIsLoadingMessages(true);
@@ -1298,12 +1318,12 @@ export default function ConversationsPage({
     const queryPhone = norm10 ? `91${norm10}` : cleanPhone;
     const abortCtrl = new AbortController();
 
-    // Safety timeout: Ensure loading spinner is NEVER stuck past 4 seconds
+    // Safety timeout: Ensure loading spinner is NEVER stuck past 3 seconds
     const safetyTimer = setTimeout(() => {
       setIsLoadingMessages(false);
-    }, 4000);
+    }, 3000);
 
-    fetch(`${API_URL}/contacts/${encodeURIComponent(contactId)}/messages?limit=200&phone=${encodeURIComponent(queryPhone)}&tenantId=${encodeURIComponent(companyId)}`, {
+    fetch(`${API_URL}/contacts/${encodeURIComponent(contactId)}/messages?limit=100&phone=${encodeURIComponent(queryPhone)}&tenantId=${encodeURIComponent(companyId)}`, {
       signal: abortCtrl.signal,
       headers: {
         ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
@@ -2114,8 +2134,8 @@ export default function ConversationsPage({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 16 * 1024 * 1024) {
-      if (showToast) showToast('File size must be under 16MB', 'error');
+    if (file.size > 25 * 1024 * 1024) {
+      if (showToast) showToast('File size must be under 25MB', 'error');
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
@@ -2124,6 +2144,61 @@ export default function ConversationsPage({
     if (file.type.startsWith('image/')) mediaType = 'image';
     else if (file.type.startsWith('video/')) mediaType = 'video';
     else if (file.type.startsWith('audio/')) mediaType = 'audio';
+
+    // Fast image optimization: Compress images client-side before base64 for blazing fast sub-second sends
+    if (mediaType === 'image' && file.type !== 'image/gif') {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        const maxDimension = 1600;
+        let { width, height } = img;
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.84);
+
+        setSelectedAttachment({
+          file,
+          name: file.name.replace(/\.[^/.]+$/, "") + ".jpg",
+          size: Math.round(compressedBase64.length * 0.75),
+          type: 'image/jpeg',
+          previewUrl: compressedBase64,
+          base64: compressedBase64,
+          mediaType: 'image'
+        });
+        composerInputRef.current?.focus();
+      };
+      img.onerror = () => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          setSelectedAttachment({
+            file,
+            name: file.name,
+            size: file.size,
+            type: file.type || 'image/jpeg',
+            previewUrl: reader.result,
+            base64: reader.result,
+            mediaType: 'image'
+          });
+          composerInputRef.current?.focus();
+        };
+        reader.readAsDataURL(file);
+      };
+      img.src = objectUrl;
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -2913,8 +2988,9 @@ export default function ConversationsPage({
         }}>
           {/* Roster Header */}
           <div style={{ padding: '12px 14px', borderBottom: '1px solid #f1f5f9' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
+            {/* Row 1: Title & Action Buttons */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{
                   width: '28px',
                   height: '28px',
@@ -2929,70 +3005,15 @@ export default function ConversationsPage({
                 }}>
                   <MessageSquare size={14} />
                 </div>
-                <div style={{ minWidth: 0 }}>
-                  <h2 style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Conversations</h2>
-                  <div style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '600', whiteSpace: 'nowrap', marginTop: '1px' }}>
-                    {conversationsList.length} Active Leads
-                  </div>
-                </div>
+                <h2 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>Conversations</h2>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                {/* WhatsApp Baileys Gateway Status & QR Trigger */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowQrModal(true);
-                    if (!isConnected && (!primarySession || primarySession.status === 'disconnected')) {
-                      handleStartSession();
-                    }
-                  }}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '3px 6px',
-                    borderRadius: '6px',
-                    background: isConnected 
-                      ? '#ecfdf5' 
-                      : (isQRReady ? '#fefce8' : '#f0fdf4'),
-                    border: `1px solid ${isConnected ? '#a7f3d0' : (isQRReady ? '#fef08a' : '#bbf7d0')}`,
-                    color: isConnected ? '#15803d' : (isQRReady ? '#a16207' : '#166534'),
-                    fontSize: '10px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0,
-                    transition: 'all 0.15s ease'
-                  }}
-                  title={isConnected ? `Connected Live: +${connectedPhone}. Click to view details` : 'Connect WhatsApp / Scan QR Code'}
-                >
-                  {isConnected ? (
-                    <>
-                      <span style={{
-                        width: '6px',
-                        height: '6px',
-                        borderRadius: '50%',
-                        background: '#10b981',
-                        boxShadow: '0 0 4px #10b981',
-                        display: 'inline-block'
-                      }} />
-                      <span>{connectedPhone ? (connectedPhone.length > 10 ? `+${connectedPhone.slice(-10)}` : `+${connectedPhone}`) : 'WA Live'}</span>
-                    </>
-                  ) : (
-                    <>
-                      <QrCode size={11} color="#059669" />
-                      <span>{isQRReady ? 'Scan QR' : isConnecting ? 'Connecting...' : 'Scan QR'}</span>
-                    </>
-                  )}
-                </button>
-
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
                 <button
                   type="button"
                   onClick={async () => {
                     if (!window.confirm('⚠️ Kya aap saare CRM Contacts aur Messages reset karke conversation section poora empty karna chahte hain?')) return;
                     try {
-                      // 1. Wipe local browser caches
                       try {
                         TenantStorage.removeItem('contacts', companyId);
                         TenantStorage.removeItem('call_logs', companyId);
@@ -3001,13 +3022,11 @@ export default function ConversationsPage({
                         messagesCacheRef.current.clear();
                       } catch (e) {}
 
-                      // 2. Clear local React states
                       setConversationsList([]);
                       setActiveContact(null);
                       setActiveMessages([]);
                       setAllCallLogs([]);
 
-                      // 3. Clear backend SQLite database & sessions
                       const res = await fetch(`${API_URL}/crm/conversations/reset-all`, {
                         method: 'POST',
                         headers: {
@@ -3032,13 +3051,13 @@ export default function ConversationsPage({
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '3px',
+                    gap: '4px',
                     padding: '3px 7px',
                     borderRadius: '6px',
                     background: '#fff1f2',
                     border: '1px solid #fecdd3',
                     color: '#e11d48',
-                    fontSize: '10px',
+                    fontSize: '10.5px',
                     fontWeight: '700',
                     cursor: 'pointer',
                     whiteSpace: 'nowrap',
@@ -3072,6 +3091,60 @@ export default function ConversationsPage({
                   <RefreshCw size={11} className={loadingConversations ? 'animate-spin' : ''} style={{ animation: loadingConversations ? 'spin 1s linear infinite' : 'none' }} />
                 </button>
               </div>
+            </div>
+
+            {/* Row 2: Active Leads count & WhatsApp Live Status Pill */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
+                {conversationsList.length} Active Leads
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowQrModal(true);
+                  if (!isConnected && (!primarySession || primarySession.status === 'disconnected')) {
+                    handleStartSession();
+                  }
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '3px 7px',
+                  borderRadius: '6px',
+                  background: isConnected 
+                    ? '#ecfdf5' 
+                    : (isQRReady ? '#fefce8' : '#f0fdf4'),
+                  border: `1px solid ${isConnected ? '#a7f3d0' : (isQRReady ? '#fef08a' : '#bbf7d0')}`,
+                  color: isConnected ? '#15803d' : (isQRReady ? '#a16207' : '#166534'),
+                  fontSize: '10px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  transition: 'all 0.15s ease'
+                }}
+                title={isConnected ? `Connected Live: +${connectedPhone}. Click to view details` : 'Connect WhatsApp / Scan QR Code'}
+              >
+                {isConnected ? (
+                  <>
+                    <span style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: '#10b981',
+                      boxShadow: '0 0 4px #10b981',
+                      display: 'inline-block'
+                    }} />
+                    <span>{connectedPhone ? `+${connectedPhone}` : 'WA Live'}</span>
+                  </>
+                ) : (
+                  <>
+                    <QrCode size={11} color="#059669" />
+                    <span>{isQRReady ? 'Scan QR' : isConnecting ? 'Connecting...' : 'Scan QR'}</span>
+                  </>
+                )}
+              </button>
             </div>
 
             {/* Search Bar */}
@@ -3888,6 +3961,7 @@ export default function ConversationsPage({
                               src={resolveMediaUrl(item.mediaUrl || item.media_url)} 
                               alt="photo" 
                               onClick={() => setLightboxImage(resolveMediaUrl(item.mediaUrl || item.media_url))}
+                              onLoad={() => scrollToBottom(true)}
                               style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '6px', cursor: 'pointer', display: 'block', objectFit: 'contain' }} 
                               title="Click to view full size"
                             />
@@ -3918,21 +3992,38 @@ export default function ConversationsPage({
                         /* Native Image Bubble WITH Caption */
                         <div style={{
                           maxWidth: '320px',
+                          minWidth: '220px',
                           width: 'fit-content',
                           borderRadius: isMe ? '8px 8px 1px 8px' : '8px 8px 8px 1px',
                           padding: '3px 3px 4px 3px',
                           background: isMe ? '#d9fdd3' : '#ffffff',
                           boxShadow: '0 1px 1px rgba(11,20,26,0.12)',
-                          position: 'relative'
+                          position: 'relative',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          boxSizing: 'border-box'
                         }}>
-                          <img 
-                            src={resolveMediaUrl(item.mediaUrl || item.media_url)} 
-                            alt="photo" 
-                            onClick={() => setLightboxImage(resolveMediaUrl(item.mediaUrl || item.media_url))}
-                            style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '6px', cursor: 'pointer', display: 'block', objectFit: 'contain' }} 
-                            title="Click to view full size"
-                          />
-                          <div style={{ padding: '6px 6px 2px 6px', fontSize: '13.5px', lineHeight: '1.4', color: '#111b21', wordBreak: 'break-word' }}>
+                          <div style={{ borderRadius: '6px', overflow: 'hidden', width: '100%', background: 'rgba(0,0,0,0.03)' }}>
+                            <img 
+                              src={resolveMediaUrl(item.mediaUrl || item.media_url)} 
+                              alt="photo" 
+                              onClick={() => setLightboxImage(resolveMediaUrl(item.mediaUrl || item.media_url))}
+                              onLoad={() => scrollToBottom(true)}
+                              style={{ width: '100%', maxHeight: '320px', borderRadius: '6px', cursor: 'pointer', display: 'block', objectFit: 'contain' }} 
+                              title="Click to view full size"
+                            />
+                          </div>
+                          <div style={{
+                            padding: '6px 6px 2px 6px',
+                            fontSize: '13.5px',
+                            lineHeight: '1.4',
+                            color: '#111b21',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'anywhere',
+                            whiteSpace: 'pre-wrap',
+                            maxWidth: '100%',
+                            boxSizing: 'border-box'
+                          }}>
                             {captionText}
                           </div>
                           <div style={{
@@ -3962,6 +4053,8 @@ export default function ConversationsPage({
                           fontSize: '13.5px',
                           lineHeight: '1.4',
                           wordBreak: 'break-word',
+                          overflowWrap: 'anywhere',
+                          whiteSpace: 'pre-wrap',
                           position: 'relative'
                         }}>
                           {hasMedia && (
@@ -3996,7 +4089,11 @@ export default function ConversationsPage({
                           )}
 
                           {Boolean(captionText) && (!hasMedia || (!item.mediaType?.startsWith('audio') && item.mediaType !== 'audio')) && (
-                            <div>
+                            <div style={{
+                              wordBreak: 'break-word',
+                              overflowWrap: 'anywhere',
+                              whiteSpace: 'pre-wrap'
+                            }}>
                               {captionText}
                             </div>
                           )}
