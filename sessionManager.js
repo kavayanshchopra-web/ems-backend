@@ -957,16 +957,34 @@ export async function sendWhatsAppMessage(sessionId, recipientJid, text, tenantI
 // Mark WhatsApp messages as read on recipient's WhatsApp (sends blue ticks)
 export async function markWhatsAppMessagesAsRead(sessionId, contactJid, messageKeys = []) {
   try {
-    const sock = activeSockets.get(sessionId);
+    let sock = activeSockets.get(sessionId);
+    if (!sock) {
+      for (const s of activeSockets.values()) {
+        if (s && !s.isClosed) { sock = s; break; }
+      }
+    }
     if (!sock) return false;
-    let jid = contactJid;
-    if (!jid.includes('@')) jid = `${jid}@s.whatsapp.net`;
+
+    let raw = String(contactJid || '').trim();
+    let jid = raw;
+    if (!jid.includes('@')) {
+      const digits = jid.replace(/\D/g, '');
+      const l10 = digits.slice(-10);
+      jid = digits.length >= 10 ? (digits.startsWith('91') ? `${digits}@s.whatsapp.net` : `91${l10}@s.whatsapp.net`) : `${digits}@s.whatsapp.net`;
+    }
+
+    // Subscribe to presence so we receive live typing/recording presence from this contact
+    try {
+      await sock.presenceSubscribe(jid);
+    } catch (e) {}
 
     if (Array.isArray(messageKeys) && messageKeys.length > 0) {
-      const keysToRead = messageKeys.map(k => typeof k === 'string' ? { remoteJid: jid, id: k } : k);
-      await sock.readMessages(keysToRead);
-    } else {
-      await sock.readMessages([{ remoteJid: jid, id: undefined }]);
+      const keysToRead = messageKeys
+        .map(k => typeof k === 'string' ? { remoteJid: jid, id: k } : k)
+        .filter(k => k && k.remoteJid && k.id);
+      if (keysToRead.length > 0) {
+        await sock.readMessages(keysToRead);
+      }
     }
     return true;
   } catch (err) {
@@ -1211,8 +1229,13 @@ export async function sendWhatsAppReaction(sessionId, recipientJid, messageId, e
   }
   if (!sock) throw new Error('WhatsApp session is not active');
 
-  let jid = recipientJid;
-  if (!jid.includes('@')) jid = `${jid}@s.whatsapp.net`;
+  let raw = String(recipientJid || '').trim();
+  let jid = raw;
+  if (!jid.includes('@')) {
+    const digits = jid.replace(/\D/g, '');
+    const l10 = digits.slice(-10);
+    jid = digits.length >= 10 ? (digits.startsWith('91') ? `${digits}@s.whatsapp.net` : `91${l10}@s.whatsapp.net`) : `${digits}@s.whatsapp.net`;
+  }
 
   try {
     await sock.sendMessage(jid, {
@@ -1243,8 +1266,13 @@ export async function deleteWhatsAppMessage(sessionId, recipientJid, messageId) 
   }
   if (!sock) throw new Error('WhatsApp session is not active');
 
-  let jid = recipientJid;
-  if (!jid.includes('@')) jid = `${jid}@s.whatsapp.net`;
+  let raw = String(recipientJid || '').trim();
+  let jid = raw;
+  if (!jid.includes('@')) {
+    const digits = jid.replace(/\D/g, '');
+    const l10 = digits.slice(-10);
+    jid = digits.length >= 10 ? (digits.startsWith('91') ? `${digits}@s.whatsapp.net` : `91${l10}@s.whatsapp.net`) : `${digits}@s.whatsapp.net`;
+  }
 
   try {
     await sock.sendMessage(jid, {
@@ -1272,8 +1300,13 @@ export async function sendWhatsAppPresence(sessionId, recipientJid, presence = '
   }
   if (!sock) return false;
 
-  let jid = recipientJid;
-  if (!jid.includes('@')) jid = `${jid}@s.whatsapp.net`;
+  let raw = String(recipientJid || '').trim();
+  let jid = raw;
+  if (!jid.includes('@')) {
+    const digits = jid.replace(/\D/g, '');
+    const l10 = digits.slice(-10);
+    jid = digits.length >= 10 ? (digits.startsWith('91') ? `${digits}@s.whatsapp.net` : `91${l10}@s.whatsapp.net`) : `${digits}@s.whatsapp.net`;
+  }
 
   try {
     await sock.sendPresenceUpdate(presence, jid);

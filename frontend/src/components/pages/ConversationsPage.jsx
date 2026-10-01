@@ -593,6 +593,15 @@ export default function ConversationsPage({
     return () => clearInterval(interval);
   }, []);
 
+  const getContactTyping = (c) => {
+    if (!c) return null;
+    const cNorm = c.normPhone10 || normalizePhone10(c.phone || c.rawPhone || c.id || '');
+    return typingStatus[c.id]?.status || 
+      (cNorm && typingStatus[cNorm]?.status) || 
+      (c.phone && typingStatus[c.phone]?.status) || 
+      (c.rawPhone && typingStatus[c.rawPhone]?.status) || null;
+  };
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(typeof window !== 'undefined' && window.innerWidth <= 768);
@@ -2446,7 +2455,8 @@ export default function ConversationsPage({
     setReplyText(val);
 
     // Throttled presence update to WhatsApp
-    if (activeContact?.id) {
+    const targetPhone = activeContact?.rawPhone || activeContact?.phone || activeContact?.id;
+    if (targetPhone) {
       if (!typingTimerRef.current && val.trim().length > 0) {
         fetch(`${API_URL}/whatsapp/presence`, {
           method: 'POST',
@@ -2457,6 +2467,7 @@ export default function ConversationsPage({
           },
           body: JSON.stringify({
             contactId: activeContact.id,
+            phone: targetPhone,
             presence: 'composing',
             sessionId: primarySession?.id || null
           })
@@ -2475,6 +2486,7 @@ export default function ConversationsPage({
           },
           body: JSON.stringify({
             contactId: activeContact.id,
+            phone: targetPhone,
             presence: 'paused',
             sessionId: primarySession?.id || null
           })
@@ -2487,10 +2499,13 @@ export default function ConversationsPage({
     if (!messageId || !activeContact) return;
     const curMsg = activeMessages.find(m => m.id === messageId);
     const newEmoji = curMsg?.reactions === emoji ? '' : emoji; // toggle off if same emoji clicked
+    const isMsgFromMe = curMsg?.from_me === 1 || curMsg?.fromMe || curMsg?.is_me;
 
     // Optimistic UI update
     setActiveMessages(prev => prev.map(m => m.id === messageId ? { ...m, reactions: newEmoji || null } : m));
     setActiveReactionPickerId(null);
+
+    const contactPhone = activeContact.rawPhone || activeContact.phone || activeContact.id;
 
     try {
       await fetch(`${API_URL}/messages/${encodeURIComponent(messageId)}/react`, {
@@ -2503,6 +2518,8 @@ export default function ConversationsPage({
         body: JSON.stringify({
           emoji: newEmoji,
           contactId: activeContact.id,
+          phone: contactPhone,
+          fromMe: Boolean(isMsgFromMe),
           sessionId: primarySession?.id || null,
           tenantId: companyId
         })
@@ -2528,6 +2545,8 @@ export default function ConversationsPage({
       media_url: null
     } : m));
 
+    const contactPhone = activeContact.rawPhone || activeContact.phone || activeContact.id;
+
     try {
       await fetch(`${API_URL}/messages/${encodeURIComponent(messageId)}/delete`, {
         method: 'POST',
@@ -2538,6 +2557,7 @@ export default function ConversationsPage({
         },
         body: JSON.stringify({
           contactId: activeContact.id,
+          phone: contactPhone,
           sessionId: primarySession?.id || null,
           tenantId: companyId
         })
@@ -3546,11 +3566,11 @@ export default function ConversationsPage({
                         textOverflow: 'ellipsis',
                         paddingRight: '6px'
                       }}>
-                        {(typingStatus[contact.id]?.status === 'recording' || (contact.normPhone10 && typingStatus[contact.normPhone10]?.status === 'recording')) ? (
+                        {getContactTyping(contact) === 'recording' ? (
                           <span style={{ color: '#25D366', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                             <Mic size={11} /> recording audio...
                           </span>
-                        ) : (typingStatus[contact.id]?.status === 'composing' || (contact.normPhone10 && typingStatus[contact.normPhone10]?.status === 'composing')) ? (
+                        ) : getContactTyping(contact) === 'composing' ? (
                           <span style={{ color: '#25D366', fontWeight: '700' }}>
                             typing...
                           </span>
@@ -3826,11 +3846,11 @@ export default function ConversationsPage({
                       overflow: 'hidden',
                       textOverflow: 'ellipsis'
                     }}>
-                      {(typingStatus[activeContact.id]?.status === 'recording' || (activeContact.normPhone10 && typingStatus[activeContact.normPhone10]?.status === 'recording')) ? (
+                      {getContactTyping(activeContact) === 'recording' ? (
                         <span style={{ color: '#25D366', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                           <Mic size={11} /> recording audio...
                         </span>
-                      ) : (typingStatus[activeContact.id]?.status === 'composing' || (activeContact.normPhone10 && typingStatus[activeContact.normPhone10]?.status === 'composing')) ? (
+                      ) : getContactTyping(activeContact) === 'composing' ? (
                         <span style={{ color: '#25D366', fontWeight: '700' }}>
                           typing...
                         </span>
@@ -4143,7 +4163,13 @@ export default function ConversationsPage({
                     return <Check size={13} color={defaultColor} title="Sent" />;
                   };
 
-                  const isDeleted = Boolean(item.is_deleted === 1 || item.isDeleted || rawContent === '🚫 This message was deleted' || rawContent === '🚫 You deleted this message');
+                  const isDeleted = Boolean(
+                    item.is_deleted === 1 || 
+                    item.is_deleted === '1' || 
+                    item.isDeleted || 
+                    (rawContent && rawContent.includes('This message was deleted')) || 
+                    (rawContent && rawContent.includes('You deleted this message'))
+                  );
 
                   if (isDeleted) {
                     return (
@@ -4151,13 +4177,14 @@ export default function ConversationsPage({
                         key={item.id}
                         style={{
                           display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: isMe ? 'flex-end' : 'flex-start',
-                          margin: '2px 0'
+                          justifyContent: isMe ? 'flex-end' : 'flex-start',
+                          width: '100%',
+                          margin: '2px 0',
+                          padding: '0 8px'
                         }}
                       >
                         <div style={{
-                          maxWidth: '72%',
+                          maxWidth: '75%',
                           padding: '6px 12px',
                           borderRadius: isMe ? '8px 8px 1px 8px' : '8px 8px 8px 1px',
                           background: isMe ? '#d9fdd3' : '#ffffff',
@@ -4170,7 +4197,7 @@ export default function ConversationsPage({
                           gap: '6px'
                         }}>
                           <Ban size={13} color="#8696a0" />
-                          <span>{rawContent || (isMe ? '🚫 You deleted this message' : '🚫 This message was deleted')}</span>
+                          <span>{isMe ? '🚫 You deleted this message' : '🚫 This message was deleted'}</span>
                           <span style={{ fontSize: '10px', marginLeft: '6px', fontStyle: 'normal', color: '#8696a0' }}>{itemTime}</span>
                         </div>
                       </div>
@@ -4180,13 +4207,9 @@ export default function ConversationsPage({
                   const isHovered = hoveredMsgId === item.id;
                   const isPickerOpen = activeReactionPickerId === item.id;
 
-                  const renderHoverToolbar = () => isHovered ? (
+                  const renderHoverToolbar = () => (
                     <div style={{
-                      position: 'absolute',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      [isMe ? 'left' : 'right']: '-66px',
-                      display: 'flex',
+                      display: isHovered || isPickerOpen ? 'inline-flex' : 'none',
                       alignItems: 'center',
                       gap: '2px',
                       background: '#ffffff',
@@ -4194,50 +4217,51 @@ export default function ConversationsPage({
                       borderRadius: '16px',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.14)',
                       border: '1px solid #e2e8f0',
+                      flexShrink: 0,
                       zIndex: 10
                     }}>
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setActiveReactionPickerId(isPickerOpen ? null : item.id); }}
                         title="React with emoji"
-                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '3px', borderRadius: '50%', display: 'flex', alignItems: 'center', color: '#64748b' }}
+                        style={{ border: 'none', background: isPickerOpen ? '#e0f2fe' : 'transparent', cursor: 'pointer', padding: '4px', borderRadius: '50%', display: 'flex', alignItems: 'center', color: '#64748b' }}
                       >
-                        <Smile size={13} />
+                        <Smile size={14} />
                       </button>
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); setReplyingToMessage({ id: item.id, senderName: isMe ? 'You' : activeContact.name, content: captionText || (hasMedia ? 'Media Attachment' : '') }); }}
+                        onClick={(e) => { e.stopPropagation(); setReplyingToMessage({ id: item.id, senderName: isMe ? 'You' : (activeContact?.name || activeContact?.phone), content: captionText || (hasMedia ? 'Media Attachment' : '') }); }}
                         title="Reply"
-                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '3px', borderRadius: '50%', display: 'flex', alignItems: 'center', color: '#64748b' }}
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', borderRadius: '50%', display: 'flex', alignItems: 'center', color: '#64748b' }}
                       >
-                        <CornerUpLeft size={13} />
+                        <CornerUpLeft size={14} />
                       </button>
                       {isMe && (
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); handleDeleteMessage(item.id); }}
                           title="Delete for everyone"
-                          style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '3px', borderRadius: '50%', display: 'flex', alignItems: 'center', color: '#e11d48' }}
+                          style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', borderRadius: '50%', display: 'flex', alignItems: 'center', color: '#e11d48' }}
                         >
-                          <Trash2 size={12} />
+                          <Trash2 size={13} />
                         </button>
                       )}
                     </div>
-                  ) : null;
+                  );
 
                   const renderReactionPicker = () => isPickerOpen ? (
                     <div style={{
                       position: 'absolute',
-                      top: '-38px',
-                      [isMe ? 'right' : 'left']: '0px',
+                      top: '-42px',
+                      [isMe ? 'right' : 'left']: '4px',
                       background: '#ffffff',
                       borderRadius: '24px',
-                      padding: '3px 8px',
+                      padding: '4px 8px',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
                       boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
-                      border: '1px solid #e2e8f0',
+                      border: '1px solid #cbd5e1',
                       zIndex: 99
                     }}>
                       {['👍', '❤️', '😂', '😮', '😢', '🙏'].map(em => (
@@ -4248,11 +4272,11 @@ export default function ConversationsPage({
                           style={{
                             border: 'none',
                             background: item.reactions === em ? '#ecfdf5' : 'transparent',
-                            fontSize: '17px',
+                            fontSize: '18px',
                             cursor: 'pointer',
-                            padding: '2px 3px',
+                            padding: '2px 4px',
                             borderRadius: '50%',
-                            transition: 'transform 0.1s ease',
+                            transition: 'transform 0.12s ease',
                             lineHeight: 1
                           }}
                           onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.25)'}
@@ -4295,191 +4319,202 @@ export default function ConversationsPage({
                       key={item.id}
                       style={{
                         display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: isMe ? 'flex-end' : 'flex-start',
-                        margin: '1px 0',
-                        position: 'relative'
+                        justifyContent: isMe ? 'flex-end' : 'flex-start',
+                        width: '100%',
+                        margin: '2px 0',
+                        padding: '0 8px'
                       }}
-                      onMouseEnter={() => setHoveredMsgId(item.id)}
-                      onMouseLeave={() => setHoveredMsgId(null)}
                     >
-                      {/* Floating Emoji Picker Popover */}
-                      {renderReactionPicker()}
-
-                      {/* Floating Action Toolbar */}
-                      {renderHoverToolbar()}
-
-                      {isImage && !captionText ? (
-                        /* Native Image Bubble with No Caption: Hugs image snugly, timestamp inside */
-                        <div style={{
-                          maxWidth: '320px',
-                          width: 'fit-content',
-                          borderRadius: isMe ? '8px 8px 1px 8px' : '8px 8px 8px 1px',
-                          padding: '3px',
-                          background: isMe ? '#d9fdd3' : '#ffffff',
-                          boxShadow: '0 1px 1px rgba(11,20,26,0.12)',
+                      <div
+                        style={{
                           position: 'relative',
-                          display: 'inline-block'
-                        }}>
-                          <div style={{ position: 'relative', borderRadius: '6px', overflow: 'hidden', display: 'block' }}>
-                            <img 
-                              src={resolveMediaUrl(item.mediaUrl || item.media_url)} 
-                              alt="photo" 
-                              onClick={() => setLightboxImage(resolveMediaUrl(item.mediaUrl || item.media_url))}
-                              onLoad={() => scrollToBottom(true)}
-                              style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '6px', cursor: 'pointer', display: 'block', objectFit: 'contain' }} 
-                              title="Click to view full size"
-                            />
-                            {/* Floating WhatsApp timestamp & status pill over image */}
-                            <div style={{
-                              position: 'absolute',
-                              bottom: '6px',
-                              right: '6px',
-                              padding: '2px 6px',
-                              borderRadius: '10px',
-                              background: 'rgba(11, 20, 26, 0.52)',
-                              backdropFilter: 'blur(4px)',
-                              WebkitBackdropFilter: 'blur(4px)',
-                              color: '#ffffff',
-                              fontSize: '10px',
-                              fontWeight: '600',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '3px',
-                              lineHeight: 1
-                            }}>
-                              <span>{itemTime}</span>
-                              {isMe && renderStatusTicks(item.status, '#ffffff', '#53bdeb')}
-                            </div>
-                          </div>
-                          {renderReactionBadge()}
-                        </div>
-                      ) : isImage && captionText ? (
-                        /* Native Image Bubble WITH Caption */
-                        <div style={{
-                          maxWidth: '320px',
-                          minWidth: '220px',
-                          width: 'fit-content',
-                          borderRadius: isMe ? '8px 8px 1px 8px' : '8px 8px 8px 1px',
-                          padding: '3px 3px 4px 3px',
-                          background: isMe ? '#d9fdd3' : '#ffffff',
-                          boxShadow: '0 1px 1px rgba(11,20,26,0.12)',
-                          position: 'relative',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          boxSizing: 'border-box'
-                        }}>
-                          <div style={{ borderRadius: '6px', overflow: 'hidden', width: '100%', background: 'rgba(0,0,0,0.03)' }}>
-                            <img 
-                              src={resolveMediaUrl(item.mediaUrl || item.media_url)} 
-                              alt="photo" 
-                              onClick={() => setLightboxImage(resolveMediaUrl(item.mediaUrl || item.media_url))}
-                              onLoad={() => scrollToBottom(true)}
-                              style={{ width: '100%', maxHeight: '320px', borderRadius: '6px', cursor: 'pointer', display: 'block', objectFit: 'contain' }} 
-                              title="Click to view full size"
-                            />
-                          </div>
+                          display: 'inline-flex',
+                          flexDirection: isMe ? 'row-reverse' : 'row',
+                          alignItems: 'center',
+                          gap: '6px',
+                          maxWidth: '85%'
+                        }}
+                        onMouseEnter={() => setHoveredMsgId(item.id)}
+                        onMouseLeave={() => setHoveredMsgId(null)}
+                      >
+                        {/* Floating Emoji Picker Popover */}
+                        {renderReactionPicker()}
+
+                        {/* Floating Action Toolbar */}
+                        {renderHoverToolbar()}
+
+                        {isImage && !captionText ? (
+                          /* Native Image Bubble with No Caption: Hugs image snugly, timestamp inside */
                           <div style={{
-                            padding: '6px 6px 2px 6px',
-                            fontSize: '13.5px',
-                            lineHeight: '1.4',
-                            color: '#111b21',
-                            wordBreak: 'break-word',
-                            overflowWrap: 'anywhere',
-                            whiteSpace: 'pre-wrap',
-                            maxWidth: '100%',
+                            maxWidth: '320px',
+                            width: 'fit-content',
+                            borderRadius: isMe ? '8px 8px 1px 8px' : '8px 8px 8px 1px',
+                            padding: '3px',
+                            background: isMe ? '#d9fdd3' : '#ffffff',
+                            boxShadow: '0 1px 1px rgba(11,20,26,0.12)',
+                            position: 'relative',
+                            display: 'inline-block'
+                          }}>
+                            <div style={{ position: 'relative', borderRadius: '6px', overflow: 'hidden', display: 'block' }}>
+                              <img 
+                                src={resolveMediaUrl(item.mediaUrl || item.media_url)} 
+                                alt="photo" 
+                                onClick={() => setLightboxImage(resolveMediaUrl(item.mediaUrl || item.media_url))}
+                                onLoad={() => scrollToBottom(true)}
+                                style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '6px', cursor: 'pointer', display: 'block', objectFit: 'contain' }} 
+                                title="Click to view full size"
+                              />
+                              {/* Floating WhatsApp timestamp & status pill over image */}
+                              <div style={{
+                                position: 'absolute',
+                                bottom: '6px',
+                                right: '6px',
+                                padding: '2px 6px',
+                                borderRadius: '10px',
+                                background: 'rgba(11, 20, 26, 0.52)',
+                                backdropFilter: 'blur(4px)',
+                                WebkitBackdropFilter: 'blur(4px)',
+                                color: '#ffffff',
+                                fontSize: '10px',
+                                fontWeight: '600',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                lineHeight: 1
+                              }}>
+                                <span>{itemTime}</span>
+                                {isMe && renderStatusTicks(item.status, '#ffffff', '#53bdeb')}
+                              </div>
+                            </div>
+                            {renderReactionBadge()}
+                          </div>
+                        ) : isImage && captionText ? (
+                          /* Native Image Bubble WITH Caption */
+                          <div style={{
+                            maxWidth: '320px',
+                            minWidth: '220px',
+                            width: 'fit-content',
+                            borderRadius: isMe ? '8px 8px 1px 8px' : '8px 8px 8px 1px',
+                            padding: '3px 3px 4px 3px',
+                            background: isMe ? '#d9fdd3' : '#ffffff',
+                            boxShadow: '0 1px 1px rgba(11,20,26,0.12)',
+                            position: 'relative',
+                            display: 'flex',
+                            flexDirection: 'column',
                             boxSizing: 'border-box'
                           }}>
-                            {captionText}
-                          </div>
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'flex-end',
-                            gap: '3px',
-                            padding: '0 6px 2px 6px',
-                            fontSize: '10.5px',
-                            color: '#667781'
-                          }}>
-                            <span>{itemTime}</span>
-                            {isMe && renderStatusTicks(item.status)}
-                          </div>
-                          {renderReactionBadge()}
-                        </div>
-                      ) : (
-                        /* Standard Text, Audio or Document Bubble */
-                        <div style={{
-                          maxWidth: '72%',
-                          width: 'fit-content',
-                          padding: '6px 10px 4px 10px',
-                          borderRadius: isMe ? '8px 8px 1px 8px' : '8px 8px 8px 1px',
-                          background: isMe ? '#d9fdd3' : '#ffffff',
-                          color: '#111b21',
-                          border: 'none',
-                          boxShadow: '0 1px 1px rgba(11,20,26,0.12)',
-                          fontSize: '13.5px',
-                          lineHeight: '1.4',
-                          wordBreak: 'break-word',
-                          overflowWrap: 'anywhere',
-                          whiteSpace: 'pre-wrap',
-                          position: 'relative'
-                        }}>
-                          {hasMedia && (
-                            <div style={{ marginBottom: '4px' }}>
-                              {(item.mediaType === 'audio' || item.mediaType?.startsWith('audio')) ? (
-                                <TimelineAudioPlayer src={resolveMediaUrl(item.mediaUrl || item.media_url)} />
-                              ) : (
-                                <a 
-                                  href={resolveMediaUrl(item.mediaUrl || item.media_url)} 
-                                  target="_blank" 
-                                  rel="noreferrer" 
-                                  style={{ 
-                                    color: '#0d9488', 
-                                    textDecoration: 'none', 
-                                    fontSize: '12px', 
-                                    fontWeight: '700',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    padding: '6px 10px',
-                                    background: 'rgba(13, 148, 136, 0.08)',
-                                    borderRadius: '6px',
-                                    border: '1px solid rgba(13, 148, 136, 0.2)'
-                                  }}
-                                >
-                                  <FileText size={14} />
-                                  <span>{captionText || 'Download Document'}</span>
-                                  <Download size={12} style={{ marginLeft: '4px' }} />
-                                </a>
-                              )}
+                            <div style={{ borderRadius: '6px', overflow: 'hidden', width: '100%', background: 'rgba(0,0,0,0.03)' }}>
+                              <img 
+                                src={resolveMediaUrl(item.mediaUrl || item.media_url)} 
+                                alt="photo" 
+                                onClick={() => setLightboxImage(resolveMediaUrl(item.mediaUrl || item.media_url))}
+                                onLoad={() => scrollToBottom(true)}
+                                style={{ width: '100%', maxHeight: '320px', borderRadius: '6px', cursor: 'pointer', display: 'block', objectFit: 'contain' }} 
+                                title="Click to view full size"
+                              />
                             </div>
-                          )}
-
-                          {Boolean(captionText) && (!hasMedia || (!item.mediaType?.startsWith('audio') && item.mediaType !== 'audio')) && (
                             <div style={{
+                              padding: '6px 6px 2px 6px',
+                              fontSize: '13.5px',
+                              lineHeight: '1.4',
+                              color: '#111b21',
                               wordBreak: 'break-word',
                               overflowWrap: 'anywhere',
-                              whiteSpace: 'pre-wrap'
+                              whiteSpace: 'pre-wrap',
+                              maxWidth: '100%',
+                              boxSizing: 'border-box'
                             }}>
                               {captionText}
                             </div>
-                          )}
-
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'flex-end',
-                            gap: '3px',
-                            marginTop: '2px',
-                            fontSize: '10.5px',
-                            color: '#667781'
-                          }}>
-                            <span>{itemTime}</span>
-                            {isMe && renderStatusTicks(item.status)}
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'flex-end',
+                              gap: '3px',
+                              padding: '0 6px 2px 6px',
+                              fontSize: '10.5px',
+                              color: '#667781'
+                            }}>
+                              <span>{itemTime}</span>
+                              {isMe && renderStatusTicks(item.status)}
+                            </div>
+                            {renderReactionBadge()}
                           </div>
-                          {renderReactionBadge()}
-                        </div>
-                      )}
+                        ) : (
+                          /* Standard Text, Audio or Document Bubble */
+                          <div style={{
+                            maxWidth: '72%',
+                            width: 'fit-content',
+                            padding: '6px 10px 4px 10px',
+                            borderRadius: isMe ? '8px 8px 1px 8px' : '8px 8px 8px 1px',
+                            background: isMe ? '#d9fdd3' : '#ffffff',
+                            color: '#111b21',
+                            border: 'none',
+                            boxShadow: '0 1px 1px rgba(11,20,26,0.12)',
+                            fontSize: '13.5px',
+                            lineHeight: '1.4',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'anywhere',
+                            whiteSpace: 'pre-wrap',
+                            position: 'relative'
+                          }}>
+                            {hasMedia && (
+                              <div style={{ marginBottom: '4px' }}>
+                                {(item.mediaType === 'audio' || item.mediaType?.startsWith('audio')) ? (
+                                  <TimelineAudioPlayer src={resolveMediaUrl(item.mediaUrl || item.media_url)} />
+                                ) : (
+                                  <a 
+                                    href={resolveMediaUrl(item.mediaUrl || item.media_url)} 
+                                    target="_blank" 
+                                    rel="noreferrer" 
+                                    style={{ 
+                                      color: '#0d9488', 
+                                      textDecoration: 'none', 
+                                      fontSize: '12px', 
+                                      fontWeight: '700',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '6px',
+                                      padding: '6px 10px',
+                                      background: 'rgba(13, 148, 136, 0.08)',
+                                      borderRadius: '6px',
+                                      border: '1px solid rgba(13, 148, 136, 0.2)'
+                                    }}
+                                  >
+                                    <FileText size={14} />
+                                    <span>{captionText || 'Download Document'}</span>
+                                    <Download size={12} style={{ marginLeft: '4px' }} />
+                                  </a>
+                                )}
+                              </div>
+                            )}
+
+                            {Boolean(captionText) && (!hasMedia || (!item.mediaType?.startsWith('audio') && item.mediaType !== 'audio')) && (
+                              <div style={{
+                                wordBreak: 'break-word',
+                                overflowWrap: 'anywhere',
+                                whiteSpace: 'pre-wrap'
+                              }}>
+                                {captionText}
+                              </div>
+                            )}
+
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'flex-end',
+                              gap: '3px',
+                              marginTop: '2px',
+                              fontSize: '10.5px',
+                              color: '#667781'
+                            }}>
+                              <span>{itemTime}</span>
+                              {isMe && renderStatusTicks(item.status)}
+                            </div>
+                            {renderReactionBadge()}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
