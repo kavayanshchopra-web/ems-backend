@@ -209,6 +209,7 @@ function TimelineAudioPlayer({ src, duration = 0 }) {
   }, [src]);
 
   const formatTime = (secs) => {
+    if (!secs || isNaN(secs) || !isFinite(secs)) return '0:00';
     const s = Math.floor(secs || 0);
     const m = Math.floor(s / 60);
     const rem = s % 60;
@@ -227,13 +228,13 @@ function TimelineAudioPlayer({ src, duration = 0 }) {
   };
 
   const handleTimeUpdate = () => {
-    if (audioRef.current) {
+    if (audioRef.current && isFinite(audioRef.current.currentTime)) {
       setCurrentTime(audioRef.current.currentTime);
     }
   };
 
   const handleLoadedMetadata = () => {
-    if (audioRef.current && audioRef.current.duration && !isNaN(audioRef.current.duration)) {
+    if (audioRef.current && audioRef.current.duration && !isNaN(audioRef.current.duration) && isFinite(audioRef.current.duration)) {
       setTotalDuration(audioRef.current.duration);
     }
   };
@@ -1538,10 +1539,20 @@ export default function ConversationsPage({
               const incomingTs = msgTimestamp;
               const existsIndex = prev.findIndex(m => {
                 if (m.id && newMsgObj.id && m.id === newMsgObj.id) return true;
-                const mText = (m.textContent || m.text_content || '').trim();
                 const mTs = normalizeTs(m.timestamp);
                 const isSameDirection = (Boolean(m.fromMe) === Boolean(newMsgObj.fromMe) || (m.from_me ? 1 : 0) === (newMsgObj.from_me ? 1 : 0));
-                return isSameDirection && mText && msgText && mText === msgText && Math.abs(mTs - incomingTs) <= 20;
+                if (!isSameDirection) return false;
+
+                const mText = (m.textContent || m.text_content || '').trim();
+                const mIsMedia = Boolean(m.mediaUrl || m.media_url || (m.mediaType && m.mediaType !== 'text'));
+                const newIsMedia = Boolean(newMsgObj.mediaUrl || newMsgObj.media_url || (newMsgObj.mediaType && newMsgObj.mediaType !== 'text'));
+
+                // Outbound media deduplication (match temporary wa_out_med_... with confirmed Baileys message)
+                if (mIsMedia && newIsMedia && Math.abs(mTs - incomingTs) <= 30) {
+                  return true;
+                }
+
+                return mText && msgText && mText === msgText && Math.abs(mTs - incomingTs) <= 20;
               });
 
               if (existsIndex !== -1) {

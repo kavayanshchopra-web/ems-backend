@@ -138,20 +138,36 @@ export class TimelineEngine {
         if (dedupMap.has(itemId)) return;
       }
 
-      if (item.type === 'whatsapp' && item.content) {
-        const cleanContent = String(item.content).trim();
+      if (item.type === 'whatsapp') {
         const fromMeKey = item.fromMe ? 'out' : 'in';
-        const contentKey = `${fromMeKey}_${cleanContent}`;
         const itemTs = item.timestamp || 0;
+        const isMedia = Boolean(item.mediaUrl || item.mediaType);
 
-        if (seenContentMap.has(contentKey)) {
-          const prevTs = seenContentMap.get(contentKey);
-          if (Math.abs(itemTs - prevTs) < 8000) {
-            // Duplicate message within 8 seconds (e.g. optimistic + sync)
-            return;
+        if (isMedia) {
+          const mediaKey = `${fromMeKey}_media_${item.mediaType || 'any'}`;
+          if (seenContentMap.has(mediaKey)) {
+            const prevEntry = seenContentMap.get(mediaKey);
+            if (Math.abs(itemTs - prevEntry.ts) < 25000) {
+              if (item.id && !item.id.startsWith('wa_out_') && prevEntry.id && prevEntry.id.startsWith('wa_out_')) {
+                dedupMap.delete(prevEntry.id);
+              } else {
+                return;
+              }
+            }
           }
+          seenContentMap.set(mediaKey, { ts: itemTs, id: itemId });
+        } else if (item.content) {
+          const cleanContent = String(item.content).trim();
+          const contentKey = `${fromMeKey}_${cleanContent}`;
+          if (seenContentMap.has(contentKey)) {
+            const prevEntry = seenContentMap.get(contentKey);
+            const prevTs = typeof prevEntry === 'object' ? prevEntry.ts : prevEntry;
+            if (Math.abs(itemTs - prevTs) < 12000) {
+              return;
+            }
+          }
+          seenContentMap.set(contentKey, { ts: itemTs, id: itemId });
         }
-        seenContentMap.set(contentKey, itemTs);
       }
 
       const key = itemId || `item_${Math.random()}`;

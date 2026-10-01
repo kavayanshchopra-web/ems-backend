@@ -900,7 +900,34 @@ export async function sendWhatsAppMedia(sessionId, recipientJid, mediaType, file
     options = { video: fileBuffer, mimetype: fileMimeType || 'video/mp4' };
     if (finalCaption) options.caption = finalCaption;
   } else if (mediaType === 'audio') {
-    options = { audio: fileBuffer, mimetype: fileMimeType || 'audio/ogg; codecs=opus', ptt: true };
+    let finalBuffer = fileBuffer;
+    let finalMime = 'audio/ogg; codecs=opus';
+    let isPtt = true;
+
+    // Check if audio is WebM (recorded from Chrome/browser)
+    const isWebm = (fileMimeType && fileMimeType.includes('webm')) || (fileName && fileName.endsWith('.webm'));
+    if (isWebm) {
+      try {
+        const { execSync } = await import('child_process');
+        const os = await import('os');
+        const tmpIn = path.join(os.tmpdir(), `in_${Date.now()}_${Math.random().toString(36).substr(2, 4)}.webm`);
+        const tmpOut = path.join(os.tmpdir(), `out_${Date.now()}_${Math.random().toString(36).substr(2, 4)}.ogg`);
+        fs.writeFileSync(tmpIn, fileBuffer);
+        execSync(`ffmpeg -y -i "${tmpIn}" -c:a libopus -b:a 32k -vn "${tmpOut}"`, { stdio: 'ignore', timeout: 6000 });
+        if (fs.existsSync(tmpOut) && fs.statSync(tmpOut).size > 100) {
+          finalBuffer = fs.readFileSync(tmpOut);
+          finalMime = 'audio/ogg; codecs=opus';
+          isPtt = true;
+          try { fs.unlinkSync(tmpIn); fs.unlinkSync(tmpOut); } catch (e) {}
+        }
+      } catch (e) {
+        // If ffmpeg is not available, send as audio/mp4 so WhatsApp accepts and delivers the audio without dropping it
+        finalMime = 'audio/mp4';
+        isPtt = false;
+      }
+    }
+
+    options = { audio: finalBuffer, mimetype: finalMime, ptt: isPtt };
   } else if (mediaType === 'document') {
     options = { document: fileBuffer, mimetype: fileMimeType || 'application/pdf', fileName: fileName || 'document.pdf' };
     if (finalCaption) options.caption = finalCaption;
