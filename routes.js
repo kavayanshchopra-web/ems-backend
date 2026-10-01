@@ -1756,13 +1756,14 @@ export default function setupRoutes(io) {
       let sentMedia = null;
       let usedBaileys = false;
 
-      const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-      if (!matches || matches.length !== 3) {
-        return res.status(400).json({ error: 'Invalid base64 file data format' });
+      // Robust base64 parser without brittle regex
+      let mimeType = fileMimeType || 'application/octet-stream';
+      let base64Data = fileData;
+      if (fileData.includes(';base64,')) {
+        const parts = fileData.split(';base64,');
+        mimeType = parts[0].replace(/^data:/, '').trim() || mimeType;
+        base64Data = parts[1].trim();
       }
-
-      const mimeType = matches[1];
-      const base64Data = matches[2];
       const buffer = Buffer.from(base64Data, 'base64');
 
       let targetSessionId = sessionId;
@@ -1781,7 +1782,8 @@ export default function setupRoutes(io) {
             buffer,
             fileName || `attachment_${Date.now()}`,
             fileMimeType || mimeType,
-            finalCaption
+            finalCaption,
+            tenantId
           );
           usedBaileys = true;
         } catch (bErr) {
