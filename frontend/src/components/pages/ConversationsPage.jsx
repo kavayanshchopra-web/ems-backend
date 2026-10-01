@@ -2787,6 +2787,19 @@ export default function ConversationsPage({
     return (conversationsList || []).reduce((acc, c) => acc + (Number(c.unreadCount) || 0), 0);
   }, [conversationsList]);
 
+  // Counts for sidebar filter pills
+  const unreadChatsCount = useMemo(() => {
+    return (conversationsList || []).filter(c => (Number(c.unreadCount) || 0) > 0).length;
+  }, [conversationsList]);
+
+  const archivedChatsCount = useMemo(() => {
+    return (conversationsList || []).filter(c => Boolean(c.is_archived)).length;
+  }, [conversationsList]);
+
+  const allChatsCount = useMemo(() => {
+    return (conversationsList || []).filter(c => !c.is_archived).length;
+  }, [conversationsList]);
+
   // Dynamically update browser tab title with unread badge (WhatsApp Web standard)
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -2899,44 +2912,32 @@ export default function ConversationsPage({
           height: '100%'
         }}>
           {/* Roster Header */}
-          <div style={{ padding: '16px', borderBottom: '1px solid #f1f5f9' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ padding: '12px 14px', borderBottom: '1px solid #f1f5f9' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
                 <div style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '8px',
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '7px',
                   background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
                   color: '#ffffff',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 2px 6px rgba(13, 148, 136, 0.3)'
+                  flexShrink: 0,
+                  boxShadow: '0 2px 5px rgba(13, 148, 136, 0.25)'
                 }}>
-                  <MessageSquare size={16} />
+                  <MessageSquare size={14} />
                 </div>
-                <div>
-                  <h2 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>Conversations</h2>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
-                    <span>{conversationsList.length} Active Leads</span>
-                    {totalUnreadCount > 0 && (
-                      <span style={{
-                        padding: '1px 7px',
-                        borderRadius: '10px',
-                        background: '#25D366',
-                        color: '#ffffff',
-                        fontSize: '10px',
-                        fontWeight: '800',
-                        boxShadow: '0 1px 3px rgba(37, 211, 102, 0.4)'
-                      }}>
-                        {totalUnreadCount} unread
-                      </span>
-                    )}
+                <div style={{ minWidth: 0 }}>
+                  <h2 style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Conversations</h2>
+                  <div style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '600', whiteSpace: 'nowrap', marginTop: '1px' }}>
+                    {conversationsList.length} Active Leads
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                 {/* WhatsApp Baileys Gateway Status & QR Trigger */}
                 <button
                   type="button"
@@ -2947,19 +2948,21 @@ export default function ConversationsPage({
                     }
                   }}
                   style={{
-                    display: 'flex',
+                    display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '5px',
-                    padding: '4px 9px',
+                    gap: '4px',
+                    padding: '3px 6px',
                     borderRadius: '6px',
                     background: isConnected 
                       ? '#ecfdf5' 
                       : (isQRReady ? '#fefce8' : '#f0fdf4'),
                     border: `1px solid ${isConnected ? '#a7f3d0' : (isQRReady ? '#fef08a' : '#bbf7d0')}`,
                     color: isConnected ? '#15803d' : (isQRReady ? '#a16207' : '#166534'),
-                    fontSize: '10.5px',
+                    fontSize: '10px',
                     fontWeight: '700',
                     cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
                     transition: 'all 0.15s ease'
                   }}
                   title={isConnected ? `Connected Live: +${connectedPhone}. Click to view details` : 'Connect WhatsApp / Scan QR Code'}
@@ -2971,14 +2974,14 @@ export default function ConversationsPage({
                         height: '6px',
                         borderRadius: '50%',
                         background: '#10b981',
-                        boxShadow: '0 0 5px #10b981',
+                        boxShadow: '0 0 4px #10b981',
                         display: 'inline-block'
                       }} />
-                      <span>{connectedPhone ? `+${connectedPhone}` : 'WA Live'}</span>
+                      <span>{connectedPhone ? (connectedPhone.length > 10 ? `+${connectedPhone.slice(-10)}` : `+${connectedPhone}`) : 'WA Live'}</span>
                     </>
                   ) : (
                     <>
-                      <QrCode size={12} color="#059669" />
+                      <QrCode size={11} color="#059669" />
                       <span>{isQRReady ? 'Scan QR' : isConnecting ? 'Connecting...' : 'Scan QR'}</span>
                     </>
                   )}
@@ -3027,17 +3030,19 @@ export default function ConversationsPage({
                     }
                   }}
                   style={{
-                    display: 'flex',
+                    display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '4px',
-                    padding: '4px 8px',
+                    gap: '3px',
+                    padding: '3px 7px',
                     borderRadius: '6px',
                     background: '#fff1f2',
                     border: '1px solid #fecdd3',
                     color: '#e11d48',
-                    fontSize: '10.5px',
+                    fontSize: '10px',
                     fontWeight: '700',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
                   }}
                   title="Wipe duplicate CRM data and reload fresh contacts"
                 >
@@ -3049,8 +3054,8 @@ export default function ConversationsPage({
                   onClick={() => fetchConversations()}
                   disabled={loadingConversations}
                   style={{
-                    width: '28px',
-                    height: '28px',
+                    width: '24px',
+                    height: '24px',
                     borderRadius: '6px',
                     background: '#f8fafc',
                     border: '1px solid #e2e8f0',
@@ -3058,11 +3063,13 @@ export default function ConversationsPage({
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
-                    color: '#64748b'
+                    color: '#64748b',
+                    flexShrink: 0,
+                    padding: 0
                   }}
                   title="Refresh Conversations"
                 >
-                  <RefreshCw size={13} className={loadingConversations ? 'animate-spin' : ''} style={{ animation: loadingConversations ? 'spin 1s linear infinite' : 'none' }} />
+                  <RefreshCw size={11} className={loadingConversations ? 'animate-spin' : ''} style={{ animation: loadingConversations ? 'spin 1s linear infinite' : 'none' }} />
                 </button>
               </div>
             </div>
@@ -3104,11 +3111,11 @@ export default function ConversationsPage({
             </div>
 
             {/* Native WhatsApp Filter Pills */}
-            <div style={{ display: 'flex', gap: '6px', marginTop: '10px', overflowX: 'auto', paddingBottom: '2px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '10px', overflowX: 'auto', paddingBottom: '2px' }}>
               {[
                 { id: 'all', label: 'All' },
-                { id: 'unread', label: 'Unread' },
-                { id: 'archived', label: 'Archived' }
+                { id: 'unread', label: 'Unread', count: unreadChatsCount, isUnread: true },
+                { id: 'archived', label: 'Archived', count: archivedChatsCount }
               ].map(f => {
                 const isActive = rosterTab === f.id;
                 return (
@@ -3117,7 +3124,10 @@ export default function ConversationsPage({
                     type="button"
                     onClick={() => setRosterTab(f.id)}
                     style={{
-                      padding: '4px 12px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '4px 10px',
                       borderRadius: '16px',
                       fontSize: '11px',
                       fontWeight: '700',
@@ -3125,10 +3135,24 @@ export default function ConversationsPage({
                       cursor: 'pointer',
                       background: isActive ? '#0d9488' : '#f1f5f9',
                       color: isActive ? '#ffffff' : '#64748b',
-                      transition: 'all 0.15s ease'
+                      transition: 'all 0.15s ease',
+                      flexShrink: 0
                     }}
                   >
-                    {f.label}
+                    <span>{f.label}</span>
+                    {Boolean(f.count && f.count > 0) && (
+                      <span style={{
+                        padding: '1px 6px',
+                        borderRadius: '10px',
+                        fontSize: '9.5px',
+                        fontWeight: '800',
+                        background: isActive ? 'rgba(255,255,255,0.25)' : (f.isUnread ? '#25D366' : '#94a3b8'),
+                        color: '#ffffff',
+                        lineHeight: 1.2
+                      }}>
+                        {f.count}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -3796,6 +3820,46 @@ export default function ConversationsPage({
                   // RENDER 2: WHATSAPP CHAT BUBBLE
                   // ==========================================
                   const isMe = item.fromMe;
+                  const hasMedia = Boolean(item.mediaUrl || item.media_url);
+                  const isImage = Boolean(item.mediaType?.startsWith('image') || (item.mediaUrl || item.media_url)?.match(/\.(png|jpe?g|webp|gif|svg)$/i));
+
+                  const rawContent = (item.content || item.text_content || '').trim();
+                  const isMediaPlaceholder = !rawContent || 
+                    rawContent.startsWith('[Sent ') || 
+                    rawContent === '(Media Attachment)' || 
+                    rawContent === '[Media Attachment]' || 
+                    rawContent.startsWith('🎤 Voice Note') ||
+                    rawContent.startsWith('[Voice Note') ||
+                    (hasMedia && (
+                      /^WhatsApp (Image|Video|Audio|Ptt|Document)/i.test(rawContent) ||
+                      /^IMG[-_\d]/i.test(rawContent) ||
+                      /^VID[-_\d]/i.test(rawContent) ||
+                      /^AUD[-_\d]/i.test(rawContent) ||
+                      /\.(jpeg|jpg|png|webp|gif|svg|bmp|mp4|mov|avi|mkv|3gp|mp3|ogg|m4a|aac|opus|wav|pdf|docx?|xlsx?|zip)$/i.test(rawContent) ||
+                      rawContent.startsWith('blob:') ||
+                      rawContent.startsWith('http://') ||
+                      rawContent.startsWith('https://')
+                    ));
+                  const captionText = isMediaPlaceholder ? '' : rawContent;
+
+                  const renderStatusTicks = (s, defaultColor = '#8696a0', readColor = '#53bdeb') => {
+                    if (s === 'pending' || s === 0) {
+                      return <Clock size={11} color={defaultColor} title="Pending" />;
+                    }
+                    if (s === 1 || s === 'sent' || s === 'server_ack') {
+                      return <Check size={13} color={defaultColor} title="Sent" />;
+                    }
+                    if (s === 2 || s === 'delivered' || s === 'delivery_ack') {
+                      return <CheckCheck size={14} color={defaultColor} title="Delivered" />;
+                    }
+                    if (s === 3 || s === 4 || s === 5 || s === 'read' || s === 'played') {
+                      return <CheckCheck size={14} color={readColor} title="Read" style={{ strokeWidth: 2.2 }} />;
+                    }
+                    if (s === 'error' || s === 'failed') {
+                      return <AlertCircle size={12} color="#ea0038" title="Failed to deliver" />;
+                    }
+                    return <Check size={13} color={defaultColor} title="Sent" />;
+                  };
 
                   return (
                     <div
@@ -3807,119 +3871,150 @@ export default function ConversationsPage({
                         margin: '1px 0'
                       }}
                     >
-                      <div style={{
-                        maxWidth: '72%',
-                        width: 'fit-content',
-                        padding: '6px 10px 4px 10px',
-                        borderRadius: isMe ? '8px 8px 1px 8px' : '8px 8px 8px 1px',
-                        background: isMe ? '#d9fdd3' : '#ffffff',
-                        color: '#111b21',
-                        border: 'none',
-                        boxShadow: '0 1px 1px rgba(11,20,26,0.12)',
-                        fontSize: '13.5px',
-                        lineHeight: '1.4',
-                        wordBreak: 'break-word',
-                        position: 'relative'
-                      }}>
-                        {(item.mediaUrl || item.media_url) && (
-                          <div style={{ marginBottom: '4px' }}>
-                            {item.mediaType?.startsWith('image') ? (
-                              <img 
-                                src={resolveMediaUrl(item.mediaUrl || item.media_url)} 
-                                alt="attachment" 
-                                onClick={() => setLightboxImage(resolveMediaUrl(item.mediaUrl || item.media_url))}
-                                style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '6px', cursor: 'pointer', transition: 'opacity 0.15s', objectFit: 'contain', display: 'block' }} 
-                                title="Click to view full size"
-                              />
-                            ) : (item.mediaType === 'audio' || item.mediaType?.startsWith('audio')) ? (
-                              <TimelineAudioPlayer src={resolveMediaUrl(item.mediaUrl || item.media_url)} />
-                            ) : (
-                              <a 
-                                href={resolveMediaUrl(item.mediaUrl || item.media_url)} 
-                                target="_blank" 
-                                rel="noreferrer" 
-                                style={{ 
-                                  color: '#0d9488', 
-                                  textDecoration: 'none', 
-                                  fontSize: '12px', 
-                                  fontWeight: '700',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  padding: '6px 10px',
-                                  background: 'rgba(13, 148, 136, 0.08)',
-                                  borderRadius: '6px',
-                                  border: '1px solid rgba(13, 148, 136, 0.2)'
-                                }}
-                              >
-                                <FileText size={14} />
-                                <span>{item.content || 'Download Document'}</span>
-                                <Download size={12} style={{ marginLeft: '4px' }} />
-                              </a>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Message Text / Caption */}
-                        {(() => {
-                          const hasMedia = Boolean(item.mediaUrl || item.media_url);
-                          const text = (item.content || '').trim();
-                          const isPlaceholder = !text || 
-                            text.startsWith('[Sent ') || 
-                            text === '(Media Attachment)' || 
-                            text === '[Media Attachment]' || 
-                            text.startsWith('🎤 Voice Note') ||
-                            text.startsWith('[Voice Note') ||
-                            (hasMedia && (
-                              /^WhatsApp Image \d{4}-\d{2}-\d{2}/i.test(text) ||
-                              /^IMG[-_]\d+/i.test(text) ||
-                              /\.(jpeg|jpg|png|webp|gif|mp4|mov|avi|mp3|ogg|m4a|aac)$/i.test(text) ||
-                              text.startsWith('blob:') ||
-                              text.startsWith('http')
-                            ));
-
-                          if (hasMedia && isPlaceholder) return null;
-                          if (!text) return null;
-                          return (
-                            <div style={{ marginTop: hasMedia ? '4px' : '0' }}>
-                              {text}
-                            </div>
-                          );
-                        })()}
-
+                      {isImage && !captionText ? (
+                        /* Native Image Bubble with No Caption: Hugs image snugly, timestamp inside */
                         <div style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'flex-end',
-                          gap: '3px',
-                          marginTop: '2px',
-                          fontSize: '10.5px',
-                          color: '#667781'
+                          maxWidth: '320px',
+                          width: 'fit-content',
+                          borderRadius: isMe ? '8px 8px 1px 8px' : '8px 8px 8px 1px',
+                          padding: '3px',
+                          background: isMe ? '#d9fdd3' : '#ffffff',
+                          boxShadow: '0 1px 1px rgba(11,20,26,0.12)',
+                          position: 'relative',
+                          display: 'inline-block'
                         }}>
-                          <span>{itemTime}</span>
-                          {isMe && (
-                            (() => {
-                              const s = item.status;
-                              if (s === 'pending' || s === 0) {
-                                return <Clock size={11} color="#8696a0" title="Pending" />;
-                              }
-                              if (s === 1 || s === 'sent' || s === 'server_ack') {
-                                return <Check size={13} color="#8696a0" title="Sent" />;
-                              }
-                              if (s === 2 || s === 'delivered' || s === 'delivery_ack') {
-                                return <CheckCheck size={14} color="#8696a0" title="Delivered" />;
-                              }
-                              if (s === 3 || s === 4 || s === 5 || s === 'read' || s === 'played') {
-                                return <CheckCheck size={14} color="#53bdeb" title="Read" style={{ strokeWidth: 2.2 }} />;
-                              }
-                              if (s === 'error' || s === 'failed') {
-                                return <AlertCircle size={12} color="#ea0038" title="Failed to deliver" />;
-                              }
-                              return <Check size={13} color="#8696a0" title="Sent" />;
-                            })()
-                          )}
+                          <div style={{ position: 'relative', borderRadius: '6px', overflow: 'hidden', display: 'block' }}>
+                            <img 
+                              src={resolveMediaUrl(item.mediaUrl || item.media_url)} 
+                              alt="photo" 
+                              onClick={() => setLightboxImage(resolveMediaUrl(item.mediaUrl || item.media_url))}
+                              style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '6px', cursor: 'pointer', display: 'block', objectFit: 'contain' }} 
+                              title="Click to view full size"
+                            />
+                            {/* Floating WhatsApp timestamp & status pill over image */}
+                            <div style={{
+                              position: 'absolute',
+                              bottom: '6px',
+                              right: '6px',
+                              padding: '2px 6px',
+                              borderRadius: '10px',
+                              background: 'rgba(11, 20, 26, 0.52)',
+                              backdropFilter: 'blur(4px)',
+                              WebkitBackdropFilter: 'blur(4px)',
+                              color: '#ffffff',
+                              fontSize: '10px',
+                              fontWeight: '600',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              lineHeight: 1
+                            }}>
+                              <span>{itemTime}</span>
+                              {isMe && renderStatusTicks(item.status, '#ffffff', '#53bdeb')}
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                      ) : isImage && captionText ? (
+                        /* Native Image Bubble WITH Caption */
+                        <div style={{
+                          maxWidth: '320px',
+                          width: 'fit-content',
+                          borderRadius: isMe ? '8px 8px 1px 8px' : '8px 8px 8px 1px',
+                          padding: '3px 3px 4px 3px',
+                          background: isMe ? '#d9fdd3' : '#ffffff',
+                          boxShadow: '0 1px 1px rgba(11,20,26,0.12)',
+                          position: 'relative'
+                        }}>
+                          <img 
+                            src={resolveMediaUrl(item.mediaUrl || item.media_url)} 
+                            alt="photo" 
+                            onClick={() => setLightboxImage(resolveMediaUrl(item.mediaUrl || item.media_url))}
+                            style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '6px', cursor: 'pointer', display: 'block', objectFit: 'contain' }} 
+                            title="Click to view full size"
+                          />
+                          <div style={{ padding: '6px 6px 2px 6px', fontSize: '13.5px', lineHeight: '1.4', color: '#111b21', wordBreak: 'break-word' }}>
+                            {captionText}
+                          </div>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'flex-end',
+                            gap: '3px',
+                            padding: '0 6px 2px 6px',
+                            fontSize: '10.5px',
+                            color: '#667781'
+                          }}>
+                            <span>{itemTime}</span>
+                            {isMe && renderStatusTicks(item.status)}
+                          </div>
+                        </div>
+                      ) : (
+                        /* Standard Text, Audio or Document Bubble */
+                        <div style={{
+                          maxWidth: '72%',
+                          width: 'fit-content',
+                          padding: '6px 10px 4px 10px',
+                          borderRadius: isMe ? '8px 8px 1px 8px' : '8px 8px 8px 1px',
+                          background: isMe ? '#d9fdd3' : '#ffffff',
+                          color: '#111b21',
+                          border: 'none',
+                          boxShadow: '0 1px 1px rgba(11,20,26,0.12)',
+                          fontSize: '13.5px',
+                          lineHeight: '1.4',
+                          wordBreak: 'break-word',
+                          position: 'relative'
+                        }}>
+                          {hasMedia && (
+                            <div style={{ marginBottom: '4px' }}>
+                              {(item.mediaType === 'audio' || item.mediaType?.startsWith('audio')) ? (
+                                <TimelineAudioPlayer src={resolveMediaUrl(item.mediaUrl || item.media_url)} />
+                              ) : (
+                                <a 
+                                  href={resolveMediaUrl(item.mediaUrl || item.media_url)} 
+                                  target="_blank" 
+                                  rel="noreferrer" 
+                                  style={{ 
+                                    color: '#0d9488', 
+                                    textDecoration: 'none', 
+                                    fontSize: '12px', 
+                                    fontWeight: '700',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '6px 10px',
+                                    background: 'rgba(13, 148, 136, 0.08)',
+                                    borderRadius: '6px',
+                                    border: '1px solid rgba(13, 148, 136, 0.2)'
+                                  }}
+                                >
+                                  <FileText size={14} />
+                                  <span>{captionText || 'Download Document'}</span>
+                                  <Download size={12} style={{ marginLeft: '4px' }} />
+                                </a>
+                              )}
+                            </div>
+                          )}
+
+                          {Boolean(captionText) && (!hasMedia || (!item.mediaType?.startsWith('audio') && item.mediaType !== 'audio')) && (
+                            <div>
+                              {captionText}
+                            </div>
+                          )}
+
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'flex-end',
+                            gap: '3px',
+                            marginTop: '2px',
+                            fontSize: '10.5px',
+                            color: '#667781'
+                          }}>
+                            <span>{itemTime}</span>
+                            {isMe && renderStatusTicks(item.status)}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
