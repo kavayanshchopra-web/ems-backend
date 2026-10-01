@@ -528,7 +528,17 @@ export default function ConversationsPage({
     return null;
   });
 
-  const [activeMessages, setActiveMessages] = useState([]);
+  const [activeMessages, setActiveMessages] = useState(() => {
+    try {
+      const cachedRoster = TenantStorage.getItem('cached_conversations_roster', companyId, null);
+      const initialContactId = cachedRoster?.[0]?.id;
+      if (initialContactId) {
+        const stored = TenantStorage.getItem('cached_chat_msgs_' + initialContactId, companyId);
+        if (Array.isArray(stored) && stored.length > 0) return stored;
+      }
+    } catch (e) {}
+    return [];
+  });
   const [allCallLogs, setAllCallLogs] = useState(() => {
     try {
       if (typeof window !== 'undefined') {
@@ -622,6 +632,30 @@ export default function ConversationsPage({
       messagesEndRef.current.scrollIntoView({ behavior: instant ? 'auto' : 'smooth' });
     }
   }, []);
+ 
+  // Fast local caching helpers for 0ms instant conversation loading & switching
+  const getCachedMessages = useCallback((targetContactId) => {
+    if (!targetContactId) return null;
+    let cached = messagesCacheRef.current.get(targetContactId);
+    if (!cached || cached.length === 0) {
+      try {
+        const stored = TenantStorage.getItem('cached_chat_msgs_' + targetContactId, companyId);
+        if (stored && Array.isArray(stored) && stored.length > 0) {
+          cached = stored;
+          messagesCacheRef.current.set(targetContactId, stored);
+        }
+      } catch (e) {}
+    }
+    return (cached && cached.length > 0) ? cached : null;
+  }, [companyId]);
+
+  const saveCachedMessages = useCallback((targetContactId, msgs) => {
+    if (!targetContactId || !Array.isArray(msgs)) return;
+    messagesCacheRef.current.set(targetContactId, msgs);
+    try {
+      TenantStorage.setItem('cached_chat_msgs_' + targetContactId, msgs.slice(-60), companyId);
+    } catch (e) {}
+  }, [companyId]);
 
   // Request native browser desktop notification permissions on mount
   useEffect(() => {
@@ -751,7 +785,7 @@ export default function ConversationsPage({
 
     const interval = setInterval(() => {
       fetchCurrentSessions();
-    }, 2000);
+    }, 1000);
 
     return () => clearInterval(interval);
   }, [showQrModal, isConnected]);
@@ -793,11 +827,12 @@ export default function ConversationsPage({
           headers: reqHeaders
         });
         if (startRes.ok) {
-          setQrActionMsg('Connecting to Baileys... QR will appear in 2-3 seconds.');
+          setQrActionMsg('Connecting to Baileys... QR will appear momentarily.');
         }
       }
-      setTimeout(fetchCurrentSessions, 1200);
-      setTimeout(fetchCurrentSessions, 2800);
+      setTimeout(fetchCurrentSessions, 600);
+      setTimeout(fetchCurrentSessions, 1400);
+      setTimeout(fetchCurrentSessions, 2600);
     } catch (err) {
       console.error('[Start Session Error]', err);
       setQrActionMsg('Connection notice: ' + err.message);
@@ -1248,7 +1283,7 @@ export default function ConversationsPage({
     const cleanPhone = String(activeContact.phone || activeContact.rawPhone || activeContact.phoneNumber || activeContact.id || '').replace(/\D/g, '');
     const norm10 = cleanPhone.length >= 7 ? cleanPhone.slice(-10) : '';
 
-    const cached = messagesCacheRef.current.get(contactId);
+    const cached = getCachedMessages(contactId);
     if (cached && cached.length > 0) {
       setActiveMessages(cached);
       setIsLoadingMessages(false);
@@ -1321,7 +1356,7 @@ export default function ConversationsPage({
             const tB = (b.timestamp && b.timestamp < 10000000000) ? b.timestamp * 1000 : (b.timestamp || 0);
             return tA - tB;
           });
-          messagesCacheRef.current.set(contactId, merged);
+          saveCachedMessages(contactId, merged);
           return merged;
         });
         setIsLoadingMessages(false);
@@ -1378,7 +1413,7 @@ export default function ConversationsPage({
                   return prev;
                 }
                 const updated = [...prev, newMsgObj];
-                messagesCacheRef.current.set(activeContact.id, updated);
+                saveCachedMessages(activeContact.id, updated);
                 return updated;
               });
               setTimeout(() => {
@@ -1424,7 +1459,7 @@ export default function ConversationsPage({
             });
 
             const sorted = Array.from(existingMap.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-            messagesCacheRef.current.set(activeContact.id, sorted);
+            saveCachedMessages(activeContact.id, sorted);
             return sorted;
           });
 
@@ -1562,12 +1597,12 @@ export default function ConversationsPage({
                   ...newMsgObj,
                   id: newMsgObj.id || copy[existsIndex].id
                 };
-                messagesCacheRef.current.set(curActive.id, copy);
+                saveCachedMessages(curActive.id, copy);
                 return copy;
               }
 
               const updated = [...prev, newMsgObj];
-              messagesCacheRef.current.set(curActive.id, updated);
+              saveCachedMessages(curActive.id, updated);
               return updated;
             });
 
@@ -2439,8 +2474,13 @@ export default function ConversationsPage({
   const handleSelectContact = (contact) => {
     if (!contact) return;
     if (activeContact?.id !== contact.id) {
-      const cached = messagesCacheRef.current.get(contact.id);
-      setActiveMessages(cached || []);
+      const cached = getCachedMessages(contact.id);
+      if (cached && cached.length > 0) {
+        setActiveMessages(cached);
+        setIsLoadingMessages(false);
+      } else {
+        setIsLoadingMessages(true);
+      }
       setTimeout(() => {
         scrollToBottom(true);
       }, 10);
@@ -3656,9 +3696,11 @@ export default function ConversationsPage({
               }}
             >
               {isLoadingMessages && filteredTimeline.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: '#64748b', fontSize: '12px' }}>
-                  <RefreshCw size={18} className="animate-spin" style={{ animation: 'spin 1s linear infinite', margin: '0 auto 8px' }} />
-                  Loading conversation stream...
+                <div style={{ textAlign: 'center', padding: '60px 20px', color: '#64748b' }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'rgba(255,255,255,0.9)', borderRadius: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                    <RefreshCw size={15} className="animate-spin" style={{ animation: 'spin 0.8s linear infinite', color: '#0d9488' }} />
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: '#334155' }}>Opening conversation...</span>
+                  </div>
                 </div>
               ) : filteredTimeline.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94a3b8' }}>
