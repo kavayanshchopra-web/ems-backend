@@ -859,7 +859,7 @@ export async function markWhatsAppMessagesAsRead(sessionId, contactJid, messageK
 }
 
 // Send WhatsApp media message
-export async function sendWhatsAppMedia(sessionId, recipientJid, mediaType, fileBuffer, fileName, fileMimeType) {
+export async function sendWhatsAppMedia(sessionId, recipientJid, mediaType, fileBuffer, fileName, fileMimeType, caption = '') {
   const sock = activeSockets.get(sessionId);
   if (!sock) {
     throw new Error('WhatsApp session is not active');
@@ -880,14 +880,15 @@ export async function sendWhatsAppMedia(sessionId, recipientJid, mediaType, file
 
   // Construct message payload based on mediaType
   let options = {};
+  const finalCaption = caption || fileName || '';
   if (mediaType === 'image') {
-    options = { image: fileBuffer, caption: fileName || '' };
+    options = { image: fileBuffer, caption: finalCaption };
   } else if (mediaType === 'video') {
-    options = { video: fileBuffer, caption: fileName || '' };
+    options = { video: fileBuffer, caption: finalCaption };
   } else if (mediaType === 'audio') {
-    options = { audio: fileBuffer, mimetype: fileMimeType, ptt: true };
+    options = { audio: fileBuffer, mimetype: fileMimeType || 'audio/ogg; codecs=opus', ptt: true };
   } else if (mediaType === 'document') {
-    options = { document: fileBuffer, mimetype: fileMimeType, fileName: fileName };
+    options = { document: fileBuffer, mimetype: fileMimeType, fileName: fileName, caption: finalCaption };
   }
 
   const response = await sock.sendMessage(jid, options);
@@ -902,7 +903,7 @@ export async function sendWhatsAppMedia(sessionId, recipientJid, mediaType, file
       sessionId: sessionId,
       contactId: jid,
       fromMe: 1,
-      textContent: fileName || `[Sent ${mediaType}]`,
+      textContent: finalCaption || `[Sent ${mediaType}]`,
       mediaUrl: mediaUrl,
       mediaType: mediaType,
       timestamp: timestamp
@@ -913,7 +914,7 @@ export async function sendWhatsAppMedia(sessionId, recipientJid, mediaType, file
       sessionId: sessionId,
       contactId: jid,
       fromMe: 1,
-      textContent: fileName || `[Sent ${mediaType}]`,
+      textContent: finalCaption || `[Sent ${mediaType}]`,
       mediaUrl: mediaUrl,
       mediaType: mediaType,
       timestamp: timestamp

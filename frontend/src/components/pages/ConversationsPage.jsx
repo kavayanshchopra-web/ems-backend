@@ -59,6 +59,7 @@ import { collection, onSnapshot, doc, getDocs, setDoc, query, where, deleteDoc }
 import GhlOAuthService from '../../core/services/ghlOAuthService';
 import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
 import TenantStorage from '../../core/services/TenantStorage';
+import WhatsAppTemplateService from '../../core/services/whatsAppTemplateService';
 
 // Robust unwrap helper for Firestore REST API, Web SDK, SQLite, or Socket.IO call records
 function unwrapCallRecord(raw) {
@@ -571,6 +572,30 @@ export default function ConversationsPage({
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [newNoteText, setNewNoteText] = useState('');
+
+  // Category A: Chat Bar / Composer State
+  const [selectedAttachment, setSelectedAttachment] = useState(null);
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [audioRecordingTime, setAudioRecordingTime] = useState(0);
+  const audioRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const audioTimerRef = useRef(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showTemplatesPicker, setShowTemplatesPicker] = useState(false);
+  const [templatesSearch, setTemplatesSearch] = useState('');
+  const [availableTemplates, setAvailableTemplates] = useState([]);
+  const fileInputRef = useRef(null);
+  const composerInputRef = useRef(null);
+
+  // Load WhatsApp templates for active company
+  useEffect(() => {
+    try {
+      const tpls = WhatsAppTemplateService.getTemplates(companyId);
+      setAvailableTemplates(Array.isArray(tpls) ? tpls : []);
+    } catch (e) {
+      setAvailableTemplates([]);
+    }
+  }, [companyId]);
 
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -1900,10 +1925,279 @@ export default function ConversationsPage({
     return timeline;
   }, [timeline, activeTabFilter]);
 
+  // Helper to dispatch media attachment or voice note to backend & Baileys
+  const sendMediaDirect = async ({ name, type, mediaType, base64, caption = '' }) => {
+    if (!activeContact || isSending) return;
+    const targetPhone = activeContact.rawPhone || activeContact.phone || activeContact.id;
+    const cleanPhone = String(targetPhone).replace(/\D/g, '');
+    const norm10 = cleanPhone.length >= 7 ? cleanPhone.slice(-10) : '';
+    const intlPhone = norm10 ? `91${norm10}` : cleanPhone;
+    const outMsgId = `wa_out_med_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+    const nowSec = Math.floor(Date.now() / 1000);
+
+    setIsSending(true);
+
+    const newMsgObj = {
+      id: outMsgId,
+      textContent: caption || name || `[Sent ${mediaType}]`,
+      text_content: caption || name || `[Sent ${mediaType}]`,
+      mediaUrl: base64,
+      media_url: base64,
+      mediaType: mediaType,
+      media_type: mediaType,
+      fromMe: true,
+      from_me: 1,
+      timestamp: nowSec,
+      status: 0,
+      contact_id: activeContact.id
+    };
+
+    // Instant Optimistic UI Update
+    setActiveMessages(prev => [...prev, newMsgObj]);
+    const currentCached = messagesCacheRef.current.get(activeContact.id) || [];
+    messagesCacheRef.current.set(activeContact.id, [...currentCached, newMsgObj]);
+
+    setConversationsList(prev => {
+      const updated = prev.map(c => {
+        if (c.id === activeContact.id || (norm10 && c.normPhone10 === norm10)) {
+          return {
+            ...c,
+            lastMessage: caption || (mediaType === 'audio' ? '🎤 Voice Note' : `📎 ${name}`),
+            lastMessageTime: Date.now()
+          };
+        }
+        return c;
+      });
+      const sorted = updated.sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+      try {
+        TenantStorage.setItem('cached_conversations_roster', sorted.slice(0, 500), companyId);
+      } catch (e) {}
+      return sorted;
+    });
+
+    setTimeout(() => scrollToBottom(false), 30);
+
+    try {
+      const payload = {
+        sessionId: primarySession?.id || null,
+        recipientJid: intlPhone ? `${intlPhone}@s.whatsapp.net` : (cleanPhone ? `${cleanPhone}@s.whatsapp.net` : activeContact.id),
+        phone: intlPhone || cleanPhone,
+        contactId: activeContact.id,
+        mediaType,
+        fileName: name,
+        fileMimeType: type,
+        fileData: base64,
+        caption,
+        tenantId: companyId
+      };
+
+      const res = await fetch(`${API_URL}/messages/send-media`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'x-tenant-id': String(companyId)
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (res.ok && (data?.success || data?.data)) {
+        setActiveMessages(prev => prev.map(m => m.id === outMsgId ? { ...m, status: 1 } : m));
+        if (showToast) showToast(mediaType === 'audio' ? '🎤 Voice note sent' : '📎 Attachment sent via WhatsApp', 'success');
+      } else {
+        setActiveMessages(prev => prev.map(m => m.id === outMsgId ? { ...m, status: 'error' } : m));
+        if (showToast) showToast(`❌ ${data?.error || 'Failed to send media'}`, 'error');
+      }
+    } catch (err) {
+      console.error('[Send Media Error]', err);
+      setActiveMessages(prev => prev.map(m => m.id === outMsgId ? { ...m, status: 'error' } : m));
+      if (showToast) showToast(`❌ Media Send Error: ${err.message}`, 'error');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 16 * 1024 * 1024) {
+      if (showToast) showToast('File size must be under 16MB', 'error');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    let mediaType = 'document';
+    if (file.type.startsWith('image/')) mediaType = 'image';
+    else if (file.type.startsWith('video/')) mediaType = 'video';
+    else if (file.type.startsWith('audio/')) mediaType = 'audio';
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSelectedAttachment({
+        file,
+        name: file.name,
+        size: file.size,
+        type: file.type || 'application/octet-stream',
+        previewUrl: file.type.startsWith('image/') ? reader.result : null,
+        base64: reader.result,
+        mediaType
+      });
+      composerInputRef.current?.focus();
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const clearAttachment = () => {
+    setSelectedAttachment(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleStartAudioRecording = async () => {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        if (showToast) showToast('Microphone access is not supported on this browser', 'error');
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      
+      let mimeType = 'audio/webm';
+      if (typeof MediaRecorder !== 'undefined') {
+        if (MediaRecorder.isTypeSupported('audio/ogg; codecs=opus')) {
+          mimeType = 'audio/ogg; codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/webm; codecs=opus')) {
+          mimeType = 'audio/webm; codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4';
+        }
+      }
+
+      const recorder = new MediaRecorder(stream, { mimeType });
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.start(100);
+      audioRecorderRef.current = recorder;
+      setIsRecordingAudio(true);
+      setAudioRecordingTime(0);
+
+      if (audioTimerRef.current) clearInterval(audioTimerRef.current);
+      audioTimerRef.current = setInterval(() => {
+        setAudioRecordingTime(t => t + 1);
+      }, 1000);
+    } catch (err) {
+      console.error('[Audio Record Error]', err);
+      if (showToast) showToast('Could not access microphone: ' + err.message, 'error');
+    }
+  };
+
+  const handleCancelAudioRecording = () => {
+    if (audioTimerRef.current) clearInterval(audioTimerRef.current);
+    if (audioRecorderRef.current) {
+      try {
+        if (audioRecorderRef.current.state !== 'inactive') {
+          audioRecorderRef.current.stop();
+        }
+        audioRecorderRef.current.stream?.getTracks().forEach(track => track.stop());
+      } catch (e) {}
+      audioRecorderRef.current = null;
+    }
+    audioChunksRef.current = [];
+    setIsRecordingAudio(false);
+    setAudioRecordingTime(0);
+  };
+
+  const handleSendAudioRecording = async () => {
+    if (!audioRecorderRef.current || !activeContact) return;
+    if (audioTimerRef.current) clearInterval(audioTimerRef.current);
+
+    const recorder = audioRecorderRef.current;
+    const finalMime = recorder.mimeType || 'audio/webm';
+
+    recorder.onstop = async () => {
+      try {
+        recorder.stream?.getTracks().forEach(track => track.stop());
+        const audioBlob = new Blob(audioChunksRef.current, { type: finalMime });
+        if (audioBlob.size < 100) {
+          if (showToast) showToast('Recording too short', 'error');
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64Data = reader.result;
+          await sendMediaDirect({
+            file: null,
+            name: `voice_note_${Date.now()}.ogg`,
+            type: finalMime,
+            mediaType: 'audio',
+            base64: base64Data,
+            caption: ''
+          });
+        };
+        reader.readAsDataURL(audioBlob);
+      } catch (e) {
+        console.error('Failed to process voice note', e);
+        if (showToast) showToast('Failed to process voice note: ' + e.message, 'error');
+      } finally {
+        audioRecorderRef.current = null;
+        audioChunksRef.current = [];
+        setIsRecordingAudio(false);
+        setAudioRecordingTime(0);
+      }
+    };
+
+    try {
+      recorder.stop();
+    } catch (e) {
+      handleCancelAudioRecording();
+    }
+  };
+
+  const handleSelectEmoji = (emojiChar) => {
+    setReplyText(prev => prev + emojiChar);
+    composerInputRef.current?.focus();
+  };
+
+  const handleSelectTemplate = (tpl) => {
+    try {
+      const rawText = tpl.body || tpl.text || tpl.content || '';
+      const interpolated = WhatsAppTemplateService.interpolateTemplate(rawText, activeContact, { companyName: 'EMS' });
+      setReplyText(interpolated);
+      setShowTemplatesPicker(false);
+      composerInputRef.current?.focus();
+    } catch (e) {
+      setReplyText(tpl.body || tpl.text || '');
+      setShowTemplatesPicker(false);
+      composerInputRef.current?.focus();
+    }
+  };
+
   // 6. Handle Send WhatsApp Message (Hybrid: Desktop App WhatsApp Web Bridge + Backend Fallback)
   const handleSendMessage = async (e) => {
     if (e) e.preventDefault();
-    if (!replyText.trim() || !activeContact || isSending) return;
+    if ((!replyText.trim() && !selectedAttachment) || !activeContact || isSending) return;
+
+    if (selectedAttachment) {
+      const att = selectedAttachment;
+      const cap = replyText.trim();
+      clearAttachment();
+      setReplyText('');
+      await sendMediaDirect({
+        file: att.file,
+        name: att.name,
+        type: att.type,
+        mediaType: att.mediaType,
+        base64: att.base64,
+        caption: cap
+      });
+      return;
+    }
 
     const textToSend = replyText.trim();
     const targetPhone = activeContact.rawPhone || activeContact.phone || activeContact.id;
@@ -3402,15 +3696,36 @@ export default function ConversationsPage({
                           <div style={{ marginBottom: '6px' }}>
                             {item.mediaType?.startsWith('image') ? (
                               <img 
-                                src={item.mediaUrl} 
+                                src={item.mediaUrl.startsWith('/media') ? `${API_URL.replace('/api', '')}${item.mediaUrl}` : item.mediaUrl} 
                                 alt="attachment" 
-                                onClick={() => setLightboxImage(item.mediaUrl)}
-                                style={{ maxWidth: '100%', borderRadius: '6px', cursor: 'pointer', transition: 'opacity 0.15s' }} 
+                                onClick={() => setLightboxImage(item.mediaUrl.startsWith('/media') ? `${API_URL.replace('/api', '')}${item.mediaUrl}` : item.mediaUrl)}
+                                style={{ maxWidth: '100%', maxHeight: '280px', borderRadius: '6px', cursor: 'pointer', transition: 'opacity 0.15s', objectFit: 'contain' }} 
                                 title="Click to view full size"
                               />
+                            ) : (item.mediaType === 'audio' || item.mediaType?.startsWith('audio')) ? (
+                              <TimelineAudioPlayer src={item.mediaUrl.startsWith('/media') ? `${API_URL.replace('/api', '')}${item.mediaUrl}` : item.mediaUrl} />
                             ) : (
-                              <a href={item.mediaUrl} target="_blank" rel="noreferrer" style={{ color: '#0d9488', textDecoration: 'underline', fontSize: '12.5px', fontWeight: '600' }}>
-                                📎 View Attachment
+                              <a 
+                                href={item.mediaUrl.startsWith('/media') ? `${API_URL.replace('/api', '')}${item.mediaUrl}` : item.mediaUrl} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                style={{ 
+                                  color: '#0d9488', 
+                                  textDecoration: 'none', 
+                                  fontSize: '12px', 
+                                  fontWeight: '700',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '6px 10px',
+                                  background: 'rgba(13, 148, 136, 0.08)',
+                                  borderRadius: '6px',
+                                  border: '1px solid rgba(13, 148, 136, 0.2)'
+                                }}
+                              >
+                                <FileText size={14} />
+                                <span>{item.content || 'Download Document'}</span>
+                                <Download size={12} style={{ marginLeft: '4px' }} />
                               </a>
                             )}
                           </div>
@@ -3497,59 +3812,490 @@ export default function ConversationsPage({
               </div>
             )}
 
-            {/* In-Line Reply Footer */}
-            <form
-              onSubmit={handleSendMessage}
-              style={{
-                padding: '12px 20px',
-                background: '#ffffff',
-                borderTop: '1px solid #e2e8f0',
+            {/* Attachment Preview Banner */}
+            {selectedAttachment && (
+              <div style={{
+                padding: '8px 16px',
+                background: '#f0fdfa',
+                borderTop: '1px solid #ccfbf1',
+                borderLeft: '4px solid #0d9488',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '10px'
-              }}
-            >
-              <input
-                type="text"
-                placeholder={`Reply to ${activeContact.name} via WhatsApp...`}
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                disabled={isSending}
-                style={{
-                  flex: 1,
-                  padding: '10px 16px',
-                  borderRadius: '24px',
-                  border: '1px solid #cbd5e1',
-                  outline: 'none',
-                  fontSize: '13px',
-                  background: '#f8fafc',
-                  color: '#0f172a'
-                }}
-              />
+                justifyContent: 'space-between',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                  {selectedAttachment.previewUrl ? (
+                    <img 
+                      src={selectedAttachment.previewUrl} 
+                      alt="preview" 
+                      style={{ width: '42px', height: '42px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #99f6e4' }} 
+                    />
+                  ) : (
+                    <div style={{
+                      width: '42px',
+                      height: '42px',
+                      borderRadius: '6px',
+                      background: '#ccfbf1',
+                      color: '#0d9488',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <FileText size={22} />
+                    </div>
+                  )}
+                  <div style={{ overflow: 'hidden' }}>
+                    <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {selectedAttachment.name}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#0d9488', fontWeight: '600' }}>
+                      {(selectedAttachment.size / 1024).toFixed(1)} KB • {selectedAttachment.mediaType.toUpperCase()} Ready to Send
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={clearAttachment}
+                  style={{
+                    border: 'none',
+                    background: '#fee2e2',
+                    color: '#e11d48',
+                    borderRadius: '50%',
+                    width: '24px',
+                    height: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer'
+                  }}
+                  title="Remove attachment"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
 
-              <button
-                type="submit"
-                disabled={isSending || !replyText.trim()}
-                style={{
-                  padding: '10px 18px',
-                  borderRadius: '24px',
-                  background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
-                  border: 'none',
-                  color: '#ffffff',
-                  fontSize: '12.5px',
-                  fontWeight: '700',
-                  cursor: (isSending || !replyText.trim()) ? 'not-allowed' : 'pointer',
-                  opacity: (isSending || !replyText.trim()) ? 0.6 : 1,
+            {/* In-Line Reply Footer / Composer Container with Relative Positioning for Popups */}
+            <div style={{ position: 'relative', background: '#ffffff', borderTop: '1px solid #e2e8f0' }}>
+
+              {/* Floating Emoji Picker Popover */}
+              {showEmojiPicker && (
+                <div style={{
+                  position: 'absolute',
+                  bottom: '68px',
+                  left: '14px',
+                  background: '#ffffff',
+                  borderRadius: '16px',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 12px 32px rgba(0,0,0,0.15)',
+                  padding: '12px',
+                  width: '310px',
+                  zIndex: 999
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid #f1f5f9', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '11.5px', fontWeight: '800', color: '#334155' }}>Quick Emojis</span>
+                    <button 
+                      type="button" 
+                      onClick={() => setShowEmojiPicker(false)}
+                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8', fontSize: '14px' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>
+                    Top Picked & Reactions
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', marginBottom: '10px' }}>
+                    {['👍', '🙏', '❤️', '🔥', '😊', '😂', '👏', '🎉', '🚀', '💯', '🎯', '🤝', '✅', '⭐'].map(e => (
+                      <button
+                        key={e}
+                        type="button"
+                        onClick={() => handleSelectEmoji(e)}
+                        style={{ border: 'none', background: 'transparent', fontSize: '20px', cursor: 'pointer', padding: '4px', borderRadius: '6px', transition: 'background 0.1s' }}
+                        onMouseEnter={el => el.currentTarget.style.background = '#f1f5f9'}
+                        onMouseLeave={el => el.currentTarget.style.background = 'transparent'}
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>
+                    Business & Chat
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
+                    {['💼', '📊', '📈', '💰', '💳', '📅', '⏰', '📞', '📱', '✉️', '📝', '📦', '💡', '⚡', '📍', '🔗', '🟢', '🔴', '⚠️', '❗', '❓'].map(e => (
+                      <button
+                        key={e}
+                        type="button"
+                        onClick={() => handleSelectEmoji(e)}
+                        style={{ border: 'none', background: 'transparent', fontSize: '20px', cursor: 'pointer', padding: '4px', borderRadius: '6px', transition: 'background 0.1s' }}
+                        onMouseEnter={el => el.currentTarget.style.background = '#f1f5f9'}
+                        onMouseLeave={el => el.currentTarget.style.background = 'transparent'}
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Floating Quick Reply Templates Popover */}
+              {showTemplatesPicker && (
+                <div style={{
+                  position: 'absolute',
+                  bottom: '68px',
+                  left: '60px',
+                  background: '#ffffff',
+                  borderRadius: '16px',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 14px 36px rgba(0,0,0,0.18)',
+                  padding: '14px',
+                  width: '360px',
+                  maxHeight: '400px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  zIndex: 999
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: '800', color: '#0d9488' }}>
+                      <Sparkles size={14} />
+                      <span>WhatsApp Message Templates</span>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => setShowTemplatesPicker(false)}
+                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8', fontSize: '14px' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <input
+                    type="text"
+                    placeholder="Search templates (e.g. pricing, welcome, follow-up)..."
+                    value={templatesSearch}
+                    onChange={e => setTemplatesSearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '7px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '11.5px',
+                      marginBottom: '10px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+
+                  <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '280px' }}>
+                    {(availableTemplates || [])
+                      .filter(t => {
+                        if (!templatesSearch) return true;
+                        const q = templatesSearch.toLowerCase();
+                        return (t.title && t.title.toLowerCase().includes(q)) || 
+                               (t.body && t.body.toLowerCase().includes(q)) || 
+                               (t.category && t.category.toLowerCase().includes(q));
+                      })
+                      .map((t, idx) => (
+                        <div
+                          key={t.id || idx}
+                          onClick={() => handleSelectTemplate(t)}
+                          style={{
+                            padding: '9px 12px',
+                            borderRadius: '10px',
+                            border: '1px solid #e2e8f0',
+                            background: '#f8fafc',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={el => {
+                            el.currentTarget.style.background = '#f0fdfa';
+                            el.currentTarget.style.borderColor = '#99f6e4';
+                          }}
+                          onMouseLeave={el => {
+                            el.currentTarget.style.background = '#f8fafc';
+                            el.currentTarget.style.borderColor = '#e2e8f0';
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>{t.title || 'Template'}</span>
+                            <span style={{ fontSize: '9.5px', fontWeight: '700', color: '#0d9488', background: '#ccfbf1', padding: '2px 6px', borderRadius: '4px' }}>
+                              {t.category || 'General'}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748b', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.35 }}>
+                            {t.body || t.text}
+                          </div>
+                        </div>
+                      ))}
+
+                    {availableTemplates.length === 0 && (
+                      <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8', fontSize: '11.5px' }}>
+                        No templates found
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Mode A: In-Progress Audio Recording Bar */}
+              {isRecordingAudio ? (
+                <div style={{
+                  padding: '12px 20px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
-                  boxShadow: '0 2px 6px rgba(13, 148, 136, 0.3)'
-                }}
-              >
-                <Send size={13} />
-                <span>{isSending ? 'Sending...' : 'Send'}</span>
-              </button>
-            </form>
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  background: '#fff1f2'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{
+                      width: '11px',
+                      height: '11px',
+                      borderRadius: '50%',
+                      background: '#e11d48',
+                      boxShadow: '0 0 8px #e11d48',
+                      display: 'inline-block'
+                    }} />
+                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#e11d48' }}>
+                      Recording Voice Note...
+                    </span>
+                    <span style={{
+                      fontSize: '12.5px',
+                      fontWeight: '800',
+                      color: '#0f172a',
+                      fontVariantNumeric: 'tabular-nums',
+                      background: '#ffffff',
+                      border: '1px solid #fecdd3',
+                      padding: '2px 8px',
+                      borderRadius: '6px'
+                    }}>
+                      {Math.floor(audioRecordingTime / 60)}:{String(audioRecordingTime % 60).padStart(2, '0')}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={handleCancelAudioRecording}
+                      style={{
+                        padding: '7px 12px',
+                        borderRadius: '20px',
+                        background: '#ffffff',
+                        border: '1px solid #fecdd3',
+                        color: '#e11d48',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                      }}
+                      title="Discard audio recording"
+                    >
+                      <Trash2 size={13} />
+                      <span>Cancel</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSendAudioRecording}
+                      style={{
+                        padding: '7px 16px',
+                        borderRadius: '20px',
+                        background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
+                        border: 'none',
+                        color: '#ffffff',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 2px 6px rgba(13, 148, 136, 0.3)'
+                      }}
+                    >
+                      <Send size={13} />
+                      <span>Send Voice Note</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Mode B: Regular Full-Featured Interactive Composer Form */
+                <form
+                  onSubmit={handleSendMessage}
+                  style={{
+                    padding: '10px 18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  {/* Hidden File Input */}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                    style={{ display: 'none' }}
+                    accept="image/*,video/*,audio/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                  />
+
+                  {/* 1. Emoji Toggle Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEmojiPicker(prev => !prev);
+                      setShowTemplatesPicker(false);
+                    }}
+                    style={{
+                      border: 'none',
+                      background: showEmojiPicker ? '#f1f5f9' : 'transparent',
+                      color: showEmojiPicker ? '#0d9488' : '#64748b',
+                      borderRadius: '50%',
+                      width: '34px',
+                      height: '34px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                      transition: 'all 0.15s ease'
+                    }}
+                    title="Insert Emoji"
+                  >
+                    <Smile size={19} />
+                  </button>
+
+                  {/* 2. Paperclip Attachment Button */}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      border: 'none',
+                      background: selectedAttachment ? '#ecfdf5' : 'transparent',
+                      color: selectedAttachment ? '#0d9488' : '#64748b',
+                      borderRadius: '50%',
+                      width: '34px',
+                      height: '34px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                      transition: 'all 0.15s ease'
+                    }}
+                    title="Attach Images, Documents, Videos"
+                  >
+                    <Paperclip size={18} />
+                  </button>
+
+                  {/* 3. Quick Reply Templates Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowTemplatesPicker(prev => !prev);
+                      setShowEmojiPicker(false);
+                    }}
+                    style={{
+                      border: '1px solid #e2e8f0',
+                      background: showTemplatesPicker ? '#ecfdf5' : '#f8fafc',
+                      color: showTemplatesPicker ? '#0d9488' : '#475569',
+                      borderRadius: '16px',
+                      padding: '4px 10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '11.5px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                      transition: 'all 0.15s ease'
+                    }}
+                    title="Select a Quick Reply Template"
+                  >
+                    <Sparkles size={12} color="#0d9488" />
+                    <span>Templates</span>
+                  </button>
+
+                  {/* 4. Text Input Field */}
+                  <input
+                    ref={composerInputRef}
+                    type="text"
+                    placeholder={
+                      selectedAttachment 
+                        ? `Add caption for ${selectedAttachment.name} (optional)...` 
+                        : `Reply to ${activeContact.name} via WhatsApp...`
+                    }
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    disabled={isSending}
+                    style={{
+                      flex: 1,
+                      padding: '10px 16px',
+                      borderRadius: '24px',
+                      border: '1px solid #cbd5e1',
+                      outline: 'none',
+                      fontSize: '13px',
+                      background: '#f8fafc',
+                      color: '#0f172a'
+                    }}
+                  />
+
+                  {/* 5. Right Action: Send Button or Mic (Voice Note) Button */}
+                  {(replyText.trim() || selectedAttachment) ? (
+                    <button
+                      type="submit"
+                      disabled={isSending}
+                      style={{
+                        padding: '10px 18px',
+                        borderRadius: '24px',
+                        background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
+                        border: 'none',
+                        color: '#ffffff',
+                        fontSize: '12.5px',
+                        fontWeight: '700',
+                        cursor: isSending ? 'not-allowed' : 'pointer',
+                        opacity: isSending ? 0.7 : 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 2px 6px rgba(13, 148, 136, 0.3)',
+                        flexShrink: 0
+                      }}
+                    >
+                      <Send size={13} />
+                      <span>{isSending ? 'Sending...' : 'Send'}</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleStartAudioRecording}
+                      disabled={isSending}
+                      style={{
+                        width: '38px',
+                        height: '38px',
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
+                        border: 'none',
+                        color: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 6px rgba(13, 148, 136, 0.3)',
+                        flexShrink: 0
+                      }}
+                      title="Record WhatsApp Voice Note"
+                    >
+                      <Mic size={18} />
+                    </button>
+                  )}
+                </form>
+              )}
+            </div>
           </>
         ) : (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '13px' }}>

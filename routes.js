@@ -1736,10 +1736,11 @@ export default function setupRoutes(io) {
   });
 
   // Send Media Message
-  router.post('/messages/send-media', async (req, res) => {
-    const { sessionId = 'desktop_webview', mediaType, fileName, fileMimeType, fileData } = req.body;
+  router.post(['/messages/send-media', '/api/messages/send-media'], async (req, res) => {
+    const { sessionId, mediaType, fileName, fileMimeType, fileData, caption } = req.body;
     const rawTarget = req.body.recipientJid || req.body.contactId || req.body.phone || '';
-    const tenantId = req.user?.tenant_id || 1;
+    const tenantId = req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.body?.tenantId || 1;
+    const finalCaption = (caption || req.body.text || req.body.message || '').trim();
 
     if (!rawTarget || !mediaType || !fileData) {
       return res.status(400).json({ error: 'recipientJid, mediaType, and fileData are required' });
@@ -1764,20 +1765,25 @@ export default function setupRoutes(io) {
       const base64Data = matches[2];
       const buffer = Buffer.from(base64Data, 'base64');
 
-      if (sessionId && sessionId !== 'desktop_webview') {
+      let targetSessionId = sessionId;
+      if (!targetSessionId || targetSessionId === 'desktop_webview') {
+        const allSessions = await getAllSessions(tenantId);
+        const connectedSess = allSessions.find(s => s.status === 'connected');
+        if (connectedSess) targetSessionId = connectedSess.id;
+      }
+
+      if (targetSessionId && targetSessionId !== 'desktop_webview') {
         try {
-          const session = await getSession(sessionId);
-          if (session && session.tenant_id === tenantId) {
-            sentMedia = await sendWhatsAppMedia(
-              sessionId,
-              recipientJid,
-              mediaType,
-              buffer,
-              fileName || `attachment_${Date.now()}`,
-              fileMimeType || mimeType
-            );
-            usedBaileys = true;
-          }
+          sentMedia = await sendWhatsAppMedia(
+            targetSessionId,
+            recipientJid,
+            mediaType,
+            buffer,
+            fileName || `attachment_${Date.now()}`,
+            fileMimeType || mimeType,
+            finalCaption
+          );
+          usedBaileys = true;
         } catch (bErr) {
           console.warn('[Baileys Media Send Notice]:', bErr.message);
         }
@@ -1793,7 +1799,7 @@ export default function setupRoutes(io) {
           sessionId: 'desktop_webview',
           contactId: recipientJid,
           fromMe: true,
-          textContent: fileName || '[Media Attachment]',
+          textContent: finalCaption || fileName || '[Media Attachment]',
           mediaUrl: fileData,
           mediaType: mediaType || 'document',
           timestamp: ts,
@@ -1806,7 +1812,7 @@ export default function setupRoutes(io) {
           id: messageId,
           contactId: recipientJid,
           recipientJid,
-          textContent: fileName || '[Media Attachment]',
+          textContent: finalCaption || fileName || '[Media Attachment]',
           mediaType,
           mediaUrl: fileData,
           timestamp: ts,
@@ -1815,10 +1821,10 @@ export default function setupRoutes(io) {
       }
 
       if (io) {
-        io.emit('new_message', {
+        const emitPayload = {
           id: sentMedia.id,
-          sessionId: usedBaileys ? sessionId : 'desktop_webview',
-          session_id: usedBaileys ? sessionId : 'desktop_webview',
+          sessionId: usedBaileys ? targetSessionId : 'desktop_webview',
+          session_id: usedBaileys ? targetSessionId : 'desktop_webview',
           contactId: sentMedia.contactId || recipientJid,
           contact_id: sentMedia.contactId || recipientJid,
           fromMe: 1,
@@ -1831,7 +1837,12 @@ export default function setupRoutes(io) {
           media_url: sentMedia.mediaUrl,
           timestamp: sentMedia.timestamp,
           tenantId
-        });
+        };
+        io.to(`tenant_${tenantId}`).emit('new_message', emitPayload);
+        if (String(tenantId) === '1' || tenantId === 1) {
+          io.to('tenant_default').emit('new_message', emitPayload);
+        }
+        io.emit('new_message', emitPayload);
       }
 
       res.json({ success: true, message: 'Media sent successfully', data: sentMedia });
