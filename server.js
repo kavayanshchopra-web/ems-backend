@@ -39,8 +39,8 @@ app.use(cors());
 // Webhook raw body parser (MUST run before express.json() parses body to object)
 app.use('/api/billing/webhook', express.raw({ type: 'application/json' }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Serve WhatsApp downloaded media statically
 app.use('/media', express.static(mediaStoreDir));

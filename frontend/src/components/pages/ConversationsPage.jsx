@@ -1975,8 +1975,8 @@ export default function ConversationsPage({
 
     const newMsgObj = {
       id: outMsgId,
-      textContent: caption || name || `[Sent ${mediaType}]`,
-      text_content: caption || name || `[Sent ${mediaType}]`,
+      textContent: caption || '',
+      text_content: caption || '',
       mediaUrl: base64,
       media_url: base64,
       mediaType: mediaType,
@@ -2037,7 +2037,14 @@ export default function ConversationsPage({
         body: JSON.stringify(payload)
       });
 
-      const data = await res.json();
+      let data = null;
+      const resText = await res.text();
+      try {
+        data = JSON.parse(resText);
+      } catch (parseErr) {
+        data = { error: resText.includes('Payload Too Large') ? 'File size too large for server. Please upload smaller file.' : (resText.slice(0, 100) || 'Server error') };
+      }
+
       if (res.ok && (data?.success || data?.data)) {
         setActiveMessages(prev => prev.map(m => m.id === outMsgId ? { ...m, status: 1 } : m));
         if (showToast) showToast(mediaType === 'audio' ? '🎤 Voice note sent' : '📎 Attachment sent via WhatsApp', 'success');
@@ -3796,7 +3803,25 @@ export default function ConversationsPage({
                           </div>
                         )}
 
-                        <div>{item.content || '(Media Attachment)'}</div>
+                        {/* Message Text / Caption */}
+                        {(() => {
+                          const hasMedia = Boolean(item.mediaUrl || item.media_url);
+                          const text = (item.content || '').trim();
+                          const isPlaceholder = !text || 
+                            text.startsWith('[Sent ') || 
+                            text === '(Media Attachment)' || 
+                            text === '[Media Attachment]' || 
+                            text.startsWith('🎤 Voice Note') ||
+                            text.startsWith('[Voice Note');
+
+                          if (hasMedia && isPlaceholder) return null;
+                          if (!text) return null;
+                          return (
+                            <div style={{ marginTop: hasMedia ? '4px' : '0' }}>
+                              {text}
+                            </div>
+                          );
+                        })()}
 
                         <div style={{
                           display: 'flex',
