@@ -362,6 +362,30 @@ export default function PaymentsPage({
     }
   };
 
+  // Sync Live Transactions Directly from Gateway (Razorpay API Sync)
+  const [syncingGateway, setSyncingGateway] = useState(false);
+  const handleSyncGateway = async () => {
+    setSyncingGateway(true);
+    try {
+      const res = await fetch(`/api/payments/sync-gateway?tenant_id=${tenantId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: tenantId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message || 'Synced live payments from Razorpay!', 'success');
+        await fetchTransactionsAndStats();
+      } else {
+        showToast(data.error || 'Sync failed', 'error');
+      }
+    } catch (err) {
+      showToast('Sync error: ' + err.message, 'error');
+    } finally {
+      setSyncingGateway(false);
+    }
+  };
+
   // Filtered transactions in view
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
@@ -445,6 +469,29 @@ export default function PaymentsPage({
           </div>
 
           <button
+            onClick={handleSyncGateway}
+            disabled={syncingGateway}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: '#0d9488',
+              border: 'none',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: '600',
+              color: '#ffffff',
+              cursor: syncingGateway ? 'not-allowed' : 'pointer',
+              boxShadow: '0 2px 8px rgba(13, 148, 136, 0.35)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <RefreshCw size={15} className={syncingGateway ? 'animate-spin' : ''} />
+            {syncingGateway ? 'Syncing...' : 'Sync Gateway Payments'}
+          </button>
+
+          <button
             onClick={handleRefresh}
             disabled={refreshing}
             style={{
@@ -464,7 +511,7 @@ export default function PaymentsPage({
             }}
           >
             <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
-            {refreshing ? 'Syncing...' : 'Refresh'}
+            {refreshing ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
       </div>

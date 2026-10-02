@@ -18,6 +18,14 @@
   ],
   "rewrites": [
     {
+      "source": "/api/webhooks/payment/:tenantId*",
+      "destination": "/api/webhooks/payment"
+    },
+    {
+      "source": "/api/payments/sync-gateway",
+      "destination": "/api/payments/sync-gateway"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "https://api.employeemanagementsystems.com/api/$1"
     },

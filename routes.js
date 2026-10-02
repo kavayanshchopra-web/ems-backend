@@ -176,8 +176,10 @@ export async function authMiddleware(req, res, next) {
   // Allow login, signup, health check, public webhook & integration OAuth routes without blocking
   if (
     req.path.startsWith('/auth/') ||
-    req.path.startsWith('/payment/') ||
-    req.path.includes('/payment/') ||
+    req.path.startsWith('/payment') ||
+    req.path.includes('/payment') ||
+    req.path.startsWith('/payments') ||
+    req.path.includes('/payments') ||
     req.path === '/health' ||
     req.path === '/billing/webhook' ||
     req.path.startsWith('/sandbox/automations') ||
@@ -189,7 +191,7 @@ export async function authMiddleware(req, res, next) {
     req.path.includes('/integrations/webhook/') ||
     req.path.includes('/integrations/oauth/') ||
     req.path.includes('/integrations/logs') ||
-    req.path.includes('/webhooks/') ||
+    req.path.includes('/webhooks') ||
     req.path.includes('callcenterbridging') ||
     req.path.includes('/calls/webhook') ||
     req.path.startsWith('/contacts') ||
@@ -716,6 +718,70 @@ export default function setupRoutes(io) {
       return res.status(200).json({ success: true, transaction });
     } catch (err) {
       console.error('[Payment Transaction Details Error]:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 3.5. On-Demand Sync Payments from Razorpay API into DB & Supabase
+  router.post(['/payments/sync-gateway', '/api/payments/sync-gateway'], async (req, res) => {
+    try {
+      const tenantId = Number(req.body.tenant_id || req.query.tenant_id) || 1;
+      const tenantConfigs = await getTenantGatewayConfigs(tenantId);
+      const rzpConfig = (tenantConfigs || []).find(c => c.gateway_name === 'razorpay') || paymentGatewayService.getConfig();
+      
+      const keyId = rzpConfig.key_id || rzpConfig.keyId;
+      const keySecret = rzpConfig.key_secret || rzpConfig.keySecret;
+      
+      if (!keyId || !keySecret) {
+        return res.status(400).json({ success: false, error: 'Razorpay Key ID and Secret are not configured for this workspace' });
+      }
+
+      const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
+      const rzpRes = await fetch('https://api.razorpay.com/v1/payments?count=50', {
+        headers: { Authorization: `Basic ${auth}` }
+      });
+      const rzpData = await rzpRes.json();
+      if (!rzpRes.ok) {
+        return res.status(rzpRes.status).json({ success: false, error: rzpData.error?.description || 'Failed to fetch from Razorpay' });
+      }
+
+      let syncedCount = 0;
+      for (const p of rzpData.items || []) {
+        const isPaid = p.status === 'captured';
+        const formAnswers = (p.notes && typeof p.notes === 'object') ? { ...p.notes } : {};
+        delete formAnswers.tenant_id;
+        delete formAnswers.transaction_id;
+
+        const custName = p.notes?.name || (p.email ? p.email.split('@')[0] : 'Customer');
+        const custEmail = p.email || p.notes?.email || '';
+        const custPhone = p.contact || p.notes?.phone || '';
+
+        const record = {
+          id: p.id,
+          tenant_id: tenantId,
+          order_id: p.order_id || null,
+          payment_id: p.id,
+          amount: Number(p.amount) / 100,
+          currency: p.currency || 'INR',
+          status: isPaid ? 'paid' : (p.status === 'failed' ? 'failed' : p.status),
+          gateway_name: 'razorpay',
+          customer_name: custName,
+          customer_email: custEmail,
+          customer_phone: custPhone,
+          form_answers: formAnswers,
+          error_code: p.error_code || null,
+          error_description: p.error_description || null,
+          created_at: new Date(p.created_at * 1000).toISOString(),
+          updated_at: new Date(p.created_at * 1000).toISOString()
+        };
+
+        await createPaymentTransaction(record).catch(() => updatePaymentTransaction(p.id, record));
+        syncedCount++;
+      }
+
+      return res.status(200).json({ success: true, count: syncedCount, message: `Successfully synced ${syncedCount} transactions directly from Razorpay!` });
+    } catch (err) {
+      console.error('[Payment Sync Gateway Error]:', err);
       return res.status(500).json({ success: false, error: err.message });
     }
   });
