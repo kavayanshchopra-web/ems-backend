@@ -37,7 +37,14 @@ import {
   extendTenantSubscription,
   getPendingSubscriptionApprovals,
   getSaaSPricingConfigs,
-  setSaaSPricingConfig
+  setSaaSPricingConfig,
+  createPaymentTransaction,
+  getPaymentTransactionById,
+  updatePaymentTransaction,
+  getPaymentTransactions,
+  getPaymentStats,
+  getTenantGatewayConfigs,
+  saveTenantGatewayConfig
 } from './db.js';
 import { 
   ghlAuthService, 
@@ -655,6 +662,371 @@ export default function setupRoutes(io) {
     } catch (err) {
       console.error('[Razorpay Verify & Register Error]:', err);
       return res.status(500).json({ success: false, error: 'Verification failed: ' + err.message });
+    }
+  });
+
+  // ==============================================================================
+  // 💳 DEDICATED PAYMENTS & MULTI-TENANT GATEWAY API SUITE (PHASE 2)
+  // ==============================================================================
+
+  // 1. Get Aggregated Payment Analytics (Cards)
+  router.get(['/payments/stats', '/api/payments/stats'], async (req, res) => {
+    try {
+      const tenantId = req.query.tenant_id || req.query.tenantId || null;
+      const stats = await getPaymentStats({ tenant_id: tenantId });
+      return res.status(200).json({ success: true, stats });
+    } catch (err) {
+      console.error('[Payment Stats Error]:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 2. Get Paginated & Filterable Transactions List
+  router.get(['/payments/list', '/api/payments/list'], async (req, res) => {
+    try {
+      const { tenant_id, tenantId, status = 'all', search = '', limit = 50, offset = 0 } = req.query;
+      const effectiveTenant = tenant_id || tenantId || null;
+      const transactions = await getPaymentTransactions({
+        tenant_id: effectiveTenant,
+        status,
+        search,
+        limit: Number(limit) || 50,
+        offset: Number(offset) || 0
+      });
+
+      return res.status(200).json({
+        success: true,
+        count: transactions.length,
+        transactions
+      });
+    } catch (err) {
+      console.error('[Payment List Error]:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 3. Get Single Transaction Details (With Form Answers)
+  router.get(['/payments/transaction/:id', '/api/payments/transaction/:id'], async (req, res) => {
+    try {
+      const { id } = req.params;
+      const transaction = await getPaymentTransactionById(id);
+      if (!transaction) {
+        return res.status(404).json({ success: false, error: 'Transaction not found' });
+      }
+      return res.status(200).json({ success: true, transaction });
+    } catch (err) {
+      console.error('[Payment Transaction Details Error]:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 4. Get Gateway Config for Tenant (Or Platform Default)
+  router.get(['/payments/gateway-config', '/api/payments/gateway-config'], async (req, res) => {
+    try {
+      const tenantId = req.query.tenant_id || req.query.tenantId || 1;
+      const tenantConfigs = await getTenantGatewayConfigs(tenantId);
+      const systemConfig = paymentGatewayService.getConfig();
+
+      // Mask sensitive secrets before sending to client
+      const safeConfigs = (tenantConfigs || []).map(cfg => ({
+        id: cfg.id,
+        tenant_id: cfg.tenant_id,
+        gateway_name: cfg.gateway_name,
+        key_id: cfg.key_id,
+        merchant_id: cfg.merchant_id,
+        salt_index: cfg.salt_index,
+        mode: cfg.mode,
+        is_active: Boolean(cfg.is_active),
+        hasSecretConfigured: Boolean(cfg.key_secret && cfg.key_secret.length > 0),
+        keySecretMasked: cfg.key_secret ? (cfg.key_secret.length > 8 ? `${cfg.key_secret.slice(0, 4)}••••••••${cfg.key_secret.slice(-4)}` : '••••••••') : '',
+        saltKeyMasked: cfg.salt_key ? '••••••••' : ''
+      }));
+
+      return res.status(200).json({
+        success: true,
+        tenantConfigs: safeConfigs,
+        systemConfig // fallback platform config
+      });
+    } catch (err) {
+      console.error('[Payment Gateway Config Fetch Error]:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 5. Save or Update Gateway Config for Tenant
+  router.post(['/payments/gateway-config', '/api/payments/gateway-config'], async (req, res) => {
+    try {
+      const {
+        tenant_id = 1,
+        gateway_name = 'razorpay',
+        key_id,
+        key_secret,
+        merchant_id,
+        salt_key,
+        salt_index,
+        webhook_secret,
+        mode = 'test',
+        is_active = true,
+        metadata = {}
+      } = req.body;
+
+      const numTenantId = Number(tenant_id) || 1;
+      const saved = await saveTenantGatewayConfig(numTenantId, gateway_name, {
+        keyId: key_id,
+        keySecret: key_secret,
+        merchantId: merchant_id,
+        saltKey: salt_key,
+        saltIndex: salt_index,
+        webhookSecret: webhook_secret,
+        mode,
+        isActive: is_active,
+        metadata
+      });
+
+      // If SuperAdmin / Tenant 0 or 1 updates Razorpay, also sync system_gateway_config for backward compatibility
+      if ((numTenantId === 0 || numTenantId === 1) && gateway_name === 'razorpay') {
+        try {
+          await paymentGatewayService.updateConfig({
+            keyId: key_id,
+            keySecret: key_secret,
+            mode,
+            enabled: is_active
+          }, getDb());
+        } catch (e) {}
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: `${gateway_name.toUpperCase()} configuration saved successfully`,
+        config: {
+          ...saved,
+          key_secret: saved.key_secret ? '••••••••' : '',
+          salt_key: saved.salt_key ? '••••••••' : ''
+        }
+      });
+    } catch (err) {
+      console.error('[Payment Gateway Config Save Error]:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 6. Create Customer Checkout Order (Landing Page Integration)
+  router.post(['/payments/create-checkout', '/api/payments/create-checkout'], async (req, res) => {
+    try {
+      const {
+        tenant_id = 1,
+        amount,
+        currency = 'INR',
+        gateway_name = 'razorpay',
+        customer_name,
+        customer_email,
+        customer_phone,
+        form_answers = {},
+        notes = {}
+      } = req.body;
+
+      const numAmount = Number(amount);
+      if (!numAmount || numAmount <= 0) {
+        return res.status(400).json({ success: false, error: 'Valid payment amount is required' });
+      }
+
+      const numTenantId = Number(tenant_id) || 1;
+
+      // Create Initial Pending Transaction Record in DB
+      const transaction = await createPaymentTransaction({
+        tenant_id: numTenantId,
+        amount: numAmount,
+        currency,
+        status: 'pending',
+        gateway_name,
+        customer_name,
+        customer_email,
+        customer_phone,
+        form_answers
+      });
+
+      // Generate Order with Gateway
+      const orderNotes = {
+        ...notes,
+        tenant_id: String(numTenantId),
+        transaction_id: transaction.id,
+        customer_name: customer_name || '',
+        customer_phone: customer_phone || ''
+      };
+
+      const order = await paymentGatewayService.createOrder({
+        amount: numAmount,
+        currency,
+        receipt: `rcpt_${transaction.id.slice(-10)}`,
+        notes: orderNotes,
+        tenantId: numTenantId
+      }, getDb());
+
+      // Update Transaction with order_id
+      await updatePaymentTransaction(transaction.id, {
+        order_id: order.id
+      });
+
+      return res.status(200).json({
+        success: true,
+        transactionId: transaction.id,
+        order,
+        keyId: order.keyId
+      });
+    } catch (err) {
+      console.error('[Payment Create Checkout Error]:', err);
+      return res.status(500).json({ success: false, error: 'Failed to create checkout order: ' + err.message });
+    }
+  });
+
+  // 7. Universal Payment Webhook Handler (Captures Success/Failed, Saves to CRM, Triggers Baileys WhatsApp)
+  router.post(['/webhooks/payment', '/api/webhooks/payment', '/webhooks/payment/:tenantId', '/api/webhooks/payment/:tenantId'], async (req, res) => {
+    try {
+      const body = req.body;
+      const paramTenantId = req.params?.tenantId ? Number(req.params.tenantId) : null;
+      console.log('🔔 [Universal Payment Webhook Received]:', body?.event || 'Unknown Event');
+
+      // Log webhook for audit trail
+      try {
+        await saveWebhookLog({
+          tenantId: paramTenantId || 1,
+          source: 'payment_gateway',
+          payload: body
+        });
+      } catch (e) {}
+
+      // A. Razorpay Webhook Event Handling
+      if (body?.event) {
+        const event = body.event;
+        const paymentEntity = body?.payload?.payment?.entity || body?.payload?.order?.entity || {};
+        const paymentId = paymentEntity.id;
+        const orderId = paymentEntity.order_id;
+        const notes = paymentEntity.notes || {};
+        const effectiveTenantId = Number(notes.tenant_id) || paramTenantId || 1;
+        const transactionId = notes.transaction_id || null;
+
+        // Find matching transaction
+        let targetTxn = null;
+        if (transactionId) {
+          targetTxn = await getPaymentTransactionById(transactionId);
+        }
+        if (!targetTxn && (paymentId || orderId)) {
+          targetTxn = await getPaymentTransactionById(paymentId || orderId);
+        }
+
+        if (event === 'payment.captured' || event === 'order.paid') {
+          const paidAmount = Number(paymentEntity.amount) ? (paymentEntity.amount / 100) : (targetTxn?.amount || 0);
+          const custName = paymentEntity.notes?.customer_name || targetTxn?.customer_name || 'Customer';
+          const custPhone = paymentEntity.contact || targetTxn?.customer_phone || '';
+          const custEmail = paymentEntity.email || targetTxn?.customer_email || '';
+
+          // Update or create transaction record
+          let updatedTxn;
+          if (targetTxn) {
+            updatedTxn = await updatePaymentTransaction(targetTxn.id, {
+              status: 'paid',
+              payment_id: paymentId,
+              raw_payload: body
+            });
+          } else {
+            updatedTxn = await createPaymentTransaction({
+              tenant_id: effectiveTenantId,
+              order_id: orderId,
+              payment_id: paymentId,
+              amount: paidAmount,
+              currency: paymentEntity.currency || 'INR',
+              status: 'paid',
+              gateway_name: 'razorpay',
+              customer_name: custName,
+              customer_email: custEmail,
+              customer_phone: custPhone,
+              form_answers: notes.form_answers ? JSON.parse(notes.form_answers) : {},
+              raw_payload: body
+            });
+          }
+
+          console.log(`✅ [Payment SUCCESS Recorded] ID: ${paymentId}, Amount: ₹${paidAmount}, Tenant: ${effectiveTenantId}`);
+
+          // Sync into CRM Contacts Table with Form Answers
+          try {
+            if (custPhone) {
+              const cleanDigits = custPhone.replace(/\D/g, '').slice(-10);
+              const contactId = `${cleanDigits}@s.whatsapp.net`;
+              await saveContact({
+                id: contactId,
+                name: custName,
+                phone: custPhone,
+                email: custEmail,
+                notes: `Paid ₹${paidAmount} via Razorpay (Payment ID: ${paymentId})`,
+                pipeline_stage: 'won',
+                tenant_id: effectiveTenantId,
+                custom_fields: targetTxn?.form_answers || {}
+              });
+            }
+          } catch (contactErr) {
+            console.warn('[Webhook CRM Contact Sync Warning]:', contactErr.message);
+          }
+
+          // Trigger Automated Baileys WhatsApp Message
+          try {
+            if (custPhone) {
+              const cleanDigits = custPhone.replace(/\D/g, '').slice(-10);
+              const sessions = await getAllSessions();
+              const connectedSession = sessions.find(s => s.status === 'connected' && s.tenant_id === effectiveTenantId) ||
+                                       sessions.find(s => s.status === 'connected');
+
+              if (connectedSession) {
+                const thankYouMessage = `Hi ${custName}!\n\nThank you for your purchase! 🎉\nYour payment of ₹${paidAmount} was successfully received.\n\nPayment ID: ${paymentId}\nStatus: Verified ✅\n\nWe are processing your order right away.`;
+                await sendWhatsAppMessage(connectedSession.id, cleanDigits, thankYouMessage, effectiveTenantId);
+                console.log(`📱 [WhatsApp Automated Message Sent to ${cleanDigits}]`);
+              }
+            }
+          } catch (waErr) {
+            console.warn('[Webhook WhatsApp Notification Warning]:', waErr.message);
+          }
+
+          // Emit live real-time update to EMS Dashboard
+          if (io) {
+            io.emit('payment:received', {
+              transaction: updatedTxn,
+              tenantId: effectiveTenantId,
+              status: 'paid',
+              amount: paidAmount
+            });
+          }
+
+        } else if (event === 'payment.failed') {
+          const errCode = paymentEntity.error_code || 'PAYMENT_FAILED';
+          const errDesc = paymentEntity.error_description || paymentEntity.error_reason || 'Payment failed or cancelled';
+
+          if (targetTxn) {
+            await updatePaymentTransaction(targetTxn.id, {
+              status: 'failed',
+              payment_id: paymentId,
+              error_code: errCode,
+              error_description: errDesc,
+              raw_payload: body
+            });
+          }
+
+          console.warn(`❌ [Payment FAILED Recorded] ID: ${paymentId}, Reason: ${errDesc}`);
+
+          if (io) {
+            io.emit('payment:failed', {
+              orderId,
+              paymentId,
+              tenantId: effectiveTenantId,
+              reason: errDesc
+            });
+          }
+        }
+      }
+
+      // Always return 200 OK to gateway
+      return res.status(200).json({ success: true, message: 'Webhook processed successfully' });
+    } catch (err) {
+      console.error('[Universal Payment Webhook Error]:', err);
+      return res.status(200).json({ success: false, error: err.message });
     }
   });
 

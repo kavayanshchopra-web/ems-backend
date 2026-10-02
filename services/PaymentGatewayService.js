@@ -96,15 +96,51 @@ class PaymentGatewayService {
     };
   }
 
-  async createOrder({ amount, currency = 'INR', receipt, notes = {} }) {
+  /**
+   * Resolve credentials for specific tenant or fall back to system default
+   */
+  async resolveCredentials(tenantId = null, db = null) {
+    if (tenantId && db) {
+      try {
+        const numTenantId = Number(tenantId);
+        const row = await db.get(
+          `SELECT key_id, key_secret, mode, is_active FROM tenant_gateway_configs 
+           WHERE tenant_id = ? AND gateway_name = 'razorpay' AND is_active = 1`,
+          [numTenantId]
+        );
+        if (row && row.key_id) {
+          return {
+            keyId: row.key_id,
+            keySecret: row.key_secret || this.keySecret,
+            mode: row.mode || 'test',
+            isTenantConfigured: true
+          };
+        }
+      } catch (err) {
+        console.warn('[PaymentGatewayService] Tenant config lookup fallback:', err.message);
+      }
+    }
+    return {
+      keyId: this.keyId,
+      keySecret: this.keySecret,
+      mode: this.mode,
+      isTenantConfigured: false
+    };
+  }
+
+  async createOrder({ amount, currency = 'INR', receipt, notes = {}, tenantId = null }, db = null) {
     const amountInPaise = Math.round(Number(amount) * 100);
     const orderReceipt = receipt || `rcpt_${Date.now()}`;
 
-    const isRealKey = this.keyId && this.keyId.startsWith('rzp_') && this.keySecret && this.keySecret !== 'rzp_secret_omniflow_default';
+    const creds = await this.resolveCredentials(tenantId, db);
+    const activeKeyId = creds.keyId;
+    const activeKeySecret = creds.keySecret;
+
+    const isRealKey = activeKeyId && activeKeyId.startsWith('rzp_') && activeKeySecret && activeKeySecret !== 'rzp_secret_omniflow_default';
 
     if (isRealKey) {
       try {
-        const basicAuth = Buffer.from(`${this.keyId}:${this.keySecret}`).toString('base64');
+        const basicAuth = Buffer.from(`${activeKeyId}:${activeKeySecret}`).toString('base64');
         const res = await fetch('https://api.razorpay.com/v1/orders', {
           method: 'POST',
           headers: {
@@ -121,13 +157,13 @@ class PaymentGatewayService {
 
         if (res.ok) {
           const order = await res.json();
-          console.log(`💳 [PaymentGatewayService] Razorpay Live Order Created: ${order.id}`);
+          console.log(`💳 [PaymentGatewayService] Razorpay Live Order Created: ${order.id} (Tenant: ${tenantId || 'platform'})`);
           return {
             id: order.id,
             amount: order.amount,
             currency: order.currency,
             receipt: order.receipt,
-            keyId: this.keyId,
+            keyId: activeKeyId,
             isMock: false
           };
         } else {
@@ -145,17 +181,23 @@ class PaymentGatewayService {
       amount: amountInPaise,
       currency: currency || 'INR',
       receipt: orderReceipt,
-      keyId: this.keyId || 'rzp_test_sample',
+      keyId: activeKeyId || 'rzp_test_sample',
       isMock: true
     };
   }
 
-  verifyPaymentSignature({ orderId, paymentId, signature }) {
+  async verifyPaymentSignature({ orderId, paymentId, signature, keySecret = null, tenantId = null }, db = null) {
     if (!orderId || !paymentId) {
       return { valid: false, error: 'Missing orderId or paymentId' };
     }
 
-    const isRealKey = this.keyId && this.keyId.startsWith('rzp_') && this.keySecret && this.keySecret !== 'rzp_secret_omniflow_default';
+    let secretToUse = keySecret;
+    if (!secretToUse) {
+      const creds = await this.resolveCredentials(tenantId, db);
+      secretToUse = creds.keySecret;
+    }
+
+    const isRealKey = secretToUse && secretToUse !== 'rzp_secret_omniflow_default';
     if (!isRealKey || !signature || signature.startsWith('mock_sig_')) {
       return {
         valid: true,
@@ -168,7 +210,7 @@ class PaymentGatewayService {
 
     try {
       const generatedSignature = crypto
-        .createHmac('sha256', this.keySecret)
+        .createHmac('sha256', secretToUse)
         .update(`${orderId}|${paymentId}`)
         .digest('hex');
 
