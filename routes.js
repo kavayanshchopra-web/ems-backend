@@ -1024,7 +1024,9 @@ export default function setupRoutes(io) {
                 phone: custPhone,
                 email: custEmail,
                 notes: `Paid ₹${paidAmount} via Razorpay (Payment ID: ${paymentId})`,
-                pipeline_stage: 'won',
+                pipeline_stage: 'customer',
+                labels: ['Razorpay', 'PAID'],
+                deal_value: String(paidAmount),
                 tenant_id: effectiveTenantId,
                 custom_fields: targetTxn?.form_answers || {}
               });
@@ -1064,6 +1066,10 @@ export default function setupRoutes(io) {
         } else if (event === 'payment.failed') {
           const errCode = paymentEntity.error_code || 'PAYMENT_FAILED';
           const errDesc = paymentEntity.error_description || paymentEntity.error_reason || 'Payment failed or cancelled';
+          const failedAmount = paymentEntity.amount ? Number(paymentEntity.amount) / 100 : 0;
+          const custName = paymentEntity.notes?.customer_name || targetTxn?.customer_name || 'Customer';
+          const custPhone = paymentEntity.contact || targetTxn?.customer_phone || '';
+          const custEmail = paymentEntity.email || targetTxn?.customer_email || '';
 
           if (targetTxn) {
             await updatePaymentTransaction(targetTxn.id, {
@@ -1073,6 +1079,28 @@ export default function setupRoutes(io) {
               error_description: errDesc,
               raw_payload: body
             });
+          }
+
+          // Tag Contact in CRM as PAYMENT_FAILED for immediate follow-up
+          if (custPhone) {
+            try {
+              const cleanDigits = custPhone.replace(/\D/g, '').slice(-10);
+              const contactId = `${cleanDigits}@s.whatsapp.net`;
+              await saveContact({
+                id: contactId,
+                name: custName,
+                phone: custPhone,
+                email: custEmail,
+                notes: `Payment Failed (₹${failedAmount}) via Razorpay: ${errDesc}`,
+                pipeline_stage: 'follow_up',
+                labels: ['Razorpay', 'PAYMENT_FAILED'],
+                deal_value: String(failedAmount),
+                tenant_id: effectiveTenantId,
+                custom_fields: targetTxn?.form_answers || {}
+              });
+            } catch (contactErr) {
+              console.warn('[Webhook CRM Failed Contact Sync Warning]:', contactErr.message);
+            }
           }
 
           console.warn(`❌ [Payment FAILED Recorded] ID: ${paymentId}, Reason: ${errDesc}`);

@@ -386,15 +386,51 @@ export default function PaymentsPage({
     }
   };
 
-  // Filtered transactions in view
+  // Filtered transactions in view (Search, Status Filter, Gateway Filter)
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
-      if (gatewayFilter !== 'all' && t.gateway_name?.toLowerCase() !== gatewayFilter.toLowerCase()) {
+      if (statusFilter !== 'all' && (t.status || '').toLowerCase() !== statusFilter.toLowerCase()) {
         return false;
+      }
+      if (gatewayFilter !== 'all' && (t.gateway_name || '').toLowerCase() !== gatewayFilter.toLowerCase()) {
+        return false;
+      }
+      if (searchTerm.trim()) {
+        const q = searchTerm.toLowerCase();
+        const matchName = (t.customer_name || '').toLowerCase().includes(q);
+        const matchPhone = (t.customer_phone || '').toLowerCase().includes(q);
+        const matchEmail = (t.customer_email || '').toLowerCase().includes(q);
+        const matchTxn = (t.payment_id || t.order_id || t.id || '').toLowerCase().includes(q);
+        const matchAnswers = t.form_answers && Object.values(t.form_answers).some(v => String(v).toLowerCase().includes(q));
+        if (!matchName && !matchPhone && !matchEmail && !matchTxn && !matchAnswers) return false;
       }
       return true;
     });
-  }, [transactions, gatewayFilter]);
+  }, [transactions, statusFilter, gatewayFilter, searchTerm]);
+
+  // Extract all distinct custom questions dynamically from form_answers
+  const dynamicQuestionKeys = useMemo(() => {
+    const keysMap = new Map();
+    (transactions || []).forEach(tx => {
+      if (tx.form_answers && typeof tx.form_answers === 'object') {
+        Object.entries(tx.form_answers).forEach(([k, v]) => {
+          const lower = k.toLowerCase().trim();
+          // Exclude internal keys and keys that already have dedicated columns
+          if (!['email', 'phone', 'name', 'tenant_id', 'transaction_id', 'order_id', 'payment_id', 'amount'].includes(lower)) {
+            if (!keysMap.has(k)) {
+              // Pretty title: e.g. "test_1" -> "Test 1"
+              const formattedLabel = k
+                .replace(/[_-]+/g, ' ')
+                .replace(/\b\w/g, c => c.toUpperCase())
+                .trim();
+              keysMap.set(k, formattedLabel);
+            }
+          }
+        });
+      }
+    });
+    return Array.from(keysMap.entries()).map(([key, label]) => ({ key, label }));
+  }, [transactions]);
 
   // Webhook URL
   const webhookUrl = typeof window !== 'undefined'
@@ -829,19 +865,39 @@ export default function PaymentsPage({
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: '600' }}>
-                    <th style={{ padding: '14px 18px' }}>Customer Info</th>
-                    <th style={{ padding: '14px 18px' }}>Amount</th>
-                    <th style={{ padding: '14px 18px' }}>Status</th>
-                    <th style={{ padding: '14px 18px' }}>Gateway</th>
-                    <th style={{ padding: '14px 18px' }}>Transaction ID</th>
-                    <th style={{ padding: '14px 18px' }}>Date & Time</th>
-                    <th style={{ padding: '14px 18px', textAlign: 'center' }}>Form Answers</th>
+                    <th style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>Customer Info</th>
+                    <th style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>Amount</th>
+                    <th style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>Status</th>
+                    <th style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>Gateway</th>
+                    <th style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>Transaction ID</th>
+                    <th style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>Date & Time</th>
+                    {/* Dynamic Form Question Columns */}
+                    {dynamicQuestionKeys.map(q => (
+                      <th
+                        key={q.key}
+                        style={{
+                          padding: '14px 18px',
+                          whiteSpace: 'nowrap',
+                          background: '#f0fdfa',
+                          color: '#0f766e',
+                          borderLeft: '1px solid #ccfbf1',
+                          fontWeight: '700',
+                          fontSize: '12px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <FileText size={13} color="#0d9488" />
+                          {q.label}
+                        </div>
+                      </th>
+                    ))}
+                    <th style={{ padding: '14px 18px', textAlign: 'center', whiteSpace: 'nowrap' }}>Form Answers</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredTransactions.length === 0 ? (
                     <tr>
-                      <td colSpan={7} style={{ padding: '48px', textAlign: 'center', color: '#94a3b8' }}>
+                      <td colSpan={7 + dynamicQuestionKeys.length} style={{ padding: '48px', textAlign: 'center', color: '#94a3b8' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                           <CreditCard size={32} color="#cbd5e1" />
                           <div style={{ fontSize: '14px', fontWeight: '600', color: '#64748b' }}>
@@ -968,7 +1024,7 @@ export default function PaymentsPage({
                           </td>
 
                           {/* Date */}
-                          <td style={{ padding: '14px 18px', color: '#64748b', fontSize: '12px' }}>
+                          <td style={{ padding: '14px 18px', color: '#64748b', fontSize: '12px', whiteSpace: 'nowrap' }}>
                             {new Date(tx.created_at).toLocaleString('en-IN', {
                               day: '2-digit',
                               month: 'short',
@@ -977,6 +1033,40 @@ export default function PaymentsPage({
                               minute: '2-digit'
                             })}
                           </td>
+
+                          {/* Dynamic Question Answer Cells */}
+                          {dynamicQuestionKeys.map(q => {
+                            const val = tx.form_answers?.[q.key];
+                            const hasVal = val !== undefined && val !== null && String(val).trim() !== '';
+                            return (
+                              <td
+                                key={q.key}
+                                style={{
+                                  padding: '14px 18px',
+                                  whiteSpace: 'nowrap',
+                                  color: '#334155',
+                                  borderLeft: '1px solid #f1f5f9'
+                                }}
+                              >
+                                {hasVal ? (
+                                  <span style={{
+                                    background: '#f0fdfa',
+                                    color: '#0f766e',
+                                    padding: '4px 10px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #ccfbf1',
+                                    fontSize: '12px',
+                                    fontWeight: '600',
+                                    display: 'inline-block'
+                                  }}>
+                                    {String(val)}
+                                  </span>
+                                ) : (
+                                  <span style={{ color: '#94a3b8' }}>—</span>
+                                )}
+                              </td>
+                            );
+                          })}
 
                           {/* Form Answers Button */}
                           <td style={{ padding: '14px 18px', textAlign: 'center' }}>

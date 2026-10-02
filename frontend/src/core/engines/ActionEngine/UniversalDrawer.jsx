@@ -92,6 +92,40 @@ export default function UniversalDrawer({
           })}
         </div>
 
+        {/* CUSTOM FORM ANSWERS & METADATA */}
+        {(() => {
+          const cFields = record.customFields || record.custom_fields || {};
+          const keys = Object.keys(cFields).filter(k => !['source', 'ghlContactId', 'tenant_id', 'transaction_id'].includes(k));
+          if (keys.length === 0) return null;
+          return (
+            <div style={{
+              background: '#f0fdfa',
+              border: '1px solid #ccfbf1',
+              borderRadius: '8px',
+              padding: '12px 14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}>
+              <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f766e', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>📝</span> Custom Form Answers & Payment Fields
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
+                {keys.map(k => (
+                  <div key={k} style={{ background: '#ffffff', padding: '8px 10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>
+                      {k.replace(/[_-]+/g, ' ')}
+                    </div>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: '#1e293b', marginTop: '2px', wordBreak: 'break-word' }}>
+                      {String(cFields[k] || '—')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* INTEGRATION INFO CARD (GHL SYNC) */}
         {(record.ghlContactId || (record.source && String(record.source).toLowerCase().includes('gohighlevel'))) && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.25)', fontSize: '12px' }}>

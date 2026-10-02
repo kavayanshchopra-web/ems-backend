@@ -244,6 +244,10 @@ export default function ContactsPage({
         assignedTo: d.assignedTo || d.agentName || defaultManagerName,
         ghlContactId: extractedGhlId,
         notes: rawNotes,
+        dealValue: d.deal_value || d.dealValue || '',
+        deal_value: d.deal_value || d.dealValue || '',
+        customFields: d.custom_fields || d.customFields || {},
+        custom_fields: d.custom_fields || d.customFields || {},
         createdAt: d.createdAt || d._createdAt || d.lastMessageTime || new Date().toISOString(),
         updatedAt: d.updatedAt || new Date().toISOString(),
         _dedupKey: dedupKey
@@ -285,6 +289,10 @@ export default function ContactsPage({
           notes: betterNotes,
           source: (existing.source === 'GoHighLevel' || cleanRec.source === 'GoHighLevel') ? 'GoHighLevel' : (existing.source || cleanRec.source),
           tags: Array.from(tagsSet).filter(Boolean).join(', '),
+          dealValue: cleanRec.dealValue || existing.dealValue || '',
+          deal_value: cleanRec.deal_value || existing.deal_value || '',
+          customFields: { ...(existing.customFields || {}), ...(cleanRec.customFields || {}) },
+          custom_fields: { ...(existing.custom_fields || {}), ...(cleanRec.custom_fields || {}) },
           updatedAt: new Date().toISOString()
         });
       } else {
