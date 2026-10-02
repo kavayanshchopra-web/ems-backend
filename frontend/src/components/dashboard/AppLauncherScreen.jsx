@@ -233,6 +233,20 @@ export default function AppLauncherScreen({
         desc: 'Monthly payroll calculations, payslips & tax deductions'
       },
       {
+        id: 'payments',
+        tab: 'payments',
+        label: 'PAYMENTS',
+        subLabel: 'Gateways & Orders',
+        category: 'Finance',
+        icon: CreditCard,
+        color: '#0d9488',
+        accentBg: 'rgba(13, 148, 136, 0.12)',
+        borderColor: 'rgba(13, 148, 136, 0.35)',
+        badge: 'LIVE',
+        visible: true,
+        desc: 'Customer payments, form question answers & multi-gateway integrations'
+      },
+      {
         id: 'reporting',
         tab: 'reports_telephony',
         label: 'REPORTS & ANALYTICS',

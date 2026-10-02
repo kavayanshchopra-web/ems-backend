@@ -447,8 +447,52 @@ CREATE TABLE IF NOT EXISTS ghl_entity_links (
 );
 
 -- ==============================================================================
+-- 💳 DEDICATED PAYMENTS & MULTI-TENANT GATEWAY INFRASTRUCTURE
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS payments_transactions (
+  id VARCHAR(100) PRIMARY KEY,
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  order_id VARCHAR(100),
+  payment_id VARCHAR(100),
+  amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  currency VARCHAR(10) DEFAULT 'INR',
+  status VARCHAR(50) DEFAULT 'pending',
+  gateway_name VARCHAR(50) DEFAULT 'razorpay',
+  customer_name VARCHAR(255),
+  customer_email VARCHAR(255),
+  customer_phone VARCHAR(50),
+  form_answers JSONB DEFAULT '{}'::jsonb,
+  error_code VARCHAR(100),
+  error_description TEXT,
+  raw_payload JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS tenant_gateway_configs (
+  id VARCHAR(100) PRIMARY KEY,
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  gateway_name VARCHAR(50) NOT NULL,
+  key_id TEXT,
+  key_secret TEXT,
+  merchant_id TEXT,
+  salt_key TEXT,
+  salt_index VARCHAR(20),
+  webhook_secret TEXT,
+  mode VARCHAR(20) DEFAULT 'test',
+  is_active INTEGER DEFAULT 1,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(tenant_id, gateway_name)
+);
+
+-- ==============================================================================
 -- 🚀 PERFORMANCE INDEXES (FOR HIGH-SPEED MULTI-TENANT QUERIES)
 -- ==============================================================================
+CREATE INDEX IF NOT EXISTS idx_payments_tenant_status ON payments_transactions(tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_payments_created_at ON payments_transactions(created_at);
+CREATE INDEX IF NOT EXISTS idx_payments_payment_id ON payments_transactions(payment_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_tenant ON contacts(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_phone ON contacts(phone);
 CREATE INDEX IF NOT EXISTS idx_messages_tenant ON messages(tenant_id);

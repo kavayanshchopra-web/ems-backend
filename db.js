@@ -861,6 +861,59 @@ export async function initDb() {
   `);
 
   // ==============================================================================
+  // ⚡ DEDICATED PAYMENTS & MULTI-TENANT GATEWAY INFRASTRUCTURE
+  // ==============================================================================
+  // 1. payments_transactions: Tracks all inbound/outbound payments (Platform & Clients)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS payments_transactions (
+      id TEXT PRIMARY KEY,
+      tenant_id INTEGER NOT NULL DEFAULT 1,
+      order_id TEXT,
+      payment_id TEXT,
+      amount REAL NOT NULL DEFAULT 0,
+      currency TEXT DEFAULT 'INR',
+      status TEXT DEFAULT 'pending', -- 'paid', 'pending', 'failed', 'refunded'
+      gateway_name TEXT DEFAULT 'razorpay', -- 'razorpay', 'phonepe', 'instamojo', etc.
+      customer_name TEXT,
+      customer_email TEXT,
+      customer_phone TEXT,
+      form_answers TEXT DEFAULT '{}', -- JSON string containing custom questions & answers
+      error_code TEXT,
+      error_description TEXT,
+      raw_payload TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  try {
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_payments_tenant_status ON payments_transactions(tenant_id, status);`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_payments_created_at ON payments_transactions(created_at);`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_payments_payment_id ON payments_transactions(payment_id);`);
+  } catch (e) {}
+
+  // 2. tenant_gateway_configs: Per-tenant payment gateway credentials (Razorpay, PhonePe, etc.)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS tenant_gateway_configs (
+      id TEXT PRIMARY KEY,
+      tenant_id INTEGER NOT NULL DEFAULT 1,
+      gateway_name TEXT NOT NULL, -- 'razorpay', 'phonepe', 'instamojo', etc.
+      key_id TEXT,
+      key_secret TEXT,
+      merchant_id TEXT,
+      salt_key TEXT,
+      salt_index TEXT,
+      webhook_secret TEXT,
+      mode TEXT DEFAULT 'test', -- 'test' | 'live'
+      is_active INTEGER DEFAULT 1,
+      metadata TEXT DEFAULT '{}',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(tenant_id, gateway_name)
+    );
+  `);
+
+  // ==============================================================================
   // ⚡ ISOLATED SANDBOX AUTOMATIONS & WORKFLOW ENGINE (ZERO LIVE RISK)
   // ==============================================================================
   // 1. sandbox_automation_flows: Isolated Workflow Node Graphs & Archetypes
@@ -3718,6 +3771,209 @@ export async function getSandboxFlowLogs(arg1, arg2 = 50, arg3 = 50) {
     [flowId, limit]
   );
   return rows || [];
+}
+
+/**
+ * ==============================================================================
+ * 💳 DEDICATED PAYMENTS & GATEWAY TRANSACTION HELPERS
+ * ==============================================================================
+ */
+
+/**
+ * Create a new payment transaction record
+ */
+export async function createPaymentTransaction(data) {
+  const id = data.id || `txn_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const tenantId = Number(data.tenant_id || data.tenantId) || 1;
+  const orderId = data.order_id || data.orderId || null;
+  const paymentId = data.payment_id || data.paymentId || null;
+  const amount = Number(data.amount) || 0;
+  const currency = data.currency || 'INR';
+  const status = data.status || 'pending';
+  const gatewayName = data.gateway_name || data.gatewayName || 'razorpay';
+  const customerName = data.customer_name || data.customerName || '';
+  const customerEmail = data.customer_email || data.customerEmail || '';
+  const customerPhone = data.customer_phone || data.customerPhone || '';
+  const formAnswers = typeof data.form_answers === 'object' ? JSON.stringify(data.form_answers) : (data.form_answers || '{}');
+  const errorCode = data.error_code || data.errorCode || null;
+  const errorDescription = data.error_description || data.errorDescription || null;
+  const rawPayload = typeof data.raw_payload === 'object' ? JSON.stringify(data.raw_payload) : (data.raw_payload || null);
+
+  await db.run(
+    `INSERT INTO payments_transactions (
+      id, tenant_id, order_id, payment_id, amount, currency, status,
+      gateway_name, customer_name, customer_email, customer_phone,
+      form_answers, error_code, error_description, raw_payload,
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+    [
+      id, tenantId, orderId, paymentId, amount, currency, status,
+      gatewayName, customerName, customerEmail, customerPhone,
+      formAnswers, errorCode, errorDescription, rawPayload
+    ]
+  );
+
+  return await getPaymentTransactionById(id);
+}
+
+/**
+ * Get payment transaction by ID or Payment ID / Order ID
+ */
+export async function getPaymentTransactionById(idOrPaymentId) {
+  const row = await db.get(
+    `SELECT * FROM payments_transactions WHERE id = ? OR payment_id = ? OR order_id = ?`,
+    [idOrPaymentId, idOrPaymentId, idOrPaymentId]
+  );
+  if (row && row.form_answers) {
+    try { row.form_answers = JSON.parse(row.form_answers); } catch (e) {}
+  }
+  return row;
+}
+
+/**
+ * Update transaction status and details (e.g. from Webhook)
+ */
+export async function updatePaymentTransaction(idOrPaymentId, updates = {}) {
+  const existing = await getPaymentTransactionById(idOrPaymentId);
+  if (!existing) return null;
+
+  const status = updates.status !== undefined ? updates.status : existing.status;
+  const paymentId = updates.payment_id !== undefined ? updates.payment_id : existing.payment_id;
+  const errorCode = updates.error_code !== undefined ? updates.error_code : existing.error_code;
+  const errorDescription = updates.error_description !== undefined ? updates.error_description : existing.error_description;
+  const rawPayload = updates.raw_payload !== undefined 
+    ? (typeof updates.raw_payload === 'object' ? JSON.stringify(updates.raw_payload) : updates.raw_payload)
+    : existing.raw_payload;
+
+  await db.run(
+    `UPDATE payments_transactions
+     SET status = ?, payment_id = ?, error_code = ?, error_description = ?, raw_payload = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    [status, paymentId, errorCode, errorDescription, rawPayload, existing.id]
+  );
+
+  return await getPaymentTransactionById(existing.id);
+}
+
+/**
+ * Get filtered & paginated transactions
+ */
+export async function getPaymentTransactions({ tenant_id = null, status = 'all', search = '', limit = 50, offset = 0 } = {}) {
+  let sql = `SELECT * FROM payments_transactions WHERE 1=1`;
+  const params = [];
+
+  if (tenant_id !== null && tenant_id !== undefined && tenant_id !== 'all') {
+    sql += ` AND tenant_id = ?`;
+    params.push(Number(tenant_id));
+  }
+
+  if (status && status !== 'all') {
+    sql += ` AND status = ?`;
+    params.push(status);
+  }
+
+  if (search && search.trim()) {
+    sql += ` AND (customer_name LIKE ? OR customer_phone LIKE ? OR customer_email LIKE ? OR payment_id LIKE ? OR order_id LIKE ?)`;
+    const s = `%${search.trim()}%`;
+    params.push(s, s, s, s, s);
+  }
+
+  sql += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+  params.push(Number(limit) || 50, Number(offset) || 0);
+
+  const rows = await db.all(sql, params);
+  return (rows || []).map(r => {
+    if (r.form_answers) {
+      try { r.form_answers = JSON.parse(r.form_answers); } catch (e) {}
+    }
+    return r;
+  });
+}
+
+/**
+ * Get aggregated payment statistics for reporting cards
+ */
+export async function getPaymentStats({ tenant_id = null } = {}) {
+  let tenantFilter = '';
+  const params = [];
+  if (tenant_id !== null && tenant_id !== undefined && tenant_id !== 'all') {
+    tenantFilter = ` WHERE tenant_id = ?`;
+    params.push(Number(tenant_id));
+  }
+
+  const stats = await db.get(
+    `SELECT 
+       COUNT(*) as total_count,
+       COALESCE(SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END), 0) as total_revenue,
+       COUNT(CASE WHEN status = 'paid' THEN 1 END) as paid_count,
+       COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_count,
+       COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_count
+     FROM payments_transactions ${tenantFilter}`,
+    params
+  );
+
+  const total = Number(stats?.total_count) || 0;
+  const paid = Number(stats?.paid_count) || 0;
+  const successRate = total > 0 ? Math.round((paid / total) * 100) : 100;
+
+  return {
+    totalRevenue: Number(stats?.total_revenue) || 0,
+    totalCount: total,
+    paidCount: paid,
+    pendingCount: Number(stats?.pending_count) || 0,
+    failedCount: Number(stats?.failed_count) || 0,
+    successRate
+  };
+}
+
+/**
+ * Get tenant gateway configs
+ */
+export async function getTenantGatewayConfigs(tenantId) {
+  const numTenantId = Number(tenantId) || 1;
+  const rows = await db.all(
+    `SELECT * FROM tenant_gateway_configs WHERE tenant_id = ?`,
+    [numTenantId]
+  );
+  return rows || [];
+}
+
+/**
+ * Save or update tenant gateway config
+ */
+export async function saveTenantGatewayConfig(tenantId, gatewayName, configData = {}) {
+  const numTenantId = Number(tenantId) || 1;
+  const id = `gw_${numTenantId}_${gatewayName}`;
+  const keyId = configData.keyId || configData.key_id || '';
+  const keySecret = configData.keySecret || configData.key_secret || '';
+  const merchantId = configData.merchantId || configData.merchant_id || '';
+  const saltKey = configData.saltKey || configData.salt_key || '';
+  const saltIndex = configData.saltIndex || configData.salt_index || '';
+  const webhookSecret = configData.webhookSecret || configData.webhook_secret || '';
+  const mode = configData.mode === 'live' ? 'live' : 'test';
+  const isActive = configData.isActive !== undefined ? (configData.isActive ? 1 : 0) : 1;
+  const metadata = typeof configData.metadata === 'object' ? JSON.stringify(configData.metadata) : (configData.metadata || '{}');
+
+  await db.run(
+    `INSERT INTO tenant_gateway_configs (
+      id, tenant_id, gateway_name, key_id, key_secret, merchant_id,
+      salt_key, salt_index, webhook_secret, mode, is_active, metadata, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(tenant_id, gateway_name) DO UPDATE SET
+      key_id = excluded.key_id,
+      key_secret = CASE WHEN excluded.key_secret != '' THEN excluded.key_secret ELSE tenant_gateway_configs.key_secret END,
+      merchant_id = excluded.merchant_id,
+      salt_key = CASE WHEN excluded.salt_key != '' THEN excluded.salt_key ELSE tenant_gateway_configs.salt_key END,
+      salt_index = excluded.salt_index,
+      webhook_secret = excluded.webhook_secret,
+      mode = excluded.mode,
+      is_active = excluded.is_active,
+      metadata = excluded.metadata,
+      updated_at = CURRENT_TIMESTAMP`,
+    [id, numTenantId, gatewayName, keyId, keySecret, merchantId, saltKey, saltIndex, webhookSecret, mode, isActive, metadata]
+  );
+
+  return await db.get(`SELECT * FROM tenant_gateway_configs WHERE tenant_id = ? AND gateway_name = ?`, [numTenantId, gatewayName]);
 }
 
 export function getDb() {

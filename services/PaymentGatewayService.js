@@ -106,20 +106,57 @@ class PaymentGatewayService {
   }
 
   /**
-   * Create an official Razorpay Order via REST API
-   * @param {Object} params - { amount, currency, receipt, notes }
+   * Resolve credentials for specific tenant or fall back to system default
    */
-  async createOrder({ amount, currency = 'INR', receipt, notes = {} }) {
+  async resolveCredentials(tenantId = null, db = null) {
+    if (tenantId && db) {
+      try {
+        const numTenantId = Number(tenantId);
+        const row = await db.get(
+          `SELECT key_id, key_secret, mode, is_active FROM tenant_gateway_configs 
+           WHERE tenant_id = ? AND gateway_name = 'razorpay' AND is_active = 1`,
+          [numTenantId]
+        );
+        if (row && row.key_id) {
+          return {
+            keyId: row.key_id,
+            keySecret: row.key_secret || this.keySecret,
+            mode: row.mode || 'test',
+            isTenantConfigured: true
+          };
+        }
+      } catch (err) {
+        console.warn('[PaymentGatewayService] Tenant config lookup fallback:', err.message);
+      }
+    }
+    return {
+      keyId: this.keyId,
+      keySecret: this.keySecret,
+      mode: this.mode,
+      isTenantConfigured: false
+    };
+  }
+
+  /**
+   * Create an official Razorpay Order via REST API
+   * @param {Object} params - { amount, currency, receipt, notes, tenantId }
+   */
+  async createOrder({ amount, currency = 'INR', receipt, notes = {}, tenantId = null }, db = null) {
     // Amount must be in Paise (e.g. ₹1999 = 199900 paise)
     const amountInPaise = Math.round(Number(amount) * 100);
     const orderReceipt = receipt || `rcpt_${Date.now()}`;
 
+    // Resolve tenant credentials or fallback to platform keys
+    const creds = await this.resolveCredentials(tenantId, db);
+    const activeKeyId = creds.keyId;
+    const activeKeySecret = creds.keySecret;
+
     // If real Razorpay keys are configured, call official API
-    const isRealKey = this.keyId && this.keyId.startsWith('rzp_') && this.keySecret && this.keySecret !== 'rzp_secret_omniflow_default';
+    const isRealKey = activeKeyId && activeKeyId.startsWith('rzp_') && activeKeySecret && activeKeySecret !== 'rzp_secret_omniflow_default';
 
     if (isRealKey) {
       try {
-        const basicAuth = Buffer.from(`${this.keyId}:${this.keySecret}`).toString('base64');
+        const basicAuth = Buffer.from(`${activeKeyId}:${activeKeySecret}`).toString('base64');
         const res = await fetch('https://api.razorpay.com/v1/orders', {
           method: 'POST',
           headers: {
@@ -136,13 +173,13 @@ class PaymentGatewayService {
 
         if (res.ok) {
           const order = await res.json();
-          console.log(`💳 [PaymentGatewayService] Razorpay Live Order Created: ${order.id}`);
+          console.log(`💳 [PaymentGatewayService] Razorpay Live Order Created: ${order.id} (Tenant: ${tenantId || 'platform'})`);
           return {
             id: order.id,
             amount: order.amount,
             currency: order.currency,
             receipt: order.receipt,
-            keyId: this.keyId,
+            keyId: activeKeyId,
             isMock: false
           };
         } else {
@@ -161,22 +198,28 @@ class PaymentGatewayService {
       amount: amountInPaise,
       currency: currency || 'INR',
       receipt: orderReceipt,
-      keyId: this.keyId || 'rzp_test_sample',
+      keyId: activeKeyId || 'rzp_test_sample',
       isMock: true
     };
   }
 
   /**
    * Cryptographically verify the payment signature
-   * @param {Object} params - { orderId, paymentId, signature }
+   * @param {Object} params - { orderId, paymentId, signature, keySecret, tenantId }
    */
-  verifyPaymentSignature({ orderId, paymentId, signature }) {
+  async verifyPaymentSignature({ orderId, paymentId, signature, keySecret = null, tenantId = null }, db = null) {
     if (!orderId || !paymentId) {
       return { valid: false, error: 'Missing orderId or paymentId' };
     }
 
+    let secretToUse = keySecret;
+    if (!secretToUse) {
+      const creds = await this.resolveCredentials(tenantId, db);
+      secretToUse = creds.keySecret;
+    }
+
     // In mock/test sandbox mode without real keys
-    const isRealKey = this.keyId && this.keyId.startsWith('rzp_') && this.keySecret && this.keySecret !== 'rzp_secret_omniflow_default';
+    const isRealKey = secretToUse && secretToUse !== 'rzp_secret_omniflow_default';
     if (!isRealKey || !signature || signature.startsWith('mock_sig_')) {
       return {
         valid: true,
@@ -189,7 +232,7 @@ class PaymentGatewayService {
 
     try {
       const generatedSignature = crypto
-        .createHmac('sha256', this.keySecret)
+        .createHmac('sha256', secretToUse)
         .update(`${orderId}|${paymentId}`)
         .digest('hex');
 

@@ -43,6 +43,7 @@ const SystemAuditLogsPage = lazy(() => import('./pages/SystemAuditLogsPage'));
 import { AuditEngine } from '../core/engines/AuditEngine/AuditEngine';
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const BillingPage = lazy(() => import('./pages/BillingPage'));
+const PaymentsPage = lazy(() => import('./pages/PaymentsPage'));
 const SuperAdminPage = lazy(() => import('./pages/SuperAdminPage'));
 const DropdownsPage = lazy(() => import('./pages/DropdownsPage'));
 const RecycleBinPage = lazy(() => import('./pages/RecycleBinPage'));
@@ -7431,6 +7432,28 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             )}
           />
 
+          {/* MAIN NAV ITEM: DEDICATED PAYMENTS & GATEWAY HUB */}
+          <SidebarMainNavItem
+            id="payments"
+            label="PAYMENTS"
+            icon={CreditCard}
+            isActive={activeTab === 'payments'}
+            onClick={() => setActiveTab('payments')}
+            badge={(
+              <span style={{
+                fontSize: '9px',
+                fontWeight: '800',
+                padding: '1px 5px',
+                borderRadius: '4px',
+                background: 'linear-gradient(135deg, #0d9488, #10b981)',
+                color: '#fff',
+                letterSpacing: '0.4px'
+              }}>
+                LIVE
+              </span>
+            )}
+          />
+
           {/* MAIN HEADINGS: SEPARATED CORE SYSTEMS (Elevated from Dashboards) */}
           {(canNav('tasks') || canNav('manager_dashboard')) && (
             <SidebarMainNavItem
@@ -8534,6 +8557,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             <FeedbackPage
               API_URL={API_URL}
               authUser={authUser}
+              showToast={showToast}
+            />
+          </Suspense>
+        )}
+        {activeTab === 'payments' && (
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Payments & Gateway Hub...</div>}>
+            <PaymentsPage
+              authUser={authUser}
+              API_URL={API_URL}
               showToast={showToast}
             />
           </Suspense>
