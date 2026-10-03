@@ -444,9 +444,9 @@ export default function SuperAdminTelephonyHub({ showToast }) {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '11px', color: '#a7f3d0', fontWeight: '700' }}>Tenant 1 Calling Wallet</div>
-            <div style={{ fontSize: '20px', fontWeight: '900', color: '#ffffff' }}>₹2,498.50</div>
-            <div style={{ fontSize: '10.5px', color: '#d1fae5' }}>Auto-Recharge: Enabled (₹500 / ₹2,000)</div>
+            <div style={{ fontSize: '11px', color: '#a7f3d0', fontWeight: '700' }}>Calling Provider</div>
+            <div style={{ fontSize: '16px', fontWeight: '900', color: '#ffffff' }}>Direct SIM Companion</div>
+            <div style={{ fontSize: '10.5px', color: '#d1fae5' }}>Android Auto-Sync Active</div>
           </div>
         </div>
       </div>
@@ -842,13 +842,12 @@ export default function SuperAdminTelephonyHub({ showToast }) {
                 <th style={{ padding: '12px 16px' }}>Wholesale Cost (₹)</th>
                 <th style={{ padding: '12px 16px' }}>Net Profit (₹)</th>
                 <th style={{ padding: '12px 16px' }}>Margin (%)</th>
-                <th style={{ padding: '12px 16px' }}>Wallet Balance</th>
               </tr>
             </thead>
             <tbody>
               {(!financialReport?.tenants || financialReport.tenants.length === 0) ? (
                 <tr>
-                  <td colSpan={8} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
+                  <td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
                     {loadingFinancial ? 'Loading dynamic financial report...' : 'No call logs recorded for the selected period.'}
                   </td>
                 </tr>
@@ -878,9 +877,6 @@ export default function SuperAdminTelephonyHub({ showToast }) {
                       <span style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', padding: '2px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: '800' }}>
                         {t.marginPercent}%
                       </span>
-                    </td>
-                    <td style={{ padding: '12px 16px', fontWeight: '700', color: '#0f2b26' }}>
-                      ₹{t.walletBalance.toFixed(2)}
                     </td>
                   </tr>
                 ))

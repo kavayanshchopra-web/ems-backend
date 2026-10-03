@@ -2594,36 +2594,7 @@ export const SupabaseSandboxService = {
     }
   },
 
-  // 17. TELEPHONY WALLET & SETTINGS (TELEPHONY INTEGRATION)
-  async fetchTelephonyWallet(tenantId = 1) {
-    try {
-      const cleanTenant = Number(tenantId || 1);
-      const res = await fetch(`${SUPABASE_URL}/telephony_wallets?tenant_id=eq.${cleanTenant}`, {
-        headers: getHeaders()
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        return data[0];
-      }
-      return {
-        tenant_id: cleanTenant,
-        balance: 1000.00,
-        currency: 'INR',
-        auto_recharge_enabled: false,
-        status: 'ACTIVE'
-      };
-    } catch (err) {
-      console.error('[Supabase Sandbox] fetchTelephonyWallet error:', err);
-      return {
-        tenant_id: Number(tenantId || 1),
-        balance: 1000.00,
-        currency: 'INR',
-        auto_recharge_enabled: false,
-        status: 'ACTIVE'
-      };
-    }
-  },
+  // 17. TELEPHONY SETTINGS
 
   async fetchTelephonySettings(tenantId = 1) {
     try {
@@ -2649,20 +2620,6 @@ export const SupabaseSandboxService = {
     }
   },
 
-  async fetchTelephonyTransactions(tenantId = 1) {
-    try {
-      const cleanTenant = Number(tenantId || 1);
-      const res = await fetch(`${SUPABASE_URL}/telephony_wallet_transactions?tenant_id=eq.${cleanTenant}&order=created_at.desc&limit=50`, {
-        headers: getHeaders()
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      return Array.isArray(data) ? data : [];
-    } catch (err) {
-      console.error('[Supabase Sandbox] fetchTelephonyTransactions error:', err);
-      return [];
-    }
-  },
 
   async fetchAgentPresence(tenantId = 1) {
     try {

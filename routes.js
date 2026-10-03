@@ -4517,34 +4517,6 @@ export default function setupRoutes(io) {
   // 📱 TELEPHONY & CALLING REPORTING ENDPOINTS
   // ==========================================
 
-  // 1. Wallet Balance & Status API
-  router.get(['/telephony/wallet', '/api/telephony/wallet'], async (req, res) => {
-    try {
-      const tenantId = req.user?.tenantId || req.user?.tenant_id || parseInt(req.query.tenantId || req.query.tenant_id || '1', 10);
-      return res.json({
-        success: true,
-        wallet: {
-          tenant_id: tenantId,
-          balance: 1000.00,
-          currency: 'INR',
-          auto_recharge_enabled: false,
-          status: 'ACTIVE'
-        }
-      });
-    } catch (err) {
-      return res.status(500).json({ success: false, error: err.message });
-    }
-  });
-
-  // 2. Wallet Topup API
-  router.post(['/telephony/wallet/topup', '/api/telephony/wallet/topup'], async (req, res) => {
-    try {
-      const amount = parseFloat(req.body.amount || 1000);
-      return res.json({ success: true, newBalance: 1000 + amount });
-    } catch (err) {
-      return res.status(500).json({ success: false, error: err.message });
-    }
-  });
 
   // 3. Agent Telephony Presence List
   router.get(['/telephony/agents/presence', '/api/telephony/agents/presence'], async (req, res) => {

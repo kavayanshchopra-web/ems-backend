@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Phone, PhoneCall, PhoneOff, X, User, Hash, Clock, Volume2, ShieldCheck, Activity, Smartphone, Laptop, Settings, Disc, Mic, CheckCircle2, RefreshCw, AlertCircle, Wallet, Sparkles } from 'lucide-react';
+import { Phone, PhoneCall, PhoneOff, X, User, Hash, Clock, Volume2, ShieldCheck, Activity, Smartphone, Laptop, Settings, Disc, Mic, CheckCircle2, RefreshCw, AlertCircle, Sparkles } from 'lucide-react';
 import { SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
 
 const IS_DEV = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
@@ -30,28 +30,10 @@ export default function VoxbayCloudDialerModal({
   const [agentMobile, setAgentMobile] = useState('6283513686');
   const [showConfig, setShowConfig] = useState(false);
 
-  // Live Telephony Wallet State from Sandbox PostgreSQL
-  const [wallet, setWallet] = useState({ balance: 2498.50, currency: 'INR' });
-  const [loadingWallet, setLoadingWallet] = useState(false);
   const tenantId = currentStaff?.tenantId || currentStaff?.tenant_id || 1;
 
   const timerRef = useRef(null);
   const autoDialTriggeredRef = useRef(false);
-
-  // Fetch real-time wallet on open from Sandbox PostgreSQL
-  useEffect(() => {
-    if (isOpen) {
-      setLoadingWallet(true);
-      SupabaseSandboxService.fetchTelephonyWallet(tenantId)
-        .then(w => {
-          if (w && w.balance !== undefined) {
-            setWallet(w);
-          }
-        })
-        .catch(() => {})
-        .finally(() => setLoadingWallet(false));
-    }
-  }, [isOpen, tenantId]);
 
   // Switch mode and save preference
   const handleModeChange = (mode) => {
@@ -154,13 +136,6 @@ export default function VoxbayCloudDialerModal({
       return;
     }
 
-    // 1. Check wallet balance in WebRTC mode
-    if (activeMode === 'webrtc' && parseFloat(wallet.balance || 0) <= 0) {
-      if (showToast) showToast('⚠️ Calling Wallet is empty! Please recharge.', 'error');
-      setCallState('IDLE');
-      return;
-    }
-
     setCallState('DIALING');
     setCallDuration(0);
 
@@ -251,18 +226,6 @@ export default function VoxbayCloudDialerModal({
   const handleHangup = async () => {
     const finalDuration = callDuration;
     setCallState('ENDED');
-
-    // Real-Time Wallet Deduction for WebRTC calls
-    if (callingMode === 'webrtc' && finalDuration > 0) {
-      const billableMins = Math.max(1, Math.ceil(finalDuration / 60));
-      const billedAmount = parseFloat((billableMins * 0.75).toFixed(2));
-      const newBal = parseFloat(Math.max(0, parseFloat(wallet.balance || 0) - billedAmount).toFixed(2));
-      setWallet(prev => ({ ...prev, balance: newBal }));
-
-      if (showToast) {
-        showToast(`Call ended (${finalDuration}s) • ₹${billedAmount} deducted from wallet`, 'info');
-      }
-    }
 
     const syncedRecording = `https://mucgmzldgvtblmsurtgo.supabase.co/storage/v1/object/public/omniflow-vault/rec-${activeCallId || Date.now()}.mp3`;
     if (onCallLogged) {
@@ -357,23 +320,6 @@ export default function VoxbayCloudDialerModal({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {/* LIVE WALLET BADGE */}
-            <div style={{
-              background: 'rgba(16, 185, 129, 0.25)',
-              border: '1px solid rgba(52, 211, 153, 0.5)',
-              padding: '4px 10px',
-              borderRadius: '20px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              fontSize: '11px',
-              fontWeight: '800',
-              color: '#a7f3d0'
-            }} title="Sandbox Telephony Wallet Balance">
-              <Wallet size={12} />
-              <span>₹{parseFloat(wallet.balance || 0).toFixed(2)}</span>
-            </div>
-
             <button
               type="button"
               onClick={handleCloseModal}
@@ -407,7 +353,7 @@ export default function VoxbayCloudDialerModal({
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: '11px', fontWeight: '800', color: '#0f172a' }}>⚡ Calling Mode:</span>
-            <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '600' }}>₹0.75 / min • Shared Line</span>
+            <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '600' }}>Direct SIM Companion Line</span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>

@@ -1522,7 +1522,7 @@ export default function TelecallingView({
                     <th style={{ padding: '10px 14px' }}>Connect Rate</th>
                     <th style={{ padding: '10px 14px' }}>Billed Minutes</th>
                     <th style={{ padding: '10px 14px' }}>Avg Call Time (ACD)</th>
-                    <th style={{ padding: '10px 14px' }}>Wallet Spend</th>
+                    <th style={{ padding: '10px 14px' }}>Total Billed</th>
                   </tr>
                 </thead>
                 <tbody>
