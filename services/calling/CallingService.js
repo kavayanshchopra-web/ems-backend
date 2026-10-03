@@ -1,5 +1,4 @@
 import PlivoProvider from './PlivoProvider.js';
-import VoxbayProvider from './VoxbayProvider.js';
 import { createCallLog, updateCallRecord, getTelephonySettings } from '../../db.js';
 
 class CallingService {
@@ -7,9 +6,8 @@ class CallingService {
     this.providers = new Map();
     this.activeCalls = new Map();
 
-    // Register Default Universal Cloud Providers (Plivo is Primary)
+    // Register Universal Calling Providers
     this.registerProvider(new PlivoProvider());
-    this.registerProvider(new VoxbayProvider());
   }
 
   registerProvider(provider) {

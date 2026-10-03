@@ -898,7 +898,7 @@ export class GhlSyncEngine {
 
   /**
    * Synchronize an EMS Call Record & Recording to GoHighLevel Conversation & Timeline.
-   * Works for both Voxbay PBX Cloud calls and Runo-style Mobile SIM Companion recordings.
+   * Works for Runo-style Mobile SIM Companion recordings and Telephony calls.
    * 
    * @param {number} tenantId 
    * @param {Object} callLog 
@@ -989,7 +989,7 @@ export class GhlSyncEngine {
         }
       }
       const recordingUrl = callLog.recordingUrl || callLog.recording_url || callLog.recording || callLog.audioUrl || '';
-      const channel = callLog.channel || (callLog.isSimCall ? 'SIM_COMPANION' : 'VOXBAY');
+      const channel = callLog.channel || (callLog.isSimCall ? 'SIM_COMPANION' : 'CLOUD_CALL');
       const staffName = callLog.staffName || callLog.staff_name || callLog.agentName || 'Agent';
       const status = callLog.disposition || callLog.status || 'Completed';
       const notes = callLog.notes || '';

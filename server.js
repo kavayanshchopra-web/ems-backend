@@ -71,24 +71,6 @@ const routesHandler = setupRoutes(io);
 app.use('/api', routesHandler);
 app.use('/', routesHandler);
 
-// Voxbay standard webhook endpoint (/callcenterbridging)
-const handleVoxbayWebhook = async (req, res) => {
-  try {
-    const payload = { ...req.query, ...req.body };
-    console.log('[Global Voxbay Webhook Received]', JSON.stringify(payload));
-    res.setHeader('Content-Type', 'text/plain');
-    res.status(200).send('success');
-  } catch (err) {
-    console.error('[Voxbay Webhook Global Handler Error]', err);
-    res.setHeader('Content-Type', 'text/plain');
-    res.status(200).send('success');
-  }
-};
-app.post('/callcenterbridging', handleVoxbayWebhook);
-app.get('/callcenterbridging', handleVoxbayWebhook);
-app.post('/voxbay', handleVoxbayWebhook);
-app.get('/voxbay', handleVoxbayWebhook);
-
 const PORT = process.env.PORT || 5000;
 
 async function start() {
