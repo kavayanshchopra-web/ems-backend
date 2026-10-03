@@ -1,24 +1,20 @@
-import PlivoProvider from './PlivoProvider.js';
-import { createCallLog, updateCallRecord, getTelephonySettings } from '../../db.js';
+import { createCallRecord, updateCallRecord, getTelephonySettings } from '../../db.js';
 
 class CallingService {
   constructor() {
     this.providers = new Map();
     this.activeCalls = new Map();
-
-    // Register Universal Calling Providers
-    this.registerProvider(new PlivoProvider());
   }
 
   registerProvider(provider) {
+    if (!provider || !provider.name) return;
     this.providers.set(provider.name.toLowerCase(), provider);
     console.log(`[CallingService] Registered calling provider: ${provider.name}`);
   }
 
-  getProvider(name = 'plivo') {
+  getProvider(name = 'sim_runo') {
     const p = this.providers.get(name.toLowerCase());
-    if (!p) throw new Error(`Calling provider '${name}' not found.`);
-    return p;
+    return p || null;
   }
 
   async initiateCall({
@@ -29,8 +25,8 @@ class CallingService {
     contactName = 'Customer',
     staffId = '1',
     staffName = 'Agent',
-    providerName = 'plivo',
-    callingMode = 'browser_webrtc',
+    providerName = 'sim_runo',
+    callingMode = 'mobile_to_mobile',
     io = null
   }) {
     const rawTarget = phoneNumber || destination;
@@ -40,37 +36,21 @@ class CallingService {
       throw new Error('Destination phone number is required.');
     }
 
-    const provider = this.getProvider(providerName || 'plivo');
     const settings = await getTelephonySettings(tenantId).catch(() => ({}));
-    const callerId = settings?.caller_id || provider.defaultCallerId || '918031496345';
-
-    let result = { success: true, providerCallId: `call_${Date.now()}` };
-
-    if (provider.name === 'plivo') {
-      result = await provider.initiateCall({
-        destination: cleanDestination,
-        fromNumber: callerId,
-        tenantId
-      });
-    } else {
-      result = await provider.initiateCall({
-        destination: cleanDestination,
-        fromNumber: callerId,
-        contactName
-      });
-    }
+    const callerId = settings?.caller_id || '918031496345';
+    const internalCallId = `call_${Date.now()}`;
+    const providerCallId = `sim_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     // Save call record to DB
-    const internalCallId = `call_${Date.now()}`;
     const callRecord = {
       tenantId,
       staffId,
       staffName,
       customerName: contactName,
       customerPhone: cleanDestination,
-      channel: 'PLIVO_WEBRTC',
+      channel: 'SIM_COMPANION',
       type: 'OUTGOING',
-      callUUID: result.callUuid || result.providerCallId || internalCallId,
+      callUUID: providerCallId,
       status: 'RINGING',
       disposition: 'Dialing',
       durationSeconds: 0,
@@ -78,7 +58,18 @@ class CallingService {
     };
 
     try {
-      const saved = await createCallLog(tenantId, callRecord);
+      const saved = await createCallRecord(tenantId, {
+        user_id: staffId,
+        contact_id: contactId,
+        phone_number: cleanDestination,
+        caller_id: callerId,
+        agent_extension: '101',
+        provider: 'sim_runo',
+        provider_call_id: providerCallId,
+        direction: 'outbound',
+        status: 'initiated',
+        notes: `Call initiated via SIM Companion to ${contactName}`
+      });
       if (saved) callRecord.id = saved.id;
     } catch (e) {
       console.warn('[CallingService] Log creation note:', e.message);
@@ -94,49 +85,55 @@ class CallingService {
     return {
       success: true,
       callId: internalCallId,
-      providerCallId: result.callUuid || result.providerCallId,
+      providerCallId,
       destination: cleanDestination,
       callingMode,
-      message: result.message || 'Call initiated successfully via Plivo Cloud WebRTC.'
+      message: 'Call initiated successfully via SIM Companion.'
     };
   }
 
   async endCall({ callId, callUuid, io = null }) {
     console.log(`[CallingService] Ending active call ${callId || callUuid || ''}...`);
-    const provider = this.getProvider('plivo');
-    await provider.endCall({ callUuid: callUuid || callId });
+    const targetId = callId || callUuid;
+    if (targetId && this.activeCalls.has(targetId)) {
+      const call = this.activeCalls.get(targetId);
+      call.status = 'COMPLETED';
+      this.activeCalls.delete(targetId);
+    }
 
     if (io) {
-      io.emit('telecalling:status_update', { callId: callId || callUuid, status: 'COMPLETED' });
+      io.emit('telecalling:status_update', { callId: targetId, status: 'COMPLETED' });
     }
 
     return { success: true, message: 'Call hangup signal dispatched.' };
   }
 
   async handleWebhook(payload, io = null) {
-    const provider = this.getProvider('plivo');
-    const normalized = provider.processWebhook(payload);
+    if (!payload) return null;
+    const callUuid = payload.callUuid || payload.call_uuid || payload.CallUUID;
+    const status = payload.status || payload.CallStatus || 'completed';
+    const duration = parseInt(payload.duration || payload.Duration || '0', 10);
+    const recordingUrl = payload.recordingUrl || payload.RecordingUrl || '';
 
-    if (normalized && normalized.callUuid) {
+    if (callUuid) {
       try {
-        await updateCallRecord(normalized.callUuid, {
-          callStatus: normalized.status,
-          totalDuration: `${normalized.durationSeconds}s`,
-          conversationDuration: `${normalized.durationSeconds}s`,
-          recordingUrl: normalized.recordingUrl
+        await updateCallRecord(callUuid, {
+          callStatus: status,
+          totalDuration: `${duration}s`,
+          conversationDuration: `${duration}s`,
+          recordingUrl
         });
       } catch (dbErr) {
         console.warn('[CallingService] Webhook DB sync notice:', dbErr.message);
       }
 
       if (io) {
-        io.emit('telecalling:cdr_received', normalized);
         io.emit('telecalling:status_update', {
-          callUUID: normalized.callUuid,
-          status: normalized.status
+          callUUID: callUuid,
+          status
         });
       }
-      return normalized;
+      return { callUuid, status, duration, recordingUrl };
     }
     return null;
   }

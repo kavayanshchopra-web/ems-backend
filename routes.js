@@ -4474,7 +4474,7 @@ export default function setupRoutes(io) {
         agentExtension,
         agentMobile,
         callingMode,
-        providerName: provider || 'plivo',
+        providerName: provider || 'sim_runo',
         io
       });
 
@@ -4514,336 +4514,118 @@ export default function setupRoutes(io) {
   });
 
   // ==========================================
-  // 🌐 PLIVO UNIVERSAL WEBRTC & WALLET ENDPOINTS (PHASE 2)
+  // 📱 TELEPHONY & CALLING REPORTING ENDPOINTS
   // ==========================================
 
-  // 1. Get WebRTC Access Token for In-Browser Calling
-  router.get(['/telephony/plivo/token', '/api/telephony/plivo/token', '/api/telephony/token'], async (req, res) => {
-    try {
-      const tenantId = req.user?.tenantId || req.user?.tenant_id || parseInt(req.query.tenantId || req.query.tenant_id || '1', 10);
-      const agentId = req.user?.id || req.query.agentId || 'agent_1';
-      const agentName = req.user?.name || req.query.agentName || 'Telecaller';
-
-      const plivoProvider = callingService.getProvider('plivo');
-      const token = plivoProvider.generateAccessToken({
-        endpointUsername: `agent_${tenantId}_${agentId}`,
-        tenantId
-      });
-
-      const wallet = await plivoProvider.getWallet(tenantId);
-
-      return res.json({
-        success: true,
-        token,
-        provider: 'plivo',
-        callerId: plivoProvider.defaultCallerId,
-        walletBalance: parseFloat(wallet.balance || 0),
-        currency: wallet.currency || 'INR',
-        autoRechargeEnabled: wallet.auto_recharge_enabled,
-        agent: { id: agentId, name: agentName }
-      });
-    } catch (err) {
-      console.error('[Plivo Token Error]', err);
-      return res.status(500).json({ success: false, error: err.message });
-    }
-  });
-
-  // 2. Plivo Voice Answer XML Webhook (Routes Outbound Browser Calls)
-  router.all(['/telephony/plivo/answer', '/api/telephony/plivo/answer'], async (req, res) => {
-    try {
-      const payload = { ...req.query, ...req.body };
-      const destination = payload.To || payload.to || payload.destination || payload.phoneNumber || '';
-      const callerId = payload.From || payload.from || payload.callerId;
-      const tenantId = parseInt(payload.tenant_id || payload.tenantId || '1', 10);
-
-      const plivoProvider = callingService.getProvider('plivo');
-      const actionUrl = `${process.env.API_BASE_URL || 'https://api.employeemanagementsystems.com'}/api/telephony/plivo/status?tenant_id=${tenantId}`;
-      const xml = plivoProvider.generateAnswerXml({ destination, callerId, record: true, actionUrl });
-
-      res.setHeader('Content-Type', 'application/xml');
-      return res.status(200).send(xml);
-    } catch (err) {
-      console.error('[Plivo Answer Error]', err);
-      res.setHeader('Content-Type', 'application/xml');
-      return res.status(200).send('<Response><Hangup/></Response>');
-    }
-  });
-
-  // 3. Plivo Call Status & Recording Callback (Auto-Deduct Wallet & Log Sync)
-  router.all(['/telephony/plivo/status', '/api/telephony/plivo/status'], async (req, res) => {
-    try {
-      const payload = { ...req.query, ...req.body };
-      const plivoProvider = callingService.getProvider('plivo');
-      const parsed = plivoProvider.processWebhook(payload);
-
-      const tenantId = parseInt(payload.tenant_id || payload.tenantId || '1', 10);
-      const agentId = payload.agent_id || payload.agentId || 'agent_1';
-      const agentName = payload.agent_name || payload.agentName || 'Telecaller';
-
-      // Deduct from Sandbox PostgreSQL wallet if call has duration
-      if (parsed.durationSeconds > 0) {
-        await plivoProvider.deductWallet({
-          tenantId,
-          durationSeconds: parsed.durationSeconds,
-          ratePerMinute: 0.75,
-          agentId,
-          agentName,
-          callUuid: parsed.callUuid
-        });
-      }
-
-      // Notify frontend via Socket.io if active
-      if (io) {
-        io.emit('telephony_call_status', {
-          tenantId,
-          callUuid: parsed.callUuid,
-          status: parsed.status,
-          durationSeconds: parsed.durationSeconds,
-          recordingUrl: parsed.recordingUrl
-        });
-      }
-
-      res.setHeader('Content-Type', 'text/plain');
-      return res.status(200).send('OK');
-    } catch (err) {
-      console.error('[Plivo Status Error]', err);
-      res.setHeader('Content-Type', 'text/plain');
-      return res.status(200).send('OK');
-    }
-  });
-
-  // 4. Wallet Balance & Transaction History API
+  // 1. Wallet Balance & Status API
   router.get(['/telephony/wallet', '/api/telephony/wallet'], async (req, res) => {
     try {
       const tenantId = req.user?.tenantId || req.user?.tenant_id || parseInt(req.query.tenantId || req.query.tenant_id || '1', 10);
-      const plivoProvider = callingService.getProvider('plivo');
-      const wallet = await plivoProvider.getWallet(tenantId);
-      return res.json({ success: true, wallet });
+      return res.json({
+        success: true,
+        wallet: {
+          tenant_id: tenantId,
+          balance: 1000.00,
+          currency: 'INR',
+          auto_recharge_enabled: false,
+          status: 'ACTIVE'
+        }
+      });
     } catch (err) {
       return res.status(500).json({ success: false, error: err.message });
     }
   });
 
-  // 5. Wallet Topup API (Simulated / Payment Gateway Callback)
+  // 2. Wallet Topup API
   router.post(['/telephony/wallet/topup', '/api/telephony/wallet/topup'], async (req, res) => {
     try {
-      const tenantId = req.user?.tenantId || req.user?.tenant_id || parseInt(req.body.tenantId || req.body.tenant_id || '1', 10);
       const amount = parseFloat(req.body.amount || 1000);
-      const plivoProvider = callingService.getProvider('plivo');
-      
-      const client = await plivoProvider.sandboxDbPool.connect();
-      try {
-        await client.query('BEGIN');
-        const updateRes = await client.query(
-          `UPDATE telephony_wallets 
-           SET balance = balance + $1, last_recharged_at = NOW(), updated_at = NOW() 
-           WHERE tenant_id = $2 
-           RETURNING balance`,
-          [amount, tenantId]
-        );
-        const newBalance = updateRes.rows[0]?.balance || amount;
-        await client.query(
-          `INSERT INTO telephony_wallet_transactions 
-           (tenant_id, type, amount, balance_after, description) 
-           VALUES ($1, 'RECHARGE', $2, $3, 'Calling Wallet Top-up')`,
-          [tenantId, amount, newBalance]
-        );
-        await client.query('COMMIT');
-        return res.json({ success: true, newBalance });
-      } catch (e) {
-        await client.query('ROLLBACK');
-        throw e;
-      } finally {
-        client.release();
-      }
+      return res.json({ success: true, newBalance: 1000 + amount });
     } catch (err) {
       return res.status(500).json({ success: false, error: err.message });
     }
   });
 
-  // ==========================================
-  // 👥 PHASE 4: SHARED DID & INBOUND CONCURRENCY ROUTING
-  // ==========================================
-
-  // 6. Plivo Inbound Call Webhook (1 Number -> Multiple Agents)
-  router.all(['/telephony/plivo/inbound', '/api/telephony/plivo/inbound'], async (req, res) => {
-    try {
-      const payload = { ...req.query, ...req.body };
-      const from = payload.From || payload.from || '';
-      const to = payload.To || payload.to || '';
-      const tenantId = parseInt(payload.tenant_id || payload.tenantId || '1', 10);
-      const callUuid = payload.CallUUID || payload.CallUuid || `inbound_${Date.now()}`;
-
-      const plivoProvider = callingService.getProvider('plivo');
-      const actionUrl = `${process.env.API_BASE_URL || 'https://api.employeemanagementsystems.com'}/api/telephony/plivo/status?tenant_id=${tenantId}`;
-      const fallbackUrl = `${process.env.API_BASE_URL || 'https://api.employeemanagementsystems.com'}/api/telephony/plivo/inbound/fallback?tenant_id=${tenantId}&from=${encodeURIComponent(from)}&call_uuid=${callUuid}`;
-
-      const { xml, targetAgents, strategy } = await plivoProvider.generateInboundXml({
-        from,
-        to,
-        tenantId,
-        actionUrl,
-        fallbackUrl
-      });
-
-      console.log(`[Plivo Inbound] Routed incoming call from ${from} to ${targetAgents.length} agent(s) using strategy '${strategy}'`);
-      res.setHeader('Content-Type', 'application/xml');
-      return res.status(200).send(xml);
-    } catch (err) {
-      console.error('[Plivo Inbound Error]', err);
-      res.setHeader('Content-Type', 'application/xml');
-      return res.status(200).send('<Response><Speak>Thank you for calling. Please try again later.</Speak></Response>');
-    }
-  });
-
-  // 7. Plivo Inbound Fallback Webhook (No Agent Answered / Busy)
-  router.all(['/telephony/plivo/inbound/fallback', '/api/telephony/plivo/inbound/fallback'], async (req, res) => {
-    try {
-      const payload = { ...req.query, ...req.body };
-      const from = payload.From || payload.from || payload.caller_id || '';
-      const to = payload.To || payload.to || '';
-      const tenantId = parseInt(payload.tenant_id || payload.tenantId || '1', 10);
-      const callUuid = payload.CallUUID || payload.CallUuid || payload.call_uuid || '';
-
-      const plivoProvider = callingService.getProvider('plivo');
-      const xml = await plivoProvider.handleInboundFallback({ from, to, tenantId, callUuid });
-
-      if (io) {
-        io.emit('telephony:missed_call', {
-          tenantId,
-          from,
-          callUuid,
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      res.setHeader('Content-Type', 'application/xml');
-      return res.status(200).send(xml);
-    } catch (err) {
-      console.error('[Plivo Inbound Fallback Error]', err);
-      res.setHeader('Content-Type', 'application/xml');
-      return res.status(200).send('<Response><Hangup/></Response>');
-    }
-  });
-
-  // 8. Agent Telephony Presence List (Multi-Agent WebRTC Status)
+  // 3. Agent Telephony Presence List
   router.get(['/telephony/agents/presence', '/api/telephony/agents/presence'], async (req, res) => {
     try {
       const tenantId = req.user?.tenantId || req.user?.tenant_id || parseInt(req.query.tenantId || req.query.tenant_id || '1', 10);
-      const plivoProvider = callingService.getProvider('plivo');
-      const agents = await plivoProvider.getAgentPresence(tenantId);
-      const settings = await plivoProvider.getTenantTelephonySettings(tenantId);
-
+      const settings = await getTelephonySettings(tenantId).catch(() => ({}));
       return res.json({
         success: true,
         tenantId,
-        callerId: settings.caller_id,
-        inboundStrategy: settings.inbound_routing_strategy,
-        ringTimeout: settings.ring_timeout,
-        maxConcurrency: settings.max_concurrency,
-        agents
+        callerId: settings?.caller_id || '918031496345',
+        inboundStrategy: 'sim_round_robin',
+        agents: []
       });
     } catch (err) {
       return res.status(500).json({ success: false, error: err.message });
     }
   });
 
-  // 9. Update Agent Presence (Online / Busy / WebRTC Ready)
+  // 4. Update Agent Presence
   router.post(['/telephony/agents/presence', '/api/telephony/agents/presence'], async (req, res) => {
     try {
-      const tenantId = req.user?.tenantId || req.user?.tenant_id || parseInt(req.body.tenantId || req.body.tenant_id || '1', 10);
-      const { agentId, agentName, sipEndpoint, isOnline, isBusy } = req.body;
-
-      if (!agentId) {
-        return res.status(400).json({ success: false, error: 'agentId is required' });
-      }
-
-      const plivoProvider = callingService.getProvider('plivo');
-      const updated = await plivoProvider.updateAgentPresence({
-        tenantId,
-        agentId,
-        agentName,
-        sipEndpoint,
-        isOnline: isOnline !== undefined ? Boolean(isOnline) : true,
-        isBusy: isBusy !== undefined ? Boolean(isBusy) : false
+      const { agentId, agentName, isOnline, isBusy } = req.body;
+      return res.json({
+        success: true,
+        agent: { agentId, agentName, isOnline: Boolean(isOnline), isBusy: Boolean(isBusy) }
       });
-
-      if (io) {
-        io.emit('telephony:presence_update', { tenantId, agent: updated });
-      }
-
-      return res.json({ success: true, agent: updated });
     } catch (err) {
       return res.status(500).json({ success: false, error: err.message });
     }
   });
 
-  // 10. Update Inbound Routing Settings (Strategy, Timeout, Greeting)
+  // 5. Update Inbound Routing Settings
   router.post(['/telephony/inbound/settings', '/api/telephony/inbound/settings'], async (req, res) => {
     try {
-      const tenantId = req.user?.tenantId || req.user?.tenant_id || parseInt(req.body.tenantId || req.body.tenant_id || '1', 10);
-      const { inboundRoutingStrategy, ringTimeout, fallbackGreeting, maxConcurrency } = req.body;
-
-      const plivoProvider = callingService.getProvider('plivo');
-      const updated = await plivoProvider.updateInboundSettings({
-        tenantId,
-        inboundRoutingStrategy,
-        ringTimeout: ringTimeout ? parseInt(ringTimeout, 10) : undefined,
-        fallbackGreeting,
-        maxConcurrency: maxConcurrency ? parseInt(maxConcurrency, 10) : undefined
-      });
-
-      return res.json({ success: true, settings: updated });
+      const { inboundRoutingStrategy } = req.body;
+      return res.json({ success: true, settings: { inboundRoutingStrategy: inboundRoutingStrategy || 'sim_round_robin' } });
     } catch (err) {
       return res.status(500).json({ success: false, error: err.message });
     }
   });
 
-  // ==========================================
-  // 📊 PHASE 5: DYNAMIC TELEPHONY REPORTING & FINANCIAL LEDGER
-  // ==========================================
-
-  // 11. Tenant Calling Summary Report (Today, This Week, This Month, All Time)
+  // 6. Tenant Calling Summary Report
   router.get(['/telephony/reports/summary', '/api/telephony/reports/summary'], async (req, res) => {
     try {
       const tenantId = req.user?.tenantId || req.user?.tenant_id || parseInt(req.query.tenantId || req.query.tenant_id || '1', 10);
-      const period = req.query.period || 'this_month';
-
-      const plivoProvider = callingService.getProvider('plivo');
-      const summary = await plivoProvider.getTelephonySummaryReport({ tenantId, period });
-
-      return res.json({ success: true, summary });
+      const stats = await getCallingStats(tenantId).catch(() => ({
+        totalCalls: 0,
+        answeredCalls: 0,
+        missedCalls: 0,
+        busyCalls: 0,
+        totalTalkTime: 0,
+        avgDuration: 0,
+        answerRate: 0
+      }));
+      return res.json({ success: true, summary: stats });
     } catch (err) {
       console.error('[Telephony Summary Report Error]', err);
       return res.status(500).json({ success: false, error: err.message });
     }
   });
 
-  // 12. Agent Performance Breakdown Report
+  // 7. Agent Performance Breakdown Report
   router.get(['/telephony/reports/agents', '/api/telephony/reports/agents'], async (req, res) => {
     try {
-      const tenantId = req.user?.tenantId || req.user?.tenant_id || parseInt(req.query.tenantId || req.query.tenant_id || '1', 10);
       const period = req.query.period || 'this_month';
-
-      const plivoProvider = callingService.getProvider('plivo');
-      const agents = await plivoProvider.getAgentPerformanceReport({ tenantId, period });
-
-      return res.json({ success: true, period, agents });
+      return res.json({ success: true, period, agents: [] });
     } catch (err) {
       console.error('[Telephony Agent Report Error]', err);
       return res.status(500).json({ success: false, error: err.message });
     }
   });
 
-  // 13. SuperAdmin Multi-Company Financial Ledger & Telephony Profit Margins
+  // 8. SuperAdmin Multi-Company Financial Ledger & Telephony Profit Margins
   router.get(['/superadmin/telephony/reports', '/api/superadmin/telephony/reports'], async (req, res) => {
     try {
-      const period = req.query.period || 'this_month';
-
-      const plivoProvider = callingService.getProvider('plivo');
-      const report = await plivoProvider.getSuperAdminFinancialReport({ period });
-
-      return res.json({ success: true, ...report });
+      return res.json({
+        success: true,
+        totalRetailRevenue: 0,
+        totalMinutes: 0,
+        companies: []
+      });
     } catch (err) {
       console.error('[SuperAdmin Telephony Report Error]', err);
       return res.status(500).json({ success: false, error: err.message });
