@@ -1035,22 +1035,23 @@ export default function setupRoutes(io) {
             console.warn('[Webhook CRM Contact Sync Warning]:', contactErr.message);
           }
 
-          // Trigger Automated Baileys WhatsApp Message
+          // Trigger Multi-Step Automation Engine (Supports instant message + 2 hours delay drip)
           try {
             if (custPhone) {
-              const cleanDigits = custPhone.replace(/\D/g, '').slice(-10);
-              const sessions = await getAllSessions();
-              const connectedSession = sessions.find(s => s.status === 'connected' && s.tenant_id === effectiveTenantId) ||
-                                       sessions.find(s => s.status === 'connected');
-
-              if (connectedSession) {
-                const thankYouMessage = `Hi ${custName}!\n\nThank you for your purchase! 🎉\nYour payment of ₹${paidAmount} was successfully received.\n\nPayment ID: ${paymentId}\nStatus: Verified ✅\n\nWe are processing your order right away.`;
-                await sendWhatsAppMessage(connectedSession.id, cleanDigits, thankYouMessage, effectiveTenantId);
-                console.log(`📱 [WhatsApp Automated Message Sent to ${cleanDigits}]`);
-              }
+              const { automationWorkflowEngine } = await import('./services/AutomationWorkflowEngine.js');
+              await automationWorkflowEngine.triggerEvent('payment_success', {
+                customer_name: custName,
+                customer_phone: custPhone,
+                customer_email: custEmail,
+                amount: paidAmount,
+                payment_id: paymentId,
+                order_id: orderId,
+                transaction_id: targetTxn?.id || paymentId,
+                form_answers: targetTxn?.form_answers || {}
+              }, effectiveTenantId);
             }
-          } catch (waErr) {
-            console.warn('[Webhook WhatsApp Notification Warning]:', waErr.message);
+          } catch (autoErr) {
+            console.warn('[Webhook Automation Engine Warning]:', autoErr.message);
           }
 
           // Emit live real-time update to EMS Dashboard
@@ -1100,6 +1101,22 @@ export default function setupRoutes(io) {
               });
             } catch (contactErr) {
               console.warn('[Webhook CRM Failed Contact Sync Warning]:', contactErr.message);
+            }
+            // Trigger Multi-Step Automation Engine for Payment Failed / Incomplete Drop-off
+            try {
+              const { automationWorkflowEngine } = await import('./services/AutomationWorkflowEngine.js');
+              await automationWorkflowEngine.triggerEvent('payment_failed', {
+                customer_name: custName,
+                customer_phone: custPhone,
+                customer_email: custEmail,
+                amount: failedAmount,
+                payment_id: paymentId,
+                error_code: errCode,
+                error_description: errDesc,
+                payment_link: 'https://app.employeemanagementsystems.com/#/payments'
+              }, effectiveTenantId);
+            } catch (autoErr) {
+              console.warn('[Webhook Automation Engine (Failed) Warning]:', autoErr.message);
             }
           }
 

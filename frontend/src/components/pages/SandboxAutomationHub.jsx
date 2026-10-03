@@ -142,10 +142,101 @@ export default function SandboxAutomationHub({
   const [isSimulating, setIsSimulating] = useState(false);
   const chatBottomRef = useRef(null);
 
+  // Live Test Execution Modal State
+  const [showLiveTestModal, setShowLiveTestModal] = useState(false);
+  const [testEventType, setTestEventType] = useState('payment_success');
+  const [testPhone, setTestPhone] = useState('919876543210');
+  const [testName, setTestName] = useState('Kavayansh Chopra');
+  const [testAmount, setTestAmount] = useState('4999');
+  const [isExecutingTest, setIsExecutingTest] = useState(false);
+
   // Toast Helper
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Fetch flows from backend database on mount
+  useEffect(() => {
+    const loadBackendFlows = async () => {
+      try {
+        const res = await fetch(`${apiBase}/sandbox/automations/flows`, {
+          headers: { 'x-tenant-id': String(companyId || 1) }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.flows && data.flows.length > 0) {
+            const savedIds = new Set(data.flows.map(f => f.id));
+            const remainingTemplates = MASTER_AUTOMATION_TEMPLATES.filter(t => !savedIds.has(t.id));
+            const combined = [...data.flows, ...remainingTemplates];
+            setFlows(combined);
+            setSelectedFlow(combined[0]);
+          }
+        }
+      } catch (e) {
+        console.warn('Backend flows fetch notice:', e.message);
+      }
+    };
+    loadBackendFlows();
+  }, [apiBase, companyId]);
+
+  // Save flow to backend database
+  const handleSaveFlowToBackend = async (flowToSave = selectedFlow) => {
+    try {
+      const res = await fetch(`${apiBase}/sandbox/automations/flows`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': String(companyId || 1)
+        },
+        body: JSON.stringify({
+          ...flowToSave,
+          tenant_id: String(companyId || 1)
+        })
+      });
+      if (res.ok) {
+        showToast(`💾 Saved "${flowToSave.name}"!`);
+      }
+    } catch (e) {
+      showToast('💾 Saved in memory');
+    }
+  };
+
+  // Run live test execution via backend AutomationWorkflowEngine
+  const handleExecuteLiveTest = async () => {
+    setIsExecutingTest(true);
+    try {
+      const res = await fetch(`${apiBase}/sandbox/automations/test-execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType: testEventType,
+          tenantId: companyId || 1,
+          flowId: selectedFlow?.id,
+          payload: {
+            customer_name: testName,
+            customer_phone: testPhone,
+            amount: testAmount,
+            payment_id: `pay_test_${Date.now()}`,
+            order_id: `order_test_${Date.now()}`,
+            remaining_balance: '1500',
+            due_date: '3 Days',
+            payment_link: 'https://app.employeemanagementsystems.com/#/payments'
+          }
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`🎉 Test Execution Sent! Delivered to ${testPhone}`);
+        setShowLiveTestModal(false);
+      } else {
+        showToast(`⚠️ Test status: ${data.message || data.error || 'Check server logs'}`);
+      }
+    } catch (err) {
+      showToast(`❌ Test execution error: ${err.message}`);
+    } finally {
+      setIsExecutingTest(false);
+    }
   };
 
   // Synchronize 2D positions whenever selected flow changes
@@ -608,6 +699,28 @@ export default function SandboxAutomationHub({
 
         {/* Right: Engine Status & Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Live Test on WhatsApp Button */}
+          <button
+            onClick={() => setShowLiveTestModal(true)}
+            style={{
+              background: 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '7px 14px',
+              color: '#ffffff',
+              fontSize: '11.5px',
+              fontWeight: '800',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 10px rgba(16, 185, 129, 0.4)'
+            }}
+          >
+            <Zap size={13} />
+            <span>⚡ Test on WhatsApp</span>
+          </button>
+
           {/* Dual-Engine Mode Indicator */}
           <button
             onClick={() => setShowSettingsModal(true)}
@@ -777,6 +890,30 @@ export default function SandboxAutomationHub({
                 Save
               </button>
             </div>
+
+            <button
+              onClick={() => setShowLiveTestModal(true)}
+              style={{
+                width: '100%',
+                padding: '9px 12px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)',
+                border: '1px solid rgba(16, 185, 129, 0.5)',
+                color: '#ffffff',
+                fontSize: '11.5px',
+                fontWeight: '800',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                boxShadow: '0 4px 15px rgba(16, 185, 129, 0.35)',
+                marginTop: '10px'
+              }}
+            >
+              <Zap size={14} />
+              <span>⚡ Test on WhatsApp</span>
+            </button>
           </div>
 
           {/* Canvas Viewport (Infinite Dot Grid with 2D Drag & Drop Nodes & Bezier Curves) */}
@@ -1142,33 +1279,182 @@ export default function SandboxAutomationHub({
                 </button>
               </div>
 
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#cbd5e1', marginBottom: '6px' }}>
-                  Step Label / Message Text:
-                </label>
-                <textarea
-                  rows={3}
-                  value={selectedNode.label}
-                  onChange={(e) => setSelectedNode({ ...selectedNode, label: e.target.value })}
-                  style={{
-                    width: '100%',
-                    background: '#111b21',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    borderRadius: '8px',
-                    padding: '10px',
-                    color: '#ffffff',
-                    fontSize: '12.5px',
-                    boxSizing: 'border-box',
-                    outline: 'none'
-                  }}
-                />
-              </div>
+              {/* Node Type Specific Configuration */}
+              {selectedNode.type === 'trigger' ? (
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#14d2cb', marginBottom: '6px' }}>
+                    ⚡ Trigger Event:
+                  </label>
+                  <select
+                    value={selectedFlow.trigger_type || 'payment_success'}
+                    onChange={(e) => {
+                      const newTrigger = e.target.value;
+                      const updatedFlow = { ...selectedFlow, trigger_type: newTrigger };
+                      setSelectedFlow(updatedFlow);
+                      let newLabel = '⚡ Trigger: Custom Event';
+                      if (newTrigger === 'payment_success') newLabel = '⚡ Trigger: Payment Received (Razorpay)';
+                      else if (newTrigger === 'payment_failed') newLabel = '⚡ Trigger: Payment Failed / Checkout Dropped';
+                      else if (newTrigger === 'partial_payment') newLabel = '⚡ Trigger: Partial / Token Payment';
+                      else if (newTrigger === 'keyword') newLabel = '⚡ Trigger: Inbound Keyword ("Hi" / "Hello")';
+                      setSelectedNode({ ...selectedNode, label: newLabel });
+                    }}
+                    style={{
+                      width: '100%',
+                      background: '#111b21',
+                      border: '1px solid rgba(20, 210, 203, 0.4)',
+                      borderRadius: '8px',
+                      padding: '9px',
+                      color: '#ffffff',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <option value="payment_success">💳 Payment Received (Success)</option>
+                    <option value="payment_failed">🚨 Payment Failed / Dropped Checkout</option>
+                    <option value="partial_payment">💰 Partial / Token Payment</option>
+                    <option value="keyword">🚀 Inbound Keyword ("Hi", "Hello")</option>
+                  </select>
+                </div>
+              ) : selectedNode.type === 'delay' ? (
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#f59e0b', marginBottom: '6px' }}>
+                    ⏱️ Wait / Delay Duration:
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="number"
+                      min="1"
+                      value={selectedNode.delayVal || (selectedNode.delayHours ? selectedNode.delayHours : (selectedNode.delayMinutes ? selectedNode.delayMinutes : 2))}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10) || 1;
+                        const unit = selectedNode.delayUnit || (selectedNode.delayMinutes ? 'Minutes' : 'Hours');
+                        const label = `⏱️ Wait ${val} ${unit}`;
+                        setSelectedNode({
+                          ...selectedNode,
+                          delayVal: val,
+                          delayUnit: unit,
+                          delayHours: unit === 'Hours' ? val : (unit === 'Days' ? val * 24 : 0),
+                          delayMinutes: unit === 'Minutes' ? val : (unit === 'Hours' ? val * 60 : val * 1440),
+                          label
+                        });
+                      }}
+                      style={{
+                        width: '80px',
+                        background: '#111b21',
+                        border: '1px solid rgba(245, 158, 11, 0.4)',
+                        borderRadius: '8px',
+                        padding: '9px',
+                        color: '#ffffff',
+                        fontSize: '13px',
+                        fontWeight: '800',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <select
+                      value={selectedNode.delayUnit || (selectedNode.delayMinutes && !selectedNode.delayHours ? 'Minutes' : 'Hours')}
+                      onChange={(e) => {
+                        const unit = e.target.value;
+                        const val = selectedNode.delayVal || (selectedNode.delayHours ? selectedNode.delayHours : 2);
+                        const label = `⏱️ Wait ${val} ${unit}`;
+                        setSelectedNode({
+                          ...selectedNode,
+                          delayUnit: unit,
+                          delayVal: val,
+                          delayHours: unit === 'Hours' ? val : (unit === 'Days' ? val * 24 : 0),
+                          delayMinutes: unit === 'Minutes' ? val : (unit === 'Hours' ? val * 60 : val * 1440),
+                          label
+                        });
+                      }}
+                      style={{
+                        flex: 1,
+                        background: '#111b21',
+                        border: '1px solid rgba(245, 158, 11, 0.4)',
+                        borderRadius: '8px',
+                        padding: '9px',
+                        color: '#f59e0b',
+                        fontSize: '12.5px',
+                        fontWeight: '700',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    >
+                      <option value="Minutes">Minutes</option>
+                      <option value="Hours">Hours (e.g. 2 Hours)</option>
+                      <option value="Days">Days</option>
+                    </select>
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '6px', lineHeight: '1.4' }}>
+                    💡 Client-Customizable: Background worker will automatically schedule the next step for exactly this delay.
+                  </div>
+                </div>
+              ) : (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <label style={{ fontSize: '11.5px', fontWeight: '700', color: '#cbd5e1' }}>
+                      Step Message Text:
+                    </label>
+                  </div>
+
+                  {/* Dynamic Variable Insertion Pills */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '8px' }}>
+                    {[
+                      { tag: '{{name}}', label: '+ Name' },
+                      { tag: '{{amount}}', label: '+ Amount' },
+                      { tag: '{{payment_id}}', label: '+ Pay ID' },
+                      { tag: '{{payment_link}}', label: '+ Pay Link' }
+                    ].map(pill => (
+                      <button
+                        key={pill.tag}
+                        type="button"
+                        onClick={() => {
+                          const current = selectedNode.label || '';
+                          setSelectedNode({ ...selectedNode, label: `${current} ${pill.tag}` });
+                        }}
+                        style={{
+                          background: 'rgba(20, 210, 203, 0.12)',
+                          border: '1px solid rgba(20, 210, 203, 0.3)',
+                          color: '#14d2cb',
+                          borderRadius: '4px',
+                          padding: '3px 7px',
+                          fontSize: '10.5px',
+                          fontWeight: '700',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {pill.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <textarea
+                    rows={4}
+                    value={selectedNode.label || ''}
+                    onChange={(e) => setSelectedNode({ ...selectedNode, label: e.target.value })}
+                    style={{
+                      width: '100%',
+                      background: '#111b21',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '8px',
+                      padding: '10px',
+                      color: '#ffffff',
+                      fontSize: '12px',
+                      lineHeight: '1.4',
+                      boxSizing: 'border-box',
+                      outline: 'none',
+                      resize: 'vertical'
+                    }}
+                  />
+                </div>
+              )}
 
               {/* Edit Buttons */}
-              {selectedNode.buttons !== undefined && (
+              {selectedNode.type !== 'delay' && selectedNode.type !== 'trigger' && selectedNode.buttons !== undefined && (
                 <div style={{ marginBottom: '16px' }}>
                   <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#cbd5e1', marginBottom: '6px' }}>
-                    Interactive WhatsApp Buttons:
+                    Interactive WhatsApp Buttons (1-Click Replies):
                   </label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {(selectedNode.buttons || []).map((btn, bi) => (
@@ -1230,10 +1516,13 @@ export default function SandboxAutomationHub({
               )}
 
               <button
-                onClick={() => handleUpdateNode(selectedNode)}
+                onClick={() => {
+                  handleUpdateNode(selectedNode);
+                  setSelectedNode(null);
+                }}
                 style={{
                   marginTop: 'auto',
-                  padding: '11px',
+                  padding: '12px',
                   borderRadius: '8px',
                   background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)',
                   border: 'none',
@@ -1244,7 +1533,7 @@ export default function SandboxAutomationHub({
                   boxShadow: '0 4px 15px rgba(16, 185, 129, 0.3)'
                 }}
               >
-                Apply Node Changes
+                Apply & Save Step
               </button>
             </div>
           )}
@@ -1308,13 +1597,35 @@ export default function SandboxAutomationHub({
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => loadFlowInSimulator(selectedFlow)}
-                    title="Restart Simulation"
-                    style={{ background: 'none', border: 'none', color: '#aebac1', cursor: 'pointer' }}
-                  >
-                    <RefreshCw size={14} />
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      onClick={() => setShowLiveTestModal(true)}
+                      style={{
+                        background: '#00a884',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '4px 8px',
+                        color: '#0b141a',
+                        fontSize: '10.5px',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <Zap size={11} />
+                      <span>Live Test</span>
+                    </button>
+
+                    <button
+                      onClick={() => loadFlowInSimulator(selectedFlow)}
+                      title="Restart Simulation"
+                      style={{ background: 'none', border: 'none', color: '#aebac1', cursor: 'pointer' }}
+                    >
+                      <RefreshCw size={14} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* WhatsApp Chat Conversation Area */}
@@ -2100,6 +2411,201 @@ export default function SandboxAutomationHub({
                 }}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* LIVE TEST EXECUTION ON REAL WHATSAPP MODAL */}
+      {/* ===================================================================== */}
+      {showLiveTestModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999
+        }}>
+          <div style={{
+            width: '480px',
+            background: '#111b21',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            borderRadius: '16px',
+            padding: '24px',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.9)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ background: '#10b981', color: '#090e11', padding: '6px', borderRadius: '8px' }}>
+                  <Zap size={18} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#ffffff' }}>
+                    ⚡ Test Live WhatsApp Automation
+                  </h3>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                    Testing Flow: <strong style={{ color: '#14d2cb' }}>{selectedFlow?.name}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowLiveTestModal(false)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#cbd5e1', marginBottom: '4px' }}>
+                  Select Event to Simulate:
+                </label>
+                <select
+                  value={testEventType}
+                  onChange={(e) => setTestEventType(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: '#090e11',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    borderRadius: '8px',
+                    padding: '9px',
+                    color: '#ffffff',
+                    fontSize: '12.5px',
+                    fontWeight: '700',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <option value="payment_success">💳 Payment Received (Success - e.g. ₹{testAmount})</option>
+                  <option value="payment_failed">🚨 Payment Incomplete / Checkout Dropped</option>
+                  <option value="partial_payment">💰 Partial / Token Payment Received</option>
+                  <option value="inbound_message">🚀 Inbound Lead Message ("Hi")</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#cbd5e1', marginBottom: '4px' }}>
+                    Customer Name:
+                  </label>
+                  <input
+                    type="text"
+                    value={testName}
+                    onChange={(e) => setTestName(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: '#090e11',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '8px',
+                      padding: '9px',
+                      color: '#ffffff',
+                      fontSize: '12.5px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#cbd5e1', marginBottom: '4px' }}>
+                    Amount (₹):
+                  </label>
+                  <input
+                    type="number"
+                    value={testAmount}
+                    onChange={(e) => setTestAmount(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: '#090e11',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '8px',
+                      padding: '9px',
+                      color: '#ffffff',
+                      fontSize: '12.5px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#cbd5e1', marginBottom: '4px' }}>
+                  Target WhatsApp Number (With Country Code):
+                </label>
+                <input
+                  type="text"
+                  value={testPhone}
+                  onChange={(e) => setTestPhone(e.target.value)}
+                  placeholder="e.g. 919876543210"
+                  style={{
+                    width: '100%',
+                    background: '#090e11',
+                    border: '1px solid rgba(16, 185, 129, 0.4)',
+                    borderRadius: '8px',
+                    padding: '9px',
+                    color: '#34d399',
+                    fontSize: '13px',
+                    fontWeight: '800',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <div style={{ fontSize: '10.5px', color: '#94a3b8', marginTop: '4px' }}>
+                  Enter your number to receive the live test message directly on your WhatsApp phone!
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+              <button
+                onClick={handleExecuteLiveTest}
+                disabled={isExecutingTest}
+                style={{
+                  flex: 1,
+                  padding: '11px',
+                  borderRadius: '8px',
+                  background: isExecutingTest ? '#6b7280' : 'linear-gradient(135deg, #10b981, #0d9488)',
+                  border: 'none',
+                  color: '#ffffff',
+                  fontSize: '13px',
+                  fontWeight: '800',
+                  cursor: isExecutingTest ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  boxShadow: '0 4px 15px rgba(16, 185, 129, 0.3)'
+                }}
+              >
+                {isExecutingTest ? <RefreshCw size={14} className="spin-animation" /> : <Send size={14} />}
+                <span>{isExecutingTest ? 'Executing Sequence...' : 'Send Test Execution'}</span>
+              </button>
+
+              <button
+                onClick={() => setShowLiveTestModal(false)}
+                style={{
+                  padding: '11px 16px',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: 'none',
+                  color: '#cbd5e1',
+                  fontSize: '12.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
               </button>
             </div>
           </div>

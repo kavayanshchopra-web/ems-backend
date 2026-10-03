@@ -1,5 +1,209 @@
-// 300+ Industry-Grade WhatsApp Automation Templates Catalog (Sandbox Ready)
 export const MASTER_AUTOMATION_TEMPLATES = [
+  // --- PAYMENT GATEWAY & CONVERSION DRIP AUTOMATIONS (CORE 2026) ---
+  {
+    id: 'tpl_payment_success_onboarding_drip',
+    name: '💳 Payment Success & 2-Hour Onboarding Drip Sequence',
+    category: 'payments',
+    description: 'Instant WhatsApp receipt on Razorpay payment success + 2-Hour delayed onboarding credentials & next steps + 24-Hour feedback check.',
+    trigger_type: 'payment_success',
+    trigger_config: { event: 'payment.captured' },
+    is_active: 1,
+    nodes: [
+      { 
+        id: 'n1', 
+        type: 'trigger', 
+        label: '⚡ Trigger: Payment Received (Razorpay)', 
+        description: 'Fired when payment.captured or order.paid webhook is received' 
+      },
+      { 
+        id: 'n2', 
+        type: 'message', 
+        label: 'Hi {{name}}! 🎉\n\nThank you for your purchase! Your payment of {{amount}} was successfully verified.\n\nPayment ID: {{payment_id}}\nStatus: Confirmed ✅\n\nYour order is being processed right away.',
+        buttons: ['Download Invoice 📄', 'Track Order 📦', 'Customer Support 💬']
+      },
+      { 
+        id: 'n3', 
+        type: 'delay', 
+        label: '⏱️ Wait 2 Hours',
+        description: 'Gives client time before onboarding follow-up',
+        delayHours: 2,
+        delayMinutes: 120
+      },
+      { 
+        id: 'n4', 
+        type: 'message', 
+        label: 'Hi {{name}}! 👋 Hope you are having a great day!\n\nHere are your onboarding next steps and access details for your service:\n👉 Portal Access: https://app.employeemanagementsystems.com\n\nPlease let us know if you need any assistance getting started!',
+        buttons: ['Watch Setup Video 🎬', 'Schedule Onboarding Call 📞']
+      },
+      { 
+        id: 'n5', 
+        type: 'delay', 
+        label: '⏱️ Wait 24 Hours',
+        description: 'Post-purchase satisfaction check',
+        delayHours: 24,
+        delayMinutes: 1440
+      },
+      { 
+        id: 'n6', 
+        type: 'message', 
+        label: 'Hi {{name}}, just checking in! Was everything set up smoothly? Reply "HELP" anytime if you\'d like our team to jump on a quick call.',
+        buttons: ['Everything is Great! 👍', 'Need Assistance 🆘']
+      }
+    ],
+    edges: [
+      { id: 'e1', source: 'n1', target: 'n2' },
+      { id: 'e2', source: 'n2', target: 'n3' },
+      { id: 'e3', source: 'n3', target: 'n4' },
+      { id: 'e4', source: 'n4', target: 'n5' },
+      { id: 'e5', source: 'n5', target: 'n6' }
+    ]
+  },
+  {
+    id: 'tpl_payment_dropoff_cart_recovery',
+    name: '🚨 Checkout Drop-off & Incomplete Payment Recovery',
+    category: 'payments',
+    description: 'Triggers when a customer opens checkout or payment fails; auto-sends 15-min UPI check-in and 4-hour VIP recovery offer.',
+    trigger_type: 'payment_failed',
+    trigger_config: { event: 'payment.failed' },
+    is_active: 1,
+    nodes: [
+      { 
+        id: 'n1', 
+        type: 'trigger', 
+        label: '⚡ Trigger: Payment Failed / Checkout Dropped',
+        description: 'Fired when payment attempt is cancelled or fails'
+      },
+      { 
+        id: 'n2', 
+        type: 'delay', 
+        label: '⏱️ Wait 15 Minutes', 
+        description: 'Grace period before checking in',
+        delayMinutes: 15 
+      },
+      { 
+        id: 'n3', 
+        type: 'message', 
+        label: 'Hi {{name}}, we noticed you started checkout for {{amount}} but couldn\'t complete it. Did you face an issue with UPI or Card?\n\nClick here to retry with 1-click: {{payment_link}}',
+        buttons: ['Retry Payment Now 💳', 'Talk to Support 💬']
+      },
+      { 
+        id: 'n4', 
+        type: 'delay', 
+        label: '⏱️ Wait 4 Hours', 
+        description: 'Special coupon offer',
+        delayHours: 4 
+      },
+      { 
+        id: 'n5', 
+        type: 'message', 
+        label: 'Special offer for you, {{name}}! Use promo code COMPLETE10 for 10% OFF if you complete your order in the next 2 hours: {{payment_link}}',
+        buttons: ['Claim 10% OFF 🎁', 'Cancel Order ❌']
+      }
+    ],
+    edges: [
+      { id: 'e1', source: 'n1', target: 'n2' },
+      { id: 'e2', source: 'n2', target: 'n3' },
+      { id: 'e3', source: 'n3', target: 'n4' },
+      { id: 'e4', source: 'n4', target: 'n5' }
+    ]
+  },
+  {
+    id: 'tpl_partial_payment_balance_reminder',
+    name: '💰 Partial / Token Payment & Balance Due Reminder',
+    category: 'payments',
+    description: 'Confirms advance token receipt immediately and schedules automated reminders for the remaining due balance.',
+    trigger_type: 'partial_payment',
+    trigger_config: { event: 'payment.partial' },
+    is_active: 1,
+    nodes: [
+      { 
+        id: 'n1', 
+        type: 'trigger', 
+        label: '⚡ Trigger: Token / Partial Payment Received',
+        description: 'Token payment captured' 
+      },
+      { 
+        id: 'n2', 
+        type: 'message', 
+        label: 'Hi {{name}}! Token payment of {{amount}} received successfully ✅.\n\nRemaining Balance: {{remaining_balance}}\nDue Date: {{due_date}}\nBalance Link: {{payment_link}}',
+        buttons: ['Download Receipt 📄', 'Pay Remaining Balance 💳']
+      },
+      { 
+        id: 'n3', 
+        type: 'delay', 
+        label: '⏱️ Wait 2 Days', 
+        description: 'Reminder before due date',
+        delayDays: 2 
+      },
+      { 
+        id: 'n4', 
+        type: 'message', 
+        label: 'Friendly reminder {{name}}! Your remaining balance of {{remaining_balance}} is due on {{due_date}}. Please clear it securely here: {{payment_link}}',
+        buttons: ['Pay Balance Now 💳', 'Request Extension 📅']
+      }
+    ],
+    edges: [
+      { id: 'e1', source: 'n1', target: 'n2' },
+      { id: 'e2', source: 'n2', target: 'n3' },
+      { id: 'e3', source: 'n3', target: 'n4' }
+    ]
+  },
+  {
+    id: 'tpl_inbound_lead_hi_funnel',
+    name: '🚀 Inbound Lead "Hi" Multi-Step Nurture Funnel',
+    category: 'leads',
+    description: 'When a new lead messages "Hi", auto-sends welcome choices, follows up after 5 minutes with video/catalog, and presents payment link after 1 hour.',
+    trigger_type: 'keyword',
+    trigger_config: { keywords: ['hi', 'hello', 'hey', 'start', 'demo', 'info'] },
+    is_active: 1,
+    nodes: [
+      { 
+        id: 'n1', 
+        type: 'trigger', 
+        label: 'Inbound: "Hi" / "Hello"', 
+        description: 'First greeting from client' 
+      },
+      { 
+        id: 'n2', 
+        type: 'message', 
+        label: 'Namaste {{name}}! Welcome to EMS. How can we assist your business today? Please choose an option:',
+        buttons: ['Explore Features 🚀', 'Pricing & Plans 💰', 'Talk to Sales 📞']
+      },
+      { 
+        id: 'n3', 
+        type: 'delay', 
+        label: '⏱️ Wait 5 Minutes', 
+        description: 'Auto follow-up with overview catalog',
+        delayMinutes: 5 
+      },
+      { 
+        id: 'n4', 
+        type: 'message', 
+        label: 'Here is our quick 2-minute overview video & PDF catalog to help you discover how EMS automates workforce, telecalling & WhatsApp CRM!',
+        buttons: ['Download PDF 📄', 'Book 1-on-1 Demo 🎯']
+      },
+      { 
+        id: 'n5', 
+        type: 'delay', 
+        label: '⏱️ Wait 1 Hour', 
+        description: 'Direct checkout conversion step',
+        delayHours: 1 
+      },
+      { 
+        id: 'n6', 
+        type: 'message', 
+        label: 'Ready to get started? Lock in your exclusive early-bird setup offer here:\n👉 {{payment_link}}',
+        buttons: ['Activate Now ⚡', 'Ask a Question 💬']
+      }
+    ],
+    edges: [
+      { id: 'e1', source: 'n1', target: 'n2' },
+      { id: 'e2', source: 'n2', target: 'n3' },
+      { id: 'e3', source: 'n3', target: 'n4' },
+      { id: 'e4', source: 'n4', target: 'n5' },
+      { id: 'e5', source: 'n5', target: 'n6' }
+    ]
+  },
   // --- REAL ESTATE (52+ Templates) ---
   {
     id: 'tpl_real_estate_site_visit',
