@@ -100,7 +100,7 @@ function computeNodePositions(nodes = [], edges = []) {
 export default function SandboxAutomationHub({
   authUser,
   companyId = 'org_default',
-  apiBase = 'http://localhost:5000/api'
+  apiBase = '/api'
 }) {
   // Navigation: 'canvas' (Visual 2D Graph) | 'n8n_embed' (Official Embedded n8n Editor) | 'templates' | 'ai_builder' | 'analytics'
   const [activeTab, setActiveTab] = useState('canvas');
@@ -178,7 +178,7 @@ export default function SandboxAutomationHub({
       }
     };
     loadBackendFlows();
-  }, [apiBase, companyId]);
+  }, [companyId]);
 
   // Save flow to backend database
   const handleSaveFlowToBackend = async (flowToSave = selectedFlow) => {
@@ -213,6 +213,7 @@ export default function SandboxAutomationHub({
           eventType: testEventType,
           tenantId: companyId || 1,
           flowId: selectedFlow?.id,
+          flow: selectedFlow,
           payload: {
             customer_name: testName,
             customer_phone: testPhone,

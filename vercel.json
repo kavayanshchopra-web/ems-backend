@@ -26,6 +26,18 @@
       "destination": "/api/payments/sync-gateway"
     },
     {
+      "source": "/api/sandbox/automations/test-execute",
+      "destination": "/api/sandbox/automations/test-execute"
+    },
+    {
+      "source": "/api/sandbox/automations/flows",
+      "destination": "/api/sandbox/automations/flows"
+    },
+    {
+      "source": "/api/sandbox/automations/flows/:id",
+      "destination": "/api/sandbox/automations/flows"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "https://api.employeemanagementsystems.com/api/$1"
     },
