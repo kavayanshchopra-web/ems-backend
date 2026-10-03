@@ -351,15 +351,13 @@ CREATE TABLE IF NOT EXISTS sim_bridge_devices (
 -- 25. TELEPHONY SETTINGS & CLOUD CALLS
 CREATE TABLE IF NOT EXISTS telephony_settings (
   tenant_id INTEGER PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
-  provider VARCHAR(50) DEFAULT 'voxbay',
-  uid VARCHAR(100),
-  upin VARCHAR(100),
-  caller_id VARCHAR(50) DEFAULT '91487110000',
+  provider VARCHAR(50) DEFAULT 'sim_runo',
+  caller_id VARCHAR(50) DEFAULT '918031496345',
   extension VARCHAR(20) DEFAULT '101',
-  mode VARCHAR(50) DEFAULT 'extension_to_mobile',
+  mode VARCHAR(50) DEFAULT 'mobile_to_mobile',
   source_number VARCHAR(50),
   dept_id VARCHAR(50) DEFAULT '0',
-  recording_base_url TEXT DEFAULT 'https://x.voxbay.com:81/callcenter/',
+  recording_base_url TEXT DEFAULT '',
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -371,7 +369,7 @@ CREATE TABLE IF NOT EXISTS calls (
   phone_number VARCHAR(50) NOT NULL,
   caller_id VARCHAR(50),
   agent_extension VARCHAR(20),
-  provider VARCHAR(50) DEFAULT 'voxbay',
+  provider VARCHAR(50) DEFAULT 'sim_runo',
   provider_call_id VARCHAR(100) UNIQUE,
   direction VARCHAR(20) DEFAULT 'outbound',
   status VARCHAR(50) DEFAULT 'initiated',

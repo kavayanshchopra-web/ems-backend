@@ -1584,7 +1584,7 @@ export default function ListEngine({
     // Source Badge with Accurate Contextual Icons & Colors
     const getSourceBadge = (rawSource) => {
       const s = (rawSource || '').toLowerCase().trim();
-      if (s.includes('sim') || s.includes('call') || s.includes('telephony') || s.includes('voxbay')) {
+      if (s.includes('sim') || s.includes('call') || s.includes('telephony')) {
         return { icon: '📞', label: 'SIM Call', bg: '#f1f5f9', text: '#334155' };
       }
       if (s.includes('whatsapp')) {

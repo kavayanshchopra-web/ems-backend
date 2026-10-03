@@ -1,5 +1,4 @@
-import VoxbayProvider from './VoxbayProvider.js';
-import desktopBridge from './desktopBridge.js';
+import PlivoProvider from './PlivoProvider.js';
 import { createCallLog, updateCallRecord, getTelephonySettings } from '../../db.js';
 
 class CallingService {
@@ -7,8 +6,8 @@ class CallingService {
     this.providers = new Map();
     this.activeCalls = new Map();
 
-    // Register Default Voxbay Provider
-    this.registerProvider(new VoxbayProvider());
+    // Register Universal Calling Providers
+    this.registerProvider(new PlivoProvider());
   }
 
   registerProvider(provider) {
@@ -16,7 +15,7 @@ class CallingService {
     console.log(`[CallingService] Registered calling provider: ${provider.name}`);
   }
 
-  getProvider(name = 'voxbay') {
+  getProvider(name = 'plivo') {
     const p = this.providers.get(name.toLowerCase());
     if (!p) throw new Error(`Calling provider '${name}' not found.`);
     return p;
@@ -30,12 +29,8 @@ class CallingService {
     contactName = 'Customer',
     staffId = '1',
     staffName = 'Agent',
-    agentExtension = '2MaqwezO',
-    agentMobile = '6283513686',
-    callingMode = 'extension_to_mobile',
-    customUid,
-    customUpin,
-    customDid,
+    providerName = 'plivo',
+    callingMode = 'browser_webrtc',
     io = null
   }) {
     const rawTarget = phoneNumber || destination;
@@ -45,38 +40,27 @@ class CallingService {
       throw new Error('Destination phone number is required.');
     }
 
-    // 1. Direct native dial on Windows Voxbay Phone client if in extension mode
-    if (callingMode === 'extension_to_mobile') {
-      desktopBridge.dialNumber(cleanDestination);
+    const provider = this.getProvider(providerName || 'plivo');
+    const settings = await getTelephonySettings(tenantId).catch(() => ({}));
+    const callerId = settings?.caller_id || provider.defaultCallerId || '918031496345';
+
+    let result = { success: true, providerCallId: `call_${Date.now()}` };
+
+    if (provider.name === 'plivo') {
+      result = await provider.initiateCall({
+        destination: cleanDestination,
+        fromNumber: callerId,
+        tenantId
+      });
+    } else {
+      result = await provider.initiateCall({
+        destination: cleanDestination,
+        fromNumber: callerId,
+        contactName
+      });
     }
 
-    // 2. Resolve settings or use verified production defaults
-    const settings = await getTelephonySettings(tenantId).catch(() => ({}));
-    const uid = customUid || settings?.voxbay_uid || 'x97x4zzfz1';
-    const upin = customUpin || settings?.voxbay_upin || '8uqctamkgf';
-    const did = customDid || settings?.voxbay_did || '918031496345';
-    const ext = agentExtension || settings?.voxbay_agent_extension || '2MaqwezO';
-    const mobile = agentMobile || settings?.voxbay_agent_mobile || '6283513686';
-
-    const provider = this.getProvider('voxbay');
-
-    // 3. Initiate Cloud Telephony Request
-    const result = await provider.initiateCall({
-      destination: cleanDestination,
-      fromNumber: did,
-      extension: ext,
-      agentMobile: mobile,
-      mode: callingMode,
-      contactName,
-      credentials: {
-        uid,
-        upin,
-        callerid: did,
-        deptId: '0'
-      }
-    });
-
-    // 4. Save call record to DB
+    // Save call record to DB
     const internalCallId = `call_${Date.now()}`;
     const callRecord = {
       tenantId,
@@ -84,9 +68,9 @@ class CallingService {
       staffName,
       customerName: contactName,
       customerPhone: cleanDestination,
-      channel: 'VOXBAY',
+      channel: 'PLIVO_WEBRTC',
       type: 'OUTGOING',
-      callUUID: result.providerCallId || `vox_${Date.now()}`,
+      callUUID: result.callUuid || result.providerCallId || internalCallId,
       status: 'RINGING',
       disposition: 'Dialing',
       durationSeconds: 0,
@@ -110,18 +94,17 @@ class CallingService {
     return {
       success: true,
       callId: internalCallId,
-      providerCallId: result.providerCallId,
+      providerCallId: result.callUuid || result.providerCallId,
       destination: cleanDestination,
       callingMode,
-      message: result.message || 'Voxbay call dispatched successfully.'
+      message: result.message || 'Call initiated successfully via Plivo Cloud WebRTC.'
     };
   }
 
   async endCall({ callId, callUuid, io = null }) {
     console.log(`[CallingService] Ending active call ${callId || callUuid || ''}...`);
-
-    // Terminate call in Windows desktop softphone
-    desktopBridge.hangupCall();
+    const provider = this.getProvider('plivo');
+    await provider.endCall({ callUuid: callUuid || callId });
 
     if (io) {
       io.emit('telecalling:status_update', { callId: callId || callUuid, status: 'COMPLETED' });
@@ -131,16 +114,16 @@ class CallingService {
   }
 
   async handleWebhook(payload, io = null) {
-    const provider = this.getProvider('voxbay');
+    const provider = this.getProvider('plivo');
     const normalized = provider.processWebhook(payload);
 
-    if (normalized && normalized.callUUID) {
+    if (normalized && normalized.callUuid) {
       try {
-        await updateCallRecord(normalized.callUUID, {
-          callStatus: normalized.callStatus,
-          totalDuration: normalized.totalCallDuration,
-          conversationDuration: normalized.conversationDuration,
-          recordingUrl: normalized.recording_URL
+        await updateCallRecord(normalized.callUuid, {
+          callStatus: normalized.status,
+          totalDuration: `${normalized.durationSeconds}s`,
+          conversationDuration: `${normalized.durationSeconds}s`,
+          recordingUrl: normalized.recordingUrl
         });
       } catch (dbErr) {
         console.warn('[CallingService] Webhook DB sync notice:', dbErr.message);
@@ -149,26 +132,10 @@ class CallingService {
       if (io) {
         io.emit('telecalling:cdr_received', normalized);
         io.emit('telecalling:status_update', {
-          callUUID: normalized.callUUID,
-          status: normalized.callStatus
+          callUUID: normalized.callUuid,
+          status: normalized.status
         });
       }
-
-      // Asynchronously push call record & recording to GoHighLevel Conversation
-      try {
-        const tenantId = normalized.tenantId || 1;
-        import('../ghl/GhlSyncEngine.js').then(({ default: ghlSyncEngine }) => {
-          ghlSyncEngine.syncCallRecordToGhl(tenantId, {
-            customerPhone: normalized.destination || normalized.customerPhone || normalized.callerNumber,
-            durationSeconds: normalized.conversationDuration || normalized.totalCallDuration || 0,
-            recordingUrl: normalized.recording_URL || '',
-            status: normalized.callStatus || 'Completed',
-            channel: 'VOXBAY',
-            notes: 'Voxbay Live Telecalling Call'
-          }).catch(e => console.warn('[CallingService] GHL call sync warning:', e.message));
-        }).catch(() => {});
-      } catch (ghlErr) {}
-
       return normalized;
     }
     return null;

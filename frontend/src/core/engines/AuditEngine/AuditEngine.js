@@ -173,7 +173,7 @@ class SystemAuditEngine {
     });
   }
 
-  logCallPlaced(customerPhone, channel = 'VOXBAY', duration = 0, status = 'PLACED', actor = null) {
+  logCallPlaced(customerPhone, channel = 'SIM', duration = 0, status = 'PLACED', actor = null) {
     return this.logEvent({
       action: 'CALL_PLACED',
       module: 'telecalling',

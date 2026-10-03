@@ -112,7 +112,7 @@ export default function AppLauncherScreen({
         accentBg: 'rgba(6, 182, 212, 0.12)',
         borderColor: 'rgba(6, 182, 212, 0.35)',
         visible: typeof canNav === 'function' ? canNav('telecalling') : true,
-        desc: 'SIM recording bridge, Voxbay cloud dialer & audio vault'
+        desc: 'SIM recording bridge, cloud dialer & audio vault'
       },
       {
         id: 'kanban',

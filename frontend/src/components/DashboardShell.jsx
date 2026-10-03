@@ -1336,15 +1336,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
 
   useEffect(() => {
     window.openGlobalDialer = (phone, name, autoDial = true) => {
-      const activeProvider = localStorage.getItem('active_telephony_provider') || 'sim_runo';
-      if (activeProvider === 'voxbay') {
-        openVoxbayDialer(phone, name, autoDial);
+      if (phone && autoDial) {
+        initiateClickToCall(name || 'Customer', phone);
       } else {
-        if (phone && autoDial) {
-          initiateClickToCall(name || 'Customer', phone);
-        } else {
-          openSimDialerPad(phone, name);
-        }
+        openSimDialerPad(phone, name);
       }
     };
     window.openVoxbayDialer = (phone, name, autoDial = true) => {
@@ -1366,15 +1361,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     const handleCustomGlobalEvent = (e) => {
       if (e.detail) {
         const { phone, name, autoDial } = e.detail;
-        const activeProvider = localStorage.getItem('active_telephony_provider') || 'sim_runo';
-        if (activeProvider === 'voxbay') {
-          openVoxbayDialer(phone, name, autoDial !== false);
+        if (phone && autoDial) {
+          initiateClickToCall(name || 'Customer', phone);
         } else {
-          if (phone && autoDial) {
-            initiateClickToCall(name || 'Customer', phone);
-          } else {
-            openSimDialerPad(phone, name);
-          }
+          openSimDialerPad(phone, name);
         }
       }
     };
@@ -7073,7 +7063,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           channels: ['channels', 'conversations', 'wa_live_web', 'whatsapp_crm'],
           contacts: ['contacts', 'crm_contacts', 'crm_full'],
           kanban: ['kanban', 'crm_deals', 'crm_pipeline', 'crm_full'],
-          telecalling: ['telecalling', 'voxbay_cloud', 'sim_call_recording', 'telecalling_sim'],
+          telecalling: ['telecalling', 'sim_call_recording', 'telecalling_sim'],
           attendance: ['attendance', 'office_kiosk', 'attendance_kiosk'],
           office_kiosk: ['office_kiosk', 'attendance', 'attendance_kiosk'],
           gps_attendance: ['gps_attendance', 'gps_tracking', 'live_gps_tracking', 'field_ops'],
@@ -9346,13 +9336,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 phone: callData.phoneNumber || callData.customerPhone || callData.phone || voxbayDialerState.destination || '�',
                 customerPhone: callData.phoneNumber || callData.customerPhone || callData.phone || voxbayDialerState.destination || '�',
                 agentName: authUser?.name || 'Staff 1',
-                channel: 'VOXBAY',
+                channel: callData.channel || 'SIM_COMPANION',
                 type: 'OUTGOING',
                 duration: typeof callData.duration === 'string' ? callData.duration : '00:30',
                 recording: callData.recording || '',
                 recordingUrl: callData.recording || '',
                 status: callData.status || 'Interested',
-                notes: callData.notes || 'Voxbay Live Call',
+                notes: callData.notes || 'Cloud Web Call',
                 timestamp: new Date().toISOString()
               };
               setCallLogs(prev => [newLog, ...(Array.isArray(prev) ? prev : [])]);

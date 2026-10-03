@@ -551,7 +551,7 @@ export default function WhatsAppTemplatesModal({
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Starter CRM, Voxbay Cloud, HRMS"
+                    placeholder="e.g. Starter CRM, Telephony Pro, HRMS"
                     value={formData.productName}
                     onChange={(e) => setFormData(prev => ({ ...prev, productName: e.target.value }))}
                     style={{

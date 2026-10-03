@@ -64,12 +64,12 @@ export default function VoxbayCloudDialerModal({
 
   const handleExtensionChange = (val) => {
     setExtension(val);
-    localStorage.setItem('voxbay_extension', val);
+    localStorage.setItem('ems_dialer_extension', val);
   };
 
   const handleAgentMobileChange = (val) => {
     setAgentMobile(val);
-    localStorage.setItem('voxbay_agent_mobile', val);
+    localStorage.setItem('ems_agent_mobile', val);
   };
 
   useEffect(() => {
@@ -501,8 +501,8 @@ export default function VoxbayCloudDialerModal({
               </div>
             </div>
             <div style={{ fontSize: '11px', color: '#475569', lineHeight: '1.4' }}>
-              💡 <strong>Mobile SIM:</strong> Voxbay rings your mobile <code>{agentMobile}</code> first. Once answered, connects lead <code>{phoneNumber}</code>.<br />
-              💡 <strong>Softphone:</strong> Rings your MicroSIP / VoxbayPhone app on this PC.
+              💡 <strong>Mobile SIM:</strong> Rings your mobile companion <code>{agentMobile}</code> first. Once answered, connects lead <code>{phoneNumber}</code>.<br />
+              💡 <strong>Softphone:</strong> Rings your softphone app on this PC.
             </div>
           </div>
         )}
@@ -584,7 +584,7 @@ export default function VoxbayCloudDialerModal({
           {/* HELPER CALL HINT */}
           {callingMode === 'mobile_to_mobile' && (callState === 'DIALING' || callState === 'RINGING') && (
             <div style={{ fontSize: '11px', color: '#2563eb', fontWeight: '700', background: '#eff6ff', padding: '4px 10px', borderRadius: '6px', marginBottom: '14px', textAlign: 'center' }}>
-              📲 Voxbay is ringing your phone (<strong>{agentMobile}</strong>). Please answer!
+              📲 Ringing your mobile phone (<strong>{agentMobile}</strong>). Please answer!
             </div>
           )}
 

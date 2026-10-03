@@ -105,7 +105,7 @@ export class TimelineEngine {
         durationSeconds: durationSec,
         recordingUrl: recording,
         agentName: c.agentName || c.employeeName || c.staffName || c.agent || 'Agent',
-        channel: c.channel || (String(c.id).startsWith('vox_') ? 'VOXBAY' : 'SIM'),
+        channel: c.channel || 'SIM',
         disposition: c.disposition || c.status || (durationSec > 0 ? 'Connected' : 'No Answer'),
         notes: c.notes || c.remark || '',
         raw: c

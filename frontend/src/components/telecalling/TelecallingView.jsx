@@ -677,7 +677,7 @@ export default function TelecallingView({
                          String(log.notes || '').includes('BYPASS DETECTED');
 
       const simSlotText = log.simSlot || log.sim_slot || '';
-      const rawChannel = log.channel || (activeProvider === 'voxbay' ? 'VOXBAY' : 'SIM');
+      const rawChannel = log.channel || 'SIM';
       const channelDisplay = isBypassed 
         ? '🚨 SIM (Personal Bypass)' 
         : (simSlotText && !rawChannel.includes('(') ? `${rawChannel} (${simSlotText})` : rawChannel);
@@ -726,7 +726,7 @@ export default function TelecallingView({
         status: resolvedDisposition,
         stage: resolvedDisposition,
         disposition: resolvedDisposition,
-        notes: log.notes || (activeProvider === 'voxbay' ? 'Voxbay Live Call' : 'SIM Companion Call'),
+        notes: log.notes || 'SIM Companion Call',
         timestamp: log.timestamp || (log._createdAt ? new Date(log._createdAt).toLocaleString() : new Date().toISOString()),
         tenantId: log.tenant_id || log.tenantId || companyId,
         _createdAt: log._createdAt || (log.created_at ? new Date(log.created_at).getTime() : Date.now())
@@ -849,12 +849,12 @@ export default function TelecallingView({
       name: newCall.contactName || newCall.customerName || newCall.name || 'Customer',
       agentName: authUser?.name || 'Staff 1',
       phone: newCall.phoneNumber || newCall.customerPhone || newCall.phone || '—',
-      channel: newCall.channel || (activeProvider === 'voxbay' ? 'VOXBAY' : 'SIM'),
+      channel: newCall.channel || 'SIM',
       type: newCall.type || 'OUTGOING',
       duration: typeof newCall.duration === 'string' ? newCall.duration : '00:30',
       recording: newCall.recording || newCall.recordingUrl || '',
       status: newCall.status || 'Interested',
-      notes: newCall.notes || (activeProvider === 'voxbay' ? 'Voxbay Cloud Call' : 'SIM Companion Call'),
+      notes: newCall.notes || 'SIM Companion Call',
       tenantId: companyId,
       tenant_id: Number(companyId) || 999,
       _createdAt: Date.now()
@@ -953,12 +953,10 @@ export default function TelecallingView({
   };
 
   const handleHeaderDialClick = () => {
-    if (activeProvider === 'voxbay') {
-      setIsVoxbayOpen(true);
+    if (window.openGlobalDialer) {
+      window.openGlobalDialer('', 'Customer', false);
     } else {
-      if (window.openGlobalDialer) {
-        window.openGlobalDialer('', 'Customer', false);
-      }
+      setIsVoxbayOpen(true);
     }
   };
 
@@ -1250,8 +1248,8 @@ export default function TelecallingView({
                   whiteSpace: 'nowrap'
                 }}
               >
-                {activeProvider === 'voxbay' ? <PhoneCall size={14} /> : <Smartphone size={14} />}
-                <span>{activeProvider === 'voxbay' ? 'Dial via Voxbay Cloud' : 'Call Lead (SIM Dialer)'}</span>
+                <Smartphone size={14} />
+                <span>Call Lead (SIM Dialer)</span>
               </button>
 
               {/* SIM Privacy & Bypass Filter Chips */}
@@ -1445,7 +1443,7 @@ export default function TelecallingView({
         />
       </div>
 
-      {/* Voxbay Cloud Click-To-Call Modal */}
+      {/* Universal Cloud Web Dialer Modal */}
       {isVoxbayOpen && (
         <VoxbayCloudDialerModal
           isOpen={isVoxbayOpen}

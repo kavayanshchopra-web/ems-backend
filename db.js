@@ -554,10 +554,7 @@ export async function initDb() {
     CREATE TABLE IF NOT EXISTS tenant_telephony_settings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id INTEGER UNIQUE NOT NULL,
-      provider TEXT DEFAULT 'voxbay',
-      voxbay_uid TEXT,
-      voxbay_upin TEXT,
-      voxbay_did TEXT,
+      provider TEXT DEFAULT 'sim_runo',
       allowed_extensions TEXT DEFAULT '101,102,103,104,105',
       calling_mode TEXT DEFAULT 'mobile_to_mobile',
       default_agent_mobile TEXT,
@@ -574,21 +571,19 @@ export async function initDb() {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS telephony_settings (
       tenant_id INTEGER PRIMARY KEY DEFAULT 1,
-      provider TEXT DEFAULT 'voxbay',
-      uid TEXT,
-      upin TEXT,
-      caller_id TEXT DEFAULT '91487110000',
+      provider TEXT DEFAULT 'sim_runo',
+      caller_id TEXT DEFAULT '918031496345',
       extension TEXT DEFAULT '101',
-      mode TEXT DEFAULT 'extension_to_mobile',
+      mode TEXT DEFAULT 'mobile_to_mobile',
       source_number TEXT,
       dept_id TEXT DEFAULT '0',
-      recording_base_url TEXT DEFAULT 'https://x.voxbay.com:81/callcenter/',
+      recording_base_url TEXT DEFAULT '',
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
     )
   `);
 
-  // Create calls table for Cloud Telephony (Voxbay, etc.)
+  // Create calls table for Telephony & SIM Dialer
   await db.exec(`
     CREATE TABLE IF NOT EXISTS calls (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -598,7 +593,7 @@ export async function initDb() {
       phone_number TEXT NOT NULL,
       caller_id TEXT,
       agent_extension TEXT,
-      provider TEXT DEFAULT 'voxbay',
+      provider TEXT DEFAULT 'sim_runo',
       provider_call_id TEXT UNIQUE,
       direction TEXT DEFAULT 'outbound',
       status TEXT DEFAULT 'initiated',
@@ -2377,7 +2372,7 @@ export async function updateCallLog(tenantId = 1, id, updates = {}) {
 
 
 // ==========================================
-// 📞 CLOUD TELEPHONY (VOXBAY) HELPERS
+// 📞 TELEPHONY & CALL RECORD HELPERS
 // ==========================================
 
 export async function createCallRecord(tenantId = 1, callData = {}) {
@@ -2387,7 +2382,7 @@ export async function createCallRecord(tenantId = 1, callData = {}) {
     phone_number,
     caller_id,
     agent_extension,
-    provider = 'voxbay',
+    provider = 'sim_runo',
     provider_call_id,
     direction = 'outbound',
     status = 'initiated',
@@ -2519,20 +2514,18 @@ export async function getTelephonySettings(tenantId = 1) {
   if (!settings) {
     settings = {
       tenant_id: tenantId,
-      provider: 'voxbay',
-      uid: process.env.VOXBAY_UID || '',
-      upin: process.env.VOXBAY_UPIN || '',
-      caller_id: process.env.VOXBAY_CALLER_ID || '91487110000',
-      extension: process.env.VOXBAY_EXTENSION || '101',
-      mode: process.env.VOXBAY_MODE || 'extension_to_mobile',
-      dept_id: process.env.VOXBAY_DEPT_ID || '0',
-      recording_base_url: process.env.VOXBAY_RECORDING_BASE_URL || 'https://x.voxbay.com:81/callcenter/'
+      provider: 'sim_runo',
+      caller_id: '918031496345',
+      extension: '101',
+      mode: 'mobile_to_mobile',
+      dept_id: '0',
+      recording_base_url: ''
     };
     try {
       await db.run(
-        `INSERT OR IGNORE INTO telephony_settings (tenant_id, provider, uid, upin, caller_id, extension, mode, dept_id, recording_base_url)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [tenantId, settings.provider, settings.uid, settings.upin, settings.caller_id, settings.extension, settings.mode, settings.dept_id, settings.recording_base_url]
+        `INSERT OR IGNORE INTO telephony_settings (tenant_id, provider, caller_id, extension, mode, dept_id, recording_base_url)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [tenantId, settings.provider, settings.caller_id, settings.extension, settings.mode, settings.dept_id, settings.recording_base_url]
       );
     } catch(e) {}
   }
@@ -2588,10 +2581,7 @@ export async function getAllTenantTelephonyConfigs() {
       company_name: t.name || `Company #${t.id}`,
       email: t.email,
       plan_id: t.plan_id,
-      provider: existing?.provider || 'voxbay',
-      voxbay_uid: existing?.voxbay_uid || 'x97x4zzfz1',
-      voxbay_upin: existing?.voxbay_upin || '8uqctamkgf',
-      voxbay_did: existing?.voxbay_did || '918031496345',
+      provider: existing?.provider || 'sim_runo',
       allowed_extensions: existing?.allowed_extensions || '101,102,103,104,105',
       calling_mode: existing?.calling_mode || 'mobile_to_mobile',
       default_agent_mobile: existing?.default_agent_mobile || '6283513686',
@@ -2605,10 +2595,7 @@ export async function getAllTenantTelephonyConfigs() {
 
 export async function saveTenantTelephonyConfig(tenantId, data = {}) {
   const {
-    provider = 'voxbay',
-    voxbay_uid = 'x97x4zzfz1',
-    voxbay_upin = '8uqctamkgf',
-    voxbay_did = '918031496345',
+    provider = 'sim_runo',
     allowed_extensions = '101,102,103,104,105',
     calling_mode = 'mobile_to_mobile',
     default_agent_mobile = '6283513686',
@@ -2624,9 +2611,6 @@ export async function saveTenantTelephonyConfig(tenantId, data = {}) {
     await db.run(
       `UPDATE tenant_telephony_settings
        SET provider = ?,
-           voxbay_uid = ?,
-           voxbay_upin = ?,
-           voxbay_did = ?,
            allowed_extensions = ?,
            calling_mode = ?,
            default_agent_mobile = ?,
@@ -2636,14 +2620,14 @@ export async function saveTenantTelephonyConfig(tenantId, data = {}) {
            notes = ?,
            updated_at = CURRENT_TIMESTAMP
        WHERE tenant_id = ?`,
-      [provider, voxbay_uid, voxbay_upin, voxbay_did, allowed_extensions, calling_mode, default_agent_mobile, default_extension, is_enabled, monthly_quota_minutes, notes, tenantId]
+      [provider, allowed_extensions, calling_mode, default_agent_mobile, default_extension, is_enabled, monthly_quota_minutes, notes, tenantId]
     );
   } else {
     await db.run(
       `INSERT INTO tenant_telephony_settings
-       (tenant_id, provider, voxbay_uid, voxbay_upin, voxbay_did, allowed_extensions, calling_mode, default_agent_mobile, default_extension, is_enabled, monthly_quota_minutes, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [tenantId, provider, voxbay_uid, voxbay_upin, voxbay_did, allowed_extensions, calling_mode, default_agent_mobile, default_extension, is_enabled, monthly_quota_minutes, notes]
+       (tenant_id, provider, allowed_extensions, calling_mode, default_agent_mobile, default_extension, is_enabled, monthly_quota_minutes, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [tenantId, provider, allowed_extensions, calling_mode, default_agent_mobile, default_extension, is_enabled, monthly_quota_minutes, notes]
     );
   }
 

@@ -129,7 +129,7 @@ export default function LayoutToolbar({
               }}
             >
               <PhoneCall size={14} />
-              <span>{localStorage.getItem('active_telephony_provider') === 'voxbay' ? 'Dial via Voxbay Cloud' : 'Quick Call Lead'}</span>
+              <span>Quick Call Lead</span>
             </button>
           )}
           {(canConfigure || canManage) && (

@@ -93,7 +93,7 @@ async function runMigration() {
           upin = EXCLUDED.upin,
           caller_id = EXCLUDED.caller_id,
           extension = EXCLUDED.extension;
-      `, [ts.tenant_id, ts.provider || 'voxbay', ts.uid, ts.upin, ts.caller_id, ts.extension, ts.mode, ts.source_number, ts.dept_id, ts.recording_base_url]);
+      `, [ts.tenant_id, ts.provider || 'sim_runo', ts.uid, ts.upin, ts.caller_id, ts.extension, ts.mode, ts.source_number, ts.dept_id, ts.recording_base_url]);
     }
 
     // 6. Migrate Call Logs

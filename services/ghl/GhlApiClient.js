@@ -440,7 +440,7 @@ export class GhlApiClient {
    * @param {string} [params.recordingUrl=''] - Audio recording URL (.wav/.mp3)
    * @param {string} [params.status='completed'] - Call status
    * @param {string} [params.direction='outbound'] - 'inbound' | 'outbound'
-   * @param {string} [params.channel='VOXBAY'] - 'VOXBAY' | 'SIM_COMPANION'
+   * @param {string} [params.channel='SIM_COMPANION'] - 'SIM_COMPANION' | 'CLOUD_DIALER'
    * @param {string} [params.staffName='Agent'] - Calling agent name
    * @param {string} [params.notes=''] - Call notes
    * @returns {Promise<Object>}
@@ -451,7 +451,7 @@ export class GhlApiClient {
     recordingUrl = '',
     status = 'completed',
     direction = 'outbound',
-    channel = 'VOXBAY',
+    channel = 'SIM_COMPANION',
     staffName = 'Agent',
     notes = ''
   }) {

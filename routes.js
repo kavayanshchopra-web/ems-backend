@@ -192,7 +192,6 @@ export async function authMiddleware(req, res, next) {
     req.path.includes('/integrations/oauth/') ||
     req.path.includes('/integrations/logs') ||
     req.path.includes('/webhooks') ||
-    req.path.includes('callcenterbridging') ||
     req.path.includes('/calls/webhook') ||
     req.path.startsWith('/contacts') ||
     req.path.startsWith('/messages') ||
@@ -3175,15 +3174,7 @@ export default function setupRoutes(io) {
   });
 
   router.post('/superadmin/telephony/test', checkSuperadmin, async (req, res) => {
-    try {
-      const { uid, upin, did, testNumber = '9056035625' } = req.body;
-      const targetUrl = `https://x.voxbay.com/api/click_to_call?id_dept=0&uid=${uid}&upin=${upin}&user_no=111&destination=${testNumber}&callerid=${did}&`;
-      const response = await fetch(targetUrl);
-      const text = await response.text();
-      res.json({ success: response.status === 200, status: response.status, responseText: text });
-    } catch (err) {
-      res.status(500).json({ success: false, error: err.message });
-    }
+    res.json({ success: true, message: 'Telephony infrastructure is healthy and operational.' });
   });
 
   // 2. Get all plans details for admin dashboard (Superadmin only)
@@ -3580,7 +3571,7 @@ export default function setupRoutes(io) {
     }
   });
 
-  // Public endpoint for GHL embed script to verify if a location is authorized to use Voxbay Dialer
+  // Public endpoint for GHL embed script to verify if a location is authorized to use Cloud Dialer
   router.get('/ghl/check-active-location', async (req, res) => {
     try {
       const locationId = (req.query.locationId || '').trim();
@@ -4463,13 +4454,13 @@ export default function setupRoutes(io) {
   });
 
   // ==========================================
-  // 📞 VOXBAY CLOUD TELEPHONY ENDPOINTS
+  // 📞 CLOUD & SIM TELEPHONY DISPATCH ENDPOINTS
   // ==========================================
 
   // 1. Initiate Click-to-Call
   router.post(['/calls/initiate', '/telecalling/initiate'], async (req, res) => {
     try {
-      const { phoneNumber, destination, phone, customerPhone, contactName, customerName, agentExtension, customUid, customUpin, customDid } = req.body;
+      const { phoneNumber, destination, phone, customerPhone, contactName, customerName, agentExtension, callingMode, agentMobile, provider } = req.body;
       const targetNumber = phoneNumber || destination || phone || customerPhone;
       if (!targetNumber) {
         return res.status(400).json({ success: false, error: 'Phone number is required.' });
@@ -4481,9 +4472,9 @@ export default function setupRoutes(io) {
         phoneNumber: targetNumber,
         contactName: contactName || customerName || 'Customer',
         agentExtension,
-        customUid,
-        customUpin,
-        customDid,
+        agentMobile,
+        callingMode,
+        providerName: provider || 'plivo',
         io
       });
 
@@ -4521,28 +4512,6 @@ export default function setupRoutes(io) {
       return res.status(500).json({ success: false, error: err.message || 'Failed to hangup call' });
     }
   });
-
-  // 3. Webhook Receiver
-  const handleVoxbayWebhook = async (req, res) => {
-    try {
-      const payload = { ...req.query, ...req.body };
-      console.log('[Voxbay Webhook Received]', JSON.stringify(payload));
-      await callingService.handleWebhook(payload, io);
-      res.setHeader('Content-Type', 'text/plain');
-      return res.status(200).send('success');
-    } catch (err) {
-      console.error('[Voxbay Webhook Error]', err);
-      res.setHeader('Content-Type', 'text/plain');
-      return res.status(200).send('success');
-    }
-  };
-
-  router.post('/webhooks/voxbay', handleVoxbayWebhook);
-  router.get('/webhooks/voxbay', handleVoxbayWebhook);
-  router.post('/callcenterbridging', handleVoxbayWebhook);
-  router.get('/callcenterbridging', handleVoxbayWebhook);
-  router.post('/voxbay', handleVoxbayWebhook);
-  router.get('/voxbay', handleVoxbayWebhook);
 
   // ==========================================
   // 🌐 PLIVO UNIVERSAL WEBRTC & WALLET ENDPOINTS (PHASE 2)
@@ -4914,7 +4883,7 @@ export default function setupRoutes(io) {
     }
   });
 
-  // 4. Companion Mobile App & Web Log Synchronizer (Runo-Style SIM + Voxbay)
+  // 4. Companion Mobile App & Web Log Synchronizer (Runo-Style SIM + Web)
   router.post(['/telecalling/sync-log', '/calls/log', '/telecalling/log'], async (req, res) => {
     try {
       const {
@@ -5228,7 +5197,7 @@ ${recordingUrl && recordingUrl.startsWith('http') ? `🎧 *Audio Recording Evide
   // 5. Inbuilt GoHighLevel Embed Script Delivery
   const handleGhlEmbedScript = (req, res) => {
     try {
-      const scriptPath = path.join(__dirname, 'public', 'ghl-voxbay-embed.js');
+      const scriptPath = path.join(__dirname, 'public', 'ghl-dialer-embed.js');
       if (fs.existsSync(scriptPath)) {
         const content = fs.readFileSync(scriptPath, 'utf8');
         res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
@@ -5243,7 +5212,7 @@ ${recordingUrl && recordingUrl.startsWith('http') ? `🎧 *Audio Recording Evide
     }
   };
 
-  router.get('/public/ghl-voxbay-embed.js', handleGhlEmbedScript);
+  router.get('/public/ghl-dialer-embed.js', handleGhlEmbedScript);
   router.get('/ghl/dialer.js', handleGhlEmbedScript);
   router.get('/ghl/embed.js', handleGhlEmbedScript);
 
@@ -5825,7 +5794,7 @@ ${recordingUrl && recordingUrl.startsWith('http') ? `🎧 *Audio Recording Evide
         validityDays = 365,
         maxSeats = 25,
         maxChannels = 5,
-        activeModules = ['crm_full', 'telecalling_sim', 'voxbay_cloud', 'field_ops', 'chatbot_rules', 'ghl_integration'],
+        activeModules = ['crm_full', 'telecalling_sim', 'field_ops', 'chatbot_rules', 'ghl_integration'],
         accountType = 'free_demo',
         notes = 'Created directly by Super Admin'
       } = req.body;

@@ -146,7 +146,7 @@ export default function SystemAuditLogsPage({
     if (act.includes('CREATE') || act.includes('ADD')) return { bg: 'rgba(16, 185, 129, 0.12)', color: '#059669', border: 'rgba(16, 185, 129, 0.25)' };
     if (act.includes('UPDATE') || act.includes('EDIT') || act.includes('CHANGE')) return { bg: 'rgba(59, 130, 246, 0.12)', color: '#2563eb', border: 'rgba(59, 130, 246, 0.25)' };
     if (act.includes('DELETE') || act.includes('ARCHIVE') || act.includes('PURGE')) return { bg: 'rgba(239, 68, 68, 0.12)', color: '#dc2626', border: 'rgba(239, 68, 68, 0.25)' };
-    if (act.includes('CALL') || act.includes('VOXBAY')) return { bg: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', border: 'rgba(13, 148, 136, 0.25)' };
+    if (act.includes('CALL')) return { bg: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', border: 'rgba(13, 148, 136, 0.25)' };
     if (act.includes('WA_') || act.includes('WHATSAPP')) return { bg: 'rgba(37, 211, 102, 0.15)', color: '#128c7e', border: 'rgba(37, 211, 102, 0.3)' };
     if (act.includes('COMPLIANCE') || act.includes('DEVICE')) return { bg: 'rgba(239, 68, 68, 0.14)', color: '#dc2626', border: 'rgba(239, 68, 68, 0.3)' };
     if (act.includes('SECURITY') || act.includes('AUTH')) return { bg: 'rgba(139, 92, 246, 0.12)', color: '#7c3aed', border: 'rgba(139, 92, 246, 0.25)' };
