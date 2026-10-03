@@ -768,6 +768,19 @@ export async function startSession(id, io) {
           console.error(`[Chatbot] Error checking rules:`, err.message);
         }
       }
+
+      // Multi-Step WhatsApp Automation Hub Trigger (Runs active Inbound & Keyword sequences)
+      if (!fromMe && textContent && textContent.trim()) {
+        import('./services/AutomationWorkflowEngine.js').then(({ automationWorkflowEngine }) => {
+          automationWorkflowEngine.triggerEvent('inbound_message', {
+            customer_name: contactName || 'Customer',
+            customer_phone: jid,
+            message_text: textContent
+          }, tenantId).catch(err => {
+            console.warn('[Inbound Automation Engine Warning]:', err.message);
+          });
+        }).catch(() => {});
+      }
     }
   });
 

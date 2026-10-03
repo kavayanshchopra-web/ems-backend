@@ -176,8 +176,10 @@ export async function authMiddleware(req, res, next) {
   // Allow login, signup, health check, public webhook & integration OAuth routes without blocking
   if (
     req.path.startsWith('/auth/') ||
-    req.path.startsWith('/payment/') ||
-    req.path.includes('/payment/') ||
+    req.path.startsWith('/payment') ||
+    req.path.includes('/payment') ||
+    req.path.startsWith('/payments') ||
+    req.path.includes('/payments') ||
     req.path === '/health' ||
     req.path === '/billing/webhook' ||
     req.path.startsWith('/sandbox/automations') ||
@@ -189,7 +191,7 @@ export async function authMiddleware(req, res, next) {
     req.path.includes('/integrations/webhook/') ||
     req.path.includes('/integrations/oauth/') ||
     req.path.includes('/integrations/logs') ||
-    req.path.includes('/webhooks/') ||
+    req.path.includes('/webhooks') ||
     req.path.includes('callcenterbridging') ||
     req.path.includes('/calls/webhook') ||
     req.path.startsWith('/contacts') ||
@@ -720,6 +722,70 @@ export default function setupRoutes(io) {
     }
   });
 
+  // 3.5. On-Demand Sync Payments from Razorpay API into DB & Supabase
+  router.post(['/payments/sync-gateway', '/api/payments/sync-gateway'], async (req, res) => {
+    try {
+      const tenantId = Number(req.body.tenant_id || req.query.tenant_id) || 1;
+      const tenantConfigs = await getTenantGatewayConfigs(tenantId);
+      const rzpConfig = (tenantConfigs || []).find(c => c.gateway_name === 'razorpay') || paymentGatewayService.getConfig();
+      
+      const keyId = rzpConfig.key_id || rzpConfig.keyId;
+      const keySecret = rzpConfig.key_secret || rzpConfig.keySecret;
+      
+      if (!keyId || !keySecret) {
+        return res.status(400).json({ success: false, error: 'Razorpay Key ID and Secret are not configured for this workspace' });
+      }
+
+      const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
+      const rzpRes = await fetch('https://api.razorpay.com/v1/payments?count=50', {
+        headers: { Authorization: `Basic ${auth}` }
+      });
+      const rzpData = await rzpRes.json();
+      if (!rzpRes.ok) {
+        return res.status(rzpRes.status).json({ success: false, error: rzpData.error?.description || 'Failed to fetch from Razorpay' });
+      }
+
+      let syncedCount = 0;
+      for (const p of rzpData.items || []) {
+        const isPaid = p.status === 'captured';
+        const formAnswers = (p.notes && typeof p.notes === 'object') ? { ...p.notes } : {};
+        delete formAnswers.tenant_id;
+        delete formAnswers.transaction_id;
+
+        const custName = p.notes?.name || (p.email ? p.email.split('@')[0] : 'Customer');
+        const custEmail = p.email || p.notes?.email || '';
+        const custPhone = p.contact || p.notes?.phone || '';
+
+        const record = {
+          id: p.id,
+          tenant_id: tenantId,
+          order_id: p.order_id || null,
+          payment_id: p.id,
+          amount: Number(p.amount) / 100,
+          currency: p.currency || 'INR',
+          status: isPaid ? 'paid' : (p.status === 'failed' ? 'failed' : p.status),
+          gateway_name: 'razorpay',
+          customer_name: custName,
+          customer_email: custEmail,
+          customer_phone: custPhone,
+          form_answers: formAnswers,
+          error_code: p.error_code || null,
+          error_description: p.error_description || null,
+          created_at: new Date(p.created_at * 1000).toISOString(),
+          updated_at: new Date(p.created_at * 1000).toISOString()
+        };
+
+        await createPaymentTransaction(record).catch(() => updatePaymentTransaction(p.id, record));
+        syncedCount++;
+      }
+
+      return res.status(200).json({ success: true, count: syncedCount, message: `Successfully synced ${syncedCount} transactions directly from Razorpay!` });
+    } catch (err) {
+      console.error('[Payment Sync Gateway Error]:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // 4. Get Gateway Config for Tenant (Or Platform Default)
   router.get(['/payments/gateway-config', '/api/payments/gateway-config'], async (req, res) => {
     try {
@@ -958,7 +1024,9 @@ export default function setupRoutes(io) {
                 phone: custPhone,
                 email: custEmail,
                 notes: `Paid ₹${paidAmount} via Razorpay (Payment ID: ${paymentId})`,
-                pipeline_stage: 'won',
+                pipeline_stage: 'customer',
+                labels: ['Razorpay', 'PAID'],
+                deal_value: String(paidAmount),
                 tenant_id: effectiveTenantId,
                 custom_fields: targetTxn?.form_answers || {}
               });
@@ -967,22 +1035,23 @@ export default function setupRoutes(io) {
             console.warn('[Webhook CRM Contact Sync Warning]:', contactErr.message);
           }
 
-          // Trigger Automated Baileys WhatsApp Message
+          // Trigger Multi-Step Automation Engine (Supports instant message + 2 hours delay drip)
           try {
             if (custPhone) {
-              const cleanDigits = custPhone.replace(/\D/g, '').slice(-10);
-              const sessions = await getAllSessions();
-              const connectedSession = sessions.find(s => s.status === 'connected' && s.tenant_id === effectiveTenantId) ||
-                                       sessions.find(s => s.status === 'connected');
-
-              if (connectedSession) {
-                const thankYouMessage = `Hi ${custName}!\n\nThank you for your purchase! 🎉\nYour payment of ₹${paidAmount} was successfully received.\n\nPayment ID: ${paymentId}\nStatus: Verified ✅\n\nWe are processing your order right away.`;
-                await sendWhatsAppMessage(connectedSession.id, cleanDigits, thankYouMessage, effectiveTenantId);
-                console.log(`📱 [WhatsApp Automated Message Sent to ${cleanDigits}]`);
-              }
+              const { automationWorkflowEngine } = await import('./services/AutomationWorkflowEngine.js');
+              await automationWorkflowEngine.triggerEvent('payment_success', {
+                customer_name: custName,
+                customer_phone: custPhone,
+                customer_email: custEmail,
+                amount: paidAmount,
+                payment_id: paymentId,
+                order_id: orderId,
+                transaction_id: targetTxn?.id || paymentId,
+                form_answers: targetTxn?.form_answers || {}
+              }, effectiveTenantId);
             }
-          } catch (waErr) {
-            console.warn('[Webhook WhatsApp Notification Warning]:', waErr.message);
+          } catch (autoErr) {
+            console.warn('[Webhook Automation Engine Warning]:', autoErr.message);
           }
 
           // Emit live real-time update to EMS Dashboard
@@ -998,6 +1067,10 @@ export default function setupRoutes(io) {
         } else if (event === 'payment.failed') {
           const errCode = paymentEntity.error_code || 'PAYMENT_FAILED';
           const errDesc = paymentEntity.error_description || paymentEntity.error_reason || 'Payment failed or cancelled';
+          const failedAmount = paymentEntity.amount ? Number(paymentEntity.amount) / 100 : 0;
+          const custName = paymentEntity.notes?.customer_name || targetTxn?.customer_name || 'Customer';
+          const custPhone = paymentEntity.contact || targetTxn?.customer_phone || '';
+          const custEmail = paymentEntity.email || targetTxn?.customer_email || '';
 
           if (targetTxn) {
             await updatePaymentTransaction(targetTxn.id, {
@@ -1007,6 +1080,44 @@ export default function setupRoutes(io) {
               error_description: errDesc,
               raw_payload: body
             });
+          }
+
+          // Tag Contact in CRM as PAYMENT_FAILED for immediate follow-up
+          if (custPhone) {
+            try {
+              const cleanDigits = custPhone.replace(/\D/g, '').slice(-10);
+              const contactId = `${cleanDigits}@s.whatsapp.net`;
+              await saveContact({
+                id: contactId,
+                name: custName,
+                phone: custPhone,
+                email: custEmail,
+                notes: `Payment Failed (₹${failedAmount}) via Razorpay: ${errDesc}`,
+                pipeline_stage: 'follow_up',
+                labels: ['Razorpay', 'PAYMENT_FAILED'],
+                deal_value: String(failedAmount),
+                tenant_id: effectiveTenantId,
+                custom_fields: targetTxn?.form_answers || {}
+              });
+            } catch (contactErr) {
+              console.warn('[Webhook CRM Failed Contact Sync Warning]:', contactErr.message);
+            }
+            // Trigger Multi-Step Automation Engine for Payment Failed / Incomplete Drop-off
+            try {
+              const { automationWorkflowEngine } = await import('./services/AutomationWorkflowEngine.js');
+              await automationWorkflowEngine.triggerEvent('payment_failed', {
+                customer_name: custName,
+                customer_phone: custPhone,
+                customer_email: custEmail,
+                amount: failedAmount,
+                payment_id: paymentId,
+                error_code: errCode,
+                error_description: errDesc,
+                payment_link: 'https://app.employeemanagementsystems.com/#/payments'
+              }, effectiveTenantId);
+            } catch (autoErr) {
+              console.warn('[Webhook Automation Engine (Failed) Warning]:', autoErr.message);
+            }
           }
 
           console.warn(`❌ [Payment FAILED Recorded] ID: ${paymentId}, Reason: ${errDesc}`);

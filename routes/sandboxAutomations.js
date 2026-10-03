@@ -281,6 +281,28 @@ router.get('/n8n-export/:id', async (req, res) => {
     res.json({ success: true, workflow: n8nJson });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
+/**
+ * 11. POST /api/sandbox/automations/test-execute
+ * Trigger real test execution on connected WhatsApp or test simulation
+ */
+router.post('/test-execute', async (req, res) => {
+  try {
+    const { eventType = 'payment_success', payload = {}, tenantId = 1, flowId } = req.body;
+    const { automationWorkflowEngine } = await import('../services/AutomationWorkflowEngine.js');
+
+    if (flowId) {
+      const flow = await getSandboxFlowById(flowId);
+      if (flow) {
+        await automationWorkflowEngine.executeSingleFlow(flow, payload, tenantId);
+        return res.json({ success: true, message: `Flow "${flow.name}" executed successfully!`, flowName: flow.name });
+      }
+    }
+
+    const result = await automationWorkflowEngine.triggerEvent(eventType, payload, tenantId);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('[SandboxAutomations] Test Execute Error:', err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

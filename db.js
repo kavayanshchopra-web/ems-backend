@@ -1911,17 +1911,19 @@ export async function toggleChatbotRule(id, isActive, tenantId = 1) {
 
 // Scheduled Messages Helpers
 export async function saveScheduledMessage(sessionId, contactId, text, sendAt, tenantId = 1) {
+  const scheduledDate = new Date(sendAt * 1000);
+  const numTenant = Number(tenantId) || 1;
   const result = await db.run(
-    `INSERT INTO scheduled_messages (session_id, contact_id, message_text, send_at, status, tenant_id) VALUES (?, ?, ?, ?, 'pending', ?)`,
-    [sessionId, contactId, text, sendAt, tenantId]
+    `INSERT INTO scheduled_messages (session_id, contact_id, message_text, send_at, scheduled_at, status, tenant_id) VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
+    [sessionId, contactId, text, sendAt, scheduledDate, numTenant]
   );
-  return await db.get(`SELECT * FROM scheduled_messages WHERE id = ? AND tenant_id = ?`, [result.lastID, tenantId]);
+  return await db.get(`SELECT * FROM scheduled_messages WHERE id = ? AND tenant_id = ?`, [result.lastID, numTenant]);
 }
 
 export async function getPendingScheduledMessages() {
   const nowUnix = Math.floor(Date.now() / 1000);
   return await db.all(
-    `SELECT * FROM scheduled_messages WHERE status = 'pending' AND send_at <= ?`,
+    `SELECT * FROM scheduled_messages WHERE status = 'pending' AND (send_at <= ? OR scheduled_at <= NOW())`,
     [nowUnix]
   );
 }
