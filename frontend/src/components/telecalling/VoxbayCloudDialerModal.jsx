@@ -22,9 +22,9 @@ export default function VoxbayCloudDialerModal({
   const [callDuration, setCallDuration] = useState(0);
   const [showKeypad, setShowKeypad] = useState(!initialNumber);
   
-  // Calling Modes: 'webrtc' (Browser Mic / Plivo Cloud - Default) vs 'mobile_to_mobile' (Companion SIM)
+  // Calling Modes: 'mobile_to_mobile' (Companion SIM - Default) vs 'webrtc' (Browser Mic)
   const [callingMode, setCallingMode] = useState(() => {
-    return localStorage.getItem('omnilflow_calling_mode') || 'webrtc';
+    return localStorage.getItem('omnilflow_calling_mode') || 'mobile_to_mobile';
   });
   const [extension, setExtension] = useState('101');
   const [agentMobile, setAgentMobile] = useState('6283513686');
@@ -164,7 +164,7 @@ export default function VoxbayCloudDialerModal({
     setCallState('DIALING');
     setCallDuration(0);
 
-    // 2. Mode A: Browser WebRTC (Plivo Cloud - Zero Desktop Apps!)
+    // 2. Mode A: Browser WebRTC (Zero Desktop Apps!)
     if (activeMode === 'webrtc') {
       try {
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -184,7 +184,7 @@ export default function VoxbayCloudDialerModal({
             phoneNumber: cleanNumber,
             contactName: rawName || 'Customer',
             callingMode: 'webrtc',
-            provider: 'plivo',
+            provider: 'sim_runo',
             tenantId,
             staffId: currentStaff?.id || '1',
             staffName: currentStaff?.name || 'Agent'
@@ -258,19 +258,6 @@ export default function VoxbayCloudDialerModal({
       const billedAmount = parseFloat((billableMins * 0.75).toFixed(2));
       const newBal = parseFloat(Math.max(0, parseFloat(wallet.balance || 0) - billedAmount).toFixed(2));
       setWallet(prev => ({ ...prev, balance: newBal }));
-
-      // Push deduction to backend
-      fetch(`${API_BASE}/api/telephony/plivo/status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tenant_id: tenantId,
-          CallUUID: activeCallId || `webrtc_${Date.now()}`,
-          Duration: finalDuration,
-          agent_id: currentStaff?.id || '1',
-          agent_name: currentStaff?.name || 'Agent'
-        })
-      }).catch(() => {});
 
       if (showToast) {
         showToast(`Call ended (${finalDuration}s) • ₹${billedAmount} deducted from wallet`, 'info');

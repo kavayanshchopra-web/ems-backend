@@ -2594,7 +2594,7 @@ export const SupabaseSandboxService = {
     }
   },
 
-  // 17. TELEPHONY WALLET & SETTINGS (PLIVO WEBRTC INTEGRATION)
+  // 17. TELEPHONY WALLET & SETTINGS (TELEPHONY INTEGRATION)
   async fetchTelephonyWallet(tenantId = 1) {
     try {
       const cleanTenant = Number(tenantId || 1);
@@ -2638,9 +2638,9 @@ export const SupabaseSandboxService = {
       }
       return {
         tenant_id: cleanTenant,
-        provider: 'plivo',
+        provider: 'sim_runo',
         caller_id: '918031496345',
-        calling_mode: 'browser_webrtc',
+        calling_mode: 'mobile_to_mobile',
         rate_per_minute: 0.75
       };
     } catch (err) {

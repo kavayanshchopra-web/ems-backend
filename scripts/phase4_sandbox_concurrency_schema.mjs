@@ -54,9 +54,9 @@ async function runPhase4Migration() {
     await client.query(`
       INSERT INTO agent_telephony_presence (tenant_id, agent_id, agent_name, sip_endpoint, is_online, is_busy)
       VALUES 
-        (1, 'agent_101', 'Rahul Sharma (Sales)', 'sip:agent_101@phone.plivo.com', true, false),
-        (1, 'agent_102', 'Pooja Verma (Support)', 'sip:agent_102@phone.plivo.com', true, false),
-        (1, 'agent_103', 'Amit Patel (Retention)', 'sip:agent_103@phone.plivo.com', true, false)
+        (1, 'agent_101', 'Rahul Sharma (Sales)', 'sim:agent_101', true, false),
+        (1, 'agent_102', 'Pooja Verma (Support)', 'sim:agent_102', true, false),
+        (1, 'agent_103', 'Amit Patel (Retention)', 'sim:agent_103', true, false)
       ON CONFLICT (tenant_id, agent_id) DO UPDATE 
       SET agent_name = EXCLUDED.agent_name, is_online = true, is_busy = false, last_seen = NOW();
     `);

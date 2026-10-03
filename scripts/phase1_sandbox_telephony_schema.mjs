@@ -97,7 +97,7 @@ async function runPhase1Migration() {
     console.log('Seeding initial Sandbox telephony settings for Tenant 1...');
     await client.query(`
       INSERT INTO telephony_settings (tenant_id, provider, caller_id, rate_per_minute, calling_mode)
-      VALUES (1, 'plivo', '918031496345', 0.75, 'browser_webrtc')
+      VALUES (1, 'sim_runo', '918031496345', 0.75, 'mobile_to_mobile')
       ON CONFLICT (tenant_id) DO UPDATE 
       SET provider = EXCLUDED.provider,
           calling_mode = EXCLUDED.calling_mode;

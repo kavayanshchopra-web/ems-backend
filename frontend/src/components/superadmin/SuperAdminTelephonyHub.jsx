@@ -17,9 +17,9 @@ export default function SuperAdminTelephonyHub({ showToast }) {
   
   // Phase 4: Shared Number Pool & Concurrency Architecture State
   const [concurrencyAgents, setConcurrencyAgents] = useState([
-    { agent_id: 'agent_101', agent_name: 'Rahul Sharma (Sales)', sip_endpoint: 'sip:agent_101@phone.plivo.com', is_online: true, is_busy: false },
-    { agent_id: 'agent_102', agent_name: 'Pooja Verma (Support)', sip_endpoint: 'sip:agent_102@phone.plivo.com', is_online: true, is_busy: false },
-    { agent_id: 'agent_103', agent_name: 'Amit Patel (Retention)', sip_endpoint: 'sip:agent_103@phone.plivo.com', is_online: true, is_busy: false }
+    { agent_id: 'agent_101', agent_name: 'Rahul Sharma (Sales)', sip_endpoint: 'sim:agent_101', is_online: true, is_busy: false },
+    { agent_id: 'agent_102', agent_name: 'Pooja Verma (Support)', sip_endpoint: 'sim:agent_102', is_online: true, is_busy: false },
+    { agent_id: 'agent_103', agent_name: 'Amit Patel (Retention)', sip_endpoint: 'sim:agent_103', is_online: true, is_busy: false }
   ]);
   const [inboundStrategy, setInboundStrategy] = useState('sticky_agent'); // 'sticky_agent' | 'ring_all' | 'round_robin'
   const [ringTimeout, setRingTimeout] = useState(25);
@@ -43,10 +43,8 @@ export default function SuperAdminTelephonyHub({ showToast }) {
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [deviceFilter, setDeviceFilter] = useState('ALL'); // 'ALL' | 'LINKED' | 'ACTION_REQUIRED'
   
-  // Global Active Telephony Mode: 'sim_runo' (Primary Live) vs 'plivo' (WebRTC)
-  const [globalTelephonyMode, setGlobalTelephonyMode] = useState(() => {
-    return localStorage.getItem('active_telephony_provider') || 'sim_runo';
-  });
+  // Global Active Telephony Mode: exclusively 'sim_runo' (Primary Live)
+  const [globalTelephonyMode, setGlobalTelephonyMode] = useState('sim_runo');
 
   // Edit Modal State
   const [editForm, setEditForm] = useState({
@@ -230,16 +228,12 @@ export default function SuperAdminTelephonyHub({ showToast }) {
     fetchFinancialReport();
   }, []);
 
-  const handleGlobalProviderSwitch = (newProvider) => {
-    setGlobalTelephonyMode(newProvider);
-    localStorage.setItem('active_telephony_provider', newProvider);
-    window.dispatchEvent(new CustomEvent('omniflow:telephony_provider_changed', { detail: { provider: newProvider } }));
+  const handleGlobalProviderSwitch = (newProvider = 'sim_runo') => {
+    setGlobalTelephonyMode('sim_runo');
+    localStorage.setItem('active_telephony_provider', 'sim_runo');
+    window.dispatchEvent(new CustomEvent('omniflow:telephony_provider_changed', { detail: { provider: 'sim_runo' } }));
     if (showToast) {
-      if (newProvider === 'plivo') {
-        showToast('🎧 Active Telephony set to Plivo Universal WebRTC (In-Browser Zero-Install)', 'success');
-      } else {
-        showToast('📱 Active Telephony set to SIM Card & Runo Mobile Companion (Live)', 'success');
-      }
+      showToast('📱 Active Telephony set to SIM Card & Runo Mobile Companion (Live)', 'success');
     }
   };
 
@@ -388,49 +382,22 @@ export default function SuperAdminTelephonyHub({ showToast }) {
 
         {/* SuperAdmin Quick Switcher */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ffffff', padding: '6px', borderRadius: '10px', border: '1px solid #cbd5e1' }}>
-          <button
-            type="button"
-            onClick={() => handleGlobalProviderSwitch('sim_runo')}
+          <div
             style={{
-              padding: '6px 12px',
+              padding: '6px 14px',
               borderRadius: '6px',
-              border: 'none',
-              background: globalTelephonyMode === 'sim_runo' ? '#16a34a' : 'transparent',
-              color: globalTelephonyMode === 'sim_runo' ? '#ffffff' : '#64748b',
+              background: '#16a34a',
+              color: '#ffffff',
               fontSize: '12px',
               fontWeight: '700',
-              cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.2s'
+              gap: '6px'
             }}
           >
             <Smartphone size={13} />
-            <span>📱 SIM / Runo Companion (Live)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleGlobalProviderSwitch('plivo')}
-            style={{
-              padding: '6px 12px',
-              borderRadius: '6px',
-              border: 'none',
-              background: globalTelephonyMode === 'plivo' ? '#059669' : 'transparent',
-              color: globalTelephonyMode === 'plivo' ? '#ffffff' : '#64748b',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.2s'
-            }}
-          >
-            <Cloud size={13} />
-            <span>🎧 WebRTC (Active)</span>
-          </button>
+            <span>📱 SIM / Runo Companion (Primary Live)</span>
+          </div>
         </div>
       </div>
 
@@ -709,7 +676,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
                 </span>
               </div>
               <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                Multi-tenant calling minutes, retail billed (₹0.75/min) vs Plivo wholesale cost (₹0.38/min) & gross profit ledger
+                Multi-tenant calling minutes, retail billed (₹0.75/min) vs wholesale carrier cost (₹0.38/min) & gross profit ledger
               </div>
             </div>
           </div>
@@ -795,7 +762,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                Wholesale Plivo Cost
+                Wholesale Carrier Cost
               </span>
               <span style={{ fontSize: '10.5px', background: '#e2e8f0', padding: '2px 6px', borderRadius: '6px', color: '#334155', fontWeight: '800' }}>
                 @ ₹0.38/min
