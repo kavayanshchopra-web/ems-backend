@@ -1,4 +1,5 @@
 import callingService from './services/calling/CallingService.js';
+import universalWalletService from './services/UniversalWalletService.js';
 
 import { 
   createCallRecord, 
@@ -2141,6 +2142,25 @@ export default function setupRoutes(io) {
     }
 
     const text = rawText.trim();
+    const activeTenantId = parseInt(tenantId, 10) || 1;
+    const messageType = req.body.messageType || (req.body.isTemplate ? 'whatsapp_template_msg' : (req.body.isBulk ? 'whatsapp_bulk_broadcast' : 'whatsapp_normal_chat'));
+
+    // 0. Universal Wallet Pre-Check & Strict Zero-Balance Block
+    try {
+      const canSendCheck = await universalWalletService.checkCanSend(activeTenantId, messageType, 1);
+      if (!canSendCheck.allowed) {
+        return res.status(402).json({
+          success: false,
+          error: 'INSUFFICIENT_WALLET_BALANCE',
+          message: canSendCheck.message,
+          currentBalance: canSendCheck.currentBalance,
+          requiredAmount: canSendCheck.requiredAmount,
+          status: 'error'
+        });
+      }
+    } catch (wErr) {
+      console.warn('[Wallet Precheck Notice]:', wErr.message);
+    }
 
     try {
       let sentMessage = null;
@@ -2207,7 +2227,38 @@ export default function setupRoutes(io) {
         });
       }
 
-      // 3. Emit real-time WebSocket event to all clients & tenant room
+      // 3. Deduct from Universal Wallet & Log Transaction
+      let walletDeduction = null;
+      try {
+        walletDeduction = await universalWalletService.deductForMessage({
+          tenantId: activeTenantId,
+          messageId: sentMessage.id,
+          messageType,
+          count: 1,
+          recipientPhone: cleanDigits || recipientJid,
+          triggerSource: req.body.triggerSource || (req.body.isBulk ? 'EMS_BROADCAST' : (req.body.isTemplate ? 'EMS_TEMPLATE' : 'EMS_WEB_CHAT')),
+          description: `Sent ${messageType === 'whatsapp_normal_chat' ? '1-to-1 Chat' : (messageType === 'whatsapp_template_msg' ? 'Template' : 'Broadcast')} to ${cleanDigits || recipientJid}`
+        });
+
+        if (io && walletDeduction) {
+          io.to(`tenant_${activeTenantId}`).emit('wallet:balance_updated', {
+            tenantId: activeTenantId,
+            balance: walletDeduction.newBalance,
+            deducted: walletDeduction.deducted,
+            isBelowThreshold: walletDeduction.isBelowThreshold
+          });
+          io.emit('wallet:balance_updated', {
+            tenantId: activeTenantId,
+            balance: walletDeduction.newBalance,
+            deducted: walletDeduction.deducted,
+            isBelowThreshold: walletDeduction.isBelowThreshold
+          });
+        }
+      } catch (wDeductErr) {
+        console.warn('[Wallet Deduction Notice]:', wDeductErr.message);
+      }
+
+      // 4. Emit real-time WebSocket event to all clients & tenant room
       const outPayload = {
         id: sentMessage.id,
         sessionId: usedBaileys ? targetSessionId : 'desktop_webview',
@@ -2222,18 +2273,26 @@ export default function setupRoutes(io) {
         media_type: 'text',
         timestamp: sentMessage.timestamp || Math.floor(Date.now() / 1000),
         status: 1,
-        tenantId
+        tenantId: activeTenantId,
+        walletBalance: walletDeduction?.newBalance
       };
 
       if (io) {
-        io.to(`tenant_${tenantId}`).emit('new_message', outPayload);
-        if (String(tenantId) === '1' || tenantId === 1) {
+        io.to(`tenant_${activeTenantId}`).emit('new_message', outPayload);
+        if (String(activeTenantId) === '1' || activeTenantId === 1) {
           io.to('tenant_default').emit('new_message', outPayload);
         }
         io.emit('new_message', outPayload);
       }
 
-      res.json({ success: true, message: 'Message sent successfully', data: sentMessage, status: 1 });
+      res.json({ 
+        success: true, 
+        message: 'Message sent successfully', 
+        data: sentMessage, 
+        walletBalance: walletDeduction?.newBalance, 
+        rateApplied: walletDeduction?.rateApplied,
+        status: 1 
+      });
     } catch (err) {
       console.error('[Send Message Error]', err);
       res.status(500).json({ error: err.message || 'Failed to send message' });
@@ -5700,6 +5759,187 @@ ${recordingUrl && recordingUrl.startsWith('http') ? `🎧 *Audio Recording Evide
       return res.status(200).json({ success: true, message: 'Razorpay configuration saved successfully', config: updated });
     } catch (err) {
       console.error('[Save Gateway Config Error]:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // ==============================================================================
+  // 🏦 UNIVERSAL MULTI-SERVICE SAAS WALLET ENDPOINTS (WHATSAPP 3-TIER + RAZORPAY)
+  // ==============================================================================
+
+  // 1. Get Live Wallet Status, Threshold & Rates
+  router.get(['/wallet/status', '/api/wallet/status'], async (req, res) => {
+    try {
+      const tenantId = parseInt(req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.query.tenantId || 1, 10);
+      const wallet = await universalWalletService.getWallet(tenantId);
+      const rates = await universalWalletService.getRates(tenantId);
+      return res.status(200).json({
+        success: true,
+        wallet,
+        rates
+      });
+    } catch (err) {
+      console.error('[Wallet Status Error]:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 2. Pre-check if Message Can be Sent (Strict Zero-Balance Block)
+  router.post(['/wallet/precheck', '/api/wallet/precheck'], async (req, res) => {
+    try {
+      const tenantId = parseInt(req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.body?.tenantId || 1, 10);
+      const messageType = req.body.messageType || 'whatsapp_normal_chat';
+      const count = parseInt(req.body.count || 1, 10);
+      const check = await universalWalletService.checkCanSend(tenantId, messageType, count);
+      return res.status(200).json({ success: true, ...check });
+    } catch (err) {
+      console.error('[Wallet Precheck Error]:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 3. Create Verified Recharge Order (Min ₹1,000)
+  router.post(['/wallet/recharge/create-order', '/api/wallet/recharge/create-order'], async (req, res) => {
+    try {
+      const tenantId = parseInt(req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.body?.tenantId || 1, 10);
+      const amount = parseFloat(req.body.amount || 1000);
+      if (isNaN(amount) || amount < 1000) {
+        return res.status(400).json({
+          success: false,
+          error: 'Minimum wallet recharge amount is ₹1,000.00'
+        });
+      }
+      const order = await universalWalletService.createRechargeOrder({ tenantId, amount });
+      return res.status(200).json({ success: true, order });
+    } catch (err) {
+      console.error('[Create Recharge Order Error]:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 4. Verify HMAC SHA-256 Signature and Credit Balance (ONLY on Payment Success)
+  router.post(['/wallet/recharge/verify', '/api/wallet/recharge/verify'], async (req, res) => {
+    try {
+      const tenantId = parseInt(req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.body?.tenantId || 1, 10);
+      const { orderId, paymentId, signature } = req.body;
+      if (!orderId || !paymentId) {
+        return res.status(400).json({ success: false, error: 'orderId and paymentId are required' });
+      }
+      const result = await universalWalletService.verifyAndCreditRecharge({
+        tenantId,
+        orderId,
+        paymentId,
+        signature
+      });
+
+      // Emit live wallet update to tenant room
+      if (io) {
+        io.to(`tenant_${tenantId}`).emit('wallet:balance_updated', {
+          tenantId,
+          balance: result.newBalance,
+          creditedAmount: result.creditedAmount
+        });
+        io.emit('wallet:balance_updated', {
+          tenantId,
+          balance: result.newBalance,
+          creditedAmount: result.creditedAmount
+        });
+      }
+
+      return res.status(200).json({ success: true, ...result });
+    } catch (err) {
+      console.error('[Verify Recharge Error]:', err);
+      return res.status(400).json({ success: false, error: err.message });
+    }
+  });
+
+  // 5. Tenant Transaction Ledger (Paginated)
+  router.get(['/wallet/ledger', '/api/wallet/ledger'], async (req, res) => {
+    try {
+      const tenantId = parseInt(req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.query.tenantId || 1, 10);
+      const limit = parseInt(req.query.limit || 50, 10);
+      const offset = parseInt(req.query.offset || 0, 10);
+      const ledger = await universalWalletService.getLedger(tenantId, limit, offset);
+      return res.status(200).json({ success: true, ...ledger });
+    } catch (err) {
+      console.error('[Wallet Ledger Error]:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 6. SuperAdmin Overview & Rates Management
+  router.get(['/superadmin/wallet/overview', '/api/superadmin/wallet/overview'], async (req, res) => {
+    try {
+      const overview = await universalWalletService.getSuperAdminOverview();
+      return res.status(200).json({ success: true, ...overview });
+    } catch (err) {
+      console.error('[SuperAdmin Wallet Overview Error]:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 7. SuperAdmin Update Rates / Overrides / Threshold
+  router.post(['/superadmin/wallet/rates', '/api/superadmin/wallet/rates'], async (req, res) => {
+    try {
+      const { serviceKey, defaultRate, tenantId, customRate, minThreshold } = req.body;
+      const client = await universalWalletService.pool.connect();
+      try {
+        if (serviceKey && defaultRate !== undefined) {
+          await client.query(`
+            UPDATE global_service_rates 
+            SET default_rate = $1, updated_at = NOW() 
+            WHERE service_key = $2;
+          `, [parseFloat(defaultRate), serviceKey]);
+        }
+        if (tenantId && serviceKey && customRate !== undefined) {
+          await client.query(`
+            INSERT INTO tenant_rate_overrides (tenant_id, service_key, custom_rate, updated_at)
+            VALUES ($1, $2, $3, NOW())
+            ON CONFLICT (tenant_id, service_key) DO UPDATE 
+            SET custom_rate = EXCLUDED.custom_rate, updated_at = NOW();
+          `, [parseInt(tenantId, 10), serviceKey, parseFloat(customRate)]);
+        }
+        if (minThreshold !== undefined) {
+          await client.query(`
+            UPDATE universal_wallets 
+            SET min_threshold = $1, updated_at = NOW();
+          `, [parseFloat(minThreshold)]);
+        }
+        return res.status(200).json({ success: true, message: 'Pricing rates updated successfully' });
+      } finally {
+        client.release();
+      }
+    } catch (err) {
+      console.error('[SuperAdmin Update Rates Error]:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 8. SuperAdmin Manual Credit Adjustment
+  router.post(['/superadmin/wallet/adjust-credit', '/api/superadmin/wallet/adjust-credit'], async (req, res) => {
+    try {
+      const { tenantId, amount, reason } = req.body;
+      if (!tenantId || amount === undefined) {
+        return res.status(400).json({ success: false, error: 'tenantId and amount are required' });
+      }
+      const adminUser = req.user?.name || 'SuperAdmin';
+      const result = await universalWalletService.adminAdjustBalance({
+        tenantId: parseInt(tenantId, 10),
+        amount: parseFloat(amount),
+        reason: reason || 'SuperAdmin Credit Grant',
+        adminUser
+      });
+
+      if (io) {
+        io.to(`tenant_${tenantId}`).emit('wallet:balance_updated', {
+          tenantId,
+          balance: result.newBalance
+        });
+      }
+
+      return res.status(200).json({ success: true, ...result });
+    } catch (err) {
+      console.error('[SuperAdmin Adjust Credit Error]:', err);
       return res.status(500).json({ success: false, error: err.message });
     }
   });
