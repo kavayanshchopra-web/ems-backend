@@ -4091,7 +4091,7 @@ export default function ConversationsPage({
                                 {isMissed ? 'Missed Call' : (isOutbound ? 'Outbound Call' : 'Inbound Call')}
                               </div>
                               <div style={{ fontSize: '9.5px', color: '#64748b', marginTop: '1px' }}>
-                                Handled by <b>{item.agentName}</b> via {item.channel === 'VOXBAY' || item.channel === 'WEB_DIALER' ? '🌐 Cloud Dialer' : '📱 SIM Companion'}
+                                Handled by <b>{item.agentName}</b> via {item.channel === 'CLOUD_DIALER' || item.channel === 'WEB_DIALER' ? '🌐 Cloud Dialer' : '📱 SIM Companion'}
                               </div>
                             </div>
                           </div>

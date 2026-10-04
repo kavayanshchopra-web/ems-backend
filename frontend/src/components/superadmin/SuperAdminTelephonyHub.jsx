@@ -401,7 +401,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
         </div>
       </div>
 
-      {/* LIVE SANDBOX TELEPHONY WALLET & METRICS CARD */}
+      {/* SANDBOX TELEPHONY STATUS & INFRASTRUCTURE CARD */}
       <div style={{
         background: 'linear-gradient(135deg, #064e3b 0%, #0f766e 100%)',
         borderRadius: '14px',

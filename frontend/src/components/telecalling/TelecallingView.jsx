@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useModuleRegistry } from '../../core/registry/useModuleRegistry';
 import LayoutEngine from '../../core/engines/LayoutEngine/LayoutEngine';
-import FirebaseCloudEngine from '../../core/engines/FirebaseCloudEngine';
-import VoxbayCloudDialerModal from './VoxbayCloudDialerModal';
+import CloudDialerModal from './CloudDialerModal';
 import { 
   PhoneCall, 
   Smartphone, 
@@ -62,7 +61,7 @@ export default function TelecallingView({
 
   const { config } = useModuleRegistry(companyId, 'telecalling');
   
-  const [isVoxbayOpen, setIsVoxbayOpen] = useState(false);
+  const [isDialerOpen, setIsDialerOpen] = useState(false);
   const [internalLogs, setInternalLogs] = useState(() => {
     if (isSandboxEnvironment()) {
       try { localStorage.removeItem('omniflow_cached_call_logs'); } catch (e) {}
@@ -956,7 +955,7 @@ export default function TelecallingView({
     if (window.openGlobalDialer) {
       window.openGlobalDialer('', 'Customer', false);
     } else {
-      setIsVoxbayOpen(true);
+      setIsDialerOpen(true);
     }
   };
 
@@ -1444,10 +1443,10 @@ export default function TelecallingView({
       </div>
 
       {/* Universal Cloud Web Dialer Modal */}
-      {isVoxbayOpen && (
-        <VoxbayCloudDialerModal
-          isOpen={isVoxbayOpen}
-          onClose={() => setIsVoxbayOpen(false)}
+      {isDialerOpen && (
+        <CloudDialerModal
+          isOpen={isDialerOpen}
+          onClose={() => setIsDialerOpen(false)}
           onCallLogged={handleCallLogged}
           showToast={showToast}
           authUser={authUser}

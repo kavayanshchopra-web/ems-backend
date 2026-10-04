@@ -1,4 +1,4 @@
-import VoxbayCloudDialerModal from './telecalling/VoxbayCloudDialerModal';
+import CloudDialerModal, { VoxbayCloudDialerModal } from './telecalling/CloudDialerModal';
 // OmniFlow EMS v2.5 � Telecalling + Mobile UI � Build 20260729
 // CACHE BUSTER: 2026-07-29 03:20 PM - Verified 100% syntactically balanced JSX!
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
@@ -844,7 +844,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     return 'app_launcher';
   });
   const [isMobilePreview, setIsMobilePreview] = useState(false);
-  const [globalVoxbayOpen, setGlobalVoxbayOpen] = useState(false);
+  const [globalDialerOpen, setGlobalDialerOpen] = useState(false);
   const [simViewMode, setSimViewMode] = useState('app'); // 'app' or 'permissions'
   const [simPermissions, setSimPermissions] = useState({ calendar: false, location: false, notifications: false, battery: false, phone: false, overlay: false });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -1311,15 +1311,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   const [ivrWelcomeText, setIvrWelcomeText] = useState('Thank you for calling Employee Management Systems. For Sales & Product Demos, press 1. For Customer Support, press 2. For Billing & Accounts, press 3. Or stay on line for executive.');
   const [ivrLanguage, setIvrLanguage] = useState('hi-IN');
   const [ivrTestKeyResult, setIvrTestKeyResult] = useState(null);
-  // Global Voxbay Cloud Telephony Dialer State
-  const [voxbayDialerState, setVoxbayDialerState] = useState({
+  // Global Cloud Telephony Dialer State
+  const [cloudDialerState, setCloudDialerState] = useState({
     isOpen: false,
     destination: '',
     contactName: '',
     autoDial: false
   });
-  const openVoxbayDialer = (phone, name = 'Customer', autoDial = true) => {
-    setVoxbayDialerState({
+  const openCloudDialer = (phone, name = 'Customer', autoDial = true) => {
+    setCloudDialerState({
       isOpen: true,
       destination: phone || '',
       contactName: name || 'Customer',
@@ -1342,8 +1342,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         openSimDialerPad(phone, name);
       }
     };
+    window.openCloudDialer = (phone, name, autoDial = true) => {
+      openCloudDialer(phone, name, autoDial);
+    };
     window.openVoxbayDialer = (phone, name, autoDial = true) => {
-      openVoxbayDialer(phone, name, autoDial);
+      openCloudDialer(phone, name, autoDial);
     };
     window.openSimDialer = (phone, name, autoDial = false) => {
       if (phone && autoDial) {
@@ -1352,10 +1355,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         openSimDialerPad(phone, name);
       }
     };
-    const handleCustomVoxbayEvent = (e) => {
+    const handleCustomCloudDialerEvent = (e) => {
       if (e.detail) {
         const { phone, name, autoDial } = e.detail;
-        openVoxbayDialer(phone, name, autoDial !== false);
+        openCloudDialer(phone, name, autoDial !== false);
       }
     };
     const handleCustomGlobalEvent = (e) => {
@@ -1368,10 +1371,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         }
       }
     };
-    window.addEventListener('omniflow:open_voxbay_dialer', handleCustomVoxbayEvent);
+    window.addEventListener('omniflow:open_cloud_dialer', handleCustomCloudDialerEvent);
+    window.addEventListener('omniflow:open_voxbay_dialer', handleCustomCloudDialerEvent);
     window.addEventListener('omniflow:open_global_dialer', handleCustomGlobalEvent);
     return () => {
-      window.removeEventListener('omniflow:open_voxbay_dialer', handleCustomVoxbayEvent);
+      window.removeEventListener('omniflow:open_cloud_dialer', handleCustomCloudDialerEvent);
+      window.removeEventListener('omniflow:open_voxbay_dialer', handleCustomCloudDialerEvent);
       window.removeEventListener('omniflow:open_global_dialer', handleCustomGlobalEvent);
     };
   }, []);
@@ -7215,11 +7220,11 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             appointmentsCount: '0'
           }}
         />
-        {/* Universal Voxbay Cloud Dialer Modal */}
-        {globalVoxbayOpen && (
-          <VoxbayCloudDialerModal
-            isOpen={globalVoxbayOpen}
-            onClose={() => setGlobalVoxbayOpen(false)}
+        {/* Universal Cloud Dialer Modal */}
+        {globalDialerOpen && (
+          <CloudDialerModal
+            isOpen={globalDialerOpen}
+            onClose={() => setGlobalDialerOpen(false)}
             callLogs={callLogs}
             setCallLogs={setCallLogs}
             authUser={effectiveAuthUser}
@@ -8353,7 +8358,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 </Suspense>
               )}
         
-        {/* Voxbay Phone & Web Dialer */}
+        {/* Cloud Phone & Web Dialer */}
         
         {/* Unified Conversations & Omni-Timeline Hub */}
         {(activeTab === 'conversations' || visitedConversations) && (
@@ -9319,22 +9324,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
-                {/* GLOBAL VOXBAY CLOUD DIALER MODAL */}
-        {voxbayDialerState.isOpen && (
-          <VoxbayCloudDialerModal
-            isOpen={voxbayDialerState.isOpen}
-            onClose={() => setVoxbayDialerState(prev => ({ ...prev, isOpen: false }))}
-            initialNumber={voxbayDialerState.destination}
-            initialName={voxbayDialerState.contactName}
-            autoDial={voxbayDialerState.autoDial}
+                {/* GLOBAL CLOUD DIALER MODAL */}
+        {cloudDialerState.isOpen && (
+          <CloudDialerModal
+            isOpen={cloudDialerState.isOpen}
+            onClose={() => setCloudDialerState(prev => ({ ...prev, isOpen: false }))}
+            initialNumber={cloudDialerState.destination}
+            initialName={cloudDialerState.contactName}
+            autoDial={cloudDialerState.autoDial}
             currentStaff={{ id: authUser?.id || '1', name: authUser?.name || 'Agent' }}
             onCallLogged={(callData) => {
               const newLog = {
                 id: `CALL-${Date.now()}`,
-                name: callData.contactName || callData.customerName || callData.name || voxbayDialerState.contactName || 'Customer',
-                customerName: callData.contactName || callData.customerName || callData.name || voxbayDialerState.contactName || 'Customer',
-                phone: callData.phoneNumber || callData.customerPhone || callData.phone || voxbayDialerState.destination || '�',
-                customerPhone: callData.phoneNumber || callData.customerPhone || callData.phone || voxbayDialerState.destination || '�',
+                name: callData.contactName || callData.customerName || callData.name || cloudDialerState.contactName || 'Customer',
+                customerName: callData.contactName || callData.customerName || callData.name || cloudDialerState.contactName || 'Customer',
+                phone: callData.phoneNumber || callData.customerPhone || callData.phone || cloudDialerState.destination || '�',
+                customerPhone: callData.phoneNumber || callData.customerPhone || callData.phone || cloudDialerState.destination || '�',
                 agentName: authUser?.name || 'Staff 1',
                 channel: callData.channel || 'SIM_COMPANION',
                 type: 'OUTGOING',
