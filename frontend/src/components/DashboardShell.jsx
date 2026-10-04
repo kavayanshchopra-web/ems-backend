@@ -1639,7 +1639,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         try {
           const contact = data?.contact || data;
           if (!contact) return;
-          const fullName = contact.name || `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || contact.customName || contact.custom_name || contact.phone || 'HighLevel Lead';
+          const fullName = contact.name || `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || contact.customName || contact.custom_name || contact.phone || 'CRM Lead';
           const cleanPhone = (contact.phone || '').replace(/[^0-9+]/g, '');
           const cleanEmail = contact.email || '';
           const contactId = data.contactId || data.id || data.ghlContactId || `ghl_${Date.now()}`;
@@ -1653,10 +1653,10 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             window.dispatchEvent(new CustomEvent('ghl_inbound_contact_received', { detail: [contact] }));
           }
 
-          // Ingest into Firestore as GoHighLevel source (Loop-safe)
+          // Ingest into Firestore as External CRM source (Loop-safe)
           await FirebaseCloudEngine.saveRecord('crm_deals', {
             id: `deal_${contactId}`,
-            title: `${fullName} - HighLevel Lead`,
+            title: `${fullName} - CRM Lead`,
             customer_name: fullName,
             phone: cleanPhone,
             email: cleanEmail,
@@ -1664,9 +1664,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             pipeline_stage: 'lead',
             amount: 0,
             deal_value: 0,
-            notes: `Live Inbound Sync from HighLevel (Contact ID: ${contactId})`,
-            tags: ['HighLevel'],
-            source: 'GoHighLevel',
+            notes: `Live Inbound Sync from CRM (Ref: ${contactId})`,
+            tags: ['External CRM'],
+            source: 'External CRM',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           }, currentCompany);
@@ -1677,13 +1677,13 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             phone: cleanPhone,
             email: cleanEmail,
             pipeline_stage: 'lead',
-            labels: ['HighLevel'],
-            source: 'GoHighLevel'
+            labels: ['External CRM'],
+            source: 'External CRM'
           }, currentCompany);
 
-          showToast(`⚡ Live Inbound Sync: ${fullName} added from HighLevel!`, 'success');
+          showToast(`⚡ Live Inbound Sync: ${fullName} added from CRM!`, 'success');
         } catch (e) {
-          console.warn('[GHL Inbound Sync Error]', e.message);
+          console.warn('[CRM Inbound Sync Error]', e.message);
         }
       };
 
@@ -1699,7 +1699,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   }, [authUser]);
 
-  // Live HighLevel Inbound Background Auto-Poller (Stream from HighLevel every 10s)
+  // Live CRM Inbound Background Auto-Poller (Stream from CRM every 10s)
   useEffect(() => {
     const rawTenant = authUser?.companyId || authUser?.tenantId || authUser?.tenant_id;
     if (!rawTenant || rawTenant === 'default_tenant' || rawTenant === 'org_unassigned') return;
@@ -1718,7 +1718,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         if (!loc || !loc.accessToken || !loc.locationId) return;
         if (String(loc.companyId || loc.tenantId) !== currentCompany) return;
 
-        // Fetch latest 30 contacts directly from HighLevel
+        // Fetch latest 30 contacts directly from CRM
         const recentContacts = await GhlOAuthService.pollRecentContacts({
           locationId: loc.locationId,
           accessToken: loc.accessToken,
@@ -1742,7 +1742,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             // Simultaneously persist to Master PostgreSQL DB via Backend CRM sync API
             for (const c of freshGhlContacts) {
               const cleanP = (c.phone || '').replace(/[^0-9+]/g, '');
-              const fName = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.phone || 'HighLevel Lead';
+              const fName = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.phone || 'CRM Lead';
               fetch(`${DEFAULT_GATEWAY}/api/contacts/crm-sync`, {
                 method: 'POST',
                 headers: {
@@ -1755,8 +1755,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                   phone: cleanP,
                   email: c.email || null,
                   stage: 'lead',
-                  notes: `Live Inbound Sync from HighLevel (Contact ID: ${c.id})`,
-                  labels: Array.isArray(c.tags) ? c.tags : ['HighLevel'],
+                  notes: `Live Inbound Sync from CRM (Ref: ${c.id})`,
+                  labels: Array.isArray(c.tags) ? c.tags : ['External CRM'],
                   dealValue: 0
                 })
               }).catch(() => {});
@@ -1765,7 +1765,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             window.dispatchEvent(new CustomEvent('ghl_inbound_contact_received', { detail: freshGhlContacts }));
             if (isMounted) {
               const latestName = freshGhlContacts[0]?.name || freshGhlContacts[0]?.firstName || 'Contact';
-              showToast(`⚡ Live Inbound Sync: ${latestName} synced from HighLevel!`, 'success');
+              showToast(`⚡ Live Inbound Sync: ${latestName} synced from CRM!`, 'success');
             }
           }
         }
@@ -1779,12 +1779,12 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             const dealId = `deal_${c.id}`;
             if (!existingDealIds.has(dealId) && !knownContactIds.has(c.id)) {
               knownContactIds.add(c.id);
-              const fullName = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.phone || 'HighLevel Lead';
+              const fullName = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.phone || 'CRM Lead';
               const cleanPhone = (c.phone || '').replace(/[^0-9+]/g, '');
 
               const dealPayload = {
                 id: dealId,
-                title: `${fullName} - HighLevel Lead`,
+                title: `${fullName} - CRM Lead`,
                 customer_name: fullName,
                 phone: cleanPhone,
                 email: c.email || '',
@@ -1792,9 +1792,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 pipeline_stage: 'lead',
                 amount: 0,
                 deal_value: 0,
-                notes: `Live Inbound Sync from HighLevel (Contact ID: ${c.id})`,
-                tags: Array.isArray(c.tags) ? c.tags : ['HighLevel'],
-                source: 'GoHighLevel',
+                notes: `Live Inbound Sync from CRM (Ref: ${c.id})`,
+                tags: Array.isArray(c.tags) ? c.tags : ['External CRM'],
+                source: 'External CRM',
                 createdAt: c.dateAdded || new Date().toISOString(),
                 updatedAt: new Date().toISOString()
               };
@@ -1806,8 +1806,8 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 phone: cleanPhone,
                 email: c.email || '',
                 pipeline_stage: 'lead',
-                labels: Array.isArray(c.tags) ? c.tags : ['HighLevel'],
-                source: 'GoHighLevel'
+                labels: Array.isArray(c.tags) ? c.tags : ['External CRM'],
+                source: 'External CRM'
               }, currentCompany).catch(() => {});
             }
           }
@@ -6672,7 +6672,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         name: sessObj.phoneName || sessObj.id || `Session #${id}`,
         category: 'WhatsApp Channel',
         entityData: sessObj,
-        links: 'Active Baileys Session Connection'
+        links: 'Active WhatsApp Cloud Session'
       });
     }
     setSessions(prev => (prev || []).filter(s => String(s.id) !== String(id)));
@@ -8203,7 +8203,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
               }}>
-                GHL Master SuperAdmin Mode
+                Master SuperAdmin Mode
               </span>
             </div>
             <button

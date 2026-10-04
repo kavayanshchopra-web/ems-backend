@@ -574,7 +574,7 @@ export default function BillingPage({ user, showToast }) {
                 </span>
               </h2>
               <p style={{ fontSize: '12.5px', color: '#64748b', marginTop: '3px' }}>
-                Funds are deducted only for messages sent from the EMS platform. Phone WhatsApp & Runo SIM calling are 100% free.
+                Funds are deducted only for messages sent from the EMS platform. Phone WhatsApp & Mobile SIM calling are 100% free.
               </p>
             </div>
           </div>
@@ -646,7 +646,7 @@ export default function BillingPage({ user, showToast }) {
             <div style={{ fontSize: '10.5px', color: '#059669', marginTop: '2px' }}>CSV campaign blasts</div>
           </div>
           <div>
-            <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Runo SIM Companion</div>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Mobile SIM Companion</div>
             <div style={{ fontSize: '15px', fontWeight: '800', color: '#16a34a', marginTop: '2px' }}>
               100% Free
             </div>

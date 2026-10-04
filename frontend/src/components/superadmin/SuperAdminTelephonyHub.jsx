@@ -319,7 +319,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
     localStorage.setItem('active_telephony_provider', 'sim_runo');
     window.dispatchEvent(new CustomEvent('omniflow:telephony_provider_changed', { detail: { provider: 'sim_runo' } }));
     if (showToast) {
-      showToast('📱 Active Telephony set to SIM Card & Runo Mobile Companion (Live)', 'success');
+      showToast('📱 Active Telephony set to SIM Card & Mobile Companion (Live)', 'success');
     }
   };
 
@@ -389,7 +389,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
             <span>Telephony Architecture & Provider Provisioning Hub</span>
           </h3>
           <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
-            Manage Active Calling Infrastructure (SIM Card & Runo Mobile Companion / Cloud WebRTC), manage tenant allocations, and monitor devices.
+            Manage Active Calling Infrastructure (SIM Card & Mobile Companion / Cloud WebRTC), manage tenant allocations, and monitor devices.
           </p>
         </div>
 
@@ -445,7 +445,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f2b26' }}>
-                Active Telephony Provider: {globalTelephonyMode === 'sim_runo' ? '📱 SIM Card & Runo Companion (LIVE)' : '🎧 Universal WebRTC (ACTIVE)'}
+                Active Telephony Provider: {globalTelephonyMode === 'sim_runo' ? '📱 SIM Card & Mobile Companion (LIVE)' : '🎧 Universal WebRTC (ACTIVE)'}
               </span>
               <span style={{
                 background: globalTelephonyMode === 'sim_runo' ? '#dcfce7' : '#e0f2fe',
@@ -460,7 +460,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
             </div>
             <p style={{ fontSize: '12px', color: '#475569', margin: '4px 0 0 0', lineHeight: 1.4 }}>
               {globalTelephonyMode === 'sim_runo'
-                ? 'Direct SIM dialer, Android Companion auto-recording sync, and Runo-style call flow are live and active.'
+                ? 'Direct SIM dialer, Android Companion auto-recording sync, and SIM call flow are live and active.'
                 : 'Universal browser-based WebRTC calling is active.'}
             </p>
           </div>
@@ -482,7 +482,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
             }}
           >
             <Smartphone size={13} />
-            <span>📱 SIM / Runo Companion (Primary Live)</span>
+            <span>📱 SIM / Mobile Companion (Primary Live)</span>
           </div>
         </div>
       </div>
@@ -708,7 +708,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
             </b>
           </div>
           <div>
-            <span style={{ color: '#64748b' }}>Runo SIM Calling: </span>
+            <span style={{ color: '#64748b' }}>Mobile SIM Calling: </span>
             <b style={{ color: '#16a34a' }}>100% Free / Included in Plan</b>
           </div>
         </div>
@@ -1524,7 +1524,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
                     <td style={{ padding: '14px 16px' }}>
                       {globalTelephonyMode === 'sim_runo' ? (
                         <span style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '4px 8px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                          <Smartphone size={12} /> SIM Card / Runo (Active)
+                          <Smartphone size={12} /> SIM Card / Mobile (Active)
                         </span>
                       ) : (
                         <span style={{ background: '#f0fdf4', color: '#059669', border: '1px solid #a7f3d0', padding: '4px 8px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
@@ -1868,7 +1868,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
                   Telephony & PBX Allocation: {editForm.company_name}
                 </h3>
                 <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
-                  Tenant #{editForm.tenant_id} • Configure SIM / Runo companion and telephony parameters.
+                  Tenant #{editForm.tenant_id} • Configure SIM / Mobile companion and telephony parameters.
                 </p>
               </div>
 
@@ -1905,7 +1905,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
                       readOnly
                     />
                     <div>
-                      <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f2b26' }}>📱 SIM / Runo Companion</div>
+                      <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f2b26' }}>📱 SIM / Mobile Companion</div>
                       <div style={{ fontSize: '11px', color: '#15803d' }}>Live & Active Primary System</div>
                     </div>
                   </label>

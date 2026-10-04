@@ -553,7 +553,7 @@ export default function ListEngine({
       const isOverdue = fTime < (now - 15 * 60 * 1000);
       const dt = formatCallDateTime(fTime);
       let cleanTitle = (r.title || r.name || 'Sales Deal').trim();
-      cleanTitle = cleanTitle.replace(/\s*-\s*(HighLevel\s*Lead|Deal)$/i, '').trim() || cleanTitle;
+      cleanTitle = cleanTitle.replace(/\s*-\s*(?:HighLevel\s*Lead|CRM\s*Lead|Deal)$/i, '').trim() || cleanTitle;
       const contactPerson = getValString(r.customer_name || r.contact || r.contact_name || r.contactName || '').trim();
       let pStr = getValString(
         r.phone || r.phoneNumber || r.phone_number || r.mobile || r.customer_phone || r.contact_phone || r.contact?.phone || r.lead?.phone || ''
@@ -1246,7 +1246,7 @@ export default function ListEngine({
           if (col.id === 'source' || col.fieldKey === 'source') {
             const rawSource = getValString(record.source || record.leadSource || 'Manual Entry').trim();
             const ghlId = record.ghlContactId || record.ghl_contact_id || (String(record.id).startsWith('ghl_') ? String(record.id).replace('ghl_', '') : null);
-            const isGhl = rawSource.toLowerCase().includes('gohighlevel') || Boolean(ghlId);
+            const isGhl = rawSource.toLowerCase().includes('gohighlevel') || rawSource.toLowerCase().includes('external crm') || Boolean(ghlId);
 
             return (
               <td key={col.id} style={{ padding: '6px 12px', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
@@ -1266,20 +1266,20 @@ export default function ListEngine({
                       cursor: ghlId ? 'pointer' : 'default',
                       transition: 'all 0.15s ease'
                     }}
-                    title={ghlId ? `⚡ GoHighLevel Synced\nGHL Contact ID: ${ghlId}\n(Click to copy ID)` : '⚡ GoHighLevel Synced'}
+                    title={ghlId ? `⚡ CRM Cloud Synced\nLead Ref: ${ghlId}\n(Click to copy)` : '⚡ CRM Cloud Synced'}
                     onClick={(e) => {
                       if (ghlId && navigator?.clipboard?.writeText) {
                         e.stopPropagation();
                         navigator.clipboard.writeText(ghlId);
                         if (typeof showToast === 'function') {
-                          showToast(`📋 Copied GHL Contact ID: ${ghlId}`, 'success');
+                          showToast(`📋 Copied CRM Lead Ref: ${ghlId}`, 'success');
                         }
                       }
                     }}
                   >
                     <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981' }} />
-                    GoHighLevel
-                    {ghlId && <span style={{ fontSize: '9.5px', opacity: 0.75, marginLeft: '2px' }} title="Click to copy GHL ID">📋</span>}
+                    External CRM
+                    {ghlId && <span style={{ fontSize: '9.5px', opacity: 0.75, marginLeft: '2px' }} title="Click to copy CRM Ref">📋</span>}
                   </span>
                 ) : (
                   <span
@@ -1304,10 +1304,10 @@ export default function ListEngine({
             );
           }
 
-          {/* CONTACT NOTES COLUMN (EXCLUDE SYNTHETIC IMPORTED FROM GOHIGHLEVEL STRINGS) */}
+          {/* CONTACT NOTES COLUMN (EXCLUDE SYNTHETIC IMPORTED FROM CRM STRINGS) */}
           if (col.id === 'notes' || col.fieldKey === 'notes') {
             let rawNotes = getValString(record.notes || record.customFields?.notes || '').trim();
-            if (/^Imported from GoHighLevel/i.test(rawNotes)) {
+            if (/^Imported from (?:GoHighLevel|CRM)/i.test(rawNotes)) {
               rawNotes = '';
             }
             const isEmptyNote = !rawNotes || rawNotes === 'undefined' || rawNotes === 'null';
@@ -1590,8 +1590,8 @@ export default function ListEngine({
       if (s.includes('whatsapp')) {
         return { icon: '💬', label: 'WhatsApp', bg: '#ecfdf5', text: '#065f46' };
       }
-      if (s.includes('ghl') || s.includes('highlevel')) {
-        return { icon: '⚡', label: 'GoHighLevel', bg: '#eff6ff', text: '#1e40af' };
+      if (s.includes('ghl') || s.includes('highlevel') || s.includes('external') || s.includes('crm')) {
+        return { icon: '⚡', label: 'External CRM', bg: '#eff6ff', text: '#1e40af' };
       }
       if (s.includes('web') || s.includes('form') || s.includes('site')) {
         return { icon: '🌐', label: 'Web Form', bg: '#f8fafc', text: '#475569' };
@@ -2094,7 +2094,7 @@ export default function ListEngine({
     if (isCrmDeal) {
       // Clean deal title & separate contact person
       let cleanDealTitle = (record.title || record.name || recordName || 'Sales Deal').trim();
-      cleanDealTitle = cleanDealTitle.replace(/\s*-\s*(HighLevel\s*Lead|Deal)$/i, '').trim() || cleanDealTitle;
+      cleanDealTitle = cleanDealTitle.replace(/\s*-\s*(?:HighLevel\s*Lead|CRM\s*Lead|Deal)$/i, '').trim() || cleanDealTitle;
 
       const contactPerson = getValString(record.customer_name || record.contact || record.contact_name || record.contactName || '').trim();
 

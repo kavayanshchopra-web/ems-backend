@@ -683,7 +683,7 @@ export default function SuperAdminPage({
                 }}
               >
                 <option value="ALL">🌐 All Sources ({superadminCompanies?.length || 0})</option>
-                <option value="GHL">⚡ GoHighLevel Only ({superadminCompanies?.filter(c => c.source === 'gohighlevel' || c.locationId || String(c.tenant_id || '').startsWith('ghl_') || String(c.tenant_id || '').startsWith('org_loc_')).length || 0})</option>
+                <option value="GHL">⚡ External CRM ({superadminCompanies?.filter(c => c.source === 'gohighlevel' || c.locationId || String(c.tenant_id || '').startsWith('ghl_') || String(c.tenant_id || '').startsWith('org_loc_')).length || 0})</option>
                 <option value="DIRECT">🏢 Direct Signups ({superadminCompanies?.filter(c => c.source !== 'gohighlevel' && !c.locationId && !String(c.tenant_id || '').startsWith('ghl_') && !String(c.tenant_id || '').startsWith('org_loc_')).length || 0})</option>
               </select>
 
@@ -691,7 +691,7 @@ export default function SuperAdminPage({
                 <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                 <input
                   type="text"
-                  placeholder="Search company, ID or GHL..."
+                  placeholder="Search company, ID or CRM Ref..."
                   value={superadminCompaniesQuery}
                   onChange={(e) => setSuperadminCompaniesQuery && setSuperadminCompaniesQuery(e.target.value)}
                   style={{
@@ -785,7 +785,7 @@ export default function SuperAdminPage({
                           fontSize: '11px',
                           width: 'fit-content'
                         }}>
-                          <span>⚡ GoHighLevel</span>
+                          <span>⚡ External CRM</span>
                         </span>
                         {c.locationId && (
                           <span style={{ fontSize: '10px', color: '#64748b', fontFamily: 'monospace' }}>
@@ -1061,7 +1061,7 @@ export default function SuperAdminPage({
                     <button
                       type="button"
                       onClick={() => handleEnterCompany && handleEnterCompany(c)}
-                      title={`Switch to ${c.company_name || c.tenant_id} Workspace (GHL Impersonation)`}
+                      title={`Switch to ${c.company_name || c.tenant_id} Workspace (Admin Impersonation)`}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',

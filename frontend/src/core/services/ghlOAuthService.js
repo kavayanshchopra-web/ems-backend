@@ -177,8 +177,8 @@ export class GhlOAuthService {
    * Directly fetch all contacts from HighLevel Cloud API with cursor pagination
    */
   static async fetchContactsDirectly({ locationId, accessToken, limit = 100, maxTotal = 10000, onPageFetched }) {
-    if (!locationId) throw new Error('HighLevel Location ID is required');
-    if (!accessToken) throw new Error('HighLevel Access Token is required');
+    if (!locationId) throw new Error('CRM Location ID is required');
+    if (!accessToken) throw new Error('CRM Access Token is required');
 
     let startAfter = null;
     let startAfterId = null;
@@ -211,7 +211,7 @@ export class GhlOAuthService {
 
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.message || `HighLevel API responded with status ${res.status}`);
+        throw new Error(errJson.message || `CRM API responded with status ${res.status}`);
       }
 
       const data = await res.json();
@@ -283,8 +283,8 @@ export class GhlOAuthService {
    * Directly fetch all Pipelines and Opportunities from HighLevel Cloud API
    */
   static async fetchOpportunitiesDirectly({ locationId, accessToken }) {
-    if (!locationId) throw new Error('HighLevel Location ID is required');
-    if (!accessToken) throw new Error('HighLevel Access Token is required');
+    if (!locationId) throw new Error('CRM Location ID is required');
+    if (!accessToken) throw new Error('CRM Access Token is required');
 
     // 1. Fetch Pipelines
     const pipeRes = await fetch(`https://services.leadconnectorhq.com/opportunities/pipelines?locationId=${encodeURIComponent(locationId)}`, {
@@ -447,7 +447,7 @@ export class GhlOAuthService {
             status: 'SUCCESS',
             emsEntityId: contact.id || phone,
             ghlEntityId: ghlId,
-            details: `Pushed contact "${rawName || phone}" to HighLevel`
+            details: `Pushed contact "${rawName || phone}" to External CRM`
           }).catch(() => {});
         }
         return data;
@@ -478,7 +478,7 @@ export class GhlOAuthService {
           status: 'SUCCESS',
           emsEntityId: contact.id || phone,
           ghlEntityId: fallbackId,
-          details: `Provisioned contact "${rawName || phone}" on HighLevel`
+          details: `Provisioned contact "${rawName || phone}" on External CRM`
         }).catch(() => {});
         return fallbackData;
       } else {

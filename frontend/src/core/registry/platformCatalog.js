@@ -375,7 +375,7 @@ export const SYSTEM_MODULE_CATALOG = [
     label: 'Integrations & Webhooks',
     icon: '🔌',
     category: 'SETTINGS',
-    desc: 'Third-party API keys, webhook URLs, and GoHighLevel sync.',
+    desc: 'Third-party API keys, webhook URLs, and central CRM sync.',
     parentModuleId: 'settings'
   },
   {

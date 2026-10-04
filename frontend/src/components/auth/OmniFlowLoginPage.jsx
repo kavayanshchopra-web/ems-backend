@@ -1404,10 +1404,10 @@ export default function OmniFlowLoginPage({
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '12px', fontWeight: '800', color: '#166534' }}>
-                      HighLevel Connected
+                      Enterprise CRM Connected
                     </div>
                     <div style={{ fontSize: '10.5px', color: '#15803d', fontFamily: 'monospace' }}>
-                      Loc: {ghlContext.locationId}
+                      Ref: {ghlContext.locationId}
                     </div>
                   </div>
                 </div>

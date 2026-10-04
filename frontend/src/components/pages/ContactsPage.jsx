@@ -216,11 +216,11 @@ export default function ContactsPage({
       const fallbackNoteGhlId = (d.notes && typeof d.notes === 'string') ? (d.notes.match(/GHL ID:\s*([a-zA-Z0-9_-]+)/i)?.[1] || d.notes.match(/Contact ID:\s*([a-zA-Z0-9_-]+)/i)?.[1]) : null;
       const extractedGhlId = d.ghlContactId || d.ghl_contact_id || d.custom_fields?.ghlContactId || d.customFields?.ghlContactId || (rawId.startsWith('ghl_') ? rawId.replace('ghl_', '') : null) || fallbackNoteGhlId;
       const isFromGhl = Boolean(extractedGhlId || d.custom_fields?.source === 'GoHighLevel' || (d.notes && String(d.notes).includes('GoHighLevel')));
-      const resolvedSource = d.source || (isFromGhl ? 'GoHighLevel' : (rawId.includes('@s.whatsapp.net') ? 'WhatsApp Inbound' : (d.simCall ? 'SIM Dialer' : 'Manual Entry')));
+      const resolvedSource = d.source || (isFromGhl ? 'External CRM' : (rawId.includes('@s.whatsapp.net') ? 'WhatsApp Inbound' : (d.simCall ? 'SIM Dialer' : 'Manual Entry')));
 
       // Clean out synthetic automated GHL import text from notes
       let rawNotes = String(d.notes || d.customFields?.notes || '').trim();
-      if (/^Imported from GoHighLevel/i.test(rawNotes)) {
+      if (/^Imported from (GoHighLevel|CRM)/i.test(rawNotes)) {
         rawNotes = '';
       }
 
@@ -268,9 +268,9 @@ export default function ContactsPage({
 
         // Clean notes if either contains synthetic automated GHL text
         let existingNotes = String(existing.notes || '').trim();
-        if (/^Imported from GoHighLevel/i.test(existingNotes)) existingNotes = '';
+        if (/^Imported from (GoHighLevel|CRM)/i.test(existingNotes)) existingNotes = '';
         let cleanRecNotes = String(cleanRec.notes || '').trim();
-        if (/^Imported from GoHighLevel/i.test(cleanRecNotes)) cleanRecNotes = '';
+        if (/^Imported from (GoHighLevel|CRM)/i.test(cleanRecNotes)) cleanRecNotes = '';
         const betterNotes = cleanRecNotes || existingNotes || '';
 
         // Combine tags
@@ -287,7 +287,7 @@ export default function ContactsPage({
           email: betterEmail,
           ghlContactId: betterGhlId,
           notes: betterNotes,
-          source: (existing.source === 'GoHighLevel' || cleanRec.source === 'GoHighLevel') ? 'GoHighLevel' : (existing.source || cleanRec.source),
+          source: (existing.source === 'GoHighLevel' || cleanRec.source === 'GoHighLevel' || existing.source === 'External CRM' || cleanRec.source === 'External CRM') ? 'External CRM' : (existing.source || cleanRec.source),
           tags: Array.from(tagsSet).filter(Boolean).join(', '),
           dealValue: cleanRec.dealValue || existing.dealValue || '',
           deal_value: cleanRec.deal_value || existing.deal_value || '',
@@ -394,7 +394,7 @@ export default function ContactsPage({
   const handleTriggerGhl2WaySync = async () => {
     if (isSyncingGhl) return;
     setIsSyncingGhl(true);
-    if (showToast) showToast('🔄 Starting GoHighLevel 2-Way Synchronization...', 'info');
+    if (showToast) showToast('🔄 Starting Central CRM 2-Way Synchronization...', 'info');
 
     try {
       if (isSandboxEnvironment()) {
@@ -407,7 +407,7 @@ export default function ContactsPage({
         const loc = (installed || []).find(l => (l.accessToken || l.access_token) && (l.locationId || l.location_id));
 
         if (!loc || !(loc.accessToken || loc.access_token) || !(loc.locationId || loc.location_id)) {
-          throw new Error('HighLevel sub-account is not connected for this company. Please connect via Integrations.');
+          throw new Error('External CRM connection is not configured for this company. Please configure via Integrations.');
         }
 
         const activeLocationId = loc.locationId || loc.location_id;
@@ -443,7 +443,7 @@ export default function ContactsPage({
         }
 
         if (showToast) {
-          showToast(`✅ GHL 2-Way Sync Complete! Synced to GHL: ${pushedCount}, Imported from GHL: ${ghlContacts.length}`, 'success');
+          showToast(`✅ CRM 2-Way Sync Complete! Synced to CRM: ${pushedCount}, Imported from CRM: ${ghlContacts.length}`, 'success');
         }
         return;
       }
@@ -474,7 +474,7 @@ export default function ContactsPage({
       const syncedCount = syncData?.synced || 0;
 
       if (showToast) {
-        showToast(`✅ GHL 2-Way Sync Complete! Synced to GHL: ${syncedCount}, Imported: ${importedCount}`, 'success');
+        showToast(`✅ CRM 2-Way Sync Complete! Synced to CRM: ${syncedCount}, Imported: ${importedCount}`, 'success');
       }
 
       // Refresh local list from backend
@@ -488,7 +488,7 @@ export default function ContactsPage({
       }
     } catch (err) {
       console.error('[GHL 2-Way Sync Error]', err);
-      if (showToast) showToast(`❌ GHL Sync Notice: ${err.message || 'Check GHL connection'}`, 'error');
+      if (showToast) showToast(`❌ CRM Sync Notice: ${err.message || 'Check CRM connection'}`, 'error');
     } finally {
       setIsSyncingGhl(false);
     }

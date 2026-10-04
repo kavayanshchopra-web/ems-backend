@@ -829,7 +829,7 @@ export default function ConversationsPage({
   // Start or trigger QR code generation for WhatsApp session
   const handleStartSession = async (sessId, force = false) => {
     setQrLoading(true);
-    setQrActionMsg('Requesting WhatsApp QR Code from Baileys gateway...');
+    setQrActionMsg('Generating secure WhatsApp QR Code...');
     try {
       const tenantToUse = String(companyId || activeTenantId || '1');
       const reqHeaders = {
@@ -866,7 +866,7 @@ export default function ConversationsPage({
           body: JSON.stringify({ force: Boolean(force) })
         });
         if (startRes.ok) {
-          setQrActionMsg('Connecting to Baileys... QR will appear momentarily.');
+          setQrActionMsg('Connecting to Cloud Gateway... QR will appear momentarily.');
         }
       }
       setTimeout(fetchCurrentSessions, 600);
@@ -1119,7 +1119,7 @@ export default function ConversationsPage({
                     syncedSet.add(call.id);
                     localStorage.setItem('omniflow_ghl_synced_calls', JSON.stringify(Array.from(syncedSet).slice(-500)));
                     if (showToast) {
-                      showToast(`⚡ Live SIM Call linked & synced to GoHighLevel! (${call.customerName || call.customerPhone})`, 'success');
+                      showToast(`⚡ Live SIM Call linked & synced to CRM! (${call.customerName || call.customerPhone})`, 'success');
                     }
                   }
                 } catch (cErr) {
@@ -2844,7 +2844,7 @@ export default function ConversationsPage({
   const handleSyncConversationToGhl = async () => {
     if (isSyncingGhl || !activeContact) return;
     setIsSyncingGhl(true);
-    if (showToast) showToast('🚀 Syncing contact, conversation & calls to GoHighLevel...', 'info');
+    if (showToast) showToast('🚀 Syncing contact, conversation & calls to CRM...', 'info');
 
     try {
       const resolvedPhone = (activeContact.phone && activeContact.phone !== '—') 
@@ -3048,7 +3048,7 @@ export default function ConversationsPage({
       const totalMsgs = Math.max(directMsgsSynced, syncResult?.messagesSynced || 0, (activeMessages ? Math.min(activeMessages.length, 25) : 0));
 
       if (totalCalls > 0 || totalMsgs > 0 || syncSucceeded || directCallsSynced > 0) {
-        if (showToast) showToast(`✅ Synced to GoHighLevel! (${totalMsgs} msgs, ${totalCalls} calls)`, 'success');
+        if (showToast) showToast(`✅ Synced to CRM! (${totalMsgs} msgs, ${totalCalls} calls)`, 'success');
         try {
           await GhlOAuthService.recordSyncAuditLog({
             locationId: activeLocationId,
@@ -3060,11 +3060,11 @@ export default function ConversationsPage({
           });
         } catch (e) {}
       } else {
-        if (showToast) showToast('✅ Contact & Conversation synced to GoHighLevel!', 'success');
+        if (showToast) showToast('✅ Contact & Conversation synced to CRM!', 'success');
       }
     } catch (err) {
       console.warn('[GHL Sync Catch]', err);
-      if (showToast) showToast('✅ Contact sync queued for GoHighLevel!', 'success');
+      if (showToast) showToast('✅ Contact sync queued for CRM!', 'success');
     } finally {
       setIsSyncingGhl(false);
     }
@@ -3893,7 +3893,7 @@ export default function ConversationsPage({
                       type="button"
                       onClick={handleSyncConversationToGhl}
                       disabled={isSyncingGhl}
-                      title="Sync contact profile, messages, and calls to GoHighLevel"
+                      title="Sync contact profile, messages, and calls to central CRM"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -3910,7 +3910,7 @@ export default function ConversationsPage({
                       }}
                     >
                       <RefreshCw size={13} className={isSyncingGhl ? 'animate-spin' : ''} style={{ animation: isSyncingGhl ? 'spin 1s linear infinite' : 'none' }} />
-                      <span>{isSyncingGhl ? 'Syncing to GHL...' : 'Sync to HighLevel'}</span>
+                      <span>{isSyncingGhl ? 'Syncing to CRM...' : 'Sync to CRM'}</span>
                     </button>
                   )}
 
@@ -3988,7 +3988,7 @@ export default function ConversationsPage({
                   type="button"
                   onClick={handleSyncConversationToGhl}
                   disabled={isSyncingGhl}
-                  title="Synchronize conversation, contact & call recordings to GoHighLevel timeline"
+                  title="Synchronize conversation, contact & call recordings to CRM timeline"
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -4004,7 +4004,7 @@ export default function ConversationsPage({
                   }}
                 >
                   <RefreshCw size={11} className={isSyncingGhl ? 'animate-spin' : ''} style={{ animation: isSyncingGhl ? 'spin 1s linear infinite' : 'none' }} />
-                  <span>{isSyncingGhl ? 'Syncing...' : 'Sync to GHL'}</span>
+                  <span>{isSyncingGhl ? 'Syncing...' : 'Sync to CRM'}</span>
                 </button>
               </div>
             </div>
@@ -5112,7 +5112,7 @@ export default function ConversationsPage({
                 }}
               >
                 <RefreshCw size={11} className={isSyncingGhl ? 'animate-spin' : ''} />
-                <span>{isSyncingGhl ? 'Syncing...' : 'GHL Sync'}</span>
+                <span>{isSyncingGhl ? 'Syncing...' : 'CRM Sync'}</span>
               </button>
             </div>
           )}
@@ -5210,8 +5210,8 @@ export default function ConversationsPage({
               {activeContact.email && <div><b>Email:</b> {activeContact.email}</div>}
               <div><b>Source:</b> {activeContact.source}</div>
               {activeContact.ghlContactId && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#2563eb', fontWeight: '700' }}>
-                  <Zap size={12} /> GHL Linked
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0d9488', fontWeight: '700' }}>
+                  <Zap size={12} /> CRM Synced
                 </div>
               )}
             </div>
@@ -5270,9 +5270,9 @@ export default function ConversationsPage({
                   <QrCode size={19} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800' }}>WhatsApp Baileys Gateway</h3>
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800' }}>WhatsApp Cloud Gateway</h3>
                   <div style={{ fontSize: '11px', opacity: 0.9 }}>
-                    {isConnected ? 'Active & Synced with VPS' : 'Pair phone to enable direct WhatsApp CRM sync'}
+                    {isConnected ? 'Active & Cloud Synced' : 'Pair phone to enable direct WhatsApp CRM sync'}
                   </div>
                 </div>
               </div>
@@ -5342,7 +5342,7 @@ export default function ConversationsPage({
                       +{connectedPhone || 'WhatsApp Account Active'}
                     </div>
                     <p style={{ margin: '12px 0 0 0', fontSize: '12px', color: '#64748b', lineHeight: '1.5' }}>
-                      Baileys gateway session is actively running on your VPS. Incoming messages and CRM replies sync instantly without page reload.
+                      Dedicated WhatsApp session is active on secure cloud. Incoming messages and CRM replies sync in real time.
                     </p>
                   </div>
 

@@ -14,12 +14,13 @@ class GhlSyncBridge {
   static async pushSingleContactAuto(tenantId, record) {
     if (!record || !tenantId) return null;
 
-    // Safety check 1: Never push records that originated from GoHighLevel
+    // Safety check 1: Never push records that originated from External CRM / GoHighLevel
     if (
       record.source === 'GoHighLevel' ||
+      record.source === 'External CRM' ||
       String(record.id).startsWith('ghl_') ||
       String(record.id).startsWith('deal_ghl_') ||
-      String(record.id).startsWith('deal_') && record.notes && String(record.notes).includes('Imported from GoHighLevel')
+      (String(record.id).startsWith('deal_') && record.notes && (String(record.notes).includes('Imported from GoHighLevel') || String(record.notes).includes('Imported from CRM')))
     ) {
       return null;
     }

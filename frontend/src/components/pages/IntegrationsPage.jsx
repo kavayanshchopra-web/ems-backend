@@ -350,10 +350,10 @@ export default function IntegrationsPage({
   useEffect(() => {
     const handleOAuthMessage = (event) => {
       if (event.data?.type === 'GHL_OAUTH_SUCCESS') {
-        showToast('⚡ GoHighLevel Sub-Account Connected Successfully!', 'success');
+        showToast('⚡ Enterprise CRM Connected Successfully!', 'success');
         loadGhlOAuthData();
       } else if (event.data?.type === 'GHL_OAUTH_ERROR') {
-        showToast(`❌ GHL Connection Error: ${event.data.error}`, 'error');
+        showToast(`❌ CRM Connection Error: ${event.data.error}`, 'error');
       }
     };
     window.addEventListener('message', handleOAuthMessage);
@@ -371,12 +371,12 @@ export default function IntegrationsPage({
       desc: 'Connect Meta Lead Access Webhook to auto-receive Facebook & Instagram ad leads directly into CRM with instant WhatsApp greeting.'
     },
     {
-      id: 'gonghighlevel',
-      name: 'GoHighLevel (GHL) Workflows',
+      id: 'central_crm_webhook',
+      name: 'Central CRM & Lead Workflows',
       icon: '⚡',
       color: '#ff6b00',
       endpoint: `${baseUrl}/ghl`,
-      desc: 'Direct 100% Free GHL Workflow Webhook listener. Lead form fills in GHL trigger real-time CRM stage updates in your app.'
+      desc: 'Direct real-time CRM Workflow Webhook listener. Lead form fills trigger instant CRM stage updates in your app.'
     },
     {
       id: 'zomato_swiggy',
@@ -488,7 +488,7 @@ export default function IntegrationsPage({
   };
 
   const handleSyncGhlLiveContacts = async () => {
-    showToast('🔄 Fetching live contacts & events from GHL Sub-Account...', 'info');
+    showToast('🔄 Fetching live contacts & events from CRM...', 'info');
     try {
       const activeContacts = [
         { name: 'Sahil S', email: 'suu@gmail.com', phone: '085668 83684', locationId: 'loc_webgearz_subaccount' },
@@ -506,13 +506,13 @@ export default function IntegrationsPage({
 
       if (res.ok) {
         const data = await res.json();
-        showToast(`⚡ ${data.count || activeContacts.length} Live GHL Contacts synced to Server & DB!`, 'success');
+        showToast(`⚡ ${data.count || activeContacts.length} Live CRM Contacts synced to Server & DB!`, 'success');
       }
 
       await loadActivityLogs();
     } catch (err) {
       console.warn('Sync fallback:', err);
-      showToast('⚡ Live GHL Contacts synced successfully!', 'success');
+      showToast('⚡ Live CRM Contacts synced successfully!', 'success');
     }
   };
 
@@ -651,12 +651,12 @@ export default function IntegrationsPage({
   const handleDirectLinkLocation = async (targetLocId) => {
     const locIdToLink = (targetLocId || manualLocationId || detectedLocationId || '').trim();
     if (!locIdToLink) {
-      showToast('Please enter a HighLevel Location ID', 'error');
+      showToast('Please enter a CRM Location ID', 'error');
       return;
     }
     const cleanToken = subAccountApiKey.trim();
     if (!cleanToken) {
-      showToast('Please enter your HighLevel Sub-Account API Key or Private Integration Token', 'error');
+      showToast('Please enter your CRM Sub-Account API Key or Private Integration Token', 'error');
       return;
     }
 
@@ -751,7 +751,7 @@ export default function IntegrationsPage({
       } else {
         window.open(targetUrl, '_blank');
       }
-      showToast('🚀 HighLevel Authorization Window opened!', 'info');
+      showToast('🚀 CRM Authorization Window opened!', 'info');
     } catch (e) {
       const directUrl = getDirectGhlAuthUrl();
       if (authWindow && !authWindow.closed) {
@@ -759,14 +759,14 @@ export default function IntegrationsPage({
       } else {
         window.open(directUrl, '_blank');
       }
-      showToast('🚀 Launching HighLevel Authorization...', 'info');
+      showToast('🚀 Launching CRM Authorization...', 'info');
     } finally {
       setIsSavingGhlAuth(false);
     }
   };
 
   const handleDisconnectGhlLocation = async () => {
-    if (!confirm('Disconnect this GoHighLevel Sub-Account Location?')) return;
+    if (!confirm('Disconnect this CRM Sub-Account Location?')) return;
     try {
       const loc = ghlLocations[0];
       const targetLocId = loc?.locationId || detectedLocationId || manualLocationId;
@@ -794,7 +794,7 @@ export default function IntegrationsPage({
 
       setGhlLocations([]);
       setGhlSyncLogs([]);
-      showToast('GoHighLevel Sub-Account disconnected successfully', 'info');
+      showToast('CRM Sub-Account disconnected successfully', 'info');
     } catch (e) {
       showToast('Disconnect error: ' + e.message, 'error');
     }
@@ -865,11 +865,11 @@ export default function IntegrationsPage({
 
   const handleSyncAllGhlContacts = async () => {
     setSyncingAction('push_contacts');
-    showToast('🚀 Synchronizing EMS contacts to HighLevel...', 'info');
+    showToast('🚀 Synchronizing EMS contacts to CRM...', 'info');
     try {
       const loc = await getActiveGhlLocation();
       if (!loc || !loc.accessToken) {
-        showToast('⚠️ No active HighLevel sub-account connected for this company. Please connect your sub-account first.', 'error');
+        showToast('⚠️ No active CRM connection found for this company. Please connect your sub-account first.', 'error');
         setSyncingAction(null);
         return;
       }
@@ -883,9 +883,9 @@ export default function IntegrationsPage({
       const contactMap = new Map();
       (localContacts || []).forEach(c => {
         if (!c) return;
-        // Skip contacts that originated from HighLevel
-        if (c.source === 'GoHighLevel' || String(c.id).startsWith('ghl_') || String(c.id).startsWith('deal_ghl_')) return;
-        if (c.notes && c.notes.includes('Imported from GoHighLevel')) return;
+        // Skip contacts that originated from CRM
+        if (c.source === 'GoHighLevel' || c.source === 'External CRM' || String(c.id).startsWith('ghl_') || String(c.id).startsWith('deal_ghl_')) return;
+        if (c.notes && (c.notes.includes('Imported from GoHighLevel') || c.notes.includes('Imported from CRM'))) return;
 
         // Clean phone and check validity
         const cleanPhone = (c.phone || '').replace(/[^0-9+]/g, '');
@@ -907,8 +907,8 @@ export default function IntegrationsPage({
 
       (localDeals || []).forEach(d => {
         if (!d) return;
-        // Skip deals that originated from HighLevel
-        if (d.source === 'GoHighLevel' || (String(d.id).startsWith('deal_') && d.notes && d.notes.includes('Imported from GoHighLevel'))) return;
+        // Skip deals that originated from CRM
+        if (d.source === 'GoHighLevel' || d.source === 'External CRM' || (String(d.id).startsWith('deal_') && d.notes && (d.notes.includes('Imported from GoHighLevel') || d.notes.includes('Imported from CRM')))) return;
 
         const cleanPhone = (d.phone || '').replace(/[^0-9+]/g, '');
         const hasValidPhone = cleanPhone.length >= 10;
@@ -933,7 +933,7 @@ export default function IntegrationsPage({
       setEmsContactsCount(uniqueList.length);
 
       if (uniqueList.length === 0) {
-        showToast('ℹ️ All EMS contacts are already in sync with HighLevel. No new local contacts to push.', 'info');
+        showToast('ℹ️ All EMS contacts are already in sync with CRM. No new local contacts to push.', 'info');
         return;
       }
 
@@ -961,7 +961,7 @@ export default function IntegrationsPage({
           setSyncProgressText(`Pushing Contacts: ${currentDone} of ${uniqueList.length}`);
           setPushedContactsCount(prev => Math.max(prev, synced));
         }
-        showToast(`✅ Contact Push Completed! Successfully pushed ${synced} contacts to HighLevel.`, 'success');
+        showToast(`✅ Contact Push Completed! Successfully pushed ${synced} contacts to CRM.`, 'success');
         fetchGhlSyncLogs();
         loadEmsLocalCounts();
         return;
@@ -997,7 +997,7 @@ export default function IntegrationsPage({
   const handleSyncAllGhlDeals = async () => {
     setSyncingAction('push_deals');
     setSyncProgressText('Synchronizing CRM Deals & Pipelines...');
-    showToast('💼 Synchronizing CRM Deals & Opportunities to HighLevel...', 'info');
+    showToast('💼 Synchronizing CRM Deals & Opportunities to Central CRM...', 'info');
     try {
       const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token');
       const res = await fetch(`${API_URL}/v1/integrations/ghl/opportunities/sync-all`, {
@@ -1028,11 +1028,11 @@ export default function IntegrationsPage({
   const handleSyncAllGhlCalls = async () => {
     setSyncingAction('push_calls');
     setSyncProgressText('Gathering 35 EMS Call Recordings & Audio files...');
-    showToast('🎙️ Gathering and Synchronizing Call Recordings to GoHighLevel...', 'info');
+    showToast('🎙️ Gathering and Synchronizing Call Recordings to CRM...', 'info');
     try {
       const loc = await getActiveGhlLocation();
       if (!loc || !loc.accessToken) {
-        showToast('⚠️ No active HighLevel sub-account connected for this company. Please connect your sub-account first.', 'error');
+        showToast('⚠️ No active CRM connection found for this company. Please connect your sub-account first.', 'error');
         setSyncingAction(null);
         return;
       }
@@ -1200,7 +1200,7 @@ export default function IntegrationsPage({
           setSyncProgressText(`Pushing Call Recordings: ${currentCount} of ${callLogs.length} (with HD Audio)...`);
           setPushedCallsCount(prev => Math.max(prev, synced));
         }
-        showToast(`✅ Successfully Pushed ${synced} of ${callLogs.length} Call Recordings (with HD Audio Player) to HighLevel!`, 'success');
+        showToast(`✅ Successfully Pushed ${synced} of ${callLogs.length} Call Recordings (with HD Audio Player) to CRM!`, 'success');
         fetchGhlSyncLogs();
         loadEmsLocalCounts();
         return;
@@ -1239,11 +1239,11 @@ export default function IntegrationsPage({
 
   const handleImportAllGhlContacts = async () => {
     setSyncingAction('import_contacts');
-    showToast('📥 Connecting to HighLevel API to import contacts...', 'info');
+    showToast('📥 Connecting to CRM API to import contacts...', 'info');
     try {
       const loc = await getActiveGhlLocation();
       if (!loc || !loc.accessToken) {
-        showToast('⚠️ No active HighLevel sub-account connected for this company. Please connect your sub-account first.', 'error');
+        showToast('⚠️ No active CRM connection found for this company. Please connect your sub-account first.', 'error');
         setSyncingAction(null);
         return;
       }
@@ -1253,9 +1253,9 @@ export default function IntegrationsPage({
       let importedList = [];
       let totalFound = 0;
 
-      // 1. If Direct Access Token exists, fetch directly from HighLevel Cloud API
+      // 1. If Direct Access Token exists, fetch directly from CRM Cloud API
       if (loc && targetLocId && loc.accessToken) {
-        showToast('⚡ Streaming contacts directly from HighLevel Cloud API...', 'info');
+        showToast('⚡ Streaming contacts directly from CRM Cloud API...', 'info');
         const res = await GhlOAuthService.fetchContactsDirectly({
           locationId: targetLocId,
           accessToken: loc.accessToken,
@@ -1263,8 +1263,8 @@ export default function IntegrationsPage({
           maxTotal: 10000,
           onPageFetched: async (pageContacts, runningCount, totalGhl) => {
             const displayTotal = (totalGhl && totalGhl > runningCount) ? totalGhl : `${runningCount}+`;
-            setSyncProgressText(`Importing: ${runningCount} of ${displayTotal} HighLevel contacts into Supabase...`);
-            showToast(`📥 Streaming ${runningCount} of ${displayTotal} HighLevel contacts...`, 'info');
+            setSyncProgressText(`Importing: ${runningCount} of ${displayTotal} CRM contacts...`);
+            showToast(`📥 Streaming ${runningCount} of ${displayTotal} CRM contacts...`, 'info');
 
             // 1. Direct Supabase PostgreSQL Batch Upsert (100 rows per batch)
             try {
@@ -1277,7 +1277,7 @@ export default function IntegrationsPage({
 
             // 2. Also register into CRM Deals Kanban
             for (const c of pageContacts) {
-              const fullName = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.phone || 'GHL Lead';
+              const fullName = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.phone || 'CRM Lead';
               const dealPayload = {
                 id: `deal_${c.id}`,
                 title: `${fullName} - Deal`,
@@ -1288,9 +1288,9 @@ export default function IntegrationsPage({
                 pipeline_stage: 'lead',
                 amount: 0,
                 deal_value: 0,
-                notes: `Imported from GoHighLevel (Contact ID: ${c.id})`,
-                tags: Array.isArray(c.tags) ? c.tags : ['HighLevel'],
-                source: 'GoHighLevel',
+                notes: `Imported from CRM (Ref: ${c.id})`,
+                tags: Array.isArray(c.tags) ? c.tags : ['External CRM'],
+                source: 'External CRM',
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
               };
@@ -1327,36 +1327,36 @@ export default function IntegrationsPage({
             const dealId = `deal_${contact.id || contact.ghlId}`;
             const dealPayload = {
               id: dealId,
-              title: `${contact.name || 'HighLevel Lead'} - Deal`,
-              customer_name: contact.name || 'HighLevel Lead',
+              title: `${contact.name || 'CRM Lead'} - Deal`,
+              customer_name: contact.name || 'CRM Lead',
               phone: contact.phone || '',
               email: contact.email || '',
               deal_stage: 'New Lead',
               pipeline_stage: contact.pipelineStage || 'lead',
               amount: 0,
               deal_value: 0,
-              notes: `Imported from GoHighLevel`,
-              tags: Array.isArray(contact.tags) ? contact.tags : ['HighLevel'],
-              source: 'GoHighLevel',
+              notes: `Imported from CRM`,
+              tags: Array.isArray(contact.tags) ? contact.tags : ['External CRM'],
+              source: 'External CRM',
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
             };
             FirebaseCloudEngine.saveRecord('crm_deals', dealPayload, cleanCompanyId).catch(() => {});
             FirebaseCloudEngine.saveRecord('contacts', {
               id: contact.id || `ghl_${contact.ghlId}`,
-              name: contact.name || 'HighLevel Lead',
+              name: contact.name || 'CRM Lead',
               phone: contact.phone || '',
               email: contact.email || '',
               pipeline_stage: contact.pipelineStage || 'lead',
-              labels: Array.isArray(contact.tags) ? contact.tags : ['HighLevel']
+              labels: Array.isArray(contact.tags) ? contact.tags : ['External CRM']
             }, cleanCompanyId).catch(() => {});
           }
         } else {
-          throw new Error(data.error || 'Failed to import contacts from HighLevel');
+          throw new Error(data.error || 'Failed to import contacts from CRM');
         }
       }
 
-      showToast(`🎉 HighLevel Import Complete! Successfully synced ${importedList.length || totalFound} leads into Supabase CRM!`, 'success');
+      showToast(`🎉 CRM Import Complete! Successfully synced ${importedList.length || totalFound} leads into CRM!`, 'success');
       if (isSandboxEnvironment()) {
         try {
           const freshContacts = await SupabaseSandboxService.fetchContacts(cleanCompanyId);
@@ -1377,11 +1377,11 @@ export default function IntegrationsPage({
 
   const handleImportAllGhlDeals = async () => {
     setSyncingAction('import_deals');
-    showToast('📥 Fetching & Importing all Pipelines & Deals from HighLevel...', 'info');
+    showToast('📥 Fetching & Importing all Pipelines & Deals from CRM...', 'info');
     try {
       const loc = await getActiveGhlLocation();
       if (!loc || !loc.accessToken) {
-        showToast('⚠️ No active HighLevel sub-account connected for this company. Please connect your sub-account first.', 'error');
+        showToast('⚠️ No active CRM connection found for this company. Please connect your sub-account first.', 'error');
         setSyncingAction(null);
         return;
       }
@@ -1414,14 +1414,14 @@ export default function IntegrationsPage({
         try {
           data = rawText ? JSON.parse(rawText) : {};
         } catch {
-          data = { error: rawText.includes('Cannot POST') ? 'Backend server updating... Please ensure VPS backend is restarted.' : (rawText.slice(0, 100) || 'Invalid server response') };
+          data = { error: rawText.includes('Cannot POST') ? 'Server is updating... Please try again in a few moments.' : (rawText.slice(0, 100) || 'Invalid server response') };
         }
 
         if (res.ok && data.success) {
           oppsList = data.opportunities || [];
           totalFound = data.totalFound || oppsList.length;
         } else {
-          throw new Error(data.error || 'HighLevel opportunities import failed');
+          throw new Error(data.error || 'CRM opportunities import failed');
         }
       }
 
@@ -1430,14 +1430,14 @@ export default function IntegrationsPage({
         const stageMap = String(opp.status || 'open').toLowerCase() === 'won' ? 'Won' : (String(opp.status || 'open').toLowerCase() === 'lost' ? 'Lost' : 'New Lead');
         const dealPayload = {
           id: dealId,
-          title: opp.name || 'HighLevel Opportunity',
+          title: opp.name || 'CRM Opportunity',
           customer_name: opp.name || 'Opportunity Contact',
           deal_stage: stageMap,
           pipeline_stage: stageMap.toLowerCase(),
           amount: opp.monetaryValue || 0,
           deal_value: opp.monetaryValue || 0,
-          notes: `HighLevel Opportunity (${opp.pipelineName || 'Pipeline'})`,
-          source: 'GoHighLevel',
+          notes: `CRM Opportunity (${opp.pipelineName || 'Pipeline'})`,
+          source: 'External CRM',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
@@ -1467,7 +1467,7 @@ export default function IntegrationsPage({
                 Integrations & Webhooks Center
               </h2>
               <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
-                Direct 100% Free 2-Way Connection Engine for Facebook Ads, GHL Marketplace OAuth, Zomato, Swiggy, Odoo ERP, and Custom Webhooks.
+                Direct 100% Free 2-Way Connection Engine for Facebook Ads, Enterprise CRM Connector, Zomato, Swiggy, Odoo ERP, and Custom Webhooks.
               </p>
             </div>
           </div>
@@ -1484,7 +1484,7 @@ export default function IntegrationsPage({
           { id: 'inbound', label: '📥 Inbound Webhooks', icon: <Share2 size={14} /> },
           { id: 'outbound', label: '📤 Outbound Webhooks', icon: <Send size={14} /> },
           { id: 'odoo', label: '🏢 Direct Odoo Setup', icon: <Database size={14} /> },
-          { id: 'ghl_marketplace', label: '⚡ GHL Marketplace OAuth', icon: <Zap size={14} /> },
+          { id: 'ghl_marketplace', label: '⚡ Advanced CRM Connector', icon: <Zap size={14} /> },
           { id: 'apikeys', label: '🔑 Developer API Keys', icon: <Key size={14} /> },
           { id: 'logs', label: '📜 Live Activity Logs', icon: <Activity size={14} /> }
         ].map(tab => (
@@ -1517,7 +1517,7 @@ export default function IntegrationsPage({
       {activeTab === 'inbound' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ fontSize: '12px', color: '#475569', background: '#f0fdf4', padding: '12px 16px', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
-            💡 <strong>Inbound Webhooks Guide:</strong> Copy any Webhook URL below and paste it directly into Facebook Ads, GHL, Zomato, Swiggy, or Shopify. When a lead or order is submitted on those platforms, it will land directly inside your CRM Board with an automated WhatsApp welcome message!
+            💡 <strong>Inbound Webhooks Guide:</strong> Copy any Webhook URL below and paste it directly into Facebook Ads, CRM, Zomato, Swiggy, or Shopify. When a lead or order is submitted on those platforms, it will land directly inside your CRM Board with an automated WhatsApp welcome message!
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '16px' }}>
@@ -1581,7 +1581,7 @@ export default function IntegrationsPage({
               <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155' }}>Webhook Name / Title</label>
               <input
                 type="text"
-                placeholder="e.g. Sync to GHL LeadConnector"
+                placeholder="e.g. Sync to External CRM Webhook"
                 value={newHookTitle}
                 onChange={(e) => setNewHookTitle(e.target.value)}
                 style={{ padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', outline: 'none' }}
@@ -1592,7 +1592,7 @@ export default function IntegrationsPage({
               <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155' }}>Target Webhook URL *</label>
               <input
                 type="url"
-                placeholder="https://services.leadconnectorhq.com/hooks/xyz"
+                placeholder="https://api.yourcrm.com/hooks/xyz"
                 value={newHookUrl}
                 onChange={(e) => setNewHookUrl(e.target.value)}
                 required
@@ -1777,13 +1777,13 @@ export default function IntegrationsPage({
                   <Zap size={22} style={{ color: '#ff6b00' }} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>GoHighLevel Integration</h3>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>Enterprise CRM Integration</h3>
                   <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>SuperAdmin Marketplace Master Setup</p>
                 </div>
               </div>
 
               <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: '1.5' }}>
-                Master GoHighLevel Marketplace v2 OAuth connection. When agencies install the EMS app in their HighLevel sub-accounts, they will link and provision automatically.
+                Master Enterprise CRM connector. When connected, leads, call recordings, and deal pipelines synchronize in real-time.
               </p>
 
               <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -1829,7 +1829,7 @@ export default function IntegrationsPage({
                   }}
                 >
                   <ExternalLink size={15} />
-                  Connect GoHighLevel Master
+                  Connect Enterprise CRM
                 </a>
               ) : (
                 <Button
@@ -1853,10 +1853,10 @@ export default function IntegrationsPage({
                 </div>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
-                    Connected HighLevel Sub-Account
+                    Connected Enterprise CRM
                   </h3>
                   <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>
-                    {isSuperAdmin ? 'Master agency location & sync engine controls' : 'Your linked GoHighLevel sub-account & 2-way real-time data sync'}
+                    {isSuperAdmin ? 'Master agency location & sync engine controls' : 'Your linked CRM account & 2-way real-time data sync'}
                   </p>
                 </div>
               </div>
@@ -1881,7 +1881,7 @@ export default function IntegrationsPage({
                         Method 1: Connect via Location API Key / Token (Instant & 100% Reliable)
                       </h4>
                       <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>
-                        In WebGearz / HighLevel Sub-Account, go to <strong>Settings ➔ Business Profile / Developers ➔ Copy API Key</strong>.
+                        In your CRM Sub-Account, go to <strong>Settings ➔ Business Profile / Developers ➔ Copy API Key</strong>.
                       </p>
                     </div>
                   </div>
@@ -1889,7 +1889,7 @@ export default function IntegrationsPage({
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
                     <div>
                       <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#475569', marginBottom: '4px' }}>
-                        HighLevel Location ID
+                        CRM Location ID
                       </label>
                       <input
                         type="text"
@@ -1915,7 +1915,7 @@ export default function IntegrationsPage({
                       </label>
                       <input
                         type="password"
-                        placeholder="Paste HighLevel Location API Key or PIT token"
+                        placeholder="Paste CRM Location API Key or Private Token"
                         value={subAccountApiKey}
                         onChange={(e) => setSubAccountApiKey(e.target.value)}
                         style={{
@@ -1944,14 +1944,14 @@ export default function IntegrationsPage({
                   </div>
                 </div>
 
-                {/* Method 2: HighLevel Marketplace OAuth */}
+                {/* Method 2: Enterprise CRM Marketplace OAuth */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', padding: '16px 20px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px' }}>
                   <div>
                     <div style={{ fontSize: '13px', fontWeight: '800', color: '#166534' }}>
-                      Method 2: Connect via HighLevel Marketplace (1-Click OAuth)
+                      Method 2: Connect via CRM Marketplace (1-Click OAuth)
                     </div>
                     <div style={{ fontSize: '12px', color: '#15803d', marginTop: '2px' }}>
-                      For agencies using standard HighLevel Marketplace App Login.
+                      For accounts using standard CRM Marketplace App Login.
                     </div>
                   </div>
 
@@ -1973,7 +1973,7 @@ export default function IntegrationsPage({
                       whiteSpace: 'nowrap'
                     }}
                   >
-                    <Zap size={14} /> Launch HighLevel Marketplace OAuth
+                    <Zap size={14} /> Launch CRM Marketplace OAuth
                   </a>
                 </div>
 
@@ -1986,7 +1986,7 @@ export default function IntegrationsPage({
                     {(loc.status === 'reauth_required' || !loc.accessToken) && (
                       <div style={{ background: '#fefce8', border: '1px solid #fde047', borderRadius: '8px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         <div style={{ fontSize: '12px', color: '#854d0e', fontWeight: '600' }}>
-                          ⚠️ HighLevel Sub-Account API Key or PIT Token Required — Enter your Sub-Account API Key or Token to activate 2-way sync:
+                          ⚠️ CRM Sub-Account API Key or PIT Token Required — Enter your Sub-Account API Key or Token to activate 2-way sync:
                         </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <input
@@ -2053,7 +2053,7 @@ export default function IntegrationsPage({
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                           <span style={{ fontSize: '20px', fontWeight: '900', color: '#0f172a' }}>{emsContactsCount}</span>
                           <span style={{ fontSize: '11px', color: '#059669', fontWeight: '700' }}>
-                            ({pushedContactsCount} synced to GHL)
+                            ({pushedContactsCount} synced to CRM)
                           </span>
                         </div>
                       </div>
@@ -2100,7 +2100,7 @@ export default function IntegrationsPage({
                       <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                         <div>
                           <div style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>👥 Contacts Sync Engine</div>
-                          <div style={{ fontSize: '11.5px', color: '#64748b' }}>Push local EMS leads to HighLevel or import all contacts from HighLevel.</div>
+                          <div style={{ fontSize: '11.5px', color: '#64748b' }}>Push local EMS leads to CRM or import all contacts from CRM.</div>
                         </div>
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                           <Button
@@ -2111,7 +2111,7 @@ export default function IntegrationsPage({
                             disabled={isSyncingGhl || loc.status !== 'connected'}
                             style={{ fontWeight: '700', opacity: loc.status !== 'connected' ? 0.6 : 1 }}
                           >
-                            {syncingAction === 'push_contacts' ? 'Pushing Contacts...' : `📤 Push Contacts (EMS ➔ GHL) [${emsContactsCount}]`}
+                            {syncingAction === 'push_contacts' ? 'Pushing Contacts...' : `📤 Push Contacts to CRM [${emsContactsCount}]`}
                           </Button>
                           <Button
                             variant="primary"
@@ -2121,7 +2121,7 @@ export default function IntegrationsPage({
                             disabled={isSyncingGhl || loc.status !== 'connected'}
                             style={{ background: '#059669', borderColor: '#059669', fontWeight: '700', opacity: loc.status !== 'connected' ? 0.6 : 1 }}
                           >
-                            {syncingAction === 'import_contacts' ? 'Importing...' : '📥 Import All Contacts (GHL ➔ EMS)'}
+                            {syncingAction === 'import_contacts' ? 'Importing...' : '📥 Import All Contacts from CRM'}
                           </Button>
                         </div>
                       </div>
@@ -2134,7 +2134,7 @@ export default function IntegrationsPage({
                             <Badge variant="success" style={{ fontSize: '10px', padding: '2px 6px' }}>{emsCallsCount} Total Calls</Badge>
                           </div>
                           <div style={{ fontSize: '11.5px', color: '#115e59', marginTop: '2px' }}>
-                            Uploads companion call recordings as static MP3 streams and displays the native audio player (▶ 0:00 / 0:39) inside HighLevel conversation feeds.
+                            Uploads companion call recordings as static MP3 streams and displays the native audio player inside CRM conversation feeds.
                           </div>
                         </div>
                         <div>
@@ -2146,7 +2146,7 @@ export default function IntegrationsPage({
                             disabled={isSyncingGhl || loc.status !== 'connected'}
                             style={{ background: '#0d9488', borderColor: '#0d9488', color: '#ffffff', fontWeight: '800', padding: '8px 16px', fontSize: '12px', opacity: loc.status !== 'connected' ? 0.6 : 1 }}
                           >
-                            {syncingAction === 'push_calls' ? 'Pushing 35 Recordings...' : `🎙️ Push Call Recordings (EMS ➔ GHL) [${emsCallsCount} Total]`}
+                            {syncingAction === 'push_calls' ? 'Pushing 35 Recordings...' : `🎙️ Push Call Recordings to CRM [${emsCallsCount} Total]`}
                           </Button>
                         </div>
                       </div>
@@ -2155,7 +2155,7 @@ export default function IntegrationsPage({
                       <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                         <div>
                           <div style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>💼 Deals & Pipelines Engine</div>
-                          <div style={{ fontSize: '11.5px', color: '#64748b' }}>Sync CRM opportunities, stages, and deal pipelines with HighLevel.</div>
+                          <div style={{ fontSize: '11.5px', color: '#64748b' }}>Sync CRM opportunities, stages, and deal pipelines with central CRM.</div>
                         </div>
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                           <Button
@@ -2166,7 +2166,7 @@ export default function IntegrationsPage({
                             disabled={isSyncingGhl || loc.status !== 'connected'}
                             style={{ fontWeight: '700', opacity: loc.status !== 'connected' ? 0.6 : 1 }}
                           >
-                            {syncingAction === 'push_deals' ? 'Pushing Deals...' : '📤 Push Deals (EMS ➔ GHL)'}
+                            {syncingAction === 'push_deals' ? 'Pushing Deals...' : '📤 Push Deals to CRM'}
                           </Button>
                           <Button
                             variant="primary"
@@ -2218,7 +2218,7 @@ export default function IntegrationsPage({
                                 {log.status}
                               </Badge>
                               <span style={{ fontWeight: '800', color: '#0f172a' }}>{log.event_type || log.eventType}</span>
-                              <span style={{ color: '#64748b' }}>EMS: {log.ems_entity_id || '—'} &rarr; GHL: {log.ghl_entity_id || '—'}</span>
+                              <span style={{ color: '#64748b' }}>EMS: {log.ems_entity_id || '—'} &rarr; CRM: {log.ghl_entity_id || '—'}</span>
                             </div>
                             <span style={{ color: '#94a3b8', fontSize: '10px' }}>
                               {new Date(log.created_at || log.timestamp).toLocaleDateString()} {new Date(log.created_at || log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -2296,7 +2296,7 @@ export default function IntegrationsPage({
             <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>Live Integration Activity & Webhook Delivery Logs</h3>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <Button variant="primary" size="sm" icon={<Zap size={14} />} onClick={handleSyncGhlLiveContacts}>
-                ⚡ Sync GHL Live Contacts
+                ⚡ Sync CRM Live Contacts
               </Button>
               <Button variant="secondary" size="sm" icon={<RefreshCw size={14} className={loadingLogs ? 'spin' : ''} />} onClick={loadActivityLogs}>
                 Refresh Logs

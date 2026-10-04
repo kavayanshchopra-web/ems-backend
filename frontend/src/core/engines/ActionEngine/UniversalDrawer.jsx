@@ -75,7 +75,7 @@ export default function UniversalDrawer({
         <div className="universal-drawer-field-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           {viewFields.map(field => {
             const rawVal = record[field.id] !== undefined ? record[field.id] : record.customFields?.[field.id];
-            const cleanVal = (field.id === 'notes' && typeof rawVal === 'string' && /^Imported from GoHighLevel/i.test(rawVal.trim()))
+            const cleanVal = (field.id === 'notes' && typeof rawVal === 'string' && /^Imported from (?:GoHighLevel|CRM)/i.test(rawVal.trim()))
               ? ''
               : rawVal;
 
@@ -126,15 +126,15 @@ export default function UniversalDrawer({
           );
         })()}
 
-        {/* INTEGRATION INFO CARD (GHL SYNC) */}
-        {(record.ghlContactId || (record.source && String(record.source).toLowerCase().includes('gohighlevel'))) && (
+        {/* INTEGRATION INFO CARD (CRM SYNC) */}
+        {(record.ghlContactId || (record.source && (String(record.source).toLowerCase().includes('gohighlevel') || String(record.source).toLowerCase().includes('crm')))) && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.25)', fontSize: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '16px' }}>⚡</span>
               <div>
-                <div style={{ fontWeight: '800', color: '#065f46' }}>GoHighLevel 2-Way Sync</div>
+                <div style={{ fontWeight: '800', color: '#065f46' }}>CRM 2-Way Sync</div>
                 <div style={{ fontSize: '11px', color: '#047857', fontFamily: 'monospace' }}>
-                  GHL Contact ID: {record.ghlContactId || 'Active'}
+                  CRM Lead Ref ID: {record.ghlContactId || 'Active'}
                 </div>
               </div>
             </div>
@@ -144,7 +144,7 @@ export default function UniversalDrawer({
                 onClick={() => {
                   if (navigator?.clipboard?.writeText) {
                     navigator.clipboard.writeText(record.ghlContactId);
-                    alert(`Copied GHL ID: ${record.ghlContactId}`);
+                    alert(`Copied CRM Lead Ref: ${record.ghlContactId}`);
                   }
                 }}
                 style={{ padding: '4px 10px', borderRadius: '6px', background: '#ffffff', border: '1px solid #10b981', color: '#065f46', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
