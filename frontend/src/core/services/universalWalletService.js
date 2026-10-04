@@ -8,8 +8,20 @@ const API_BASE = (typeof window !== 'undefined' && window.__EMS_API_URL__)
   ? window.__EMS_API_URL__.replace(/\/api\/?$/, '') 
   : (IS_DEV ? 'http://localhost:5000' : 'https://api.employeemanagementsystems.com');
 
-const SUPABASE_REST_URL = 'https://mucgmzldgvtblmsurtgo.supabase.co/rest/v1';
-const SUPABASE_KEY = 'sb_publishable_xRGskG_bEbCJebUMT_XPHA_vjwf1Lr1';
+const isSandboxDomain = typeof window !== 'undefined' && (
+  window.location.hostname.includes('sandbox') ||
+  window.location.hostname.includes('staging') ||
+  (localStorage.getItem('ems_db_env') === 'sandbox')
+);
+
+const SUPABASE_REST_URL = isSandboxDomain
+  ? 'https://mucgmzldgvtblmsurtgo.supabase.co/rest/v1'
+  : 'https://pdjaajbhrvglwukoacuh.supabase.co/rest/v1';
+
+const SUPABASE_KEY = isSandboxDomain
+  ? 'sb_publishable_xRGskG_bEbCJebUMT_XPHA_vjwf1Lr1'
+  : 'sb_publishable_q8SBMvAwczXP0yfDfIMZsQ_ahP5YYq3';
+
 const SUPABASE_HEADERS = {
   'apikey': SUPABASE_KEY,
   'Authorization': `Bearer ${SUPABASE_KEY}`,
