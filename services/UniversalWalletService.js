@@ -422,10 +422,19 @@ class UniversalWalletService {
     try {
       const wallets = await client.query(`
         SELECT 
-          w.*, 
-          COALESCE(t.company_name, 'Tenant #' || w.tenant_id) as company_name
+          w.tenant_id,
+          w.balance,
+          w.min_threshold,
+          w.status,
+          w.last_recharged_at,
+          COALESCE(t.company_name, 'Company #' || w.tenant_id) as company_name,
+          COALESCE(SUM(CASE WHEN tx.transaction_type = 'DEBIT' THEN tx.amount ELSE 0 END), 0) as total_spent,
+          COALESCE(SUM(CASE WHEN tx.transaction_type = 'CREDIT' THEN tx.amount ELSE 0 END), 0) as total_recharged,
+          COALESCE(COUNT(CASE WHEN tx.transaction_type = 'DEBIT' AND tx.service_key LIKE 'whatsapp%' THEN 1 END), 0) as total_messages_sent
         FROM universal_wallets w
         LEFT JOIN tenants t ON t.id = w.tenant_id
+        LEFT JOIN wallet_transactions tx ON tx.tenant_id = w.tenant_id
+        GROUP BY w.tenant_id, w.balance, w.min_threshold, w.status, w.last_recharged_at, t.company_name
         ORDER BY w.tenant_id;
       `);
 

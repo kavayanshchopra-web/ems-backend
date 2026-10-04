@@ -101,6 +101,28 @@ export default function SuperAdminTelephonyHub({ showToast }) {
     }
   };
 
+  const [adjustModalTenant, setAdjustModalTenant] = useState(null);
+  const [adjustAmount, setAdjustAmount] = useState(500);
+  const [adjustReason, setAdjustReason] = useState('SuperAdmin Promotional Bonus');
+  const [adjusting, setAdjusting] = useState(false);
+  const [clientWalletSearch, setClientWalletSearch] = useState('');
+
+  const handleGrantCredit = async (e) => {
+    if (e) e.preventDefault();
+    if (!adjustModalTenant) return;
+    setAdjusting(true);
+    try {
+      await frontendWalletService.adjustCredit(adjustModalTenant.tenant_id, adjustAmount, adjustReason);
+      if (showToast) showToast(`₹${adjustAmount} credited to ${adjustModalTenant.company_name}!`, 'success');
+      setAdjustModalTenant(null);
+      fetchWalletStudioData();
+    } catch (err) {
+      if (showToast) showToast(err.message || 'Failed to credit wallet', 'error');
+    } finally {
+      setAdjusting(false);
+    }
+  };
+
   
   // Multi-company telecalling device health & recording status
   const [allDevices, setAllDevices] = useState([]);
@@ -690,6 +712,264 @@ export default function SuperAdminTelephonyHub({ showToast }) {
             <b style={{ color: '#16a34a' }}>100% Free / Included in Plan</b>
           </div>
         </div>
+
+        {/* CLIENT-WISE CONSUMPTION & WALLET FLOAT TABLE */}
+        <div style={{ marginTop: '24px', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <h5 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#0f2b26', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Users size={16} color="#0d9488" />
+                <span>Client-Wise WhatsApp Usage, Wallet Balance & Expenditure Breakdown</span>
+              </h5>
+              <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>
+                Real-time tracking of each company's balance, total WhatsApp messages dispatched, and amount consumed.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                type="text"
+                placeholder="Search company or tenant ID..."
+                value={clientWalletSearch}
+                onChange={(e) => setClientWalletSearch(e.target.value)}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '12px',
+                  outline: 'none',
+                  width: '220px'
+                }}
+              />
+              <button
+                type="button"
+                onClick={fetchWalletStudioData}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  background: '#f8fafc',
+                  border: '1px solid #cbd5e1',
+                  color: '#334155',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <RefreshCw size={12} />
+                <span>Refresh</span>
+              </button>
+            </div>
+          </div>
+
+          <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <th style={{ padding: '12px 16px' }}>Company / Client</th>
+                  <th style={{ padding: '12px 16px' }}>Current Balance</th>
+                  <th style={{ padding: '12px 16px' }}>Threshold Status</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'center' }}>WhatsApp Msgs Sent</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Total Spent (₹)</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Total Recharged (₹)</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Quick Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(!walletOverview?.tenants || walletOverview.tenants.length === 0) ? (
+                  <tr>
+                    <td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
+                      Loading client wallet telemetry...
+                    </td>
+                  </tr>
+                ) : (
+                  walletOverview.tenants
+                    .filter(t => {
+                      if (!clientWalletSearch) return true;
+                      const q = clientWalletSearch.toLowerCase();
+                      return (t.company_name || '').toLowerCase().includes(q) || String(t.tenant_id).includes(q);
+                    })
+                    .map((clientRow) => {
+                      const bal = parseFloat(clientRow.balance || 0);
+                      const thresh = parseFloat(clientRow.min_threshold || 1000);
+                      const isLow = bal <= thresh;
+
+                      return (
+                        <tr key={clientRow.tenant_id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '12px 16px' }}>
+                            <div style={{ fontWeight: '800', color: '#0f2b26', fontSize: '13px' }}>
+                              {clientRow.company_name || `Company #${clientRow.tenant_id}`}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#64748b' }}>
+                              Tenant ID: #{clientRow.tenant_id}
+                            </div>
+                          </td>
+
+                          <td style={{ padding: '12px 16px' }}>
+                            <div style={{ fontSize: '15px', fontWeight: '900', color: isLow ? '#dc2626' : '#0f766e' }}>
+                              ₹{bal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <div style={{ fontSize: '10.5px', color: '#64748b' }}>
+                              Min Threshold: ₹{thresh.toFixed(2)}
+                            </div>
+                          </td>
+
+                          <td style={{ padding: '12px 16px' }}>
+                            <span style={{
+                              background: isLow ? '#fef2f2' : '#dcfce7',
+                              color: isLow ? '#dc2626' : '#15803d',
+                              border: `1px solid ${isLow ? '#fecaca' : '#bbf7d0'}`,
+                              padding: '3px 8px',
+                              borderRadius: '8px',
+                              fontSize: '11px',
+                              fontWeight: '800',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              {isLow ? <AlertTriangle size={12} /> : <CheckCircle2 size={12} />}
+                              {isLow ? 'Low Balance Alert' : 'Active & Healthy'}
+                            </span>
+                          </td>
+
+                          <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: '800', color: '#0f172a' }}>
+                            {parseInt(clientRow.total_messages_sent || 0, 10).toLocaleString()} msgs
+                          </td>
+
+                          <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '800', color: '#b91c1c' }}>
+                            -₹{parseFloat(clientRow.total_spent || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+
+                          <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '800', color: '#15803d' }}>
+                            +₹{parseFloat(clientRow.total_recharged || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+
+                          <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAdjustModalTenant(clientRow);
+                                setAdjustAmount(500);
+                                setAdjustReason('SuperAdmin Promotional Bonus');
+                              }}
+                              style={{
+                                background: '#f0fdf4',
+                                border: '1px solid #86efac',
+                                color: '#15803d',
+                                padding: '5px 12px',
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              <Plus size={13} />
+                              <span>Grant Credit</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* SuperAdmin Bonus / Credit Adjustment Modal */}
+        {adjustModalTenant && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            padding: '16px'
+          }}>
+            <div style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              padding: '24px',
+              width: '420px',
+              maxWidth: '100%',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.25)',
+              border: '1px solid #e2e8f0'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f2b26' }}>
+                  Grant Credit / Adjustment
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setAdjustModalTenant(null)}
+                  style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '12px' }}>
+                <div>Company: <b>{adjustModalTenant.company_name}</b></div>
+                <div style={{ marginTop: '2px', color: '#64748b' }}>Current Balance: <b>₹{parseFloat(adjustModalTenant.balance || 0).toFixed(2)}</b></div>
+              </div>
+
+              <form onSubmit={handleGrantCredit}>
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                    Credit Amount (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="10"
+                    min="1"
+                    value={adjustAmount}
+                    onChange={(e) => setAdjustAmount(parseFloat(e.target.value) || 0)}
+                    required
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #cbd5e1', fontSize: '13px', fontWeight: '700', color: '#0f2b26', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                    Reason / Description
+                  </label>
+                  <input
+                    type="text"
+                    value={adjustReason}
+                    onChange={(e) => setAdjustReason(e.target.value)}
+                    required
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #cbd5e1', fontSize: '13px', color: '#0f2b26', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setAdjustModalTenant(null)}
+                    style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#64748b', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={adjusting || adjustAmount <= 0}
+                    style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)', color: '#ffffff', fontSize: '13px', fontWeight: '800', cursor: adjusting ? 'not-allowed' : 'pointer' }}
+                  >
+                    {adjusting ? 'Crediting...' : `Confirm +₹${adjustAmount}`}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* SANDBOX TELEPHONY STATUS & INFRASTRUCTURE CARD */}
