@@ -1,25 +1,19 @@
 /**
- * services/PaymentGatewayService.js
+ * backend/services/PaymentGatewayService.js
  * Universal Razorpay Payment Gateway Engine for OmniFlow EMS
- * Supports Orders API, HMAC-SHA256 Signature Verification,
- * and Dynamic Credentials Storage with Test/Live Mode.
  */
 
 import crypto from 'crypto';
 
 class PaymentGatewayService {
   constructor() {
-    // Default fallback to environment variables or test key
     this.keyId = process.env.RAZORPAY_KEY_ID || 'rzp_test_omniflow_gateway';
     this.keySecret = process.env.RAZORPAY_KEY_SECRET || 'rzp_secret_omniflow_default';
-    this.mode = process.env.RAZORPAY_MODE || 'test'; // 'test' | 'live'
+    this.mode = process.env.RAZORPAY_MODE || 'test';
     this.enabled = true;
     this.currency = 'INR';
   }
 
-  /**
-   * Initialize and load saved gateway settings from SQLite or config
-   */
   async init(db = null) {
     if (db) {
       try {
@@ -48,9 +42,6 @@ class PaymentGatewayService {
     }
   }
 
-  /**
-   * Save updated credentials from SuperAdmin Studio
-   */
   async updateConfig({ keyId, keySecret, mode, enabled }, db = null) {
     if (keyId !== undefined) this.keyId = String(keyId).trim();
     if (keySecret !== undefined) this.keySecret = String(keySecret).trim();
@@ -137,21 +128,14 @@ class PaymentGatewayService {
     };
   }
 
-  /**
-   * Create an official Razorpay Order via REST API
-   * @param {Object} params - { amount, currency, receipt, notes, tenantId }
-   */
   async createOrder({ amount, currency = 'INR', receipt, notes = {}, tenantId = null }, db = null) {
-    // Amount must be in Paise (e.g. ₹1999 = 199900 paise)
     const amountInPaise = Math.round(Number(amount) * 100);
     const orderReceipt = receipt || `rcpt_${Date.now()}`;
 
-    // Resolve tenant credentials or fallback to platform keys
     const creds = await this.resolveCredentials(tenantId, db);
     const activeKeyId = creds.keyId;
     const activeKeySecret = creds.keySecret;
 
-    // If real Razorpay keys are configured, call official API
     const isRealKey = activeKeyId && activeKeyId.startsWith('rzp_') && activeKeySecret && activeKeySecret !== 'rzp_secret_omniflow_default';
 
     if (isRealKey) {
@@ -191,7 +175,6 @@ class PaymentGatewayService {
       }
     }
 
-    // High-fidelity Sandbox / Mock Order Fallback
     const mockOrderId = `order_${Math.random().toString(36).substring(2, 10)}${Date.now()}`;
     return {
       id: mockOrderId,
@@ -203,10 +186,6 @@ class PaymentGatewayService {
     };
   }
 
-  /**
-   * Cryptographically verify the payment signature
-   * @param {Object} params - { orderId, paymentId, signature, keySecret, tenantId }
-   */
   async verifyPaymentSignature({ orderId, paymentId, signature, keySecret = null, tenantId = null }, db = null) {
     if (!orderId || !paymentId) {
       return { valid: false, error: 'Missing orderId or paymentId' };
@@ -218,16 +197,19 @@ class PaymentGatewayService {
       secretToUse = creds.keySecret;
     }
 
-    // In mock/test sandbox mode without real keys
     const isRealKey = secretToUse && secretToUse !== 'rzp_secret_omniflow_default';
-    if (!isRealKey || !signature || signature.startsWith('mock_sig_')) {
-      return {
-        valid: true,
-        orderId,
-        paymentId,
-        verifiedAt: new Date().toISOString(),
-        isMock: true
-      };
+    if (!isRealKey) {
+      // In sandbox/test mode without live keys: only explicit mock success signature is accepted
+      if (signature && (signature.startsWith('mock_sig_') || signature === 'test_verified_success')) {
+        return {
+          valid: true,
+          orderId,
+          paymentId,
+          verifiedAt: new Date().toISOString(),
+          isMock: true
+        };
+      }
+      return { valid: false, error: 'Invalid or missing signature for mock payment' };
     }
 
     try {
