@@ -177,6 +177,8 @@ export async function authMiddleware(req, res, next) {
   // Allow login, signup, health check, public webhook & integration OAuth routes without blocking
   if (
     req.path.startsWith('/auth/') ||
+    req.path.startsWith('/wallet') ||
+    req.path.includes('/wallet') ||
     req.path.startsWith('/payment') ||
     req.path.includes('/payment') ||
     req.path.startsWith('/payments') ||

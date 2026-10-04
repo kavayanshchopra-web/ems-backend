@@ -62,7 +62,7 @@ export default function BillingPage({ user, showToast }) {
   const [renewalNotice, setRenewalNotice] = useState(null);
 
   // Universal Multi-Service Wallet State
-  const [wallet, setWallet] = useState({ balance: 1499.8, min_threshold: 1000, status: 'ACTIVE' });
+  const [wallet, setWallet] = useState({ balance: 0.0, min_threshold: 1000, status: 'ACTIVE' });
   const [walletRates, setWalletRates] = useState({});
   const [walletLedger, setWalletLedger] = useState([]);
   const [showWalletModal, setShowWalletModal] = useState(false);
@@ -70,7 +70,7 @@ export default function BillingPage({ user, showToast }) {
 
   const loadWalletDetails = async () => {
     try {
-      const activeTenantId = user?.tenant_id || user?.tenantId || 1;
+      const activeTenantId = user?.companyId || user?.tenantId || user?.tenant_id || 1;
       const statusRes = await frontendWalletService.fetchWalletStatus(activeTenantId);
       if (statusRes?.wallet) setWallet(statusRes.wallet);
       if (statusRes?.rates) setWalletRates(statusRes.rates);
@@ -1109,6 +1109,21 @@ export default function BillingPage({ user, showToast }) {
           invoice={selectedInvoice}
           isOpen={!!selectedInvoice}
           onClose={() => setSelectedInvoice(null)}
+        />
+      )}
+
+      {/* Universal Multi-Service Wallet Recharge Modal */}
+      {showWalletModal && (
+        <WalletRechargeModal
+          isOpen={showWalletModal}
+          onClose={() => setShowWalletModal(false)}
+          currentBalance={parseFloat(wallet?.balance || 0)}
+          tenantId={user?.companyId || user?.tenantId || user?.tenant_id || 1}
+          user={user}
+          onRechargeSuccess={(newBalance) => {
+            setWallet(prev => ({ ...prev, balance: newBalance }));
+            loadWalletDetails();
+          }}
         />
       )}
     </div>

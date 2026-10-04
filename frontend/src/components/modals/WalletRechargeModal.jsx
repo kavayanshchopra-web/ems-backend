@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Wallet, ShieldCheck, CheckCircle2, AlertTriangle, ArrowRight, Zap } from 'lucide-react';
 import frontendWalletService from '../../core/services/universalWalletService';
 
-export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 0, onRechargeSuccess }) {
+export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 0, onRechargeSuccess, tenantId = 1, user }) {
   const [selectedAmount, setSelectedAmount] = useState(1000);
   const [customAmount, setCustomAmount] = useState('');
   const [isCustom, setIsCustom] = useState(false);
@@ -45,7 +45,7 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
       }
 
       // 1. Create Order
-      const res = await frontendWalletService.createRechargeOrder(1, finalAmount);
+      const res = await frontendWalletService.createRechargeOrder(tenantId, finalAmount);
       const { order } = res;
 
       // 2. Open Razorpay Checkout
@@ -53,14 +53,14 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
         key: order.keyId,
         amount: order.amount * 100, // paise
         currency: order.currency || 'INR',
-        name: 'OmniFlow Universal Wallet',
+        name: 'Enterprise Cloud Wallet',
         description: `Wallet Top-Up: ₹${order.amount.toLocaleString('en-IN')}`,
         order_id: order.orderId,
         handler: async function (response) {
           try {
             setLoading(true);
             // 3. Server-side Cryptographic HMAC Verification
-            const verifyRes = await frontendWalletService.verifyRechargePayment(1, {
+            const verifyRes = await frontendWalletService.verifyRechargePayment(tenantId, {
               orderId: response.razorpay_order_id || order.orderId,
               paymentId: response.razorpay_payment_id,
               signature: response.razorpay_signature
@@ -82,9 +82,9 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
           }
         },
         prefill: {
-          name: 'OmniFlow Client',
-          email: 'admin@omniflow.com',
-          contact: '9876543210'
+          name: user?.name || user?.displayName || 'Enterprise Client',
+          email: user?.email || '',
+          contact: user?.phone || ''
         },
         theme: {
           color: '#0d9488'
