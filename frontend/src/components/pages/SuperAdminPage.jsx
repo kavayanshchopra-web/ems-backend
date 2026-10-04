@@ -1447,7 +1447,7 @@ export default function SuperAdminPage({
                     </div>
                     <input
                       type="number"
-                      step="10"
+                      step="any"
                       min="1"
                       value={walletCreditAmount}
                       onChange={(e) => setWalletCreditAmount(parseFloat(e.target.value) || 0)}

@@ -952,7 +952,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
                   </label>
                   <input
                     type="number"
-                    step="10"
+                    step="any"
                     min="1"
                     value={adjustAmount}
                     onChange={(e) => setAdjustAmount(parseFloat(e.target.value) || 0)}
