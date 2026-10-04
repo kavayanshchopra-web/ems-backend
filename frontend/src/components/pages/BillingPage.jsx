@@ -40,8 +40,10 @@ import MasterModuleRegistry from '../../core/registry/MasterModuleRegistry';
 import FeatureProvisioningEngine from '../../core/engines/FeatureProvisioningEngine';
 import InvoiceReceiptModal from '../InvoiceReceiptModal';
 import onboardingConfigService from '../../core/services/onboardingConfigService';
+import EnterpriseBillingStudio from '../billing/EnterpriseBillingStudio';
 
 export default function BillingPage({ user, showToast }) {
+  const [mainTab, setMainTab] = useState('wallet_analytics'); // 'wallet_analytics' | 'subscriptions' | 'invoices'
   const [subscription, setSubscription] = useState(null);
   const [invoices, setInvoices] = useState([]);
   const [pricingConfig, setPricingConfig] = useState(DEFAULT_PRICING_CONFIG);
@@ -389,19 +391,108 @@ export default function BillingPage({ user, showToast }) {
   };
 
   return (
-    <div style={s.container}>
+    <div style={{ ...s.container, maxWidth: mainTab === 'wallet_analytics' ? '1420px' : '1240px', padding: '16px 24px' }}>
       
-      {/* Top Header Row */}
-      <div style={s.headerRow}>
-        <div>
-          <h1 style={s.title}>
-            <CreditCard size={24} style={{ color: '#0d9488' }} />
-            <span>Workspace Subscription & Billing</span>
-          </h1>
-          <p style={s.subtitle}>
-            Manage workspace capacity, view official GST Tax Invoices (SAC 998313), and customize add-ons.
-          </p>
-        </div>
+      {/* Top Navigation Tabs Matching Reference Studio */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        borderBottom: '1.5px solid #e2e8f0',
+        marginBottom: '20px',
+        background: '#ffffff',
+        borderRadius: '12px 12px 0 0',
+        padding: '6px 12px 0 12px'
+      }}>
+        <button
+          type="button"
+          onClick={() => setMainTab('wallet_analytics')}
+          style={{
+            padding: '10px 18px',
+            border: 'none',
+            background: 'transparent',
+            borderBottom: mainTab === 'wallet_analytics' ? '2.5px solid #0d9488' : '2.5px solid transparent',
+            color: mainTab === 'wallet_analytics' ? '#0d9488' : '#64748b',
+            fontWeight: mainTab === 'wallet_analytics' ? '800' : '600',
+            fontSize: '13px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <CreditCard size={15} style={{ color: mainTab === 'wallet_analytics' ? '#0d9488' : '#94a3b8' }} />
+          <span>Wallet & Transactions</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMainTab('subscriptions')}
+          style={{
+            padding: '10px 18px',
+            border: 'none',
+            background: 'transparent',
+            borderBottom: mainTab === 'subscriptions' ? '2.5px solid #0d9488' : '2.5px solid transparent',
+            color: mainTab === 'subscriptions' ? '#0d9488' : '#64748b',
+            fontWeight: mainTab === 'subscriptions' ? '800' : '600',
+            fontSize: '13px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <Sparkles size={15} style={{ color: mainTab === 'subscriptions' ? '#0d9488' : '#94a3b8' }} />
+          <span>Subscriptions & Plan Capacity</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMainTab('invoices')}
+          style={{
+            padding: '10px 18px',
+            border: 'none',
+            background: 'transparent',
+            borderBottom: mainTab === 'invoices' ? '2.5px solid #0d9488' : '2.5px solid transparent',
+            color: mainTab === 'invoices' ? '#0d9488' : '#64748b',
+            fontWeight: mainTab === 'invoices' ? '800' : '600',
+            fontSize: '13px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <FileText size={15} style={{ color: mainTab === 'invoices' ? '#0d9488' : '#94a3b8' }} />
+          <span>Tax Invoices</span>
+        </button>
+      </div>
+
+      {mainTab === 'wallet_analytics' && (
+        <EnterpriseBillingStudio
+          user={user}
+          showToast={showToast}
+          onOpenRechargeModal={() => setShowWalletModal(true)}
+          onOpenInvoice={(inv) => setSelectedInvoice(inv)}
+        />
+      )}
+
+      {mainTab !== 'wallet_analytics' && (
+        <>
+          {/* Top Header Row */}
+          <div style={s.headerRow}>
+            <div>
+              <h1 style={s.title}>
+                <CreditCard size={24} style={{ color: '#0d9488' }} />
+                <span>Workspace Subscription & Billing</span>
+              </h1>
+              <p style={s.subtitle}>
+                Manage workspace capacity, view official GST Tax Invoices (SAC 998313), and customize add-ons.
+              </p>
+            </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
@@ -1102,6 +1193,8 @@ export default function BillingPage({ user, showToast }) {
           </div>
         )}
       </div>
+      </>
+    )}
 
       {/* Invoice Modal */}
       {selectedInvoice && (
