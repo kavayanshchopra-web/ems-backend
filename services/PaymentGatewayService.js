@@ -198,14 +198,18 @@ class PaymentGatewayService {
     }
 
     const isRealKey = secretToUse && secretToUse !== 'rzp_secret_omniflow_default';
-    if (!isRealKey || !signature || signature.startsWith('mock_sig_')) {
-      return {
-        valid: true,
-        orderId,
-        paymentId,
-        verifiedAt: new Date().toISOString(),
-        isMock: true
-      };
+    if (!isRealKey) {
+      // In sandbox/test mode without live keys: only explicit mock success signature is accepted
+      if (signature && (signature.startsWith('mock_sig_') || signature === 'test_verified_success')) {
+        return {
+          valid: true,
+          orderId,
+          paymentId,
+          verifiedAt: new Date().toISOString(),
+          isMock: true
+        };
+      }
+      return { valid: false, error: 'Invalid or missing signature for mock payment' };
     }
 
     try {
