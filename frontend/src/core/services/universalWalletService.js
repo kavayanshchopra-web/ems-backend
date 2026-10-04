@@ -203,13 +203,14 @@ class FrontendUniversalWalletService {
       }
     } catch (e) {}
 
-    // Direct Supabase Fallback for SuperAdmin Telemetry
+    // Direct Supabase Telemetry with Cache Busting
     try {
+      const ts = Date.now();
       const [tRes, wRes, rRes, txRes] = await Promise.all([
-        fetch(`${SUPABASE_REST_URL}/tenants?select=*`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
-        fetch(`${SUPABASE_REST_URL}/universal_wallets?select=*`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
-        fetch(`${SUPABASE_REST_URL}/global_service_rates?is_active=eq.true&select=*`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
-        fetch(`${SUPABASE_REST_URL}/wallet_transactions?select=*`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => [])
+        fetch(`${SUPABASE_REST_URL}/tenants?select=*&_t=${ts}`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
+        fetch(`${SUPABASE_REST_URL}/universal_wallets?select=*&_t=${ts}`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
+        fetch(`${SUPABASE_REST_URL}/global_service_rates?is_active=eq.true&_t=${ts}`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
+        fetch(`${SUPABASE_REST_URL}/wallet_transactions?select=*&_t=${ts}`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => [])
       ]);
 
       const walletMap = new Map();
@@ -265,7 +266,7 @@ class FrontendUniversalWalletService {
         }))
       };
     } catch (err) {
-      console.warn('[fetchSuperAdminOverview Supabase fallback error]:', err);
+      console.warn('[fetchSuperAdminOverview Supabase error]:', err);
       return { success: false, totalClientFloat: 0, lowBalanceTenantsCount: 0, tenants: [], globalRates: [] };
     }
   }
@@ -301,22 +302,10 @@ class FrontendUniversalWalletService {
   async adjustCredit(tenantId, amount, reason) {
     const cleanTenant = Number(tenantId) || 1;
     const cleanAmount = parseFloat(amount);
-    try {
-      const res = await fetch(`${API_BASE}/api/superadmin/wallet/adjust-credit`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(cleanTenant),
-        body: JSON.stringify({ tenantId: cleanTenant, amount: cleanAmount, reason })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data;
-      }
-    } catch (e) {}
 
-    // Direct Supabase Fallback for Immediate Credit Grant
     try {
       // 1. Fetch current wallet
-      const wRes = await fetch(`${SUPABASE_REST_URL}/universal_wallets?tenant_id=eq.${cleanTenant}&select=*`, {
+      const wRes = await fetch(`${SUPABASE_REST_URL}/universal_wallets?tenant_id=eq.${cleanTenant}&select=*&_t=${Date.now()}`, {
         headers: SUPABASE_HEADERS
       }).then(r => r.json()).catch(() => []);
 
@@ -325,28 +314,37 @@ class FrontendUniversalWalletService {
       const newBalance = currentBalance + cleanAmount;
       const newStatus = newBalance <= 0 ? 'DEPLETED' : (newBalance <= 1000 ? 'LOW_BALANCE' : 'ACTIVE');
 
-      // 2. Upsert universal_wallets
-      await fetch(`${SUPABASE_REST_URL}/universal_wallets`, {
-        method: 'POST',
-        headers: {
-          ...SUPABASE_HEADERS,
-          'Prefer': 'resolution=merge-duplicates,return=representation'
-        },
-        body: JSON.stringify({
-          tenant_id: cleanTenant,
-          balance: newBalance,
-          currency: 'INR',
-          min_threshold: 1000,
-          status: newStatus,
-          updated_at: new Date().toISOString()
-        })
-      });
+      // 2. Direct PATCH or POST
+      if (currentWallet) {
+        await fetch(`${SUPABASE_REST_URL}/universal_wallets?tenant_id=eq.${cleanTenant}`, {
+          method: 'PATCH',
+          headers: { ...SUPABASE_HEADERS, 'Prefer': 'return=representation' },
+          body: JSON.stringify({
+            balance: newBalance,
+            status: newStatus,
+            updated_at: new Date().toISOString()
+          })
+        });
+      } else {
+        await fetch(`${SUPABASE_REST_URL}/universal_wallets`, {
+          method: 'POST',
+          headers: { ...SUPABASE_HEADERS, 'Prefer': 'return=representation' },
+          body: JSON.stringify({
+            tenant_id: cleanTenant,
+            balance: newBalance,
+            currency: 'INR',
+            min_threshold: 1000,
+            status: newStatus,
+            updated_at: new Date().toISOString()
+          })
+        });
+      }
 
       // 3. Log into wallet_transactions
       const txnId = `ADJ-${Date.now()}`;
       await fetch(`${SUPABASE_REST_URL}/wallet_transactions`, {
         method: 'POST',
-        headers: SUPABASE_HEADERS,
+        headers: { ...SUPABASE_HEADERS, 'Prefer': 'return=representation' },
         body: JSON.stringify({
           id: txnId,
           tenant_id: cleanTenant,

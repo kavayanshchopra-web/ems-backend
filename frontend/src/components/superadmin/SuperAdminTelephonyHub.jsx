@@ -132,15 +132,43 @@ export default function SuperAdminTelephonyHub({ showToast }) {
   const [clientWalletSearch, setClientWalletSearch] = useState('');
 
   const handleGrantCredit = async (e) => {
-    if (e) e.preventDefault();
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (!adjustModalTenant) return;
+    const numAmount = parseFloat(adjustAmount);
+    if (!numAmount || numAmount <= 0) {
+      if (showToast) showToast('Please enter a valid amount greater than ₹0', 'error');
+      return;
+    }
     setAdjusting(true);
     try {
-      await frontendWalletService.adjustCredit(adjustModalTenant.tenant_id, adjustAmount, adjustReason);
-      if (showToast) showToast(`₹${adjustAmount} credited to ${adjustModalTenant.company_name}!`, 'success');
+      const res = await frontendWalletService.adjustCredit(adjustModalTenant.tenant_id, numAmount, adjustReason);
+      if (showToast) showToast(`₹${numAmount} credited to ${adjustModalTenant.company_name}!`, 'success');
+
+      // Immediate optimistic update to state so user sees it right away
+      setWalletOverview(prev => {
+        if (!prev || !prev.tenants) return prev;
+        const newTenants = prev.tenants.map(t => {
+          if (Number(t.tenant_id) === Number(adjustModalTenant.tenant_id)) {
+            const currentBal = parseFloat(t.balance || 0);
+            const updatedBal = (res && res.newBalance !== undefined) ? res.newBalance : (currentBal + numAmount);
+            return {
+              ...t,
+              balance: updatedBal,
+              total_recharged: (parseFloat(t.total_recharged || 0) + numAmount)
+            };
+          }
+          return t;
+        });
+        return { ...prev, tenants: newTenants };
+      });
+
       setAdjustModalTenant(null);
       fetchWalletStudioData();
     } catch (err) {
+      console.error('[handleGrantCredit error]:', err);
       if (showToast) showToast(err.message || 'Failed to credit wallet', 'error');
     } finally {
       setAdjusting(false);
@@ -945,7 +973,7 @@ export default function SuperAdminTelephonyHub({ showToast }) {
                 <div style={{ marginTop: '2px', color: '#64748b' }}>Current Balance: <b>₹{parseFloat(adjustModalTenant.balance || 0).toFixed(2)}</b></div>
               </div>
 
-              <form onSubmit={handleGrantCredit}>
+              <form onSubmit={handleGrantCredit} noValidate>
                 <div style={{ marginBottom: '14px' }}>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
                     Credit Amount (₹)

@@ -1418,7 +1418,7 @@ export default function SuperAdminPage({
                   </button>
                 </div>
 
-                <form onSubmit={handleGrantCompanyCredit}>
+                <form onSubmit={handleGrantCompanyCredit} noValidate>
                   <div style={{ marginBottom: '14px' }}>
                     <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
                       Credit Amount (₹)
