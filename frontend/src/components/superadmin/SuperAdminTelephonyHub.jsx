@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Phone, Users, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw, Edit3, Settings, Play, Power, ExternalLink, Search, X, Save, Smartphone, Cloud, Info, FolderCheck, Folder, AlertTriangle, Check, Shield, Mic, MicOff, Radio, Zap, Headphones, TrendingUp, DollarSign, Calendar, BarChart3, Clock, Wallet } from 'lucide-react';
+import { Phone, Users, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw, Edit3, Settings, Play, Power, ExternalLink, Search, X, Save, Smartphone, Cloud, Info, FolderCheck, Folder, AlertTriangle, Check, Shield, Mic, MicOff, Radio, Zap, Headphones, TrendingUp, DollarSign, Calendar, BarChart3, Clock, Wallet, Plus } from 'lucide-react';
 import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
 import frontendWalletService from '../../core/services/universalWalletService';
 
