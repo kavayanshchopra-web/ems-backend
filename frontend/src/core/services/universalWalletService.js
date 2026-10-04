@@ -25,7 +25,9 @@ const SUPABASE_KEY = isSandboxDomain
 const SUPABASE_HEADERS = {
   'apikey': SUPABASE_KEY,
   'Authorization': `Bearer ${SUPABASE_KEY}`,
-  'Content-Type': 'application/json'
+  'Content-Type': 'application/json',
+  'Cache-Control': 'no-cache',
+  'Pragma': 'no-cache'
 };
 
 class FrontendUniversalWalletService {
@@ -205,29 +207,32 @@ class FrontendUniversalWalletService {
 
     // Direct Supabase Telemetry with Cache Busting
     try {
-      const ts = Date.now();
       const [tRes, wRes, rRes, txRes] = await Promise.all([
-        fetch(`${SUPABASE_REST_URL}/tenants?select=*&_t=${ts}`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
-        fetch(`${SUPABASE_REST_URL}/universal_wallets?select=*&_t=${ts}`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
-        fetch(`${SUPABASE_REST_URL}/global_service_rates?is_active=eq.true&_t=${ts}`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
-        fetch(`${SUPABASE_REST_URL}/wallet_transactions?select=*&_t=${ts}`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => [])
+        fetch(`${SUPABASE_REST_URL}/tenants?select=*`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
+        fetch(`${SUPABASE_REST_URL}/universal_wallets?select=*`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
+        fetch(`${SUPABASE_REST_URL}/global_service_rates?is_active=eq.true`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
+        fetch(`${SUPABASE_REST_URL}/wallet_transactions?select=*`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => [])
       ]);
 
       const walletMap = new Map();
-      (wRes || []).forEach(w => walletMap.set(Number(w.tenant_id), w));
+      if (Array.isArray(wRes)) {
+        wRes.forEach(w => walletMap.set(Number(w.tenant_id), w));
+      }
 
       const txStats = new Map();
-      (txRes || []).forEach(tx => {
-        const tid = Number(tx.tenant_id);
-        if (!txStats.has(tid)) txStats.set(tid, { msgsSent: 0, spent: 0, recharged: 0 });
-        const s = txStats.get(tid);
-        if (tx.transaction_type === 'DEBIT') {
-          s.msgsSent += (tx.units || 1);
-          s.spent += parseFloat(tx.amount || 0);
-        } else if (tx.transaction_type === 'CREDIT' || tx.transaction_type === 'BONUS') {
-          s.recharged += parseFloat(tx.amount || 0);
-        }
-      });
+      if (Array.isArray(txRes)) {
+        txRes.forEach(tx => {
+          const tid = Number(tx.tenant_id);
+          if (!txStats.has(tid)) txStats.set(tid, { msgsSent: 0, spent: 0, recharged: 0 });
+          const s = txStats.get(tid);
+          if (tx.transaction_type === 'DEBIT') {
+            s.msgsSent += (tx.units || 1);
+            s.spent += parseFloat(tx.amount || 0);
+          } else if (tx.transaction_type === 'CREDIT' || tx.transaction_type === 'BONUS') {
+            s.recharged += parseFloat(tx.amount || 0);
+          }
+        });
+      }
 
       let totalClientFloat = 0;
       let lowBalanceTenantsCount = 0;
@@ -305,7 +310,7 @@ class FrontendUniversalWalletService {
 
     try {
       // 1. Fetch current wallet
-      const wRes = await fetch(`${SUPABASE_REST_URL}/universal_wallets?tenant_id=eq.${cleanTenant}&select=*&_t=${Date.now()}`, {
+      const wRes = await fetch(`${SUPABASE_REST_URL}/universal_wallets?tenant_id=eq.${cleanTenant}&select=*`, {
         headers: SUPABASE_HEADERS
       }).then(r => r.json()).catch(() => []);
 
