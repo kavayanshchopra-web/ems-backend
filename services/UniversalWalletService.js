@@ -18,10 +18,10 @@ class UniversalWalletService {
     try {
       let res = await client.query('SELECT * FROM universal_wallets WHERE tenant_id = $1;', [tenantId]);
       if (res.rows.length === 0) {
-        // Initialize default wallet with ₹1,000 threshold
+        // Initialize default wallet with ₹0.00 balance and ₹1,000 threshold
         const init = await client.query(`
           INSERT INTO universal_wallets (tenant_id, balance, currency, min_threshold, status, created_at, updated_at)
-          VALUES ($1, 1000.0000, 'INR', 1000.0000, 'ACTIVE', NOW(), NOW())
+          VALUES ($1, 0.0000, 'INR', 1000.0000, 'ACTIVE', NOW(), NOW())
           RETURNING *;
         `, [tenantId]);
         return init.rows[0];
