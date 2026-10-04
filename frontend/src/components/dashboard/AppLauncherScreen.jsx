@@ -19,7 +19,8 @@ import {
   HelpCircle,
   Settings,
   Search,
-  X
+  X,
+  Wallet
 } from 'lucide-react';
 
 export default function AppLauncherScreen({
@@ -245,6 +246,20 @@ export default function AppLauncherScreen({
         badge: 'LIVE',
         visible: true,
         desc: 'Customer payments, form question answers & multi-gateway integrations'
+      },
+      {
+        id: 'billing_wallet',
+        tab: 'billing',
+        label: 'BILLING & WALLET',
+        subLabel: 'SaaS Wallet & Ledger',
+        category: 'Finance',
+        icon: Wallet,
+        color: '#0d9488',
+        accentBg: 'rgba(13, 148, 136, 0.12)',
+        borderColor: 'rgba(13, 148, 136, 0.35)',
+        badge: 'ACTIVE',
+        visible: true,
+        desc: 'Universal multi-service wallet, recharge packs, live balance & outbound messaging ledger'
       },
       {
         id: 'reporting',
