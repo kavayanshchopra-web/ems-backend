@@ -52,9 +52,9 @@ export default function EnterpriseBillingStudio({
   // Live Data States
   const [loading, setLoading] = useState(true);
   const [tenants, setTenants] = useState([]);
-  const [wallets, setWallets] = useState([]);
   const [rates, setRates] = useState([]);
-  const [transactions, setTransactions] = useState([]);
+  const [allTransactions, setAllTransactions] = useState([]); // ALL tenants' transactions
+  const [transactions, setTransactions] = useState([]);       // Current tenant/filtered ledger
 
   // SuperAdmin Credit Adjustment Modal State
   const [adjustModalTenant, setAdjustModalTenant] = useState(null);
@@ -74,6 +74,7 @@ export default function EnterpriseBillingStudio({
   const loadBillingData = async () => {
     setLoading(true);
     try {
+      // 1. Fetch all tenants + wallets + rates (joined overview)
       const data = await frontendWalletService.fetchSuperAdminOverview();
       if (data) {
         if (data.tenants) setTenants(data.tenants);
@@ -87,11 +88,27 @@ export default function EnterpriseBillingStudio({
         }
       }
 
-      // Fetch all recent transactions
-      const targetTid = selectedSubAccount === 'ALL' ? 1 : Number(selectedSubAccount);
-      const ledgerData = await frontendWalletService.fetchLedger(targetTid, 50, 0);
-      if (ledgerData?.transactions) {
-        setTransactions(ledgerData.transactions);
+      // 2. Fetch ALL transactions across all tenants (for real aggregate metrics)
+      const allTxRes = await fetch(
+        `https://pdjaajbhrvglwukoacuh.supabase.co/rest/v1/wallet_transactions?select=*&order=created_at.desc`,
+        {
+          headers: {
+            apikey: 'sb_publishable_q8SBMvAwczXP0yfDfIMZsQ_ahP5YYq3',
+            Authorization: 'Bearer sb_publishable_q8SBMvAwczXP0yfDfIMZsQ_ahP5YYq3',
+            'Cache-Control': 'no-cache'
+          }
+        }
+      ).then(r => r.json()).catch(() => []);
+      setAllTransactions(Array.isArray(allTxRes) ? allTxRes : []);
+
+      // 3. Filtered ledger for current tenant view
+      if (selectedSubAccount !== 'ALL') {
+        const filteredTx = Array.isArray(allTxRes)
+          ? allTxRes.filter(tx => String(tx.tenant_id) === String(selectedSubAccount))
+          : [];
+        setTransactions(filteredTx);
+      } else {
+        setTransactions(Array.isArray(allTxRes) ? allTxRes : []);
       }
     } catch (err) {
       console.warn('[EnterpriseBillingStudio load error]:', err.message);
@@ -123,78 +140,123 @@ export default function EnterpriseBillingStudio({
     });
   }, [tenants, searchQuery, isSuperAdmin, userTenantId]);
 
-  // Aggregate Metrics for WhatsApp Tiers
+  // ============================================================
+  // REAL LIVE METRICS — 100% computed from actual wallet_transactions
+  // ============================================================
   const metrics = useMemo(() => {
-    const totalFloat = tenants.reduce((acc, t) => acc + (parseFloat(t.balance) || 0), 0);
-    
-    // Baseline calculations derived from real tenants
-    const countTenants = tenants.length || 1;
-    let totalSpend = 0;
-    let prevSpend = 0;
+    // Scope: filter to selected sub-account if not ALL
+    const scopedTx = selectedSubAccount === 'ALL'
+      ? allTransactions
+      : allTransactions.filter(tx => String(tx.tenant_id) === String(selectedSubAccount));
 
-    tenants.forEach(t => {
-      const b = parseFloat(t.total_spent) || (parseFloat(t.balance) > 0 ? parseFloat(t.balance) * 0.25 : 4.5);
-      totalSpend += b;
-      prevSpend += b * 1.35;
+    // --- Real Tier Spend from DEBIT transactions ---
+    const tierSpend = { whatsapp_normal_chat: 0, whatsapp_template_msg: 0, whatsapp_bulk_broadcast: 0 };
+    const tierCount = { whatsapp_normal_chat: 0, whatsapp_template_msg: 0, whatsapp_bulk_broadcast: 0 };
+
+    // Current month & previous month buckets
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    let currentMonthSpend = 0;
+    let prevMonthSpend = 0;
+
+    // 6-month spend by month: [oldest ... newest]
+    const monthlySpend = {}; // key: 'YYYY-MM' => { normal: 0, template: 0, broadcast: 0 }
+
+    scopedTx.forEach(tx => {
+      if (tx.transaction_type !== 'DEBIT') return;
+      const amt = parseFloat(tx.amount || 0);
+      const txDate = new Date(tx.created_at);
+      const txMonth = txDate.getMonth();
+      const txYear = txDate.getFullYear();
+      const monthKey = `${txYear}-${String(txMonth + 1).padStart(2, '0')}`;
+
+      // Tier breakdown
+      if (tx.service_key === 'whatsapp_normal_chat') {
+        tierSpend.whatsapp_normal_chat += amt;
+        tierCount.whatsapp_normal_chat += (tx.units || 1);
+      } else if (tx.service_key === 'whatsapp_template_msg') {
+        tierSpend.whatsapp_template_msg += amt;
+        tierCount.whatsapp_template_msg += (tx.units || 1);
+      } else if (tx.service_key === 'whatsapp_bulk_broadcast') {
+        tierSpend.whatsapp_bulk_broadcast += amt;
+        tierCount.whatsapp_bulk_broadcast += (tx.units || 1);
+      }
+
+      // Monthly bucketing
+      if (!monthlySpend[monthKey]) monthlySpend[monthKey] = { normal: 0, template: 0, broadcast: 0 };
+      if (tx.service_key === 'whatsapp_normal_chat') monthlySpend[monthKey].normal += amt;
+      else if (tx.service_key === 'whatsapp_template_msg') monthlySpend[monthKey].template += amt;
+      else if (tx.service_key === 'whatsapp_bulk_broadcast') monthlySpend[monthKey].broadcast += amt;
+
+      // Month-over-month
+      if (txYear === currentYear && txMonth === currentMonth) currentMonthSpend += amt;
+      const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+      if (txYear === prevYear && txMonth === prevMonth) prevMonthSpend += amt;
     });
 
-    if (selectedSubAccount !== 'ALL') {
-      const single = tenants.find(t => String(t.tenant_id) === String(selectedSubAccount));
-      totalSpend = single ? (parseFloat(single.total_spent) || (parseFloat(single.balance) > 0 ? parseFloat(single.balance) * 0.2 : 3.2)) : 3.2;
-      prevSpend = totalSpend * 1.25;
-    }
+    const totalSpend = tierSpend.whatsapp_normal_chat + tierSpend.whatsapp_template_msg + tierSpend.whatsapp_bulk_broadcast;
+    const momDiff = prevMonthSpend > 0 ? ((currentMonthSpend - prevMonthSpend) / prevMonthSpend) * 100 : 0;
 
-    const momDiff = prevSpend > 0 ? ((totalSpend - prevSpend) / prevSpend) * 100 : 0;
+    // --- Real Top Spender (by total_spent from tenants data) ---
+    const activeTenants = selectedSubAccount === 'ALL' ? tenants : tenants.filter(t => String(t.tenant_id) === String(selectedSubAccount));
+    const sortedBySpend = [...activeTenants].sort((a, b) => (parseFloat(b.total_spent) || 0) - (parseFloat(a.total_spent) || 0));
+    const topSpender = sortedBySpend[0] || { company_name: '—', total_spent: 0, balance: 0 };
+    const topSpenderSpend = parseFloat(topSpender.total_spent) || 0;
+    const topSpenderPercent = totalSpend > 0 ? Math.round((topSpenderSpend / totalSpend) * 100) : 0;
 
-    // Top Spender
-    const sorted = [...tenants].sort((a, b) => (parseFloat(b.total_spent || b.balance) || 0) - (parseFloat(a.total_spent || a.balance) || 0));
-    const topSpender = sorted[0] || { company_name: 'officialpcindia', balance: 0 };
-    const topSpenderShare = totalSpend > 0 ? Math.min(95, Math.max(25, Math.round(((parseFloat(topSpender.balance || 1) + 2) / (totalSpend + 5)) * 100))) : 42;
+    // --- Biggest Spike (largest single DEBIT by amount) ---
+    const largestDebit = [...scopedTx]
+      .filter(tx => tx.transaction_type === 'DEBIT')
+      .sort((a, b) => parseFloat(b.amount || 0) - parseFloat(a.amount || 0))[0];
+    const spikeCompany = largestDebit
+      ? (tenants.find(t => String(t.tenant_id) === String(largestDebit.tenant_id))?.company_name || `Tenant #${largestDebit.tenant_id}`)
+      : '—';
 
-    // Biggest Spike
-    const biggestSpike = sorted[1] || sorted[0] || { company_name: 'Helicoptic Solutions' };
-
-    // Tiers Breakdown (Normal vs Template vs Broadcast)
-    const normalChatSpend = totalSpend * 0.52;
-    const templateMsgSpend = totalSpend * 0.33;
-    const broadcastSpend = totalSpend * 0.15;
+    // --- Per-tier percentages ---
+    const normalPercent = totalSpend > 0 ? Math.round((tierSpend.whatsapp_normal_chat / totalSpend) * 100) : 0;
+    const templatePercent = totalSpend > 0 ? Math.round((tierSpend.whatsapp_template_msg / totalSpend) * 100) : 0;
+    const broadcastPercent = totalSpend > 0 ? Math.round((tierSpend.whatsapp_bulk_broadcast / totalSpend) * 100) : 0;
 
     return {
       totalSpend: totalSpend.toFixed(2),
-      prevSpend: prevSpend.toFixed(2),
+      currentMonthSpend: currentMonthSpend.toFixed(2),
+      prevMonthSpend: prevMonthSpend.toFixed(2),
       momDiff: momDiff.toFixed(1),
       isMomDown: momDiff < 0,
-      topSpenderName: topSpender.company_name || 'officialpcindia',
-      topSpenderAmount: (totalSpend * (topSpenderShare / 100)).toFixed(2),
-      topSpenderPercent: topSpenderShare,
-      biggestSpikeName: biggestSpike.company_name || 'Helicoptic Solutions',
-      biggestSpikeOld: (totalSpend * 0.12).toFixed(2),
-      biggestSpikeNew: (totalSpend * 0.28).toFixed(2),
+      topSpenderName: topSpender.company_name || '—',
+      topSpenderAmount: topSpenderSpend.toFixed(2),
+      topSpenderPercent,
+      biggestSpikeName: spikeCompany,
+      biggestSpikeAmount: largestDebit ? parseFloat(largestDebit.amount || 0).toFixed(2) : '0.00',
+      hasData: totalSpend > 0,
+      monthlySpend, // raw for chart
       tiers: {
         normalChat: {
           name: '1-to-1 Normal Chat Message (EMS Web)',
           rate: editingRates.whatsapp_normal_chat || 0.10,
-          runs: Math.round(normalChatSpend / (editingRates.whatsapp_normal_chat || 0.10)) || 148,
-          cost: normalChatSpend.toFixed(2),
-          percent: 52
+          runs: tierCount.whatsapp_normal_chat,
+          cost: tierSpend.whatsapp_normal_chat.toFixed(2),
+          percent: normalPercent
         },
         templateMsg: {
           name: 'Single Template Message',
           rate: editingRates.whatsapp_template_msg || 0.20,
-          runs: Math.round(templateMsgSpend / (editingRates.whatsapp_template_msg || 0.20)) || 84,
-          cost: templateMsgSpend.toFixed(2),
-          percent: 33
+          runs: tierCount.whatsapp_template_msg,
+          cost: tierSpend.whatsapp_template_msg.toFixed(2),
+          percent: templatePercent
         },
         bulkBroadcast: {
           name: 'Bulk Campaign Broadcast',
           rate: editingRates.whatsapp_bulk_broadcast || 0.30,
-          runs: Math.round(broadcastSpend / (editingRates.whatsapp_bulk_broadcast || 0.30)) || 22,
-          cost: broadcastSpend.toFixed(2),
-          percent: 15
+          runs: tierCount.whatsapp_bulk_broadcast,
+          cost: tierSpend.whatsapp_bulk_broadcast.toFixed(2),
+          percent: broadcastPercent
         }
       }
     };
-  }, [tenants, selectedSubAccount, editingRates]);
+  }, [tenants, allTransactions, selectedSubAccount, editingRates]);
 
   // Handle Credit Grant
   const handleGrantCredit = async (e) => {
@@ -716,28 +778,34 @@ export default function EnterpriseBillingStudio({
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0 4px 0' }}>
                     <span style={{ fontSize: '14px', color: '#94a3b8', textDecoration: 'line-through' }}>
-                      ₹{metrics.prevSpend}
+                      ₹{metrics.prevMonthSpend}
                     </span>
                     <span style={{ fontSize: '22px', fontWeight: '900', color: '#0f2b26' }}>
-                      ₹{metrics.totalSpend}
+                      ₹{metrics.currentMonthSpend}
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '2px',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      fontSize: '11px',
-                      fontWeight: '800',
-                      background: metrics.isMomDown ? '#ecfdf5' : '#fef2f2',
-                      color: metrics.isMomDown ? '#059669' : '#dc2626'
-                    }}>
-                      {metrics.isMomDown ? <ArrowDownRight size={12} /> : <ArrowUpRight size={12} />}
-                      {Math.abs(metrics.momDiff)}%
-                    </span>
-                    <span style={{ fontSize: '11px', color: '#94a3b8' }}>Sep 2026 → Oct 2026</span>
+                    {metrics.prevMonthSpend === '0.00' && metrics.currentMonthSpend === '0.00' ? (
+                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>No spend recorded yet</span>
+                    ) : (
+                      <>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '2px',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          fontWeight: '800',
+                          background: metrics.isMomDown ? '#ecfdf5' : '#fef2f2',
+                          color: metrics.isMomDown ? '#059669' : '#dc2626'
+                        }}>
+                          {metrics.isMomDown ? <ArrowDownRight size={12} /> : <ArrowUpRight size={12} />}
+                          {Math.abs(metrics.momDiff)}%
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#94a3b8' }}>prev → this month</span>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -781,7 +849,7 @@ export default function EnterpriseBillingStudio({
                   boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
                 }}>
                   <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Biggest Activity Spike
+                    Biggest Single Charge
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0 4px 0' }}>
                     <span style={{ fontSize: '15px', fontWeight: '800', color: '#0f2b26', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -789,19 +857,13 @@ export default function EnterpriseBillingStudio({
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '11.5px', color: '#64748b' }}>
-                      ₹{metrics.biggestSpikeOld} → <b>₹{metrics.biggestSpikeNew}</b>
-                    </span>
-                    <span style={{
-                      background: '#ecfdf5',
-                      color: '#059669',
-                      fontSize: '10.5px',
-                      fontWeight: '800',
-                      padding: '1px 5px',
-                      borderRadius: '4px'
-                    }}>
-                      +100% ↗
-                    </span>
+                    {metrics.biggestSpikeAmount === '0.00' ? (
+                      <span style={{ fontSize: '11.5px', color: '#94a3b8' }}>No DEBIT transactions yet</span>
+                    ) : (
+                      <span style={{ fontSize: '13px', fontWeight: '700', color: '#0d9488' }}>
+                        ₹{metrics.biggestSpikeAmount} largest debit
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -832,77 +894,126 @@ export default function EnterpriseBillingStudio({
                     </div>
                   </div>
 
-                  {/* SVG Multi-Layer Area Wave Graph */}
+                  {/* Real Data-Driven SVG Multi-Layer Area Chart */}
                   <div style={{ width: '100%', height: '220px', position: 'relative' }}>
-                    <svg viewBox="0 0 600 200" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
-                      <defs>
-                        {/* Layer 1: Normal Chat Gradient */}
-                        <linearGradient id="gradNormal" x1="0%" y1="0%" x2="0%" y2="100%">
-                          <stop offset="0%" stopColor="#0d9488" stopOpacity="0.45" />
-                          <stop offset="100%" stopColor="#0d9488" stopOpacity="0.05" />
-                        </linearGradient>
-                        {/* Layer 2: Template Messages Gradient */}
-                        <linearGradient id="gradTemplate" x1="0%" y1="0%" x2="0%" y2="100%">
-                          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.4" />
-                          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05" />
-                        </linearGradient>
-                        {/* Layer 3: Bulk Broadcast Gradient */}
-                        <linearGradient id="gradBroadcast" x1="0%" y1="0%" x2="0%" y2="100%">
-                          <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.35" />
-                          <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.05" />
-                        </linearGradient>
-                      </defs>
+                    {(() => {
+                      // Build last 6 months array
+                      const now = new Date();
+                      const months = [];
+                      for (let i = 5; i >= 0; i--) {
+                        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        const label = d.toLocaleString('default', { month: 'short' }) + ' ' + d.getFullYear();
+                        const data = metrics.monthlySpend[key] || { normal: 0, template: 0, broadcast: 0 };
+                        months.push({ key, label, ...data });
+                      }
 
-                      {/* Grid Lines */}
-                      <line x1="0" y1="40" x2="600" y2="40" stroke="#f1f5f9" strokeDasharray="3 3" />
-                      <line x1="0" y1="90" x2="600" y2="90" stroke="#f1f5f9" strokeDasharray="3 3" />
-                      <line x1="0" y1="140" x2="600" y2="140" stroke="#f1f5f9" strokeDasharray="3 3" />
-                      <line x1="0" y1="185" x2="600" y2="185" stroke="#e2e8f0" strokeWidth="1" />
+                      // Max value for scale
+                      const maxVal = Math.max(
+                        ...months.map(m => m.normal + m.template + m.broadcast),
+                        1 // prevent division by zero
+                      );
 
-                      {/* Area 3: Bulk Broadcasts (Back layer) */}
-                      <path
-                        d="M 20 160 C 100 130, 180 80, 260 100 C 340 120, 420 140, 500 110 C 540 95, 570 120, 590 145 L 590 185 L 20 185 Z"
-                        fill="url(#gradBroadcast)"
-                      />
-                      <path
-                        d="M 20 160 C 100 130, 180 80, 260 100 C 340 120, 420 140, 500 110 C 540 95, 570 120, 590 145"
-                        fill="none"
-                        stroke="#8b5cf6"
-                        strokeWidth="2.5"
-                      />
+                      // X positions for 6 points
+                      const xs = [30, 138, 246, 354, 462, 570];
+                      const chartBottom = 185;
+                      const chartTop = 30;
+                      const chartH = chartBottom - chartTop;
 
-                      {/* Area 2: Template Messages (Middle layer) */}
-                      <path
-                        d="M 20 170 C 100 145, 180 110, 260 125 C 340 140, 420 155, 500 130 C 540 120, 570 140, 590 155 L 590 185 L 20 185 Z"
-                        fill="url(#gradTemplate)"
-                      />
-                      <path
-                        d="M 20 170 C 100 145, 180 110, 260 125 C 340 140, 420 155, 500 130 C 540 120, 570 140, 590 155"
-                        fill="none"
-                        stroke="#3b82f6"
-                        strokeWidth="2.5"
-                      />
+                      // Y coordinate for a value
+                      const yFor = (v) => chartBottom - (v / maxVal) * chartH;
 
-                      {/* Area 1: 1-to-1 Normal Chat (Front layer) */}
-                      <path
-                        d="M 20 178 C 100 165, 180 140, 260 150 C 340 160, 420 170, 500 155 C 540 150, 570 165, 590 170 L 590 185 L 20 185 Z"
-                        fill="url(#gradNormal)"
-                      />
-                      <path
-                        d="M 20 178 C 100 165, 180 140, 260 150 C 340 160, 420 170, 500 155 C 540 150, 570 165, 590 170"
-                        fill="none"
-                        stroke="#0d9488"
-                        strokeWidth="2.5"
-                      />
+                      // Build SVG path from points array
+                      const toPath = (pts) => {
+                        if (pts.every(p => p === chartBottom)) return null; // all zero - flat line at bottom
+                        let d = `M ${xs[0]} ${pts[0]}`;
+                        for (let i = 1; i < pts.length; i++) {
+                          const cpx = (xs[i - 1] + xs[i]) / 2;
+                          d += ` C ${cpx} ${pts[i - 1]}, ${cpx} ${pts[i]}, ${xs[i]} ${pts[i]}`;
+                        }
+                        return d;
+                      };
 
-                      {/* X-Axis Month Labels */}
-                      <text x="30" y="200" fill="#94a3b8" fontSize="11" textAnchor="middle">May 2026</text>
-                      <text x="140" y="200" fill="#94a3b8" fontSize="11" textAnchor="middle">Jun 2026</text>
-                      <text x="250" y="200" fill="#94a3b8" fontSize="11" textAnchor="middle">Jul 2026</text>
-                      <text x="360" y="200" fill="#94a3b8" fontSize="11" textAnchor="middle">Aug 2026</text>
-                      <text x="470" y="200" fill="#94a3b8" fontSize="11" textAnchor="middle">Sep 2026</text>
-                      <text x="575" y="200" fill="#0d9488" fontSize="11" fontWeight="700" textAnchor="middle">Oct 2026</text>
-                    </svg>
+                      const normalPts = months.map(m => yFor(m.normal));
+                      const templatePts = months.map(m => yFor(m.template));
+                      const broadcastPts = months.map(m => yFor(m.broadcast));
+
+                      const normalPath = toPath(normalPts);
+                      const templatePath = toPath(templatePts);
+                      const broadcastPath = toPath(broadcastPts);
+
+                      const hasAnyData = maxVal > 1;
+
+                      return (
+                        <svg viewBox="0 0 600 210" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                          <defs>
+                            <linearGradient id="gradNormal" x1="0%" y1="0%" x2="0%" y2="100%">
+                              <stop offset="0%" stopColor="#0d9488" stopOpacity="0.45" />
+                              <stop offset="100%" stopColor="#0d9488" stopOpacity="0.05" />
+                            </linearGradient>
+                            <linearGradient id="gradTemplate" x1="0%" y1="0%" x2="0%" y2="100%">
+                              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.4" />
+                              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05" />
+                            </linearGradient>
+                            <linearGradient id="gradBroadcast" x1="0%" y1="0%" x2="0%" y2="100%">
+                              <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.35" />
+                              <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.05" />
+                            </linearGradient>
+                          </defs>
+
+                          {/* Grid Lines */}
+                          <line x1="0" y1="60" x2="600" y2="60" stroke="#f1f5f9" strokeDasharray="3 3" />
+                          <line x1="0" y1="100" x2="600" y2="100" stroke="#f1f5f9" strokeDasharray="3 3" />
+                          <line x1="0" y1="140" x2="600" y2="140" stroke="#f1f5f9" strokeDasharray="3 3" />
+                          <line x1="0" y1="185" x2="600" y2="185" stroke="#e2e8f0" strokeWidth="1" />
+
+                          {hasAnyData ? (
+                            <>
+                              {broadcastPath && (
+                                <>
+                                  <path d={`${broadcastPath} L ${xs[5]} ${chartBottom} L ${xs[0]} ${chartBottom} Z`} fill="url(#gradBroadcast)" />
+                                  <path d={broadcastPath} fill="none" stroke="#8b5cf6" strokeWidth="2.5" />
+                                </>
+                              )}
+                              {templatePath && (
+                                <>
+                                  <path d={`${templatePath} L ${xs[5]} ${chartBottom} L ${xs[0]} ${chartBottom} Z`} fill="url(#gradTemplate)" />
+                                  <path d={templatePath} fill="none" stroke="#3b82f6" strokeWidth="2.5" />
+                                </>
+                              )}
+                              {normalPath && (
+                                <>
+                                  <path d={`${normalPath} L ${xs[5]} ${chartBottom} L ${xs[0]} ${chartBottom} Z`} fill="url(#gradNormal)" />
+                                  <path d={normalPath} fill="none" stroke="#0d9488" strokeWidth="2.5" />
+                                </>
+                              )}
+                            </>
+                          ) : (
+                            /* No data yet: flat baseline with label */
+                            <>
+                              <line x1="20" y1={chartBottom} x2="590" y2={chartBottom} stroke="#e2e8f0" strokeWidth="1.5" strokeDasharray="4 4" />
+                              <text x="300" y="115" fill="#cbd5e1" fontSize="13" textAnchor="middle" fontWeight="600">No WhatsApp spend recorded yet</text>
+                              <text x="300" y="133" fill="#e2e8f0" fontSize="11" textAnchor="middle">Chart will populate as messages are sent</text>
+                            </>
+                          )}
+
+                          {/* X-Axis Month Labels */}
+                          {months.map((m, i) => (
+                            <text
+                              key={m.key}
+                              x={xs[i]}
+                              y="202"
+                              fill={i === 5 ? '#0d9488' : '#94a3b8'}
+                              fontSize="10"
+                              textAnchor="middle"
+                              fontWeight={i === 5 ? '700' : '400'}
+                            >
+                              {m.label}
+                            </text>
+                          ))}
+                        </svg>
+                      );
+                    })()}
                   </div>
 
                   {/* Chart Legend */}
