@@ -7,7 +7,7 @@ import SuperAdminModelStudio from '../superadmin/SuperAdminModelStudio';
 import SuperAdminLoginStudio from '../superadmin/SuperAdminLoginStudio';
 import SuperAdminMasterPlansHub from '../superadmin/SuperAdminMasterPlansHub';
 import React, { useState, useMemo, useEffect } from 'react';
-import { Briefcase, Globe, UserCheck, Users, Shield, ShieldCheck, Award, Search, Trash2, Clock, Sliders, Sparkles, Layers, MessageSquare, Check, CheckSquare, Square, Lock, AlertCircle, Info, Filter, DollarSign, TrendingUp, TrendingDown, Plus, X, Settings as SettingsIcon, CheckCircle2, Calendar } from 'lucide-react';
+import { Briefcase, Globe, UserCheck, Users, Shield, ShieldCheck, Award, Search, Trash2, Clock, Sliders, Sparkles, Layers, MessageSquare, Check, CheckSquare, Square, Lock, AlertCircle, Info, Filter, DollarSign, TrendingUp, TrendingDown, Plus, X, Settings as SettingsIcon, CheckCircle2, Calendar, Wallet } from 'lucide-react';
 import DataTable from '../DataTable';
 import { dynamicDashboardEngine } from '../../core/engines/DynamicDashboardEngine';
 import MasterModuleRegistry from '../../core/registry/MasterModuleRegistry';
@@ -15,6 +15,7 @@ import FeatureProvisioningEngine from '../../core/engines/FeatureProvisioningEng
 import SubscriptionEngine, { DEFAULT_PLANS } from '../../core/engines/SubscriptionEngine';
 import { SUPER_ADMIN_MANIFEST } from '../../core/registry/manifests/superAdmin.manifest';
 import superAdminService from '../../services/superAdminService';
+import frontendWalletService from '../../core/services/universalWalletService';
 
 export default function SuperAdminPage({
   API_URL = '',
@@ -194,6 +195,31 @@ export default function SuperAdminPage({
       if (typeof showToast === 'function') showToast(e.message || 'Extension error', 'error');
     } finally {
       setIsExtending(false);
+    }
+  };
+
+  // Quick Wallet Credit Modal States
+  const [walletModalCompany, setWalletModalCompany] = useState(null);
+  const [walletCreditAmount, setWalletCreditAmount] = useState(100);
+  const [walletCreditReason, setWalletCreditReason] = useState('SuperAdmin Promotional / Test Credits');
+  const [isCreditingWallet, setIsCreditingWallet] = useState(false);
+
+  const handleGrantCompanyCredit = async (e) => {
+    if (e) e.preventDefault();
+    if (!walletModalCompany) return;
+    setIsCreditingWallet(true);
+    try {
+      const targetTenantId = walletModalCompany.tenant_id || walletModalCompany.id;
+      await frontendWalletService.adjustCredit(targetTenantId, walletCreditAmount, walletCreditReason);
+      if (typeof showToast === 'function') {
+        showToast(`₹${walletCreditAmount} successfully credited to ${walletModalCompany.company_name}!`, 'success');
+      }
+      setWalletModalCompany(null);
+      if (typeof fetchSuperadminCompanies === 'function') fetchSuperadminCompanies();
+    } catch (err) {
+      if (typeof showToast === 'function') showToast(err.message || 'Failed to credit wallet', 'error');
+    } finally {
+      setIsCreditingWallet(false);
     }
   };
 
@@ -1060,6 +1086,35 @@ export default function SuperAdminPage({
 
                     <button
                       type="button"
+                      onClick={() => {
+                        setWalletModalCompany(c);
+                        setWalletCreditAmount(100);
+                        setWalletCreditReason('SuperAdmin Promotional / Test Credits');
+                      }}
+                      title={`Grant Free Wallet Balance / Test Credits to ${c.company_name}`}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '5px 12px',
+                        borderRadius: '6px',
+                        background: 'rgba(13, 148, 136, 0.1)',
+                        border: '1px solid #0d9488',
+                        color: '#0d9488',
+                        fontSize: '11.5px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseOver={(e) => { e.currentTarget.style.background = '#0d9488'; e.currentTarget.style.color = '#ffffff'; }}
+                      onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(13, 148, 136, 0.1)'; e.currentTarget.style.color = '#0d9488'; }}
+                    >
+                      <Wallet size={12} />
+                      <span>💳 Add Balance</span>
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => handleEnterCompany && handleEnterCompany(c)}
                       title={`Switch to ${c.company_name || c.tenant_id} Workspace (Admin Impersonation)`}
                       style={{
@@ -1314,6 +1369,158 @@ export default function SuperAdminPage({
                     {isExtending ? 'Saving...' : '💾 Save & Extend Validity'}
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Quick Wallet Credit Modal */}
+          {walletModalCompany && (
+            <div style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(15, 23, 42, 0.65)',
+              backdropFilter: 'blur(6px)',
+              zIndex: 99999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px'
+            }}>
+              <div style={{
+                background: '#ffffff',
+                borderRadius: '16px',
+                maxWidth: '440px',
+                width: '100%',
+                padding: '24px',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                border: '1px solid #e2e8f0'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #bbf7d0' }}>
+                      <Wallet size={18} color="#0d9488" />
+                    </div>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f2b26' }}>
+                        Add Free Wallet Credits
+                      </h4>
+                      <span style={{ fontSize: '12px', color: '#64748b' }}>
+                        {walletModalCompany.company_name} (Tenant #{walletModalCompany.tenant_id || walletModalCompany.id})
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setWalletModalCompany(null)}
+                    style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleGrantCompanyCredit}>
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                      Credit Amount (₹)
+                    </label>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                      {[50, 100, 250, 500].map(amt => (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => setWalletCreditAmount(amt)}
+                          style={{
+                            flex: 1,
+                            padding: '6px 0',
+                            borderRadius: '8px',
+                            border: walletCreditAmount === amt ? '2px solid #0d9488' : '1px solid #cbd5e1',
+                            background: walletCreditAmount === amt ? '#f0fdf4' : '#ffffff',
+                            color: walletCreditAmount === amt ? '#0d9488' : '#334155',
+                            fontWeight: '800',
+                            fontSize: '12px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ₹{amt}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="number"
+                      step="10"
+                      min="1"
+                      value={walletCreditAmount}
+                      onChange={(e) => setWalletCreditAmount(parseFloat(e.target.value) || 0)}
+                      placeholder="Enter amount..."
+                      style={{
+                        width: '100%',
+                        padding: '9px 12px',
+                        borderRadius: '8px',
+                        border: '1.5px solid #cbd5e1',
+                        fontSize: '14px',
+                        fontWeight: '800',
+                        color: '#0f2b26',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: '18px' }}>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                      Reason / Memo
+                    </label>
+                    <input
+                      type="text"
+                      value={walletCreditReason}
+                      onChange={(e) => setWalletCreditReason(e.target.value)}
+                      placeholder="e.g. Free Trial Test Credits"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '13px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setWalletModalCompany(null)}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        background: '#ffffff',
+                        color: '#475569',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isCreditingWallet || walletCreditAmount <= 0}
+                      style={{
+                        padding: '8px 18px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)',
+                        color: '#ffffff',
+                        fontSize: '13px',
+                        fontWeight: '800',
+                        cursor: isCreditingWallet ? 'not-allowed' : 'pointer',
+                        boxShadow: '0 4px 12px rgba(13, 148, 136, 0.3)'
+                      }}
+                    >
+                      {isCreditingWallet ? 'Crediting...' : `💳 Credit ₹${walletCreditAmount} Now`}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           )}

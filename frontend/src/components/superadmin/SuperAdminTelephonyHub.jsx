@@ -50,10 +50,34 @@ export default function SuperAdminTelephonyHub({ showToast }) {
 
   const fetchWalletStudioData = async () => {
     try {
-      const data = await frontendWalletService.fetchSuperAdminOverview();
+      let data = await frontendWalletService.fetchSuperAdminOverview();
+      if (!data || !data.tenants || data.tenants.length === 0) {
+        try {
+          const tList = await SupabaseSandboxService.fetchTenants();
+          if (Array.isArray(tList) && tList.length > 0) {
+            const fallbackTenants = tList.map(t => ({
+              tenant_id: t.id,
+              company_name: t.company_name || `Tenant #${t.id}`,
+              balance: 0,
+              min_threshold: 1000,
+              status: 'ACTIVE',
+              total_messages_sent: 0,
+              total_spent: 0,
+              total_recharged: 0
+            }));
+            data = {
+              ...(data || {}),
+              tenants: fallbackTenants,
+              totalClientFloat: 0,
+              lowBalanceTenantsCount: fallbackTenants.length
+            };
+          }
+        } catch (err) {}
+      }
+
       if (data) {
         setWalletOverview(data);
-        if (data.globalRates) {
+        if (data.globalRates && data.globalRates.length > 0) {
           const rMap = {};
           data.globalRates.forEach(r => {
             rMap[r.service_key] = parseFloat(r.default_rate);
