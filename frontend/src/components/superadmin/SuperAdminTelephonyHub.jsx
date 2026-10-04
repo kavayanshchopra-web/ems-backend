@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Phone, Users, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw, Edit3, Settings, Play, Power, ExternalLink, Search, X, Save, Smartphone, Cloud, Info, FolderCheck, Folder, AlertTriangle, Check, Shield, Mic, MicOff, Radio, Zap, Headphones, TrendingUp, DollarSign, Calendar, BarChart3, Clock } from 'lucide-react';
+import { Phone, Users, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw, Edit3, Settings, Play, Power, ExternalLink, Search, X, Save, Smartphone, Cloud, Info, FolderCheck, Folder, AlertTriangle, Check, Shield, Mic, MicOff, Radio, Zap, Headphones, TrendingUp, DollarSign, Calendar, BarChart3, Clock, Wallet } from 'lucide-react';
 import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
+import frontendWalletService from '../../core/services/universalWalletService';
 
 export default function SuperAdminTelephonyHub({ showToast }) {
   const [tenants, setTenants] = useState([]);
@@ -34,6 +35,69 @@ export default function SuperAdminTelephonyHub({ showToast }) {
       console.warn('fetchFinancialReport note:', e.message);
     } finally {
       setLoadingFinancial(false);
+    }
+  };
+
+  // Universal WhatsApp Pricing Studio & Profit State
+  const [walletRates, setWalletRates] = useState({
+    whatsapp_normal_chat: 0.10,
+    whatsapp_template_msg: 0.20,
+    whatsapp_bulk_broadcast: 0.30,
+    min_threshold: 1000.00
+  });
+  const [walletOverview, setWalletOverview] = useState(null);
+  const [savingWalletRates, setSavingWalletRates] = useState(false);
+
+  const fetchWalletStudioData = async () => {
+    try {
+      const data = await frontendWalletService.fetchSuperAdminOverview();
+      if (data) {
+        setWalletOverview(data);
+        if (data.globalRates) {
+          const rMap = {};
+          data.globalRates.forEach(r => {
+            rMap[r.service_key] = parseFloat(r.default_rate);
+          });
+          setWalletRates(prev => ({
+            ...prev,
+            ...rMap,
+            min_threshold: data.tenants?.[0]?.min_threshold ? parseFloat(data.tenants[0].min_threshold) : prev.min_threshold
+          }));
+        }
+      }
+    } catch (e) {
+      console.warn('Wallet studio data notice:', e.message);
+    }
+  };
+
+  useEffect(() => {
+    fetchWalletStudioData();
+  }, []);
+
+  const handleSaveRates = async () => {
+    setSavingWalletRates(true);
+    try {
+      await frontendWalletService.updateRates({
+        serviceKey: 'whatsapp_normal_chat',
+        defaultRate: walletRates.whatsapp_normal_chat
+      });
+      await frontendWalletService.updateRates({
+        serviceKey: 'whatsapp_template_msg',
+        defaultRate: walletRates.whatsapp_template_msg
+      });
+      await frontendWalletService.updateRates({
+        serviceKey: 'whatsapp_bulk_broadcast',
+        defaultRate: walletRates.whatsapp_bulk_broadcast
+      });
+      await frontendWalletService.updateRates({
+        minThreshold: walletRates.min_threshold
+      });
+      if (showToast) showToast('3-Tier WhatsApp rates & threshold saved successfully!', 'success');
+      fetchWalletStudioData();
+    } catch (err) {
+      if (showToast) showToast(`Failed to save rates: ${err.message}`, 'error');
+    } finally {
+      setSavingWalletRates(false);
     }
   };
 
@@ -397,6 +461,233 @@ export default function SuperAdminTelephonyHub({ showToast }) {
           >
             <Smartphone size={13} />
             <span>📱 SIM / Runo Companion (Primary Live)</span>
+          </div>
+        </div>
+      </div>
+
+      {/* UNIVERSAL SAAS WHATSAPP PRICING STUDIO & 100% MARGIN CONTROL */}
+      <div style={{
+        background: '#ffffff',
+        border: '1.5px solid #0d9488',
+        borderRadius: '16px',
+        padding: '24px',
+        boxShadow: '0 8px 30px rgba(13, 148, 136, 0.08)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '42px',
+              height: '42px',
+              borderRadius: '10px',
+              background: '#f0fdf4',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px solid #bbf7d0'
+            }}>
+              <Wallet size={22} color="#0d9488" />
+            </div>
+            <div>
+              <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f2b26', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>Universal SaaS WhatsApp Pricing Studio & 100% Margin Engine</span>
+                <span style={{ background: '#dcfce7', color: '#15803d', fontSize: '11px', fontWeight: '800', padding: '2px 8px', borderRadius: '12px' }}>
+                  100% NET PROFIT
+                </span>
+              </h4>
+              <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#64748b' }}>
+                Carrier WhatsApp session cost is ₹0.00. Configure retail per-message billing rates to generate pure recurring software margin. Messages typed directly on mobile WhatsApp are 100% free.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSaveRates}
+            disabled={savingWalletRates}
+            style={{
+              background: savingWalletRates ? '#94a3b8' : 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '10px',
+              padding: '10px 20px',
+              fontSize: '13px',
+              fontWeight: '800',
+              cursor: savingWalletRates ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 4px 14px rgba(13, 148, 136, 0.25)',
+              transition: 'all 0.15s'
+            }}
+          >
+            <Save size={16} />
+            <span>{savingWalletRates ? 'Saving Rates...' : 'Save Global Pricing Rates'}</span>
+          </button>
+        </div>
+
+        {/* 4 Pricing Configuration Grid Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+          {/* Card 1: 1-to-1 Normal Chat */}
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px' }}>
+            <div style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>
+              Tier 1: 1-to-1 Normal Chat
+            </div>
+            <div style={{ fontSize: '12px', color: '#334155', marginTop: '2px', fontWeight: '600' }}>
+              Manual Chat Replies & Typing
+            </div>
+            <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '16px', fontWeight: '800', color: '#0f2b26' }}>₹</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={walletRates.whatsapp_normal_chat}
+                onChange={(e) => setWalletRates({ ...walletRates, whatsapp_normal_chat: parseFloat(e.target.value) || 0 })}
+                style={{
+                  width: '100px',
+                  padding: '6px 10px',
+                  borderRadius: '8px',
+                  border: '1.5px solid #cbd5e1',
+                  fontSize: '14px',
+                  fontWeight: '800',
+                  color: '#0f2b26'
+                }}
+              />
+              <span style={{ fontSize: '11px', color: '#64748b' }}>/ msg</span>
+            </div>
+            <div style={{ marginTop: '8px', fontSize: '10.5px', color: '#16a34a', fontWeight: '700' }}>
+              Platform Cost: ₹0.00 (100% Margin)
+            </div>
+          </div>
+
+          {/* Card 2: Single Template Send */}
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px' }}>
+            <div style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>
+              Tier 2: Template Messages
+            </div>
+            <div style={{ fontSize: '12px', color: '#334155', marginTop: '2px', fontWeight: '600' }}>
+              Single Template Clicked & Sent
+            </div>
+            <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '16px', fontWeight: '800', color: '#0f2b26' }}>₹</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={walletRates.whatsapp_template_msg}
+                onChange={(e) => setWalletRates({ ...walletRates, whatsapp_template_msg: parseFloat(e.target.value) || 0 })}
+                style={{
+                  width: '100px',
+                  padding: '6px 10px',
+                  borderRadius: '8px',
+                  border: '1.5px solid #cbd5e1',
+                  fontSize: '14px',
+                  fontWeight: '800',
+                  color: '#0f2b26'
+                }}
+              />
+              <span style={{ fontSize: '11px', color: '#64748b' }}>/ msg</span>
+            </div>
+            <div style={{ marginTop: '8px', fontSize: '10.5px', color: '#16a34a', fontWeight: '700' }}>
+              Platform Cost: ₹0.00 (100% Margin)
+            </div>
+          </div>
+
+          {/* Card 3: Bulk Campaign Broadcast */}
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px' }}>
+            <div style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>
+              Tier 3: Bulk Broadcasts
+            </div>
+            <div style={{ fontSize: '12px', color: '#334155', marginTop: '2px', fontWeight: '600' }}>
+              CSV Marketing Campaigns
+            </div>
+            <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '16px', fontWeight: '800', color: '#0f2b26' }}>₹</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={walletRates.whatsapp_bulk_broadcast}
+                onChange={(e) => setWalletRates({ ...walletRates, whatsapp_bulk_broadcast: parseFloat(e.target.value) || 0 })}
+                style={{
+                  width: '100px',
+                  padding: '6px 10px',
+                  borderRadius: '8px',
+                  border: '1.5px solid #cbd5e1',
+                  fontSize: '14px',
+                  fontWeight: '800',
+                  color: '#0f2b26'
+                }}
+              />
+              <span style={{ fontSize: '11px', color: '#64748b' }}>/ msg</span>
+            </div>
+            <div style={{ marginTop: '8px', fontSize: '10.5px', color: '#16a34a', fontWeight: '700' }}>
+              Platform Cost: ₹0.00 (100% Margin)
+            </div>
+          </div>
+
+          {/* Card 4: ₹1,000 Low-Balance Warning Threshold */}
+          <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px', padding: '16px' }}>
+            <div style={{ fontSize: '11px', fontWeight: '800', color: '#b45309', textTransform: 'uppercase' }}>
+              Mandatory Minimum Threshold
+            </div>
+            <div style={{ fontSize: '12px', color: '#92400e', marginTop: '2px', fontWeight: '600' }}>
+              Auto-Alert When Balance Hits
+            </div>
+            <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '16px', fontWeight: '800', color: '#92400e' }}>₹</span>
+              <input
+                type="number"
+                step="50"
+                min="500"
+                value={walletRates.min_threshold}
+                onChange={(e) => setWalletRates({ ...walletRates, min_threshold: parseFloat(e.target.value) || 1000 })}
+                style={{
+                  width: '110px',
+                  padding: '6px 10px',
+                  borderRadius: '8px',
+                  border: '1.5px solid #fcd34d',
+                  fontSize: '14px',
+                  fontWeight: '800',
+                  color: '#92400e',
+                  background: '#ffffff'
+                }}
+              />
+            </div>
+            <div style={{ marginTop: '8px', fontSize: '10.5px', color: '#b45309', fontWeight: '700' }}>
+              Triggers Alert Pill in Header
+            </div>
+          </div>
+        </div>
+
+        {/* Telemetry Strip */}
+        <div style={{
+          background: '#f8fafc',
+          borderRadius: '10px',
+          padding: '12px 18px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          border: '1px solid #e2e8f0',
+          fontSize: '12px'
+        }}>
+          <div>
+            <span style={{ color: '#64748b' }}>Total Client Float in Wallets: </span>
+            <b style={{ color: '#0f766e', fontSize: '14px' }}>
+              ₹{walletOverview ? parseFloat(walletOverview.totalClientFloat || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '1,499.80'}
+            </b>
+          </div>
+          <div>
+            <span style={{ color: '#64748b' }}>Low-Balance Clients (≤ ₹1,000): </span>
+            <b style={{ color: walletOverview?.lowBalanceTenantsCount > 0 ? '#dc2626' : '#16a34a' }}>
+              {walletOverview?.lowBalanceTenantsCount || 0}
+            </b>
+          </div>
+          <div>
+            <span style={{ color: '#64748b' }}>Runo SIM Calling: </span>
+            <b style={{ color: '#16a34a' }}>100% Free / Included in Plan</b>
           </div>
         </div>
       </div>

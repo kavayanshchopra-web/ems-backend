@@ -155,6 +155,7 @@ import {
   Palette,
   Award,
   CreditCard,
+  Wallet,
   ClipboardList,
   Bell,
   Cpu,
@@ -176,6 +177,8 @@ import {
   Zap,
   HelpCircle
 } from 'lucide-react';
+import WalletRechargeModal from './modals/WalletRechargeModal';
+import frontendWalletService from '../core/services/universalWalletService';
 // Dynamic Registry - Auto-Extensible Module Config for RBAC
 export const DYNAMIC_MODULE_REGISTRY = [
   { key: 'dashboards', label: '📊 Dashboards & Analytics' },
@@ -845,6 +848,29 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   });
   const [isMobilePreview, setIsMobilePreview] = useState(false);
   const [globalDialerOpen, setGlobalDialerOpen] = useState(false);
+  const [walletData, setWalletData] = useState({ balance: 1499.8, min_threshold: 1000, status: 'ACTIVE' });
+  const [showWalletRechargeModal, setShowWalletRechargeModal] = useState(false);
+
+  useEffect(() => {
+    frontendWalletService.fetchWalletStatus(1).then(res => {
+      if (res?.wallet) setWalletData(res.wallet);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleWalletUpdate = (data) => {
+      if (data?.balance !== undefined) {
+        setWalletData(prev => ({
+          ...prev,
+          balance: data.balance,
+          is_below_threshold: data.balance <= (prev.min_threshold || 1000)
+        }));
+      }
+    };
+    socket.on('wallet:balance_updated', handleWalletUpdate);
+    return () => socket.off('wallet:balance_updated', handleWalletUpdate);
+  }, [socket]);
   const [simViewMode, setSimViewMode] = useState('app'); // 'app' or 'permissions'
   const [simPermissions, setSimPermissions] = useState({ calendar: false, location: false, notifications: false, battery: false, phone: false, overlay: false });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -7827,6 +7853,39 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                 <Plus size={14} /> Add Channel
               </button>
             )}
+            {/* Universal SaaS Wallet Live Pill */}
+            <div
+              onClick={() => setShowWalletRechargeModal(true)}
+              title="Universal SaaS Wallet: Click to view breakdown & recharge"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: parseFloat(walletData?.balance || 0) <= parseFloat(walletData?.min_threshold || 1000) 
+                  ? 'rgba(239, 68, 68, 0.22)' 
+                  : 'rgba(20, 210, 203, 0.16)',
+                border: `1px solid ${parseFloat(walletData?.balance || 0) <= parseFloat(walletData?.min_threshold || 1000) ? '#f87171' : 'rgba(20, 210, 203, 0.4)'}`,
+                borderRadius: '8px',
+                padding: '4px 10px',
+                cursor: 'pointer',
+                flexShrink: 0,
+                transition: 'all 0.2s ease',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
+              }}
+            >
+              <Wallet size={15} style={{ color: parseFloat(walletData?.balance || 0) <= parseFloat(walletData?.min_threshold || 1000) ? '#fca5a5' : '#2dd4bf' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '11px', fontWeight: '800', color: '#ffffff', letterSpacing: '0.2px' }}>
+                  ₹{parseFloat(walletData?.balance || 0).toFixed(2)}
+                </span>
+                {parseFloat(walletData?.balance || 0) <= parseFloat(walletData?.min_threshold || 1000) && (
+                  <span style={{ fontSize: '9px', fontWeight: '800', color: '#fca5a5', lineHeight: 1 }}>
+                    Low Balance
+                  </span>
+                )}
+              </div>
+            </div>
+
             {/* Server status dot */}
             <span className="server-status-container" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'rgba(255,255,255,0.85)', padding: '0 4px' }}>
               <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: serverOnline ? '#10b981' : '#ef4444', display: 'inline-block' }}></span>
@@ -9150,6 +9209,19 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             />
           </Suspense>
         )}
+        {/* Universal SaaS Wallet Recharge Modal */}
+        <WalletRechargeModal
+          isOpen={showWalletRechargeModal}
+          onClose={() => setShowWalletRechargeModal(false)}
+          currentBalance={walletData?.balance || 0}
+          onRechargeSuccess={(newBal) => {
+            setWalletData(prev => ({
+              ...prev,
+              balance: newBal,
+              is_below_threshold: newBal <= (prev.min_threshold || 1000)
+            }));
+          }}
+        />
         {/* Schedule Message Modal */}
         {showScheduleModal && (
           <Suspense fallback={null}>
