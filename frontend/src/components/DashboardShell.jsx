@@ -856,21 +856,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       if (res?.wallet) setWalletData(res.wallet);
     }).catch(() => {});
   }, []);
-
-  useEffect(() => {
-    if (!socket) return;
-    const handleWalletUpdate = (data) => {
-      if (data?.balance !== undefined) {
-        setWalletData(prev => ({
-          ...prev,
-          balance: data.balance,
-          is_below_threshold: data.balance <= (prev.min_threshold || 1000)
-        }));
-      }
-    };
-    socket.on('wallet:balance_updated', handleWalletUpdate);
-    return () => socket.off('wallet:balance_updated', handleWalletUpdate);
-  }, [socket]);
   const [simViewMode, setSimViewMode] = useState('app'); // 'app' or 'permissions'
   const [simPermissions, setSimPermissions] = useState({ calendar: false, location: false, notifications: false, battery: false, phone: false, overlay: false });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -6026,6 +6011,15 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           try { TenantStorage.setItem('sessions', updated, activeTenantKey); } catch (e) {}
           return updated;
         });
+      });
+      socket.on('wallet:balance_updated', (data) => {
+        if (data?.balance !== undefined) {
+          setWalletData(prev => ({
+            ...prev,
+            balance: data.balance,
+            is_below_threshold: data.balance <= (prev.min_threshold || 1000)
+          }));
+        }
       });
       socket.on('new_message', (msg) => {
         console.log('New message received:', msg);
