@@ -61,6 +61,7 @@ import GhlOAuthService from '../../core/services/ghlOAuthService';
 import { isSandboxEnvironment, SupabaseSandboxService } from '../../core/services/supabaseSandboxService';
 import TenantStorage from '../../core/services/TenantStorage';
 import WhatsAppTemplateService, { DEFAULT_WHATSAPP_TEMPLATES } from '../../core/services/whatsAppTemplateService';
+import frontendWalletService from '../../core/services/universalWalletService';
 
 // Robust unwrap helper for Firestore REST API, Web SDK, SQLite, or Socket.IO call records
 function unwrapCallRecord(raw) {
@@ -1373,8 +1374,13 @@ export default function ConversationsPage({
           (prev || []).forEach(p => {
             if (!p) return;
             const pContact = String(p.contact_id || p.contactId || '');
-            const pPhone = String(p.phone || '').replace(/\D/g, '').slice(-10);
-            const belongsToThisContact = pContact === String(contactId) || (norm10 && pPhone && pPhone === norm10);
+            const pPhone = String(p.phone || p.recipient || p.to || '').replace(/\D/g, '').slice(-10);
+            const isOptimisticOutbound = Boolean(p.id && (String(p.id).startsWith('wa_out_') || String(p.id).startsWith('temp_')));
+            const belongsToThisContact = isOptimisticOutbound ||
+              pContact === String(contactId) || 
+              (norm10 && pPhone && pPhone === norm10) ||
+              (pContact && String(contactId).includes(pContact)) ||
+              (contactId && pContact.includes(String(contactId)));
             if (!belongsToThisContact) return;
 
             const key = p.id || `${p.text_content || p.textContent}_${p.timestamp}`;
@@ -2148,7 +2154,11 @@ export default function ConversationsPage({
       from_me: 1,
       timestamp: nowSec,
       status: 0,
-      contact_id: activeContact.id
+      contact_id: activeContact.id,
+      contactId: activeContact.id,
+      phone: cleanPhone || targetPhone,
+      normPhone10: norm10,
+      recipient: intlPhone || cleanPhone
     };
 
     // Instant Optimistic UI Update
@@ -2210,6 +2220,13 @@ export default function ConversationsPage({
 
       if (res.ok && (data?.success || data?.data)) {
         setActiveMessages(prev => prev.map(m => m.id === outMsgId ? { ...m, status: 1 } : m));
+        frontendWalletService.deductForMessage({
+          tenantId: companyId,
+          messageType: 'whatsapp_normal_chat',
+          count: 1,
+          recipientPhone: intlPhone || cleanPhone || targetPhone,
+          description: `WhatsApp media attachment to ${activeContact.name || cleanPhone || targetPhone}`
+        }).catch(wErr => console.warn('[Frontend Wallet Deduct Notice]:', wErr.message));
         if (showToast) showToast(mediaType === 'audio' ? '🎤 Voice note sent' : '📎 Attachment sent via WhatsApp', 'success');
       } else {
         setActiveMessages(prev => prev.map(m => m.id === outMsgId ? { ...m, status: 'error' } : m));
@@ -2572,7 +2589,7 @@ export default function ConversationsPage({
   // 6. Handle Send WhatsApp Message (Hybrid: Desktop App WhatsApp Web Bridge + Backend Fallback)
   const handleSendMessage = async (e) => {
     if (e) e.preventDefault();
-    if ((!replyText.trim() && !selectedAttachment) || !activeContact || isSending) return;
+    if ((!replyText.trim() && !selectedAttachment) || !activeContact) return;
 
     if (selectedAttachment) {
       const att = selectedAttachment;
@@ -2599,6 +2616,7 @@ export default function ConversationsPage({
     const nowSec = Math.floor(Date.now() / 1000);
 
     setIsSending(true);
+    setTimeout(() => setIsSending(false), 500);
 
     const newMsgObj = {
       id: outMsgId,
@@ -2608,7 +2626,11 @@ export default function ConversationsPage({
       from_me: 1,
       timestamp: nowSec,
       status: 0, // 0 = pending (clock)
-      contact_id: activeContact.id
+      contact_id: activeContact.id,
+      contactId: activeContact.id,
+      phone: cleanPhone || targetPhone,
+      normPhone10: norm10,
+      recipient: intlPhone || cleanPhone
     };
 
     // 1. Instant Optimistic UI Update & Local Cache Hydration (0ms latency, persists on tab switches)
@@ -2742,6 +2764,14 @@ export default function ConversationsPage({
       }
 
       if (sentSuccess) {
+        frontendWalletService.deductForMessage({
+          tenantId: companyId,
+          messageType: 'whatsapp_normal_chat',
+          count: 1,
+          recipientPhone: intlPhone || cleanPhone || targetPhone,
+          description: `1-to-1 WhatsApp chat to ${activeContact.name || cleanPhone || targetPhone}`
+        }).catch(wErr => console.warn('[Frontend Wallet Deduct Notice]:', wErr.message));
+
         if (showToast) {
           showToast(sendMethod === 'backend_api' ? '💬 WhatsApp message sent' : '⚡ WhatsApp sent & saved to CRM', 'success');
         }
