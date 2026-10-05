@@ -2226,6 +2226,8 @@ export default function ConversationsPage({
           count: 1,
           recipientPhone: intlPhone || cleanPhone || targetPhone,
           description: `WhatsApp media attachment to ${activeContact.name || cleanPhone || targetPhone}`
+        }).then(res => {
+          if (res?.success) console.log('[Wallet Deduct Success - Media]:', res);
         }).catch(wErr => console.warn('[Frontend Wallet Deduct Notice]:', wErr.message));
         if (showToast) showToast(mediaType === 'audio' ? '🎤 Voice note sent' : '📎 Attachment sent via WhatsApp', 'success');
       } else {
@@ -2770,6 +2772,8 @@ export default function ConversationsPage({
           count: 1,
           recipientPhone: intlPhone || cleanPhone || targetPhone,
           description: `1-to-1 WhatsApp chat to ${activeContact.name || cleanPhone || targetPhone}`
+        }).then(res => {
+          if (res?.success) console.log('[Wallet Deduct Success - Text]:', res);
         }).catch(wErr => console.warn('[Frontend Wallet Deduct Notice]:', wErr.message));
 
         if (showToast) {

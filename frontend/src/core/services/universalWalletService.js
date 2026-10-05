@@ -8,7 +8,12 @@ const API_BASE = (typeof window !== 'undefined' && window.__EMS_API_URL__)
   ? window.__EMS_API_URL__.replace(/\/api\/?$/, '') 
   : (IS_DEV ? 'http://localhost:5000' : 'https://api.employeemanagementsystems.com');
 
-const isSandboxDomain = typeof window !== 'undefined' && (
+const isProductionDomain = typeof window !== 'undefined' && (
+  window.location.hostname === 'app.employeemanagementsystems.com' ||
+  window.location.hostname === 'employeemanagementsystems.com'
+);
+
+const isSandboxDomain = !isProductionDomain && typeof window !== 'undefined' && (
   window.location.hostname.includes('sandbox') ||
   window.location.hostname.includes('staging') ||
   (localStorage.getItem('ems_db_env') === 'sandbox')
@@ -143,24 +148,10 @@ class FrontendUniversalWalletService {
 
   async deductForMessage({ tenantId = 1, messageType = 'whatsapp_normal_chat', count = 1, recipientPhone = '', description = '' }) {
     const cleanTenant = Number(tenantId) || 1;
-    // 1. Try backend API first
+    
+    // Direct Supabase PostgREST (Atomic & Immediate across production/staging)
     try {
-      const res = await fetch(`${API_BASE}/api/wallet/deduct`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(cleanTenant),
-        body: JSON.stringify({ tenantId: cleanTenant, messageType, count, recipientPhone, description })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.success) return data;
-      }
-    } catch (e) {
-      // Backend failed or unreachable, fall through to direct Supabase REST
-    }
-
-    // 2. Direct Supabase Fallback (100% reliable live execution)
-    try {
-      // Fetch unit rate
+      // 1. Fetch unit rate from global_service_rates or use fallback standard rates
       const ratesRes = await fetch(`${SUPABASE_REST_URL}/global_service_rates?service_key=eq.${messageType}&select=default_rate`, {
         headers: SUPABASE_HEADERS
       }).then(r => r.json()).catch(() => []);
@@ -171,7 +162,7 @@ class FrontendUniversalWalletService {
 
       const totalCost = parseFloat((unitRate * (Number(count) || 1)).toFixed(4));
 
-      // Fetch current wallet
+      // 2. Fetch current wallet
       const wRes = await fetch(`${SUPABASE_REST_URL}/universal_wallets?tenant_id=eq.${cleanTenant}&select=*`, {
         headers: SUPABASE_HEADERS
       }).then(r => r.json()).catch(() => []);
@@ -182,7 +173,7 @@ class FrontendUniversalWalletService {
       const newBalance = Math.max(0, parseFloat((currentBalance - totalCost).toFixed(4)));
       const newStatus = newBalance <= 0 ? 'DEPLETED' : (newBalance <= minThreshold ? 'LOW_BALANCE' : 'ACTIVE');
 
-      // Update wallet balance
+      // 3. Update wallet balance via PostgREST PATCH
       if (wallet) {
         await fetch(`${SUPABASE_REST_URL}/universal_wallets?tenant_id=eq.${cleanTenant}`, {
           method: 'PATCH',
@@ -208,7 +199,7 @@ class FrontendUniversalWalletService {
         });
       }
 
-      // Record DEBIT in wallet_transactions
+      // 4. Record DEBIT in wallet_transactions
       const txnId = `TXN-WHA-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       await fetch(`${SUPABASE_REST_URL}/wallet_transactions`, {
         method: 'POST',
@@ -229,6 +220,18 @@ class FrontendUniversalWalletService {
         })
       });
 
+      // 5. Dispatch real-time window event so open Billing dashboards refresh live
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ems:wallet_updated', {
+          detail: {
+            tenantId: cleanTenant,
+            balance: newBalance,
+            deducted: totalCost,
+            status: newStatus
+          }
+        }));
+      }
+
       return {
         success: true,
         deducted: totalCost,
@@ -236,7 +239,7 @@ class FrontendUniversalWalletService {
         status: newStatus
       };
     } catch (err) {
-      console.warn('[deductForMessage Supabase fallback notice]:', err.message);
+      console.warn('[deductForMessage Supabase notice]:', err.message);
       return { success: false, error: err.message };
     }
   }

@@ -107,6 +107,27 @@ export default function EnterpriseBillingStudio({
 
   useEffect(() => {
     loadBillingData();
+
+    // Auto-refresh when wallet balance changes or when user switches to this tab
+    const handleWalletUpdated = () => {
+      loadBillingData();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadBillingData();
+      }
+    };
+
+    window.addEventListener('ems:wallet_updated', handleWalletUpdated);
+    window.addEventListener('focus', handleWalletUpdated);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('ems:wallet_updated', handleWalletUpdated);
+      window.removeEventListener('focus', handleWalletUpdated);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   // Current Active Tenant / Company Details
