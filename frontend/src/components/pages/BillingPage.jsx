@@ -42,7 +42,7 @@ import InvoiceReceiptModal from '../InvoiceReceiptModal';
 import onboardingConfigService from '../../core/services/onboardingConfigService';
 import EnterpriseBillingStudio from '../billing/EnterpriseBillingStudio';
 
-export default function BillingPage({ user, showToast }) {
+export default function BillingPage({ user, showToast, billingTenant }) {
   const [mainTab, setMainTab] = useState('wallet_analytics'); // 'wallet_analytics' | 'subscriptions' | 'invoices'
   const [subscription, setSubscription] = useState(null);
   const [invoices, setInvoices] = useState([]);
@@ -474,6 +474,7 @@ export default function BillingPage({ user, showToast }) {
       {mainTab === 'wallet_analytics' && (
         <EnterpriseBillingStudio
           user={user}
+          billingTenant={billingTenant}
           showToast={showToast}
           onOpenRechargeModal={() => setShowWalletModal(true)}
           onOpenInvoice={(inv) => setSelectedInvoice(inv)}

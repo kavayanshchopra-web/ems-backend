@@ -370,7 +370,26 @@ class FrontendUniversalWalletService {
       throw new Error(err.message || 'Failed to credit wallet');
     }
   }
+
+  async fetchAllTransactions(tenantId = null) {
+    try {
+      let url = `${SUPABASE_REST_URL}/wallet_transactions?select=*&order=created_at.desc`;
+      if (tenantId && tenantId !== 'ALL') {
+        url += `&tenant_id=eq.${Number(tenantId)}`;
+      }
+      const res = await fetch(url, { headers: SUPABASE_HEADERS });
+      if (res.ok) {
+        const txs = await res.json();
+        return Array.isArray(txs) ? txs : [];
+      }
+    } catch (err) {
+      console.warn('[fetchAllTransactions error]:', err.message);
+    }
+    return [];
+  }
 }
 
+export { SUPABASE_REST_URL, SUPABASE_HEADERS, SUPABASE_KEY };
 export const frontendWalletService = new FrontendUniversalWalletService();
 export default frontendWalletService;
+

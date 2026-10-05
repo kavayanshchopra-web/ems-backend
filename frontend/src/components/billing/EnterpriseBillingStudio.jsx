@@ -33,12 +33,13 @@ import frontendWalletService from '../../core/services/universalWalletService';
 
 export default function EnterpriseBillingStudio({
   user,
+  billingTenant,
   showToast,
   onOpenRechargeModal,
   onOpenInvoice
 }) {
   const isSuperAdmin = user?.role === 'superadmin' || user?.isSuperAdmin === true;
-  const userTenantId = Number(user?.companyId || user?.tenantId || user?.tenant_id || 1);
+  const userTenantId = Number(billingTenant?.id || user?.companyId || user?.tenantId || user?.tenant_id || 1);
 
   // Sub-navigation state
   const [activeSubTab, setActiveSubTab] = useState('usage_overview'); // 'usage_overview' | 'by_subaccount' | 'by_activity' | 'wallet_recharge' | 'transactions' | 'rates'
@@ -46,15 +47,14 @@ export default function EnterpriseBillingStudio({
   // Filter States
   const [selectedSubAccount, setSelectedSubAccount] = useState(isSuperAdmin ? 'ALL' : String(userTenantId));
   const [selectedMonth, setSelectedMonth] = useState('Oct 2026');
-  const [selectedProductTier, setSelectedProductTier] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [transactionTypeFilter, setTransactionTypeFilter] = useState('ALL'); // 'ALL' | 'DEBIT' | 'CREDIT'
 
   // Live Data States
   const [loading, setLoading] = useState(true);
   const [tenants, setTenants] = useState([]);
   const [rates, setRates] = useState([]);
   const [allTransactions, setAllTransactions] = useState([]); // ALL tenants' transactions
-  const [transactions, setTransactions] = useState([]);       // Current tenant/filtered ledger
 
   // SuperAdmin Credit Adjustment Modal State
   const [adjustModalTenant, setAdjustModalTenant] = useState(null);
@@ -70,7 +70,14 @@ export default function EnterpriseBillingStudio({
   });
   const [isSavingRates, setIsSavingRates] = useState(false);
 
-  // Fetch Live Telemetry from Supabase
+  // Keep selectedSubAccount in sync if user changes and is not superadmin
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      setSelectedSubAccount(String(userTenantId));
+    }
+  }, [userTenantId, isSuperAdmin]);
+
+  // Fetch Live Telemetry from Supabase via frontendWalletService
   const loadBillingData = async () => {
     setLoading(true);
     try {
@@ -88,28 +95,9 @@ export default function EnterpriseBillingStudio({
         }
       }
 
-      // 2. Fetch ALL transactions across all tenants (for real aggregate metrics)
-      const allTxRes = await fetch(
-        `https://pdjaajbhrvglwukoacuh.supabase.co/rest/v1/wallet_transactions?select=*&order=created_at.desc`,
-        {
-          headers: {
-            apikey: 'sb_publishable_q8SBMvAwczXP0yfDfIMZsQ_ahP5YYq3',
-            Authorization: 'Bearer sb_publishable_q8SBMvAwczXP0yfDfIMZsQ_ahP5YYq3',
-            'Cache-Control': 'no-cache'
-          }
-        }
-      ).then(r => r.json()).catch(() => []);
-      setAllTransactions(Array.isArray(allTxRes) ? allTxRes : []);
-
-      // 3. Filtered ledger for current tenant view
-      if (selectedSubAccount !== 'ALL') {
-        const filteredTx = Array.isArray(allTxRes)
-          ? allTxRes.filter(tx => String(tx.tenant_id) === String(selectedSubAccount))
-          : [];
-        setTransactions(filteredTx);
-      } else {
-        setTransactions(Array.isArray(allTxRes) ? allTxRes : []);
-      }
+      // 2. Fetch all transactions across all tenants using domain-aware service
+      const txs = await frontendWalletService.fetchAllTransactions();
+      setAllTransactions(Array.isArray(txs) ? txs : []);
     } catch (err) {
       console.warn('[EnterpriseBillingStudio load error]:', err.message);
     } finally {
@@ -119,68 +107,96 @@ export default function EnterpriseBillingStudio({
 
   useEffect(() => {
     loadBillingData();
-  }, [selectedSubAccount]);
+  }, []);
 
   // Current Active Tenant / Company Details
   const activeCompany = useMemo(() => {
     if (selectedSubAccount === 'ALL') {
-      return { company_name: 'All Sub-Accounts (Consolidated)', balance: tenants.reduce((acc, t) => acc + (parseFloat(t.balance) || 0), 0) };
+      const totalFloat = tenants.reduce((acc, t) => acc + (parseFloat(t.balance) || 0), 0);
+      return {
+        tenant_id: 'ALL',
+        company_name: 'All Sub-Accounts (Consolidated)',
+        balance: totalFloat,
+        min_threshold: 1000,
+        status: 'ACTIVE'
+      };
     }
     const found = tenants.find(t => String(t.tenant_id) === String(selectedSubAccount));
-    return found || { company_name: `Company #${selectedSubAccount}`, balance: 0 };
+    return found || {
+      tenant_id: selectedSubAccount,
+      company_name: `Company #${selectedSubAccount}`,
+      balance: 0,
+      min_threshold: 1000,
+      status: 'ACTIVE'
+    };
   }, [selectedSubAccount, tenants]);
 
-  // Filtered Companies for Sub-Account Table
-  const filteredCompanies = useMemo(() => {
-    return tenants.filter(t => {
-      if (!isSuperAdmin && String(t.tenant_id) !== String(userTenantId)) return false;
-      if (!searchQuery) return true;
+  // Scoped Transactions (ALL vs Selected Sub-Account)
+  const scopedTransactions = useMemo(() => {
+    if (selectedSubAccount === 'ALL') {
+      return allTransactions;
+    }
+    return allTransactions.filter(tx => String(tx.tenant_id) === String(selectedSubAccount));
+  }, [allTransactions, selectedSubAccount]);
+
+  // Filtered Ledger for Transactions Tab
+  const filteredLedger = useMemo(() => {
+    let list = scopedTransactions;
+    if (transactionTypeFilter === 'DEBIT') {
+      list = list.filter(tx => tx.transaction_type === 'DEBIT');
+    } else if (transactionTypeFilter === 'CREDIT') {
+      list = list.filter(tx => tx.transaction_type === 'CREDIT' || tx.transaction_type === 'BONUS');
+    }
+    if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      return (t.company_name || '').toLowerCase().includes(q) || String(t.tenant_id).includes(q);
-    });
-  }, [tenants, searchQuery, isSuperAdmin, userTenantId]);
+      list = list.filter(tx =>
+        (tx.id || '').toLowerCase().includes(q) ||
+        (tx.description || '').toLowerCase().includes(q) ||
+        (tx.recipient_phone || '').toLowerCase().includes(q) ||
+        String(tx.tenant_id || '').includes(q)
+      );
+    }
+    return list;
+  }, [scopedTransactions, transactionTypeFilter, searchQuery]);
 
   // ============================================================
-  // REAL LIVE METRICS — 100% computed from actual wallet_transactions
+  // REAL LIVE METRICS — 100% computed from scoped wallet_transactions
   // ============================================================
   const metrics = useMemo(() => {
-    // Scope: filter to selected sub-account if not ALL
-    const scopedTx = selectedSubAccount === 'ALL'
-      ? allTransactions
-      : allTransactions.filter(tx => String(tx.tenant_id) === String(selectedSubAccount));
-
-    // --- Real Tier Spend from DEBIT transactions ---
     const tierSpend = { whatsapp_normal_chat: 0, whatsapp_template_msg: 0, whatsapp_bulk_broadcast: 0 };
     const tierCount = { whatsapp_normal_chat: 0, whatsapp_template_msg: 0, whatsapp_bulk_broadcast: 0 };
 
-    // Current month & previous month buckets
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
     let currentMonthSpend = 0;
     let prevMonthSpend = 0;
+    let totalMessagesDispatched = 0;
 
     // 6-month spend by month: [oldest ... newest]
-    const monthlySpend = {}; // key: 'YYYY-MM' => { normal: 0, template: 0, broadcast: 0 }
+    const monthlySpend = {};
 
-    scopedTx.forEach(tx => {
+    scopedTransactions.forEach(tx => {
       if (tx.transaction_type !== 'DEBIT') return;
       const amt = parseFloat(tx.amount || 0);
+      const units = parseInt(tx.units || 1, 10);
       const txDate = new Date(tx.created_at);
       const txMonth = txDate.getMonth();
       const txYear = txDate.getFullYear();
       const monthKey = `${txYear}-${String(txMonth + 1).padStart(2, '0')}`;
 
+      totalMessagesDispatched += units;
+
       // Tier breakdown
       if (tx.service_key === 'whatsapp_normal_chat') {
         tierSpend.whatsapp_normal_chat += amt;
-        tierCount.whatsapp_normal_chat += (tx.units || 1);
+        tierCount.whatsapp_normal_chat += units;
       } else if (tx.service_key === 'whatsapp_template_msg') {
         tierSpend.whatsapp_template_msg += amt;
-        tierCount.whatsapp_template_msg += (tx.units || 1);
+        tierCount.whatsapp_template_msg += units;
       } else if (tx.service_key === 'whatsapp_bulk_broadcast') {
         tierSpend.whatsapp_bulk_broadcast += amt;
-        tierCount.whatsapp_bulk_broadcast += (tx.units || 1);
+        tierCount.whatsapp_bulk_broadcast += units;
       }
 
       // Monthly bucketing
@@ -199,22 +215,26 @@ export default function EnterpriseBillingStudio({
     const totalSpend = tierSpend.whatsapp_normal_chat + tierSpend.whatsapp_template_msg + tierSpend.whatsapp_bulk_broadcast;
     const momDiff = prevMonthSpend > 0 ? ((currentMonthSpend - prevMonthSpend) / prevMonthSpend) * 100 : 0;
 
-    // --- Real Top Spender (by total_spent from tenants data) ---
-    const activeTenants = selectedSubAccount === 'ALL' ? tenants : tenants.filter(t => String(t.tenant_id) === String(selectedSubAccount));
-    const sortedBySpend = [...activeTenants].sort((a, b) => (parseFloat(b.total_spent) || 0) - (parseFloat(a.total_spent) || 0));
+    // Platform Top Spender (for ALL view)
+    const sortedBySpend = [...tenants].sort((a, b) => (parseFloat(b.total_spent) || 0) - (parseFloat(a.total_spent) || 0));
     const topSpender = sortedBySpend[0] || { company_name: '—', total_spent: 0, balance: 0 };
     const topSpenderSpend = parseFloat(topSpender.total_spent) || 0;
     const topSpenderPercent = totalSpend > 0 ? Math.round((topSpenderSpend / totalSpend) * 100) : 0;
 
-    // --- Biggest Spike (largest single DEBIT by amount) ---
-    const largestDebit = [...scopedTx]
+    // Largest Debit in Scope
+    const largestDebit = [...scopedTransactions]
       .filter(tx => tx.transaction_type === 'DEBIT')
       .sort((a, b) => parseFloat(b.amount || 0) - parseFloat(a.amount || 0))[0];
     const spikeCompany = largestDebit
       ? (tenants.find(t => String(t.tenant_id) === String(largestDebit.tenant_id))?.company_name || `Tenant #${largestDebit.tenant_id}`)
       : '—';
 
-    // --- Per-tier percentages ---
+    // Total Recharged in Scope
+    const totalRecharged = scopedTransactions
+      .filter(tx => tx.transaction_type === 'CREDIT' || tx.transaction_type === 'BONUS')
+      .reduce((acc, tx) => acc + parseFloat(tx.amount || 0), 0);
+
+    // Per-tier percentages
     const normalPercent = totalSpend > 0 ? Math.round((tierSpend.whatsapp_normal_chat / totalSpend) * 100) : 0;
     const templatePercent = totalSpend > 0 ? Math.round((tierSpend.whatsapp_template_msg / totalSpend) * 100) : 0;
     const broadcastPercent = totalSpend > 0 ? Math.round((tierSpend.whatsapp_bulk_broadcast / totalSpend) * 100) : 0;
@@ -225,13 +245,15 @@ export default function EnterpriseBillingStudio({
       prevMonthSpend: prevMonthSpend.toFixed(2),
       momDiff: momDiff.toFixed(1),
       isMomDown: momDiff < 0,
+      totalMessagesDispatched,
+      totalRecharged: totalRecharged.toFixed(2),
       topSpenderName: topSpender.company_name || '—',
       topSpenderAmount: topSpenderSpend.toFixed(2),
       topSpenderPercent,
       biggestSpikeName: spikeCompany,
       biggestSpikeAmount: largestDebit ? parseFloat(largestDebit.amount || 0).toFixed(2) : '0.00',
       hasData: totalSpend > 0,
-      monthlySpend, // raw for chart
+      monthlySpend,
       tiers: {
         normalChat: {
           name: '1-to-1 Normal Chat Message (EMS Web)',
@@ -256,7 +278,100 @@ export default function EnterpriseBillingStudio({
         }
       }
     };
-  }, [tenants, allTransactions, selectedSubAccount, editingRates]);
+  }, [tenants, scopedTransactions, editingRates]);
+
+  // ============================================================
+  // REAL SUB-ACCOUNT ANALYSIS (By Sub-Account Tab) — 100% computed
+  // ============================================================
+  const subAccountsAnalysis = useMemo(() => {
+    const now = new Date();
+    const curM = now.getMonth();
+    const curY = now.getFullYear();
+    const prevM = curM === 0 ? 11 : curM - 1;
+    const prevY = curM === 0 ? curY - 1 : curY;
+
+    // Platform total spend across all debits
+    const platformTotalSpend = allTransactions
+      .filter(tx => tx.transaction_type === 'DEBIT')
+      .reduce((acc, tx) => acc + parseFloat(tx.amount || 0), 0);
+
+    // List of companies to analyze:
+    // If selectedSubAccount is NOT 'ALL', show ONLY that company (scoped view),
+    // or if search query is provided, filter by search query.
+    let baseTenants = tenants;
+    if (!isSuperAdmin) {
+      baseTenants = tenants.filter(t => String(t.tenant_id) === String(userTenantId));
+    } else if (selectedSubAccount !== 'ALL') {
+      baseTenants = tenants.filter(t => String(t.tenant_id) === String(selectedSubAccount));
+    }
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      baseTenants = baseTenants.filter(t =>
+        (t.company_name || '').toLowerCase().includes(q) ||
+        String(t.tenant_id).includes(q)
+      );
+    }
+
+    return baseTenants.map(c => {
+      const cTxs = allTransactions.filter(tx => String(tx.tenant_id) === String(c.tenant_id));
+      const cDebits = cTxs.filter(tx => tx.transaction_type === 'DEBIT');
+
+      let currentMonthSpend = 0;
+      let prevMonthSpend = 0;
+      let totalSpent = 0;
+      let chatUnits = 0;
+      let tplUnits = 0;
+      let bcastUnits = 0;
+      let totalUnits = 0;
+
+      cDebits.forEach(tx => {
+        const amt = parseFloat(tx.amount || 0);
+        const units = parseInt(tx.units || 1, 10);
+        totalSpent += amt;
+        totalUnits += units;
+
+        const d = new Date(tx.created_at);
+        const m = d.getMonth();
+        const y = d.getFullYear();
+
+        if (y === curY && m === curM) currentMonthSpend += amt;
+        if (y === prevY && m === prevM) prevMonthSpend += amt;
+
+        if (tx.service_key === 'whatsapp_normal_chat') chatUnits += units;
+        else if (tx.service_key === 'whatsapp_template_msg') tplUnits += units;
+        else if (tx.service_key === 'whatsapp_bulk_broadcast') bcastUnits += units;
+      });
+
+      const momChange = prevMonthSpend > 0
+        ? (((currentMonthSpend - prevMonthSpend) / prevMonthSpend) * 100).toFixed(1)
+        : null;
+
+      const contributionPercent = platformTotalSpend > 0
+        ? Math.round((totalSpent / platformTotalSpend) * 100)
+        : 0;
+
+      const chatPct = totalUnits > 0 ? Math.round((chatUnits / totalUnits) * 100) : 0;
+      const tplPct = totalUnits > 0 ? Math.round((tplUnits / totalUnits) * 100) : 0;
+      const bcastPct = totalUnits > 0 ? Math.round((bcastUnits / totalUnits) * 100) : 0;
+
+      return {
+        ...c,
+        currentMonthSpend: currentMonthSpend.toFixed(2),
+        prevMonthSpend: prevMonthSpend.toFixed(2),
+        totalSpent: totalSpent.toFixed(2),
+        totalUnits,
+        momChange,
+        contributionPercent,
+        mix: {
+          chatPct,
+          tplPct,
+          bcastPct,
+          hasActivity: totalUnits > 0
+        }
+      };
+    });
+  }, [tenants, allTransactions, selectedSubAccount, isSuperAdmin, userTenantId, searchQuery]);
 
   // Handle Credit Grant
   const handleGrantCredit = async (e) => {
@@ -359,7 +474,9 @@ export default function EnterpriseBillingStudio({
                 Billing Dashboard
               </h1>
               <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
-                WhatsApp Cloud Messaging credits, real-time consumption & sub-account ledger
+                {selectedSubAccount === 'ALL'
+                  ? `Consolidated platform billing across all ${tenants.length} sub-accounts`
+                  : `Isolated sub-account ledger for ${activeCompany.company_name} (ID: ${selectedSubAccount})`}
               </p>
             </div>
           </div>
@@ -376,11 +493,11 @@ export default function EnterpriseBillingStudio({
                 style={{
                   padding: '7px 28px 7px 12px',
                   borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  background: '#ffffff',
+                  border: '1.5px solid #0d9488',
+                  background: '#f0fdf4',
                   fontSize: '12.5px',
-                  fontWeight: '600',
-                  color: '#334155',
+                  fontWeight: '700',
+                  color: '#0f2b26',
                   cursor: 'pointer',
                   outline: 'none',
                   appearance: 'none',
@@ -394,7 +511,7 @@ export default function EnterpriseBillingStudio({
                   </option>
                 ))}
               </select>
-              <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#64748b' }} />
+              <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#0d9488' }} />
             </div>
           ) : (
             <div style={{
@@ -450,7 +567,7 @@ export default function EnterpriseBillingStudio({
             gap: '8px'
           }}>
             <span style={{ fontSize: '11px', fontWeight: '700', color: '#166534', textTransform: 'uppercase' }}>
-              Balance
+              {selectedSubAccount === 'ALL' ? 'Total Float' : 'Balance'}
             </span>
             <strong style={{ fontSize: '13.5px', fontWeight: '800', color: '#0d9488' }}>
               ₹{parseFloat(activeCompany.balance || 0).toFixed(2)}
@@ -603,6 +720,11 @@ export default function EnterpriseBillingStudio({
               >
                 <Building2 size={15} style={{ color: activeSubTab === 'by_subaccount' ? '#0d9488' : '#94a3b8' }} />
                 <span>By Sub-Account</span>
+                {selectedSubAccount !== 'ALL' && (
+                  <span style={{ marginLeft: 'auto', background: '#e0f2fe', color: '#0369a1', fontSize: '10px', fontWeight: '800', padding: '1px 5px', borderRadius: '4px' }}>
+                    1
+                  </span>
+                )}
               </button>
             )}
 
@@ -690,6 +812,9 @@ export default function EnterpriseBillingStudio({
             >
               <FileText size={15} style={{ color: activeSubTab === 'transactions' ? '#0d9488' : '#94a3b8' }} />
               <span>Transactions</span>
+              <span style={{ marginLeft: 'auto', background: '#f1f5f9', color: '#64748b', fontSize: '10px', fontWeight: '800', padding: '1px 5px', borderRadius: '4px' }}>
+                {scopedTransactions.length}
+              </span>
             </button>
 
             {isSuperAdmin && (
@@ -725,7 +850,7 @@ export default function EnterpriseBillingStudio({
 
         {/* ================= RIGHT MAIN CONTENT AREA ================= */}
         <div style={{ flex: 1, padding: '24px 30px', overflowY: 'auto' }}>
-          
+
           {/* ================= VIEW 1: USAGE OVERVIEW ================= */}
           {activeSubTab === 'usage_overview' && (
             <div>
@@ -735,7 +860,9 @@ export default function EnterpriseBillingStudio({
                   Usage Overview
                 </h2>
                 <p style={{ fontSize: '12.5px', color: '#64748b', margin: '3px 0 0 0' }}>
-                  Get real-time insights into WhatsApp messaging activity and spending trends
+                  {selectedSubAccount === 'ALL'
+                    ? 'Consolidated platform metrics across all registered sub-accounts'
+                    : `Viewing real-time metrics for ${activeCompany.company_name} (ID: ${selectedSubAccount})`}
                 </p>
               </div>
 
@@ -755,7 +882,7 @@ export default function EnterpriseBillingStudio({
                   boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
                 }}>
                   <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Total Spend
+                    {selectedSubAccount === 'ALL' ? 'Total Platform Spend' : 'Account Spend'}
                   </div>
                   <div style={{ fontSize: '24px', fontWeight: '900', color: '#0f2b26', margin: '8px 0 4px 0' }}>
                     ₹{metrics.totalSpend}
@@ -809,63 +936,131 @@ export default function EnterpriseBillingStudio({
                   </div>
                 </div>
 
-                {/* Card 3: Top Spender */}
-                <div style={{
-                  background: '#ffffff',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '12px',
-                  padding: '18px 20px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
-                }}>
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Top Spender
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0 4px 0' }}>
-                    <span style={{ fontSize: '16px', fontWeight: '800', color: '#0f2b26', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {metrics.topSpenderName}
-                    </span>
-                    <span style={{
-                      background: '#eff6ff',
-                      color: '#2563eb',
-                      fontSize: '11px',
-                      fontWeight: '800',
-                      padding: '2px 6px',
-                      borderRadius: '4px'
-                    }}>
-                      {metrics.topSpenderPercent}%
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '11.5px', color: '#94a3b8' }}>
-                    ₹{metrics.topSpenderAmount} out of ₹{metrics.totalSpend}
-                  </div>
-                </div>
-
-                {/* Card 4: Biggest Spike */}
-                <div style={{
-                  background: '#ffffff',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '12px',
-                  padding: '18px 20px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
-                }}>
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Biggest Single Charge
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0 4px 0' }}>
-                    <span style={{ fontSize: '15px', fontWeight: '800', color: '#0f2b26', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {metrics.biggestSpikeName}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {metrics.biggestSpikeAmount === '0.00' ? (
-                      <span style={{ fontSize: '11.5px', color: '#94a3b8' }}>No DEBIT transactions yet</span>
-                    ) : (
-                      <span style={{ fontSize: '13px', fontWeight: '700', color: '#0d9488' }}>
-                        ₹{metrics.biggestSpikeAmount} largest debit
+                {/* Card 3: Dynamic based on ALL vs Single Tenant */}
+                {selectedSubAccount === 'ALL' ? (
+                  /* Card 3 (ALL): Top Spender across platform */
+                  <div style={{
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    padding: '18px 20px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                  }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Top Spender
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0 4px 0' }}>
+                      <span style={{ fontSize: '16px', fontWeight: '800', color: '#0f2b26', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {metrics.topSpenderName}
                       </span>
-                    )}
+                      <span style={{
+                        background: '#eff6ff',
+                        color: '#2563eb',
+                        fontSize: '11px',
+                        fontWeight: '800',
+                        padding: '2px 6px',
+                        borderRadius: '4px'
+                      }}>
+                        {metrics.topSpenderPercent}%
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: '#94a3b8' }}>
+                      ₹{metrics.topSpenderAmount} out of ₹{metrics.totalSpend}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  /* Card 3 (Single Sub-Account): Total Messages Sent */
+                  <div style={{
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    padding: '18px 20px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                  }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Total Messages Sent
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0 4px 0' }}>
+                      <span style={{ fontSize: '22px', fontWeight: '900', color: '#0f2b26' }}>
+                        {metrics.totalMessagesDispatched}
+                      </span>
+                      <span style={{
+                        background: metrics.totalMessagesDispatched > 0 ? '#ecfdf5' : '#f1f5f9',
+                        color: metrics.totalMessagesDispatched > 0 ? '#059669' : '#64748b',
+                        fontSize: '11px',
+                        fontWeight: '800',
+                        padding: '2px 6px',
+                        borderRadius: '4px'
+                      }}>
+                        {metrics.totalMessagesDispatched > 0 ? 'ACTIVE' : 'IDLE'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: '#94a3b8' }}>
+                      {metrics.tiers.normalChat.runs} Chat • {metrics.tiers.templateMsg.runs} Tpl • {metrics.tiers.bulkBroadcast.runs} Bcast
+                    </div>
+                  </div>
+                )}
+
+                {/* Card 4: Dynamic based on ALL vs Single Tenant */}
+                {selectedSubAccount === 'ALL' ? (
+                  /* Card 4 (ALL): Biggest Single Charge */
+                  <div style={{
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    padding: '18px 20px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                  }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Biggest Single Charge
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0 4px 0' }}>
+                      <span style={{ fontSize: '15px', fontWeight: '800', color: '#0f2b26', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {metrics.biggestSpikeName}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {metrics.biggestSpikeAmount === '0.00' ? (
+                        <span style={{ fontSize: '11.5px', color: '#94a3b8' }}>No DEBIT transactions yet</span>
+                      ) : (
+                        <span style={{ fontSize: '13px', fontWeight: '700', color: '#0d9488' }}>
+                          ₹{metrics.biggestSpikeAmount} largest debit
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* Card 4 (Single Sub-Account): Live Balance & Threshold */
+                  <div style={{
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    padding: '18px 20px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                  }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Wallet Balance & Status
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0 4px 0' }}>
+                      <span style={{ fontSize: '22px', fontWeight: '900', color: '#0d9488' }}>
+                        ₹{parseFloat(activeCompany.balance || 0).toFixed(2)}
+                      </span>
+                      <span style={{
+                        background: activeCompany.balance <= 0 ? '#fef2f2' : (activeCompany.balance <= (activeCompany.min_threshold || 1000) ? '#fffbeb' : '#ecfdf5'),
+                        color: activeCompany.balance <= 0 ? '#dc2626' : (activeCompany.balance <= (activeCompany.min_threshold || 1000) ? '#d97706' : '#059669'),
+                        fontSize: '11px',
+                        fontWeight: '800',
+                        padding: '2px 6px',
+                        borderRadius: '4px'
+                      }}>
+                        {activeCompany.status || 'ACTIVE'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: '#94a3b8' }}>
+                      Alert threshold: ₹{parseFloat(activeCompany.min_threshold || 1000).toFixed(2)}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* 2-COLUMN SPLIT: 6-MONTH AREA CHART & TOP COST DRIVERS */}
@@ -889,7 +1084,9 @@ export default function EnterpriseBillingStudio({
                         Spend by activity — last 6 months
                       </h3>
                       <p style={{ fontSize: '11.5px', color: '#94a3b8', margin: '2px 0 0 0' }}>
-                        Explore WhatsApp spend patterns by activity tier over time
+                        {selectedSubAccount === 'ALL'
+                          ? 'Platform-wide WhatsApp spend patterns by activity tier over time'
+                          : `WhatsApp spend trends for ${activeCompany.company_name}`}
                       </p>
                     </div>
                   </div>
@@ -897,7 +1094,6 @@ export default function EnterpriseBillingStudio({
                   {/* Real Data-Driven SVG Multi-Layer Area Chart */}
                   <div style={{ width: '100%', height: '220px', position: 'relative' }}>
                     {(() => {
-                      // Build last 6 months array
                       const now = new Date();
                       const months = [];
                       for (let i = 5; i >= 0; i--) {
@@ -908,24 +1104,20 @@ export default function EnterpriseBillingStudio({
                         months.push({ key, label, ...data });
                       }
 
-                      // Max value for scale
                       const maxVal = Math.max(
                         ...months.map(m => m.normal + m.template + m.broadcast),
-                        1 // prevent division by zero
+                        1
                       );
 
-                      // X positions for 6 points
                       const xs = [30, 138, 246, 354, 462, 570];
                       const chartBottom = 185;
                       const chartTop = 30;
                       const chartH = chartBottom - chartTop;
 
-                      // Y coordinate for a value
                       const yFor = (v) => chartBottom - (v / maxVal) * chartH;
 
-                      // Build SVG path from points array
                       const toPath = (pts) => {
-                        if (pts.every(p => p === chartBottom)) return null; // all zero - flat line at bottom
+                        if (pts.every(p => p === chartBottom)) return null;
                         let d = `M ${xs[0]} ${pts[0]}`;
                         for (let i = 1; i < pts.length; i++) {
                           const cpx = (xs[i - 1] + xs[i]) / 2;
@@ -961,7 +1153,6 @@ export default function EnterpriseBillingStudio({
                             </linearGradient>
                           </defs>
 
-                          {/* Grid Lines */}
                           <line x1="0" y1="60" x2="600" y2="60" stroke="#f1f5f9" strokeDasharray="3 3" />
                           <line x1="0" y1="100" x2="600" y2="100" stroke="#f1f5f9" strokeDasharray="3 3" />
                           <line x1="0" y1="140" x2="600" y2="140" stroke="#f1f5f9" strokeDasharray="3 3" />
@@ -989,7 +1180,6 @@ export default function EnterpriseBillingStudio({
                               )}
                             </>
                           ) : (
-                            /* No data yet: flat baseline with label */
                             <>
                               <line x1="20" y1={chartBottom} x2="590" y2={chartBottom} stroke="#e2e8f0" strokeWidth="1.5" strokeDasharray="4 4" />
                               <text x="300" y="115" fill="#cbd5e1" fontSize="13" textAnchor="middle" fontWeight="600">No WhatsApp spend recorded yet</text>
@@ -997,7 +1187,6 @@ export default function EnterpriseBillingStudio({
                             </>
                           )}
 
-                          {/* X-Axis Month Labels */}
                           {months.map((m, i) => (
                             <text
                               key={m.key}
@@ -1193,21 +1382,40 @@ export default function EnterpriseBillingStudio({
             </div>
           )}
 
-          {/* ================= VIEW 2: BY SUB-ACCOUNT (SUPERADMIN TABLE) ================= */}
+          {/* ================= VIEW 2: BY SUB-ACCOUNT ================= */}
           {activeSubTab === 'by_subaccount' && isSuperAdmin && (
             <div>
-              {/* Header & Search */}
+              {/* Header & Controls */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
                   <h2 style={{ fontSize: '17px', fontWeight: '800', color: '#0f2b26', margin: 0 }}>
                     Sub-Account WhatsApp Usage
                   </h2>
                   <p style={{ fontSize: '12.5px', color: '#64748b', margin: '3px 0 0 0' }}>
-                    View live WhatsApp spending, contribution ratio & wallet balances across all companies
+                    Real live WhatsApp spending, unit contribution & wallet balances per company
                   </p>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {selectedSubAccount !== 'ALL' && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSubAccount('ALL')}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        background: '#ffffff',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        color: '#0d9488',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ← Show All Sub-Accounts
+                    </button>
+                  )}
+
                   <div style={{ position: 'relative' }}>
                     <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                     <input
@@ -1221,12 +1429,48 @@ export default function EnterpriseBillingStudio({
                         border: '1px solid #cbd5e1',
                         fontSize: '12.5px',
                         outline: 'none',
-                        width: '200px'
+                        width: '210px'
                       }}
                     />
                   </div>
                 </div>
               </div>
+
+              {/* Sub-account Scoped Banner if not ALL */}
+              {selectedSubAccount !== 'ALL' && (
+                <div style={{
+                  padding: '12px 16px',
+                  background: '#f0fdf4',
+                  border: '1px solid #bbf7d0',
+                  borderRadius: '10px',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '12.5px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#166534' }}>
+                    <Building2 size={16} />
+                    <span>Showing isolated data for: <b>{activeCompany.company_name}</b> (ID: {selectedSubAccount})</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSubAccount('ALL')}
+                    style={{
+                      background: '#166534',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontSize: '11.5px',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    View All Sub-Accounts
+                  </button>
+                </div>
+              )}
 
               {/* Table */}
               <div style={{
@@ -1249,112 +1493,155 @@ export default function EnterpriseBillingStudio({
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredCompanies.map((c, i) => {
-                      const bal = parseFloat(c.balance || 0);
-                      const octSpend = (bal * 0.18 + 0.35 * (i + 1)).toFixed(2);
-                      const sepSpend = (parseFloat(octSpend) * 1.3).toFixed(2);
-                      const contrib = Math.max(2, Math.min(85, Math.round((parseFloat(octSpend) / (parseFloat(metrics.totalSpend) + 1)) * 100)));
+                    {subAccountsAnalysis.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>
+                          No sub-accounts found matching your search.
+                        </td>
+                      </tr>
+                    ) : (
+                      subAccountsAnalysis.map((c) => {
+                        const bal = parseFloat(c.balance || 0);
 
-                      return (
-                        <tr key={c.tenant_id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          {/* Name */}
-                          <td style={{ padding: '12px 16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <div style={{
-                                width: '30px',
-                                height: '30px',
-                                borderRadius: '8px',
-                                background: '#f1f5f9',
-                                color: '#0d9488',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
+                        return (
+                          <tr key={c.tenant_id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            {/* Name */}
+                            <td style={{ padding: '12px 16px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{
+                                  width: '32px',
+                                  height: '32px',
+                                  borderRadius: '8px',
+                                  background: '#f1f5f9',
+                                  color: '#0d9488',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontWeight: '800',
+                                  fontSize: '12px'
+                                }}>
+                                  {(c.company_name || 'C')[0].toUpperCase()}
+                                </div>
+                                <div>
+                                  <strong style={{ color: '#0f2b26', display: 'block' }}>{c.company_name}</strong>
+                                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>ID: {c.tenant_id} • {c.totalUnits} msgs</span>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Oct 2026 */}
+                            <td style={{ padding: '12px 16px' }}>
+                              <div style={{ fontWeight: '700', color: '#0f2b26' }}>₹{c.currentMonthSpend}</div>
+                              {c.momChange !== null ? (
+                                <span style={{ fontSize: '10.5px', color: Number(c.momChange) < 0 ? '#059669' : '#dc2626', fontWeight: '700' }}>
+                                  {Number(c.momChange) < 0 ? '↘ ' : '↗ '}{Math.abs(c.momChange)}%
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>—</span>
+                              )}
+                            </td>
+
+                            {/* Sep 2026 */}
+                            <td style={{ padding: '12px 16px', color: '#64748b' }}>
+                              ₹{c.prevMonthSpend}
+                            </td>
+
+                            {/* Contribution */}
+                            <td style={{ padding: '12px 16px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ flex: 1, height: '6px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden', width: '70px' }}>
+                                  <div style={{ width: `${c.contributionPercent}%`, height: '100%', background: '#0d9488', borderRadius: '4px' }}></div>
+                                </div>
+                                <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#334155' }}>{c.contributionPercent}%</span>
+                              </div>
+                            </td>
+
+                            {/* Activity Mix */}
+                            <td style={{ padding: '12px 16px' }}>
+                              {c.mix.hasActivity ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                                  {c.mix.chatPct > 0 && (
+                                    <span style={{ background: '#ecfdf5', color: '#059669', fontSize: '10.5px', fontWeight: '800', padding: '2px 5px', borderRadius: '4px' }}>
+                                      {c.mix.chatPct}% Chat
+                                    </span>
+                                  )}
+                                  {c.mix.tplPct > 0 && (
+                                    <span style={{ background: '#eff6ff', color: '#2563eb', fontSize: '10.5px', fontWeight: '800', padding: '2px 5px', borderRadius: '4px' }}>
+                                      {c.mix.tplPct}% Tpl
+                                    </span>
+                                  )}
+                                  {c.mix.bcastPct > 0 && (
+                                    <span style={{ background: '#f5f3ff', color: '#7c3aed', fontSize: '10.5px', fontWeight: '800', padding: '2px 5px', borderRadius: '4px' }}>
+                                      {c.mix.bcastPct}% Bcast
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span style={{ fontSize: '11px', color: '#94a3b8' }}>No activity yet</span>
+                              )}
+                            </td>
+
+                            {/* Balance */}
+                            <td style={{ padding: '12px 16px' }}>
+                              <span style={{
                                 fontWeight: '800',
-                                fontSize: '12px'
+                                color: bal > 0 ? '#0d9488' : '#e11d48',
+                                fontSize: '13px'
                               }}>
-                                {(c.company_name || 'C')[0].toUpperCase()}
-                              </div>
-                              <div>
-                                <strong style={{ color: '#0f2b26', display: 'block' }}>{c.company_name}</strong>
-                                <span style={{ fontSize: '11px', color: '#94a3b8' }}>ID: {c.tenant_id}</span>
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* Oct 2026 */}
-                          <td style={{ padding: '12px 16px' }}>
-                            <div style={{ fontWeight: '700', color: '#0f2b26' }}>₹{octSpend}</div>
-                            <span style={{ fontSize: '10.5px', color: '#059669', fontWeight: '700' }}>-18.4% ↘</span>
-                          </td>
-
-                          {/* Sep 2026 */}
-                          <td style={{ padding: '12px 16px', color: '#64748b' }}>
-                            ₹{sepSpend}
-                          </td>
-
-                          {/* Contribution */}
-                          <td style={{ padding: '12px 16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <div style={{ flex: 1, height: '6px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden', width: '70px' }}>
-                                <div style={{ width: `${contrib}%`, height: '100%', background: '#0d9488', borderRadius: '4px' }}></div>
-                              </div>
-                              <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#334155' }}>{contrib}%</span>
-                            </div>
-                          </td>
-
-                          {/* Activity Mix */}
-                          <td style={{ padding: '12px 16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <span style={{ background: '#ecfdf5', color: '#059669', fontSize: '10.5px', fontWeight: '800', padding: '2px 5px', borderRadius: '4px' }}>
-                                90% Chat
+                                ₹{bal.toFixed(2)}
                               </span>
-                              <span style={{ background: '#eff6ff', color: '#2563eb', fontSize: '10.5px', fontWeight: '800', padding: '2px 5px', borderRadius: '4px' }}>
-                                10% Tpl
-                              </span>
-                            </div>
-                          </td>
+                            </td>
 
-                          {/* Balance */}
-                          <td style={{ padding: '12px 16px' }}>
-                            <span style={{
-                              fontWeight: '800',
-                              color: bal > 0 ? '#0d9488' : '#e11d48',
-                              fontSize: '13px'
-                            }}>
-                              ₹{bal.toFixed(2)}
-                            </span>
-                          </td>
-
-                          {/* Action */}
-                          <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setAdjustModalTenant(c);
-                                setAdjustAmount(100);
-                                setAdjustReason('SuperAdmin Promotional Bonus');
-                              }}
-                              style={{
-                                background: '#f0fdf4',
-                                border: '1px solid #bbf7d0',
-                                color: '#0d9488',
-                                padding: '5px 10px',
-                                borderRadius: '6px',
-                                fontSize: '11.5px',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                              }}
-                            >
-                              <Plus size={12} />
-                              <span>Grant</span>
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            {/* Action */}
+                            <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedSubAccount(String(c.tenant_id))}
+                                  style={{
+                                    background: '#f1f5f9',
+                                    border: '1px solid #e2e8f0',
+                                    color: '#475569',
+                                    padding: '5px 8px',
+                                    borderRadius: '6px',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    cursor: 'pointer'
+                                  }}
+                                  title="View Account Metrics"
+                                >
+                                  Scope
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAdjustModalTenant(c);
+                                    setAdjustAmount(100);
+                                    setAdjustReason('SuperAdmin Promotional Bonus');
+                                  }}
+                                  style={{
+                                    background: '#f0fdf4',
+                                    border: '1px solid #bbf7d0',
+                                    color: '#0d9488',
+                                    padding: '5px 10px',
+                                    borderRadius: '6px',
+                                    fontSize: '11.5px',
+                                    fontWeight: '700',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  <Plus size={12} />
+                                  <span>Grant</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1370,8 +1657,26 @@ export default function EnterpriseBillingStudio({
                   By Activity Breakdown
                 </h2>
                 <p style={{ fontSize: '12.5px', color: '#64748b', margin: '3px 0 0 0' }}>
-                  Granular usage, unit dispatches, and applied unit costs for all 3 WhatsApp messaging tiers
+                  {selectedSubAccount === 'ALL'
+                    ? 'Granular usage, unit dispatches, and applied unit costs across all 3 WhatsApp messaging tiers'
+                    : `Activity breakdown for ${activeCompany.company_name} (ID: ${selectedSubAccount})`}
                 </p>
+              </div>
+
+              {/* Scope pill */}
+              <div style={{
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                padding: '8px 14px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginBottom: '16px',
+                fontSize: '12px'
+              }}>
+                <Building2 size={14} style={{ color: '#0d9488' }} />
+                <span>Scope: <b>{selectedSubAccount === 'ALL' ? 'All Sub-Accounts (Consolidated)' : `${activeCompany.company_name} (ID: ${selectedSubAccount})`}</b></span>
               </div>
 
               {/* Table */}
@@ -1455,7 +1760,7 @@ export default function EnterpriseBillingStudio({
                     </tr>
 
                     {/* Row 3: Bulk Broadcasts */}
-                    <tr>
+                    <tr style={{ borderBottom: '1.5px solid #e2e8f0' }}>
                       <td style={{ padding: '14px 20px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#8b5cf6' }}></div>
@@ -1475,6 +1780,24 @@ export default function EnterpriseBillingStudio({
                         </span>
                       </td>
                     </tr>
+
+                    {/* Total Summary Row */}
+                    <tr style={{ background: '#f8fafc', fontWeight: '800' }}>
+                      <td style={{ padding: '14px 20px', color: '#0f2b26' }}>
+                        TOTAL WHATSAPP CONSUMPTION
+                      </td>
+                      <td style={{ padding: '14px 20px', color: '#64748b' }}>—</td>
+                      <td style={{ padding: '14px 20px', color: '#0d9488', fontSize: '14px' }}>
+                        {metrics.totalMessagesDispatched} msgs
+                      </td>
+                      <td style={{ padding: '14px 20px', color: '#64748b' }}>—</td>
+                      <td style={{ padding: '14px 20px', color: '#0f2b26', fontSize: '15px' }}>
+                        ₹{metrics.totalSpend}
+                      </td>
+                      <td style={{ padding: '14px 20px', textAlign: 'right', color: '#0d9488' }}>
+                        100%
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -1490,11 +1813,13 @@ export default function EnterpriseBillingStudio({
                   Wallet & Recharge Center
                 </h2>
                 <p style={{ fontSize: '12.5px', color: '#64748b', margin: '3px 0 0 0' }}>
-                  Manage wallet balance, auto-topup threshold, and real-time ledger
+                  {selectedSubAccount === 'ALL'
+                    ? 'Manage consolidated float, credits grant and recharge history'
+                    : `Manage wallet balance, auto-topup threshold, and real-time ledger for ${activeCompany.company_name}`}
                 </p>
               </div>
 
-              {/* Navy Hero Card (Matching Screenshot 4) */}
+              {/* Navy Hero Card */}
               <div style={{
                 background: 'linear-gradient(135deg, #091e28 0%, #0d2830 100%)',
                 borderRadius: '14px',
@@ -1510,14 +1835,14 @@ export default function EnterpriseBillingStudio({
               }}>
                 <div>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Available WhatsApp Balance
+                    {selectedSubAccount === 'ALL' ? 'Total Platform Float' : `Available Balance: ${activeCompany.company_name}`}
                   </div>
                   <div style={{ fontSize: '36px', fontWeight: '900', color: '#ffffff', margin: '6px 0 10px 0' }}>
                     ₹{parseFloat(activeCompany.balance || 0).toFixed(2)}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '20px', fontSize: '12.5px', color: '#cbd5e1' }}>
                     <div>Wallet Float: <b>₹{parseFloat(activeCompany.balance || 0).toFixed(2)}</b></div>
-                    <div>Credits / Bonus: <b>₹0.00</b></div>
+                    <div>Credits Recharged: <b>₹{metrics.totalRecharged}</b></div>
                     <div>Currency: <b>INR (₹)</b></div>
                   </div>
                 </div>
@@ -1527,7 +1852,8 @@ export default function EnterpriseBillingStudio({
                     <button
                       type="button"
                       onClick={() => {
-                        setAdjustModalTenant(activeCompany);
+                        const target = selectedSubAccount === 'ALL' ? (tenants[0] || { tenant_id: 1, company_name: 'Company #1', balance: 0 }) : activeCompany;
+                        setAdjustModalTenant(target);
                         setAdjustAmount(100);
                         setAdjustReason('SuperAdmin Promotional Bonus');
                       }}
@@ -1597,9 +1923,18 @@ export default function EnterpriseBillingStudio({
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f2b26' }}>₹1,000.00</span>
-                  <span style={{ background: '#f1f5f9', color: '#475569', fontSize: '11px', fontWeight: '700', padding: '3px 8px', borderRadius: '4px' }}>
-                    ACTIVE
+                  <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f2b26' }}>
+                    ₹{parseFloat(activeCompany.min_threshold || 1000).toFixed(2)}
+                  </span>
+                  <span style={{
+                    background: activeCompany.balance <= 0 ? '#fef2f2' : (activeCompany.balance <= (activeCompany.min_threshold || 1000) ? '#fffbeb' : '#ecfdf5'),
+                    color: activeCompany.balance <= 0 ? '#dc2626' : (activeCompany.balance <= (activeCompany.min_threshold || 1000) ? '#d97706' : '#059669'),
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    padding: '3px 8px',
+                    borderRadius: '4px'
+                  }}>
+                    {activeCompany.status || 'ACTIVE'}
                   </span>
                 </div>
               </div>
@@ -1612,13 +1947,17 @@ export default function EnterpriseBillingStudio({
                 overflow: 'hidden',
                 boxShadow: '0 1px 4px rgba(0,0,0,0.03)'
               }}>
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', fontWeight: '800', fontSize: '13.5px', color: '#0f2b26' }}>
-                  Recent Recharge & Top-up History
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', fontWeight: '800', fontSize: '13.5px', color: '#0f2b26', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Recent Recharge & Top-up History</span>
+                  <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#64748b' }}>
+                    {scopedTransactions.filter(tx => tx.transaction_type === 'BONUS' || tx.transaction_type === 'CREDIT').length} records
+                  </span>
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
                   <thead>
                     <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: '700' }}>
                       <th style={{ padding: '12px 18px' }}>TXN ID</th>
+                      {selectedSubAccount === 'ALL' && <th style={{ padding: '12px 18px' }}>COMPANY</th>}
                       <th style={{ padding: '12px 18px' }}>DATE & TIME</th>
                       <th style={{ padding: '12px 18px' }}>DESCRIPTION</th>
                       <th style={{ padding: '12px 18px' }}>AMOUNT</th>
@@ -1626,32 +1965,41 @@ export default function EnterpriseBillingStudio({
                     </tr>
                   </thead>
                   <tbody>
-                    {transactions.filter(tx => tx.transaction_type === 'BONUS' || tx.transaction_type === 'CREDIT').length === 0 ? (
+                    {scopedTransactions.filter(tx => tx.transaction_type === 'BONUS' || tx.transaction_type === 'CREDIT').length === 0 ? (
                       <tr>
-                        <td colSpan={5} style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
-                          No recent recharge records found for this account.
+                        <td colSpan={selectedSubAccount === 'ALL' ? 6 : 5} style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
+                          No recent recharge records found for this account scope.
                         </td>
                       </tr>
                     ) : (
-                      transactions.filter(tx => tx.transaction_type === 'BONUS' || tx.transaction_type === 'CREDIT').map(tx => (
-                        <tr key={tx.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '12px 18px', fontFamily: 'monospace', color: '#64748b' }}>{tx.id}</td>
-                          <td style={{ padding: '12px 18px', color: '#334155' }}>
-                            {new Date(tx.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
-                          </td>
-                          <td style={{ padding: '12px 18px', color: '#0f2b26', fontWeight: '600' }}>
-                            {tx.description || 'Wallet Credit'}
-                          </td>
-                          <td style={{ padding: '12px 18px', fontWeight: '800', color: '#059669' }}>
-                            +₹{parseFloat(tx.amount || 0).toFixed(2)}
-                          </td>
-                          <td style={{ padding: '12px 18px', textAlign: 'right' }}>
-                            <span style={{ background: '#ecfdf5', color: '#059669', fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px' }}>
-                              SUCCESS
-                            </span>
-                          </td>
-                        </tr>
-                      ))
+                      scopedTransactions.filter(tx => tx.transaction_type === 'BONUS' || tx.transaction_type === 'CREDIT').map(tx => {
+                        const cName = tenants.find(t => String(t.tenant_id) === String(tx.tenant_id))?.company_name || `Tenant #${tx.tenant_id}`;
+
+                        return (
+                          <tr key={tx.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '12px 18px', fontFamily: 'monospace', color: '#64748b' }}>{tx.id}</td>
+                            {selectedSubAccount === 'ALL' && (
+                              <td style={{ padding: '12px 18px', fontWeight: '700', color: '#0f2b26' }}>
+                                {cName}
+                              </td>
+                            )}
+                            <td style={{ padding: '12px 18px', color: '#334155' }}>
+                              {new Date(tx.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                            </td>
+                            <td style={{ padding: '12px 18px', color: '#0f2b26', fontWeight: '600' }}>
+                              {tx.description || 'Wallet Credit'}
+                            </td>
+                            <td style={{ padding: '12px 18px', fontWeight: '800', color: '#059669' }}>
+                              +₹{parseFloat(tx.amount || 0).toFixed(2)}
+                            </td>
+                            <td style={{ padding: '12px 18px', textAlign: 'right' }}>
+                              <span style={{ background: '#ecfdf5', color: '#059669', fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px' }}>
+                                SUCCESS
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -1662,14 +2010,62 @@ export default function EnterpriseBillingStudio({
           {/* ================= VIEW 5: TRANSACTIONS (FULL LEDGER) ================= */}
           {activeSubTab === 'transactions' && (
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
                   <h2 style={{ fontSize: '17px', fontWeight: '800', color: '#0f2b26', margin: 0 }}>
                     Detailed Transactions Ledger
                   </h2>
                   <p style={{ fontSize: '12.5px', color: '#64748b', margin: '3px 0 0 0' }}>
-                    Live record of all outbound WhatsApp message debits and recharge credits
+                    {selectedSubAccount === 'ALL'
+                      ? 'Consolidated live record of all outbound WhatsApp message debits and recharge credits'
+                      : `Live ledger records for ${activeCompany.company_name} (ID: ${selectedSubAccount})`}
                   </p>
+                </div>
+
+                {/* Filter Controls */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  {/* Type Filter Buttons */}
+                  <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: '8px', padding: '2px' }}>
+                    {['ALL', 'DEBIT', 'CREDIT'].map(type => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setTransactionTypeFilter(type)}
+                        style={{
+                          background: transactionTypeFilter === type ? '#ffffff' : 'transparent',
+                          border: 'none',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          fontSize: '11.5px',
+                          fontWeight: transactionTypeFilter === type ? '800' : '600',
+                          color: transactionTypeFilter === type ? '#0d9488' : '#64748b',
+                          cursor: 'pointer',
+                          boxShadow: transactionTypeFilter === type ? '0 1px 3px rgba(0,0,0,0.06)' : 'none'
+                        }}
+                      >
+                        {type === 'ALL' ? 'All' : (type === 'DEBIT' ? 'Debits' : 'Credits')}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Search */}
+                  <div style={{ position: 'relative' }}>
+                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                    <input
+                      type="text"
+                      placeholder="Filter transactions..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      style={{
+                        padding: '6px 12px 6px 30px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '12px',
+                        outline: 'none',
+                        width: '180px'
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1684,6 +2080,7 @@ export default function EnterpriseBillingStudio({
                   <thead>
                     <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0', color: '#64748b', fontWeight: '700' }}>
                       <th style={{ padding: '12px 18px' }}>TIMESTAMP</th>
+                      {selectedSubAccount === 'ALL' && <th style={{ padding: '12px 18px' }}>SUB-ACCOUNT</th>}
                       <th style={{ padding: '12px 18px' }}>SERVICE TIER</th>
                       <th style={{ padding: '12px 18px' }}>DETAILS</th>
                       <th style={{ padding: '12px 18px' }}>AMOUNT</th>
@@ -1691,41 +2088,50 @@ export default function EnterpriseBillingStudio({
                     </tr>
                   </thead>
                   <tbody>
-                    {transactions.length === 0 ? (
+                    {filteredLedger.length === 0 ? (
                       <tr>
-                        <td colSpan={5} style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>
+                        <td colSpan={selectedSubAccount === 'ALL' ? 6 : 5} style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>
                           No transaction records recorded yet. Outbound WhatsApp messages will automatically log deductions here.
                         </td>
                       </tr>
                     ) : (
-                      transactions.map(tx => (
-                        <tr key={tx.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '12px 18px', color: '#64748b' }}>
-                            {new Date(tx.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
-                          </td>
-                          <td style={{ padding: '12px 18px' }}>
-                            <span style={{
-                              background: tx.transaction_type === 'DEBIT' ? '#f1f5f9' : '#ecfdf5',
-                              color: tx.transaction_type === 'DEBIT' ? '#334155' : '#059669',
-                              fontSize: '11px',
-                              fontWeight: '800',
-                              padding: '3px 7px',
-                              borderRadius: '4px'
-                            }}>
-                              {tx.service_key === 'whatsapp_normal_chat' ? '1-to-1 Chat' : (tx.service_key === 'whatsapp_template_msg' ? 'Template' : (tx.service_key === 'whatsapp_bulk_broadcast' ? 'Broadcast' : 'Wallet Top-up'))}
-                            </span>
-                          </td>
-                          <td style={{ padding: '12px 18px', color: '#0f2b26', fontWeight: '600' }}>
-                            {tx.description || (tx.recipient_phone ? `To: ${tx.recipient_phone}` : 'Dispatched')}
-                          </td>
-                          <td style={{ padding: '12px 18px', fontWeight: '800', color: tx.transaction_type === 'DEBIT' ? '#e11d48' : '#059669' }}>
-                            {tx.transaction_type === 'DEBIT' ? '-' : '+'}₹{parseFloat(tx.amount || 0).toFixed(2)}
-                          </td>
-                          <td style={{ padding: '12px 18px', textAlign: 'right', fontWeight: '700', color: '#334155' }}>
-                            ₹{parseFloat(tx.balance_after || 0).toFixed(2)}
-                          </td>
-                        </tr>
-                      ))
+                      filteredLedger.map(tx => {
+                        const cName = tenants.find(t => String(t.tenant_id) === String(tx.tenant_id))?.company_name || `Tenant #${tx.tenant_id}`;
+
+                        return (
+                          <tr key={tx.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '12px 18px', color: '#64748b' }}>
+                              {new Date(tx.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                            </td>
+                            {selectedSubAccount === 'ALL' && (
+                              <td style={{ padding: '12px 18px', fontWeight: '700', color: '#0f2b26' }}>
+                                {cName}
+                              </td>
+                            )}
+                            <td style={{ padding: '12px 18px' }}>
+                              <span style={{
+                                background: tx.transaction_type === 'DEBIT' ? '#f1f5f9' : '#ecfdf5',
+                                color: tx.transaction_type === 'DEBIT' ? '#334155' : '#059669',
+                                fontSize: '11px',
+                                fontWeight: '800',
+                                padding: '3px 7px',
+                                borderRadius: '4px'
+                              }}>
+                                {tx.service_key === 'whatsapp_normal_chat' ? '1-to-1 Chat' : (tx.service_key === 'whatsapp_template_msg' ? 'Template' : (tx.service_key === 'whatsapp_bulk_broadcast' ? 'Broadcast' : 'Wallet Top-up'))}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px 18px', color: '#0f2b26', fontWeight: '600' }}>
+                              {tx.description || (tx.recipient_phone ? `To: ${tx.recipient_phone}` : 'Dispatched')}
+                            </td>
+                            <td style={{ padding: '12px 18px', fontWeight: '800', color: tx.transaction_type === 'DEBIT' ? '#e11d48' : '#059669' }}>
+                              {tx.transaction_type === 'DEBIT' ? '-' : '+'}₹{parseFloat(tx.amount || 0).toFixed(2)}
+                            </td>
+                            <td style={{ padding: '12px 18px', textAlign: 'right', fontWeight: '700', color: '#334155' }}>
+                              ₹{parseFloat(tx.balance_after || 0).toFixed(2)}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>

@@ -8537,7 +8537,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {activeTab === 'billing' && (
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Subscription Billing...</div>}>
             <BillingPage
-              user={authUser}
+              user={effectiveAuthUser || authUser}
               billingTenant={billingTenant}
               API_URL={API_URL}
               selectedCountry={selectedCountry}
