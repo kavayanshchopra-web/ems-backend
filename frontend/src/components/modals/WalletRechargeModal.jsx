@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Wallet, ShieldCheck, CheckCircle2, AlertTriangle, ArrowRight, Zap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Wallet, ShieldCheck, CheckCircle2, AlertTriangle, ArrowRight, Zap, Settings, Key, ExternalLink } from 'lucide-react';
 import frontendWalletService from '../../core/services/universalWalletService';
 
 export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 0, onRechargeSuccess, tenantId = 1, user }) {
@@ -9,6 +9,50 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+
+  // Inline Razorpay Gateway Configuration State
+  const [showGatewayConfig, setShowGatewayConfig] = useState(false);
+  const [gwKeyId, setGwKeyId] = useState('');
+  const [gwKeySecret, setGwKeySecret] = useState('');
+  const [gwMode, setGwMode] = useState('test');
+  const [isSavingGw, setIsSavingGw] = useState(false);
+  const [gwSaveSuccess, setGwSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      frontendWalletService.getSystemGatewayConfig().then(gw => {
+        if (gw && gw.keyId) {
+          setGwKeyId(gw.keyId);
+          setGwMode(gw.mode || 'test');
+        }
+      }).catch(() => {});
+    }
+  }, [isOpen]);
+
+  const handleSaveGatewayCredentials = async (e) => {
+    if (e) e.preventDefault();
+    if (!gwKeyId || !gwKeyId.trim()) {
+      setError('Please enter a valid Razorpay Key ID (e.g. rzp_test_... or rzp_live_...)');
+      return;
+    }
+    setIsSavingGw(true);
+    setError(null);
+    try {
+      await frontendWalletService.saveSystemGatewayConfig({
+        keyId: gwKeyId.trim(),
+        keySecret: gwKeySecret.trim(),
+        mode: gwMode,
+        enabled: true
+      });
+      setGwSaveSuccess(true);
+      setShowGatewayConfig(false);
+      setTimeout(() => setGwSaveSuccess(false), 5000);
+    } catch (saveErr) {
+      setError(saveErr.message || 'Failed to save Razorpay Gateway configuration');
+    } finally {
+      setIsSavingGw(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -247,7 +291,26 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
             </div>
           )}
 
-          {/* Error Message */}
+          {/* Gateway Save Success */}
+          {gwSaveSuccess && (
+            <div style={{
+              background: '#ecfdf5',
+              border: '1.5px solid #34d399',
+              borderRadius: '10px',
+              padding: '12px 14px',
+              marginBottom: '18px',
+              color: '#065f46',
+              fontSize: '12.5px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <CheckCircle2 size={16} color="#059669" />
+              <span><b>Razorpay Gateway Saved!</b> You can now proceed to test and recharge.</span>
+            </div>
+          )}
+
+          {/* Error / Configuration Notice */}
           {error && (
             <div style={{
               background: '#fef2f2',
@@ -259,15 +322,162 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
               fontSize: '12.5px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '6px'
+              gap: '8px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800', color: '#991b1b' }}>
-                <AlertTriangle size={16} color="#dc2626" style={{ flexShrink: 0 }} />
-                <span>Configuration Notice</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800', color: '#991b1b' }}>
+                  <AlertTriangle size={16} color="#dc2626" style={{ flexShrink: 0 }} />
+                  <span>Configuration Notice</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowGatewayConfig(!showGatewayConfig)}
+                  style={{
+                    background: '#ffffff',
+                    border: '1px solid #f87171',
+                    color: '#b91c1c',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <Settings size={12} />
+                  <span>{showGatewayConfig ? 'Close Setup' : 'Configure Now'}</span>
+                </button>
               </div>
               <div style={{ margin: 0, lineHeight: 1.45 }}>
                 {error}
               </div>
+            </div>
+          )}
+
+          {/* Inline Razorpay Configuration Drawer */}
+          {showGatewayConfig && (
+            <div style={{
+              background: '#f8fafc',
+              border: '1.5px solid #0d9488',
+              borderRadius: '12px',
+              padding: '16px',
+              marginBottom: '20px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <Key size={16} color="#0d9488" />
+                <h4 style={{ margin: 0, fontSize: '13.5px', fontWeight: '800', color: '#0f2b26' }}>
+                  Setup SuperAdmin Razorpay Gateway
+                </h4>
+              </div>
+              <p style={{ margin: '0 0 12px 0', fontSize: '11.5px', color: '#64748b', lineHeight: 1.4 }}>
+                Enter your Razorpay API Key ID from <b>Razorpay Dashboard → Account & Settings → API Keys</b>. Sub-account recharges will deposit directly into your account.
+              </p>
+
+              <form onSubmit={handleSaveGatewayCredentials}>
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                    Razorpay Key ID *
+                  </label>
+                  <input
+                    type="text"
+                    value={gwKeyId}
+                    onChange={(e) => setGwKeyId(e.target.value.trim())}
+                    placeholder="rzp_test_... or rzp_live_..."
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '12.5px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                    Razorpay Key Secret (Optional / Update)
+                  </label>
+                  <input
+                    type="password"
+                    value={gwKeySecret}
+                    onChange={(e) => setGwKeySecret(e.target.value.trim())}
+                    placeholder="Leave empty or enter secret to update"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '12.5px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: '600', color: '#334155' }}>Mode:</label>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="gwMode"
+                        value="test"
+                        checked={gwMode === 'test'}
+                        onChange={() => setGwMode('test')}
+                      />
+                      <span>Test Mode</span>
+                    </label>
+                    <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="gwMode"
+                        value="live"
+                        checked={gwMode === 'live'}
+                        onChange={() => setGwMode('live')}
+                      />
+                      <span>Live Mode</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="submit"
+                    disabled={isSavingGw}
+                    style={{
+                      flex: 1,
+                      background: '#0d9488',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '800',
+                      cursor: isSavingGw ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {isSavingGw ? 'Saving...' : 'Save & Enable Gateway'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowGatewayConfig(false)}
+                    style={{
+                      background: '#e2e8f0',
+                      color: '#475569',
+                      border: 'none',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
             </div>
           )}
 
