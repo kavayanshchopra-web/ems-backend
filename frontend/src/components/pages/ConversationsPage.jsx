@@ -632,6 +632,16 @@ export default function ConversationsPage({
   const fileInputRef = useRef(null);
   const composerInputRef = useRef(null);
 
+  // Live Wallet & Threshold State
+  const [walletInfo, setWalletInfo] = useState({
+    balance: null,
+    minThreshold: 1000,
+    isBelowThreshold: false,
+    isDepleted: false,
+    status: 'ACTIVE'
+  });
+  const [isTemplateSelected, setIsTemplateSelected] = useState(false);
+
   // Load WhatsApp templates for active company
   useEffect(() => {
     try {
@@ -640,6 +650,46 @@ export default function ConversationsPage({
     } catch (e) {
       setAvailableTemplates(DEFAULT_WHATSAPP_TEMPLATES || []);
     }
+  }, [companyId]);
+
+  // Sync Live Wallet Status and listen for real-time deductions / top-ups
+  useEffect(() => {
+    let isMounted = true;
+    const loadWallet = async () => {
+      try {
+        const res = await frontendWalletService.fetchWalletStatus(companyId);
+        if (isMounted && res?.wallet) {
+          setWalletInfo({
+            balance: res.wallet.balance,
+            minThreshold: res.wallet.min_threshold,
+            isBelowThreshold: res.wallet.is_below_threshold,
+            isDepleted: res.wallet.is_depleted,
+            status: res.wallet.status
+          });
+        }
+      } catch (e) {
+        console.warn('[ConversationsPage] Wallet check notice:', e.message);
+      }
+    };
+    loadWallet();
+
+    const onWalletUpdated = (e) => {
+      if (e?.detail) {
+        const b = parseFloat(e.detail.balance ?? 0);
+        setWalletInfo(prev => ({
+          ...prev,
+          balance: b,
+          isBelowThreshold: b <= prev.minThreshold,
+          isDepleted: b <= 0,
+          status: e.detail.status || (b <= 0 ? 'DEPLETED' : prev.status)
+        }));
+      }
+    };
+    window.addEventListener('ems:wallet_updated', onWalletUpdated);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('ems:wallet_updated', onWalletUpdated);
+    };
   }, [companyId]);
 
   const messagesEndRef = useRef(null);
@@ -2133,6 +2183,10 @@ export default function ConversationsPage({
   // Helper to dispatch media attachment or voice note to backend & Baileys
   const sendMediaDirect = async ({ name, type, mediaType, base64, caption = '' }) => {
     if (!activeContact || isSending) return;
+    if (walletInfo.balance !== null && walletInfo.balance <= 0) {
+      if (showToast) showToast('Wallet balance is empty (₹0.00). Please recharge your wallet to send media.', 'error');
+      return;
+    }
     const targetPhone = activeContact.rawPhone || activeContact.phone || activeContact.id;
     const cleanPhone = String(targetPhone).replace(/\D/g, '');
     const norm10 = cleanPhone.length >= 7 ? cleanPhone.slice(-10) : '';
@@ -2446,6 +2500,7 @@ export default function ConversationsPage({
 
   const handleSelectTemplate = (tpl) => {
     try {
+      setIsTemplateSelected(true);
       const rawText = tpl.content || tpl.body || tpl.text || '';
       const contactName = activeContact?.name || activeContact?.contactName || activeContact?.customerName || 'Friend';
       const params = {
@@ -2593,6 +2648,11 @@ export default function ConversationsPage({
     if (e) e.preventDefault();
     if ((!replyText.trim() && !selectedAttachment) || !activeContact) return;
 
+    if (walletInfo.balance !== null && walletInfo.balance <= 0) {
+      if (showToast) showToast('Wallet balance is empty (₹0.00). Please recharge your wallet to send messages.', 'error');
+      return;
+    }
+
     if (selectedAttachment) {
       const att = selectedAttachment;
       const cap = replyText.trim();
@@ -2610,6 +2670,9 @@ export default function ConversationsPage({
     }
 
     const textToSend = replyText.trim();
+    const activeMsgType = isTemplateSelected ? 'whatsapp_template_msg' : 'whatsapp_normal_chat';
+    const wasTemplate = isTemplateSelected;
+    setIsTemplateSelected(false);
     const targetPhone = activeContact.rawPhone || activeContact.phone || activeContact.id;
     const cleanPhone = String(targetPhone).replace(/\D/g, '');
     const norm10 = cleanPhone.length >= 7 ? cleanPhone.slice(-10) : '';
@@ -2702,6 +2765,8 @@ export default function ConversationsPage({
             recipientJid: intlPhone ? `${intlPhone}@s.whatsapp.net` : (cleanPhone ? `${cleanPhone}@s.whatsapp.net` : activeContact.id),
             text: textToSend,
             message: textToSend,
+            messageType: activeMsgType,
+            isTemplate: wasTemplate,
             tenantId: companyId
           };
 
@@ -2746,10 +2811,12 @@ export default function ConversationsPage({
       if (sentSuccess) {
         frontendWalletService.deductForMessage({
           tenantId: companyId,
-          messageType: 'whatsapp_normal_chat',
+          messageType: activeMsgType,
           count: 1,
           recipientPhone: intlPhone || cleanPhone || targetPhone,
-          description: `1-to-1 WhatsApp chat to ${activeContact.name || cleanPhone || targetPhone}`
+          description: wasTemplate 
+            ? `WhatsApp business template to ${activeContact.name || cleanPhone || targetPhone}`
+            : `1-to-1 WhatsApp chat to ${activeContact.name || cleanPhone || targetPhone}`
         }).then(res => {
           if (res?.success) console.log('[Wallet Deduct Success - Text]:', res);
         }).catch(wErr => console.warn('[Frontend Wallet Deduct Notice]:', wErr.message));
@@ -4815,6 +4882,79 @@ export default function ConversationsPage({
                 </div>
               )}
 
+              {/* Universal Wallet Warning Banner (Depleted / Below Threshold) */}
+              {walletInfo.isDepleted && (
+                <div style={{
+                  background: '#fef2f2',
+                  borderTop: '1px solid #fee2e2',
+                  borderBottom: '1px solid #fecaca',
+                  padding: '8px 18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '12px',
+                  color: '#991b1b',
+                  fontWeight: '600'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <AlertTriangle size={15} color="#dc2626" />
+                    <span>Wallet Balance Empty (₹0.00). Outbound WhatsApp messaging is paused.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => window.location.href = '/settings?tab=billing'}
+                    style={{
+                      background: '#dc2626',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '4px 10px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    + Recharge Wallet
+                  </button>
+                </div>
+              )}
+
+              {!walletInfo.isDepleted && walletInfo.isBelowThreshold && walletInfo.balance !== null && (
+                <div style={{
+                  background: '#fffbeb',
+                  borderTop: '1px solid #fef3c7',
+                  borderBottom: '1px solid #fde68a',
+                  padding: '6px 18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '11.5px',
+                  color: '#92400e',
+                  fontWeight: '500'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <AlertTriangle size={14} color="#d97706" />
+                    <span>Low Balance Alert: Current balance is ₹{walletInfo.balance.toFixed(2)} (Min threshold: ₹{walletInfo.minThreshold.toFixed(2)}).</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => window.location.href = '/settings?tab=billing'}
+                    style={{
+                      background: '#d97706',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '5px',
+                      padding: '3px 8px',
+                      fontSize: '10.5px',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    + Top-up
+                  </button>
+                </div>
+              )}
+
               {/* Mode A: In-Progress Audio Recording Bar */}
               {isRecordingAudio ? (
                 <div style={{
@@ -4999,22 +5139,25 @@ export default function ConversationsPage({
                     ref={composerInputRef}
                     type="text"
                     placeholder={
-                      selectedAttachment 
-                        ? `Add caption for ${selectedAttachment.name} (optional)...` 
-                        : `Reply to ${activeContact.name} via WhatsApp...`
+                      walletInfo.isDepleted
+                        ? 'Wallet Empty (₹0.00) — Please recharge your wallet to send messages'
+                        : (selectedAttachment 
+                            ? `Add caption for ${selectedAttachment.name} (optional)...` 
+                            : `Reply to ${activeContact.name} via WhatsApp...`)
                     }
                     value={replyText}
                     onChange={handleComposerChange}
-                    disabled={isSending}
+                    disabled={isSending || walletInfo.isDepleted}
                     style={{
                       flex: 1,
                       padding: '10px 16px',
                       borderRadius: '24px',
-                      border: '1px solid #cbd5e1',
+                      border: walletInfo.isDepleted ? '1px solid #fca5a5' : '1px solid #cbd5e1',
                       outline: 'none',
                       fontSize: '13px',
-                      background: '#f8fafc',
-                      color: '#0f172a'
+                      background: walletInfo.isDepleted ? '#fef2f2' : '#f8fafc',
+                      color: walletInfo.isDepleted ? '#991b1b' : '#0f172a',
+                      cursor: walletInfo.isDepleted ? 'not-allowed' : 'text'
                     }}
                   />
 
@@ -5022,21 +5165,21 @@ export default function ConversationsPage({
                   {(replyText.trim() || selectedAttachment) ? (
                     <button
                       type="submit"
-                      disabled={isSending}
+                      disabled={isSending || walletInfo.isDepleted}
                       style={{
                         padding: '10px 18px',
                         borderRadius: '24px',
-                        background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
+                        background: walletInfo.isDepleted ? '#94a3b8' : 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
                         border: 'none',
                         color: '#ffffff',
                         fontSize: '12.5px',
                         fontWeight: '700',
-                        cursor: isSending ? 'not-allowed' : 'pointer',
+                        cursor: (isSending || walletInfo.isDepleted) ? 'not-allowed' : 'pointer',
                         opacity: isSending ? 0.7 : 1,
                         display: 'flex',
                         alignItems: 'center',
                         gap: '6px',
-                        boxShadow: '0 2px 6px rgba(13, 148, 136, 0.3)',
+                        boxShadow: walletInfo.isDepleted ? 'none' : '0 2px 6px rgba(13, 148, 136, 0.3)',
                         flexShrink: 0
                       }}
                     >

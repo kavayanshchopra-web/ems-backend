@@ -1,4 +1,5 @@
 import CloudDialerModal, { VoxbayCloudDialerModal } from './telecalling/CloudDialerModal';
+import frontendWalletService from '../core/services/universalWalletService';
 // OmniFlow EMS v2.5 � Telecalling + Mobile UI � Build 20260729
 // CACHE BUSTER: 2026-07-29 03:20 PM - Verified 100% syntactically balanced JSX!
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
@@ -6554,25 +6555,97 @@ export default function DashboardShell({ authUser, setAuthUser }) {
       alert('Please select or connect a WhatsApp channel first.');
       return;
     }
+
+    // 1. Filter target recipients
+    const targetRecipients = (contacts || []).filter(c => {
+      if (broadcastStage === 'all') return true;
+      return String(c.pipeline_stage || c.stage || '') === String(broadcastStage);
+    }).filter(c => Boolean(c.phone || c.rawPhone || c.phoneNumber || c.id));
+
+    if (targetRecipients.length === 0) {
+      alert('No valid contacts found in the selected pipeline stage.');
+      return;
+    }
+
+    // 2. Pre-check Universal Wallet Float
+    const activeTenant = authUser?.companyId || authUser?.tenantId || 1;
+    let broadcastRate = 0.30;
     try {
-      setBroadcastProgress({ current: 0, total: 1, status: 'sending' });
-      const res = await fetch(`${API_URL}/broadcast`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          stage: broadcastStage,
-          message: broadcastMessage.trim(),
-          sessionId: activeSession
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to initiate broadcast');
+      const walletStatus = await frontendWalletService.fetchWalletStatus(activeTenant);
+      const currentBal = walletStatus?.wallet?.balance || 0;
+      broadcastRate = walletStatus?.rates?.whatsapp_bulk_broadcast?.rate || 0.30;
+      const totalCost = parseFloat((targetRecipients.length * broadcastRate).toFixed(4));
+
+      if (currentBal < totalCost) {
+        alert(`Insufficient Wallet Balance: This campaign requires ₹${totalCost.toFixed(2)} (${targetRecipients.length} recipients @ ₹${broadcastRate.toFixed(2)}/msg), but your current balance is ₹${currentBal.toFixed(2)}. Please recharge your wallet.`);
+        return;
       }
-      setBroadcastProgress({ current: 0, total: data.total, status: 'sending' });
+    } catch (wCheckErr) {
+      console.warn('[Broadcast Wallet Pre-Check Notice]:', wCheckErr.message);
+    }
+
+    try {
+      setBroadcastProgress({ current: 0, total: targetRecipients.length, status: 'sending' });
+      let sentCount = 0;
+
+      for (let i = 0; i < targetRecipients.length; i++) {
+        const c = targetRecipients[i];
+        const rawP = c.phone || c.rawPhone || c.phoneNumber || c.id;
+        const cleanDigits = String(rawP).replace(/\D/g, '');
+        const norm10 = cleanDigits.length >= 7 ? cleanDigits.slice(-10) : '';
+        const intlPhone = norm10 ? `91${norm10}` : cleanDigits;
+
+        const token = localStorage.getItem('omnilflow_token') || localStorage.getItem('token') || '';
+        try {
+          await fetch(`${API_URL}/messages/send`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+              'x-tenant-id': String(activeTenant)
+            },
+            body: JSON.stringify({
+              sessionId: activeSession,
+              recipientJid: `${intlPhone}@s.whatsapp.net`,
+              phone: intlPhone,
+              text: broadcastMessage.trim(),
+              messageType: 'whatsapp_bulk_broadcast',
+              isBulk: true,
+              tenantId: activeTenant
+            })
+          });
+
+          sentCount++;
+
+          // Deduct from wallet with bulk broadcast tier rate
+          frontendWalletService.deductForMessage({
+            tenantId: activeTenant,
+            messageType: 'whatsapp_bulk_broadcast',
+            count: 1,
+            recipientPhone: intlPhone,
+            description: `Bulk campaign message to ${c.name || intlPhone}`
+          }).catch(e => console.warn('[Broadcast Deduct Notice]', e.message));
+
+        } catch (sendErr) {
+          console.warn(`[Broadcast Send Notice for ${intlPhone}]`, sendErr.message);
+        }
+
+        setBroadcastProgress({ current: i + 1, total: targetRecipients.length, status: 'sending' });
+
+        // Safe randomized human delay between sends (1.5 - 2.5s)
+        if (i < targetRecipients.length - 1) {
+          const delayMs = 1500 + Math.floor(Math.random() * 1000);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+
+      setBroadcastProgress({ current: targetRecipients.length, total: targetRecipients.length, status: 'completed' });
+      if (typeof showToast === 'function') {
+        showToast(`🎉 Broadcast completed! ${sentCount} messages sent.`, 'success');
+      }
     } catch (err) {
       console.error(err);
-      alert(err.message || 'Error starting broadcast campaign.');
+      alert(err.message || 'Error executing broadcast campaign.');
       setBroadcastProgress(null);
     }
   };
