@@ -136,6 +136,14 @@ class UniversalWalletService {
       const currentBalance = parseFloat(walletRow.balance);
       const minThreshold = parseFloat(walletRow.min_threshold);
 
+      if (messageId) {
+        const existingTx = await client.query('SELECT id FROM wallet_transactions WHERE reference_id = $1 LIMIT 1;', [messageId]);
+        if (existingTx.rows.length > 0) {
+          await client.query('COMMIT');
+          return { success: true, alreadyDeducted: true, currentBalance };
+        }
+      }
+
       // Resolve effective rate
       const rateRes = await client.query(`
         SELECT COALESCE(o.custom_rate, g.default_rate) as effective_rate
