@@ -941,7 +941,16 @@ export async function destroySession(id) {
 
 // Send WhatsApp text message
 export async function sendWhatsAppMessage(sessionId, recipientJid, text, tenantId = 1) {
-  const sock = activeSockets.get(sessionId);
+  let sock = activeSockets.get(sessionId);
+  if (!sock) {
+    for (const [id, s] of activeSockets.entries()) {
+      if (s && !s.isClosed) {
+        sock = s;
+        sessionId = id;
+        break;
+      }
+    }
+  }
   if (!sock) {
     throw new Error('WhatsApp session is not connected or active');
   }

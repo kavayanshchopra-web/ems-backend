@@ -2147,10 +2147,14 @@ export default function setupRoutes(io) {
     const activeTenantId = parseInt(tenantId, 10) || 1;
     const messageType = req.body.messageType || (req.body.isTemplate ? 'whatsapp_template_msg' : (req.body.isBulk ? 'whatsapp_bulk_broadcast' : 'whatsapp_normal_chat'));
 
-    // 0. Universal Wallet Pre-Check & Strict Zero-Balance Block
+    // 0. Universal Wallet Pre-Check (Fast 400ms timeout so message sending is never delayed by remote DB latency)
     try {
-      const canSendCheck = await universalWalletService.checkCanSend(activeTenantId, messageType, 1);
-      if (!canSendCheck.allowed) {
+      const fastTimeout = new Promise((resolve) => setTimeout(() => resolve({ allowed: true }), 400));
+      const canSendCheck = await Promise.race([
+        universalWalletService.checkCanSend(activeTenantId, messageType, 1),
+        fastTimeout
+      ]);
+      if (canSendCheck && canSendCheck.allowed === false) {
         return res.status(402).json({
           success: false,
           error: 'INSUFFICIENT_WALLET_BALANCE',
