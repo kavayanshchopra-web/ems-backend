@@ -409,17 +409,21 @@ class FrontendUniversalWalletService {
       }
 
       // 3. Insert transaction ledger entry
+      const rechargeTxnId = `TXN-REC-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       await fetch(`${SUPABASE_REST_URL}/wallet_transactions`, {
         method: 'POST',
-        headers: SUPABASE_HEADERS,
+        headers: { ...SUPABASE_HEADERS, 'Prefer': 'return=representation' },
         body: JSON.stringify({
+          id: rechargeTxnId,
           tenant_id: cleanTenant,
+          service_key: 'wallet_topup',
+          transaction_type: 'CREDIT',
           amount: rechargeAmount,
-          type: 'CREDIT',
-          category: 'RECHARGE',
+          balance_before: currentBal,
+          balance_after: newBalance,
+          reference_id: paymentId || rechargeTxnId,
           description: `Universal Wallet Top-Up via Razorpay UPI/NetBanking (${paymentId || 'Instant'})`,
-          reference_id: paymentId || `TXN-RECHARGE-${Date.now()}`,
-          closing_balance: newBalance,
+          trigger_source: 'RAZORPAY_GATEWAY',
           created_at: new Date().toISOString()
         })
       });
