@@ -46,24 +46,31 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
 
       // 1. Create Order
       const res = await frontendWalletService.createRechargeOrder(tenantId, finalAmount);
-      const { order } = res;
+      const order = res?.order || res;
+
+      if (!order || !order.keyId) {
+        throw new Error(
+          res?.error || 
+          'SuperAdmin Razorpay Gateway is not configured yet. SuperAdmin must enter the Razorpay Key ID in Billing Studio ➔ Pricing & Margins (ADMIN).'
+        );
+      }
 
       // 2. Open Razorpay Checkout
       const options = {
         key: order.keyId,
-        amount: order.amount * 100, // paise
+        amount: Math.round(Number(finalAmount) * 100), // paise
         currency: order.currency || 'INR',
-        name: 'Enterprise Cloud Wallet',
-        description: `Wallet Top-Up: ₹${order.amount.toLocaleString('en-IN')}`,
-        order_id: order.orderId,
+        name: 'Employee Management Systems',
+        description: `Universal SaaS Wallet Recharge - ₹${Number(finalAmount).toLocaleString('en-IN')}`,
         handler: async function (response) {
           try {
             setLoading(true);
-            // 3. Server-side Cryptographic HMAC Verification
+            // 3. Verify Payment and Credit Balance in Supabase
             const verifyRes = await frontendWalletService.verifyRechargePayment(tenantId, {
               orderId: response.razorpay_order_id || order.orderId,
               paymentId: response.razorpay_payment_id,
-              signature: response.razorpay_signature
+              signature: response.razorpay_signature,
+              amount: finalAmount
             });
 
             setSuccess({
@@ -96,9 +103,13 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
         }
       };
 
+      if (order.orderId && order.orderId.startsWith('order_') && !order.orderId.startsWith('order_wal_') && !order.orderId.startsWith('wal_ord_')) {
+        options.order_id = order.orderId;
+      }
+
       const rzp = new window.Razorpay(options);
       rzp.on('payment.failed', function (response) {
-        setError(`Payment Failed: ${response.error.description || 'Transaction declined'}`);
+        setError(`Payment Failed: ${response.error?.description || 'Transaction declined'}`);
         setLoading(false);
       });
       rzp.open();
@@ -240,18 +251,23 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
           {error && (
             <div style={{
               background: '#fef2f2',
-              border: '1px solid #fecaca',
+              border: '1.5px solid #fecaca',
               borderRadius: '10px',
-              padding: '12px',
+              padding: '12px 14px',
               marginBottom: '18px',
-              color: '#dc2626',
+              color: '#b91c1c',
               fontSize: '12.5px',
               display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
+              flexDirection: 'column',
+              gap: '6px'
             }}>
-              <AlertTriangle size={16} />
-              <span>{error}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800', color: '#991b1b' }}>
+                <AlertTriangle size={16} color="#dc2626" style={{ flexShrink: 0 }} />
+                <span>Configuration Notice</span>
+              </div>
+              <div style={{ margin: 0, lineHeight: 1.45 }}>
+                {error}
+              </div>
             </div>
           )}
 

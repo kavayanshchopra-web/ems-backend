@@ -201,7 +201,9 @@ export async function authMiddleware(req, res, next) {
     req.path.startsWith('/crm') ||
     req.path.startsWith('/calls') ||
     req.path.startsWith('/telecalling') ||
-    req.path.startsWith('/sessions')
+    req.path.startsWith('/sessions') ||
+    req.path.startsWith('/wallet') ||
+    req.path.startsWith('/api/wallet')
   ) {
     const headerTenant = req.headers?.['x-tenant-id'] || req.headers?.['x-company-id'] || req.query?.tenant_id || null;
     const authHeader = req.headers?.['authorization'];

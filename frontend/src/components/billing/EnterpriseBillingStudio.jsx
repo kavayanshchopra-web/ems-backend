@@ -84,6 +84,15 @@ export default function EnterpriseBillingStudio({
   });
   const [isSavingRates, setIsSavingRates] = useState(false);
 
+  // SuperAdmin Platform Gateway Config State
+  const [gatewayConfig, setGatewayConfig] = useState({
+    keyId: '',
+    keySecret: '',
+    mode: 'test',
+    enabled: true
+  });
+  const [isSavingGateway, setIsSavingGateway] = useState(false);
+
   // Keep selectedSubAccount in sync if user changes and is not superadmin
   useEffect(() => {
     if (!isSuperAdmin) {
@@ -117,6 +126,21 @@ export default function EnterpriseBillingStudio({
       if (Array.isArray(txs)) {
         setAllTransactions(txs);
         try { localStorage.setItem('ems_billing_cache_txs', JSON.stringify(txs)); } catch {}
+      }
+
+      // Fetch SuperAdmin Central Gateway Configuration
+      try {
+        const gw = await frontendWalletService.getSystemGatewayConfig();
+        if (gw) {
+          setGatewayConfig(prev => ({
+            ...prev,
+            keyId: gw.keyId || '',
+            mode: gw.mode || 'test',
+            enabled: gw.enabled !== false
+          }));
+        }
+      } catch (gErr) {
+        console.warn('[BillingStudio Gateway Config load notice]:', gErr.message);
       }
     } catch (err) {
       console.warn('[EnterpriseBillingStudio load error]:', err.message);
@@ -495,6 +519,23 @@ export default function EnterpriseBillingStudio({
       if (showToast) showToast(err.message || 'Failed to update rates', 'error');
     } finally {
       setIsSavingRates(false);
+    }
+  };
+
+  // Handle Save SuperAdmin Razorpay Gateway
+  const handleSaveGatewayConfig = async () => {
+    setIsSavingGateway(true);
+    try {
+      if (!gatewayConfig.keyId || !gatewayConfig.keyId.trim()) {
+        throw new Error('Please enter a valid Razorpay Key ID (e.g. rzp_live_... or rzp_test_...).');
+      }
+      await frontendWalletService.saveSystemGatewayConfig(gatewayConfig);
+      if (showToast) showToast('✅ SuperAdmin Razorpay Gateway saved successfully! All wallet top-ups will route to this account.', 'success');
+      await loadBillingData();
+    } catch (err) {
+      if (showToast) showToast(err.message || 'Failed to save gateway config', 'error');
+    } finally {
+      setIsSavingGateway(false);
     }
   };
 
@@ -2405,6 +2446,166 @@ export default function EnterpriseBillingStudio({
                   }}
                 >
                   {isSavingRates ? 'Saving Rates...' : 'Save Global Rates'}
+                </button>
+              </div>
+
+              {/* SuperAdmin Central Payment Gateway Card */}
+              <div style={{
+                background: '#ffffff',
+                border: '1.5px solid #0d9488',
+                borderRadius: '14px',
+                padding: '24px',
+                boxShadow: '0 4px 16px rgba(13, 148, 136, 0.08)',
+                maxWidth: '680px',
+                marginTop: '24px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ShieldCheck size={20} color="#0d9488" />
+                    <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0f2b26', margin: 0 }}>
+                      Platform Payment Gateway (SuperAdmin Razorpay Account)
+                    </h3>
+                  </div>
+                  <span style={{
+                    padding: '3px 10px',
+                    borderRadius: '20px',
+                    background: gatewayConfig.keyId ? '#dcfce7' : '#fef3c7',
+                    color: gatewayConfig.keyId ? '#15803d' : '#b45309',
+                    fontSize: '11px',
+                    fontWeight: '800'
+                  }}>
+                    {gatewayConfig.keyId ? '● Gateway Active' : '⚠ Action Required'}
+                  </span>
+                </div>
+
+                <div style={{
+                  background: '#f0fdf4',
+                  border: '1px solid #bbf7d0',
+                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  marginBottom: '18px',
+                  fontSize: '12px',
+                  color: '#166534',
+                  lineHeight: 1.5
+                }}>
+                  🔒 <strong>Platform Isolation Security:</strong> This Razorpay merchant account belongs exclusively to the <strong>SuperAdmin</strong>. When tenant companies, clients, or sub-accounts recharge their Universal Wallet, 100% of the funds deposit directly into this SuperAdmin bank account. Sub-account companies cannot change this gateway or route wallet funds to their personal accounts.
+                </div>
+
+                {/* Gateway Key ID */}
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                    Razorpay Key ID *
+                  </label>
+                  <input
+                    type="text"
+                    value={gatewayConfig.keyId}
+                    onChange={(e) => setGatewayConfig(prev => ({ ...prev, keyId: e.target.value.trim() }))}
+                    placeholder="e.g. rzp_live_... or rzp_test_..."
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      border: '1.5px solid #cbd5e1',
+                      fontSize: '13px',
+                      color: '#0f2b26',
+                      fontWeight: '600',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  <span style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                    From your Razorpay Dashboard → Account & Settings → API Keys.
+                  </span>
+                </div>
+
+                {/* Gateway Key Secret */}
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                    Razorpay Key Secret (Optional / Update)
+                  </label>
+                  <input
+                    type="password"
+                    value={gatewayConfig.keySecret}
+                    onChange={(e) => setGatewayConfig(prev => ({ ...prev, keySecret: e.target.value.trim() }))}
+                    placeholder="Enter secret only to update (stored securely)"
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      border: '1.5px solid #cbd5e1',
+                      fontSize: '13px',
+                      color: '#0f2b26',
+                      fontWeight: '600',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                {/* Mode Selector */}
+                <div style={{ marginBottom: '22px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                    Environment Mode
+                  </label>
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <label style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      color: '#334155',
+                      cursor: 'pointer'
+                    }}>
+                      <input
+                        type="radio"
+                        name="ems_gateway_mode"
+                        value="test"
+                        checked={gatewayConfig.mode === 'test'}
+                        onChange={() => setGatewayConfig(prev => ({ ...prev, mode: 'test' }))}
+                      />
+                      Test Sandbox
+                    </label>
+                    <label style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      color: '#334155',
+                      cursor: 'pointer'
+                    }}>
+                      <input
+                        type="radio"
+                        name="ems_gateway_mode"
+                        value="live"
+                        checked={gatewayConfig.mode === 'live'}
+                        onChange={() => setGatewayConfig(prev => ({ ...prev, mode: 'live' }))}
+                      />
+                      Live Production
+                    </label>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSaveGatewayConfig}
+                  disabled={isSavingGateway}
+                  style={{
+                    background: 'linear-gradient(135deg, #0f2b26 0%, #0d9488 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '10px 22px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: '800',
+                    cursor: isSavingGateway ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 2px 8px rgba(15, 43, 38, 0.25)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Zap size={14} />
+                  {isSavingGateway ? 'Saving Gateway...' : 'Save SuperAdmin Gateway'}
                 </button>
               </div>
             </div>
