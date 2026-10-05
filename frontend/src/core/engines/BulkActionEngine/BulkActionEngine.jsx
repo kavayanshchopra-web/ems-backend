@@ -26,6 +26,7 @@ import { LabelEngine } from '../LabelEngine';
 import { getNextSequentialId } from '../../../services/atsStorageService';
 import FirebaseCloudEngine from '../FirebaseCloudEngine';
 import { SupabaseSandboxService, isSandboxEnvironment } from '../../services/supabaseSandboxService';
+import frontendWalletService from '../../services/universalWalletService';
 
 export default function BulkActionEngine({
   selectedIds = [],
@@ -52,6 +53,8 @@ export default function BulkActionEngine({
 
   // Form states for bulk modals
   const [whatsAppMessage, setWhatsAppMessage] = useState('');
+  const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
+  const [broadcastProgressText, setBroadcastProgressText] = useState('');
   const [selectedAgent, setSelectedAgent] = useState('');
   const [selectedStage, setSelectedStage] = useState('');
   const [newTag, setNewTag] = useState('');
@@ -355,30 +358,156 @@ export default function BulkActionEngine({
     setNewTag('');
   };
 
-  // 10. CRM BULK WHATSAPP BROADCAST
-  const handleSendWhatsAppBroadcast = () => {
+  // 10. CRM BULK WHATSAPP BROADCAST (REAL-TIME ENGINE WITH WALLET DEDUCTION)
+  const handleSendWhatsAppBroadcast = async () => {
     if (!whatsAppMessage.trim()) {
       showToast('⚠️ Please enter a message for WhatsApp broadcast', 'error');
       return;
     }
+
     const idsSet = new Set(selectedIds || []);
-    const timeNow = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    const updated = (records || []).map(r => {
-      if (r && idsSet.has(r.id)) {
-        const prevNotes = r.notes ? `${r.notes}\n` : '';
-        return {
-          ...r,
-          notes: `${prevNotes}[${timeNow}] WhatsApp Broadcast Sent: "${whatsAppMessage.substring(0, 30)}..."`,
-          updatedAt: new Date().toISOString()
-        };
+    const targetContacts = (records || []).filter(r => r && idsSet.has(r.id));
+    if (targetContacts.length === 0) {
+      showToast('⚠️ No contacts selected', 'error');
+      return;
+    }
+
+    const isDesktop = typeof window !== 'undefined' && (Boolean(window.electronAPI) || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const API_URL = isDesktop ? 'http://localhost:5000/api' : 'https://api.employeemanagementsystems.com/api';
+    const token = typeof window !== 'undefined' ? (localStorage.getItem('omnilflow_token') || localStorage.getItem('token')) : null;
+    const activeTenant = authUser?.companyId || authUser?.tenantId || localStorage.getItem('activeTenantId') || localStorage.getItem('tenantId') || 1;
+
+    setIsSendingBroadcast(true);
+
+    try {
+      // 1. Fetch active connected WhatsApp session
+      let activeSession = null;
+      try {
+        const sRes = await fetch(`${API_URL}/sessions`, {
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            'x-tenant-id': String(activeTenant)
+          }
+        });
+        const sData = await sRes.json();
+        const connected = (Array.isArray(sData) ? sData : []).find(s => s.status === 'connected');
+        if (connected) activeSession = connected.id;
+      } catch (e) {
+        console.warn('[BulkActionEngine] Session check notice:', e.message);
       }
-      return r;
-    });
-    setRecords(updated);
-    showToast(`🚀 WhatsApp Broadcast dispatched to ${selectedCount} contacts!`, 'success');
-    setSelectedIds([]);
-    setShowWhatsAppModal(false);
-    setWhatsAppMessage('');
+
+      if (!activeSession) {
+        showToast('⚠️ No connected WhatsApp session found. Please connect your WhatsApp channel first.', 'error');
+        setIsSendingBroadcast(false);
+        return;
+      }
+
+      // 2. Pre-flight Wallet Check
+      const bulkRate = 0.30;
+      const totalEstimatedCost = Number((targetContacts.length * bulkRate).toFixed(2));
+      try {
+        const wallet = await frontendWalletService.getWallet(activeTenant);
+        const currentBal = wallet?.balance ?? 0;
+        if (currentBal < totalEstimatedCost) {
+          showToast(`❌ Insufficient Wallet Balance: Campaign cost is ₹${totalEstimatedCost}, but current balance is ₹${currentBal.toFixed(2)}. Please recharge float.`, 'error');
+          setIsSendingBroadcast(false);
+          return;
+        }
+      } catch (wErr) {
+        console.warn('[BulkActionEngine] Pre-flight wallet notice:', wErr.message);
+      }
+
+      // 3. Send to each recipient with anti-ban delay and real-time wallet deduction
+      let sentCount = 0;
+      const timeNow = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+      for (let i = 0; i < targetContacts.length; i++) {
+        const c = targetContacts[i];
+        const rawP = c.phone || c.rawPhone || c.phoneNumber || c.mobile || c.id;
+        const cleanDigits = String(rawP).replace(/\D/g, '');
+        const norm10 = cleanDigits.length >= 7 ? cleanDigits.slice(-10) : '';
+        const intlPhone = norm10 ? `91${norm10}` : cleanDigits;
+
+        if (!intlPhone) continue;
+
+        // Personalized text with {name} replacement
+        const personalizedText = whatsAppMessage.replace(/\{name\}/gi, c.name || 'there').trim();
+
+        setBroadcastProgressText(`Sending ${i + 1} of ${targetContacts.length} to ${c.name || intlPhone}...`);
+
+        try {
+          const sendRes = await fetch(`${API_URL}/messages/send`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+              'x-tenant-id': String(activeTenant)
+            },
+            body: JSON.stringify({
+              sessionId: activeSession,
+              recipientJid: `${intlPhone}@s.whatsapp.net`,
+              phone: intlPhone,
+              text: personalizedText,
+              messageType: 'whatsapp_bulk_broadcast',
+              isBulk: true,
+              tenantId: activeTenant
+            })
+          });
+
+          if (sendRes.ok) {
+            sentCount++;
+          }
+
+          // Deduct from wallet with bulk broadcast tier rate
+          await frontendWalletService.deductForMessage({
+            tenantId: activeTenant,
+            messageType: 'whatsapp_bulk_broadcast',
+            count: 1,
+            recipientPhone: intlPhone,
+            description: `Bulk campaign message to ${c.name || intlPhone}`
+          }).catch(e => console.warn('[Bulk Deduct Notice]', e.message));
+
+        } catch (sendErr) {
+          console.warn(`[Bulk Send Failed for ${intlPhone}]:`, sendErr.message);
+        }
+
+        // Anti-ban randomized human spacing between sends (1.5s - 2.5s)
+        if (i < targetContacts.length - 1) {
+          const delayMs = 1500 + Math.floor(Math.random() * 1000);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+
+      // Update contact records with note
+      const updated = (records || []).map(r => {
+        if (r && idsSet.has(r.id)) {
+          const prevNotes = r.notes ? `${r.notes}\n` : '';
+          return {
+            ...r,
+            notes: `${prevNotes}[${timeNow}] WhatsApp Broadcast Sent: "${whatsAppMessage.substring(0, 30)}..."`,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return r;
+      });
+      setRecords(updated);
+
+      // Dispatch global wallet updated event so Billing Dashboard refreshes in real-time
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ems:wallet_updated', { detail: { tenantId: activeTenant } }));
+      }
+
+      showToast(`🎉 WhatsApp Broadcast dispatched! ${sentCount} messages delivered & float deducted.`, 'success');
+      setSelectedIds([]);
+      setShowWhatsAppModal(false);
+      setWhatsAppMessage('');
+    } catch (err) {
+      console.error('[Bulk Broadcast Error]:', err);
+      showToast(err.message || 'Error executing WhatsApp broadcast', 'error');
+    } finally {
+      setIsSendingBroadcast(false);
+      setBroadcastProgressText('');
+    }
   };
 
   const isAllTotalSelected = selectedIds.length === records.length && records.length > 0;
@@ -599,9 +728,21 @@ export default function BulkActionEngine({
           title={`💬 Send WhatsApp Broadcast (${selectedCount} Contacts)`}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '4px' }}>
-            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '12px', borderRadius: '8px', fontSize: '12px', color: '#166534' }}>
-              <strong>Recipients:</strong> {selectedCount} contacts selected with phone numbers ready for WhatsApp delivery.
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '12px', borderRadius: '8px', fontSize: '12px', color: '#166534', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <strong>Recipients:</strong> {selectedCount} contacts ready for WhatsApp delivery
+              </div>
+              <div style={{ fontWeight: '700', color: '#0f766e', background: '#ccfbf1', padding: '3px 8px', borderRadius: '5px' }}>
+                Est. Cost: ₹{(selectedCount * 0.30).toFixed(2)} (@ ₹0.30/msg)
+              </div>
             </div>
+
+            {broadcastProgressText && (
+              <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', color: '#065f46', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600' }}>
+                <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                <span>{broadcastProgressText}</span>
+              </div>
+            )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
@@ -609,6 +750,7 @@ export default function BulkActionEngine({
               </label>
               <textarea
                 value={whatsAppMessage}
+                disabled={isSendingBroadcast}
                 onChange={(e) => setWhatsAppMessage(e.target.value)}
                 placeholder="Type your WhatsApp message here... You can use {name} for the contact's name."
                 rows={4}
@@ -620,13 +762,15 @@ export default function BulkActionEngine({
                   fontSize: '13px',
                   fontFamily: 'inherit',
                   outline: 'none',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
+                  opacity: isSendingBroadcast ? 0.7 : 1
                 }}
               />
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                 <span style={{ fontSize: '11px', color: '#64748b' }}>Insert tag:</span>
                 <button
                   type="button"
+                  disabled={isSendingBroadcast}
                   onClick={() => setWhatsAppMessage(prev => prev + ' {name}')}
                   style={{ padding: '2px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#f8fafc', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}
                 >
@@ -636,7 +780,7 @@ export default function BulkActionEngine({
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
-              <Button variant="outline" size="md" onClick={() => setShowWhatsAppModal(false)}>
+              <Button variant="outline" size="md" disabled={isSendingBroadcast} onClick={() => setShowWhatsAppModal(false)}>
                 Cancel
               </Button>
               <Button
@@ -644,9 +788,14 @@ export default function BulkActionEngine({
                 size="md"
                 icon={<Send size={14} />}
                 onClick={handleSendWhatsAppBroadcast}
-                style={{ background: '#0d9488', color: '#ffffff' }}
+                disabled={isSendingBroadcast || !whatsAppMessage.trim()}
+                style={{
+                  background: isSendingBroadcast ? '#94a3b8' : '#0d9488',
+                  color: '#ffffff',
+                  cursor: isSendingBroadcast ? 'not-allowed' : 'pointer'
+                }}
               >
-                Send Broadcast
+                {isSendingBroadcast ? 'Sending Broadcast...' : 'Send Broadcast'}
               </Button>
             </div>
           </div>

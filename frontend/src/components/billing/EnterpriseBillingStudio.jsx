@@ -50,11 +50,25 @@ export default function EnterpriseBillingStudio({
   const [searchQuery, setSearchQuery] = useState('');
   const [transactionTypeFilter, setTransactionTypeFilter] = useState('ALL'); // 'ALL' | 'DEBIT' | 'CREDIT'
 
-  // Live Data States
-  const [loading, setLoading] = useState(true);
-  const [tenants, setTenants] = useState([]);
+  // Live Data States with Instant Cache Hydration
+  const [tenants, setTenants] = useState(() => {
+    try {
+      const cached = localStorage.getItem('ems_billing_cache_tenants');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   const [rates, setRates] = useState([]);
-  const [allTransactions, setAllTransactions] = useState([]); // ALL tenants' transactions
+  const [allTransactions, setAllTransactions] = useState(() => {
+    try {
+      const cached = localStorage.getItem('ems_billing_cache_txs');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [loading, setLoading] = useState(false);
 
   // SuperAdmin Credit Adjustment Modal State
   const [adjustModalTenant, setAdjustModalTenant] = useState(null);
@@ -77,14 +91,19 @@ export default function EnterpriseBillingStudio({
     }
   }, [userTenantId, isSuperAdmin]);
 
-  // Fetch Live Telemetry from Supabase via frontendWalletService
+  // Fetch Live Telemetry from Supabase via frontendWalletService in Parallel
   const loadBillingData = async () => {
-    setLoading(true);
     try {
-      // 1. Fetch all tenants + wallets + rates (joined overview)
-      const data = await frontendWalletService.fetchSuperAdminOverview();
+      const [data, txs] = await Promise.all([
+        frontendWalletService.fetchSuperAdminOverview(),
+        frontendWalletService.fetchAllTransactions()
+      ]);
+
       if (data) {
-        if (data.tenants) setTenants(data.tenants);
+        if (data.tenants && Array.isArray(data.tenants)) {
+          setTenants(data.tenants);
+          try { localStorage.setItem('ems_billing_cache_tenants', JSON.stringify(data.tenants)); } catch {}
+        }
         if (data.globalRates) {
           setRates(data.globalRates);
           const rMap = {};
@@ -95,9 +114,10 @@ export default function EnterpriseBillingStudio({
         }
       }
 
-      // 2. Fetch all transactions across all tenants using domain-aware service
-      const txs = await frontendWalletService.fetchAllTransactions();
-      setAllTransactions(Array.isArray(txs) ? txs : []);
+      if (Array.isArray(txs)) {
+        setAllTransactions(txs);
+        try { localStorage.setItem('ems_billing_cache_txs', JSON.stringify(txs)); } catch {}
+      }
     } catch (err) {
       console.warn('[EnterpriseBillingStudio load error]:', err.message);
     } finally {
