@@ -668,8 +668,31 @@ export default function EnterpriseBillingStudio({
             </strong>
           </div>
 
-          {/* Add / Grant Button */}
-          {isSuperAdmin ? (
+          {/* Prominent Always-Visible Recharge Button */}
+          <button
+            type="button"
+            onClick={onOpenRechargeModal}
+            style={{
+              background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)',
+              color: '#ffffff',
+              border: 'none',
+              padding: '7px 15px',
+              borderRadius: '8px',
+              fontSize: '12.5px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)'
+            }}
+          >
+            <Zap size={14} />
+            <span>Recharge Wallet</span>
+          </button>
+
+          {/* SuperAdmin Promotional Credit Grant */}
+          {isSuperAdmin && (
             <button
               type="button"
               onClick={() => {
@@ -679,44 +702,21 @@ export default function EnterpriseBillingStudio({
                 setAdjustReason('SuperAdmin Promotional Bonus');
               }}
               style={{
-                background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)',
-                color: '#ffffff',
-                border: 'none',
-                padding: '7px 14px',
+                background: '#ffffff',
+                border: '1px solid #0d9488',
+                color: '#0d9488',
+                padding: '7px 13px',
                 borderRadius: '8px',
                 fontSize: '12.5px',
                 fontWeight: '700',
                 cursor: 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)'
+                gap: '5px'
               }}
             >
               <Plus size={14} />
-              <span>+ Grant Credit</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onOpenRechargeModal}
-              style={{
-                background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)',
-                color: '#ffffff',
-                border: 'none',
-                padding: '7px 14px',
-                borderRadius: '8px',
-                fontSize: '12.5px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)'
-              }}
-            >
-              <Plus size={14} />
-              <span>+ Recharge</span>
+              <span>Grant Credit</span>
             </button>
           )}
 
@@ -1960,8 +1960,30 @@ export default function EnterpriseBillingStudio({
                   </div>
                 </div>
 
-                <div>
-                  {isSuperAdmin ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={onOpenRechargeModal}
+                    style={{
+                      background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '12px 24px',
+                      borderRadius: '10px',
+                      fontSize: '14px',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      boxShadow: '0 4px 12px rgba(13, 148, 136, 0.35)'
+                    }}
+                  >
+                    <Zap size={16} />
+                    <span>⚡ Recharge Wallet (UPI / QR)</span>
+                  </button>
+
+                  {isSuperAdmin && (
                     <button
                       type="button"
                       onClick={() => {
@@ -1971,44 +1993,21 @@ export default function EnterpriseBillingStudio({
                         setAdjustReason('SuperAdmin Promotional Bonus');
                       }}
                       style={{
-                        background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)',
+                        background: 'rgba(255, 255, 255, 0.12)',
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
                         color: '#ffffff',
-                        border: 'none',
-                        padding: '12px 24px',
+                        padding: '12px 20px',
                         borderRadius: '10px',
                         fontSize: '14px',
-                        fontWeight: '800',
+                        fontWeight: '700',
                         cursor: 'pointer',
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '8px',
-                        boxShadow: '0 4px 12px rgba(13, 148, 136, 0.35)'
+                        gap: '8px'
                       }}
                     >
                       <Plus size={16} />
-                      <span>+ Grant Credit to Account</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={onOpenRechargeModal}
-                      style={{
-                        background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)',
-                        color: '#ffffff',
-                        border: 'none',
-                        padding: '12px 24px',
-                        borderRadius: '10px',
-                        fontSize: '14px',
-                        fontWeight: '800',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        boxShadow: '0 4px 12px rgba(13, 148, 136, 0.35)'
-                      }}
-                    >
-                      <Plus size={16} />
-                      <span>+ Add Balance / Recharge</span>
+                      <span>+ Grant Credit</span>
                     </button>
                   )}
                 </div>
