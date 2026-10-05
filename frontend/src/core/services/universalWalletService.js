@@ -304,17 +304,17 @@ class FrontendUniversalWalletService {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data?.tenants && data.tenants.length > 0) return data;
+        if (data?.tenants && Array.isArray(data.tenants) && data.tenants.length > 0) return data;
       }
     } catch (e) {}
 
-    // Direct Supabase Telemetry with Cache Busting
+    // Direct Supabase Telemetry (Clean query without invalid PostgREST URL filter parameters)
     try {
       const [tRes, wRes, rRes, txRes] = await Promise.all([
-        fetch(`${SUPABASE_REST_URL}/tenants?select=*&_t=${Date.now()}`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
-        fetch(`${SUPABASE_REST_URL}/universal_wallets?select=*&_t=${Date.now()}`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
-        fetch(`${SUPABASE_REST_URL}/global_service_rates?is_active=eq.true&_t=${Date.now()}`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
-        fetch(`${SUPABASE_REST_URL}/wallet_transactions?select=*&_t=${Date.now()}`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => [])
+        fetch(`${SUPABASE_REST_URL}/tenants?select=*`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
+        fetch(`${SUPABASE_REST_URL}/universal_wallets?select=*`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
+        fetch(`${SUPABASE_REST_URL}/global_service_rates?is_active=eq.true`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
+        fetch(`${SUPABASE_REST_URL}/wallet_transactions?select=*`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => [])
       ]);
 
       const walletMap = new Map();
@@ -337,10 +337,30 @@ class FrontendUniversalWalletService {
         });
       }
 
+      const allTenantsList = Array.isArray(tRes) ? tRes : [];
+      const allWalletsList = Array.isArray(wRes) ? wRes : [];
+
+      const tenantMap = new Map();
+      allTenantsList.forEach(t => {
+        tenantMap.set(Number(t.id), {
+          id: Number(t.id),
+          company_name: t.company_name || (`Company #${t.id}`)
+        });
+      });
+      allWalletsList.forEach(w => {
+        const wid = Number(w.tenant_id);
+        if (!tenantMap.has(wid)) {
+          tenantMap.set(wid, {
+            id: wid,
+            company_name: `Company #${wid}`
+          });
+        }
+      });
+
       let totalClientFloat = 0;
       let lowBalanceTenantsCount = 0;
 
-      const tenantRows = (tRes || []).map(t => {
+      const tenantRows = Array.from(tenantMap.values()).map(t => {
         const tid = Number(t.id);
         const w = walletMap.get(tid);
         const bal = w ? parseFloat(w.balance || 0) : 0;
@@ -362,12 +382,19 @@ class FrontendUniversalWalletService {
         };
       });
 
+      // Sort with primary tenant 1 first, then alphabetical
+      tenantRows.sort((a, b) => {
+        if (a.tenant_id === 1) return -1;
+        if (b.tenant_id === 1) return 1;
+        return a.company_name.localeCompare(b.company_name);
+      });
+
       return {
         success: true,
         totalClientFloat,
         lowBalanceTenantsCount,
         tenants: tenantRows,
-        globalRates: (rRes || []).map(r => ({
+        globalRates: (Array.isArray(rRes) ? rRes : []).map(r => ({
           service_key: r.service_key,
           display_name: r.display_name,
           default_rate: parseFloat(r.default_rate || 0.10)
