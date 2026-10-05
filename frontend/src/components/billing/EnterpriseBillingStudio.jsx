@@ -64,9 +64,9 @@ export default function EnterpriseBillingStudio({
 
   // Rate Editing State
   const [editingRates, setEditingRates] = useState({
-    whatsapp_normal_chat: 0.10,
-    whatsapp_template_msg: 0.20,
-    whatsapp_bulk_broadcast: 0.30
+    whatsapp_normal_chat: '0.10',
+    whatsapp_template_msg: '0.20',
+    whatsapp_bulk_broadcast: '0.30'
   });
   const [isSavingRates, setIsSavingRates] = useState(false);
 
@@ -89,7 +89,7 @@ export default function EnterpriseBillingStudio({
           setRates(data.globalRates);
           const rMap = {};
           data.globalRates.forEach(r => {
-            rMap[r.service_key] = r.default_rate;
+            rMap[r.service_key] = String(r.default_rate);
           });
           setEditingRates(prev => ({ ...prev, ...rMap }));
         }
@@ -278,21 +278,21 @@ export default function EnterpriseBillingStudio({
       tiers: {
         normalChat: {
           name: '1-to-1 Normal Chat Message (EMS Web)',
-          rate: editingRates.whatsapp_normal_chat || 0.10,
+          rate: parseFloat(editingRates.whatsapp_normal_chat) || 0.10,
           runs: tierCount.whatsapp_normal_chat,
           cost: tierSpend.whatsapp_normal_chat.toFixed(2),
           percent: normalPercent
         },
         templateMsg: {
           name: 'Single Template Message',
-          rate: editingRates.whatsapp_template_msg || 0.20,
+          rate: parseFloat(editingRates.whatsapp_template_msg) || 0.20,
           runs: tierCount.whatsapp_template_msg,
           cost: tierSpend.whatsapp_template_msg.toFixed(2),
           percent: templatePercent
         },
         bulkBroadcast: {
           name: 'Bulk Campaign Broadcast',
-          rate: editingRates.whatsapp_bulk_broadcast || 0.30,
+          rate: parseFloat(editingRates.whatsapp_bulk_broadcast) || 0.30,
           runs: tierCount.whatsapp_bulk_broadcast,
           cost: tierSpend.whatsapp_bulk_broadcast.toFixed(2),
           percent: broadcastPercent
@@ -434,20 +434,43 @@ export default function EnterpriseBillingStudio({
   const handleSaveRates = async () => {
     setIsSavingRates(true);
     try {
-      await frontendWalletService.updateRates({
-        serviceKey: 'whatsapp_normal_chat',
-        defaultRate: editingRates.whatsapp_normal_chat
+      const normalRate = parseFloat(editingRates.whatsapp_normal_chat);
+      const templateRate = parseFloat(editingRates.whatsapp_template_msg);
+      const broadcastRate = parseFloat(editingRates.whatsapp_bulk_broadcast);
+
+      if (isNaN(normalRate) || isNaN(templateRate) || isNaN(broadcastRate) || normalRate < 0 || templateRate < 0 || broadcastRate < 0) {
+        throw new Error('Please enter valid positive numeric rates for all tiers.');
+      }
+
+      await Promise.all([
+        frontendWalletService.updateRates({
+          serviceKey: 'whatsapp_normal_chat',
+          defaultRate: normalRate
+        }),
+        frontendWalletService.updateRates({
+          serviceKey: 'whatsapp_template_msg',
+          defaultRate: templateRate
+        }),
+        frontendWalletService.updateRates({
+          serviceKey: 'whatsapp_bulk_broadcast',
+          defaultRate: broadcastRate
+        })
+      ]);
+
+      // Optimistically update local states immediately
+      setRates([
+        { service_key: 'whatsapp_normal_chat', default_rate: normalRate, display_name: '1-to-1 Normal Chat Message (EMS Web)' },
+        { service_key: 'whatsapp_template_msg', default_rate: templateRate, display_name: 'Single Template Message' },
+        { service_key: 'whatsapp_bulk_broadcast', default_rate: broadcastRate, display_name: 'Bulk Campaign Broadcast' }
+      ]);
+      setEditingRates({
+        whatsapp_normal_chat: String(normalRate),
+        whatsapp_template_msg: String(templateRate),
+        whatsapp_bulk_broadcast: String(broadcastRate)
       });
-      await frontendWalletService.updateRates({
-        serviceKey: 'whatsapp_template_msg',
-        defaultRate: editingRates.whatsapp_template_msg
-      });
-      await frontendWalletService.updateRates({
-        serviceKey: 'whatsapp_bulk_broadcast',
-        defaultRate: editingRates.whatsapp_bulk_broadcast
-      });
-      if (showToast) showToast('WhatsApp rates updated successfully!', 'success');
-      loadBillingData();
+
+      if (showToast) showToast('✅ 3-Tier WhatsApp wholesale rates updated successfully!', 'success');
+      await loadBillingData();
     } catch (err) {
       if (showToast) showToast(err.message || 'Failed to update rates', 'error');
     } finally {
@@ -2186,10 +2209,16 @@ export default function EnterpriseBillingStudio({
                     1-to-1 Normal Chat Message (₹ per message)
                   </label>
                   <input
-                    type="number"
-                    step="any"
-                    value={editingRates.whatsapp_normal_chat}
-                    onChange={(e) => setEditingRates({ ...editingRates, whatsapp_normal_chat: parseFloat(e.target.value) || 0 })}
+                    type="text"
+                    inputMode="decimal"
+                    value={editingRates.whatsapp_normal_chat !== undefined ? editingRates.whatsapp_normal_chat : ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                        setEditingRates(prev => ({ ...prev, whatsapp_normal_chat: val }));
+                      }
+                    }}
+                    placeholder="e.g. 0.10"
                     style={{
                       width: '100%',
                       padding: '10px 14px',
@@ -2212,10 +2241,16 @@ export default function EnterpriseBillingStudio({
                     Single Template Message (₹ per dispatch)
                   </label>
                   <input
-                    type="number"
-                    step="any"
-                    value={editingRates.whatsapp_template_msg}
-                    onChange={(e) => setEditingRates({ ...editingRates, whatsapp_template_msg: parseFloat(e.target.value) || 0 })}
+                    type="text"
+                    inputMode="decimal"
+                    value={editingRates.whatsapp_template_msg !== undefined ? editingRates.whatsapp_template_msg : ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                        setEditingRates(prev => ({ ...prev, whatsapp_template_msg: val }));
+                      }
+                    }}
+                    placeholder="e.g. 0.20"
                     style={{
                       width: '100%',
                       padding: '10px 14px',
@@ -2238,10 +2273,16 @@ export default function EnterpriseBillingStudio({
                     Bulk Campaign Broadcast (₹ per message)
                   </label>
                   <input
-                    type="number"
-                    step="any"
-                    value={editingRates.whatsapp_bulk_broadcast}
-                    onChange={(e) => setEditingRates({ ...editingRates, whatsapp_bulk_broadcast: parseFloat(e.target.value) || 0 })}
+                    type="text"
+                    inputMode="decimal"
+                    value={editingRates.whatsapp_bulk_broadcast !== undefined ? editingRates.whatsapp_bulk_broadcast : ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                        setEditingRates(prev => ({ ...prev, whatsapp_bulk_broadcast: val }));
+                      }
+                    }}
+                    placeholder="e.g. 0.30"
                     style={{
                       width: '100%',
                       padding: '10px 14px',

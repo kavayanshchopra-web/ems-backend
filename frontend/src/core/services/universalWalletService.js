@@ -311,10 +311,10 @@ class FrontendUniversalWalletService {
     // Direct Supabase Telemetry with Cache Busting
     try {
       const [tRes, wRes, rRes, txRes] = await Promise.all([
-        fetch(`${SUPABASE_REST_URL}/tenants?select=*`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
-        fetch(`${SUPABASE_REST_URL}/universal_wallets?select=*`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
-        fetch(`${SUPABASE_REST_URL}/global_service_rates?is_active=eq.true`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
-        fetch(`${SUPABASE_REST_URL}/wallet_transactions?select=*`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => [])
+        fetch(`${SUPABASE_REST_URL}/tenants?select=*&_t=${Date.now()}`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
+        fetch(`${SUPABASE_REST_URL}/universal_wallets?select=*&_t=${Date.now()}`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
+        fetch(`${SUPABASE_REST_URL}/global_service_rates?is_active=eq.true&_t=${Date.now()}`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => []),
+        fetch(`${SUPABASE_REST_URL}/wallet_transactions?select=*&_t=${Date.now()}`, { headers: SUPABASE_HEADERS }).then(r => r.json()).catch(() => [])
       ]);
 
       const walletMap = new Map();
@@ -380,31 +380,52 @@ class FrontendUniversalWalletService {
   }
 
   async updateRates(payload) {
+    const rateVal = parseFloat(payload.defaultRate);
+    if (isNaN(rateVal) || rateVal < 0) {
+      throw new Error('Please provide a valid numeric rate');
+    }
+
+    // 1. Direct Supabase Update with representation and error checking
     try {
-      const res = await fetch(`${API_BASE}/api/superadmin/wallet/rates`, {
+      if (payload.serviceKey) {
+        const patchRes = await fetch(`${SUPABASE_REST_URL}/global_service_rates?service_key=eq.${payload.serviceKey}`, {
+          method: 'PATCH',
+          headers: {
+            ...SUPABASE_HEADERS,
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify({
+            default_rate: rateVal,
+            updated_at: new Date().toISOString()
+          })
+        });
+
+        if (!patchRes.ok) {
+          const errText = await patchRes.text().catch(() => '');
+          console.warn('[Direct Supabase rate PATCH non-ok]:', patchRes.status, errText);
+        } else {
+          // Broadcast live update across all tabs and components
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('ems:rates_updated', {
+              detail: { serviceKey: payload.serviceKey, rate: rateVal }
+            }));
+          }
+        }
+      }
+    } catch (supErr) {
+      console.warn('[Direct Supabase rate update error]:', supErr.message);
+    }
+
+    // 2. Also notify VPS backend API if available
+    try {
+      await fetch(`${API_BASE}/api/superadmin/wallet/rates`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: JSON.stringify(payload)
       });
-      if (res.ok) return await res.json();
     } catch (e) {}
 
-    // Direct Supabase Update
-    try {
-      if (payload.serviceKey && payload.defaultRate !== undefined) {
-        await fetch(`${SUPABASE_REST_URL}/global_service_rates?service_key=eq.${payload.serviceKey}`, {
-          method: 'PATCH',
-          headers: SUPABASE_HEADERS,
-          body: JSON.stringify({
-            default_rate: parseFloat(payload.defaultRate),
-            updated_at: new Date().toISOString()
-          })
-        });
-      }
-      return { success: true };
-    } catch (err) {
-      throw new Error(err.message || 'Failed to update rates');
-    }
+    return { success: true };
   }
 
   async adjustCredit(tenantId, amount, reason) {
