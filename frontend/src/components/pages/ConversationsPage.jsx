@@ -2668,29 +2668,7 @@ export default function ConversationsPage({
       let sendMethod = 'desktop_webview';
       let errorMsg = null;
 
-      // 2. Direct Backend SQLite DB Persistence via Inbound-Sync (Ensures message never disappears on reload/tab switch)
-      try {
-        fetch(`${API_URL}/messages/inbound-sync`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-            'x-tenant-id': String(companyId)
-          },
-          body: JSON.stringify({
-            phone: intlPhone || cleanPhone,
-            sender: activeContact.name || cleanPhone,
-            messages: [{
-              id: outMsgId,
-              body: textToSend,
-              text: textToSend,
-              fromMe: true,
-              timestamp: nowSec
-            }],
-            tenantId: companyId
-          })
-        }).catch(() => {});
-      } catch (dbErr) {}
+
 
       // 3. Trigger Real WhatsApp Web in Embedded Desktop Webview
       if (typeof window !== 'undefined' && window.__omniflow_send_whatsapp_message) {
@@ -4477,20 +4455,19 @@ export default function ConversationsPage({
                         ) : (
                           /* Standard Text, Audio or Document Bubble */
                           <div style={{
-                            maxWidth: '72%',
+                            maxWidth: '70%',
+                            minWidth: isMe ? '86px' : '68px',
                             width: 'fit-content',
-                            padding: '6px 10px 4px 10px',
-                            borderRadius: isMe ? '8px 8px 1px 8px' : '8px 8px 8px 1px',
+                            padding: '6px 8px 6px 9px',
+                            borderRadius: isMe ? '8px 8px 2px 8px' : '8px 8px 8px 2px',
                             background: isMe ? '#d9fdd3' : '#ffffff',
                             color: '#111b21',
                             border: 'none',
-                            boxShadow: '0 1px 1px rgba(11,20,26,0.12)',
-                            fontSize: '13.5px',
-                            lineHeight: '1.4',
-                            wordBreak: 'break-word',
-                            overflowWrap: 'anywhere',
-                            whiteSpace: 'pre-wrap',
-                            position: 'relative'
+                            boxShadow: '0 1px 0.5px rgba(11,20,26,0.13)',
+                            fontSize: '14.2px',
+                            lineHeight: '19px',
+                            position: 'relative',
+                            boxSizing: 'border-box'
                           }}>
                             {hasMedia && (
                               <div style={{ marginBottom: '4px' }}>
@@ -4504,8 +4481,8 @@ export default function ConversationsPage({
                                     style={{ 
                                       color: '#0d9488', 
                                       textDecoration: 'none', 
-                                      fontSize: '12px', 
-                                      fontWeight: '700',
+                                      fontSize: '12.5px', 
+                                      fontWeight: '600',
                                       display: 'inline-flex',
                                       alignItems: 'center',
                                       gap: '6px',
@@ -4526,25 +4503,38 @@ export default function ConversationsPage({
                             {Boolean(captionText) && (!hasMedia || (!item.mediaType?.startsWith('audio') && item.mediaType !== 'audio')) && (
                               <div style={{
                                 wordBreak: 'break-word',
-                                overflowWrap: 'anywhere',
-                                whiteSpace: 'pre-wrap'
+                                overflowWrap: 'break-word',
+                                whiteSpace: 'pre-wrap',
+                                display: 'inline',
+                                fontSize: '14.2px',
+                                lineHeight: '19px',
+                                color: '#111b21'
                               }}>
                                 {captionText}
                               </div>
                             )}
 
-                            <div style={{
-                              display: 'flex',
+                            {/* WhatsApp Inline Floating Time & Status (No squishing, fits seamlessly) */}
+                            <span style={{
+                              display: 'inline-flex',
                               alignItems: 'center',
-                              justifyContent: 'flex-end',
                               gap: '3px',
-                              marginTop: '2px',
-                              fontSize: '10.5px',
-                              color: '#667781'
+                              float: 'right',
+                              position: 'relative',
+                              bottom: '-3px',
+                              marginLeft: '8px',
+                              paddingLeft: '4px',
+                              fontSize: '11px',
+                              color: '#667781',
+                              whiteSpace: 'nowrap',
+                              userSelect: 'none',
+                              lineHeight: '15px'
                             }}>
                               <span>{itemTime}</span>
                               {isMe && renderStatusTicks(item.status)}
-                            </div>
+                            </span>
+                            <div style={{ clear: 'both' }} />
+
                             {renderReactionBadge()}
                           </div>
                         )}
