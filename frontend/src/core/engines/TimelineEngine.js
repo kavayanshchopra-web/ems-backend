@@ -141,13 +141,13 @@ export class TimelineEngine {
       if (item.type === 'whatsapp') {
         const fromMeKey = item.fromMe ? 'out' : 'in';
         const itemTs = item.timestamp || 0;
-        const isMedia = Boolean(item.mediaUrl || item.mediaType);
+        const isMedia = Boolean(item.mediaUrl || (item.mediaType && item.mediaType !== 'text' && item.mediaType !== 'chat'));
 
         if (isMedia) {
-          const mediaKey = `${fromMeKey}_media_${item.mediaType || 'any'}`;
-          if (seenContentMap.has(mediaKey)) {
+          const mediaKey = `${fromMeKey}_${item.mediaUrl || item.content || ''}`;
+          if (mediaKey && seenContentMap.has(mediaKey)) {
             const prevEntry = seenContentMap.get(mediaKey);
-            if (Math.abs(itemTs - prevEntry.ts) < 25000) {
+            if (Math.abs(itemTs - prevEntry.ts) < 30000) {
               if (item.id && !item.id.startsWith('wa_out_') && prevEntry.id && prevEntry.id.startsWith('wa_out_')) {
                 dedupMap.delete(prevEntry.id);
               } else {
@@ -155,15 +155,21 @@ export class TimelineEngine {
               }
             }
           }
-          seenContentMap.set(mediaKey, { ts: itemTs, id: itemId });
+          if (mediaKey) seenContentMap.set(mediaKey, { ts: itemTs, id: itemId });
         } else if (item.content) {
           const cleanContent = String(item.content).trim();
           const contentKey = `${fromMeKey}_${cleanContent}`;
           if (seenContentMap.has(contentKey)) {
             const prevEntry = seenContentMap.get(contentKey);
             const prevTs = typeof prevEntry === 'object' ? prevEntry.ts : prevEntry;
-            if (Math.abs(itemTs - prevTs) < 12000) {
-              return;
+            const isOneOptimistic = (itemId.startsWith('wa_out_') && !prevEntry.id?.startsWith('wa_out_')) ||
+                                    (!itemId.startsWith('wa_out_') && prevEntry.id?.startsWith('wa_out_'));
+            if (isOneOptimistic && Math.abs(itemTs - prevTs) < 30000) {
+              if (!itemId.startsWith('wa_out_') && prevEntry.id?.startsWith('wa_out_')) {
+                dedupMap.delete(prevEntry.id);
+              } else {
+                return;
+              }
             }
           }
           seenContentMap.set(contentKey, { ts: itemTs, id: itemId });

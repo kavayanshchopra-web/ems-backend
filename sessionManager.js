@@ -700,6 +700,25 @@ export async function startSession(id, io) {
         contactName
       });
 
+      // Outbound message wallet deduction (ensures messages sent from WhatsApp Web/App are also counted and deducted)
+      if (fromMe && !isGroup) {
+        import('./services/UniversalWalletService.js').then(async ({ default: walletSvc }) => {
+          try {
+            await walletSvc.deductForMessage({
+              tenantId: tenantId || 1,
+              messageId: msg.key.id,
+              messageType: 'whatsapp_normal_chat',
+              count: 1,
+              recipientPhone: jid.replace(/\D/g, ''),
+              triggerSource: 'WHATSAPP_WEB_SYNC',
+              description: `WhatsApp Web chat to ${contactName || jid.replace(/\D/g, '')}`
+            });
+          } catch (wErr) {
+            console.warn('[SessionManager Wallet Deduct Notice]:', wErr.message);
+          }
+        }).catch(() => {});
+      }
+
       // Real-time GoHighLevel Sync Pipeline (Asynchronous, Non-Blocking)
       if (tenantId && !jid.endsWith('@g.us') && !jid.endsWith('@broadcast')) {
         import('./services/ghl/GhlSyncEngine.js').then(async ({ default: ghlSyncEngine }) => {
