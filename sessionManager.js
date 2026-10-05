@@ -569,9 +569,9 @@ export async function startSession(id, io) {
     }
   });
 
-  // Incoming Messages Handler
+  // Incoming & WhatsApp Web/Companion Messages Handler
   sock.ev.on('messages.upsert', async (m) => {
-    if (m.type !== 'notify') return;
+    if (m.type !== 'notify' && m.type !== 'append') return;
 
     for (const msg of m.messages) {
       let jid = msg.key.remoteJid;

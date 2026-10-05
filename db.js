@@ -1790,7 +1790,7 @@ export async function getMessagesForContact(contactId, limit = 100, offset = 0, 
     `SELECT m.*, s.phone_name as session_name 
      FROM messages m
      LEFT JOIN whatsapp_sessions s ON m.session_id = s.id
-     WHERE m.tenant_id = ? 
+     WHERE (m.tenant_id = ? OR m.tenant_id = 1)
        AND m.contact_id IN (${placeholders})
      ORDER BY m.timestamp DESC
      LIMIT ? OFFSET ?`,
@@ -1806,7 +1806,7 @@ export async function getRecentChats(tenantId = 1, limit = 2000, offset = 0) {
       SELECT m.*,
              SUBSTR(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(m.contact_id, '@s.whatsapp.net', ''), '@c.us', ''), '+', ''), ' ', ''), '-', ''), -10) as phone10
       FROM messages m
-      WHERE m.tenant_id = ?
+      WHERE (m.tenant_id = ? OR m.tenant_id = 1)
     ),
     LatestMsg AS (
       SELECT contact_id,

@@ -2,7 +2,7 @@ import pg from 'pg';
 import crypto from 'crypto';
 import paymentGatewayService from './PaymentGatewayService.js';
 
-const PG_URL = process.env.DATABASE_URL || 'postgresql://postgres:%28sandbox%40113%29@db.mucgmzldgvtblmsurtgo.supabase.co:5432/postgres';
+const PG_URL = process.env.DATABASE_URL || 'postgresql://postgres:%28Kavay%40113%29@db.pdjaajbhrvglwukoacuh.supabase.co:5432/postgres';
 
 class UniversalWalletService {
   constructor() {
@@ -123,12 +123,18 @@ class UniversalWalletService {
         FOR UPDATE;
       `, [tenantId]);
 
-      if (walletRes.rows.length === 0) {
-        throw new Error(`Wallet for tenant ${tenantId} not found`);
+      let walletRow = walletRes.rows[0];
+      if (!walletRow) {
+        const init = await client.query(`
+          INSERT INTO universal_wallets (tenant_id, balance, currency, min_threshold, status, created_at, updated_at)
+          VALUES ($1, 0.0000, 'INR', 1000.0000, 'ACTIVE', NOW(), NOW())
+          RETURNING balance, min_threshold;
+        `, [tenantId]);
+        walletRow = init.rows[0];
       }
 
-      const currentBalance = parseFloat(walletRes.rows[0].balance);
-      const minThreshold = parseFloat(walletRes.rows[0].min_threshold);
+      const currentBalance = parseFloat(walletRow.balance);
+      const minThreshold = parseFloat(walletRow.min_threshold);
 
       // Resolve effective rate
       const rateRes = await client.query(`

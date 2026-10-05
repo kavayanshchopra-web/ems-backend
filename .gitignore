@@ -13,4 +13,6 @@ android_companion_app/.gradle/
 flutter_sim_app/*.zip
 *.zip
 *.apk
+*.exe
+public/downloads/
 temp_scratcher/
