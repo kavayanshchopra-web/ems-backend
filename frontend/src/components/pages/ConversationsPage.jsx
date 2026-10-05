@@ -45,6 +45,7 @@ import {
   Wifi,
   WifiOff,
   AlertCircle,
+  AlertTriangle,
   Pin,
   Archive,
   MoreVertical,
