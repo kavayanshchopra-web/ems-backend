@@ -506,6 +506,36 @@ export default function EnterpriseBillingStudio({
       minHeight: '800px',
       boxSizing: 'border-box'
     }}>
+      <style>{`
+        .billing-table-scroll {
+          max-height: 520px;
+          overflow-y: auto;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+        .billing-table-scroll::-webkit-scrollbar {
+          width: 6px;
+          height: 6px;
+        }
+        .billing-table-scroll::-webkit-scrollbar-track {
+          background: #f8fafc;
+          border-radius: 4px;
+        }
+        .billing-table-scroll::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 4px;
+        }
+        .billing-table-scroll::-webkit-scrollbar-thumb:hover {
+          background: #0d9488;
+        }
+        .billing-sticky-header th {
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          background: #f8fafc !important;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+      `}</style>
       {/* ===================== TOP HEADER BAR ===================== */}
       <div style={{
         background: '#ffffff',
@@ -1544,18 +1574,19 @@ export default function EnterpriseBillingStudio({
                 overflow: 'hidden',
                 boxShadow: '0 1px 4px rgba(0,0,0,0.03)'
               }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
-                  <thead>
-                    <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0', color: '#64748b', fontWeight: '700' }}>
-                      <th style={{ padding: '12px 16px' }}>SUB-ACCOUNT</th>
-                      <th style={{ padding: '12px 16px' }}>OCT 2026</th>
-                      <th style={{ padding: '12px 16px' }}>SEP 2026</th>
-                      <th style={{ padding: '12px 16px' }}>CONTRIBUTION</th>
-                      <th style={{ padding: '12px 16px' }}>ACTIVITY MIX</th>
-                      <th style={{ padding: '12px 16px' }}>WALLET FLOAT</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'right' }}>ACTION</th>
-                    </tr>
-                  </thead>
+                <div className="billing-table-scroll">
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
+                    <thead className="billing-sticky-header">
+                      <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0', color: '#64748b', fontWeight: '700' }}>
+                        <th style={{ padding: '12px 16px' }}>SUB-ACCOUNT</th>
+                        <th style={{ padding: '12px 16px' }}>OCT 2026</th>
+                        <th style={{ padding: '12px 16px' }}>SEP 2026</th>
+                        <th style={{ padding: '12px 16px' }}>CONTRIBUTION</th>
+                        <th style={{ padding: '12px 16px' }}>ACTIVITY MIX</th>
+                        <th style={{ padding: '12px 16px' }}>WALLET FLOAT</th>
+                        <th style={{ padding: '12px 16px', textAlign: 'right' }}>ACTION</th>
+                      </tr>
+                    </thead>
                   <tbody>
                     {subAccountsAnalysis.length === 0 ? (
                       <tr>
@@ -1709,8 +1740,26 @@ export default function EnterpriseBillingStudio({
                   </tbody>
                 </table>
               </div>
+
+              {/* Sub-Accounts Footer Counter */}
+              <div style={{
+                padding: '10px 18px',
+                background: '#f8fafc',
+                borderTop: '1px solid #e2e8f0',
+                fontSize: '11.5px',
+                color: '#64748b',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <span>Showing <strong>{subAccountsAnalysis.length}</strong> registered sub-accounts</span>
+                {subAccountsAnalysis.length > 8 && (
+                  <span style={{ color: '#0d9488', fontWeight: '600' }}>↕ Scroll to view all sub-accounts</span>
+                )}
+              </div>
             </div>
-          )}
+          </div>
+        )}
 
           {/* ================= VIEW 3: BY ACTIVITY ================= */}
           {activeSubTab === 'by_activity' && (
@@ -2017,56 +2066,58 @@ export default function EnterpriseBillingStudio({
                     {scopedTransactions.filter(tx => tx.transaction_type === 'BONUS' || tx.transaction_type === 'CREDIT').length} records
                   </span>
                 </div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
-                  <thead>
-                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: '700' }}>
-                      <th style={{ padding: '12px 18px' }}>TXN ID</th>
-                      {selectedSubAccount === 'ALL' && <th style={{ padding: '12px 18px' }}>COMPANY</th>}
-                      <th style={{ padding: '12px 18px' }}>DATE & TIME</th>
-                      <th style={{ padding: '12px 18px' }}>DESCRIPTION</th>
-                      <th style={{ padding: '12px 18px' }}>AMOUNT</th>
-                      <th style={{ padding: '12px 18px', textAlign: 'right' }}>STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {scopedTransactions.filter(tx => tx.transaction_type === 'BONUS' || tx.transaction_type === 'CREDIT').length === 0 ? (
-                      <tr>
-                        <td colSpan={selectedSubAccount === 'ALL' ? 6 : 5} style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
-                          No recent recharge records found for this account scope.
-                        </td>
+                <div className="billing-table-scroll">
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
+                    <thead className="billing-sticky-header">
+                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: '700' }}>
+                        <th style={{ padding: '12px 18px' }}>TXN ID</th>
+                        {selectedSubAccount === 'ALL' && <th style={{ padding: '12px 18px' }}>COMPANY</th>}
+                        <th style={{ padding: '12px 18px' }}>DATE & TIME</th>
+                        <th style={{ padding: '12px 18px' }}>DESCRIPTION</th>
+                        <th style={{ padding: '12px 18px' }}>AMOUNT</th>
+                        <th style={{ padding: '12px 18px', textAlign: 'right' }}>STATUS</th>
                       </tr>
-                    ) : (
-                      scopedTransactions.filter(tx => tx.transaction_type === 'BONUS' || tx.transaction_type === 'CREDIT').map(tx => {
-                        const cName = tenants.find(t => String(t.tenant_id) === String(tx.tenant_id))?.company_name || `Tenant #${tx.tenant_id}`;
+                    </thead>
+                    <tbody>
+                      {scopedTransactions.filter(tx => tx.transaction_type === 'BONUS' || tx.transaction_type === 'CREDIT').length === 0 ? (
+                        <tr>
+                          <td colSpan={selectedSubAccount === 'ALL' ? 6 : 5} style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
+                            No recent recharge records found for this account scope.
+                          </td>
+                        </tr>
+                      ) : (
+                        scopedTransactions.filter(tx => tx.transaction_type === 'BONUS' || tx.transaction_type === 'CREDIT').map(tx => {
+                          const cName = tenants.find(t => String(t.tenant_id) === String(tx.tenant_id))?.company_name || `Tenant #${tx.tenant_id}`;
 
-                        return (
-                          <tr key={tx.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                            <td style={{ padding: '12px 18px', fontFamily: 'monospace', color: '#64748b' }}>{tx.id}</td>
-                            {selectedSubAccount === 'ALL' && (
-                              <td style={{ padding: '12px 18px', fontWeight: '700', color: '#0f2b26' }}>
-                                {cName}
+                          return (
+                            <tr key={tx.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                              <td style={{ padding: '12px 18px', fontFamily: 'monospace', color: '#64748b' }}>{tx.id}</td>
+                              {selectedSubAccount === 'ALL' && (
+                                <td style={{ padding: '12px 18px', fontWeight: '700', color: '#0f2b26' }}>
+                                  {cName}
+                                </td>
+                              )}
+                              <td style={{ padding: '12px 18px', color: '#334155' }}>
+                                {new Date(tx.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
                               </td>
-                            )}
-                            <td style={{ padding: '12px 18px', color: '#334155' }}>
-                              {new Date(tx.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
-                            </td>
-                            <td style={{ padding: '12px 18px', color: '#0f2b26', fontWeight: '600' }}>
-                              {tx.description || 'Wallet Credit'}
-                            </td>
-                            <td style={{ padding: '12px 18px', fontWeight: '800', color: '#059669' }}>
-                              +₹{parseFloat(tx.amount || 0).toFixed(2)}
-                            </td>
-                            <td style={{ padding: '12px 18px', textAlign: 'right' }}>
-                              <span style={{ background: '#ecfdf5', color: '#059669', fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px' }}>
-                                SUCCESS
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
+                              <td style={{ padding: '12px 18px', color: '#0f2b26', fontWeight: '600' }}>
+                                {tx.description || 'Wallet Credit'}
+                              </td>
+                              <td style={{ padding: '12px 18px', fontWeight: '800', color: '#059669' }}>
+                                +₹{parseFloat(tx.amount || 0).toFixed(2)}
+                              </td>
+                              <td style={{ padding: '12px 18px', textAlign: 'right' }}>
+                                <span style={{ background: '#ecfdf5', color: '#059669', fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px' }}>
+                                  SUCCESS
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -2140,65 +2191,84 @@ export default function EnterpriseBillingStudio({
                 overflow: 'hidden',
                 boxShadow: '0 1px 4px rgba(0,0,0,0.03)'
               }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
-                  <thead>
-                    <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0', color: '#64748b', fontWeight: '700' }}>
-                      <th style={{ padding: '12px 18px' }}>TIMESTAMP</th>
-                      {selectedSubAccount === 'ALL' && <th style={{ padding: '12px 18px' }}>SUB-ACCOUNT</th>}
-                      <th style={{ padding: '12px 18px' }}>SERVICE TIER</th>
-                      <th style={{ padding: '12px 18px' }}>DETAILS</th>
-                      <th style={{ padding: '12px 18px' }}>AMOUNT</th>
-                      <th style={{ padding: '12px 18px', textAlign: 'right' }}>BALANCE AFTER</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredLedger.length === 0 ? (
-                      <tr>
-                        <td colSpan={selectedSubAccount === 'ALL' ? 6 : 5} style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>
-                          No transaction records recorded yet. Outbound WhatsApp messages will automatically log deductions here.
-                        </td>
+                <div className="billing-table-scroll">
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
+                    <thead className="billing-sticky-header">
+                      <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0', color: '#64748b', fontWeight: '700' }}>
+                        <th style={{ padding: '12px 18px' }}>TIMESTAMP</th>
+                        {selectedSubAccount === 'ALL' && <th style={{ padding: '12px 18px' }}>SUB-ACCOUNT</th>}
+                        <th style={{ padding: '12px 18px' }}>SERVICE TIER</th>
+                        <th style={{ padding: '12px 18px' }}>DETAILS</th>
+                        <th style={{ padding: '12px 18px' }}>AMOUNT</th>
+                        <th style={{ padding: '12px 18px', textAlign: 'right' }}>BALANCE AFTER</th>
                       </tr>
-                    ) : (
-                      filteredLedger.map(tx => {
-                        const cName = tenants.find(t => String(t.tenant_id) === String(tx.tenant_id))?.company_name || `Tenant #${tx.tenant_id}`;
+                    </thead>
+                    <tbody>
+                      {filteredLedger.length === 0 ? (
+                        <tr>
+                          <td colSpan={selectedSubAccount === 'ALL' ? 6 : 5} style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>
+                            No transaction records recorded yet. Outbound WhatsApp messages will automatically log deductions here.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredLedger.map(tx => {
+                          const cName = tenants.find(t => String(t.tenant_id) === String(tx.tenant_id))?.company_name || `Tenant #${tx.tenant_id}`;
 
-                        return (
-                          <tr key={tx.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                            <td style={{ padding: '12px 18px', color: '#64748b' }}>
-                              {new Date(tx.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
-                            </td>
-                            {selectedSubAccount === 'ALL' && (
-                              <td style={{ padding: '12px 18px', fontWeight: '700', color: '#0f2b26' }}>
-                                {cName}
+                          return (
+                            <tr key={tx.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                              <td style={{ padding: '12px 18px', color: '#64748b' }}>
+                                {new Date(tx.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
                               </td>
-                            )}
-                            <td style={{ padding: '12px 18px' }}>
-                              <span style={{
-                                background: tx.transaction_type === 'DEBIT' ? '#f1f5f9' : '#ecfdf5',
-                                color: tx.transaction_type === 'DEBIT' ? '#334155' : '#059669',
-                                fontSize: '11px',
-                                fontWeight: '800',
-                                padding: '3px 7px',
-                                borderRadius: '4px'
-                              }}>
-                                {tx.service_key === 'whatsapp_normal_chat' ? '1-to-1 Chat' : (tx.service_key === 'whatsapp_template_msg' ? 'Template' : (tx.service_key === 'whatsapp_bulk_broadcast' ? 'Broadcast' : 'Wallet Top-up'))}
-                              </span>
-                            </td>
-                            <td style={{ padding: '12px 18px', color: '#0f2b26', fontWeight: '600' }}>
-                              {tx.description || (tx.recipient_phone ? `To: ${tx.recipient_phone}` : 'Dispatched')}
-                            </td>
-                            <td style={{ padding: '12px 18px', fontWeight: '800', color: tx.transaction_type === 'DEBIT' ? '#e11d48' : '#059669' }}>
-                              {tx.transaction_type === 'DEBIT' ? '-' : '+'}₹{parseFloat(tx.amount || 0).toFixed(2)}
-                            </td>
-                            <td style={{ padding: '12px 18px', textAlign: 'right', fontWeight: '700', color: '#334155' }}>
-                              ₹{parseFloat(tx.balance_after || 0).toFixed(2)}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
+                              {selectedSubAccount === 'ALL' && (
+                                <td style={{ padding: '12px 18px', fontWeight: '700', color: '#0f2b26' }}>
+                                  {cName}
+                                </td>
+                              )}
+                              <td style={{ padding: '12px 18px' }}>
+                                <span style={{
+                                  background: tx.transaction_type === 'DEBIT' ? '#f1f5f9' : '#ecfdf5',
+                                  color: tx.transaction_type === 'DEBIT' ? '#334155' : '#059669',
+                                  fontSize: '11px',
+                                  fontWeight: '800',
+                                  padding: '3px 7px',
+                                  borderRadius: '4px'
+                                }}>
+                                  {tx.service_key === 'whatsapp_normal_chat' ? '1-to-1 Chat' : (tx.service_key === 'whatsapp_template_msg' ? 'Template' : (tx.service_key === 'whatsapp_bulk_broadcast' ? 'Broadcast' : 'Wallet Top-up'))}
+                                </span>
+                              </td>
+                              <td style={{ padding: '12px 18px', color: '#0f2b26', fontWeight: '600' }}>
+                                {tx.description || (tx.recipient_phone ? `To: ${tx.recipient_phone}` : 'Dispatched')}
+                              </td>
+                              <td style={{ padding: '12px 18px', fontWeight: '800', color: tx.transaction_type === 'DEBIT' ? '#e11d48' : '#059669' }}>
+                                {tx.transaction_type === 'DEBIT' ? '-' : '+'}₹{parseFloat(tx.amount || 0).toFixed(2)}
+                              </td>
+                              <td style={{ padding: '12px 18px', textAlign: 'right', fontWeight: '700', color: '#334155' }}>
+                                ₹{parseFloat(tx.balance_after || 0).toFixed(2)}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Footer status bar */}
+                <div style={{
+                  padding: '10px 18px',
+                  background: '#f8fafc',
+                  borderTop: '1px solid #e2e8f0',
+                  fontSize: '11.5px',
+                  color: '#64748b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <span>Showing <strong>{filteredLedger.length}</strong> transactions</span>
+                  {filteredLedger.length > 10 && (
+                    <span style={{ color: '#0d9488', fontWeight: '600' }}>↕ Scroll to view full ledger history ({filteredLedger.length} total)</span>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -2365,6 +2435,8 @@ export default function EnterpriseBillingStudio({
             borderRadius: '16px',
             width: '100%',
             maxWidth: '440px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
             padding: '24px',
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)'
           }}>
