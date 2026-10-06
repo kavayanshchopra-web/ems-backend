@@ -3,6 +3,14 @@ import { X, Wallet, ShieldCheck, CheckCircle2, AlertTriangle, ArrowRight, Zap, S
 import frontendWalletService from '../../core/services/universalWalletService';
 
 export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 0, onRechargeSuccess, tenantId = 1, user }) {
+  const isSuperAdmin = Boolean(
+    user?.role === 'superadmin' ||
+    user?.role === 'super_admin' ||
+    user?.isSuperAdmin === true ||
+    user?.email === 'kavayanshchopra@gmail.com' ||
+    user?.email === 'officialpcindia@gmail.com'
+  );
+
   const [selectedAmount, setSelectedAmount] = useState(1000);
   const [customAmount, setCustomAmount] = useState('');
   const [isCustom, setIsCustom] = useState(false);
@@ -10,7 +18,7 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
-  // Inline Razorpay Gateway Configuration State
+  // Inline Razorpay Gateway Configuration State (SuperAdmin only)
   const [showGatewayConfig, setShowGatewayConfig] = useState(false);
   const [gwKeyId, setGwKeyId] = useState('');
   const [gwKeySecret, setGwKeySecret] = useState('');
@@ -19,7 +27,7 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
   const [gwSaveSuccess, setGwSaveSuccess] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && isSuperAdmin) {
       frontendWalletService.getSystemGatewayConfig().then(gw => {
         if (gw && gw.keyId) {
           setGwKeyId(gw.keyId);
@@ -27,7 +35,7 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
         }
       }).catch(() => {});
     }
-  }, [isOpen]);
+  }, [isOpen, isSuperAdmin]);
 
   const handleSaveGatewayCredentials = async (e) => {
     if (e) e.preventDefault();
@@ -94,8 +102,9 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
 
       if (!order || !order.keyId) {
         throw new Error(
-          res?.error || 
-          'SuperAdmin Razorpay Gateway is not configured yet. SuperAdmin must enter the Razorpay Key ID in Billing Studio ➔ Pricing & Margins (ADMIN).'
+          isSuperAdmin
+            ? (res?.error || 'SuperAdmin Razorpay Gateway is not configured yet. SuperAdmin must enter the Razorpay Key ID in Billing Studio ➔ Pricing & Margins (ADMIN).')
+            : 'Online recharge gateway is temporarily not configured by platform admin. Please contact support or the administrator to recharge.'
         );
       }
 
@@ -158,7 +167,10 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
       });
       rzp.open();
     } catch (err) {
-      setError(err.message || 'Failed to initiate recharge');
+      const msg = (!isSuperAdmin && err.message && err.message.toLowerCase().includes('superadmin'))
+        ? 'Online recharge gateway is temporarily not configured by platform admin. Please contact support or the administrator to recharge.'
+        : (err.message || 'Failed to initiate recharge');
+      setError(msg);
       setLoading(false);
     }
   };
@@ -327,28 +339,30 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800', color: '#991b1b' }}>
                   <AlertTriangle size={16} color="#dc2626" style={{ flexShrink: 0 }} />
-                  <span>Configuration Notice</span>
+                  <span>{isSuperAdmin ? 'Configuration Notice' : 'Recharge Notice'}</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowGatewayConfig(!showGatewayConfig)}
-                  style={{
-                    background: '#ffffff',
-                    border: '1px solid #f87171',
-                    color: '#b91c1c',
-                    padding: '3px 8px',
-                    borderRadius: '6px',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  <Settings size={12} />
-                  <span>{showGatewayConfig ? 'Close Setup' : 'Configure Now'}</span>
-                </button>
+                {isSuperAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setShowGatewayConfig(!showGatewayConfig)}
+                    style={{
+                      background: '#ffffff',
+                      border: '1px solid #f87171',
+                      color: '#b91c1c',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <Settings size={12} />
+                    <span>{showGatewayConfig ? 'Close Setup' : 'Configure Now'}</span>
+                  </button>
+                )}
               </div>
               <div style={{ margin: 0, lineHeight: 1.45 }}>
                 {error}
@@ -356,8 +370,8 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
             </div>
           )}
 
-          {/* Inline Razorpay Configuration Drawer */}
-          {showGatewayConfig && (
+          {/* Inline Razorpay Configuration Drawer (SuperAdmin only) */}
+          {isSuperAdmin && showGatewayConfig && (
             <div style={{
               background: '#f8fafc',
               border: '1.5px solid #0d9488',

@@ -38,24 +38,21 @@ export default function EnterpriseBillingStudio({
   onOpenRechargeModal,
   onOpenInvoice
 }) {
+  const userTenantId = Number(billingTenant?.id || user?.companyId || user?.tenantId || user?.tenant_id || 1);
   const isSuperAdmin = Boolean(
     user?.role === 'superadmin' ||
     user?.role === 'super_admin' ||
     user?.isSuperAdmin === true ||
-    user?.role === 'owner' ||
-    user?.role === 'admin' ||
     user?.email === 'kavayanshchopra@gmail.com' ||
-    user?.email === 'officialpcindia@gmail.com' ||
-    Number(userTenantId) === 1
+    user?.email === 'officialpcindia@gmail.com'
   );
-  const userTenantId = Number(billingTenant?.id || user?.companyId || user?.tenantId || user?.tenant_id || 1);
 
   // Sub-navigation state
   const [activeSubTab, setActiveSubTab] = useState('usage_overview'); // 'usage_overview' | 'by_subaccount' | 'by_activity' | 'wallet_recharge' | 'transactions' | 'rates'
 
   // Filter States
   const [selectedSubAccount, setSelectedSubAccount] = useState(
-    (user?.role === 'superadmin' || user?.role === 'super_admin' || user?.isSuperAdmin === true) ? 'ALL' : String(userTenantId)
+    isSuperAdmin ? 'ALL' : String(userTenantId)
   );
   const [selectedMonth, setSelectedMonth] = useState('Oct 2026');
   const [searchQuery, setSearchQuery] = useState('');
@@ -64,6 +61,10 @@ export default function EnterpriseBillingStudio({
   // Live Data States with Instant Cache Hydration
   const [tenants, setTenants] = useState(() => {
     try {
+      if (!isSuperAdmin) {
+        const compName = billingTenant?.company_name || user?.companyName || user?.company_name || `Company #${userTenantId}`;
+        return [{ tenant_id: userTenantId, company_name: compName, balance: 0, min_threshold: 1000, status: 'ACTIVE' }];
+      }
       const cached = localStorage.getItem('ems_billing_cache_tenants');
       return cached ? JSON.parse(cached) : [];
     } catch {
@@ -73,6 +74,7 @@ export default function EnterpriseBillingStudio({
   const [rates, setRates] = useState([]);
   const [allTransactions, setAllTransactions] = useState(() => {
     try {
+      if (!isSuperAdmin) return [];
       const cached = localStorage.getItem('ems_billing_cache_txs');
       return cached ? JSON.parse(cached) : [];
     } catch {
@@ -114,44 +116,80 @@ export default function EnterpriseBillingStudio({
   // Fetch Live Telemetry from Supabase via frontendWalletService in Parallel
   const loadBillingData = async () => {
     try {
-      const [data, txs] = await Promise.all([
-        frontendWalletService.fetchSuperAdminOverview(),
-        frontendWalletService.fetchAllTransactions()
-      ]);
+      setLoading(true);
+      if (isSuperAdmin) {
+        const [data, txs] = await Promise.all([
+          frontendWalletService.fetchSuperAdminOverview(),
+          frontendWalletService.fetchAllTransactions()
+        ]);
 
-      if (data) {
-        if (data.tenants && Array.isArray(data.tenants)) {
-          setTenants(data.tenants);
-          try { localStorage.setItem('ems_billing_cache_tenants', JSON.stringify(data.tenants)); } catch {}
+        if (data) {
+          if (data.tenants && Array.isArray(data.tenants)) {
+            setTenants(data.tenants);
+            try { localStorage.setItem('ems_billing_cache_tenants', JSON.stringify(data.tenants)); } catch {}
+          }
+          if (data.globalRates) {
+            setRates(data.globalRates);
+            const rMap = {};
+            data.globalRates.forEach(r => {
+              rMap[r.service_key] = String(r.default_rate);
+            });
+            setEditingRates(prev => ({ ...prev, ...rMap }));
+          }
         }
-        if (data.globalRates) {
-          setRates(data.globalRates);
-          const rMap = {};
-          data.globalRates.forEach(r => {
-            rMap[r.service_key] = String(r.default_rate);
-          });
-          setEditingRates(prev => ({ ...prev, ...rMap }));
+
+        if (Array.isArray(txs)) {
+          setAllTransactions(txs);
+          try { localStorage.setItem('ems_billing_cache_txs', JSON.stringify(txs)); } catch {}
         }
-      }
 
-      if (Array.isArray(txs)) {
-        setAllTransactions(txs);
-        try { localStorage.setItem('ems_billing_cache_txs', JSON.stringify(txs)); } catch {}
-      }
+        // Fetch SuperAdmin Central Gateway Configuration
+        try {
+          const gw = await frontendWalletService.getSystemGatewayConfig();
+          if (gw) {
+            setGatewayConfig(prev => ({
+              ...prev,
+              keyId: gw.keyId || '',
+              mode: gw.mode || 'test',
+              enabled: gw.enabled !== false
+            }));
+          }
+        } catch (gErr) {
+          console.warn('[BillingStudio Gateway Config load notice]:', gErr.message);
+        }
+      } else {
+        // Scoped for Normal Company / Sub-account: ONLY fetch own wallet & transactions
+        const [statusData, txs] = await Promise.all([
+          frontendWalletService.fetchWalletStatus(userTenantId),
+          frontendWalletService.fetchAllTransactions(userTenantId)
+        ]);
 
-      // Fetch SuperAdmin Central Gateway Configuration
-      try {
-        const gw = await frontendWalletService.getSystemGatewayConfig();
-        if (gw) {
-          setGatewayConfig(prev => ({
-            ...prev,
-            keyId: gw.keyId || '',
-            mode: gw.mode || 'test',
-            enabled: gw.enabled !== false
+        const compName = billingTenant?.company_name || user?.companyName || user?.company_name || `Company #${userTenantId}`;
+        const myBal = parseFloat(statusData?.wallet?.balance || 0);
+        const myThresh = parseFloat(statusData?.wallet?.min_threshold || 1000);
+        const myStatus = statusData?.wallet?.status || 'ACTIVE';
+
+        const myTenant = [{
+          tenant_id: userTenantId,
+          company_name: compName,
+          balance: myBal,
+          min_threshold: myThresh,
+          status: myStatus
+        }];
+        setTenants(myTenant);
+
+        if (statusData?.rates) {
+          const rList = Object.keys(statusData.rates).map(k => ({
+            service_key: k,
+            display_name: statusData.rates[k].displayName,
+            default_rate: statusData.rates[k].rate
           }));
+          setRates(rList);
         }
-      } catch (gErr) {
-        console.warn('[BillingStudio Gateway Config load notice]:', gErr.message);
+
+        if (Array.isArray(txs)) {
+          setAllTransactions(txs);
+        }
       }
     } catch (err) {
       console.warn('[EnterpriseBillingStudio load error]:', err.message);
@@ -200,12 +238,12 @@ export default function EnterpriseBillingStudio({
     const found = tenants.find(t => String(t.tenant_id) === String(selectedSubAccount));
     return found || {
       tenant_id: selectedSubAccount,
-      company_name: `Company #${selectedSubAccount}`,
+      company_name: billingTenant?.company_name || user?.companyName || user?.company_name || `Company #${selectedSubAccount}`,
       balance: 0,
       min_threshold: 1000,
       status: 'ACTIVE'
     };
-  }, [selectedSubAccount, tenants]);
+  }, [selectedSubAccount, tenants, billingTenant, user]);
 
   // Scoped Transactions (ALL vs Selected Sub-Account)
   const scopedTransactions = useMemo(() => {
