@@ -5811,10 +5811,10 @@ ${recordingUrl && recordingUrl.startsWith('http') ? `🎧 *Audio Recording Evide
     try {
       const tenantId = parseInt(req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.body?.tenantId || 1, 10);
       const amount = parseFloat(req.body.amount || 1000);
-      if (isNaN(amount) || amount < 1000) {
+      if (isNaN(amount) || amount < 1) {
         return res.status(400).json({
           success: false,
-          error: 'Minimum wallet recharge amount is ₹1,000.00'
+          error: 'Minimum wallet recharge amount is ₹1.00'
         });
       }
       const order = await universalWalletService.createRechargeOrder({ tenantId, amount });
