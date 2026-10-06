@@ -84,8 +84,8 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
     setError(null);
     setSuccess(null);
 
-    if (finalAmount < 1000) {
-      setError('Minimum wallet recharge amount is ₹1,000.00');
+    if (finalAmount < 1) {
+      setError('Minimum wallet recharge amount is ₹1.00');
       return;
     }
 
@@ -498,7 +498,7 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
           {/* Amount Selection */}
           <div style={{ marginBottom: '20px' }}>
             <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: '#334155', marginBottom: '8px' }}>
-              Select Recharge Pack (Minimum: ₹1,000)
+              Select Recharge Pack or Custom Amount (Min: ₹1)
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
               {[
@@ -568,9 +568,9 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
                 <span style={{ fontSize: '13px', fontWeight: '700', color: '#64748b' }}>Custom ₹</span>
                 <input
                   type="number"
-                  min="1000"
-                  step="100"
-                  placeholder="Enter amount (min ₹1,000)"
+                  min="1"
+                  step="1"
+                  placeholder="Enter amount (min ₹1)"
                   value={customAmount}
                   onFocus={() => setIsCustom(true)}
                   onChange={(e) => {
@@ -611,7 +611,7 @@ export default function WalletRechargeModal({ isOpen, onClose, currentBalance = 
           {/* Proceed Button */}
           <button
             type="button"
-            disabled={loading || finalAmount < 1000}
+            disabled={loading || finalAmount < 1}
             onClick={handleProceedPayment}
             style={{
               width: '100%',

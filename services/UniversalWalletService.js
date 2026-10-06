@@ -217,11 +217,11 @@ class UniversalWalletService {
     }
   }
 
-  // 5. Create Verified Recharge Order (Min ₹1,000)
+  // 5. Create Verified Recharge Order (Min ₹1)
   async createRechargeOrder({ tenantId = 1, amount = 1000 }) {
     const numAmount = parseFloat(amount);
-    if (isNaN(numAmount) || numAmount < 1000) {
-      throw new Error('Minimum wallet recharge amount is ₹1,000.00');
+    if (isNaN(numAmount) || numAmount < 1) {
+      throw new Error('Minimum wallet recharge amount is ₹1.00');
     }
 
     // Call Payment Gateway to generate order
