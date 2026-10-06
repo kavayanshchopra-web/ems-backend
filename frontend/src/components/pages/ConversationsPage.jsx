@@ -877,20 +877,20 @@ export default function ConversationsPage({
     fetchCurrentSessions();
 
     // Auto-request QR code if not already connected and no live QR code ready
-    const isBusy = isConnected || isQRReady;
+    const isBusy = isConnected || isQRReady || isConnecting;
     if (!isBusy && !startingSessionRef.current) {
       startingSessionRef.current = true;
-      handleStartSession(null, true).finally(() => {
-        setTimeout(() => { startingSessionRef.current = false; }, 3000);
+      handleStartSession(null, false).finally(() => {
+        setTimeout(() => { startingSessionRef.current = false; }, 4000);
       });
     }
 
     const interval = setInterval(() => {
       fetchCurrentSessions();
-    }, 1000);
+    }, 2500);
 
     return () => clearInterval(interval);
-  }, [showQrModal, isConnected, isQRReady]);
+  }, [showQrModal, isConnected, isQRReady, isConnecting]);
 
   // Start or trigger QR code generation for WhatsApp session
   const handleStartSession = async (sessId, force = false) => {
@@ -3419,26 +3419,28 @@ export default function ConversationsPage({
                 {conversationsList.length} Active Leads
               </span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                {/* Live Wallet Telemetry Pill */}
-                <div
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '3px 7px',
-                    borderRadius: '6px',
-                    background: walletInfo.isBelowThreshold ? '#fff1f2' : '#ecfdf5',
-                    border: `1px solid ${walletInfo.isBelowThreshold ? '#fecdd3' : '#a7f3d0'}`,
-                    color: walletInfo.isBelowThreshold ? '#be123c' : '#047857',
-                    fontSize: '10px',
-                    fontWeight: '700',
-                    whiteSpace: 'nowrap'
-                  }}
-                  title={`Universal CRM Wallet: ₹${parseFloat(walletInfo.balance || 0).toFixed(2)} (Auto-deducts per sent message)`}
-                >
-                  <Wallet size={10} style={{ color: walletInfo.isBelowThreshold ? '#e11d48' : '#059669' }} />
-                  <span>₹{parseFloat(walletInfo.balance || 0).toFixed(2)}</span>
-                </div>
+                {/* Live Wallet Telemetry Pill (Visible ONLY to Owner/Admin, Hidden for Employees) */}
+                {isOwnerOrAdmin && (
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '3px 7px',
+                      borderRadius: '6px',
+                      background: walletInfo.isBelowThreshold ? '#fff1f2' : '#ecfdf5',
+                      border: `1px solid ${walletInfo.isBelowThreshold ? '#fecdd3' : '#a7f3d0'}`,
+                      color: walletInfo.isBelowThreshold ? '#be123c' : '#047857',
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      whiteSpace: 'nowrap'
+                    }}
+                    title={`Universal CRM Wallet: ₹${parseFloat(walletInfo.balance || 0).toFixed(2)} (Auto-deducts per sent message)`}
+                  >
+                    <Wallet size={10} style={{ color: walletInfo.isBelowThreshold ? '#e11d48' : '#059669' }} />
+                    <span>₹{parseFloat(walletInfo.balance || 0).toFixed(2)}</span>
+                  </div>
+                )}
 
                 <button
                   type="button"
@@ -4018,27 +4020,29 @@ export default function ConversationsPage({
                     </button>
                   )}
 
-                  {/* Universal Wallet Live Telemetry Badge */}
-                  <div
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      padding: isMobile ? '5px 8px' : '6px 11px',
-                      borderRadius: '8px',
-                      background: walletInfo.isBelowThreshold ? '#fff1f2' : '#ecfdf5',
-                      border: `1px solid ${walletInfo.isBelowThreshold ? '#fecdd3' : '#a7f3d0'}`,
-                      color: walletInfo.isBelowThreshold ? '#be123c' : '#047857',
-                      fontSize: isMobile ? '11px' : '12px',
-                      fontWeight: '800',
-                      whiteSpace: 'nowrap',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-                    }}
-                    title={`Universal CRM Messaging Wallet: ₹${parseFloat(walletInfo.balance || 0).toFixed(2)} (Auto-deducts ₹0.10/chat, ₹0.20/template)`}
-                  >
-                    <Wallet size={13} style={{ color: walletInfo.isBelowThreshold ? '#e11d48' : '#059669' }} />
-                    <span>₹{parseFloat(walletInfo.balance || 0).toFixed(2)}</span>
-                  </div>
+                  {/* Universal Wallet Live Telemetry Badge (Visible ONLY to Owner/Admin, Hidden for Employees) */}
+                  {isOwnerOrAdmin && (
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        padding: isMobile ? '5px 8px' : '6px 11px',
+                        borderRadius: '8px',
+                        background: walletInfo.isBelowThreshold ? '#fff1f2' : '#ecfdf5',
+                        border: `1px solid ${walletInfo.isBelowThreshold ? '#fecdd3' : '#a7f3d0'}`,
+                        color: walletInfo.isBelowThreshold ? '#be123c' : '#047857',
+                        fontSize: isMobile ? '11px' : '12px',
+                        fontWeight: '800',
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                      }}
+                      title={`Universal CRM Messaging Wallet: ₹${parseFloat(walletInfo.balance || 0).toFixed(2)} (Auto-deducts ₹0.10/chat, ₹0.20/template)`}
+                    >
+                      <Wallet size={13} style={{ color: walletInfo.isBelowThreshold ? '#e11d48' : '#059669' }} />
+                      <span>₹{parseFloat(walletInfo.balance || 0).toFixed(2)}</span>
+                    </div>
+                  )}
 
                   {!isMobile && (
                     <button

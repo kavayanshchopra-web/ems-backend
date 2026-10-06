@@ -276,17 +276,20 @@ export async function startSession(id, io) {
       activeSockets.delete(id);
 
       if (shouldReconnect) {
-        // Safe debounced reconnect with 2500ms backoff to let previous socket finish closing
+        const statusCode = lastDisconnect?.error?.output?.statusCode;
+        const isRestartRequired = statusCode === DisconnectReason.restartRequired; // Code 515 handshake restart
+        const delayMs = isRestartRequired ? 400 : 2500;
+
         if (reconnectTimers.has(id)) {
           clearTimeout(reconnectTimers.get(id));
         }
-        console.log(`[Session ${id}] Scheduling safe backoff reconnect in 2500ms...`);
+        console.log(`[Session ${id}] Scheduling safe backoff reconnect in ${delayMs}ms (status code: ${statusCode || 'unknown'})...`);
         const timer = setTimeout(() => {
           reconnectTimers.delete(id);
           startSession(id, io).catch(err => {
             console.error(`[Session ${id}] Reconnect failed:`, err.message);
           });
-        }, 2500);
+        }, delayMs);
         reconnectTimers.set(id, timer);
       } else {
         // Logged out: clean credentials folder and delete session socket

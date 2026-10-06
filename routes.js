@@ -1524,8 +1524,8 @@ export default function setupRoutes(io) {
 
       const force = req.query.force === 'true' || req.body?.force === true;
 
-      // If session is already fully connected, do NOT kill socket unless forced
-      if (!force && session && session.status === 'connected') {
+      // If session is already fully connected or actively handshaking, do NOT kill socket unless forced
+      if (!force && session && (session.status === 'connected' || session.status === 'connecting')) {
         return res.json({ message: 'Session is already in progress', id, status: session.status });
       }
 
