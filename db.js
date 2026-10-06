@@ -1410,9 +1410,11 @@ export async function saveSession(id, phoneName, tenantId = 1) {
 export async function updateSessionStatus(id, status, qrCode = null, phoneNumber = null, profilePicUrl = null) {
   const existing = await db.get(`SELECT id FROM whatsapp_sessions WHERE id = ?`, [id]);
   if (!existing) {
+    const inferredTenant = id.startsWith('session_') ? parseInt(id.split('_')[1], 10) : 1;
+    const finalTenant = (!isNaN(inferredTenant) && inferredTenant > 0) ? inferredTenant : 1;
     await db.run(
-      `INSERT INTO whatsapp_sessions (id, phone_name, status, qr_code, phone_number, profile_pic_url, tenant_id) VALUES (?, ?, ?, ?, ?, ?, 1)`,
-      [id, id, status, qrCode, phoneNumber, profilePicUrl]
+      `INSERT INTO whatsapp_sessions (id, phone_name, status, qr_code, phone_number, profile_pic_url, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [id, id, status, qrCode, phoneNumber, profilePicUrl, finalTenant]
     );
   } else {
     await db.run(
@@ -1433,7 +1435,11 @@ export async function getSession(id) {
 }
 
 export async function getAllSessions(tenantId = 1) {
-  return await db.all(`SELECT * FROM whatsapp_sessions WHERE tenant_id = ? ORDER BY created_at DESC`, [tenantId]);
+  const tid = parseInt(tenantId, 10) || 1;
+  return await db.all(
+    `SELECT * FROM whatsapp_sessions WHERE tenant_id = ? OR id LIKE ? ORDER BY created_at DESC`, 
+    [tid, `session_${tid}_%`]
+  );
 }
 
 export async function deleteSession(id) {

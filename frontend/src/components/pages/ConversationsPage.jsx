@@ -906,8 +906,26 @@ export default function ConversationsPage({
         }
       });
       if (res.ok) {
-        const data = await res.json();
+        let data = await res.json();
         if (Array.isArray(data)) {
+          // If employee dedicated session is not found under tenant query, fallback to global list to pick up active employee line
+          if (!isOwnerOrAdmin && myTargetSessionId && !data.some(s => s.id === myTargetSessionId)) {
+            try {
+              const fallbackRes = await fetch(`${API_URL}/sessions`, {
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(token ? { Authorization: `Bearer ${token}` } : {})
+                }
+              });
+              if (fallbackRes.ok) {
+                const allData = await fallbackRes.json();
+                const mySess = (allData || []).find(s => s.id === myTargetSessionId);
+                if (mySess) {
+                  data = [...data, mySess];
+                }
+              }
+            } catch (e) {}
+          }
           setLocalSessions(data);
           return data;
         }
@@ -986,11 +1004,19 @@ export default function ConversationsPage({
 
       if (targetId) {
         const url = `${API_URL}/sessions/start/${targetId}${force ? '?force=true' : ''}`;
-        const startRes = await fetch(url, {
+        let startRes = await fetch(url, {
           method: 'POST',
           headers: reqHeaders,
           body: JSON.stringify({ force: Boolean(force), tenantId: companyId })
         });
+        if (!startRes.ok && targetId.includes('_emp_')) {
+          // Fallback retry without tenant restriction header in case session was registered under default tenant
+          startRes = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            body: JSON.stringify({ force: Boolean(force), tenantId: 1 })
+          });
+        }
         if (startRes.ok) {
           setQrActionMsg('Connecting to Cloud Gateway... QR will appear momentarily.');
         }
