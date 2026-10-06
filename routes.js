@@ -1472,13 +1472,17 @@ export default function setupRoutes(io) {
       const plan = await getTenantPlanDetails(activeTenant).catch(() => null);
       const currentSessions = await getAllSessions(activeTenant).catch(() => []);
       
-      if (req.user?.role !== 'superadmin' && plan && currentSessions.length >= plan.max_channels) {
+      const sessionId = req.body?.id || `session_${activeTenant}_primary`;
+      const isEmployeeLine = sessionId?.includes('_emp_') || phoneName?.toLowerCase().includes('employee');
+
+      // Dedicated employee personal lines do not consume the company official channels plan limit
+      const companyChannels = currentSessions.filter(s => !s.id?.includes('_emp_'));
+      if (!isEmployeeLine && req.user?.role !== 'superadmin' && plan && companyChannels.length >= plan.max_channels) {
         return res.status(403).json({ 
           error: `Plan Limit Exceeded: Your plan (${plan.name}) allows a maximum of ${plan.max_channels} active channel(s). Please upgrade to add more.` 
         });
       }
 
-      const sessionId = req.body?.id || `session_${activeTenant}_primary`;
       await saveSession(sessionId, phoneName, activeTenant);
       
       startSession(sessionId, io).catch(err => {

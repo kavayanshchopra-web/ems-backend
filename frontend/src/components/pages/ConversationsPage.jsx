@@ -506,11 +506,16 @@ export default function ConversationsPage({
   };
 
   // 1. Master State strictly scoped to companyId and Model A role (with 0ms instant cached load)
+  const rosterCacheKey = isOwnerOrAdmin 
+    ? 'cached_conversations_roster' 
+    : `cached_conversations_roster_${userEmpId || userEmail || 'emp'}`;
+
   const [conversationsList, setConversationsList] = useState(() => {
     try {
-      const cachedRoster = TenantStorage.getItem('cached_conversations_roster', companyId, null);
+      const cachedRoster = TenantStorage.getItem(rosterCacheKey, companyId, null);
       if (Array.isArray(cachedRoster) && cachedRoster.length > 0) {
-        return cachedRoster;
+        const scoped = isOwnerOrAdmin ? cachedRoster : cachedRoster.filter(c => isContactVisibleToUser(c));
+        return scoped;
       }
       const cached = TenantStorage.getItem('contacts', companyId, null);
       if (Array.isArray(cached) && cached.length > 0) {
@@ -528,9 +533,10 @@ export default function ConversationsPage({
 
   const [activeContact, setActiveContact] = useState(() => {
     try {
-      const cachedRoster = TenantStorage.getItem('cached_conversations_roster', companyId, null);
+      const cachedRoster = TenantStorage.getItem(rosterCacheKey, companyId, null);
       if (Array.isArray(cachedRoster) && cachedRoster.length > 0) {
-        return cachedRoster[0];
+        const scoped = isOwnerOrAdmin ? cachedRoster : cachedRoster.filter(c => isContactVisibleToUser(c));
+        if (scoped.length > 0) return scoped[0];
       }
       let source = [];
       if (Array.isArray(propContacts) && propContacts.length > 0) {
@@ -547,8 +553,9 @@ export default function ConversationsPage({
 
   const [activeMessages, setActiveMessages] = useState(() => {
     try {
-      const cachedRoster = TenantStorage.getItem('cached_conversations_roster', companyId, null);
-      const initialContactId = cachedRoster?.[0]?.id;
+      const cachedRoster = TenantStorage.getItem(rosterCacheKey, companyId, null);
+      const scoped = isOwnerOrAdmin ? (cachedRoster || []) : (cachedRoster || []).filter(c => isContactVisibleToUser(c));
+      const initialContactId = scoped?.[0]?.id;
       if (initialContactId) {
         const stored = TenantStorage.getItem('cached_chat_msgs_' + initialContactId, companyId);
         if (Array.isArray(stored) && stored.length > 0) return stored;
@@ -1050,7 +1057,8 @@ export default function ConversationsPage({
       if (formatted.length > 0) {
         setConversationsList(prev => {
           const map = new Map();
-          (prev || []).forEach(c => {
+          const validPrev = isOwnerOrAdmin ? (prev || []) : (prev || []).filter(c => isContactVisibleToUser(c, allCallLogs));
+          validPrev.forEach(c => {
             const key = c.normPhone10 || normalizePhone10(c.phone || c.rawPhone || c.id || '') || c.id;
             map.set(key, c);
           });
@@ -1069,7 +1077,7 @@ export default function ConversationsPage({
           });
           const merged = Array.from(map.values()).sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
           try {
-            TenantStorage.setItem('cached_conversations_roster', merged.slice(0, 500), companyId);
+            TenantStorage.setItem(rosterCacheKey, merged.slice(0, 500), companyId);
           } catch (e) {}
           return merged;
         });
@@ -1078,7 +1086,7 @@ export default function ConversationsPage({
         }
       }
     }
-  }, [propContacts, companyId, userRole, userEmpId, userEmail, userName]);
+  }, [propContacts, companyId, userRole, userEmpId, userEmail, userName, rosterCacheKey]);
 
   // 2. Fetch / Stream Call Logs (Firestore + SQLite with live caching)
   useEffect(() => {
@@ -1389,37 +1397,42 @@ export default function ConversationsPage({
       const scopedRaw = (rawList || []).filter(c => isContactVisibleToUser(c, allCallLogs));
       const cleanRoster = formatContactRoster(scopedRaw);
 
-      if (cleanRoster.length > 0) {
-        setConversationsList(prev => {
-          const map = new Map();
-          // Keep all existing contacts (including live call leads)
-          (prev || []).forEach(c => {
-            const key = c.normPhone10 || normalizePhone10(c.phone || c.rawPhone || c.id || '') || c.id;
-            map.set(key, c);
-          });
-          // Merge newly fetched cleanRoster
-          cleanRoster.forEach(c => {
-            const key = c.normPhone10 || normalizePhone10(c.phone || c.rawPhone || c.id || '') || c.id;
-            if (map.has(key)) {
-              const existing = map.get(key);
-              map.set(key, {
-                ...existing,
-                ...c,
-                unreadCount: Math.max(existing.unreadCount || 0, c.unreadCount || 0)
-              });
-            } else {
-              map.set(key, c);
-            }
-          });
-          const sorted = Array.from(map.values()).sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
-          try {
-            TenantStorage.setItem('cached_conversations_roster', sorted.slice(0, 500), companyId);
-          } catch (e) {}
-          return sorted;
+      setConversationsList(prev => {
+        const map = new Map();
+        // If employee, strictly only keep contacts from prev that are actually visible/assigned to this user!
+        const validPrev = isOwnerOrAdmin ? (prev || []) : (prev || []).filter(c => isContactVisibleToUser(c, allCallLogs));
+        validPrev.forEach(c => {
+          const key = c.normPhone10 || normalizePhone10(c.phone || c.rawPhone || c.id || '') || c.id;
+          map.set(key, c);
         });
-        if (!activeContact) {
-          setActiveContact(cleanRoster[0]);
-        }
+        // Merge newly fetched cleanRoster
+        cleanRoster.forEach(c => {
+          const key = c.normPhone10 || normalizePhone10(c.phone || c.rawPhone || c.id || '') || c.id;
+          if (map.has(key)) {
+            const existing = map.get(key);
+            map.set(key, {
+              ...existing,
+              ...c,
+              unreadCount: Math.max(existing.unreadCount || 0, c.unreadCount || 0)
+            });
+          } else {
+            map.set(key, c);
+          }
+        });
+        const sorted = Array.from(map.values()).sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
+        try {
+          TenantStorage.setItem(rosterCacheKey, sorted.slice(0, 500), companyId);
+        } catch (e) {}
+        return sorted;
+      });
+
+      if (!isOwnerOrAdmin) {
+        setActiveContact(prevActive => {
+          if (prevActive && isContactVisibleToUser(prevActive, allCallLogs)) return prevActive;
+          return cleanRoster.length > 0 ? cleanRoster[0] : null;
+        });
+      } else if (!activeContact && cleanRoster.length > 0) {
+        setActiveContact(cleanRoster[0]);
       }
     } catch (err) {
       console.warn('[ConversationsPage] Contacts load error:', err);
@@ -1806,29 +1819,38 @@ export default function ConversationsPage({
 
           let resultList = updated;
           if (!matchFound && targetNorm) {
-            const formattedPhone = formatPhoneDisplay(targetNorm);
-            const isViewingActiveChat = curActive && (curActive.normPhone10 === targetNorm) && isDocFocused;
-            const newContact = {
+            const candidate = {
               id: msg.contact_id || `91${targetNorm}@s.whatsapp.net`,
-              name: msg.contactName || formattedPhone,
-              phone: formattedPhone,
+              phone: targetNorm,
               rawPhone: targetNorm,
-              normPhone10: targetNorm,
-              email: '',
-              lastMessage: msgText,
-              lastMessageTime: Date.now(),
-              unreadCount: (isFromMe || isViewingActiveChat) ? 0 : 1,
-              stage: 'New Leads',
-              source: 'WhatsApp',
-              displayId: `CON-${String(prev.length + 1).padStart(4, '0')}`,
-              tags: []
+              assigned_to: msg.assigned_to || '',
+              tenant_id: companyId
             };
-            resultList = [newContact, ...updated];
+            if (isOwnerOrAdmin || isContactVisibleToUser(candidate, allCallLogs)) {
+              const formattedPhone = formatPhoneDisplay(targetNorm);
+              const isViewingActiveChat = curActive && (curActive.normPhone10 === targetNorm) && isDocFocused;
+              const newContact = {
+                id: msg.contact_id || `91${targetNorm}@s.whatsapp.net`,
+                name: msg.contactName || formattedPhone,
+                phone: formattedPhone,
+                rawPhone: targetNorm,
+                normPhone10: targetNorm,
+                email: '',
+                lastMessage: msgText,
+                lastMessageTime: Date.now(),
+                unreadCount: (isFromMe || isViewingActiveChat) ? 0 : 1,
+                stage: 'New Leads',
+                source: 'WhatsApp',
+                displayId: `CON-${String(prev.length + 1).padStart(4, '0')}`,
+                tags: []
+              };
+              resultList = [newContact, ...updated];
+            }
           }
 
           const sorted = resultList.sort((a, b) => new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime());
           try {
-            TenantStorage.setItem('cached_conversations_roster', sorted.slice(0, 500), companyId);
+            TenantStorage.setItem(rosterCacheKey, sorted.slice(0, 500), companyId);
           } catch (e) {}
           return sorted;
         });
@@ -2091,6 +2113,7 @@ export default function ConversationsPage({
         messagesCacheRef.current.clear();
         try {
           localStorage.removeItem('omniflow_cached_contacts');
+          TenantStorage.removeItem(rosterCacheKey, companyId);
           TenantStorage.removeItem('cached_conversations_roster', companyId);
         } catch (e) {}
       });
