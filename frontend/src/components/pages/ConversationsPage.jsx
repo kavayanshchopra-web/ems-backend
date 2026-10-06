@@ -52,7 +52,8 @@ import {
   CornerUpLeft,
   Copy,
   Star,
-  Ban
+  Ban,
+  Wallet
 } from 'lucide-react';
 import { TimelineEngine } from '../../core/engines/TimelineEngine';
 import { normalizePhone10, formatPhoneDisplay, toE164Phone, isSamePhone } from '../../core/utils/phoneUtils';
@@ -355,8 +356,21 @@ export default function ConversationsPage({
   activePipelineStages = [],
   showToast = () => {}
 }) {
-  const rawCompanyId = authUser?.tenantId || authUser?.companyId || authUser?.tenant_id || '1';
-  let numericCompanyId = Number(rawCompanyId);
+  let numericCompanyId = Number(authUser?.tenant_id || authUser?.company_id);
+  if (isNaN(numericCompanyId) || numericCompanyId <= 0) {
+    numericCompanyId = Number(authUser?.companyId);
+  }
+  if (isNaN(numericCompanyId) || numericCompanyId <= 0) {
+    numericCompanyId = Number(authUser?.tenantId);
+  }
+  if (isNaN(numericCompanyId) || numericCompanyId <= 0) {
+    try {
+      const storedComp = localStorage.getItem('omnilflow_current_company');
+      if (storedComp && !isNaN(Number(storedComp)) && Number(storedComp) > 0) {
+        numericCompanyId = Number(storedComp);
+      }
+    } catch (e) {}
+  }
   if (isNaN(numericCompanyId) || numericCompanyId <= 0) {
     numericCompanyId = 1;
   }
@@ -2819,10 +2833,23 @@ export default function ConversationsPage({
             ? `WhatsApp business template to ${activeContact.name || cleanPhone || targetPhone}`
             : `1-to-1 WhatsApp chat to ${activeContact.name || cleanPhone || targetPhone}`
         }).then(res => {
-          if (res?.success) console.log('[Wallet Deduct Success - Text]:', res);
+          if (res?.success) {
+            console.log('[Wallet Deduct Success - Text]:', res);
+            if (res.balance !== undefined) {
+              setWalletInfo(prev => ({
+                ...prev,
+                balance: res.balance,
+                isBelowThreshold: res.balance <= prev.minThreshold,
+                isDepleted: res.balance <= 0
+              }));
+              if (showToast) {
+                showToast(`💬 Sent (-₹${(res.deducted || (wasTemplate ? 0.20 : 0.10)).toFixed(2)} debited) | Bal: ₹${res.balance.toFixed(2)}`, 'success');
+              }
+            }
+          }
         }).catch(wErr => console.warn('[Frontend Wallet Deduct Notice]:', wErr.message));
 
-        if (showToast) {
+        if (showToast && !window.__walletToastShown) {
           showToast(sendMethod === 'backend_api' ? '💬 WhatsApp message sent' : '⚡ WhatsApp sent & saved to CRM', 'success');
         }
       } else {
@@ -3386,13 +3413,35 @@ export default function ConversationsPage({
               </div>
             </div>
 
-            {/* Row 2: Active Leads count & WhatsApp Live Status Pill */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            {/* Row 2: Active Leads count, Live Wallet Balance & WhatsApp Status Pill */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', gap: '6px' }}>
               <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
                 {conversationsList.length} Active Leads
               </span>
-              <button
-                type="button"
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                {/* Live Wallet Telemetry Pill */}
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '3px 7px',
+                    borderRadius: '6px',
+                    background: walletInfo.isBelowThreshold ? '#fff1f2' : '#ecfdf5',
+                    border: `1px solid ${walletInfo.isBelowThreshold ? '#fecdd3' : '#a7f3d0'}`,
+                    color: walletInfo.isBelowThreshold ? '#be123c' : '#047857',
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title={`Universal CRM Wallet: ₹${parseFloat(walletInfo.balance || 0).toFixed(2)} (Auto-deducts per sent message)`}
+                >
+                  <Wallet size={10} style={{ color: walletInfo.isBelowThreshold ? '#e11d48' : '#059669' }} />
+                  <span>₹{parseFloat(walletInfo.balance || 0).toFixed(2)}</span>
+                </div>
+
+                <button
+                  type="button"
                 onClick={() => {
                   setShowQrModal(true);
                   if (!isConnected && (!primarySession || primarySession.status === 'disconnected')) {
@@ -3439,6 +3488,7 @@ export default function ConversationsPage({
                 )}
               </button>
             </div>
+          </div>
 
             {/* Search Bar */}
             <div style={{
@@ -3967,6 +4017,28 @@ export default function ConversationsPage({
                       <span>Info</span>
                     </button>
                   )}
+
+                  {/* Universal Wallet Live Telemetry Badge */}
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: isMobile ? '5px 8px' : '6px 11px',
+                      borderRadius: '8px',
+                      background: walletInfo.isBelowThreshold ? '#fff1f2' : '#ecfdf5',
+                      border: `1px solid ${walletInfo.isBelowThreshold ? '#fecdd3' : '#a7f3d0'}`,
+                      color: walletInfo.isBelowThreshold ? '#be123c' : '#047857',
+                      fontSize: isMobile ? '11px' : '12px',
+                      fontWeight: '800',
+                      whiteSpace: 'nowrap',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                    }}
+                    title={`Universal CRM Messaging Wallet: ₹${parseFloat(walletInfo.balance || 0).toFixed(2)} (Auto-deducts ₹0.10/chat, ₹0.20/template)`}
+                  >
+                    <Wallet size={13} style={{ color: walletInfo.isBelowThreshold ? '#e11d48' : '#059669' }} />
+                    <span>₹{parseFloat(walletInfo.balance || 0).toFixed(2)}</span>
+                  </div>
 
                   {!isMobile && (
                     <button

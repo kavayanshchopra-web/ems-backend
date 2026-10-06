@@ -6568,7 +6568,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
 
     // 2. Pre-check Universal Wallet Float
-    const activeTenant = authUser?.companyId || authUser?.tenantId || 1;
+    const activeTenant = authUser?.tenant_id || authUser?.company_id || authUser?.companyId || authUser?.tenantId || 1;
     let broadcastRate = 0.30;
     try {
       const walletStatus = await frontendWalletService.fetchWalletStatus(activeTenant);

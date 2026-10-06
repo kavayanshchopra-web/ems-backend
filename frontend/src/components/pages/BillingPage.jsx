@@ -72,7 +72,7 @@ export default function BillingPage({ user, showToast, billingTenant }) {
 
   const loadWalletDetails = async () => {
     try {
-      const activeTenantId = user?.companyId || user?.tenantId || user?.tenant_id || 1;
+      const activeTenantId = billingTenant?.id || user?.tenant_id || user?.company_id || user?.companyId || user?.tenantId || 1;
       const statusRes = await frontendWalletService.fetchWalletStatus(activeTenantId);
       if (statusRes?.wallet) setWallet(statusRes.wallet);
       if (statusRes?.rates) setWalletRates(statusRes.rates);
@@ -136,7 +136,7 @@ export default function BillingPage({ user, showToast, billingTenant }) {
   const loadBillingData = async () => {
     setLoading(true);
     try {
-      const tenantId = user?.tenant_id || user?.tenantId || 1;
+      const tenantId = billingTenant?.id || user?.tenant_id || user?.company_id || user?.companyId || user?.tenantId || 1;
 
       // 1. Fetch Subscription
       const subData = await SubscriptionEngine.fetchTenantSubscription(tenantId);
@@ -1014,7 +1014,7 @@ export default function BillingPage({ user, showToast, billingTenant }) {
           isOpen={showWalletModal}
           onClose={() => setShowWalletModal(false)}
           currentBalance={parseFloat(wallet?.balance || 0)}
-          tenantId={user?.companyId || user?.tenantId || user?.tenant_id || 1}
+          tenantId={billingTenant?.id || user?.tenant_id || user?.company_id || user?.companyId || user?.tenantId || 1}
           user={user}
           onRechargeSuccess={(newBalance) => {
             setWallet(prev => ({ ...prev, balance: newBalance }));

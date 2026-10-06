@@ -35,19 +35,40 @@ const SUPABASE_HEADERS = {
   'Pragma': 'no-cache'
 };
 
+export function resolveCleanTenantId(tenantId) {
+  let clean = Number(tenantId);
+  if (!isNaN(clean) && clean > 0) return clean;
+  try {
+    if (typeof window !== 'undefined') {
+      const storedComp = localStorage.getItem('omnilflow_current_company');
+      if (storedComp && !isNaN(Number(storedComp)) && Number(storedComp) > 0) {
+        return Number(storedComp);
+      }
+      const rawUser = localStorage.getItem('omnilflow_user');
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        const alt = Number(u.tenant_id || u.company_id || u.companyId || u.tenantId);
+        if (!isNaN(alt) && alt > 0) return alt;
+      }
+    }
+  } catch (e) {}
+  return 1;
+}
+
 class FrontendUniversalWalletService {
   getAuthHeaders(tenantId) {
+    const cleanTenant = resolveCleanTenantId(tenantId);
     const token = (typeof window !== 'undefined')
       ? (localStorage.getItem('omnilflow_token') || localStorage.getItem('omniflow_token') || localStorage.getItem('ems_token') || '')
       : '';
     const headers = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    if (tenantId) headers['X-Tenant-Id'] = String(tenantId);
+    if (cleanTenant) headers['X-Tenant-Id'] = String(cleanTenant);
     return headers;
   }
 
   async fetchWalletStatus(tenantId = 1) {
-    const cleanTenant = Number(tenantId) || 1;
+    const cleanTenant = resolveCleanTenantId(tenantId);
     try {
       const res = await fetch(`${API_BASE}/api/wallet/status?tenantId=${cleanTenant}`, {
         headers: this.getAuthHeaders(cleanTenant)
@@ -147,7 +168,7 @@ class FrontendUniversalWalletService {
   }
 
   async deductForMessage({ tenantId = 1, messageType = 'whatsapp_normal_chat', count = 1, recipientPhone = '', description = '' }) {
-    const cleanTenant = Number(tenantId) || 1;
+    const cleanTenant = resolveCleanTenantId(tenantId);
     
     // Direct Supabase PostgREST (Atomic & Immediate across production/staging)
     try {
@@ -347,7 +368,7 @@ class FrontendUniversalWalletService {
   }
 
   async verifyRechargePayment(tenantId = 1, { orderId, paymentId, signature, amount }) {
-    const cleanTenant = Number(tenantId) || 1;
+    const cleanTenant = resolveCleanTenantId(tenantId);
     const rechargeAmount = parseFloat(amount || 1000);
 
     // Try backend endpoint if available
@@ -448,7 +469,7 @@ class FrontendUniversalWalletService {
   }
 
   async fetchLedger(tenantId = 1, limit = 50, offset = 0) {
-    const cleanTenant = Number(tenantId) || 1;
+    const cleanTenant = resolveCleanTenantId(tenantId);
     try {
       const res = await fetch(`${API_BASE}/api/wallet/ledger?tenantId=${cleanTenant}&limit=${limit}&offset=${offset}`, {
         headers: this.getAuthHeaders(cleanTenant)
