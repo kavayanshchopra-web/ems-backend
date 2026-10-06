@@ -1517,7 +1517,13 @@ export default function setupRoutes(io) {
     const { id } = req.params;
     try {
       const activeTenant = parseInt(req.user?.tenant_id || req.headers?.['x-tenant-id'] || req.body?.tenantId || 1, 10) || 1;
-      const session = await getSession(id);
+      let session = await getSession(id);
+      if (!session) {
+        const phoneName = req.body?.phoneName || (id.includes('_emp_') ? 'Employee WhatsApp Line' : 'Primary WhatsApp Line');
+        await saveSession(id, phoneName, activeTenant);
+        session = await getSession(id);
+      }
+
       if (session && parseInt(session.tenant_id, 10) !== activeTenant && req.user?.role !== 'superadmin') {
         return res.status(403).json({ error: 'Access denied to this session' });
       }
@@ -1623,9 +1629,19 @@ export default function setupRoutes(io) {
         });
       }
 
-      // Generate a fresh session ID for new QR scan
-      const newSessionId = `session_${tenantId}_${Date.now()}`;
-      await saveSession(newSessionId, 'Primary WhatsApp Line', tenantId);
+      // Generate or preserve target session ID for new QR scan
+      let newSessionId = `session_${tenantId}_primary`;
+      let sessionName = 'Primary WhatsApp Line';
+      if (targetId && targetId.includes('_emp_')) {
+        newSessionId = targetId;
+        sessionName = 'Employee WhatsApp Line';
+      } else if (!targetId || targetId === 'primary' || targetId.includes('_primary')) {
+        newSessionId = `session_${tenantId}_primary`;
+        sessionName = 'Primary WhatsApp Line';
+      } else {
+        newSessionId = targetId;
+      }
+      await saveSession(newSessionId, sessionName, tenantId);
 
       // Auto-start the new session so QR code is immediately generated and broadcasted via socket
       startSession(newSessionId, io).catch(err => {
@@ -2186,6 +2202,18 @@ export default function setupRoutes(io) {
         } catch (bErr) {
           sendError = bErr.message;
           console.warn('[Baileys Send Notice]:', bErr.message);
+          // Gracefully fallback to any connected session of this company (e.g. primary line)
+          try {
+            const allSessions = await getAllSessions(tenantId);
+            const fallbackSess = allSessions.find(s => s.status === 'connected' && s.id !== targetSessionId);
+            if (fallbackSess) {
+              console.log(`[Baileys Send Fallback] Retrying via connected fallback session ${fallbackSess.id}`);
+              sentMessage = await sendWhatsAppMessage(fallbackSess.id, recipientJid, text, tenantId);
+              usedBaileys = true;
+            }
+          } catch (fbErr) {
+            console.warn('[Baileys Fallback Send Notice]:', fbErr.message);
+          }
         }
       }
 
@@ -2356,6 +2384,27 @@ export default function setupRoutes(io) {
           usedBaileys = true;
         } catch (bErr) {
           console.warn('[Baileys Media Send Notice]:', bErr.message);
+          // Gracefully fallback to any connected session of this company (e.g. primary line)
+          try {
+            const allSessions = await getAllSessions(tenantId);
+            const fallbackSess = allSessions.find(s => s.status === 'connected' && s.id !== targetSessionId);
+            if (fallbackSess) {
+              console.log(`[Baileys Media Send Fallback] Retrying via connected fallback session ${fallbackSess.id}`);
+              sentMedia = await sendWhatsAppMedia(
+                fallbackSess.id,
+                recipientJid,
+                mediaType,
+                buffer,
+                fileName || `attachment_${Date.now()}`,
+                fileMimeType || mimeType,
+                finalCaption,
+                tenantId
+              );
+              usedBaileys = true;
+            }
+          } catch (fbErr) {
+            console.warn('[Baileys Fallback Media Send Notice]:', fbErr.message);
+          }
         }
       }
 

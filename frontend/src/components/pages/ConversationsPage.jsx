@@ -826,24 +826,67 @@ export default function ConversationsPage({
 
   const activeTenantId = String(authUser?.tenantId || authUser?.companyId || companyId || '1');
 
-  const primarySession = useMemo(() => {
+  // Multi-Agent & Employee WhatsApp Session Scoping
+  const myTargetSessionId = useMemo(() => {
+    if (isOwnerOrAdmin) return `session_${companyId}_primary`;
+    return `session_${companyId}_emp_${userEmpId || 'agent'}`;
+  }, [isOwnerOrAdmin, companyId, userEmpId]);
+
+  // Employee's own dedicated personal work session
+  const myDedicatedSession = useMemo(() => {
     if (!Array.isArray(localSessions) || localSessions.length === 0) return null;
-    // 1. FIRST prioritize connected session (active linked line is ALWAYS top priority)
-    const connSess = localSessions.find(s => s.status === 'connected');
-    if (connSess) return connSess;
-    // 2. Next prioritize session that has live QR code ready
-    const qrSess = localSessions.find(s => s.status === 'qr_ready' && s.qr_code);
-    if (qrSess) return qrSess;
-    // 3. Next prioritize connecting session
-    const ingSess = localSessions.find(s => s.status === 'connecting');
-    if (ingSess) return ingSess;
-    return localSessions[0] || null;
-  }, [localSessions]);
+    return localSessions.find(s => s.id === myTargetSessionId) || null;
+  }, [localSessions, myTargetSessionId]);
+
+  // Company primary session (official company line)
+  const companyPrimarySession = useMemo(() => {
+    if (!Array.isArray(localSessions) || localSessions.length === 0) return null;
+    return localSessions.find(s => s.id === `session_${companyId}_primary`)
+      || localSessions.find(s => s.id?.includes('_primary'))
+      || localSessions.find(s => s.status === 'connected')
+      || localSessions[0] || null;
+  }, [localSessions, companyId]);
+
+  // primarySession: The active session used for outbound messaging
+  // - If employee has linked their own dedicated session: use employee's dedicated session!
+  // - If employee has NOT linked their own phone yet: gracefully fallback to company's connected line!
+  // - If owner/admin: always use company official primary line.
+  const primarySession = useMemo(() => {
+    if (isOwnerOrAdmin) {
+      return companyPrimarySession || localSessions.find(s => s.status === 'connected') || localSessions[0] || null;
+    }
+    // Employee logic:
+    if (myDedicatedSession && myDedicatedSession.status === 'connected') {
+      return myDedicatedSession;
+    }
+    if (companyPrimarySession && companyPrimarySession.status === 'connected') {
+      return companyPrimarySession;
+    }
+    return myDedicatedSession || companyPrimarySession || localSessions[0] || null;
+  }, [isOwnerOrAdmin, myDedicatedSession, companyPrimarySession, localSessions]);
+
+  // activeQrSession: The session targeted in the QR pairing modal
+  // - Owner pairs Company Official WhatsApp Line
+  // - Employee pairs their dedicated personal work WhatsApp Line
+  const activeQrSession = useMemo(() => {
+    if (isOwnerOrAdmin) return companyPrimarySession;
+    return myDedicatedSession;
+  }, [isOwnerOrAdmin, companyPrimarySession, myDedicatedSession]);
 
   const isConnected = primarySession?.status === 'connected';
+  const isDedicatedConnected = myDedicatedSession?.status === 'connected';
+  const isCompanyConnected = companyPrimarySession?.status === 'connected';
+
+  const isModalConnected = activeQrSession?.status === 'connected';
+  const isModalQRReady = (activeQrSession?.status === 'qr_ready' || Boolean(activeQrSession?.qr_code)) && Boolean(activeQrSession?.qr_code);
+  const isModalConnecting = activeQrSession?.status === 'connecting' || qrLoading;
+
+  const connectedPhone = primarySession?.phone_number || primarySession?.phoneNumber || '';
+  const myDedicatedPhone = myDedicatedSession?.phone_number || myDedicatedSession?.phoneNumber || '';
+  const companyPhone = companyPrimarySession?.phone_number || companyPrimarySession?.phoneNumber || '';
+  const modalConnectedPhone = activeQrSession?.phone_number || activeQrSession?.phoneNumber || '';
   const isQRReady = (primarySession?.status === 'qr_ready' || Boolean(primarySession?.qr_code)) && Boolean(primarySession?.qr_code);
   const isConnecting = primarySession?.status === 'connecting' || qrLoading;
-  const connectedPhone = primarySession?.phone_number || primarySession?.phoneNumber || '';
 
   // Fetch active sessions from backend API
   const fetchCurrentSessions = async () => {
@@ -909,18 +952,28 @@ export default function ConversationsPage({
         currentList = await fetchCurrentSessions();
       }
 
-      let targetId = sessId || currentList[0]?.id;
+      let targetId = sessId;
       if (!targetId) {
-        // Create primary session if none exists yet
+        targetId = isOwnerOrAdmin
+          ? (companyPrimarySession?.id || `session_${companyId}_primary`)
+          : myTargetSessionId;
+      }
+
+      const exists = (currentList || []).some(s => s.id === targetId);
+      if (!exists) {
+        // Create session in backend if not yet in database
+        const phoneLabel = targetId.includes('_emp_')
+          ? `Employee Line (${userName || userEmpId || 'Agent'})`
+          : 'Primary WhatsApp Line';
         const createRes = await fetch(`${API_URL}/sessions`, {
           method: 'POST',
           headers: reqHeaders,
-          body: JSON.stringify({ phoneName: 'Primary WhatsApp Line' })
+          body: JSON.stringify({ id: targetId, phoneName: phoneLabel, tenantId: companyId })
         });
         if (createRes.ok) {
           const created = await createRes.json();
-          targetId = created.id;
-          setLocalSessions([created]);
+          currentList = [...(currentList || []), created];
+          setLocalSessions(currentList);
         }
       }
 
@@ -929,7 +982,7 @@ export default function ConversationsPage({
         const startRes = await fetch(url, {
           method: 'POST',
           headers: reqHeaders,
-          body: JSON.stringify({ force: Boolean(force) })
+          body: JSON.stringify({ force: Boolean(force), tenantId: companyId })
         });
         if (startRes.ok) {
           setQrActionMsg('Connecting to Cloud Gateway... QR will appear momentarily.');
@@ -948,13 +1001,16 @@ export default function ConversationsPage({
 
   // Disconnect / Reset active WhatsApp session
   const handleDisconnectSession = async (sessId) => {
-    if (!window.confirm('Kya aap is WhatsApp number ko disconnect karke naya QR code scan karna chahte hain?')) return;
+    const targetId = sessId || (isOwnerOrAdmin ? (companyPrimarySession?.id || `session_${companyId}_primary`) : myTargetSessionId);
+    const confirmPrompt = isOwnerOrAdmin
+      ? 'Kya aap Company WhatsApp number ko disconnect karke naya QR code scan karna chahte hain?'
+      : 'Kya aap apna WhatsApp number disconnect karke naya QR code scan karna chahte hain?';
+    if (!window.confirm(confirmPrompt)) return;
     setQrLoading(true);
     setQrActionMsg('Disconnecting WhatsApp session...');
     try {
-      const targetId = sessId || primarySession?.id || 'primary';
       // Optimistically update UI so modal immediately shows connecting state
-      setLocalSessions([{ id: targetId, status: 'connecting', qr_code: null }]);
+      setLocalSessions(prev => (prev || []).map(s => s.id === targetId ? { ...s, status: 'connecting', qr_code: null } : s));
 
       const res = await fetch(`${API_URL}/sessions/reset/${encodeURIComponent(targetId)}`, {
         method: 'POST',
@@ -2289,12 +2345,13 @@ export default function ConversationsPage({
 
       if (res.ok && (data?.success || data?.data)) {
         setActiveMessages(prev => prev.map(m => m.id === outMsgId ? { ...m, status: 1 } : m));
+        const senderAttribution = userName ? ` (by: ${userName})` : (userEmail ? ` (by: ${userEmail})` : '');
         frontendWalletService.deductForMessage({
           tenantId: companyId,
           messageType: 'whatsapp_normal_chat',
           count: 1,
           recipientPhone: intlPhone || cleanPhone || targetPhone,
-          description: `WhatsApp media attachment to ${activeContact.name || cleanPhone || targetPhone}`
+          description: `WhatsApp media attachment to ${activeContact.name || cleanPhone || targetPhone}${senderAttribution}`
         }).then(res => {
           if (res?.success) console.log('[Wallet Deduct Success - Media]:', res);
         }).catch(wErr => console.warn('[Frontend Wallet Deduct Notice]:', wErr.message));
@@ -2824,14 +2881,15 @@ export default function ConversationsPage({
       }
 
       if (sentSuccess) {
+        const senderAttribution = userName ? ` (by: ${userName})` : (userEmail ? ` (by: ${userEmail})` : '');
         frontendWalletService.deductForMessage({
           tenantId: companyId,
           messageType: activeMsgType,
           count: 1,
           recipientPhone: intlPhone || cleanPhone || targetPhone,
           description: wasTemplate 
-            ? `WhatsApp business template to ${activeContact.name || cleanPhone || targetPhone}`
-            : `1-to-1 WhatsApp chat to ${activeContact.name || cleanPhone || targetPhone}`
+            ? `WhatsApp business template to ${activeContact.name || cleanPhone || targetPhone}${senderAttribution}`
+            : `1-to-1 WhatsApp chat to ${activeContact.name || cleanPhone || targetPhone}${senderAttribution}`
         }).then(res => {
           if (res?.success) {
             console.log('[Wallet Deduct Success - Text]:', res);
@@ -2842,7 +2900,7 @@ export default function ConversationsPage({
                 isBelowThreshold: res.balance <= prev.minThreshold,
                 isDepleted: res.balance <= 0
               }));
-              if (showToast) {
+              if (showToast && isOwnerOrAdmin) {
                 showToast(`💬 Sent (-₹${(res.deducted || (wasTemplate ? 0.20 : 0.10)).toFixed(2)} debited) | Bal: ₹${res.balance.toFixed(2)}`, 'success');
               }
             }
@@ -3444,51 +3502,68 @@ export default function ConversationsPage({
 
                 <button
                   type="button"
-                onClick={() => {
-                  setShowQrModal(true);
-                  if (!isConnected && (!primarySession || primarySession.status === 'disconnected')) {
-                    handleStartSession();
+                  onClick={() => {
+                    setShowQrModal(true);
+                    const targetToStart = isOwnerOrAdmin ? (companyPrimarySession?.id || `session_${companyId}_primary`) : myTargetSessionId;
+                    const curr = (localSessions || []).find(s => s.id === targetToStart);
+                    if (!curr || curr.status === 'disconnected') {
+                      handleStartSession(targetToStart);
+                    }
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '3px 7px',
+                    borderRadius: '6px',
+                    background: (isOwnerOrAdmin ? isCompanyConnected : isDedicatedConnected)
+                      ? '#ecfdf5' 
+                      : (isCompanyConnected ? '#f0fdf4' : (isQRReady ? '#fefce8' : '#f0fdf4')),
+                    border: `1px solid ${(isOwnerOrAdmin ? isCompanyConnected : isDedicatedConnected) ? '#a7f3d0' : (isCompanyConnected ? '#86efac' : (isQRReady ? '#fef08a' : '#bbf7d0'))}`,
+                    color: (isOwnerOrAdmin ? isCompanyConnected : isDedicatedConnected) ? '#15803d' : (isCompanyConnected ? '#166534' : (isQRReady ? '#a16207' : '#166534')),
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                    transition: 'all 0.15s ease'
+                  }}
+                  title={
+                    isOwnerOrAdmin
+                      ? (isCompanyConnected ? `Company Official Line Connected: +${companyPhone}. Click to view` : 'Connect Company Official WhatsApp')
+                      : (isDedicatedConnected 
+                          ? `My Dedicated Work WA Connected: +${myDedicatedPhone}. Click to view` 
+                          : (isCompanyConnected 
+                              ? `Company Line (+${companyPhone}) Active as Fallback. Click to Link Your Own WhatsApp Line` 
+                              : 'Link Work WhatsApp / Scan QR'))
                   }
-                }}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '3px 7px',
-                  borderRadius: '6px',
-                  background: isConnected 
-                    ? '#ecfdf5' 
-                    : (isQRReady ? '#fefce8' : '#f0fdf4'),
-                  border: `1px solid ${isConnected ? '#a7f3d0' : (isQRReady ? '#fef08a' : '#bbf7d0')}`,
-                  color: isConnected ? '#15803d' : (isQRReady ? '#a16207' : '#166534'),
-                  fontSize: '10px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                  transition: 'all 0.15s ease'
-                }}
-                title={isConnected ? `Connected Live: +${connectedPhone}. Click to view details` : 'Connect WhatsApp / Scan QR Code'}
-              >
-                {isConnected ? (
-                  <>
-                    <span style={{
-                      width: '6px',
-                      height: '6px',
-                      borderRadius: '50%',
-                      background: '#10b981',
-                      boxShadow: '0 0 4px #10b981',
-                      display: 'inline-block'
-                    }} />
-                    <span>{connectedPhone ? `+${connectedPhone}` : 'WA Live'}</span>
-                  </>
-                ) : (
-                  <>
-                    <QrCode size={11} color="#059669" />
-                    <span>{isQRReady ? 'Scan QR' : isConnecting ? 'Connecting...' : 'Scan QR'}</span>
-                  </>
-                )}
-              </button>
+                >
+                  {isOwnerOrAdmin ? (
+                    isCompanyConnected ? (
+                      <>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 4px #10b981', display: 'inline-block' }} />
+                        <span>{companyPhone ? `+${companyPhone}` : 'WA Live'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <QrCode size={11} color="#059669" />
+                        <span>{isQRReady ? 'Scan QR' : isConnecting ? 'Connecting...' : 'Scan QR'}</span>
+                      </>
+                    )
+                  ) : (
+                    isDedicatedConnected ? (
+                      <>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 4px #10b981', display: 'inline-block' }} />
+                        <span>{myDedicatedPhone ? `My WA: +${myDedicatedPhone}` : 'My WA Live'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <QrCode size={11} color={isCompanyConnected ? '#059669' : '#0d9488'} />
+                        <span>{isQRReady ? 'Scan My QR' : isConnecting ? 'Connecting...' : 'Link My WA'}</span>
+                      </>
+                    )
+                  )}
+                </button>
             </div>
           </div>
 
@@ -5514,9 +5589,15 @@ export default function ConversationsPage({
                   <QrCode size={19} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800' }}>WhatsApp Cloud Gateway</h3>
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800' }}>
+                    {isOwnerOrAdmin ? 'Company WhatsApp Gateway' : 'Link Your Work WhatsApp'}
+                  </h3>
                   <div style={{ fontSize: '11px', opacity: 0.9 }}>
-                    {isConnected ? 'Active & Cloud Synced' : 'Pair phone to enable direct WhatsApp CRM sync'}
+                    {isModalConnected 
+                      ? 'Active & Cloud Synced' 
+                      : (isOwnerOrAdmin 
+                          ? 'Pair official company phone for central CRM messaging' 
+                          : 'Pair your WhatsApp to message your assigned leads directly')}
                   </div>
                 </div>
               </div>
@@ -5544,7 +5625,7 @@ export default function ConversationsPage({
 
             {/* Modal Content */}
             <div style={{ padding: '24px 22px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '18px' }}>
-              {isConnected ? (
+              {isModalConnected ? (
                 <div style={{
                   width: '100%',
                   display: 'flex',
@@ -5570,7 +5651,7 @@ export default function ConversationsPage({
 
                   <div>
                     <div style={{ fontSize: '17px', fontWeight: '800', color: '#0f172a' }}>
-                      WhatsApp is Live & Connected!
+                      {isOwnerOrAdmin ? 'Company WhatsApp is Live & Connected!' : 'Your Work WhatsApp is Live & Connected!'}
                     </div>
                     <div style={{
                       display: 'inline-block',
@@ -5583,17 +5664,19 @@ export default function ConversationsPage({
                       fontWeight: '800',
                       color: '#047857'
                     }}>
-                      +{connectedPhone || 'WhatsApp Account Active'}
+                      +{modalConnectedPhone || (isOwnerOrAdmin ? 'Company Line Active' : 'My Line Active')}
                     </div>
                     <p style={{ margin: '12px 0 0 0', fontSize: '12px', color: '#64748b', lineHeight: '1.5' }}>
-                      Dedicated WhatsApp session is active on secure cloud. Incoming messages and CRM replies sync in real time.
+                      {isOwnerOrAdmin
+                        ? 'Official company WhatsApp line is active on secure cloud. Incoming messages, website leads, and CRM replies sync in real time.'
+                        : 'Your dedicated work WhatsApp session is active on secure cloud. All messages to your assigned leads will route directly through your number.'}
                     </p>
                   </div>
 
                   <div style={{ display: 'flex', gap: '10px', width: '100%', marginTop: '6px' }}>
                     <button
                       type="button"
-                      onClick={() => handleDisconnectSession()}
+                      onClick={() => handleDisconnectSession(isOwnerOrAdmin ? (companyPrimarySession?.id || `session_${companyId}_primary`) : myTargetSessionId)}
                       disabled={qrLoading}
                       style={{
                         flex: 1,
@@ -5646,7 +5729,7 @@ export default function ConversationsPage({
                     boxSizing: 'border-box'
                   }}>
                     <div style={{ fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
-                      Pairing Instructions:
+                      {isOwnerOrAdmin ? 'Pair Company WhatsApp:' : 'Pair Your Personal Work WhatsApp:'}
                     </div>
                     <ol style={{ margin: 0, paddingLeft: '18px', fontSize: '11.5px', color: '#64748b', lineHeight: '1.6' }}>
                       <li>Open <b>WhatsApp</b> on your mobile phone</li>
@@ -5672,10 +5755,10 @@ export default function ConversationsPage({
                     boxSizing: 'border-box',
                     position: 'relative'
                   }}>
-                    {primarySession?.qr_code ? (
+                    {activeQrSession?.qr_code ? (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                         <img
-                          src={primarySession.qr_code}
+                          src={activeQrSession.qr_code}
                           alt="Scan WhatsApp QR"
                           style={{ width: '210px', height: '210px', objectFit: 'contain', display: 'block', borderRadius: '8px' }}
                         />
@@ -5687,12 +5770,12 @@ export default function ConversationsPage({
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '24px' }}>
                         <RefreshCw size={28} className="animate-spin" style={{ color: '#0d9488', animation: 'spin 1.2s linear infinite' }} />
                         <span style={{ fontSize: '12.5px', color: '#475569', fontWeight: '600', textAlign: 'center' }}>
-                          {qrActionMsg || (isConnecting ? 'Connecting to WhatsApp gateway...' : 'Initializing WhatsApp session...')}
+                          {qrActionMsg || (isModalConnecting ? 'Connecting to WhatsApp gateway...' : 'Initializing WhatsApp session...')}
                         </span>
-                        {!isConnecting && (
+                        {!isModalConnecting && (
                           <button
                             type="button"
-                            onClick={() => handleStartSession(null, true)}
+                            onClick={() => handleStartSession(isOwnerOrAdmin ? (companyPrimarySession?.id || `session_${companyId}_primary`) : myTargetSessionId, true)}
                             style={{
                               marginTop: '6px',
                               padding: '8px 14px',
@@ -5716,7 +5799,7 @@ export default function ConversationsPage({
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '10px' }}>
                     <button
                       type="button"
-                      onClick={() => handleStartSession(null, true)}
+                      onClick={() => handleStartSession(isOwnerOrAdmin ? (companyPrimarySession?.id || `session_${companyId}_primary`) : myTargetSessionId, true)}
                       disabled={qrLoading}
                       style={{
                         flex: 1,
@@ -5739,41 +5822,43 @@ export default function ConversationsPage({
                       <span>Refresh QR</span>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (!window.confirm('Kya aap WhatsApp line ko cleanly reset karna chahte hain taaki naya stable QR code generate ho sake?')) return;
-                        setQrLoading(true);
-                        try {
-                          await fetch(`${API_URL}/sessions/cleanup-and-reset`, {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                              ...(token ? { Authorization: `Bearer ${token}` } : {})
-                            }
-                          });
-                          await fetchCurrentSessions();
-                        } catch (e) {
-                          console.error(e);
-                        } finally {
-                          setQrLoading(false);
-                        }
-                      }}
-                      disabled={qrLoading}
-                      style={{
-                        padding: '10px 14px',
-                        borderRadius: '10px',
-                        background: '#fff1f2',
-                        border: '1px solid #fecdd3',
-                        color: '#e11d48',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        cursor: qrLoading ? 'not-allowed' : 'pointer'
-                      }}
-                      title="Wipe stale conflicting sessions and generate 1 clean QR code"
-                    >
-                      Reset Line
-                    </button>
+                    {isOwnerOrAdmin && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!window.confirm('Kya aap WhatsApp line ko cleanly reset karna chahte hain taaki naya stable QR code generate ho sake?')) return;
+                          setQrLoading(true);
+                          try {
+                            await fetch(`${API_URL}/sessions/cleanup-and-reset`, {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                ...(token ? { Authorization: `Bearer ${token}` } : {})
+                              }
+                            });
+                            await fetchCurrentSessions();
+                          } catch (e) {
+                            console.error(e);
+                          } finally {
+                            setQrLoading(false);
+                          }
+                        }}
+                        disabled={qrLoading}
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          background: '#fff1f2',
+                          border: '1px solid #fecdd3',
+                          color: '#e11d48',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          cursor: qrLoading ? 'not-allowed' : 'pointer'
+                        }}
+                        title="Wipe stale conflicting sessions and generate 1 clean QR code"
+                      >
+                        Reset Line
+                      </button>
+                    )}
 
                     <button
                       type="button"
