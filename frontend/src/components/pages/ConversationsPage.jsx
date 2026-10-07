@@ -632,6 +632,29 @@ export default function ConversationsPage({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Handle mobile browser/hardware back button navigation seamlessly
+  useEffect(() => {
+    if (!isMobile) return;
+    const handlePopState = () => {
+      setMobileTab(prev => {
+        if (prev === 'details') return 'chat';
+        if (prev === 'chat') return 'list';
+        return prev;
+      });
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isMobile]);
+
+  const switchMobileTab = useCallback((tab) => {
+    if (isMobile && tab !== mobileTab) {
+      if (tab !== 'list') {
+        window.history.pushState({ emsMobileTab: tab }, '');
+      }
+    }
+    setMobileTab(tab);
+  }, [isMobile, mobileTab]);
   const [searchQuery, setSearchQuery] = useState('');
   const [replyText, setReplyText] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -774,9 +797,10 @@ export default function ConversationsPage({
   }, []);
 
   const isDesktop = typeof window !== 'undefined' && (Boolean(window.electronAPI) || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-  const API_URL = isDesktop
-    ? 'http://localhost:5000/api'
-    : 'https://api.employeemanagementsystems.com/api';
+  const customApiBase = typeof window !== 'undefined' ? (import.meta.env.VITE_API_URL || localStorage.getItem('ems_custom_api_url') || '') : '';
+  const API_URL = customApiBase 
+    ? (customApiBase.endsWith('/api') ? customApiBase : `${customApiBase}/api`)
+    : (isDesktop ? 'http://localhost:5000/api' : 'https://api.employeemanagementsystems.com/api');
   const token = typeof window !== 'undefined' ? (localStorage.getItem('omnilflow_token') || localStorage.getItem('token')) : null;
 
   // Resolve media URLs to full VPS backend endpoints if relative
@@ -1711,9 +1735,10 @@ export default function ConversationsPage({
   // Real-time Socket.IO Inbound & Outbound Sync Listener
   useEffect(() => {
     const isDesktopEnv = typeof window !== 'undefined' && (Boolean(window.electronAPI) || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    const SOCKET_BASE = isDesktopEnv
-      ? 'http://localhost:5000'
-      : 'https://api.employeemanagementsystems.com';
+    const customSocketBase = typeof window !== 'undefined' ? (import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || localStorage.getItem('ems_custom_api_url') || '') : '';
+    const SOCKET_BASE = customSocketBase
+      ? customSocketBase.replace(/\/api\/?$/, '')
+      : (isDesktopEnv ? 'http://localhost:5000' : 'https://api.employeemanagementsystems.com');
 
     let socket = null;
     try {
@@ -3465,66 +3490,7 @@ export default function ConversationsPage({
                 <h2 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>Conversations</h2>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!window.confirm('⚠️ Kya aap saare CRM Contacts aur Messages reset karke conversation section poora empty karna chahte hain?')) return;
-                    try {
-                      try {
-                        TenantStorage.removeItem('contacts', companyId);
-                        TenantStorage.removeItem('call_logs', companyId);
-                        localStorage.removeItem(`omniflow_cached_contacts_${companyId}`);
-                        localStorage.removeItem('omniflow_cached_call_logs');
-                        messagesCacheRef.current.clear();
-                      } catch (e) {}
-
-                      setConversationsList([]);
-                      setActiveContact(null);
-                      setActiveMessages([]);
-                      setAllCallLogs([]);
-
-                      const res = await fetch(`${API_URL}/crm/conversations/reset-all`, {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                          'x-tenant-id': activeTenantId
-                        }
-                      });
-                      const d = await res.json();
-                      if (d.success) {
-                        alert('✅ ' + (d.message || 'Conversation section completely cleared! Refreshing...'));
-                        window.location.reload();
-                      } else {
-                        alert('❌ Reset notice: ' + (d.error || 'Server error'));
-                        window.location.reload();
-                      }
-                    } catch (err) {
-                      alert('❌ Reset notice: ' + err.message);
-                      window.location.reload();
-                    }
-                  }}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '3px 7px',
-                    borderRadius: '6px',
-                    background: '#fff1f2',
-                    border: '1px solid #fecdd3',
-                    color: '#e11d48',
-                    fontSize: '10.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0
-                  }}
-                  title="Wipe duplicate CRM data and reload fresh contacts"
-                >
-                  <Trash2 size={11} />
-                  <span>Reset</span>
-                </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                 <button
                   type="button"
                   onClick={() => {
@@ -3535,22 +3501,26 @@ export default function ConversationsPage({
                   }}
                   disabled={loadingConversations}
                   style={{
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '6px',
+                    minWidth: '34px',
+                    height: '34px',
+                    padding: '0 8px',
+                    borderRadius: '8px',
                     background: '#f8fafc',
                     border: '1px solid #e2e8f0',
-                    display: 'flex',
+                    display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    gap: '4px',
                     cursor: 'pointer',
-                    color: '#64748b',
-                    flexShrink: 0,
-                    padding: 0
+                    color: '#0d9488',
+                    fontSize: '11.5px',
+                    fontWeight: '700',
+                    flexShrink: 0
                   }}
                   title="Refresh Conversations & Messages"
                 >
-                  <RefreshCw size={11} className={loadingConversations ? 'animate-spin' : ''} style={{ animation: loadingConversations ? 'spin 1s linear infinite' : 'none' }} />
+                  <RefreshCw size={13} className={loadingConversations ? 'animate-spin' : ''} style={{ animation: loadingConversations ? 'spin 1s linear infinite' : 'none' }} />
+                  {!isMobile && <span>Refresh</span>}
                 </button>
               </div>
             </div>
@@ -3762,7 +3732,7 @@ export default function ConversationsPage({
                     key={contact.id}
                     onClick={() => {
                       handleSelectContact(contact);
-                      if (isMobile) setMobileTab('chat');
+                      if (isMobile) switchMobileTab('chat');
                     }}
                     style={{
                       position: 'relative',
@@ -4071,12 +4041,12 @@ export default function ConversationsPage({
                   {isMobile && (
                     <button
                       type="button"
-                      onClick={() => setMobileTab('list')}
+                      onClick={() => switchMobileTab('list')}
                       title="Back to Chats"
                       style={{
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: '8px',
+                        width: '38px',
+                        height: '38px',
+                        borderRadius: '10px',
                         background: '#f1f5f9',
                         border: '1px solid #cbd5e1',
                         display: 'flex',
@@ -4087,7 +4057,7 @@ export default function ConversationsPage({
                         flexShrink: 0
                       }}
                     >
-                      <ArrowLeft size={16} />
+                      <ArrowLeft size={18} />
                     </button>
                   )}
 
@@ -4158,13 +4128,14 @@ export default function ConversationsPage({
                   {isMobile && (
                     <button
                       type="button"
-                      onClick={() => setMobileTab('details')}
+                      onClick={() => switchMobileTab('details')}
                       title="View Lead CRM Profile & Analytics"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: '4px',
                         padding: '6px 10px',
+                        minHeight: '38px',
                         borderRadius: '8px',
                         background: '#f1f5f9',
                         border: '1px solid #cbd5e1',
@@ -4174,7 +4145,7 @@ export default function ConversationsPage({
                         cursor: 'pointer'
                       }}
                     >
-                      <User size={13} style={{ color: '#0d9488' }} />
+                      <User size={14} style={{ color: '#0d9488' }} />
                       <span>Info</span>
                     </button>
                   )}
@@ -4360,8 +4331,22 @@ export default function ConversationsPage({
                     </div>
                   )}
                   {filteredTimeline.map((item) => {
-                  const itemTime = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                  const itemDate = new Date(item.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+                  let safeMs = Date.now();
+                  if (item.timestamp) {
+                    const num = Number(item.timestamp);
+                    if (!isNaN(num) && num > 0) {
+                      safeMs = num < 10000000000 ? num * 1000 : num;
+                    } else {
+                      const parsed = new Date(item.timestamp).getTime();
+                      if (!isNaN(parsed) && parsed > 0) safeMs = parsed;
+                    }
+                  } else if (item._createdAt) {
+                    const num = Number(item._createdAt);
+                    safeMs = (!isNaN(num) && num > 0) ? (num < 10000000000 ? num * 1000 : num) : Date.now();
+                  }
+                  const validDate = new Date(safeMs);
+                  const itemTime = validDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+                  const itemDate = validDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 
                   // ==========================================
                   // RENDER 1: CALL RECORD TIMELINE CARD (Compact & Sleek)
@@ -4959,14 +4944,15 @@ export default function ConversationsPage({
               {showEmojiPicker && (
                 <div style={{
                   position: 'absolute',
-                  bottom: '68px',
-                  left: '14px',
+                  bottom: isMobile ? '64px' : '68px',
+                  left: isMobile ? '8px' : '14px',
                   background: '#ffffff',
                   borderRadius: '16px',
                   border: '1px solid #e2e8f0',
                   boxShadow: '0 12px 32px rgba(0,0,0,0.15)',
                   padding: '12px',
-                  width: '310px',
+                  width: isMobile ? 'calc(100vw - 24px)' : '310px',
+                  maxWidth: '320px',
                   zIndex: 999
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid #f1f5f9', marginBottom: '8px' }}>
@@ -5022,14 +5008,15 @@ export default function ConversationsPage({
               {showTemplatesPicker && (
                 <div style={{
                   position: 'absolute',
-                  bottom: '68px',
-                  left: '60px',
+                  bottom: isMobile ? '64px' : '68px',
+                  left: isMobile ? '8px' : '60px',
                   background: '#ffffff',
                   borderRadius: '16px',
                   border: '1px solid #e2e8f0',
                   boxShadow: '0 14px 36px rgba(0,0,0,0.18)',
                   padding: '14px',
-                  width: '360px',
+                  width: isMobile ? 'calc(100vw - 24px)' : '360px',
+                  maxWidth: '380px',
                   maxHeight: '400px',
                   display: 'flex',
                   flexDirection: 'column',
@@ -5305,8 +5292,8 @@ export default function ConversationsPage({
                       background: showEmojiPicker ? '#f1f5f9' : 'transparent',
                       color: showEmojiPicker ? '#0d9488' : '#64748b',
                       borderRadius: '50%',
-                      width: '34px',
-                      height: '34px',
+                      width: isMobile ? '38px' : '34px',
+                      height: isMobile ? '38px' : '34px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -5328,8 +5315,8 @@ export default function ConversationsPage({
                       background: selectedAttachment ? '#ecfdf5' : 'transparent',
                       color: selectedAttachment ? '#0d9488' : '#64748b',
                       borderRadius: '50%',
-                      width: '34px',
-                      height: '34px',
+                      width: isMobile ? '38px' : '34px',
+                      height: isMobile ? '38px' : '34px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -5354,7 +5341,8 @@ export default function ConversationsPage({
                       background: showTemplatesPicker ? '#ecfdf5' : '#f8fafc',
                       color: showTemplatesPicker ? '#0d9488' : '#475569',
                       borderRadius: '16px',
-                      padding: '4px 10px',
+                      padding: isMobile ? '6px 8px' : '4px 10px',
+                      height: isMobile ? '38px' : 'auto',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '4px',
@@ -5366,8 +5354,8 @@ export default function ConversationsPage({
                     }}
                     title="Select a Quick Reply Template"
                   >
-                    <Sparkles size={12} color="#0d9488" />
-                    <span>Templates</span>
+                    <Sparkles size={isMobile ? 15 : 12} color="#0d9488" />
+                    {!isMobile && <span>Templates</span>}
                   </button>
 
                   {/* 4. Text Input Field */}
@@ -5478,7 +5466,7 @@ export default function ConversationsPage({
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <button
                 type="button"
-                onClick={() => setMobileTab('chat')}
+                onClick={() => switchMobileTab('chat')}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
