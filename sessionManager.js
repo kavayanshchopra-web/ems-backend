@@ -110,6 +110,9 @@ const activeSockets = new Map();
 // Map to hold debounced reconnect timers to prevent tight loop flapping
 const reconnectTimers = new Map();
 
+// In-memory cache for WA Web Version to prevent 3s network stalls on reconnects
+let cachedWaWebVersion = null;
+
 // Global promise chain to serialize database transactions during history sync
 let dbSyncQueue = Promise.resolve();
 
@@ -194,19 +197,21 @@ export async function startSession(id, io) {
   // Set up low-verbosity logger for Baileys
   const logger = pino({ level: 'silent' });
 
-  // ONLY provide version if fetchLatestWaWebVersion actually succeeds with a real version tuple.
-  // DO NOT use a fake placeholder fallback because WhatsApp rejects unknown versions during handshake with "Could not link device".
-  let version = undefined;
-  try {
-    const versionPromise = fetchLatestWaWebVersion();
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Version fetch timeout')), 3000));
-    const res = await Promise.race([versionPromise, timeoutPromise]);
-    if (res && res.version && Array.isArray(res.version)) {
-      version = res.version;
-      console.log(`[Session ${id}] Using live WAWeb version: ${version.join('.')}`);
+  // Fast WA Web version resolution (cached in-memory, or 1.5s fast timeout)
+  let version = cachedWaWebVersion;
+  if (!version) {
+    try {
+      const versionPromise = fetchLatestWaWebVersion();
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Version fetch timeout')), 1500));
+      const res = await Promise.race([versionPromise, timeoutPromise]);
+      if (res && res.version && Array.isArray(res.version)) {
+        version = res.version;
+        cachedWaWebVersion = version;
+        console.log(`[Session ${id}] Using live WAWeb version: ${version.join('.')}`);
+      }
+    } catch (vErr) {
+      console.log(`[Session ${id}] Using Baileys internal tested version default`);
     }
-  } catch (vErr) {
-    console.log(`[Session ${id}] Using Baileys internal tested version default`);
   }
 
   const socketOptions = {
@@ -217,7 +222,8 @@ export async function startSession(id, io) {
     connectTimeoutMs: 60000,
     defaultQueryTimeoutMs: 60000,
     keepAliveIntervalMs: 25000,
-    syncFullHistory: false, // Prevents giant payload handshake timeouts that cause "Could not link device"
+    syncFullHistory: true, // Allow history sync messages to be received from phone
+    shouldSyncHistoryMessage: () => true, // Ensure history sync messages are processed
     markOnlineOnConnect: false,
     retryRequestDelayMs: 250,
     generateHighQualityLinkPreview: false
@@ -278,7 +284,7 @@ export async function startSession(id, io) {
       if (shouldReconnect) {
         const statusCode = lastDisconnect?.error?.output?.statusCode;
         const isRestartRequired = statusCode === DisconnectReason.restartRequired; // Code 515 handshake restart
-        const delayMs = isRestartRequired ? 400 : 2500;
+        const delayMs = isRestartRequired ? 200 : 2500; // Immediate reconnect on Code 515 for fast linking!
 
         if (reconnectTimers.has(id)) {
           clearTimeout(reconnectTimers.get(id));
@@ -375,27 +381,37 @@ export async function startSession(id, io) {
         }
       }
 
-      // 2. Sync messages inside a transaction
+      // 2. Sync messages inside an ultra-fast batched transaction
       if (messages && messages.length > 0) {
-        // Group messages by contact JID first, resolving LIDs where possible
+        // Collect newly discovered LID mappings
+        const newLidMappings = [];
+        const inMemoryLidMap = new Map();
+
+        // Load existing LID mappings into memory in a SINGLE query (<1ms)
+        try {
+          const existingLids = await db.all(`SELECT lid, pn FROM lid_mappings`);
+          (existingLids || []).forEach(row => {
+            if (row.lid && row.pn) inMemoryLidMap.set(row.lid, row.pn);
+          });
+        } catch (e) {}
+
         const messagesByJid = {};
         for (const msg of messages) {
-          let jid = msg.key.remoteJid;
+          let jid = msg.key?.remoteJid;
           if (!jid || jid === 'status@broadcast') continue;
 
           // Map LID to real Phone JID
           const lid = jid;
-          const pn = msg.key.remoteJidAlt;
+          const pn = msg.key?.remoteJidAlt;
           let resolvedJid = jid;
           if (pn && pn.endsWith('@s.whatsapp.net')) {
-            await db.run(
-              `INSERT OR REPLACE INTO lid_mappings (lid, pn) VALUES (?, ?)`,
-              [lid, pn]
-            );
+            newLidMappings.push([lid, pn]);
+            inMemoryLidMap.set(lid, pn);
             resolvedJid = pn;
           } else if (lid.endsWith('@lid')) {
-            const row = await db.get(`SELECT pn FROM lid_mappings WHERE lid = ?`, [lid]);
-            if (row && row.pn) resolvedJid = row.pn;
+            if (inMemoryLidMap.has(lid)) {
+              resolvedJid = inMemoryLidMap.get(lid);
+            }
           }
 
           if (!messagesByJid[resolvedJid]) {
@@ -415,7 +431,7 @@ export async function startSession(id, io) {
             const tsB = typeof b.msg.messageTimestamp === 'object' && b.msg.messageTimestamp !== null
               ? b.msg.messageTimestamp.low || b.msg.messageTimestamp.toNumber?.() || 0
               : b.msg.messageTimestamp || 0;
-            return tsB - tsA; // Descending
+            return tsB - tsA; // Descending (newest first)
           });
           
           messagesToInsert.push(...list.slice(0, 50));
@@ -423,6 +439,40 @@ export async function startSession(id, io) {
 
         await db.run('BEGIN TRANSACTION');
         try {
+          // A. Batch insert new LID mappings inside transaction
+          for (const [lid, pn] of newLidMappings) {
+            await db.run(
+              `INSERT OR REPLACE INTO lid_mappings (lid, pn) VALUES (?, ?)`,
+              [lid, pn]
+            );
+          }
+
+          // B. Deduplicate contacts in memory so each contact is upserted only once
+          const distinctContacts = new Map();
+          for (const item of messagesToInsert) {
+            const { msg, resolvedJid: jid } = item;
+            const contactName = msg.key?.fromMe ? null : msg.pushName;
+            if (jid && !distinctContacts.has(jid)) {
+              distinctContacts.set(jid, contactName);
+            } else if (contactName && !distinctContacts.get(jid)) {
+              distinctContacts.set(jid, contactName);
+            }
+          }
+
+          for (const [jid, contactName] of distinctContacts.entries()) {
+            await db.run(
+              `INSERT OR IGNORE INTO contacts (id, name, pipeline_stage, labels, tenant_id) VALUES (?, ?, 'new', '[]', ?)`,
+              [jid, contactName, tenantId]
+            );
+            if (contactName) {
+              await db.run(
+                `UPDATE contacts SET name = ? WHERE id = ? AND tenant_id = ? AND (name IS NULL OR name = '')`,
+                [contactName, jid, tenantId]
+              );
+            }
+          }
+
+          // C. Insert history messages
           for (const item of messagesToInsert) {
             const { msg, resolvedJid: jid } = item;
             const textContent = getMessageText(msg.message);
@@ -435,21 +485,6 @@ export async function startSession(id, io) {
 
             if (!textContent && mediaType === 'text') continue;
 
-            // Note: Skip eager media downloads during bulk history sync to conserve VPS RAM and prevent connection drops.
-            // Live incoming media is downloaded in messages.upsert.
-
-            const contactName = msg.key.fromMe ? null : msg.pushName;
-            await db.run(
-              `INSERT OR IGNORE INTO contacts (id, name, pipeline_stage, labels, tenant_id) VALUES (?, ?, 'new', '[]', ?)`,
-              [jid, contactName, tenantId]
-            );
-            if (contactName) {
-              await db.run(
-                `UPDATE contacts SET name = ? WHERE id = ? AND tenant_id = ? AND (name IS NULL OR name = '')`,
-                [contactName, jid, tenantId]
-              );
-            }
-
             const timestamp = typeof msg.messageTimestamp === 'object' && msg.messageTimestamp !== null
               ? msg.messageTimestamp.low || msg.messageTimestamp.toNumber?.() || Math.floor(Date.now() / 1000)
               : msg.messageTimestamp || Math.floor(Date.now() / 1000);
@@ -460,6 +495,7 @@ export async function startSession(id, io) {
               [msg.key.id, id, jid, msg.key.fromMe ? 1 : 0, textContent || (mediaType !== 'text' ? `[Sent ${mediaType}]` : ''), null, mediaType, timestamp, 1, tenantId]
             );
           }
+
           await db.run('COMMIT');
           console.log(`[Session ${id}] Transaction: Successfully synced ${messagesToInsert.length} history messages (capped at 50 per chat).`);
         } catch (err) {
@@ -469,7 +505,8 @@ export async function startSession(id, io) {
       }
 
       // Trigger frontend reload
-      emitToTenant('new_message', { system_sync: true });
+      emitToTenant('new_message', { system_sync: true, tenantId });
+      emitToTenant('history_synced', { session_id: id, count: messages?.length || 0, tenantId });
     }).catch(err => {
       console.error(`[History Sync Queue Error]`, err);
     });

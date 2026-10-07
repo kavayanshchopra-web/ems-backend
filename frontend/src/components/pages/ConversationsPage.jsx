@@ -1471,25 +1471,29 @@ export default function ConversationsPage({
     fetchConversations();
   }, [API_URL, token, companyId, userRole, userEmpId, userEmail, userName, allCallLogs]);
 
-  // 4. Fetch WhatsApp Messages for Active Contact (with instant cache preview)
-  useEffect(() => {
-    if (!activeContact || !activeContact.id) {
+  // 4. Fetch WhatsApp Messages for Active Contact (with instant cache preview or force-fresh reload)
+  const fetchMessagesForContact = useCallback((targetContact, forceFresh = false) => {
+    if (!targetContact || !targetContact.id) {
       setActiveMessages([]);
       setIsLoadingMessages(false);
       return;
     }
 
-    const contactId = activeContact.id;
-    const cleanPhone = String(activeContact.phone || activeContact.rawPhone || activeContact.phoneNumber || activeContact.id || '').replace(/\D/g, '');
+    const contactId = targetContact.id;
+    const cleanPhone = String(targetContact.phone || targetContact.rawPhone || targetContact.phoneNumber || targetContact.id || '').replace(/\D/g, '');
     const norm10 = cleanPhone.length >= 7 ? cleanPhone.slice(-10) : '';
 
-    const cached = getCachedMessages(contactId);
-    if (cached && cached.length > 0) {
-      setActiveMessages(cached);
-      setIsLoadingMessages(false);
-      setTimeout(() => scrollToBottom(true), 15);
+    if (!forceFresh) {
+      const cached = getCachedMessages(contactId);
+      if (cached && cached.length > 0) {
+        setActiveMessages(cached);
+        setIsLoadingMessages(false);
+        setTimeout(() => scrollToBottom(true), 15);
+      } else {
+        setActiveMessages([]);
+        setIsLoadingMessages(true);
+      }
     } else {
-      setActiveMessages([]);
       setIsLoadingMessages(true);
     }
 
@@ -1584,7 +1588,14 @@ export default function ConversationsPage({
       clearTimeout(safetyTimer);
       abortCtrl.abort();
     };
-  }, [activeContact?.id, activeContact?.phone, activeContact?.rawPhone, API_URL, token, companyId]);
+  }, [API_URL, token, companyId]);
+
+  useEffect(() => {
+    const cleanup = fetchMessagesForContact(activeContact, false);
+    return () => {
+      if (typeof cleanup === 'function') cleanup();
+    };
+  }, [activeContact?.id, activeContact?.phone, activeContact?.rawPhone, fetchMessagesForContact]);
 
   // Real-time Electron WhatsApp Webview Incoming Message & Batch Sync Listener
   useEffect(() => {
@@ -1724,9 +1735,28 @@ export default function ConversationsPage({
         socket.emit('join_tenant', companyId);
       });
 
+      socket.on('history_synced', (data) => {
+        if (data?.tenantId && String(data.tenantId) !== String(companyId) && data.tenantId !== 'default') {
+          return;
+        }
+        fetchConversations();
+        if (activeContactRef.current?.id) {
+          fetchMessagesForContact(activeContactRef.current, true);
+        }
+      });
+
       socket.on('new_message', (msg) => {
         if (!msg) return;
         if (msg.tenantId && String(msg.tenantId) !== String(companyId) && msg.tenantId !== 'default') {
+          return;
+        }
+
+        // Handle System & WhatsApp History Sync notifications from backend
+        if (msg.system_sync) {
+          fetchConversations();
+          if (activeContactRef.current?.id) {
+            fetchMessagesForContact(activeContactRef.current, true);
+          }
           return;
         }
 
@@ -3497,7 +3527,12 @@ export default function ConversationsPage({
                 </button>
                 <button
                   type="button"
-                  onClick={() => fetchConversations()}
+                  onClick={() => {
+                    fetchConversations();
+                    if (activeContact?.id) {
+                      fetchMessagesForContact(activeContact, true);
+                    }
+                  }}
                   disabled={loadingConversations}
                   style={{
                     width: '24px',
@@ -3513,7 +3548,7 @@ export default function ConversationsPage({
                     flexShrink: 0,
                     padding: 0
                   }}
-                  title="Refresh Conversations"
+                  title="Refresh Conversations & Messages"
                 >
                   <RefreshCw size={11} className={loadingConversations ? 'animate-spin' : ''} style={{ animation: loadingConversations ? 'spin 1s linear infinite' : 'none' }} />
                 </button>
