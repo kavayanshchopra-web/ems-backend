@@ -792,6 +792,13 @@ h1, h2, h3, h4, h5, h6 {
   flex-shrink: 0;
 }
 
+.download-app-mobile-text {
+  display: none;
+}
+.download-app-desktop-text {
+  display: inline;
+}
+
 .top-header input::placeholder {
   color: rgba(255, 255, 255, 0.7) !important;
 }
@@ -1981,6 +1988,17 @@ h1, h2, h3, h4, h5, h6 {
   }
   .simulator-toggle-btn {
     display: none !important;
+  }
+  .download-app-desktop-text {
+    display: none !important;
+  }
+  .download-app-mobile-text {
+    display: inline !important;
+  }
+  .download-app-header-btn {
+    padding: 6px 9px !important;
+    font-size: 11px !important;
+    gap: 4px !important;
   }
 
   /* Sub-tabs row swipe scroll on mobile */

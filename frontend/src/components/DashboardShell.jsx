@@ -7906,6 +7906,39 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: serverOnline ? '#10b981' : '#ef4444', display: 'inline-block' }}></span>
               <span className="server-status-text">{serverOnline ? 'Live' : 'Offline'}</span>
             </span>
+
+            {/* Direct Android Companion APK Download Button */}
+            <a
+              href="https://pdjaajbhrvglwukoacuh.supabase.co/storage/v1/object/public/omniflow-vault/app/EMS-Live-Companion.apk"
+              download="EMS-Companion.apk"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="download-app-header-btn"
+              title="Download Official Android Companion App APK"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 12px',
+                minHeight: '34px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
+                border: '1px solid rgba(255, 255, 255, 0.25)',
+                color: '#ffffff',
+                fontSize: '11.5px',
+                fontWeight: '700',
+                textDecoration: 'none',
+                boxShadow: '0 2px 5px rgba(0, 0, 0, 0.15)',
+                transition: 'all 0.15s ease',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <Download size={13} />
+              <span className="download-app-desktop-text">Download App</span>
+              <span className="download-app-mobile-text">App</span>
+            </a>
+
             {/* Real-Time Notification Bell Hub */}
             <div style={{ position: 'relative' }}>
               <div

@@ -2148,6 +2148,11 @@ export default function setupRoutes(io) {
     }
   });
 
+  // Direct Android APK Download Endpoint
+  router.get(['/download/apk', '/api/download/apk', '/download/android-app'], (req, res) => {
+    res.redirect('https://pdjaajbhrvglwukoacuh.supabase.co/storage/v1/object/public/omniflow-vault/app/EMS-Live-Companion.apk');
+  });
+
   // Send WhatsApp message (Unified Desktop Webview + Baileys + Local SQLite Engine)
   router.post(['/messages/send', '/api/messages/send'], async (req, res) => {
     const rawText = req.body.text || req.body.message || req.body.textContent || '';
