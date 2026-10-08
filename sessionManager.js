@@ -165,8 +165,11 @@ export async function startSession(id, io) {
       if (String(tenantId) === '1' || tenantId === 1) {
         io.to('tenant_default').emit(event, data);
       }
-    } catch {
       io.emit(event, { ...data, tenantId });
+    } catch {
+      try {
+        io.emit(event, { ...data, tenantId });
+      } catch {}
     }
   };
 
@@ -941,11 +944,11 @@ export async function destroySession(id) {
 
 // Send WhatsApp text message
 export async function sendWhatsAppMessage(sessionId, recipientJid, text, tenantId = 1) {
-  const isSockReady = (s) => s && !s.isClosed && s.ws && s.ws.readyState === 1;
+  const isSockReady = (s) => Boolean(s && !s.isClosed && (s.user?.id || s.ws?.isOpen || s.authState?.creds?.me?.id));
 
   let sock = activeSockets.get(sessionId);
   if (!isSockReady(sock)) {
-    // Prefer any actively connected socket with open WebSocket connection
+    // Prefer any actively connected socket with open Baileys connection
     for (const [id, s] of activeSockets.entries()) {
       if (isSockReady(s)) {
         sock = s;
@@ -955,10 +958,10 @@ export async function sendWhatsAppMessage(sessionId, recipientJid, text, tenantI
     }
   }
 
-  // Secondary fallback: Any non-closed socket
+  // Secondary fallback: Any socket that has user.id (authenticated)
   if (!sock) {
     for (const [id, s] of activeSockets.entries()) {
-      if (s && !s.isClosed) {
+      if (s && !s.isClosed && s.user?.id) {
         sock = s;
         sessionId = id;
         break;
@@ -966,8 +969,8 @@ export async function sendWhatsAppMessage(sessionId, recipientJid, text, tenantI
     }
   }
 
-  if (!sock) {
-    throw new Error('WhatsApp session is not connected or active');
+  if (!sock || !isSockReady(sock)) {
+    throw new Error('WhatsApp session is not connected or active. Please pair your device by scanning the QR code.');
   }
 
   // Format JID if it's just a raw number
@@ -1051,7 +1054,7 @@ export async function markWhatsAppMessagesAsRead(sessionId, contactJid, messageK
 
 // Send WhatsApp media message
 export async function sendWhatsAppMedia(sessionId, recipientJid, mediaType, fileBuffer, fileName, fileMimeType, caption = '', tenantId = 1) {
-  const isSockReady = (s) => s && !s.isClosed && s.ws && s.ws.readyState === 1;
+  const isSockReady = (s) => Boolean(s && !s.isClosed && (s.user?.id || s.ws?.isOpen || s.authState?.creds?.me?.id));
 
   let sock = activeSockets.get(sessionId);
   if (!isSockReady(sock)) {
@@ -1065,15 +1068,15 @@ export async function sendWhatsAppMedia(sessionId, recipientJid, mediaType, file
   }
   if (!sock) {
     for (const [sId, s] of activeSockets.entries()) {
-      if (s && !s.isClosed) {
+      if (s && !s.isClosed && s.user?.id) {
         sock = s;
         sessionId = sId;
         break;
       }
     }
   }
-  if (!sock) {
-    throw new Error('WhatsApp session is not active');
+  if (!sock || !isSockReady(sock)) {
+    throw new Error('WhatsApp session is not active. Please scan the QR code to link your phone.');
   }
 
   // Format JID if it's just a raw number
