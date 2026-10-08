@@ -7337,39 +7337,123 @@ export default function DashboardShell({ authUser, setAuthUser }) {
   }, [todayStatus]);
 
   // Real Up-Next Follow-up Lead (strictly from actual scheduled messages or leads)
-  const realUpNext = useMemo(() => {
-    const nowUnix = Math.floor(Date.now() / 1000);
-    const nextScheduled = (scheduledMessages || [])
-      .filter(s => s.sendAt && s.sendAt > nowUnix)
-      .sort((a, b) => a.sendAt - b.sendAt)[0];
+  // Real Pipeline Follow-ups Queue (Sorted: Overdue -> Today -> Upcoming Date-wise -> Active Leads)
+  const realPipelineFollowUps = useMemo(() => {
+    const list = [];
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const todayEnd = todayStart + 24 * 60 * 60 * 1000 - 1;
 
-    if (nextScheduled) {
-      const contact = (contacts || []).find(c => c.id === nextScheduled.recipientId || c.phone === nextScheduled.recipientPhone);
-      const timeStr = new Date(nextScheduled.sendAt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      return {
-        name: contact?.name || contact?.customName || nextScheduled.recipientPhone || 'Scheduled Contact',
-        phone: contact?.phone || nextScheduled.recipientPhone || '',
-        subtitle: `Scheduled Message: "${(nextScheduled.messageText || '').slice(0, 32)}..."`,
-        time: timeStr,
-        priority: 'Scheduled'
-      };
-    }
+    // 1. Process all contacts
+    (contacts || []).forEach(c => {
+      const rawDate = c.follow_up_date || c.custom_fields?.follow_up_date || c.followup_date || c.custom_fields?.followup || c.reminder_date || c.next_action_date;
+      const note = c.follow_up_note || c.custom_fields?.follow_up_note || c.next_action || c.notes || '';
+      const name = c.name || c.custom_name || c.customName || c.phone || 'Lead';
+      const phone = c.phone || '';
+      const stage = c.pipeline_stage || c.stage || 'Lead';
+      const dealVal = Number(c.deal_value || c.amount || c.dealValue || 0);
+      const dealText = dealVal > 0 ? (dealVal >= 100000 ? `₹${(dealVal / 100000).toFixed(2)}L` : `₹${dealVal}`) : '';
 
-    const followUpContact = (contacts || []).find(c => c.follow_up_date || c.reminder_date || c.next_action);
-    if (followUpContact) {
-      const fTime = followUpContact.follow_up_date || followUpContact.reminder_date;
-      const timeStr = fTime ? new Date(fTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending';
-      return {
-        name: followUpContact.name || followUpContact.customName || followUpContact.phone || 'Lead',
-        phone: followUpContact.phone || '',
-        subtitle: followUpContact.next_action || `${followUpContact.pipeline_stage || 'CRM'} Follow-up`,
-        time: timeStr,
-        priority: followUpContact.priority || 'Follow-up'
-      };
-    }
+      if (rawDate) {
+        const d = new Date(rawDate);
+        if (!isNaN(d.getTime())) {
+          const timeMs = d.getTime();
+          let category = 'upcoming'; // 'overdue' | 'today' | 'upcoming'
+          let timeLabel = '';
 
-    return null;
-  }, [scheduledMessages, contacts]);
+          if (timeMs < todayStart) {
+            category = 'overdue';
+            timeLabel = `Overdue • ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
+          } else if (timeMs <= todayEnd) {
+            category = 'today';
+            timeLabel = `Today • ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+          } else {
+            category = 'upcoming';
+            timeLabel = `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} • ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+          }
+
+          list.push({
+            id: `c_${c.id}`,
+            contactId: c.id,
+            name,
+            phone,
+            subtitle: note ? `${note}${dealText ? ` • ${dealText}` : ''}` : `${stage} Follow-up${dealText ? ` • ${dealText}` : ''}`,
+            timestamp: timeMs,
+            timeLabel,
+            category,
+            categoryRank: category === 'overdue' ? 1 : category === 'today' ? 2 : 3,
+            priority: c.priority || (category === 'overdue' ? 'High Priority' : 'Follow-up'),
+            dealText,
+            stage
+          });
+        }
+      } else if (c.pipeline_stage && c.pipeline_stage !== 'lost' && c.pipeline_stage !== 'archived') {
+        // Active pipeline leads
+        list.push({
+          id: `c_lead_${c.id}`,
+          contactId: c.id,
+          name,
+          phone,
+          subtitle: `${stage} • Active Pipeline Lead${dealText ? ` • ${dealText}` : ''}`,
+          timestamp: new Date(c.updated_at || c.created_at || now).getTime(),
+          timeLabel: 'Pipeline Lead',
+          category: 'active',
+          categoryRank: 4,
+          priority: 'Active',
+          dealText,
+          stage
+        });
+      }
+    });
+
+    // 2. Process scheduled messages
+    (scheduledMessages || []).forEach(s => {
+      const sendTimeMs = (s.sendAt ? Number(s.sendAt) * 1000 : new Date(s.scheduled_at || s.scheduledAt).getTime());
+      if (sendTimeMs && !isNaN(sendTimeMs)) {
+        const contact = (contacts || []).find(c => c.id === s.recipientId || c.id === s.contact_id || c.phone === s.recipientPhone || c.phone === s.recipient_phone);
+        const name = contact?.name || contact?.custom_name || contact?.customName || s.recipientPhone || 'Scheduled Contact';
+        const phone = contact?.phone || s.recipientPhone || s.contact_id || '';
+        let category = 'upcoming';
+        let timeLabel = '';
+
+        if (sendTimeMs < todayStart) {
+          category = 'overdue';
+          timeLabel = 'Pending Queue';
+        } else if (sendTimeMs <= todayEnd) {
+          category = 'today';
+          timeLabel = `Today • ${new Date(sendTimeMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        } else {
+          category = 'upcoming';
+          timeLabel = new Date(sendTimeMs).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+
+        list.push({
+          id: `sched_${s.id}`,
+          contactId: contact?.id || s.contact_id,
+          name,
+          phone,
+          subtitle: `Scheduled WhatsApp: "${(s.message_text || s.messageText || '').slice(0, 36)}..."`,
+          timestamp: sendTimeMs,
+          timeLabel,
+          category,
+          categoryRank: category === 'overdue' ? 1 : category === 'today' ? 2 : 3,
+          priority: 'Scheduled WhatsApp',
+          dealText: '',
+          stage: 'WhatsApp'
+        });
+      }
+    });
+
+    // Sort: Category rank first (Overdue -> Today -> Upcoming -> Active), then by timestamp ascending!
+    list.sort((a, b) => {
+      if (a.categoryRank !== b.categoryRank) return a.categoryRank - b.categoryRank;
+      return a.timestamp - b.timestamp;
+    });
+
+    return list;
+  }, [contacts, scheduledMessages]);
+
+  const realUpNext = realPipelineFollowUps[0] || null;
 
   // Mobile App Launcher Mode: Strictly active inside Android Companion App ONLY
   if (isAndroidApp && (mobileActiveView === 'home' || mobileActiveView === 'all_apps')) {
@@ -7385,6 +7469,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           metrics={realLauncherMetrics}
           dutyStatus={realDutyStatus}
           upNext={realUpNext}
+          followUps={realPipelineFollowUps}
         />
         {/* Universal Cloud Dialer Modal */}
         {globalDialerOpen && (
