@@ -3641,19 +3641,28 @@ h1, h2, h3, h4, h5, h6 {
     box-sizing: border-box !important;
   }
 
+  .top-header {
+    padding: 4px 8px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
   .top-header button {
-    min-height: 44px !important;
-    border-radius: 10px !important;
+    border-radius: 8px !important;
   }
 
   .menu-toggle-btn {
-    padding: 6px 12px !important;
+    padding: 4px 8px !important;
     margin-right: 4px !important;
     gap: 0 !important;
-    min-width: 44px !important;
-    min-height: 44px !important;
-    height: 44px !important;
-    border-radius: 10px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    height: 36px !important;
+    border-radius: 8px !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -3664,19 +3673,11 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   .desktop-page-title {
-    margin-left: 0 !important;
-    margin-right: 4px !important;
-    flex: 1 1 auto !important;
-    min-width: 0 !important;
+    display: none !important;
   }
 
-  .desktop-page-title span {
-    font-size: 13px !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    display: block !important;
-    max-width: 140px !important;
+  .server-status-container {
+    padding: 0 2px !important;
   }
 
   .server-status-text {
@@ -3684,7 +3685,7 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   .header-actions-group {
-    gap: 8px !important;
+    gap: 5px !important;
     margin-left: auto !important;
     display: flex !important;
     align-items: center !important;
@@ -3692,36 +3693,39 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   .header-action-btn {
-    width: 44px !important;
-    height: 44px !important;
-    min-width: 44px !important;
-    min-height: 44px !important;
-    border-radius: 12px !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    border-radius: 8px !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
   }
 
-  .user-avatar-btn {
-    width: 44px !important;
-    height: 44px !important;
-    min-width: 44px !important;
-    min-height: 44px !important;
+  .user-avatar-btn,
+  .top-header button[title*="Profile"] {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
     border-radius: 50% !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
+    margin-right: 1px !important;
   }
 
   .download-app-header-btn {
-    min-height: 44px !important;
-    height: 44px !important;
-    padding: 6px 12px !important;
-    border-radius: 10px !important;
-    font-size: 12px !important;
+    min-height: 34px !important;
+    height: 34px !important;
+    padding: 4px 8px !important;
+    border-radius: 8px !important;
+    font-size: 11px !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
+    gap: 3px !important;
   }
   .download-app-desktop-text {
     display: none !important;
@@ -3753,10 +3757,10 @@ h1, h2, h3, h4, h5, h6 {
     padding: 2px !important;
   }
   .top-subnav-hub-bar button {
-    min-height: 44px !important;
-    height: 44px !important;
-    padding: 8px 14px !important;
-    font-size: 13px !important;
+    min-height: 36px !important;
+    height: 36px !important;
+    padding: 5px 11px !important;
+    font-size: 12px !important;
     font-weight: 700 !important;
     white-space: nowrap !important;
     flex-shrink: 0 !important;
@@ -3766,26 +3770,65 @@ h1, h2, h3, h4, h5, h6 {
     justify-content: center !important;
   }
 
-  /* ── Mobile Action Buttons & Touch Ergonomics (>=44px strictly enforced) ── */
-  .mobile-cards-view button,
-  .mobile-cards-view a,
-  .mobile-cards-view .mobile-action-btn {
-    min-width: 44px !important;
-    min-height: 44px !important;
-    height: 44px !important;
+  /* ── Module Header Strip (Custom subnav tabs & actions) ── */
+  .module-header-strip {
+    padding: 6px 10px !important;
+    gap: 8px !important;
     border-radius: 10px !important;
+  }
+  .module-header-strip > div:first-child {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    padding-bottom: 2px !important;
+  }
+  .module-header-strip > div:first-child::-webkit-scrollbar {
+    display: none !important;
+  }
+  .module-header-actions {
+    width: 100% !important;
+    justify-content: space-between !important;
+    margin-left: 0 !important;
+    gap: 8px !important;
+  }
+
+  /* ── Mobile Action Buttons & Card Touch Ergonomics ── */
+  .mobile-cards-view .mobile-card-action-btn,
+  .mobile-cards-view .mobile-action-btn {
+    min-width: 36px !important;
+    min-height: 36px !important;
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 8px !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
     box-sizing: border-box !important;
+    touch-action: manipulation !important;
   }
 
+  .mobile-cards-view .followup-toggle-btn {
+    min-width: unset !important;
+    min-height: 24px !important;
+    height: 24px !important;
+    padding: 2px 8px !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    border-radius: 5px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobile-cards-view select.stage-select-dropdown,
   .mobile-cards-view select {
-    min-height: 42px !important;
-    height: 42px !important;
-    font-size: 13px !important;
-    padding: 6px 10px !important;
-    border-radius: 8px !important;
+    min-height: 32px !important;
+    height: 32px !important;
+    font-size: 11px !important;
+    padding: 3px 6px !important;
+    border-radius: 7px !important;
+    box-sizing: border-box !important;
   }
 
   /* ── Mobile Bottom Pagination Engine Bar ── */

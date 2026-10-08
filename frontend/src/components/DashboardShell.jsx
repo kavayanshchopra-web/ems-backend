@@ -7736,6 +7736,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           {/* Universal Apps Launchpad Button */}
           <button
             type="button"
+            className="apps-launchpad-header-btn"
             onClick={() => setActiveTab('app_launcher')}
             title="Return to Apps Launchpad"
             style={{
@@ -8030,6 +8031,7 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             <div style={{ position: "relative" }}>
               <button
                 type="button"
+                className="user-avatar-btn"
                 onClick={() => setShowProfileDropdown(prev => !prev)}
                 title={authUser?.name || authUser?.email || "User Profile"}
                 style={{

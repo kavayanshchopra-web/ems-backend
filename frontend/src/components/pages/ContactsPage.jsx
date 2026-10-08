@@ -776,7 +776,7 @@ export default function ContactsPage({
 
   // Clean pill-styled Segmented Navigation Tabs without icons
   const headerTabs = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch', maxWidth: '100%', scrollbarWidth: 'none', paddingBottom: '2px' }}>
       <div
         style={{
           display: 'inline-flex',
@@ -785,7 +785,8 @@ export default function ContactsPage({
           padding: '3px',
           borderRadius: '9px',
           border: '1px solid #e2e8f0',
-          gap: '3px'
+          gap: '3px',
+          flexShrink: 0
         }}
       >
         {/* 1. All Contacts */}
