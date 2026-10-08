@@ -102,18 +102,6 @@ export default function LayoutEngine({
 
   const canManage = (isUserScopedModule ? canEdit : (!isEmployeeRole && (canEdit || canDelete || canConfigure)));
 
-  if (!canView) {
-    return (
-      <div className="glass-panel" style={{ padding: '48px', margin: '24px', textAlign: 'center', background: '#ffffff', borderRadius: '16px', border: '1px solid #fee2e2' }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div>
-        <h2 style={{ fontSize: '20px', fontWeight: '900', color: '#991b1b', margin: 0 }}>Access Restricted</h2>
-        <p style={{ fontSize: '13px', color: '#7f1d1d', marginTop: '6px', maxWidth: '480px', margin: '6px auto 0' }}>
-          Your user role does not have permission to access the <strong>{LabelEngine.getEntityNamePlural(moduleConfig) || 'requested'}</strong> module. Please contact your system administrator to grant view access.
-        </p>
-      </div>
-    );
-  }
-
   // Filtered Archived Records from global Recycle Bin
   const archivedModuleItems = (recycleBinItems || []).filter(item => {
     if (!item) return false;
@@ -262,6 +250,18 @@ export default function LayoutEngine({
     setSearchQuery('');
     setFilterValues({});
   };
+
+  if (!canView) {
+    return (
+      <div className="glass-panel" style={{ padding: '48px', margin: '24px', textAlign: 'center', background: '#ffffff', borderRadius: '16px', border: '1px solid #fee2e2' }}>
+        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div>
+        <h2 style={{ fontSize: '20px', fontWeight: '900', color: '#991b1b', margin: 0 }}>Access Restricted</h2>
+        <p style={{ fontSize: '13px', color: '#7f1d1d', marginTop: '6px', maxWidth: '480px', margin: '6px auto 0' }}>
+          Your user role does not have permission to access the <strong>{LabelEngine.getEntityNamePlural(moduleConfig) || 'requested'}</strong> module. Please contact your system administrator to grant view access.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="layout-engine-shell" style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', padding: '16px 20px', boxSizing: 'border-box' }}>

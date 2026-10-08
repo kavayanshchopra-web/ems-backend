@@ -16,8 +16,6 @@ export default function ImportModal({
   moduleConfig = {},
   showToast = () => {}
 }) {
-  if (!isOpen) return null;
-
   const fileInputRef = useRef(null);
   const fields = moduleConfig.fields || [];
   const entityName = LabelEngine.getEntityName(moduleConfig);
@@ -32,6 +30,8 @@ export default function ImportModal({
   const [duplicateStrategy, setDuplicateStrategy] = useState('skip'); // 'skip' | 'overwrite' | 'import_all'
   const [importSummary, setImportSummary] = useState(null);
   const [skippedRowsList, setSkippedRowsList] = useState([]); // [{ row, reason }]
+
+  if (!isOpen) return null;
 
   // Reset Wizard State on Close
   const handleResetAndClose = () => {

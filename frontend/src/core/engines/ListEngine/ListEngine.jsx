@@ -849,16 +849,23 @@ export default function ListEngine({
                         </span>
                       );
                     })()}
-                    {/* Call Recording OFF Badge next to lead */}
-                    {Boolean(
-                      record.recording_status === 'RECORDING_OFF' ||
-                      record.recordingStatus === 'RECORDING_OFF' ||
-                      record.recording === 'RECORDING_OFF' ||
-                      record.recording_url === 'RECORDING_OFF' ||
-                      String(record.notes || '').toLowerCase().includes('recording was off') ||
-                      String(record.notes || '').toLowerCase().includes('recording may be off') ||
-                      String(record.notes || '').toLowerCase().includes('recording off')
-                    ) && (
+                    {/* Call Recording OFF Badge next to lead (ONLY if audio is genuinely missing and call was answered) */}
+                    {(() => {
+                      const recUrl = String(record.recording || record.recordingUrl || record.audioUrl || record.recording_url || '').trim();
+                      const hasValidRec = recUrl && (recUrl.startsWith('http') || recUrl.startsWith('data:')) && !recUrl.includes('soundhelix.com') && !recUrl.includes('[no audio]');
+                      if (hasValidRec) return false;
+                      const callDur = Number(record.duration_seconds || record.duration || 0);
+                      const isCallOff = (
+                        record.recording_status === 'RECORDING_OFF' ||
+                        record.recordingStatus === 'RECORDING_OFF' ||
+                        record.recording === 'RECORDING_OFF' ||
+                        recUrl === 'RECORDING_OFF' ||
+                        String(record.notes || '').toLowerCase().includes('recording was off') ||
+                        String(record.notes || '').toLowerCase().includes('recording may be off') ||
+                        String(record.notes || '').toLowerCase().includes('recording off')
+                      );
+                      return isCallOff && callDur > 0;
+                    })() && (
                       <span
                         style={{
                           fontSize: '9px',
@@ -1046,12 +1053,13 @@ export default function ListEngine({
                                  String(record.status || record.disposition || '').toUpperCase() === 'MISSED CALL';
             const callTime = Number(record._createdAt || (record.created_at ? new Date(record.created_at).getTime() : 0)) || 0;
             const isRecentCall = callTime > 0 && (Date.now() - callTime < 300000); // within last 5 minutes
-            const isRecordingOff = recUrl === 'RECORDING_OFF' || 
+            const isRecordingOff = !hasValidRec && (
+                                   recUrl === 'RECORDING_OFF' || 
                                    String(record.recording_status || record.recordingStatus || '').toUpperCase() === 'RECORDING_OFF' ||
                                    String(record.notes || '').toLowerCase().includes('recording was off') ||
                                    String(record.notes || '').toLowerCase().includes('recording may be off') ||
                                    String(record.notes || '').toLowerCase().includes('recording is off') ||
-                                   String(record.notes || '').toLowerCase().includes('recording off');
+                                   String(record.notes || '').toLowerCase().includes('recording off'));
 
             if (hasValidRec) {
               return (
@@ -1619,10 +1627,11 @@ export default function ListEngine({
       const hasValidRec = Boolean(recUrl && recUrl.startsWith('http') && !recUrl.includes('soundhelix.com') && !recUrl.includes('[no audio]'));
       const rawCallType = String(record.type || record.callType || 'OUTGOING').toUpperCase();
       const isMissedCall = rawCallType === 'MISSED' || recordStatus.toUpperCase().includes('MISSED');
-      const isRecordingOff = recUrl === 'RECORDING_OFF' || 
+      const isRecordingOff = !hasValidRec && (
+                             recUrl === 'RECORDING_OFF' || 
                              String(record.recording_status || record.recordingStatus || '').toUpperCase() === 'RECORDING_OFF' || 
                              String(record.notes || '').toLowerCase().includes('recording was off') || 
-                             String(record.notes || '').toLowerCase().includes('recording off');
+                             String(record.notes || '').toLowerCase().includes('recording off'));
 
       let durationStr = '';
       if (record.duration && typeof record.duration === 'string' && record.duration !== '00:00' && record.duration !== '0s' && record.duration !== '—') {

@@ -1223,7 +1223,28 @@ export const SupabaseSandboxService = {
           const cleanP = String(log.customer_phone || log.phone || '').replace(/\D/g, '');
           const norm10 = cleanP.length >= 10 ? cleanP.slice(-10) : cleanP;
           if (norm10.length >= 7) {
-            const matchedFile = storageFiles.find(f => f.name && f.name.includes(norm10));
+            const callTime = Number(log._createdAt || (log.created_at ? new Date(log.created_at).getTime() : 0)) || 0;
+            const candidates = storageFiles.filter(f => f.name && f.name.includes(norm10));
+            let matchedFile = null;
+            if (candidates.length === 1) {
+              matchedFile = candidates[0];
+            } else if (candidates.length > 1 && callTime > 0) {
+              let minDiff = Infinity;
+              for (const f of candidates) {
+                const timeMatch = f.name.match(/(?:call|rec)_(\d{10,13})/);
+                if (timeMatch) {
+                  const fTime = Number(timeMatch[1].padEnd(13, '0').slice(0, 13));
+                  const diff = Math.abs(fTime - callTime);
+                  if (diff < minDiff && diff < 120 * 60 * 1000) { // closest within 2 hours
+                    minDiff = diff;
+                    matchedFile = f;
+                  }
+                }
+              }
+              if (!matchedFile) matchedFile = candidates[0];
+            } else if (candidates.length > 1) {
+              matchedFile = candidates[0];
+            }
             if (matchedFile) {
               recUrl = `${SUPABASE_STORAGE_URL}/object/public/${STORAGE_BUCKET}/tenants/${Number(tenantId)}/calls/${matchedFile.name}`;
               hasRecording = true;
@@ -1358,7 +1379,28 @@ export const SupabaseSandboxService = {
           const cleanP = String(log.customer_phone || log.phone || '').replace(/\D/g, '');
           const norm10 = cleanP.length >= 10 ? cleanP.slice(-10) : cleanP;
           if (norm10.length >= 7) {
-            const matchedFile = tFiles.find(f => f.name && f.name.includes(norm10));
+            const callTime = Number(log._createdAt || (log.created_at ? new Date(log.created_at).getTime() : 0)) || 0;
+            const candidates = tFiles.filter(f => f.name && f.name.includes(norm10));
+            let matchedFile = null;
+            if (candidates.length === 1) {
+              matchedFile = candidates[0];
+            } else if (candidates.length > 1 && callTime > 0) {
+              let minDiff = Infinity;
+              for (const f of candidates) {
+                const timeMatch = f.name.match(/(?:call|rec)_(\d{10,13})/);
+                if (timeMatch) {
+                  const fTime = Number(timeMatch[1].padEnd(13, '0').slice(0, 13));
+                  const diff = Math.abs(fTime - callTime);
+                  if (diff < minDiff && diff < 120 * 60 * 1000) { // closest within 2 hours
+                    minDiff = diff;
+                    matchedFile = f;
+                  }
+                }
+              }
+              if (!matchedFile) matchedFile = candidates[0];
+            } else if (candidates.length > 1) {
+              matchedFile = candidates[0];
+            }
             if (matchedFile) {
               recUrl = `${SUPABASE_STORAGE_URL}/object/public/${STORAGE_BUCKET}/tenants/${log.tenant_id}/calls/${matchedFile.name}`;
               hasRecording = true;

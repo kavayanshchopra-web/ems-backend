@@ -15,8 +15,6 @@ export default function ExportModal({
   moduleConfig = {},
   showToast = () => {}
 }) {
-  if (!isOpen) return null;
-
   const fields = moduleConfig.fields || [];
   const columns = moduleConfig.columns || [];
   const entityName = LabelEngine.getEntityName(moduleConfig);
@@ -32,6 +30,8 @@ export default function ExportModal({
   const [selectedFieldIds, setSelectedFieldIds] = useState(
     visibleFieldIds.length > 0 ? visibleFieldIds : defaultFieldIds
   );
+
+  if (!isOpen) return null;
 
   const filteredFields = fields.filter(f =>
     String(f.label || '').toLowerCase().includes(fieldSearchQuery.toLowerCase().trim()) ||
