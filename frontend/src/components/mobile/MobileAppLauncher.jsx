@@ -130,6 +130,8 @@ export default function MobileAppLauncher({
   authUser,
   tenantSubscription,
   metrics = {},
+  dutyStatus = null,
+  upNext = null,
   customModules = []
 }) {
   const [internalView, setInternalView] = useState(currentView);
@@ -475,27 +477,55 @@ export default function MobileAppLauncher({
             </h1>
             <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               {activeView === 'home' ? (
-                <div style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '3px 10px',
-                  borderRadius: '20px',
-                  background: 'rgba(16, 185, 129, 0.22)',
-                  border: '1px solid rgba(16, 185, 129, 0.45)',
-                  color: '#a7f3d0',
-                  fontSize: '11px',
-                  fontWeight: '700'
-                }}>
-                  <span style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    background: '#10b981',
-                    boxShadow: '0 0 6px #10b981'
-                  }} />
-                  <span>On Duty • 04h 12m</span>
-                </div>
+                dutyStatus?.isOnDuty ? (
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '3px 10px',
+                    borderRadius: '20px',
+                    background: 'rgba(16, 185, 129, 0.22)',
+                    border: '1px solid rgba(16, 185, 129, 0.45)',
+                    color: '#a7f3d0',
+                    fontSize: '11px',
+                    fontWeight: '700'
+                  }}>
+                    <span style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: '#10b981',
+                      boxShadow: '0 0 6px #10b981'
+                    }} />
+                    <span>{dutyStatus.text}</span>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => handleNavigate('my_attendance')}
+                    title="Tap to Punch In"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '3px 10px',
+                      borderRadius: '20px',
+                      background: 'rgba(255, 255, 255, 0.12)',
+                      border: '1px solid rgba(255, 255, 255, 0.22)',
+                      color: '#e2e8f0',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <span style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: '#94a3b8'
+                    }} />
+                    <span>Off Duty • Tap to Punch In</span>
+                  </div>
+                )
               ) : (
                 <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)', fontWeight: '500' }}>
                   {allAvailableApps.length} active apps & modules available
@@ -565,7 +595,7 @@ export default function MobileAppLauncher({
               </div>
               <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>Tasks</div>
               <div style={{ fontSize: '15px', fontWeight: '800', color: '#0d9488', marginTop: '4px' }}>
-                {metrics.tasksText || '3 Pending'}
+                {metrics.pendingTasksCount !== undefined ? `${metrics.pendingTasksCount} Pending` : (metrics.tasksText || '0 Pending')}
               </div>
               <div style={{ fontSize: '11px', color: '#0d9488', fontWeight: '700', marginTop: '6px' }}>
                 + Add a task
@@ -600,7 +630,7 @@ export default function MobileAppLauncher({
               </div>
               <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>Pipeline Value</div>
               <div style={{ fontSize: '18px', fontWeight: '900', color: '#0f172a', marginTop: '4px' }}>
-                {metrics.pipelineValue || '₹4.85L'}
+                {metrics.pipelineValue || '₹0'}
               </div>
               <div style={{ fontSize: '11px', color: '#10b981', fontWeight: '700', marginTop: '6px' }}>
                 View Pipeline ↗
@@ -635,7 +665,7 @@ export default function MobileAppLauncher({
               </div>
               <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>Unread Messages</div>
               <div style={{ fontSize: '18px', fontWeight: '900', color: '#0f172a', marginTop: '4px' }}>
-                {metrics.unreadMessages || '14 New'}
+                {metrics.unreadMessagesCount !== undefined ? `${metrics.unreadMessagesCount} New` : (metrics.unreadMessages || '0 New')}
               </div>
               <div style={{ fontSize: '11px', color: '#06b6d4', fontWeight: '700', marginTop: '6px' }}>
                 Open Inbox ↗
@@ -670,7 +700,7 @@ export default function MobileAppLauncher({
               </div>
               <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>Today Calls</div>
               <div style={{ fontSize: '18px', fontWeight: '900', color: '#0f172a', marginTop: '4px' }}>
-                {metrics.appointmentsCount ? `${metrics.appointmentsCount} Appointments` : '42 / 50 Made'}
+                {metrics.todayCallsCount !== undefined ? `${metrics.todayCallsCount} Made` : '0 Made'}
               </div>
               <div style={{ fontSize: '11px', color: '#f59e0b', fontWeight: '700', marginTop: '6px' }}>
                 Dialer Log ↗
@@ -679,18 +709,131 @@ export default function MobileAppLauncher({
           </div>
 
           {/* ⚡ UP NEXT ACTION CARD */}
-          <div style={{
-            background: '#ffffff',
-            borderRadius: '18px',
-            border: '1px solid #e2e8f0',
-            padding: '16px',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {upNext ? (
+            <div style={{
+              background: '#ffffff',
+              borderRadius: '18px',
+              border: '1px solid #e2e8f0',
+              padding: '16px',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    background: 'rgba(13, 148, 136, 0.1)',
+                    color: '#0d9488',
+                    fontSize: '11px',
+                    fontWeight: '800',
+                    letterSpacing: '0.4px'
+                  }}>
+                    ⚡ UP NEXT
+                  </span>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>
+                    {upNext.time || 'Pending'}
+                  </span>
+                </div>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  background: '#fef3c7',
+                  color: '#b45309'
+                }}>
+                  {upNext.priority || 'Follow-up'}
+                </span>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+                  {upNext.name}
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                  {upNext.subtitle}
+                </div>
+              </div>
+
+              {/* Direct 1-tap actionable triggers for real lead */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '2px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (upNext.phone) {
+                      if (window.AndroidApp && typeof window.AndroidApp.makeDirectCall === 'function') {
+                        window.AndroidApp.makeDirectCall(upNext.phone);
+                      } else if (window.AndroidApp && typeof window.AndroidApp.switchNativeTab === 'function') {
+                        window.AndroidApp.switchNativeTab(2);
+                      } else {
+                        handleNavigate('telecalling');
+                      }
+                    } else {
+                      handleNavigate('telecalling');
+                    }
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '10px 14px',
+                    borderRadius: '12px',
+                    background: '#064e43',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(6, 78, 67, 0.25)'
+                  }}
+                >
+                  <PhoneCall size={16} />
+                  <span>Call Now</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleNavigate('wa_live_web')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '10px 14px',
+                    borderRadius: '12px',
+                    background: '#22c55e',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(34, 197, 94, 0.25)'
+                  }}
+                >
+                  <MessageCircle size={16} />
+                  <span>WhatsApp</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{
+              background: '#ffffff',
+              borderRadius: '18px',
+              border: '1px solid #e2e8f0',
+              padding: '16px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -705,86 +848,59 @@ export default function MobileAppLauncher({
                 }}>
                   ⚡ UP NEXT
                 </span>
-                <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>
-                  11:30 AM
+                <span style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: '600' }}>
+                  Queue clear
                 </span>
               </div>
-              <span style={{
-                fontSize: '11px',
-                fontWeight: '700',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                background: '#fef3c7',
-                color: '#b45309'
-              }}>
-                High Priority
-              </span>
-            </div>
-
-            <div>
-              <div style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
-                Sneha Shah
+              <div style={{ fontSize: '13.5px', fontWeight: '600', color: '#64748b' }}>
+                No upcoming follow-ups scheduled
               </div>
-              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                ₹1.2L Deal Follow-up • Enterprise CRM Demo
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '2px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleNavigate('contacts')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '9px 12px',
+                    borderRadius: '12px',
+                    background: '#f8fafc',
+                    color: '#064e43',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Plus size={15} />
+                  <span>Add Contact</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNavigate('kanban')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '9px 12px',
+                    borderRadius: '12px',
+                    background: '#f8fafc',
+                    color: '#064e43',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Layers size={15} />
+                  <span>New Deal</span>
+                </button>
               </div>
             </div>
-
-            {/* Direct 1-tap actionable triggers */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '2px' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.AndroidApp && typeof window.AndroidApp.switchNativeTab === 'function') {
-                    window.AndroidApp.switchNativeTab(2);
-                  } else {
-                    handleNavigate('telecalling');
-                  }
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  padding: '10px 14px',
-                  borderRadius: '12px',
-                  background: '#064e43',
-                  color: '#ffffff',
-                  border: 'none',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 6px rgba(6, 78, 67, 0.25)'
-                }}
-              >
-                <PhoneCall size={16} />
-                <span>Call Now</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleNavigate('wa_live_web')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  padding: '10px 14px',
-                  borderRadius: '12px',
-                  background: '#22c55e',
-                  color: '#ffffff',
-                  border: 'none',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 6px rgba(34, 197, 94, 0.25)'
-                }}
-              >
-                <MessageCircle size={16} />
-                <span>WhatsApp</span>
-              </button>
-            </div>
-          </div>
+          )}
 
           {/* 📌 PINNED APPS CARD */}
           <div style={{

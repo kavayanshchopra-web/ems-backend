@@ -7276,6 +7276,112 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     { id: 'shifts', label: 'Work Shift Roster', icon: Calendar, perm: 'shifts' }
   ], []);
 
+  // ── Real Live System Metrics for Mobile Launcher (Zero Dummy Data) ──
+  const realLauncherMetrics = useMemo(() => {
+    // 1. Unread Messages from active contacts
+    const unreadCount = (contacts || []).reduce((sum, c) => sum + (Number(c.unread_count || c.unreadCount) || 0), 0);
+
+    // 2. Real Pipeline Value from contacts/deals
+    let totalDealValue = 0;
+    (contacts || []).forEach(c => {
+      const val = Number(c.deal_value || c.amount || c.dealValue || c.value || 0);
+      if (!isNaN(val) && val > 0) totalDealValue += val;
+    });
+    let formattedPipeline = `₹${totalDealValue}`;
+    if (totalDealValue >= 10000000) {
+      formattedPipeline = `₹${(totalDealValue / 10000000).toFixed(2)}Cr`;
+    } else if (totalDealValue >= 100000) {
+      formattedPipeline = `₹${(totalDealValue / 100000).toFixed(2)}L`;
+    } else if (totalDealValue >= 1000) {
+      formattedPipeline = `₹${(totalDealValue / 1000).toFixed(1)}k`;
+    }
+
+    // 3. Real Pending Tasks
+    const pendingTasksCount = (tasks || []).filter(t => t.status !== 'Done' && t.status !== 'Completed' && t.status !== 'closed').length;
+
+    // 4. Real Calls Made Today
+    const todayStr = new Date().toDateString();
+    const todayCallsCount = (callLogs || []).filter(c => {
+      const time = c.timestamp || c._createdAt || c.createdAt;
+      if (!time) return false;
+      const d = new Date(time);
+      return !isNaN(d.getTime()) && d.toDateString() === todayStr;
+    }).length;
+
+    return {
+      unreadMessagesCount: unreadCount,
+      pipelineValue: formattedPipeline,
+      pendingTasksCount: pendingTasksCount,
+      todayCallsCount: todayCallsCount
+    };
+  }, [contacts, tasks, callLogs]);
+
+  // Real Duty Status from live attendance check-in/out
+  const realDutyStatus = useMemo(() => {
+    if (!todayStatus) return { isOnDuty: false, text: 'Off Duty' };
+    const isCheckedIn = todayStatus.status === 'checked_in';
+    if (!isCheckedIn) return { isOnDuty: false, text: 'Off Duty' };
+
+    if (todayStatus.check_in_time) {
+      const diffMs = Date.now() - new Date(todayStatus.check_in_time).getTime();
+      if (diffMs > 0) {
+        const hours = Math.floor(diffMs / (1000 * 60 * 60));
+        const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        return {
+          isOnDuty: true,
+          text: `On Duty • ${String(hours).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`
+        };
+      }
+    }
+    return { isOnDuty: true, text: 'On Duty' };
+  }, [todayStatus]);
+
+  // Real Up-Next Follow-up Lead (strictly from actual scheduled messages or leads)
+  const realUpNext = useMemo(() => {
+    const nowUnix = Math.floor(Date.now() / 1000);
+    const nextScheduled = (scheduledMessages || [])
+      .filter(s => s.sendAt && s.sendAt > nowUnix)
+      .sort((a, b) => a.sendAt - b.sendAt)[0];
+
+    if (nextScheduled) {
+      const contact = (contacts || []).find(c => c.id === nextScheduled.recipientId || c.phone === nextScheduled.recipientPhone);
+      const timeStr = new Date(nextScheduled.sendAt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return {
+        name: contact?.name || contact?.customName || nextScheduled.recipientPhone || 'Scheduled Contact',
+        phone: contact?.phone || nextScheduled.recipientPhone || '',
+        subtitle: `Scheduled Message: "${(nextScheduled.messageText || '').slice(0, 32)}..."`,
+        time: timeStr,
+        priority: 'Scheduled'
+      };
+    }
+
+    const followUpContact = (contacts || []).find(c => c.follow_up_date || c.reminder_date || c.next_action);
+    if (followUpContact) {
+      const fTime = followUpContact.follow_up_date || followUpContact.reminder_date;
+      const timeStr = fTime ? new Date(fTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending';
+      return {
+        name: followUpContact.name || followUpContact.customName || followUpContact.phone || 'Lead',
+        phone: followUpContact.phone || '',
+        subtitle: followUpContact.next_action || `${followUpContact.pipeline_stage || 'CRM'} Follow-up`,
+        time: timeStr,
+        priority: followUpContact.priority || 'Follow-up'
+      };
+    }
+
+    if (Array.isArray(contacts) && contacts.length > 0) {
+      const latestLead = contacts[0];
+      return {
+        name: latestLead.name || latestLead.customName || latestLead.phone || 'Recent Contact',
+        phone: latestLead.phone || '',
+        subtitle: `${latestLead.pipeline_stage || 'Contact'} • Recent Lead`,
+        time: 'Recent',
+        priority: 'Active'
+      };
+    }
+
+    return null;
+  }, [scheduledMessages, contacts]);
+
   // Mobile App Launcher Mode: Strictly active inside Android Companion App ONLY
   if (isAndroidApp && (mobileActiveView === 'home' || mobileActiveView === 'all_apps')) {
     return (
@@ -7287,12 +7393,9 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           isModuleSubscribed={isModuleSubscribed}
           authUser={effectiveAuthUser}
           tenantSubscription={tenantSubscription}
-          metrics={{
-            unreadMessages: '14',
-            pipelineValue: '₹4.85L',
-            tasksText: 'All caught up',
-            appointmentsCount: '0'
-          }}
+          metrics={realLauncherMetrics}
+          dutyStatus={realDutyStatus}
+          upNext={realUpNext}
         />
         {/* Universal Cloud Dialer Modal */}
         {globalDialerOpen && (
