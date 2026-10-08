@@ -7939,57 +7939,58 @@ export default function DashboardShell({ authUser, setAuthUser }) {
           </div>
 
           {/* Universal Apps Launchpad Button */}
-          <button
-            type="button"
-            className="apps-launchpad-header-btn"
-            onClick={() => setActiveTab('app_launcher')}
-            title="Return to Apps Launchpad"
-            style={{
-              marginRight: '12px',
-              padding: '5px 12px',
-              borderRadius: '7px',
-              background: activeTab === 'app_launcher' ? '#0d9488' : 'rgba(20, 210, 203, 0.16)',
-              border: activeTab === 'app_launcher' ? '1px solid #14d2cb' : '1px solid rgba(20, 210, 203, 0.35)',
-              color: '#ffffff',
-              fontSize: '12px',
-              fontWeight: '800',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-              flexShrink: 0,
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <Grid size={15} style={{ color: '#14d2cb' }} />
-            <span style={{ fontSize: '12px', color: '#ffffff', fontWeight: '800' }}>
-              Apps
-            </span>
-          </button>
-
-          {isAndroidApp && (
+          {isAndroidApp ? (
             <button
               type="button"
               onClick={() => setMobileActiveView('all_apps')}
               title="Return to App Directory"
               style={{
+                marginRight: '10px',
+                padding: '5px 10px',
+                borderRadius: '8px',
+                background: 'rgba(255, 255, 255, 0.16)',
+                border: '1px solid rgba(255, 255, 255, 0.25)',
+                color: '#ffffff',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                flexShrink: 0
+              }}
+            >
+              <Grid size={14} style={{ color: '#14d2cb' }} />
+              <span>Launcher</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="apps-launchpad-header-btn"
+              onClick={() => setActiveTab('app_launcher')}
+              title="Return to Apps Launchpad"
+              style={{
                 marginRight: '12px',
                 padding: '5px 12px',
                 borderRadius: '7px',
-                background: 'rgba(255,255,255,0.18)',
-                border: '1px solid rgba(255,255,255,0.25)',
+                background: activeTab === 'app_launcher' ? '#0d9488' : 'rgba(20, 210, 203, 0.16)',
+                border: activeTab === 'app_launcher' ? '1px solid #14d2cb' : '1px solid rgba(20, 210, 203, 0.35)',
                 color: '#ffffff',
                 fontSize: '12px',
                 fontWeight: '800',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px',
-                flexShrink: 0
+                gap: '6px',
+                boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                flexShrink: 0,
+                transition: 'all 0.2s ease'
               }}
             >
-              ‹ Apps
+              <Grid size={15} style={{ color: '#14d2cb' }} />
+              <span style={{ fontSize: '12px', color: '#ffffff', fontWeight: '800' }}>
+                Apps
+              </span>
             </button>
           )}
 
@@ -8113,16 +8114,16 @@ export default function DashboardShell({ authUser, setAuthUser }) {
               <span className="server-status-text">{serverOnline ? 'Live' : 'Offline'}</span>
             </span>
 
-            {/* Direct Android Companion APK Download Button */}
+            {/* Direct Android Companion APK Download Button (Desktop Only) */}
             <a
               href="https://pdjaajbhrvglwukoacuh.supabase.co/storage/v1/object/public/omniflow-vault/app/EMS-Live-Companion.apk"
               download="EMS-Companion.apk"
               target="_blank"
               rel="noopener noreferrer"
-              className="download-app-header-btn"
+              className="download-app-header-btn desktop-only-download-btn"
               title="Download Official Android Companion App APK"
               style={{
-                display: 'inline-flex',
+                display: isAndroidApp ? 'none' : 'inline-flex',
                 alignItems: 'center',
                 gap: '5px',
                 padding: '6px 12px',
@@ -8142,7 +8143,6 @@ export default function DashboardShell({ authUser, setAuthUser }) {
             >
               <Download size={13} />
               <span className="download-app-desktop-text">Download App</span>
-              <span className="download-app-mobile-text">App</span>
             </a>
 
             {/* Real-Time Notification Bell Hub */}
@@ -8352,6 +8352,30 @@ export default function DashboardShell({ authUser, setAuthUser }) {
                       <CreditCard size={16} color="#64748b" />
                       <span>Storage & Upgrades</span>
                     </div>
+                    <a
+                      href="https://pdjaajbhrvglwukoacuh.supabase.co/storage/v1/object/public/omniflow-vault/app/EMS-Live-Companion.apk"
+                      download="EMS-Companion.apk"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setShowProfileDropdown(false)}
+                      style={{
+                        padding: '10px 16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        fontSize: '13px',
+                        fontWeight: '700',
+                        color: '#0d9488',
+                        textDecoration: 'none',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = '#f0fdf4'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <Download size={16} color="#0d9488" />
+                      <span>Download Android App</span>
+                    </a>
                   </div>
                   <div style={{ padding: '8px 16px', borderTop: '1px solid #e2e8f0', background: '#fafbfc' }}>
                     <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

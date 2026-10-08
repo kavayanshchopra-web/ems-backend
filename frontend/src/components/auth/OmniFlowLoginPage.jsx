@@ -11,7 +11,9 @@ import {
   Sparkles,
   ArrowUpRight,
   Activity,
-  CheckCircle2
+  CheckCircle2,
+  Download,
+  Smartphone
 } from 'lucide-react';
 import loginConfigService, { DEFAULT_LOGIN_CONFIG } from '../../core/services/loginConfigService';
 
@@ -1187,7 +1189,31 @@ export default function OmniFlowLoginPage({
             <span className="omniflow-tagline">{config.brandTagline || 'Enterprise Suite'}</span>
           </div>
 
-          <div className="omniflow-signup-top-prompt">
+          <div className="omniflow-signup-top-prompt" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <a
+              href="https://pdjaajbhrvglwukoacuh.supabase.co/storage/v1/object/public/omniflow-vault/app/EMS-Live-Companion.apk"
+              download="EMS-Companion.apk"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '5px 10px',
+                borderRadius: '7px',
+                background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)',
+                color: '#ffffff',
+                fontSize: '11.5px',
+                fontWeight: '700',
+                textDecoration: 'none',
+                boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)',
+                whiteSpace: 'nowrap'
+              }}
+              title="Download Android Companion App APK"
+            >
+              <Smartphone size={13} />
+              <span>Download App</span>
+            </a>
             <span className="omniflow-signup-top-text">
               {config.signUpPromptText || "Don't have an account?"}{' '}
             </span>
@@ -1546,6 +1572,67 @@ export default function OmniFlowLoginPage({
                   <span onClick={onSwitchToRegister}>
                     {config.signUpLinkText || 'Sign Up'}
                   </span>
+                </div>
+
+                {/* Direct Android APK Download Banner */}
+                <div style={{
+                  marginTop: '14px',
+                  padding: '10px 14px',
+                  background: 'linear-gradient(135deg, rgba(13, 148, 136, 0.08) 0%, rgba(6, 78, 67, 0.03) 100%)',
+                  border: '1px solid rgba(13, 148, 136, 0.25)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'rgba(13, 148, 136, 0.15)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#0d9488',
+                      flexShrink: 0
+                    }}>
+                      <Smartphone size={16} />
+                    </div>
+                    <div style={{ textAlign: 'left', minWidth: 0 }}>
+                      <div style={{ fontSize: '12px', fontWeight: '800', color: '#064e43', lineHeight: 1.2 }}>
+                        EMS Android App
+                      </div>
+                      <div style={{ fontSize: '10.5px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        Official Companion APK
+                      </div>
+                    </div>
+                  </div>
+                  <a
+                    href="https://pdjaajbhrvglwukoacuh.supabase.co/storage/v1/object/public/omniflow-vault/app/EMS-Live-Companion.apk"
+                    download="EMS-Companion.apk"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '7px 12px',
+                      borderRadius: '8px',
+                      background: 'linear-gradient(135deg, #0d9488 0%, #064e43 100%)',
+                      color: '#ffffff',
+                      fontSize: '11.5px',
+                      fontWeight: '700',
+                      textDecoration: 'none',
+                      boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                  >
+                    <Download size={13} />
+                    <span>Download App</span>
+                  </a>
                 </div>
 
                 {/* Mobile Doodle Accent */}

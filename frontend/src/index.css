@@ -1986,19 +1986,13 @@ h1, h2, h3, h4, h5, h6 {
   .server-status-text {
     display: none !important;
   }
-  .simulator-toggle-btn {
-    display: none !important;
-  }
-  .download-app-desktop-text {
-    display: none !important;
-  }
-  .download-app-mobile-text {
-    display: inline !important;
-  }
   .download-app-header-btn {
-    padding: 6px 9px !important;
-    font-size: 11px !important;
-    gap: 4px !important;
+    display: none !important;
+  }
+  .top-header {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    box-sizing: border-box !important;
   }
 
   /* Sub-tabs row swipe scroll on mobile */
@@ -3684,12 +3678,17 @@ h1, h2, h3, h4, h5, h6 {
     display: none !important;
   }
 
+  .download-app-header-btn {
+    display: none !important;
+  }
+
   .header-actions-group {
-    gap: 5px !important;
+    gap: 6px !important;
     margin-left: auto !important;
     display: flex !important;
     align-items: center !important;
     flex-shrink: 0 !important;
+    padding-right: 0 !important;
   }
 
   .header-action-btn {
