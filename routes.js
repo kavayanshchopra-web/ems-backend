@@ -2198,10 +2198,13 @@ export default function setupRoutes(io) {
 
       // 1. Resolve Baileys WhatsApp session
       let targetSessionId = sessionId;
-      if (!targetSessionId || targetSessionId === 'desktop_webview') {
-        const allSessions = await getAllSessions(tenantId);
-        const connectedSess = allSessions.find(s => s.status === 'connected');
-        if (connectedSess) targetSessionId = connectedSess.id;
+      const allSessions = await getAllSessions(tenantId);
+      const connectedSess = allSessions.find(s => s.status === 'connected');
+
+      // If targetSessionId is missing, desktop_webview, or disconnected, auto-select connected session!
+      const isTargetConnected = allSessions.some(s => s.id === targetSessionId && s.status === 'connected');
+      if ((!targetSessionId || targetSessionId === 'desktop_webview' || !isTargetConnected) && connectedSess) {
+        targetSessionId = connectedSess.id;
       }
 
       if (targetSessionId && targetSessionId !== 'desktop_webview') {
@@ -2213,7 +2216,6 @@ export default function setupRoutes(io) {
           console.warn('[Baileys Send Notice]:', bErr.message);
           // Gracefully fallback to any connected session of this company (e.g. primary line)
           try {
-            const allSessions = await getAllSessions(tenantId);
             const fallbackSess = allSessions.find(s => s.status === 'connected' && s.id !== targetSessionId);
             if (fallbackSess) {
               console.log(`[Baileys Send Fallback] Retrying via connected fallback session ${fallbackSess.id}`);
@@ -2268,38 +2270,7 @@ export default function setupRoutes(io) {
         });
       }
 
-      // 3. Deduct from Universal Wallet & Log Transaction
-      let walletDeduction = null;
-      try {
-        walletDeduction = await universalWalletService.deductForMessage({
-          tenantId: activeTenantId,
-          messageId: sentMessage.id,
-          messageType,
-          count: 1,
-          recipientPhone: cleanDigits || recipientJid,
-          triggerSource: req.body.triggerSource || (req.body.isBulk ? 'EMS_BROADCAST' : (req.body.isTemplate ? 'EMS_TEMPLATE' : 'EMS_WEB_CHAT')),
-          description: `Sent ${messageType === 'whatsapp_normal_chat' ? '1-to-1 Chat' : (messageType === 'whatsapp_template_msg' ? 'Template' : 'Broadcast')} to ${cleanDigits || recipientJid}`
-        });
-
-        if (io && walletDeduction) {
-          io.to(`tenant_${activeTenantId}`).emit('wallet:balance_updated', {
-            tenantId: activeTenantId,
-            balance: walletDeduction.newBalance,
-            deducted: walletDeduction.deducted,
-            isBelowThreshold: walletDeduction.isBelowThreshold
-          });
-          io.emit('wallet:balance_updated', {
-            tenantId: activeTenantId,
-            balance: walletDeduction.newBalance,
-            deducted: walletDeduction.deducted,
-            isBelowThreshold: walletDeduction.isBelowThreshold
-          });
-        }
-      } catch (wDeductErr) {
-        console.warn('[Wallet Deduction Notice]:', wDeductErr.message);
-      }
-
-      // 4. Emit real-time WebSocket event to all clients & tenant room
+      // 3. Emit real-time WebSocket event immediately to all clients & tenant room
       const outPayload = {
         id: sentMessage.id,
         sessionId: usedBaileys ? targetSessionId : 'desktop_webview',
@@ -2314,8 +2285,7 @@ export default function setupRoutes(io) {
         media_type: 'text',
         timestamp: sentMessage.timestamp || Math.floor(Date.now() / 1000),
         status: 1,
-        tenantId: activeTenantId,
-        walletBalance: walletDeduction?.newBalance
+        tenantId: activeTenantId
       };
 
       if (io) {
@@ -2326,12 +2296,39 @@ export default function setupRoutes(io) {
         io.emit('new_message', outPayload);
       }
 
+      // 4. Asynchronously deduct from Universal Wallet & broadcast balance update (does not block HTTP response)
+      universalWalletService.deductForMessage({
+        tenantId: activeTenantId,
+        messageId: sentMessage.id,
+        messageType,
+        count: 1,
+        recipientPhone: cleanDigits || recipientJid,
+        triggerSource: req.body.triggerSource || (req.body.isBulk ? 'EMS_BROADCAST' : (req.body.isTemplate ? 'EMS_TEMPLATE' : 'EMS_WEB_CHAT')),
+        description: `Sent ${messageType === 'whatsapp_normal_chat' ? '1-to-1 Chat' : (messageType === 'whatsapp_template_msg' ? 'Template' : 'Broadcast')} to ${cleanDigits || recipientJid}`
+      }).then(walletDeduction => {
+        if (io && walletDeduction) {
+          io.to(`tenant_${activeTenantId}`).emit('wallet:balance_updated', {
+            tenantId: activeTenantId,
+            balance: walletDeduction.newBalance,
+            deducted: walletDeduction.deducted,
+            isBelowThreshold: walletDeduction.isBelowThreshold
+          });
+          io.emit('wallet:balance_updated', {
+            tenantId: activeTenantId,
+            balance: walletDeduction.newBalance,
+            deducted: walletDeduction.deducted,
+            isBelowThreshold: walletDeduction.isBelowThreshold
+          });
+        }
+      }).catch(wDeductErr => {
+        console.warn('[Wallet Deduction Notice]:', wDeductErr.message);
+      });
+
+      // Immediate response to client (0ms extra latency!)
       res.json({ 
         success: true, 
         message: 'Message sent successfully', 
         data: sentMessage, 
-        walletBalance: walletDeduction?.newBalance, 
-        rateApplied: walletDeduction?.rateApplied,
         status: 1 
       });
     } catch (err) {
@@ -4831,12 +4828,21 @@ export default function setupRoutes(io) {
             console.log(`[SyncLog] ✅ Call recording uploaded to Supabase Storage: ${finalRecordingUrl}`);
           } catch (storageErr) {
             console.warn('[SyncLog] Supabase Storage upload notice:', storageErr.message);
-            // Fallback: keep clean, properly-tagged data URI so audio is not lost or corrupted
-            finalRecordingUrl = rawBase64.startsWith('data:') ? rawBase64 : `data:${mime};base64,${cleanBase64}`;
+            // Fallback: only keep data URI if small (< 500KB) to prevent DB and browser bloat
+            if (cleanBase64.length < 500000) {
+              finalRecordingUrl = rawBase64.startsWith('data:') ? rawBase64 : `data:${mime};base64,${cleanBase64}`;
+            } else {
+              finalRecordingUrl = '';
+            }
           }
         } catch (audioErr) {
           console.warn('[SyncLog] Audio base64 decode notice:', audioErr.message);
         }
+      }
+
+      // If duration is 0 or less, ensure NO recording is linked
+      if (durSecs <= 0) {
+        finalRecordingUrl = '';
       }
 
       // Check if call log already exists (e.g. created instantly in Stage 1 upon call cut)
@@ -4858,8 +4864,8 @@ export default function setupRoutes(io) {
         savedRecord = await updateCallLog(activeTenantId, existing.id, {
           disposition: disposition || status || existing.disposition || 'Interested',
           notes: combinedNotes || existing.notes,
-          recordingUrl: finalRecordingUrl || existing.recording_url || '',
-          durationSeconds: durSecs > 0 ? durSecs : existing.duration_seconds
+          recordingUrl: durSecs > 0 ? (finalRecordingUrl || existing.recording_url || '') : '',
+          durationSeconds: durSecs > 0 ? durSecs : (existing.duration_seconds || 0)
         });
       } else {
         const logRecord = {

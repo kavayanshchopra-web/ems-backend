@@ -872,19 +872,28 @@ export default function ConversationsPage({
   // Company primary session (official company line)
   const companyPrimarySession = useMemo(() => {
     if (!Array.isArray(localSessions) || localSessions.length === 0) return null;
+    // 1. Primary session that is actually connected
+    const connectedPrimary = localSessions.find(s => (s.id === `session_${companyId}_primary` || s.id?.includes('_primary')) && s.status === 'connected');
+    if (connectedPrimary) return connectedPrimary;
+    // 2. Any company session that is connected
+    const anyConnected = localSessions.find(s => s.status === 'connected');
+    if (anyConnected) return anyConnected;
+    // 3. Fallbacks if nothing is currently connected
     return localSessions.find(s => s.id === `session_${companyId}_primary`)
       || localSessions.find(s => s.id?.includes('_primary'))
-      || localSessions.find(s => s.status === 'connected')
       || localSessions[0] || null;
   }, [localSessions, companyId]);
 
   // primarySession: The active session used for outbound messaging
   // - If employee has linked their own dedicated session: use employee's dedicated session!
   // - If employee has NOT linked their own phone yet: gracefully fallback to company's connected line!
-  // - If owner/admin: always use company official primary line.
+  // - If owner/admin: always use company official primary line or any live connected session.
   const primarySession = useMemo(() => {
     if (isOwnerOrAdmin) {
-      return companyPrimarySession || localSessions.find(s => s.status === 'connected') || localSessions[0] || null;
+      if (companyPrimarySession && companyPrimarySession.status === 'connected') return companyPrimarySession;
+      const anyConnected = localSessions.find(s => s.status === 'connected');
+      if (anyConnected) return anyConnected;
+      return companyPrimarySession || localSessions[0] || null;
     }
     // Employee logic:
     if (myDedicatedSession && myDedicatedSession.status === 'connected') {
@@ -893,6 +902,8 @@ export default function ConversationsPage({
     if (companyPrimarySession && companyPrimarySession.status === 'connected') {
       return companyPrimarySession;
     }
+    const anyConnected = localSessions.find(s => s.status === 'connected');
+    if (anyConnected) return anyConnected;
     return myDedicatedSession || companyPrimarySession || localSessions[0] || null;
   }, [isOwnerOrAdmin, myDedicatedSession, companyPrimarySession, localSessions]);
 
@@ -2851,13 +2862,17 @@ export default function ConversationsPage({
     setIsTemplateSelected(false);
     const targetPhone = activeContact.rawPhone || activeContact.phone || activeContact.id;
     const cleanPhone = String(targetPhone).replace(/\D/g, '');
+    let intlPhone = cleanPhone;
+    if (cleanPhone.length === 10) {
+      intlPhone = `91${cleanPhone}`;
+    } else if (cleanPhone.startsWith('0') && cleanPhone.length === 11) {
+      intlPhone = `91${cleanPhone.slice(1)}`;
+    }
     const norm10 = cleanPhone.length >= 7 ? cleanPhone.slice(-10) : '';
-    const intlPhone = norm10 ? `91${norm10}` : cleanPhone;
     const outMsgId = `wa_out_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
     const nowSec = Math.floor(Date.now() / 1000);
 
     setIsSending(true);
-    setTimeout(() => setIsSending(false), 500);
 
     const newMsgObj = {
       id: outMsgId,
@@ -5181,45 +5196,48 @@ export default function ConversationsPage({
               {/* Mode A: In-Progress Audio Recording Bar */}
               {isRecordingAudio ? (
                 <div style={{
-                  padding: '12px 20px',
+                  padding: isMobile ? '8px 10px' : '12px 20px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  gap: '12px',
-                  background: '#fff1f2'
+                  gap: isMobile ? '6px' : '12px',
+                  background: '#fff1f2',
+                  boxSizing: 'border-box'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '6px' : '10px', minWidth: 0 }}>
                     <span style={{
-                      width: '11px',
-                      height: '11px',
+                      width: '10px',
+                      height: '10px',
                       borderRadius: '50%',
                       background: '#e11d48',
                       boxShadow: '0 0 8px #e11d48',
-                      display: 'inline-block'
+                      display: 'inline-block',
+                      flexShrink: 0
                     }} />
-                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#e11d48' }}>
-                      Recording Voice Note...
+                    <span style={{ fontSize: isMobile ? '12px' : '13px', fontWeight: '800', color: '#e11d48', whiteSpace: 'nowrap' }}>
+                      {isMobile ? 'Recording...' : 'Recording Voice Note...'}
                     </span>
                     <span style={{
-                      fontSize: '12.5px',
+                      fontSize: '12px',
                       fontWeight: '800',
                       color: '#0f172a',
                       fontVariantNumeric: 'tabular-nums',
                       background: '#ffffff',
                       border: '1px solid #fecdd3',
-                      padding: '2px 8px',
-                      borderRadius: '6px'
+                      padding: '2px 6px',
+                      borderRadius: '6px',
+                      flexShrink: 0
                     }}>
                       {Math.floor(audioRecordingTime / 60)}:{String(audioRecordingTime % 60).padStart(2, '0')}
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '5px' : '8px', flexShrink: 0 }}>
                     <button
                       type="button"
                       onClick={handleCancelAudioRecording}
                       style={{
-                        padding: '7px 12px',
+                        padding: isMobile ? '6px 10px' : '7px 12px',
                         borderRadius: '20px',
                         background: '#ffffff',
                         border: '1px solid #fecdd3',
@@ -5229,19 +5247,19 @@ export default function ConversationsPage({
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '5px'
+                        gap: '4px'
                       }}
                       title="Discard audio recording"
                     >
                       <Trash2 size={13} />
-                      <span>Cancel</span>
+                      <span>{isMobile ? '' : 'Cancel'}</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={handleSendAudioRecording}
                       style={{
-                        padding: '7px 16px',
+                        padding: isMobile ? '6px 12px' : '7px 16px',
                         borderRadius: '20px',
                         background: 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
                         border: 'none',
@@ -5251,12 +5269,12 @@ export default function ConversationsPage({
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '6px',
+                        gap: '5px',
                         boxShadow: '0 2px 6px rgba(13, 148, 136, 0.3)'
                       }}
                     >
                       <Send size={13} />
-                      <span>Send Voice Note</span>
+                      <span>{isMobile ? 'Send' : 'Send Voice Note'}</span>
                     </button>
                   </div>
                 </div>
@@ -5265,10 +5283,13 @@ export default function ConversationsPage({
                 <form
                   onSubmit={handleSendMessage}
                   style={{
-                    padding: '10px 18px',
+                    padding: isMobile ? '8px 8px' : '10px 18px',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px'
+                    gap: isMobile ? '5px' : '8px',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    background: '#ffffff'
                   }}
                 >
                   {/* Hidden File Input */}
@@ -5292,8 +5313,8 @@ export default function ConversationsPage({
                       background: showEmojiPicker ? '#f1f5f9' : 'transparent',
                       color: showEmojiPicker ? '#0d9488' : '#64748b',
                       borderRadius: '50%',
-                      width: isMobile ? '38px' : '34px',
-                      height: isMobile ? '38px' : '34px',
+                      width: '34px',
+                      height: '34px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -5303,7 +5324,7 @@ export default function ConversationsPage({
                     }}
                     title="Insert Emoji"
                   >
-                    <Smile size={19} />
+                    <Smile size={isMobile ? 18 : 19} />
                   </button>
 
                   {/* 2. Paperclip Attachment Button */}
@@ -5315,8 +5336,8 @@ export default function ConversationsPage({
                       background: selectedAttachment ? '#ecfdf5' : 'transparent',
                       color: selectedAttachment ? '#0d9488' : '#64748b',
                       borderRadius: '50%',
-                      width: isMobile ? '38px' : '34px',
-                      height: isMobile ? '38px' : '34px',
+                      width: '34px',
+                      height: '34px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -5326,7 +5347,7 @@ export default function ConversationsPage({
                     }}
                     title="Attach Images, Documents, Videos"
                   >
-                    <Paperclip size={18} />
+                    <Paperclip size={isMobile ? 17 : 18} />
                   </button>
 
                   {/* 3. Quick Reply Templates Button */}
@@ -5340,11 +5361,13 @@ export default function ConversationsPage({
                       border: '1px solid #e2e8f0',
                       background: showTemplatesPicker ? '#ecfdf5' : '#f8fafc',
                       color: showTemplatesPicker ? '#0d9488' : '#475569',
-                      borderRadius: '16px',
-                      padding: isMobile ? '6px 8px' : '4px 10px',
-                      height: isMobile ? '38px' : 'auto',
+                      borderRadius: isMobile ? '50%' : '16px',
+                      padding: isMobile ? '0' : '4px 10px',
+                      width: isMobile ? '34px' : 'auto',
+                      height: isMobile ? '34px' : 'auto',
                       display: 'flex',
                       alignItems: 'center',
+                      justifyContent: 'center',
                       gap: '4px',
                       fontSize: '11.5px',
                       fontWeight: '700',
@@ -5358,41 +5381,47 @@ export default function ConversationsPage({
                     {!isMobile && <span>Templates</span>}
                   </button>
 
-                  {/* 4. Text Input Field */}
+                  {/* 4. Text Input Field - minWidth: 0 prevents flex overflow on mobile! */}
                   <input
                     ref={composerInputRef}
                     type="text"
                     placeholder={
                       walletInfo.isDepleted
-                        ? 'Wallet Empty (₹0.00) — Please recharge your wallet to send messages'
+                        ? (isMobile ? 'Wallet empty (₹0.00)' : 'Wallet Empty (₹0.00) — Please recharge your wallet')
                         : (selectedAttachment 
-                            ? `Add caption for ${selectedAttachment.name} (optional)...` 
-                            : `Reply to ${activeContact.name} via WhatsApp...`)
+                            ? (isMobile ? `Caption for ${selectedAttachment.name}...` : `Add caption for ${selectedAttachment.name} (optional)...`) 
+                            : (isMobile ? 'Type a WhatsApp message...' : `Reply to ${activeContact.name} via WhatsApp...`))
                     }
                     value={replyText}
                     onChange={handleComposerChange}
                     disabled={isSending || walletInfo.isDepleted}
                     style={{
                       flex: 1,
-                      padding: '10px 16px',
+                      minWidth: 0,
+                      padding: isMobile ? '9px 12px' : '10px 16px',
                       borderRadius: '24px',
                       border: walletInfo.isDepleted ? '1px solid #fca5a5' : '1px solid #cbd5e1',
                       outline: 'none',
                       fontSize: '13px',
                       background: walletInfo.isDepleted ? '#fef2f2' : '#f8fafc',
                       color: walletInfo.isDepleted ? '#991b1b' : '#0f172a',
-                      cursor: walletInfo.isDepleted ? 'not-allowed' : 'text'
+                      cursor: walletInfo.isDepleted ? 'not-allowed' : 'text',
+                      boxSizing: 'border-box'
                     }}
                   />
 
-                  {/* 5. Right Action: Send Button or Mic (Voice Note) Button */}
+                  {/* 5. Right Action: Send Button or Mic Button - Guaranteed visible on mobile */}
                   {(replyText.trim() || selectedAttachment) ? (
                     <button
                       type="submit"
                       disabled={isSending || walletInfo.isDepleted}
+                      aria-label="Send WhatsApp message"
+                      title="Send WhatsApp message"
                       style={{
-                        padding: '10px 18px',
-                        borderRadius: '24px',
+                        padding: isMobile ? '0' : '10px 18px',
+                        width: isMobile ? '38px' : 'auto',
+                        height: '38px',
+                        borderRadius: isMobile ? '50%' : '24px',
                         background: walletInfo.isDepleted ? '#94a3b8' : 'linear-gradient(135deg, #0d9488 0%, #047857 100%)',
                         border: 'none',
                         color: '#ffffff',
@@ -5402,19 +5431,22 @@ export default function ConversationsPage({
                         opacity: isSending ? 0.7 : 1,
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '6px',
+                        justifyContent: 'center',
+                        gap: isMobile ? '0' : '6px',
                         boxShadow: walletInfo.isDepleted ? 'none' : '0 2px 6px rgba(13, 148, 136, 0.3)',
                         flexShrink: 0
                       }}
                     >
-                      <Send size={13} />
-                      <span>{isSending ? 'Sending...' : 'Send'}</span>
+                      <Send size={isMobile ? 15 : 13} />
+                      {!isMobile && <span>{isSending ? 'Sending...' : 'Send'}</span>}
                     </button>
                   ) : (
                     <button
                       type="button"
                       onClick={handleStartAudioRecording}
                       disabled={isSending}
+                      aria-label="Record WhatsApp Voice Note"
+                      title="Record WhatsApp Voice Note"
                       style={{
                         width: '38px',
                         height: '38px',
@@ -5429,7 +5461,6 @@ export default function ConversationsPage({
                         boxShadow: '0 2px 6px rgba(13, 148, 136, 0.3)',
                         flexShrink: 0
                       }}
-                      title="Record WhatsApp Voice Note"
                     >
                       <Mic size={18} />
                     </button>

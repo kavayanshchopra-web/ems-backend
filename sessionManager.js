@@ -981,7 +981,31 @@ export async function destroySession(id) {
 
 // Send WhatsApp text message
 export async function sendWhatsAppMessage(sessionId, recipientJid, text, tenantId = 1) {
-  const sock = activeSockets.get(sessionId);
+  const isSockReady = (s) => s && !s.isClosed && s.ws && s.ws.readyState === 1;
+
+  let sock = activeSockets.get(sessionId);
+  if (!isSockReady(sock)) {
+    // Prefer any actively connected socket with open WebSocket connection
+    for (const [id, s] of activeSockets.entries()) {
+      if (isSockReady(s)) {
+        sock = s;
+        sessionId = id;
+        break;
+      }
+    }
+  }
+
+  // Secondary fallback: Any non-closed socket
+  if (!sock) {
+    for (const [id, s] of activeSockets.entries()) {
+      if (s && !s.isClosed) {
+        sock = s;
+        sessionId = id;
+        break;
+      }
+    }
+  }
+
   if (!sock) {
     throw new Error('WhatsApp session is not connected or active');
   }
@@ -992,10 +1016,10 @@ export async function sendWhatsAppMessage(sessionId, recipientJid, text, tenantI
     jid = `${jid}@s.whatsapp.net`;
   }
 
-  // Send message using Baileys socket with 10s safety timeout to prevent hanging
+  // Send message using Baileys socket with 6s safety timeout to prevent hanging
   const sendPromise = sock.sendMessage(jid, { text });
   const timeoutPromise = new Promise((_, reject) => 
-    setTimeout(() => reject(new Error('WhatsApp message delivery timeout (10s)')), 10000)
+    setTimeout(() => reject(new Error('WhatsApp message delivery timeout (6s)')), 6000)
   );
   const result = await Promise.race([sendPromise, timeoutPromise]);
 
@@ -1067,11 +1091,23 @@ export async function markWhatsAppMessagesAsRead(sessionId, contactJid, messageK
 
 // Send WhatsApp media message
 export async function sendWhatsAppMedia(sessionId, recipientJid, mediaType, fileBuffer, fileName, fileMimeType, caption = '', tenantId = 1) {
+  const isSockReady = (s) => s && !s.isClosed && s.ws && s.ws.readyState === 1;
+
   let sock = activeSockets.get(sessionId);
+  if (!isSockReady(sock)) {
+    for (const [sId, s] of activeSockets.entries()) {
+      if (isSockReady(s)) {
+        sock = s;
+        sessionId = sId;
+        break;
+      }
+    }
+  }
   if (!sock) {
     for (const [sId, s] of activeSockets.entries()) {
       if (s && !s.isClosed) {
         sock = s;
+        sessionId = sId;
         break;
       }
     }

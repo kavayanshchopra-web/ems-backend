@@ -871,6 +871,22 @@ export default function DashboardShell({ authUser, setAuthUser }) {
     }
   }, [activeTab]);
 
+  // Idle Prefetch ConversationsPage so opening WhatsApp CRM on mobile is instant (0ms lag)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const prefetchConversations = () => {
+        import('./pages/ConversationsPage').then(() => {
+          setVisitedConversations(true);
+        }).catch(() => {});
+      };
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(prefetchConversations, { timeout: 2500 });
+      } else {
+        setTimeout(prefetchConversations, 800);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     setMobileSidebarOpen(false);
     setDesktopSidebarOpen(false);
@@ -8701,7 +8717,69 @@ export default function DashboardShell({ authUser, setAuthUser }) {
         {/* Unified Conversations & Omni-Timeline Hub */}
         {(activeTab === 'conversations' || visitedConversations) && (
           <div style={{ display: activeTab === 'conversations' ? 'contents' : 'none' }}>
-            <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading Conversations...</div>}>
+            <Suspense fallback={
+              <div style={{
+                height: 'calc(100vh - 64px)',
+                display: 'flex',
+                flexDirection: 'column',
+                background: '#f8fafc',
+                padding: '12px',
+                gap: '10px',
+                boxSizing: 'border-box'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 14px',
+                  background: '#ffffff',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#e2e8f0' }} className="animate-pulse" />
+                    <div style={{ width: '120px', height: '18px', borderRadius: '4px', background: '#e2e8f0' }} className="animate-pulse" />
+                  </div>
+                  <div style={{ width: '60px', height: '22px', borderRadius: '12px', background: '#ecfdf5' }} className="animate-pulse" />
+                </div>
+                <div style={{
+                  height: '42px',
+                  borderRadius: '10px',
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '0 12px',
+                  gap: '8px'
+                }}>
+                  <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#cbd5e1' }} className="animate-pulse" />
+                  <div style={{ width: '140px', height: '12px', borderRadius: '4px', background: '#e2e8f0' }} className="animate-pulse" />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, overflow: 'hidden' }}>
+                  {[1, 2, 3, 4, 5, 6, 7].map(i => (
+                    <div key={i} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '12px',
+                      background: '#ffffff',
+                      borderRadius: '10px',
+                      border: '1px solid #f1f5f9'
+                    }}>
+                      <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#e2e8f0', flexShrink: 0 }} className="animate-pulse" />
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ width: `${80 + (i * 15) % 40}px`, height: '13px', borderRadius: '4px', background: '#cbd5e1' }} className="animate-pulse" />
+                          <div style={{ width: '38px', height: '10px', borderRadius: '3px', background: '#e2e8f0' }} className="animate-pulse" />
+                        </div>
+                        <div style={{ width: `${130 + (i * 20) % 50}px`, height: '11px', borderRadius: '4px', background: '#e2e8f0' }} className="animate-pulse" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            }>
               <ConversationsPage
                 authUser={effectiveAuthUser || authUser}
                 contacts={contacts}
